@@ -1,4 +1,5 @@
-import type { Account, Transaction, Budget, Goal } from '../types';
+import type { Transaction } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface HouseholdMember {
   id: string;
@@ -69,6 +70,25 @@ export interface MemberActivity {
   entityType?: 'transaction' | 'account' | 'budget' | 'goal';
 }
 
+type StoredHouseholdMember = Omit<HouseholdMember, 'joinedAt' | 'lastActive'> & {
+  joinedAt: string;
+  lastActive?: string;
+};
+
+type StoredHousehold = Omit<Household, 'createdAt' | 'members'> & {
+  createdAt: string;
+  members: StoredHouseholdMember[];
+};
+
+type StoredHouseholdInvite = Omit<HouseholdInvite, 'invitedAt' | 'expiresAt'> & {
+  invitedAt: string;
+  expiresAt: string;
+};
+
+type StoredMemberActivity = Omit<MemberActivity, 'timestamp'> & {
+  timestamp: string;
+};
+
 export interface MemberContribution {
   memberId: string;
   memberName: string;
@@ -87,6 +107,7 @@ class HouseholdService {
   private household: Household | null = null;
   private invites: HouseholdInvite[] = [];
   private activities: MemberActivity[] = [];
+  private readonly logger = createScopedLogger('HouseholdService');
 
   constructor() {
     this.loadData();
@@ -96,11 +117,11 @@ class HouseholdService {
     try {
       const householdData = localStorage.getItem(this.STORAGE_KEY);
       if (householdData) {
-        const parsed = JSON.parse(householdData);
+        const parsed = JSON.parse(householdData) as StoredHousehold;
         this.household = {
           ...parsed,
           createdAt: new Date(parsed.createdAt),
-          members: parsed.members.map((m: any) => ({
+          members: parsed.members.map((m: StoredHouseholdMember) => ({
             ...m,
             joinedAt: new Date(m.joinedAt),
             lastActive: m.lastActive ? new Date(m.lastActive) : undefined
@@ -110,7 +131,7 @@ class HouseholdService {
 
       const invitesData = localStorage.getItem(this.INVITES_KEY);
       if (invitesData) {
-        this.invites = JSON.parse(invitesData).map((i: any) => ({
+        this.invites = (JSON.parse(invitesData) as StoredHouseholdInvite[]).map((i) => ({
           ...i,
           invitedAt: new Date(i.invitedAt),
           expiresAt: new Date(i.expiresAt)
@@ -119,13 +140,13 @@ class HouseholdService {
 
       const activitiesData = localStorage.getItem(this.ACTIVITIES_KEY);
       if (activitiesData) {
-        this.activities = JSON.parse(activitiesData).map((a: any) => ({
+        this.activities = (JSON.parse(activitiesData) as StoredMemberActivity[]).map((a) => ({
           ...a,
           timestamp: new Date(a.timestamp)
         }));
       }
     } catch (error) {
-      console.error('Failed to load household data:', error);
+      this.logger.error('Failed to load household data', error as Error);
     }
   }
 
@@ -137,7 +158,7 @@ class HouseholdService {
       localStorage.setItem(this.INVITES_KEY, JSON.stringify(this.invites));
       localStorage.setItem(this.ACTIVITIES_KEY, JSON.stringify(this.activities));
     } catch (error) {
-      console.error('Failed to save household data:', error);
+      this.logger.error('Failed to save household data', error as Error);
     }
   }
 
@@ -394,7 +415,7 @@ class HouseholdService {
     });
 
     // Calculate net contributions and percentages
-    const totalHouseholdNet = totalHouseholdIncome - totalHouseholdExpenses;
+    const _totalHouseholdNet = totalHouseholdIncome - totalHouseholdExpenses;
     
     contributions.forEach(contribution => {
       contribution.netContribution = contribution.totalIncome - contribution.totalExpenses;

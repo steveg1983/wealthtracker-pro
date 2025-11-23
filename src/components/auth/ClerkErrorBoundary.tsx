@@ -54,7 +54,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     // Log to error tracking service if available
     if (window.Sentry) {
       // Sentry.captureException type expects only one argument, but actual API supports two
-      (window.Sentry.captureException as any)(error, {
+      (window.Sentry.captureException as (error: Error, context?: Record<string, unknown>) => void)(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack

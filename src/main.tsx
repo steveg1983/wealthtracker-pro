@@ -11,6 +11,9 @@ import { initializeSecurity } from './security'
 import { pushNotificationService } from './services/pushNotificationService'
 import { checkEnvironmentVariables } from './utils/env-check'
 import { initSentry } from './lib/sentry'
+import { createScopedLogger } from './loggers/scopedLogger'
+
+const bootstrapLogger = createScopedLogger('AppBootstrap');
 
 // Check environment variables in development
 if (import.meta.env.DEV) {
@@ -20,8 +23,8 @@ if (import.meta.env.DEV) {
 // Get Clerk publishable key
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
-  console.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
-  console.error('Available env vars:', Object.keys(import.meta.env));
+  bootstrapLogger.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
+  bootstrapLogger.info('Available env vars', { keys: Object.keys(import.meta.env) });
 }
 
 // Initialize all security features
@@ -34,7 +37,7 @@ if ('serviceWorker' in navigator) {
       // Only unregister if it's not our current service worker
       if (!registration.active?.scriptURL.includes('sw.js')) {
         registration.unregister();
-        console.log('[ServiceWorker] Unregistered old:', registration.scope);
+        bootstrapLogger.info('Unregistered legacy service worker', { scope: registration.scope });
       }
     }
   });
@@ -44,16 +47,16 @@ if ('serviceWorker' in navigator) {
 try {
   initSentry();
 } catch (error) {
-  console.error('Error initializing Sentry:', error);
+  bootstrapLogger.error('Error initializing Sentry', error);
 }
 
 // Add error logging
 window.addEventListener('error', (event): void => {
-  console.error('Global error:', event.error);
+  bootstrapLogger.error('Global error captured', event.error);
 });
 
 window.addEventListener('unhandledrejection', (event): void => {
-  console.error('Unhandled promise rejection:', event.reason);
+  bootstrapLogger.error('Unhandled promise rejection', event.reason);
 });
 
 // Remove any pre-existing dark class on app start
@@ -62,9 +65,9 @@ document.documentElement.classList.remove('dark');
 try {
   const root = document.getElementById('root');
   if (!root) {
-    console.error('Root element not found!');
+    bootstrapLogger.error('Root element not found');
   } else {
-    console.log('Starting React app...');
+    bootstrapLogger.info('Starting React app');
     createRoot(root).render(
       <StrictMode>
         <ClerkErrorBoundary>
@@ -87,37 +90,37 @@ try {
         </ClerkErrorBoundary>
       </StrictMode>,
     );
-    console.log('React app rendered');
+    bootstrapLogger.info('React app rendered');
   }
 } catch (error) {
-  console.error('Error rendering app:', error);
+  bootstrapLogger.error('Error rendering app', error);
 }
 
 // Register service worker for offline support
-let swRegistration: ServiceWorkerRegistration | null = null;
+let _swRegistration: ServiceWorkerRegistration | null = null;
 
 serviceWorkerRegistration.register({
   onSuccess: async (registration) => {
-    swRegistration = registration;
-    console.log('Service Worker registered successfully');
+    _swRegistration = registration;
+    bootstrapLogger.info('Service Worker registered successfully');
     
     // Store registration globally for React components to access
-    (window as any).swRegistration = registration;
+    window.swRegistration = registration;
     
     // Initialize push notifications
     try {
       await pushNotificationService.initialize();
-      console.log('Push notifications initialized');
+      bootstrapLogger.info('Push notifications initialized');
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
+      bootstrapLogger.error('Failed to initialize push notifications', error);
     }
   },
   onUpdate: (registration) => {
-    swRegistration = registration;
-    console.log('New app version available');
+    _swRegistration = registration;
+    bootstrapLogger.info('New app version available');
     
     // Store registration globally for React components to access
-    (window as any).swRegistration = registration;
+    window.swRegistration = registration;
     
     // The ServiceWorkerUpdateNotification component will handle the UI
     // Dispatch a custom event that React components can listen to

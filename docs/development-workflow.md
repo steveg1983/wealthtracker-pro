@@ -6,7 +6,7 @@
 - The `pre-commit` hook now runs from the repo root and executes:
   1. `npm run lint -- --no-cache`
   2. `npm run test:smoke`
-3. `npm run test:realtime` (realtime price + predictive loading + scheduled report + automatic backup + secure storage + theme scheduling + sync + auto sync + smart cache + notification + error handling + Stripe + stock price + logging + offline + mobile + performance + performance optimization + push notification + merchant logo + security + bank connection + offline data + dividend + anomaly detection + data migration + data intelligence + enhanced CSV import + budget recommendation + financial summary + custom report + encrypted storage + export + document + OCR + transaction API + account service + simple account service + user service + data service + supabase service + subscription + realtime-service suites)
+3. `npm run test:realtime` (deterministic guardrail: realtime price/subscribe/error/events, predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync/auto sync, smart cache, notification/error handling, Stripe, stock price, logging, offline, mobile, performance/optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, subscription, realtime service)
 - Both commands execute directly against the flat app—no workspace forwarding required.
 
 ## Manual Execution
@@ -20,6 +20,16 @@ npm run test:realtime
 ```
 
 The realtime guard now covers deterministic suites for realtime price (subscribe/error/events/helpers), predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, subscription, and realtime service flows.
+
+## Environment Doctor (`npm run env:doctor` / `npm run setup`)
+
+- `npm run env:doctor` loads `.env.local`, `.env.development`, and terminal overrides via `vite.loadEnv` and runs `checkEnvironmentVariables()` through the scoped logger.
+- It surfaces actionable warnings and errors for:
+  - `VITE_CLERK_PUBLISHABLE_KEY` (fatal if missing because Clerk cannot hydrate)
+  - Supabase URL/anon key omissions (realtime/import fall back to mocks)
+  - Sentry mismatches (DSN missing when `VITE_ENABLE_ERROR_TRACKING="true"`, DSN present but tracking disabled, or dev events suppressed without `VITE_SENTRY_SEND_IN_DEV`)
+- The script prints a concise summary in the terminal and duplicates the findings via the `EnvCheck` scoped logger so the browser console and CI logs stay deterministic.
+- `npm run setup` is a convenience alias for onboarding—run it immediately after cloning or whenever `.env` files change to confirm Clerk/Sentry/Supabase wiring before `npm run dev`.
 
 ## Supabase "REAL" smoke run
 
@@ -42,6 +52,8 @@ npm run test:supabase-smoke
 ```
 
 The helper loads `.env.test.local` / `.env.test` / `.env.local`, validates the required keys, and runs the Supabase Vitest battery under the Node environment. If no smoke suites are present it logs a warning and exits gracefully.
+
+Each run writes a timestamped log to `logs/supabase-smoke/<ISO>_supabase-smoke.log` (plus `latest.log`), and the nightly GitHub workflow uploads the artifact so failures can be audited without digging through Actions logs.
 
 **Status**: ✅ **Operational** (2025-10-29) – `src/test/supabase/supabase-smoke.test.ts` seeds a profile + account, writes a transaction via the service role, verifies it via the anon client, asserts anon deletes are blocked by RLS, and cleans up. A dedicated workflow (`.github/workflows/supabase-smoke.yml`) runs nightly and on demand when the following repository secrets are present:
 

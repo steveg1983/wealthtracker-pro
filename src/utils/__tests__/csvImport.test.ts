@@ -3,8 +3,7 @@
  * Utility functions and edge cases
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { importTransactionsFromCSV } from '../csvImport';
+import { describe, it } from 'vitest';
 
 describe('csvImport', () => {
   describe('core functionality', () => {

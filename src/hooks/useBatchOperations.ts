@@ -1,10 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Transaction } from '../types';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export interface BatchOperation {
   id: string;
   label: string;
-  icon?: React.ComponentType<any>;
+  icon?: React.ComponentType<Record<string, unknown>>;
   action: (transactions: Transaction[]) => Promise<void> | void;
   requiresConfirmation?: boolean;
   confirmMessage?: (count: number) => string;
@@ -24,6 +25,7 @@ export function useBatchOperations({
   onDelete,
   onExport
 }: UseBatchOperationsProps) {
+  const logger = useMemoizedLogger('useBatchOperations');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastOperation, setLastOperation] = useState<string | null>(null);
@@ -106,12 +108,12 @@ export function useBatchOperations({
       // Clear selection after successful update
       clearSelection();
     } catch (error) {
-      console.error('Batch update failed:', error);
+      logger.error?.('Batch update failed', error);
       throw error;
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTransactions, onUpdate, clearSelection]);
+  }, [selectedTransactions, onUpdate, clearSelection, logger]);
 
   // Batch delete
   const batchDelete = useCallback(async (options?: { skipConfirmation?: boolean }) => {
@@ -140,12 +142,12 @@ export function useBatchOperations({
       // Clear selection after successful delete
       clearSelection();
     } catch (error) {
-      console.error('Batch delete failed:', error);
+      logger.error?.('Batch delete failed', error);
       throw error;
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTransactions, onDelete, clearSelection]);
+  }, [selectedTransactions, onDelete, clearSelection, logger]);
 
   // Batch categorize
   const batchCategorize = useCallback(async (categoryId: string) => {
@@ -167,12 +169,12 @@ export function useBatchOperations({
       await Promise.all(updates);
       clearSelection();
     } catch (error) {
-      console.error('Batch tag failed:', error);
+      logger.error?.('Batch tag failed', error);
       throw error;
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTransactions, onUpdate, clearSelection]);
+  }, [selectedTransactions, onUpdate, clearSelection, logger]);
 
   // Batch remove tags
   const batchRemoveTags = useCallback(async (tagsToRemove: string[]) => {
@@ -189,12 +191,12 @@ export function useBatchOperations({
       await Promise.all(updates);
       clearSelection();
     } catch (error) {
-      console.error('Batch untag failed:', error);
+      logger.error?.('Batch untag failed', error);
       throw error;
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTransactions, onUpdate, clearSelection]);
+  }, [selectedTransactions, onUpdate, clearSelection, logger]);
 
   // Batch mark as cleared/uncleared
   const batchSetCleared = useCallback(async (cleared: boolean) => {
@@ -214,8 +216,8 @@ export function useBatchOperations({
       id: 'categorize',
       label: 'Categorize',
       action: async () => {
-        // This would open a category picker modal
-        console.log('Open category picker');
+        // Placeholder hook for category picker
+        logger.info?.('Open category picker');
       },
       variant: 'primary'
     },
@@ -223,8 +225,8 @@ export function useBatchOperations({
       id: 'tag',
       label: 'Add Tags',
       action: async () => {
-        // This would open a tag picker modal
-        console.log('Open tag picker');
+        // Placeholder hook for tag picker
+        logger.info?.('Open tag picker');
       },
       variant: 'primary'
     },
@@ -254,7 +256,7 @@ export function useBatchOperations({
       confirmMessage: (count) => `Delete ${count} transaction${count !== 1 ? 's' : ''}?`,
       variant: 'danger'
     }
-  ], [batchSetCleared, batchExport, batchDelete]);
+  ], [batchSetCleared, batchExport, batchDelete, logger]);
 
   // Selection statistics
   const selectionStats = useMemo(() => {

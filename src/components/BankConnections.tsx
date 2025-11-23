@@ -26,6 +26,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
   const [isLoading, setIsLoading] = useState(false);
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
   const [configStatus, setConfigStatus] = useState({ plaid: false, trueLayer: false });
+  const logger = useMemo(() => createScopedLogger('BankConnections'), []);
 
   useEffect(() => {
     loadConnections();
@@ -75,7 +76,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         alert('Plaid Link integration would open here with token: ' + result.linkToken);
       }
     } catch (error) {
-      console.error('Failed to connect bank:', error);
+      logger.error('Failed to connect bank', error as Error);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +92,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         loadConnections();
         onAccountsLinked?.();
       } else {
-        console.error('Sync failed:', result.errors);
+        logger.error('Sync failed', result.errors as Error);
       }
     } finally {
       setSyncingConnections(prev => {

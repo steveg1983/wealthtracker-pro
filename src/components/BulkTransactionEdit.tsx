@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 import { Modal } from './common/Modal';
 import { 
   CheckIcon,
@@ -64,6 +65,7 @@ export default function BulkTransactionEdit({
 }: BulkTransactionEditProps) {
   const { transactions, accounts, categories, updateTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const logger = useMemo(() => createScopedLogger('BulkTransactionEdit'), []);
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(preSelectedIds));
   const [changes, setChanges] = useState<BulkEditChanges>({ appendNote: false });
@@ -241,7 +243,7 @@ export default function BulkTransactionEdit({
       setChanges({ appendNote: false });
       onClose();
     } catch (error) {
-      console.error('Error applying bulk changes:', error);
+      logger.error('Error applying bulk changes', error as Error);
     } finally {
       setApplying(false);
     }

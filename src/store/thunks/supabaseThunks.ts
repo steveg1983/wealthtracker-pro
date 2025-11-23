@@ -24,6 +24,9 @@ type Logger = Pick<Console, 'error'>;
 const thunkLogger: Logger = typeof console !== 'undefined' ? console : { error: () => {} };
 import type { Account, Transaction, Budget, Goal } from '../../types';
 
+type OfflineAccountUpdate = { id: string; updates: Partial<Account> };
+type OfflineTransactionUpdate = { id: string; updates: Partial<Transaction> };
+
 // Helper to get database user ID (not Clerk ID)
 async function getCurrentDatabaseUserId(): Promise<string | null> {
   // First try to get from userIdService (cached)
@@ -81,7 +84,7 @@ export const fetchAccountsFromSupabase = createAsyncThunk(
       try {
         const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
         return cachedAccounts;
-      } catch (cacheError) {
+      } catch {
         return rejectWithValue('Failed to fetch accounts and no cached data available');
       }
     }
@@ -90,7 +93,7 @@ export const fetchAccountsFromSupabase = createAsyncThunk(
 
 export const createAccountInSupabase = createAsyncThunk(
   'accounts/createInSupabase',
-  async (accountData: Omit<Account, 'id' | 'lastUpdated'>, { rejectWithValue, dispatch }) => {
+  async (accountData: Omit<Account, 'id' | 'lastUpdated'>, { rejectWithValue: _rejectWithValue, dispatch: _dispatch }) => {
     try {
       const userId = await getCurrentDatabaseUserId();
       if (!userId) {
@@ -166,7 +169,7 @@ export const updateAccountInSupabase = createAsyncThunk(
         await storageAdapter.set('accounts', cachedAccounts);
         
         // Track for later sync
-        const offlineUpdates = await storageAdapter.get<any[]>('offline_account_updates') || [];
+        const offlineUpdates = await storageAdapter.get<OfflineAccountUpdate[]>('offline_account_updates') || [];
         await storageAdapter.set('offline_account_updates', [...offlineUpdates, { id, updates }]);
         
         return updatedAccount;
@@ -179,7 +182,7 @@ export const updateAccountInSupabase = createAsyncThunk(
 
 export const deleteAccountFromSupabase = createAsyncThunk(
   'accounts/deleteFromSupabase',
-  async (id: string, { rejectWithValue }) => {
+  async (id: string, { rejectWithValue: _rejectWithValue }) => {
     try {
       const success = await SupabaseService.deleteAccount(id);
       
@@ -236,7 +239,7 @@ export const fetchTransactionsFromSupabase = createAsyncThunk(
       try {
         const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
         return cachedTransactions;
-      } catch (cacheError) {
+      } catch {
         return rejectWithValue('Failed to fetch transactions and no cached data available');
       }
     }
@@ -245,7 +248,7 @@ export const fetchTransactionsFromSupabase = createAsyncThunk(
 
 export const createTransactionInSupabase = createAsyncThunk(
   'transactions/createInSupabase',
-  async (transactionData: Omit<Transaction, 'id'>, { rejectWithValue }) => {
+  async (transactionData: Omit<Transaction, 'id'>, { rejectWithValue: _rejectWithValue }) => {
     try {
       const userId = await getCurrentDatabaseUserId();
       if (!userId) {
@@ -318,7 +321,7 @@ export const updateTransactionInSupabase = createAsyncThunk(
         await storageAdapter.set('transactions', cachedTransactions);
         
         // Track for later sync
-        const offlineUpdates = await storageAdapter.get<any[]>('offline_transaction_updates') || [];
+        const offlineUpdates = await storageAdapter.get<OfflineTransactionUpdate[]>('offline_transaction_updates') || [];
         await storageAdapter.set('offline_transaction_updates', [...offlineUpdates, { id, updates }]);
         
         return updatedTransaction;
@@ -331,7 +334,7 @@ export const updateTransactionInSupabase = createAsyncThunk(
 
 export const deleteTransactionFromSupabase = createAsyncThunk(
   'transactions/deleteFromSupabase',
-  async (id: string, { rejectWithValue }) => {
+  async (id: string, { rejectWithValue: _rejectWithValue }) => {
     try {
       const success = await SupabaseService.deleteTransaction(id);
       
@@ -388,7 +391,7 @@ export const fetchBudgetsFromSupabase = createAsyncThunk(
       try {
         const cachedBudgets = await storageAdapter.get<Budget[]>('budgets') || [];
         return cachedBudgets;
-      } catch (cacheError) {
+      } catch {
         return rejectWithValue('Failed to fetch budgets and no cached data available');
       }
     }
@@ -397,7 +400,7 @@ export const fetchBudgetsFromSupabase = createAsyncThunk(
 
 export const createBudgetInSupabase = createAsyncThunk(
   'budgets/createInSupabase',
-  async (budgetData: Omit<Budget, 'id' | 'createdAt' | 'spent'>, { rejectWithValue }) => {
+  async (budgetData: Omit<Budget, 'id' | 'createdAt' | 'spent'>, { rejectWithValue: _rejectWithValue }) => {
     try {
       const userId = await getCurrentDatabaseUserId();
       if (!userId) {
@@ -463,7 +466,7 @@ export const fetchGoalsFromSupabase = createAsyncThunk(
       try {
         const cachedGoals = await storageAdapter.get<Goal[]>('goals') || [];
         return cachedGoals;
-      } catch (cacheError) {
+      } catch {
         return rejectWithValue('Failed to fetch goals and no cached data available');
       }
     }
@@ -472,7 +475,7 @@ export const fetchGoalsFromSupabase = createAsyncThunk(
 
 export const createGoalInSupabase = createAsyncThunk(
   'goals/createInSupabase',
-  async (goalData: Omit<Goal, 'id' | 'createdAt' | 'currentAmount'>, { rejectWithValue }) => {
+  async (goalData: Omit<Goal, 'id' | 'createdAt' | 'currentAmount'>, { rejectWithValue: _rejectWithValue }) => {
     try {
       const userId = await getCurrentDatabaseUserId();
       if (!userId) {

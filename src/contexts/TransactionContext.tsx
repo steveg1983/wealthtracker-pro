@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface Transaction {
   id: string;
@@ -53,6 +54,7 @@ interface TransactionContextType {
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
+const logger = createScopedLogger('TransactionContext');
 
 interface TransactionProviderProps {
   children: ReactNode;
@@ -76,7 +78,7 @@ export function TransactionProvider({
           reconciledDate: t.reconciledDate ? new Date(t.reconciledDate) : undefined
         }));
       } catch (error) {
-        console.error('Error parsing saved transactions:', error);
+        logger.error('Error parsing saved transactions', error);
         return initialTransactions;
       }
     }
@@ -89,7 +91,7 @@ export function TransactionProvider({
       try {
         return JSON.parse(savedRecurring);
       } catch (error) {
-        console.error('Error parsing saved recurring transactions:', error);
+        logger.error('Error parsing saved recurring transactions', error);
         return initialRecurringTransactions;
       }
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { AppProvider } from '../../contexts/AppContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';

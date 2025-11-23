@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMultipleStockQuotes } from '../services/stockPriceService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { StockQuoteSearch } from './StockQuoteWidget';
 import { PlusIcon, XIcon, RefreshCwIcon } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface StockQuote {
   symbol: string;
@@ -26,6 +27,7 @@ export default function StockWatchlist() {
   const [isLoading, setIsLoading] = useState(false);
   const [showAddStock, setShowAddStock] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const logger = useMemo(() => createScopedLogger('StockWatchlist'), []);
 
   const fetchQuotes = useCallback(async () => {
     if (watchlist.length === 0) {
@@ -39,11 +41,11 @@ export default function StockWatchlist() {
       setQuotes(stockQuotes);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching watchlist quotes:', error);
+      logger.error('Error fetching watchlist quotes', error);
     } finally {
       setIsLoading(false);
     }
-  }, [watchlist]);
+  }, [watchlist, logger]);
 
   useEffect(() => {
     fetchQuotes();

@@ -1,5 +1,6 @@
 import { getStockQuote, type StockQuote } from './stockPriceService';
 import type { JsonValue } from '../types/common';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 
 export interface PriceUpdate {
   symbol: string;
@@ -14,8 +15,9 @@ export interface RealTimePriceServiceOptions {
   marketStatusCheckIntervalMs?: number;
   enableMarketStatusCheck?: boolean;
   now?: () => Date;
-  setIntervalFn?: (handler: (...args: any[]) => void, timeout: number) => NodeJS.Timeout;
+  setIntervalFn?: (handler: (...args: unknown[]) => void, timeout: number) => NodeJS.Timeout;
   clearIntervalFn?: (handle: NodeJS.Timeout) => void;
+  logger?: ScopedLogger;
 }
 
 export function isMarketOpenAt(date: Date): boolean {
@@ -45,8 +47,9 @@ export class RealTimePriceService {
   private readonly marketStatusCheckIntervalMs: number;
   private readonly enableMarketStatusCheck: boolean;
   private readonly now: () => Date;
-  private readonly setIntervalFn: (handler: (...args: any[]) => void, timeout: number) => NodeJS.Timeout;
+  private readonly setIntervalFn: (handler: (...args: unknown[]) => void, timeout: number) => NodeJS.Timeout;
   private readonly clearIntervalFn: (handle: NodeJS.Timeout) => void;
+  private readonly logger: ScopedLogger;
   
   constructor(options: RealTimePriceServiceOptions = {}) {
     this.updateFrequency = options.defaultUpdateFrequency ?? 30000; // 30 seconds default
@@ -55,6 +58,7 @@ export class RealTimePriceService {
     this.now = options.now ?? (() => new Date());
     this.setIntervalFn = options.setIntervalFn ?? ((handler, timeout) => setInterval(handler, timeout));
     this.clearIntervalFn = options.clearIntervalFn ?? ((handle) => clearInterval(handle));
+    this.logger = options.logger ?? createScopedLogger('RealTimePriceService');
     
     if (this.enableMarketStatusCheck) {
       this.checkMarketStatus();
@@ -73,7 +77,7 @@ export class RealTimePriceService {
         try {
           listener(data);
         } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
+          this.logger.error(`Error in event listener for ${event}`, error as Error);
         }
       });
     }
@@ -211,13 +215,13 @@ export class RealTimePriceService {
             try {
               callback(update);
             } catch (error) {
-              console.error(`Error in price update callback for ${symbol}:`, error);
+              this.logger.error(`Error in price update callback for ${symbol}`, error as Error);
             }
           });
         }
       }
     } catch (error) {
-      console.error(`Error fetching price for ${symbol}:`, error);
+      this.logger.error(`Error fetching price for ${symbol}`, error as Error);
       this.emit('error', { symbol, error: String(error) } as JsonValue);
     }
   }

@@ -1,4 +1,3 @@
-import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
 
@@ -243,12 +242,12 @@ export class OFXImportService {
     
     // Check OFX transaction types
     const incomeTypes = ['CREDIT', 'DEP', 'INT', 'DIV'];
-    const expenseTypes = ['DEBIT', 'CHECK', 'PAYMENT', 'CASH', 'FEE'];
-    
+    const _expenseTypes = ['DEBIT', 'CHECK', 'PAYMENT', 'CASH', 'FEE'];
+
     if (incomeTypes.includes(ofxType)) {
       return 'income';
     }
-    
+
     return 'expense';
   }
   

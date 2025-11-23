@@ -3,8 +3,7 @@
  * Utility functions and edge cases
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mockBankTransactions } from '../reconciliation';
+import { describe, it } from 'vitest';
 
 describe('reconciliation', () => {
   describe('core functionality', () => {

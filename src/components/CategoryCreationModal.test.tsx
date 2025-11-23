@@ -72,8 +72,8 @@ vi.mock('../hooks/useModalForm', () => ({
       newSpecificName: '',
       ...initialData,
     },
-    updateField: vi.fn((field, value) => {
-      console.log(`Mock updateField: ${field} = ${value}`);
+    updateField: vi.fn((_field, _value) => {
+      // mock update
     }),
     reset: vi.fn(),
   }),

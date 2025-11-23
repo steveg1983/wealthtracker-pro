@@ -556,6 +556,12 @@ export class AccessibilityTester {
 }
 
 // Development helper - add to window for console access
+declare global {
+  interface Window {
+    AccessibilityTester?: typeof AccessibilityTester;
+  }
+}
+
 if (process.env.NODE_ENV === 'development') {
-  (window as any).AccessibilityTester = AccessibilityTester;
+  window.AccessibilityTester = AccessibilityTester;
 }

@@ -23,7 +23,7 @@ import AllocationAnalysis from '../components/AllocationAnalysis';
 import PageWrapper from '../components/PageWrapper';
 
 export default function EnhancedInvestments() {
-  const { accounts, investments = [], transactions } = useApp();
+  const { accounts: _accounts, investments = [], transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [activeTab, setActiveTab] = useState('allocation-analysis');
   const [rebalancingSuggestions, setRebalancingSuggestions] = useState<RebalancingSuggestion[]>([]);
@@ -199,7 +199,7 @@ export default function EnhancedInvestments() {
     </div>
   );
 
-  const renderDividends = () => (
+  const _renderDividends = () => (
     <div className="space-y-6">
       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
         <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">Dividend Tracking</h3>

@@ -3,8 +3,7 @@
  * Utility functions and edge cases
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { formatCurrency } from '../formatters';
+import { describe, it } from 'vitest';
 
 describe('formatters', () => {
   describe('core functionality', () => {

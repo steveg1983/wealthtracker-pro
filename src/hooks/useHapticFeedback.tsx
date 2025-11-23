@@ -1,4 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useCallback } from 'react';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 /**
  * Haptic feedback patterns
@@ -40,6 +42,7 @@ interface HapticOptions {
  * Supports iOS Haptic Feedback API and Android Vibration API
  */
 export function useHapticFeedback() {
+  const logger = useMemoizedLogger('useHapticFeedback');
   // Check if haptic feedback is available
   const isHapticAvailable = useCallback((): boolean => {
     // iOS Haptic Feedback API
@@ -106,8 +109,8 @@ export function useHapticFeedback() {
       
       // iOS Haptic Feedback API (if available)
       // Note: This requires HTTPS and user gesture
-      if (window.navigator && (window.navigator as any).hapticFeedback) {
-        const hapticAPI = (window.navigator as any).hapticFeedback;
+      if (window.navigator && (window.navigator as unknown as { hapticFeedback?: Record<string, () => void> }).hapticFeedback) {
+        const hapticAPI = (window.navigator as unknown as { hapticFeedback: Record<string, () => void> }).hapticFeedback;
         const hapticType = getIOSHapticType(pattern);
         
         if (hapticAPI[hapticType]) {
@@ -144,10 +147,10 @@ export function useHapticFeedback() {
       
       return false;
     } catch (error) {
-      console.warn('Haptic feedback failed:', error);
+      logger.warn?.('Haptic feedback failed', error);
       return false;
     }
-  }, [isHapticAvailable, isHapticEnabled]);
+  }, [isHapticAvailable, isHapticEnabled, logger]);
 
   // Convenience methods for common patterns
   const light = useCallback((options?: HapticOptions) => 
@@ -380,9 +383,9 @@ export function HapticWrapper({
   const handleTrigger = () => {
     triggerHaptic(pattern, options);
   };
-  
-  const props: Record<string, any> = {};
-  
+
+  const props: Record<string, ((e: Event) => void) | undefined> = {};
+
   switch (trigger) {
     case 'click':
       props.onClick = (e: Event) => {
@@ -434,13 +437,17 @@ export function withHapticFeedback<P extends object>(
     
     const { trigger } = useHapticFeedback();
     
+    const originalOnClick = (componentProps as {
+      onClick?: React.MouseEventHandler<HTMLElement>;
+    }).onClick;
+
     const enhancedProps = {
       ...componentProps,
-      onClick: (e: any) => {
+      onClick: (e: React.MouseEvent<HTMLElement>) => {
         if (!hapticDisabled) {
           trigger(hapticPattern, hapticOptions);
         }
-        (componentProps as any).onClick?.(e);
+        originalOnClick?.(e);
       }
     } as P;
     

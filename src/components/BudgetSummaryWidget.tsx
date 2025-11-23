@@ -2,11 +2,10 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { Target, AlertCircle } from './icons';
 import { Link } from 'react-router-dom';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { formatDecimal } from '../utils/decimal-format';
 
 export default function BudgetSummaryWidget() {
   const { budgets, transactions } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency: _formatCurrency } = useCurrencyDecimal();
   
   // Calculate current month's spending
   const currentMonth = new Date().getMonth();

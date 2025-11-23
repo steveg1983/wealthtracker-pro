@@ -199,7 +199,7 @@ class EnhancedEncryptionService {
     const decrypted = CryptoJS.AES.decrypt(
       {
         ciphertext: CryptoJS.enc.Base64.parse(encryptedData.ciphertext)
-      } as any,
+      } as CryptoJS.lib.CipherParams,
       encryptionKey,
       {
         iv: CryptoJS.enc.Base64.parse(encryptedData.iv),
@@ -252,7 +252,7 @@ class EnhancedEncryptionService {
   /**
    * Get stored key data
    */
-  private async getStoredKeyData(): Promise<any> {
+  private async getStoredKeyData(): Promise<{ key: string; timestamp: number } | null> {
     try {
       // Try IndexedDB first
       const record = await this.getFromIndexedDB('encryption_keys', 'master');
@@ -275,7 +275,7 @@ class EnhancedEncryptionService {
   /**
    * Decrypt stored key
    */
-  private async decryptStoredKey(keyData: any): Promise<CryptoJS.lib.WordArray> {
+  private async decryptStoredKey(keyData: { key: string }): Promise<CryptoJS.lib.WordArray> {
     const deviceKey = await this.getDeviceKey();
     const decrypted = CryptoJS.AES.decrypt(keyData.key, deviceKey);
     return decrypted;
@@ -352,7 +352,7 @@ class EnhancedEncryptionService {
   /**
    * Store data in IndexedDB
    */
-  private async storeInIndexedDB(storeName: string, key: string, value: any): Promise<void> {
+  private async storeInIndexedDB(storeName: string, key: string, value: Record<string, unknown>): Promise<void> {
     const db = await this.openIndexedDB();
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
@@ -362,7 +362,7 @@ class EnhancedEncryptionService {
   /**
    * Get data from IndexedDB
    */
-  private async getFromIndexedDB(storeName: string, key: string): Promise<any> {
+  private async getFromIndexedDB(storeName: string, key: string): Promise<{ key: string; timestamp: number } | null> {
     const db = await this.openIndexedDB();
     const transaction = db.transaction([storeName], 'readonly');
     const store = transaction.objectStore(storeName);

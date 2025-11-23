@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 /**
  * Professional Icon Constants and Mappings
  */
@@ -58,7 +59,9 @@ export type ProfessionalIconName =
   | 'chevronDown';
 
 // Mapping to actual icon components (placeholder for now)
-export const iconMap: Record<ProfessionalIconName, any> = {
+export type ProfessionalIconComponent = ComponentType | null;
+
+export const iconMap: Record<ProfessionalIconName, ProfessionalIconComponent> = {
   dashboard: null,
   accounts: null,
   transactions: null,

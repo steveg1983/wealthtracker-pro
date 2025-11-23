@@ -18,7 +18,7 @@ interface SyncQueueItem {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   entity: 'account' | 'transaction' | 'budget' | 'goal' | 'category';
-  data: any;
+  data: Account | Transaction | Budget | Goal | Category | Partial<Account> | Partial<Transaction> | Partial<Budget> | Partial<Goal> | Partial<Category>;
   timestamp: number;
   retries: number;
   status: 'pending' | 'syncing' | 'completed' | 'failed';
@@ -82,7 +82,7 @@ export class AutoSyncService {
     this.uuidGenerator = options.uuidGenerator ?? (() => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`));
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
     this.clearIntervalFn =
       options.clearIntervalFn ??
       ((id: ReturnType<typeof setInterval>) => clearInterval(id));
@@ -203,7 +203,13 @@ export class AutoSyncService {
   /**
    * Check if there's any local data
    */
-  private hasLocalData(data: any): boolean {
+  private hasLocalData(data: {
+    accounts: Account[];
+    transactions: Transaction[];
+    budgets: Budget[];
+    goals: Goal[];
+    categories: Category[];
+  }): boolean {
     return data.accounts.length > 0 || 
            data.transactions.length > 0 || 
            data.budgets.length > 0 || 
@@ -213,7 +219,16 @@ export class AutoSyncService {
   /**
    * Migrate local data to cloud (first-time sync)
    */
-  private async migrateToCloud(userId: string, localData: any): Promise<void> {
+  private async migrateToCloud(
+    userId: string,
+    localData: {
+      accounts: Account[];
+      transactions: Transaction[];
+      budgets: Budget[];
+      goals: Goal[];
+      categories: Category[];
+    }
+  ): Promise<void> {
     if (!supabase) return;
 
     this.logger.log('[AutoSync] Starting silent migration to cloud...');
@@ -235,7 +250,7 @@ export class AutoSyncService {
           currency: account.currency || 'GBP',
           institution: account.institution || null,
           is_active: account.isActive !== false,
-          initial_balance: (account as any).initialBalance || account.balance || 0,
+          initial_balance: (account as Account & { initialBalance?: number }).initialBalance || account.balance || 0,
           created_at: account.createdAt || new Date().toISOString(),
           updated_at: account.updatedAt || new Date().toISOString()
         }));
@@ -350,7 +365,16 @@ export class AutoSyncService {
   /**
    * Merge local and cloud data intelligently
    */
-  private async mergeData(userId: string, localData: any): Promise<void> {
+  private async mergeData(
+    _userId: string,
+    _localData: {
+      accounts: Account[];
+      transactions: Transaction[];
+      budgets: Budget[];
+      goals: Goal[];
+      categories: Category[];
+    }
+  ): Promise<void> {
     // For now, prefer cloud data (it's the source of truth)
     // In the future, implement proper conflict resolution
     this.logger.log('[AutoSync] Merge complete - using cloud as source of truth');
@@ -400,7 +424,11 @@ export class AutoSyncService {
   /**
    * Add an operation to the sync queue
    */
-  queueOperation(type: SyncQueueItem['type'], entity: SyncQueueItem['entity'], data: any): void {
+  queueOperation(
+    type: SyncQueueItem['type'],
+    entity: SyncQueueItem['entity'],
+    data: SyncQueueItem['data']
+  ): void {
     const item: SyncQueueItem = {
       id: this.uuidGenerator(),
       type,

@@ -7,50 +7,44 @@
 declare const self: ServiceWorkerGlobalScope;
 
 import { precacheAndRoute } from 'workbox-precaching';
-import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { 
-  CacheFirst, 
-  NetworkFirst, 
-  StaleWhileRevalidate,
-  NetworkOnly 
+import { registerRoute } from 'workbox-routing';
+import {
+  CacheFirst,
+  NetworkFirst,
+  NetworkOnly
 } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 import { Queue } from 'workbox-background-sync';
+import { createScopedLogger } from '../loggers/scopedLogger';
+import type { Transaction, Account, Budget } from '../types';
 
-const swLogger = {
-  error: (...args: unknown[]) => {
-    if (typeof console !== 'undefined') {
-      console.error(...args);
-    }
-  }
-};
+const swLogger = createScopedLogger('ServiceWorker');
 
 // Types
-interface SyncQueueItem {
-  id?: number;
-  request: RequestData;
+type SyncEntity = Transaction | Account | Budget | Record<string, unknown>;
+type ConflictResolutionResult = { resolved: boolean; resolvedData?: SyncEntity };
+type QueueEntry = { request: Request; timestamp?: number };
+interface PeriodicSyncEvent extends ExtendableEvent {
+  tag: string;
+}
+interface StoredConflict {
+  request: Request;
+  serverData: SyncEntity;
   timestamp: number;
-  retryCount: number;
-  type: 'transaction' | 'account' | 'budget' | 'goal' | 'other';
 }
-
-interface RequestData {
-  url: string;
-  method: string;
-  headers: Record<string, string>;
-  body?: string;
-}
-
-interface ConflictResolution {
-  strategy: 'client-wins' | 'server-wins' | 'merge' | 'manual';
-  resolver?: (client: any, server: any) => any;
+interface UpcomingBill {
+  id: string;
+  name: string;
+  amount: number;
+  dueDate: string;
+  daysUntilDue?: number;
 }
 
 // Cache names
 const CACHE_VERSION = '2.0.0';
-const PRECACHE_NAME = `wealthtracker-precache-v${CACHE_VERSION}`;
+const _PRECACHE_NAME = `wealthtracker-precache-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `wealthtracker-runtime-v${CACHE_VERSION}`;
 const API_CACHE = `wealthtracker-api-v${CACHE_VERSION}`;
 const IMAGE_CACHE = `wealthtracker-images-v${CACHE_VERSION}`;
@@ -59,7 +53,7 @@ const IMAGE_CACHE = `wealthtracker-images-v${CACHE_VERSION}`;
 precacheAndRoute(self.__WB_MANIFEST);
 
 // Queue for offline requests
-const syncQueue = new Queue('wealthtracker-sync', {
+const _syncQueue = new Queue('wealthtracker-sync', {
   onSync: async ({ queue }) => {
     let entry: { request: Request; timestamp?: number } | undefined;
     while ((entry = await queue.shiftRequest())) {
@@ -185,9 +179,9 @@ registerRoute(
 );
 
 // Advanced sync with conflict resolution
-async function handleSyncWithConflictResolution(queue: any) {
+async function handleSyncWithConflictResolution(queue: Queue) {
   const db = await openConflictDB();
-  let entry;
+  let entry: QueueEntry | undefined;
   
   while ((entry = await queue.shiftRequest())) {
     try {
@@ -226,20 +220,29 @@ async function handleSyncWithConflictResolution(queue: any) {
 
 // Handle conflicts based on type
 async function handleConflict(
-  request: Request, 
-  serverData: any, 
-  db: IDBDatabase
-): Promise<{ resolved: boolean; resolvedData?: any }> {
+  request: Request,
+  serverData: SyncEntity,
+  _db: IDBDatabase
+): Promise<ConflictResolutionResult> {
   const url = new URL(request.url);
-  const clientData = await request.json();
+  const clientData = (await request.json()) as SyncEntity;
   
   // Determine conflict resolution strategy based on endpoint
   if (url.pathname.includes('/transactions')) {
-    return resolveTransactionConflict(clientData, serverData);
+    return resolveTransactionConflict(
+      clientData as Transaction,
+      serverData as Transaction
+    );
   } else if (url.pathname.includes('/accounts')) {
-    return resolveAccountConflict(clientData, serverData);
+    return resolveAccountConflict(
+      clientData as (Account & { originalBalance?: number }),
+      serverData as Account
+    );
   } else if (url.pathname.includes('/budgets')) {
-    return resolveBudgetConflict(clientData, serverData);
+    return resolveBudgetConflict(
+      clientData as Budget,
+      serverData as Budget
+    );
   }
   
   // Default: server wins
@@ -247,7 +250,7 @@ async function handleConflict(
 }
 
 // Conflict resolution strategies
-function resolveTransactionConflict(client: any, server: any) {
+function resolveTransactionConflict(client: Transaction, server: Transaction): ConflictResolutionResult {
   // For transactions, prefer the one with the latest timestamp
   if (client.updatedAt > server.updatedAt) {
     return { resolved: true, resolvedData: client };
@@ -255,15 +258,19 @@ function resolveTransactionConflict(client: any, server: any) {
   return { resolved: true, resolvedData: server };
 }
 
-function resolveAccountConflict(client: any, server: any) {
+function resolveAccountConflict(
+  client: Account & { originalBalance?: number },
+  server: Account
+): ConflictResolutionResult {
   // For accounts, merge balances (sum the differences)
   const merged = { ...server };
-  const balanceDiff = client.balance - client.originalBalance;
+  const originalBalance = client.originalBalance ?? client.balance;
+  const balanceDiff = client.balance - originalBalance;
   merged.balance = server.balance + balanceDiff;
   return { resolved: true, resolvedData: merged };
 }
 
-function resolveBudgetConflict(client: any, server: any) {
+function resolveBudgetConflict(client: Budget, server: Budget): ConflictResolutionResult {
   // For budgets, use the most restrictive (lower) amount
   const merged = { ...server };
   merged.amount = Math.min(client.amount, server.amount);
@@ -279,8 +286,8 @@ async function openConflictDB(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     
-    request.onupgradeneeded = (event: any) => {
-      const db = event.target.result;
+    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+      const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains('conflicts')) {
         db.createObjectStore('conflicts', { keyPath: 'id', autoIncrement: true });
       }
@@ -288,7 +295,7 @@ async function openConflictDB(): Promise<IDBDatabase> {
   });
 }
 
-async function storeConflict(db: IDBDatabase, conflict: any) {
+async function storeConflict(db: IDBDatabase, conflict: StoredConflict) {
   const tx = db.transaction(['conflicts'], 'readwrite');
   await tx.objectStore('conflicts').add(conflict);
 }
@@ -348,7 +355,7 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
 });
 
 // Periodic background sync for data freshness
-self.addEventListener('periodicsync', (event: any) => {
+self.addEventListener('periodicsync', (event: PeriodicSyncEvent) => {
   if (event.tag === 'update-accounts') {
     event.waitUntil(updateAccountBalances());
   } else if (event.tag === 'check-bills') {
@@ -392,14 +399,19 @@ async function checkUpcomingBills() {
   try {
     const response = await fetch('/api/bills/upcoming');
     if (response.ok) {
-      const bills = await response.json();
+      const bills: UpcomingBill[] = await response.json();
       
       // Check for bills due in next 3 days
-      const upcomingBills = bills.filter((bill: any) => {
-        const dueDate = new Date(bill.dueDate);
-        const daysUntilDue = (dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-        return daysUntilDue <= 3 && daysUntilDue >= 0;
-      });
+      const upcomingBills = bills
+        .map((bill) => {
+          const dueDate = new Date(bill.dueDate);
+          const daysUntilDue = (dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+          return { ...bill, daysUntilDue };
+        })
+        .filter((bill) => {
+          const daysUntilDue = bill.daysUntilDue ?? 0;
+          return daysUntilDue <= 3 && daysUntilDue >= 0;
+        });
       
       // Send notifications for upcoming bills
       for (const bill of upcomingBills) {
@@ -428,10 +440,10 @@ async function updateInvestmentPrices() {
     });
     
     if (response.ok) {
-      const data = await response.json();
+      const data: { changes?: Array<{ percentChange: number }> } = await response.json();
       
       // Notify about significant price changes
-      const significantChanges = data.changes?.filter((change: any) => 
+      const significantChanges = data.changes?.filter((change) => 
         Math.abs(change.percentChange) >= 5
       );
       
@@ -455,7 +467,7 @@ async function updateInvestmentPrices() {
 
 // Message handling for client communication
 self.addEventListener('message', (event: ExtendableMessageEvent) => {
-  const { type, data } = event.data;
+  const { type, data: _data } = event.data;
   
   switch (type) {
     case 'SKIP_WAITING':

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { mobileService } from '../services/mobileService';
 import { 
   BellIcon,
@@ -9,6 +9,7 @@ import {
   AlertCircleIcon
 } from './icons';
 import type { NotificationSettings as NotificationSettingsType } from '../services/mobileService';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface NotificationSettingsProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface NotificationSettingsProps {
 }
 
 export default function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
+  const logger = useMemo(() => createScopedLogger('NotificationSettings'), []);
   const [settings, setSettings] = useState<NotificationSettingsType>(
     mobileService.getNotificationSettings()
   );
@@ -38,7 +40,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
         setSettings(prev => ({ ...prev, enabled: true }));
       }
     } catch (error) {
-      console.error('Failed to request notification permission:', error);
+      logger.error('Failed to request notification permission', error as Error);
     } finally {
       setIsRequestingPermission(false);
     }

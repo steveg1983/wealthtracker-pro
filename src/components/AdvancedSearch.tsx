@@ -5,6 +5,7 @@ import { Modal } from './common/Modal';
 // import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal'; // Currently unused
 import { useDebounce } from '../hooks/useDebounce';
 import type { Transaction, Account } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface SearchFilter {
   id: string;
@@ -38,6 +39,7 @@ export default function AdvancedSearch({
   className = ''
 }: AdvancedSearchProps): React.JSX.Element {
   // const { formatCurrency } = useCurrencyDecimal(); // Currently unused
+  const logger = useMemo(() => createScopedLogger('AdvancedSearch'), []);
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -137,10 +139,10 @@ export default function AdvancedSearch({
         }));
         setSavedSearches(searches);
       } catch (error) {
-        console.error('Error loading saved searches:', error);
+        logger.error('Error loading saved searches', error as Error);
       }
     }
-  }, []);
+  }, [logger]);
 
   // Save searches to localStorage
   const saveToLocalStorage = useCallback((searches: SavedSearch[]) => {

@@ -9,6 +9,15 @@ interface RGB {
   b: number;
 }
 
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+declare global {
+  interface Window {
+    ColorContrastChecker?: typeof ColorContrastChecker;
+    auditColorContrast?: typeof auditColorContrast;
+  }
+}
+
 interface ContrastResult {
   ratio: number;
   passes: {
@@ -245,23 +254,19 @@ export const commonCombinations = [
 
 // Utility function to check all common combinations
 export function auditColorContrast() {
-  console.group('🎨 Color Contrast Audit');
+  const logger = createScopedLogger('ColorContrastChecker');
+  logger.info?.('🎨 Color Contrast Audit');
   
   commonCombinations.forEach(({ name, fg, bg }) => {
     const result = ColorContrastChecker.checkContrast(fg, bg);
     const status = result.passes.normal.aa ? '✅' : '❌';
     
-    console.log(
-      `${status} ${name}: ${result.ratio}:1`,
-      result.passes.normal.aa ? '' : `- ${result.recommendation}`
-    );
+    logger.info?.(`${status} ${name}: ${result.ratio}:1`, result.passes.normal.aa ? undefined : { recommendation: result.recommendation });
   });
-  
-  console.groupEnd();
 }
 
 // Development helper
 if (process.env.NODE_ENV === 'development') {
-  (window as any).ColorContrastChecker = ColorContrastChecker;
-  (window as any).auditColorContrast = auditColorContrast;
+  window.ColorContrastChecker = ColorContrastChecker;
+  window.auditColorContrast = auditColorContrast;
 }

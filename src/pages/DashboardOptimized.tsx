@@ -1,30 +1,15 @@
-import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, GridIcon, BarChart3Icon, DatabaseIcon } from '../components/icons';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { BanknoteIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useReconciliation } from '../hooks/useReconciliation';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
-import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import type { Account, Transaction } from '../types';
-import type { ReportSettings } from '../components/IncomeExpenditureReport';
+import { SkeletonCard } from '../components/loading/Skeleton';
 import PageWrapper from '../components/PageWrapper';
 
 // Lazy load heavy components
-// OptimizedCharts doesn't have a default export, so we create a wrapper component
-const OptimizedCharts = lazy(async () => {
-  const module = await import('../components/charts/OptimizedCharts');
-  return {
-    default: () => null // Placeholder since the module exports individual chart components
-  };
-});
-const DraggableGrid = lazy(() => import('../components/layout/DraggableGrid').then(m => ({ default: m.DraggableGrid })));
-const GridItem = lazy(() => import('../components/layout/GridItem').then(m => ({ default: m.GridItem })));
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
 const OnboardingModal = lazy(() => import('../components/OnboardingModal'));
-const DashboardModal = lazy(() => import('../components/DashboardModal'));
-const EditTransactionModal = lazy(() => import('../components/EditTransactionModal'));
 const CustomizableDashboard = lazy(() => import('../components/CustomizableDashboard'));
 const DataImportExport = lazy(() => import('../components/DataImportExport'));
 
@@ -44,24 +29,20 @@ const DashboardSkeleton = () => (
 );
 
 export default function DashboardOptimized() {
-  const { accounts, transactions, hasTestData, clearAllData } = useApp();
-  const { firstName, setFirstName, setCurrency } = usePreferences();
-  const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
-  const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
-  const navigate = useNavigate();
+  const { accounts: _accounts, transactions: _transactions, hasTestData, clearAllData } = useApp();
+  const { firstName, setFirstName: _setFirstName, setCurrency: _setCurrency } = usePreferences();
+  const { formatCurrency, convertAndSum: _convertAndSum, displayCurrency: _displayCurrency } = useCurrencyDecimal();
+  const { layouts: _layouts, updateDashboardLayout: _updateDashboardLayout, resetDashboardLayout: _resetDashboardLayout } = useLayoutConfig();
   const [activeTab, setActiveTab] = useState<'classic' | 'modern' | 'import-export'>('classic');
   const [isLoading, setIsLoading] = useState(true);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showLayoutControls, setShowLayoutControls] = useState(false);
-  const [chartsLoaded, setChartsLoaded] = useState(false);
+  const [_showLayoutControls, _setShowLayoutControls] = useState(false);
 
   // Simulate initial loading
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-      // Load charts after initial render
-      requestIdleCallback(() => setChartsLoaded(true));
     }, 100);
     return () => clearTimeout(timer);
   }, []);
@@ -141,12 +122,6 @@ export default function DashboardOptimized() {
                 </div>
               </div>
 
-              {/* Charts load after initial render */}
-              {chartsLoaded && (
-                <Suspense fallback={<SkeletonCard className="h-64" />}>
-                  <OptimizedCharts />
-                </Suspense>
-              )}
             </div>
           )}
 

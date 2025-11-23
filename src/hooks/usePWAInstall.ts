@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -13,6 +14,7 @@ export function usePWAInstall(): {
   isInstalled: boolean;
   installApp: () => Promise<boolean>;
 } {
+  const logger = useMemoizedLogger('usePWAInstall');
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -21,7 +23,7 @@ export function usePWAInstall(): {
     // Check if app is already installed
     const checkInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isIOSStandalone = (window.navigator as any).standalone === true;
+      const isIOSStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
       setIsInstalled(isStandalone || isIOSStandalone);
     };
 
@@ -62,7 +64,7 @@ export function usePWAInstall(): {
       
       return outcome === 'accepted';
     } catch (error) {
-      console.error('Error installing app:', error);
+      logger.error?.('Error installing app', error);
       return false;
     }
   };

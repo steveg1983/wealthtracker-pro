@@ -3,10 +3,9 @@
  * Tests for investment portfolio calculations and analysis
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { portfolioCalculationService } from './portfolioCalculationService';
 import type { Account, Transaction } from '../types';
-import Decimal from 'decimal.js';
 
 describe('PortfolioCalculationService', () => {
   let mockInvestmentAccounts: Account[];

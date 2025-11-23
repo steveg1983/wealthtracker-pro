@@ -5,11 +5,12 @@
  * Shows progress and handles errors gracefully
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { dataMigrationService } from '../services/dataMigrationService';
 import { userIdService } from '../services/userIdService';
 import { DatabaseIcon, CheckCircleIcon, AlertCircleIcon, LoadingIcon } from './icons';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface DataMigrationModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
   const [migrationState, setMigrationState] = useState<'idle' | 'migrating' | 'completed' | 'error'>('idle');
   const [migrationStats, setMigrationStats] = useState<MigrationStats | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const logger = useMemo(() => createScopedLogger('DataMigrationModal'), []);
 
   if (!isOpen) return null;
 
@@ -79,7 +81,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
         }, 3000);
       }
     } catch (error) {
-      console.error('Migration error:', error);
+      logger.error('Migration error', error as Error);
       setErrorMessage('An unexpected error occurred during migration');
       setMigrationState('error');
     }

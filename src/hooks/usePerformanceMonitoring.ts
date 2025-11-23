@@ -1,7 +1,5 @@
 import { useEffect, useCallback } from 'react';
-
-type Logger = Pick<Console, 'log' | 'warn'>;
-const perfLogger: Logger = typeof console !== 'undefined' ? console : { log: () => {}, warn: () => {} };
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface PerformanceMetrics {
   fcp?: number; // First Contentful Paint
@@ -26,6 +24,7 @@ interface ResourceTiming {
 }
 
 export const usePerformanceMonitoring = () => {
+  const perfLogger = useMemoizedLogger('usePerformanceMonitoring');
   // Track Core Web Vitals
   const trackWebVitals = useCallback(() => {
     const metrics: PerformanceMetrics = {};
@@ -33,38 +32,38 @@ export const usePerformanceMonitoring = () => {
     // Observe Largest Contentful Paint
     const lcpObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
-      const lastEntry = entries[entries.length - 1] as any;
+      const lastEntry = entries[entries.length - 1] as PerformanceEntry & { renderTime?: number; loadTime?: number };
       metrics.lcp = lastEntry.renderTime || lastEntry.loadTime;
-      perfLogger.log('LCP:', metrics.lcp);
+      perfLogger.info('LCP observed', { value: metrics.lcp });
     });
 
     // Observe First Input Delay
     const fidObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
-      entries.forEach((entry: any) => {
+      entries.forEach((entry: PerformanceEntry & { processingStart: number }) => {
         metrics.fid = entry.processingStart - entry.startTime;
-        perfLogger.log('FID:', metrics.fid);
+        perfLogger.info('FID observed', { value: metrics.fid });
       });
     });
 
     // Observe Cumulative Layout Shift
     const clsObserver = new PerformanceObserver((entryList) => {
       let cls = 0;
-      entryList.getEntries().forEach((entry: any) => {
+      entryList.getEntries().forEach((entry: PerformanceEntry & { hadRecentInput?: boolean; value: number }) => {
         if (!entry.hadRecentInput) {
           cls += entry.value;
         }
       });
       metrics.cls = cls;
-      perfLogger.log('CLS:', metrics.cls);
+      perfLogger.info('CLS observed', { value: metrics.cls });
     });
 
     // Observe Interaction to Next Paint
     const inpObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
-      entries.forEach((entry: any) => {
+      entries.forEach((entry: PerformanceEntry & { duration: number }) => {
         metrics.inp = entry.duration;
-        perfLogger.log('INP:', metrics.inp);
+        perfLogger.info('INP observed', { value: metrics.inp });
       });
     });
 
@@ -74,7 +73,7 @@ export const usePerformanceMonitoring = () => {
       clsObserver.observe({ type: 'layout-shift', buffered: true });
       inpObserver.observe({ type: 'event', buffered: true } as PerformanceObserverInit);
     } catch (error) {
-      perfLogger.warn('Performance monitoring not supported:', error);
+      perfLogger.warn('Performance monitoring not supported', error);
     }
 
     // Get First Contentful Paint
@@ -82,7 +81,7 @@ export const usePerformanceMonitoring = () => {
     paintEntries.forEach((entry) => {
       if (entry.name === 'first-contentful-paint') {
         metrics.fcp = entry.startTime;
-        perfLogger.log('FCP:', metrics.fcp);
+        perfLogger.info('FCP observed', { value: metrics.fcp });
       }
     });
 
@@ -91,11 +90,11 @@ export const usePerformanceMonitoring = () => {
     if (navigationEntries.length > 0) {
       const navEntry = navigationEntries[0];
       metrics.ttfb = navEntry.responseStart - navEntry.requestStart;
-      perfLogger.log('TTFB:', metrics.ttfb);
+      perfLogger.info('TTFB observed', { value: metrics.ttfb });
     }
 
     return metrics;
-  }, []);
+  }, [perfLogger]);
 
   // Track navigation timing
   const getNavigationTiming = useCallback((): NavigationTiming | null => {
@@ -128,8 +127,8 @@ export const usePerformanceMonitoring = () => {
       start: 0,
       duration: value
     });
-    perfLogger.log(`Custom metric ${name}:`, value);
-  }, []);
+    perfLogger.info('Custom performance metric', { name, value });
+  }, [perfLogger]);
 
   // Track component render time
   const measureComponentRender = useCallback((componentName: string) => {
@@ -143,18 +142,18 @@ export const usePerformanceMonitoring = () => {
         performance.mark(endMark);
         performance.measure(measureName, startMark, endMark);
         const measure = performance.getEntriesByName(measureName)[0];
-        perfLogger.log(`${componentName} render time:`, measure.duration);
+        perfLogger.info('Component render metric', { componentName, duration: measure.duration });
         return measure.duration;
       }
     };
-  }, []);
+  }, [perfLogger]);
 
   // Track long tasks
   const trackLongTasks = useCallback(() => {
     if ('PerformanceObserver' in window) {
       const observer = new PerformanceObserver((list) => {
-        list.getEntries().forEach((entry: any) => {
-          perfLogger.warn('Long task detected:', {
+        list.getEntries().forEach((entry: PerformanceEntry & { duration: number; startTime: number; attribution?: unknown }) => {
+          perfLogger.warn('Long task detected', {
             duration: entry.duration,
             startTime: entry.startTime,
             attribution: entry.attribution
@@ -164,16 +163,22 @@ export const usePerformanceMonitoring = () => {
 
       try {
         observer.observe({ entryTypes: ['longtask'] });
-      } catch (error) {
+      } catch {
         perfLogger.warn('Long task monitoring not supported');
       }
     }
-  }, []);
+  }, [perfLogger]);
 
   // Memory usage tracking
   const getMemoryUsage = useCallback(() => {
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      const memory = (performance as Performance & {
+        memory: {
+          usedJSHeapSize: number;
+          totalJSHeapSize: number;
+          jsHeapSizeLimit: number;
+        };
+      }).memory;
       return {
         usedJSHeapSize: memory.usedJSHeapSize,
         totalJSHeapSize: memory.totalJSHeapSize,
@@ -206,7 +211,7 @@ export const usePerformanceMonitoring = () => {
   }, []);
 
   // Send metrics to analytics
-  const sendMetrics = useCallback((metrics: any) => {
+  const sendMetrics = useCallback((metrics: Record<string, unknown>) => {
     // In production, send to analytics service
     if (process.env.NODE_ENV === 'production') {
       // Example: send to Google Analytics
@@ -218,11 +223,11 @@ export const usePerformanceMonitoring = () => {
       }
     }
     
-    // Also log to console in development
+    // Also log in development
     if (process.env.NODE_ENV === 'development') {
-      console.table(metrics);
+      perfLogger.info?.('Performance metrics', metrics);
     }
-  }, []);
+  }, [perfLogger]);
 
   // Initialize monitoring
   useEffect(() => {
@@ -242,12 +247,12 @@ export const usePerformanceMonitoring = () => {
         const bundleInfo = getBundleSize();
         const memoryInfo = getMemoryUsage();
         
-        console.log('Navigation Timing:', navTiming);
-        console.log('Bundle Size:', bundleInfo);
-        console.log('Memory Usage:', memoryInfo);
+        perfLogger.info?.('Navigation Timing', navTiming);
+        perfLogger.info?.('Bundle Size', bundleInfo);
+        perfLogger.info?.('Memory Usage', memoryInfo);
       });
     }
-  }, [trackWebVitals, trackLongTasks, getNavigationTiming, getBundleSize, getMemoryUsage]);
+  }, [trackWebVitals, trackLongTasks, getNavigationTiming, getBundleSize, getMemoryUsage, perfLogger]);
 
   return {
     trackCustomMetric,

@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { budgetCalculationService } from './budgetCalculationService';
 import type { Budget, Transaction, Category } from '../types';
-import type { BudgetPeriod, BudgetSpending, BudgetSummary } from './budgetCalculationService';
+import type { BudgetPeriod, BudgetSummary } from './budgetCalculationService';
 
 // Mock the BaseService
 vi.mock('./base/BaseService', () => ({

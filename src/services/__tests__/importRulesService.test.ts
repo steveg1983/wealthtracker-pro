@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ImportRulesService } from '../importRulesService';
-import type { ImportRule, ImportRuleCondition, ImportRuleAction } from '../../types/importRules';
+import type { ImportRule } from '../../types/importRules';
 import type { Transaction } from '../../types';
 
 const createStorage = () => ({

@@ -3,6 +3,7 @@ import type { ReactNode, ErrorInfo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertTriangleIcon, RefreshCwIcon, HomeIcon } from './icons';
 import { captureException } from '../lib/sentry';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface Props {
   children: ReactNode;
@@ -17,6 +18,7 @@ interface State {
 }
 
 class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State> {
+  private logger = createScopedLogger('ErrorBoundary');
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -28,7 +30,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    this.logger.error('Error caught by boundary', error, 'ErrorBoundary');
     this.setState({ errorInfo });
     
     // Report to Sentry
@@ -93,7 +95,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
   handlePopState = () => {
     // Reset error state when user navigates with browser back/forward buttons
     if (this.state.hasError) {
-      console.log('ErrorBoundary: Resetting due to navigation');
+      this.logger.info?.('ErrorBoundary: Resetting due to navigation');
       // Use setTimeout to ensure this happens after the URL has changed
       setTimeout(() => {
         this.setState({ hasError: false, error: undefined, errorInfo: undefined });

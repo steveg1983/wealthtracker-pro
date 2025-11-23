@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { notificationService } from '../services/notificationService';
@@ -63,7 +64,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       const now = Date.now();
       const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
       const filtered = Array.isArray(parsed) 
-        ? parsed.filter((n: any) => {
+        ? parsed.filter((n) => {
             try {
               const timestamp = new Date(n.timestamp).getTime();
               return timestamp > sevenDaysAgo;
@@ -195,10 +196,10 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       
       if (!existingAlertIds.has(alertKey)) {
         const type = alert.type === 'danger' ? 'error' : 'warning';
-        const title = alert.type === 'danger' 
+        const title = alert.type === 'danger'
           ? `Budget Exceeded: ${alert.categoryName}`
           : `Budget Warning: ${alert.categoryName}`;
-        
+
         const message = alert.type === 'danger'
           ? `You've spent ${alert.percentage}% of your ${alert.period} budget (${formatCurrency(alert.spent)} of ${formatCurrency(alert.budget)})`
           : `You've spent ${alert.percentage}% of your ${alert.period} budget. Consider slowing down spending in this category.`;
@@ -206,7 +207,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
         addNotification({
           type,
           title,
-          message: alertKey, // Store key in message for duplicate detection
+          message,
           action: {
             label: 'View Budget',
             onClick: (): void => {
@@ -216,7 +217,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
         });
       }
     });
-  }, [budgetAlertsEnabled, notifications, addNotification]);
+  }, [budgetAlertsEnabled, notifications, addNotification, formatCurrency]);
 
   const checkLargeTransaction = useCallback((amount: number, description: string): void => {
     if (!largeTransactionAlertsEnabled) return;
@@ -234,7 +235,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
         }
       });
     }
-  }, [largeTransactionAlertsEnabled, largeTransactionThreshold, addNotification]);
+  }, [largeTransactionAlertsEnabled, largeTransactionThreshold, addNotification, formatCurrency]);
 
   const checkEnhancedBudgetAlerts = useCallback((budgets: Budget[], transactions: Transaction[], categories: Category[]): void => {
     if (!budgetAlertsEnabled) return;

@@ -15,6 +15,7 @@ import {
   sanitizeFilename,
   sanitizeJSON
 } from '../security/xss-protection';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 type SanitizeType = 'text' | 'html' | 'url' | 'query' | 'number' | 'decimal' | 'date' | 'filename' | 'json';
 
@@ -28,18 +29,19 @@ interface SanitizedFormConfig {
   [fieldName: string]: FieldConfig | SanitizeType;
 }
 
-export const useSanitizedForm = <T extends Record<string, any>>(
+export const useSanitizedForm = <T extends Record<string, unknown>>(
   initialValues: T,
   config: SanitizedFormConfig
 ) => {
+  const logger = useMemoizedLogger('useSanitizedForm');
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
 
   const sanitizeField = useCallback((
     fieldName: string,
-    value: any,
+    value: unknown,
     fieldConfig: FieldConfig | SanitizeType
-  ): any => {
+  ): unknown => {
     const config = typeof fieldConfig === 'string' 
       ? { type: fieldConfig } 
       : fieldConfig;
@@ -111,12 +113,12 @@ export const useSanitizedForm = <T extends Record<string, any>>(
   }, []);
 
   const handleChange = useCallback((fieldName: keyof T) => {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any) => {
-      const value = e?.target?.value ?? e;
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | unknown) => {
+      const value = (e as { target?: { value?: unknown } })?.target?.value ?? e;
       const fieldConfig = config[fieldName as string];
       
       if (!fieldConfig) {
-        console.warn(`No sanitization config for field: ${String(fieldName)}`);
+        logger.warn?.('No sanitization config for field', { fieldName: String(fieldName) });
         setValues(prev => ({ ...prev, [fieldName]: value }));
         return;
       }
@@ -124,14 +126,14 @@ export const useSanitizedForm = <T extends Record<string, any>>(
       const sanitized = sanitizeField(String(fieldName), value, fieldConfig);
       setValues(prev => ({ ...prev, [fieldName]: sanitized }));
     };
-  }, [config, sanitizeField]);
+  }, [config, sanitizeField, logger]);
 
   const handleSubmit = useCallback((onSubmit: (data: T) => void) => {
     return (e?: React.FormEvent) => {
       e?.preventDefault();
 
       // Sanitize all values before submission
-      const sanitizedValues: any = {};
+      const sanitizedValues: Record<string, unknown> = {};
       let hasErrors = false;
 
       for (const [fieldName, value] of Object.entries(values)) {
@@ -159,7 +161,7 @@ export const useSanitizedForm = <T extends Record<string, any>>(
     setErrors({});
   }, [initialValues]);
 
-  const setValue = useCallback((fieldName: keyof T, value: any) => {
+  const setValue = useCallback((fieldName: keyof T, value: unknown) => {
     const fieldConfig = config[fieldName as string];
     
     if (!fieldConfig) {

@@ -4,6 +4,7 @@
 
 import type { Account, Transaction } from '../types';
 import type { SavedPlaidConnection, PlaidApiParams } from '../types/plaid';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface PlaidAccount {
   account_id: string;
@@ -103,6 +104,7 @@ class PlaidService {
   private connections: PlaidConnection[] = [];
   private storageKey = 'wealthtracker_plaid_connections';
   private plaidEnv = 'sandbox'; // 'sandbox', 'development', or 'production'
+  private logger = createScopedLogger('PlaidService');
   
   constructor() {
     this.loadConnections();
@@ -123,7 +125,7 @@ class PlaidService {
         });
       }
     } catch (error) {
-      console.error('Failed to load Plaid connections:', error);
+      this.logger.error('Failed to load Plaid connections', error as Error);
       this.connections = [];
     }
   }
@@ -132,15 +134,15 @@ class PlaidService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.connections));
     } catch (error) {
-      console.error('Failed to save Plaid connections:', error);
+      this.logger.error('Failed to save Plaid connections', error as Error);
     }
   }
 
   // Initialize Plaid Link
-  async createLinkToken(userId: string): Promise<PlaidLinkToken> {
+  async createLinkToken(_userId: string): Promise<PlaidLinkToken> {
     // In production, this would call your backend API
     // The backend would use the Plaid client to create a link token
-    
+
     // Simulated response for development
     return {
       link_token: `link-${this.plaidEnv}-${Date.now()}`,
@@ -149,10 +151,10 @@ class PlaidService {
   }
 
   // Exchange public token for access token (must be done server-side in production)
-  async exchangePublicToken(publicToken: string): Promise<{ access_token: string; item_id: string }> {
+  async exchangePublicToken(_publicToken: string): Promise<{ access_token: string; item_id: string }> {
     // In production, send the public token to your backend
     // Backend exchanges it for an access token using Plaid API
-    
+
     // Simulated response
     return {
       access_token: `access-${this.plaidEnv}-${Date.now()}`,
@@ -167,7 +169,7 @@ class PlaidService {
     // In production, the access token should be sent to your backend
     // and never stored client-side
     if (this.plaidEnv === 'production') {
-      console.warn('Production mode: Access token should be sent to backend, not stored client-side');
+      this.logger.warn?.('Production mode: Access token should be sent to backend, not stored client-side');
     }
     
     const connection: PlaidConnection = {
@@ -287,10 +289,10 @@ class PlaidService {
   }
 
   // Sync transactions from Plaid
-  async syncTransactions(connectionId: string, startDate: Date, endDate: Date = new Date()): Promise<Transaction[]> {
+  async syncTransactions(connectionId: string, startDate: Date, _endDate: Date = new Date()): Promise<Transaction[]> {
     const connection = this.connections.find(c => c.id === connectionId);
     if (!connection) throw new Error('Connection not found');
-    
+
     // In production, this would call your backend API
     // Backend would use the access token to fetch transactions from Plaid
     
@@ -461,7 +463,7 @@ class PlaidService {
   }
 
   // Send access token to backend (production only)
-  private async sendTokenToBackend(accessToken: string, itemId: string): Promise<void> {
+  private async sendTokenToBackend(_accessToken: string, _itemId: string): Promise<void> {
     // This should be implemented to send the token to your secure backend
     // Example:
     // await fetch('/api/plaid/store-token', {
@@ -470,11 +472,11 @@ class PlaidService {
     //   body: JSON.stringify({ accessToken, itemId }),
     //   credentials: 'include'
     // });
-    console.warn('sendTokenToBackend not implemented - access token should be sent to secure backend');
+    this.logger.warn?.('sendTokenToBackend not implemented - access token should be sent to secure backend');
   }
 
   // Make authenticated API call through backend
-  private async makeAuthenticatedCall<T>(endpoint: string, params: PlaidApiParams): Promise<T> {
+  private async makeAuthenticatedCall<T>(_endpoint: string, _params: PlaidApiParams): Promise<T> {
     // In production, all Plaid API calls should go through your backend
     // which has the access tokens stored securely
     if (this.plaidEnv === 'production') {
@@ -482,7 +484,7 @@ class PlaidService {
     }
     
     // Development mode simulation
-    console.warn('Development mode: Simulating API response');
+    this.logger.warn?.('Development mode: Simulating Plaid API response');
     return {} as T;
   }
 }

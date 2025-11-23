@@ -8,6 +8,7 @@
  * - Security status tracking
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
 import { AuthService, AuthUser } from '../services/authService';
@@ -28,7 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser();
-  const { signOut: clerkSignOut, getToken } = useClerkAuth();
+  const { signOut: clerkSignOut, getToken: _getToken } = useClerkAuth();
   const { session } = useSession();
   
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);

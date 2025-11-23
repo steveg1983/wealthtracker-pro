@@ -179,7 +179,11 @@ class CSRFProtection {
    */
   createAxiosInterceptor() {
     return {
-      request: (config: any) => {
+      request: (config: {
+        url?: string;
+        method?: string;
+        headers?: Record<string, unknown>;
+      }) => {
         // Only add CSRF token for same-origin requests
         const isSameOrigin = !config.url || 
                            config.url.startsWith('/') || 
@@ -207,7 +211,11 @@ class CSRFProtection {
    * Express/Node.js middleware for validating CSRF tokens
    */
   expressMiddleware() {
-    return (req: any, res: any, next: any) => {
+    return (
+      req: { method: string; headers: Record<string, unknown>; body?: Record<string, unknown> } & { session?: { userId?: string } },
+      _res: unknown,
+      next: () => void
+    ) => {
       // Skip CSRF check for safe methods
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
       if (safeMethods.includes(req.method)) {

@@ -1,4 +1,3 @@
-import { formatDecimal } from './decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
@@ -7,7 +6,7 @@ import { createScopedLogger } from '../loggers/scopedLogger';
  */
 
 // Cache for loaded modules
-const moduleCache = new Map<string, any>();
+const moduleCache = new Map<string, unknown>();
 
 // Excel/Spreadsheet functionality
 export async function importXLSX() {

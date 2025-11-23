@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Budget } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 type BudgetLike = Budget & { category?: string };
 
@@ -22,6 +23,7 @@ interface BudgetContextType {
 }
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
+const logger = createScopedLogger('BudgetContext');
 
 interface BudgetProviderProps {
   children: ReactNode;
@@ -36,7 +38,7 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
         const parsed = JSON.parse(savedBudgets) as BudgetLike[];
         return parsed.map(normalizeBudgetCategory);
       } catch (error) {
-        console.error('Error parsing saved budgets:', error);
+        logger.error('Error parsing saved budgets', error);
         return initialBudgets.map(normalizeBudgetCategory);
       }
     }

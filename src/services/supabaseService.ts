@@ -5,26 +5,27 @@
 
 import { supabase } from '../lib/supabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type SupabaseClientLike = typeof supabase;
-type Logger = Pick<Console, 'error' | 'warn'>;
 
-interface SupabaseTableQuery {
-  select: (...args: any[]) => SupabaseTableQuery;
-  eq: (column: string, value: unknown) => SupabaseTableQuery;
-  order: (column: string, options?: Record<string, unknown>) => SupabaseTableQuery;
-  limit?: (value: number) => SupabaseTableQuery;
-  single?: () => SupabaseTableQuery;
+interface _SupabaseTableQuery {
+  select: (...args: unknown[]) => _SupabaseTableQuery;
+  eq: (column: string, value: unknown) => _SupabaseTableQuery;
+  order: (column: string, options?: Record<string, unknown>) => _SupabaseTableQuery;
+  limit?: (value: number) => _SupabaseTableQuery;
+  single?: () => _SupabaseTableQuery;
 }
 
 export interface SupabaseServiceOptions {
   supabaseClient?: SupabaseClientLike | null;
-  logger?: Logger;
+  logger?: ScopedLogger;
 }
 
 class SupabaseServiceImpl {
   private readonly client: SupabaseClientLike | null;
-  private readonly logger: Logger;
+  private readonly logger: ScopedLogger;
 
   constructor(options: SupabaseServiceOptions = {}) {
     if ('supabaseClient' in options) {
@@ -32,12 +33,7 @@ class SupabaseServiceImpl {
     } else {
       this.client = supabase ?? null;
     }
-    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
-    const noop = () => {};
-    this.logger = {
-      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop),
-      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop)
-    };
+    this.logger = options.logger ?? createScopedLogger('SupabaseService');
   }
 
   private ensureClient() {
@@ -317,7 +313,7 @@ class SupabaseServiceImpl {
     return data;
   }
 
-  subscribeToAccounts(userId: string, callback: (payload: any) => void) {
+  subscribeToAccounts(userId: string, callback: (payload: RealtimePostgresChangesPayload<Account>) => void) {
     const client = this.ensureClient();
     if (!client) return null;
 
@@ -336,7 +332,10 @@ class SupabaseServiceImpl {
       .subscribe();
   }
 
-  subscribeToTransactions(userId: string, callback: (payload: any) => void) {
+  subscribeToTransactions(
+    userId: string,
+    callback: (payload: RealtimePostgresChangesPayload<Transaction>) => void
+  ) {
     const client = this.ensureClient();
     if (!client) return null;
 
@@ -433,11 +432,17 @@ export class SupabaseService {
     return this.service.createGoal(userId, goal);
   }
 
-  static subscribeToAccounts(userId: string, callback: (payload: any) => void) {
+  static subscribeToAccounts(
+    userId: string,
+    callback: (payload: RealtimePostgresChangesPayload<Account>) => void
+  ) {
     return this.service.subscribeToAccounts(userId, callback);
   }
 
-  static subscribeToTransactions(userId: string, callback: (payload: any) => void) {
+  static subscribeToTransactions(
+    userId: string,
+    callback: (payload: RealtimePostgresChangesPayload<Transaction>) => void
+  ) {
     return this.service.subscribeToTransactions(userId, callback);
   }
 

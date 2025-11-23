@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { PortfolioTarget, AssetClassMapping, AssetAllocation, RebalanceAction } from './portfolioRebalanceService';
+import type { PortfolioTarget, AssetAllocation } from './portfolioRebalanceService';
 import { toDecimal } from '../utils/decimal';
 
 // Mock localStorage
@@ -20,7 +20,7 @@ Object.defineProperty(window, 'localStorage', {
 import { portfolioRebalanceService } from './portfolioRebalanceService';
 
 // Mock console methods
-const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+const _consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 describe('PortfolioRebalanceService', () => {
   // Helper to clean up targets

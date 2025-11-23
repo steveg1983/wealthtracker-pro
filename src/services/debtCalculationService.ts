@@ -407,8 +407,8 @@ class DebtCalculationService extends BaseService {
   ): number {
     if (targetMonths <= 0) return 0;
 
-    const monthlyRate = new Decimal(debt.interestRate).dividedBy(100).dividedBy(12);
-    
+    const _monthlyRate = new Decimal(debt.interestRate).dividedBy(100).dividedBy(12);
+
     // Binary search for the extra payment amount
     let low = 0;
     let high = debt.balance;

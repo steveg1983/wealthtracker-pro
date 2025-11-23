@@ -78,8 +78,30 @@ interface MigrationStatus {
   };
 }
 
+interface SupabaseQueryResult<T> {
+  data: T | null;
+  error: { message: string } | null;
+}
+
+interface SupabaseSelectFilterBuilder<T> {
+  eq: (column: string, value: unknown) => SupabaseSelectFilterBuilder<T>;
+  limit: (count: number) => Promise<SupabaseQueryResult<T[]>>;
+  single: () => Promise<SupabaseQueryResult<T>>;
+}
+
+interface SupabaseInsertBuilder<T> {
+  select: () => Promise<SupabaseQueryResult<T[]>>;
+}
+
+type SupabaseFromBuilder<T> = {
+  select: (columns?: string) => SupabaseSelectFilterBuilder<T>;
+  insert: (
+    values: ReadonlyArray<Record<string, unknown>> | Record<string, unknown>
+  ) => SupabaseInsertBuilder<T>;
+};
+
 type SupabaseClientLike = {
-  from: (table: string) => any;
+  from: <T = Record<string, unknown>>(table: string) => SupabaseFromBuilder<T>;
 };
 
 type StoreLike = Pick<typeof store, 'getState'>;

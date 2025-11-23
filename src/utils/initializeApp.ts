@@ -1,8 +1,7 @@
 import { generateTestData } from './generateTestData';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
-const initLogger = typeof console !== 'undefined'
-  ? console
-  : { log: () => {}, error: () => {} };
+const initLogger = createScopedLogger('InitializeApp');
 
 export function initializeAppData() {
   try {
@@ -16,7 +15,7 @@ export function initializeAppData() {
     const hasBudgets = localStorage.getItem('wealthtracker_budgets');
 
     if (!hasAccounts && !hasTransactions && !hasBudgets) {
-      initLogger.log('No existing data found, generating test data...');
+      initLogger.info('No existing data found, generating test data...');
       const testData = generateTestData();
 
       try {
@@ -31,7 +30,7 @@ export function initializeAppData() {
           localStorage.setItem('money_management_accent_color', 'pink');
         }
       } catch (error) {
-        initLogger.error('Error saving to localStorage:', error);
+        initLogger.error('Error saving generated test data to localStorage', error);
       }
 
       return testData;
@@ -43,7 +42,7 @@ export function initializeAppData() {
       budgets: hasBudgets ? JSON.parse(hasBudgets) : []
     };
   } catch (error) {
-    initLogger.error('Error initializing app data:', error);
+    initLogger.error('Error initializing app data', error);
     return generateTestData();
   }
 }

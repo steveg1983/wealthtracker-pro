@@ -23,8 +23,8 @@ const STRICT_CONFIG: DOMPurify.Config = {
   KEEP_CONTENT: true
 };
 
-const MARKDOWN_CONFIG: DOMPurify.Config = {
-  ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'a', 'ul', 'ol', 'li', 
+const _MARKDOWN_CONFIG: DOMPurify.Config = {
+  ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'a', 'ul', 'ol', 'li',
                   'blockquote', 'code', 'pre', 'br', 'hr', 'strong', 'em', 'b', 'i'],
   ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
   ALLOW_DATA_ATTR: false
@@ -131,7 +131,7 @@ export const sanitizeJSON = (jsonString: string): string => {
 /**
  * Recursively sanitize object values
  */
-const sanitizeJSONObject = (obj: any): any => {
+const sanitizeJSONObject = (obj: unknown): unknown => {
   if (typeof obj === 'string') {
     return sanitizeText(obj);
   }
@@ -141,8 +141,8 @@ const sanitizeJSONObject = (obj: any): any => {
   }
   
   if (obj && typeof obj === 'object') {
-    const sanitized: any = {};
-    for (const [key, value] of Object.entries(obj)) {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       // Sanitize the key as well
       const sanitizedKey = sanitizeText(key);
       sanitized[sanitizedKey] = sanitizeJSONObject(value);
@@ -249,10 +249,11 @@ export const sanitizeDate = (input: string | Date): Date | null => {
  * Create a sanitized component props helper
  * Use this to sanitize all props passed to a component
  */
-export const sanitizeProps = <T extends Record<string, any>>(props: T): T => {
-  const sanitized: any = {};
+export const sanitizeProps = <T extends Record<string, unknown>>(props: T): T => {
+  const sanitized: Partial<Record<keyof T, unknown>> = {};
   
-  for (const [key, value] of Object.entries(props)) {
+  (Object.keys(props) as Array<keyof T>).forEach((key) => {
+    const value = props[key];
     if (typeof value === 'string') {
       sanitized[key] = sanitizeText(value);
     } else if (typeof value === 'number') {
@@ -260,13 +261,13 @@ export const sanitizeProps = <T extends Record<string, any>>(props: T): T => {
     } else if (value instanceof Date) {
       sanitized[key] = sanitizeDate(value);
     } else if (Array.isArray(value)) {
-      sanitized[key] = value.map(item => 
+      sanitized[key] = value.map(item =>
         typeof item === 'string' ? sanitizeText(item) : item
       );
     } else {
       sanitized[key] = value;
     }
-  }
+  });
   
   return sanitized as T;
 };
@@ -274,7 +275,7 @@ export const sanitizeProps = <T extends Record<string, any>>(props: T): T => {
 /**
  * Hook to automatically sanitize form inputs
  */
-export const useSanitizedInput = (initialValue: string = '', type: 'text' | 'html' | 'url' | 'query' = 'text') => {
+export const useSanitizedInput = (_initialValue: string = '', type: 'text' | 'html' | 'url' | 'query' = 'text') => {
   const sanitize = (value: string): string => {
     switch (type) {
       case 'html':
@@ -301,10 +302,11 @@ export const useSanitizedInput = (initialValue: string = '', type: 'text' | 'htm
 // Set up DOMPurify hooks for additional security
 if (typeof window !== 'undefined') {
   // Add a hook to log all sanitization operations in development
-  // @ts-ignore - Safari compatibility
-  const isDevelopment = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development';
+  const isDevelopment =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as ImportMeta & { env?: { MODE?: string } }).env?.MODE === 'development';
   if (isDevelopment) {
-    DOMPurify.addHook('beforeSanitizeElements', (node, data: any, config) => {
+    DOMPurify.addHook('beforeSanitizeElements', (node, data: DOMPurify.HookEvent) => {
       if (data && data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
         xssLogger.warn('DOMPurify blocked dangerous element:', data.tagName);
       }

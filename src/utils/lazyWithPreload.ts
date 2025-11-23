@@ -1,11 +1,10 @@
 import { lazy, ComponentType, LazyExoticComponent } from 'react';
 
-export interface PreloadableComponent<T extends ComponentType<any>>
-  extends LazyExoticComponent<T> {
+export interface PreloadableComponent<T extends ComponentType<unknown>> extends LazyExoticComponent<T> {
   preload: () => Promise<{ default: T }>;
 }
 
-export function lazyWithPreload<T extends ComponentType<any>>(
+export function lazyWithPreload<T extends ComponentType<unknown>>(
   factory: () => Promise<{ default: T }>
 ): PreloadableComponent<T> {
   const Component = lazy(factory) as PreloadableComponent<T>;
@@ -14,7 +13,7 @@ export function lazyWithPreload<T extends ComponentType<any>>(
 }
 
 // Preload a component when the user hovers over a link
-export function preloadOnHover(component: PreloadableComponent<any>): { onMouseEnter: () => void; onTouchStart: () => void } {
+export function preloadOnHover<T extends ComponentType<unknown>>(component: PreloadableComponent<T>): { onMouseEnter: () => void; onTouchStart: () => void } {
   return {
     onMouseEnter: () => component.preload(),
     onTouchStart: () => component.preload(),
@@ -22,7 +21,7 @@ export function preloadOnHover(component: PreloadableComponent<any>): { onMouseE
 }
 
 // Preload a component when the browser is idle
-export function preloadWhenIdle(component: PreloadableComponent<any>): void {
+export function preloadWhenIdle<T extends ComponentType<unknown>>(component: PreloadableComponent<T>): void {
   if ('requestIdleCallback' in window) {
     requestIdleCallback(() => component.preload());
   } else {
@@ -32,7 +31,7 @@ export function preloadWhenIdle(component: PreloadableComponent<any>): void {
 }
 
 // Preload components based on user patterns
-export function preloadByRoute(currentPath: string, components: Record<string, PreloadableComponent<any>>): void {
+export function preloadByRoute<T extends ComponentType<unknown>>(currentPath: string, components: Record<string, PreloadableComponent<T>>): void {
   // Common navigation patterns
   const preloadMap: Record<string, string[]> = {
     '/dashboard': ['/transactions', '/accounts', '/budget'],

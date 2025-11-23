@@ -3,12 +3,12 @@
  * Tests for cash flow forecasting and recurring pattern detection
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { cashFlowForecastService } from './cashFlowForecastService';
 import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account } from '../types';
 import type { RecurringPattern } from './cashFlowForecastService';
-import { addDays, addWeeks, addMonths, format } from 'date-fns';
+import { addWeeks, addMonths, format } from 'date-fns';
 
 // Mock date-fns to have consistent test dates
 vi.mock('date-fns', async () => {

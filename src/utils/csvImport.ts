@@ -1,4 +1,3 @@
-import { toDecimal } from './decimal';
 import type { Transaction, Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 

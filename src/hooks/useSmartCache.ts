@@ -29,7 +29,7 @@ export function useCachedData<T>({
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [isStale, setIsStale] = useState(false);
+  const [_isStale, _setIsStale] = useState(false);
   const fetcherRef = useRef(fetcher);
 
   // Update fetcher ref
@@ -124,7 +124,7 @@ export function useCachedPreference<T>(
  * Hook for caching filter state
  */
 export function useCachedFilters(page: string) {
-  const [filters, setFilters] = useState<any>({});
+  const [filters, setFilters] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     smartCache.getCachedFilters(page).then((cached) => {
@@ -134,7 +134,7 @@ export function useCachedFilters(page: string) {
     });
   }, [page]);
 
-  const updateFilters = useCallback((newFilters: any) => {
+  const updateFilters = useCallback((newFilters: Record<string, unknown>) => {
     setFilters(newFilters);
     smartCache.cacheFilters(page, newFilters);
   }, [page]);
@@ -154,17 +154,19 @@ export function useCachedFilters(page: string) {
 /**
  * Hook for memoizing expensive calculations
  */
-export function useMemoizedCalculation<TArgs extends any[], TResult>(
+export function useMemoizedCalculation<TArgs extends unknown[], TResult>(
   calculator: (...args: TArgs) => TResult | Promise<TResult>,
-  deps: any[] = []
+  deps: React.DependencyList = []
 ) {
-  const memoized = useMemo(
-    () => smartCache.memoize(calculator, {
+  const memoDependencies = [calculator, ...deps];
+
+  const memoized = useMemo(() => {
+    return smartCache.memoize(calculator, {
       ttl: 60 * 1000, // 1 minute
       maxArgs: 50
-    }),
-    deps
-  );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, memoDependencies);
 
   return memoized;
 }
@@ -377,7 +379,7 @@ export function useCacheStats() {
 export function useCacheWarmup(
   predictions: Array<{
     key: string;
-    fetcher: () => Promise<any>;
+    fetcher: () => Promise<unknown>;
     priority?: number;
   }>,
   enabled = true

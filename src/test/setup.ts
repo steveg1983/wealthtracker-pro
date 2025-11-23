@@ -104,7 +104,7 @@ const localStorageMock = (() => {
   };
 })();
 
-global.localStorage = localStorageMock as any;
+global.localStorage = localStorageMock as Storage;
 
 // Expose React globally for legacy test files using classic runtime
 (global as unknown as { React?: typeof React }).React = React;
@@ -131,34 +131,38 @@ const sessionStorageMock = (() => {
   };
 })();
 
-global.sessionStorage = sessionStorageMock as any;
+global.sessionStorage = sessionStorageMock as Storage;
 
 // Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
-  takeRecords() {
+global.IntersectionObserver = class MockIntersectionObserver implements IntersectionObserver {
+  readonly root: Element | Document | null = null;
+  readonly rootMargin = '0px';
+  readonly thresholds: ReadonlyArray<number> = [];
+
+  constructor(_callback: IntersectionObserverCallback) {}
+  disconnect(): void {}
+  observe(): void {}
+  unobserve(): void {}
+  takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
-} as any;
+} as typeof IntersectionObserver;
 
 // Mock IndexedDB
 import 'fake-indexeddb/auto';
 
 // Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
-  constructor(callback: ResizeObserverCallback) {}
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-} as any;
+global.ResizeObserver = class MockResizeObserver implements ResizeObserver {
+  constructor(_callback: ResizeObserverCallback) {}
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+} as typeof ResizeObserver;
 
 // Mock crypto for tests that use encryption
 Object.defineProperty(global, 'crypto', {
   value: {
-    getRandomValues: vi.fn((array: any) => {
+    getRandomValues: vi.fn((array: Uint8Array) => {
       for (let i = 0; i < array.length; i++) {
         array[i] = Math.floor(Math.random() * 256);
       }
@@ -172,7 +176,7 @@ Object.defineProperty(global, 'crypto', {
       exportKey: vi.fn(),
       importKey: vi.fn(),
     },
-  },
+  } as Crypto,
   writable: true,
 });
 
@@ -193,14 +197,14 @@ Object.defineProperty(global, 'performance', {
 });
 
 // Mock PerformanceObserver
-global.PerformanceObserver = class PerformanceObserver {
-  constructor(callback: PerformanceObserverCallback) {}
-  observe() {}
-  disconnect() {}
-  takeRecords() {
+global.PerformanceObserver = class MockPerformanceObserver implements PerformanceObserver {
+  constructor(_callback: PerformanceObserverCallback) {}
+  observe(): void {}
+  disconnect(): void {}
+  takeRecords(): PerformanceEntryList {
     return [];
   }
-} as any;
+} as typeof PerformanceObserver;
 
 // Mock fetch
 global.fetch = vi.fn();

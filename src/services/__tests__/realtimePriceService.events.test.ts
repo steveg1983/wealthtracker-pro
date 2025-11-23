@@ -49,14 +49,22 @@ const createIntervalScheduler = () => {
 describe('RealTimePriceService - events', () => {
   let service: RealTimePriceService;
   let scheduler: ReturnType<typeof createIntervalScheduler>;
+  let logger: { error: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; debug: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     scheduler = createIntervalScheduler();
+    logger = {
+      error: vi.fn(),
+      warn: vi.fn(),
+      info: vi.fn(),
+      debug: vi.fn()
+    };
     service = new RealTimePriceService({
       defaultUpdateFrequency: 50,
       enableMarketStatusCheck: false,
       setIntervalFn: scheduler.setInterval,
-      clearIntervalFn: scheduler.clearInterval
+      clearIntervalFn: scheduler.clearInterval,
+      logger
     });
 
     getStockQuoteMock.mockReset();
@@ -114,7 +122,6 @@ describe('RealTimePriceService - events', () => {
       throw new Error('Listener error');
     });
     const normalListener = vi.fn();
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     service.on('priceUpdate', errorListener);
     service.on('priceUpdate', normalListener);
@@ -125,8 +132,7 @@ describe('RealTimePriceService - events', () => {
       expect(normalListener).toHaveBeenCalled();
     });
 
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    expect(logger.error).toHaveBeenCalled();
   });
 
   it('dispose removes listeners', async () => {

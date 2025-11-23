@@ -24,11 +24,11 @@ export interface AppData {
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type AccountServiceLike = Pick<typeof AccountService,
   'getAccounts' | 'createAccount' | 'updateAccount' | 'deleteAccount'> & {
-  subscribeToAccounts?: (userId: string, callback: (payload: any) => void) => () => void;
+  subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
   'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction'> & {
-  subscribeToTransactions?: (userId: string, callback: (payload: any) => void) => () => void;
+  subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
@@ -292,8 +292,8 @@ class DataServiceImpl {
   }
 
   subscribeToUpdates(callbacks: {
-    onAccountUpdate?: (payload: any) => void;
-    onTransactionUpdate?: (payload: any) => void;
+    onAccountUpdate?: (payload: unknown) => void;
+    onTransactionUpdate?: (payload: unknown) => void;
   }): () => void {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (!userId || !this.supabaseChecker()) {
@@ -392,8 +392,8 @@ export class DataService {
   }
 
   static subscribeToUpdates(callbacks: {
-    onAccountUpdate?: (payload: any) => void;
-    onTransactionUpdate?: (payload: any) => void;
+    onAccountUpdate?: (payload: unknown) => void;
+    onTransactionUpdate?: (payload: unknown) => void;
   }): () => void {
     return this.service.subscribeToUpdates(callbacks);
   }

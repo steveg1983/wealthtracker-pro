@@ -22,26 +22,11 @@ interface OfflineDB extends DBSchema {
   };
   offlineQueue: {
     key: string;
-    value: {
-      id: string;
-      type: 'create' | 'update' | 'delete';
-      entity: 'transaction' | 'account' | 'budget' | 'goal';
-      data: any;
-      timestamp: number;
-      retries: number;
-      lastError?: string;
-    };
+    value: OfflineQueueItem;
   };
   conflicts: {
     key: string;
-    value: {
-      id: string;
-      entity: string;
-      localData: any;
-      serverData: any;
-      timestamp: number;
-      resolved: boolean;
-    };
+    value: ConflictRecord;
   };
 }
 
@@ -64,6 +49,26 @@ interface NavigatorLike {
 
 type DbFactory = () => Promise<IDBPDatabase<OfflineDB>>;
 type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+type OfflineEntity = Transaction | Account | Budget | Goal | Record<string, unknown>;
+
+interface OfflineQueueItem {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  entity: 'transaction' | 'account' | 'budget' | 'goal';
+  data: OfflineEntity;
+  timestamp: number;
+  retries: number;
+  lastError?: string;
+}
+
+interface ConflictRecord {
+  id: string;
+  entity: OfflineQueueItem['entity'];
+  localData: OfflineEntity;
+  serverData: OfflineEntity | null;
+  timestamp: number;
+  resolved: boolean;
+}
 
 export interface OfflineServiceOptions {
   windowRef?: WindowLike | null;
@@ -146,9 +151,12 @@ export class OfflineService {
     };
     this.documentRef?.addEventListener?.('visibilitychange', this.visibilityHandler);
 
-    if (this.navigatorRef?.serviceWorker?.ready && (this.windowRef as any)?.SyncManager) {
+    const hasSyncManager = Boolean((this.windowRef as { SyncManager?: unknown } | null)?.SyncManager);
+    if (this.navigatorRef?.serviceWorker?.ready && hasSyncManager) {
       this.navigatorRef.serviceWorker.ready
-        .then((registration) => (registration as any).sync?.register?.('sync-offline-data'))
+        .then((registration) => (registration as ServiceWorkerRegistration & {
+          sync?: { register?: (tag: string) => Promise<void> };
+        }).sync?.register?.('sync-offline-data'))
         .catch((err) => this.logger.error('Failed to register background sync:', err));
     }
   }
@@ -301,7 +309,7 @@ export class OfflineService {
     }
   }
 
-  private async syncQueueItem(item: any): Promise<void> {
+  private async syncQueueItem(item: OfflineQueueItem): Promise<void> {
     // This would call your actual API endpoints
     // For now, we'll simulate the sync
     
@@ -329,7 +337,7 @@ export class OfflineService {
     }
   }
 
-  private async handleSyncConflict(item: any): Promise<void> {
+  private async handleSyncConflict(item: OfflineQueueItem): Promise<void> {
     if (!this.db) await this.init();
     
     await this.db!.put('conflicts', {
@@ -348,7 +356,7 @@ export class OfflineService {
   }
 
   // Conflict resolution
-  async getConflicts(): Promise<any[]> {
+  async getConflicts(): Promise<ConflictRecord[]> {
     if (!this.db) await this.init();
     return this.db!.getAll('conflicts');
   }

@@ -12,7 +12,6 @@
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import type {
-  SubscriptionTier,
   SubscriptionPlan,
   UserSubscription,
   CreateSubscriptionRequest,
@@ -20,7 +19,6 @@ import type {
   UpdateSubscriptionRequest,
   SubscriptionPreview,
   PaymentMethod,
-  Invoice,
   BillingHistory,
   FeatureLimits,
   SubscriptionProduct
@@ -318,7 +316,7 @@ export class StripeService {
    * Create a new subscription (Legacy method for compatibility)
    */
   static async createSubscription(
-    request: CreateSubscriptionRequest
+    _request: CreateSubscriptionRequest
   ): Promise<CreateSubscriptionResponse> {
     // This method is not used anymore - we use createCheckoutSession instead
     throw new Error('Use createCheckoutSession instead');
@@ -553,7 +551,7 @@ export class StripeService {
   /**
    * Get plan by tier
    */
-  static getPlanByTier(tier: SubscriptionPlan): any | undefined {
+  static getPlanByTier(tier: SubscriptionPlan): SubscriptionProduct | undefined {
     return this.getSubscriptionPlans().find(plan => plan.tier === tier);
   }
 

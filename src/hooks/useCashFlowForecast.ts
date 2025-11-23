@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { cashFlowForecastService, type ForecastResult, type RecurringPattern } from '../services/cashFlowForecastService';
-import type { Account, Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 
 interface UseCashFlowForecastOptions {
@@ -44,7 +43,7 @@ export function useCashFlowForecast({
     return { accounts: filteredAccounts, transactions: filteredTransactions };
   }, [accounts, transactions, accountIds]);
 
-  const generateForecast = () => {
+  const generateForecast = useCallback(() => {
     if (!enabled) return;
 
     setIsLoading(true);
@@ -60,7 +59,7 @@ export function useCashFlowForecast({
       // Merge with custom patterns
       if (customPatterns.length > 0) {
         result.recurringPatterns = [...result.recurringPatterns, ...customPatterns];
-        
+
         // Regenerate projections with custom patterns
         result.projections = cashFlowForecastService['generateProjections'](
           filteredData.accounts,
@@ -77,12 +76,12 @@ export function useCashFlowForecast({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filteredData.accounts, filteredData.transactions, months, enabled, customPatterns]);
 
   // Generate forecast when data changes
   useEffect(() => {
     generateForecast();
-  }, [filteredData.accounts, filteredData.transactions, months, enabled, customPatterns]);
+  }, [generateForecast]);
 
   const refresh = () => {
     generateForecast();

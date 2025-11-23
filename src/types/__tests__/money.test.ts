@@ -37,8 +37,7 @@ describe('money utilities', () => {
   });
 
   it('throws on invalid input', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(() => toMoney('abc' as any)).toThrowError('Invalid money value');
+    expect(() => toMoney('abc' as unknown as number)).toThrowError('Invalid money value');
   });
 
   it('does not lose precision for large values', () => {

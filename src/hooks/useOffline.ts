@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { offlineService } from '../services/offlineService';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseOfflineReturn {
   isOffline: boolean;
@@ -10,14 +11,15 @@ interface UseOfflineReturn {
 }
 
 export function useOffline(): UseOfflineReturn {
+  const logger = useMemoizedLogger('useOffline');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
 
   // Initialize offline service
   useEffect(() => {
-    offlineService.init().catch(console.error);
-  }, []);
+    offlineService.init().catch(error => logger.error?.('Failed to initialize offline service', error));
+  }, [logger]);
 
   // Update pending changes count
   const updatePendingCount = useCallback(async () => {
@@ -25,9 +27,9 @@ export function useOffline(): UseOfflineReturn {
       const count = await offlineService.getOfflineQueueCount();
       setPendingChanges(count);
     } catch (error) {
-      console.error('Failed to get offline queue count:', error);
+      logger.error?.('Failed to get offline queue count', error);
     }
-  }, []);
+  }, [logger]);
 
   useEffect(() => {
     // Set up online/offline listeners
@@ -51,7 +53,7 @@ export function useOffline(): UseOfflineReturn {
 
     const handleSyncConflict = (event: Event) => {
       const customEvent = event as CustomEvent;
-      console.warn('Sync conflict detected:', customEvent.detail);
+      logger.warn?.('Sync conflict detected', customEvent.detail);
       // Could show a notification here
     };
 
@@ -75,11 +77,11 @@ export function useOffline(): UseOfflineReturn {
       window.removeEventListener('offline-sync-conflict', handleSyncConflict);
       clearInterval(interval);
     };
-  }, [updatePendingCount]);
+  }, [updatePendingCount, logger]);
 
   const syncNow = useCallback(async () => {
     if (!navigator.onLine) {
-      console.warn('Cannot sync while offline');
+      logger.warn?.('Cannot sync while offline');
       return;
     }
 
@@ -91,7 +93,7 @@ export function useOffline(): UseOfflineReturn {
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [logger]);
 
   const clearOfflineData = useCallback(async () => {
     if (confirm('Are you sure you want to clear all offline data? This cannot be undone.')) {
@@ -112,7 +114,7 @@ export function useOffline(): UseOfflineReturn {
 // Hook for offline-capable data operations
 interface UseOfflineDataOptions {
   entity: 'transaction' | 'account' | 'budget' | 'goal';
-  onConflict?: (conflict: any) => void;
+  onConflict?: (conflict: unknown) => void;
 }
 
 export function useOfflineData<T extends { id: string }>(options: UseOfflineDataOptions) {
@@ -132,14 +134,14 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
           throw new Error('Failed to save');
         }
       } catch (error) {
-        console.error('API save failed, saving offline:', error);
+      logger.error?.('API save failed, saving offline', error);
         // Fall through to offline save
       }
     }
 
     // Always save to offline store
     if (options.entity === 'transaction') {
-      await offlineService.saveTransaction(data as any, isOffline);
+      await offlineService.saveTransaction(data as unknown as { id: string }, isOffline);
     }
     // Add other entity types as needed
   }, [isOffline, options.entity]);
@@ -158,14 +160,14 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
           throw new Error('Failed to update');
         }
       } catch (error) {
-        console.error('API update failed, updating offline:', error);
+        logger.error?.('API update failed, updating offline', error);
         // Fall through to offline update
       }
     }
 
     // Always update offline store
     if (options.entity === 'transaction') {
-      await offlineService.updateTransaction(id, updates as any, isOffline);
+      await offlineService.updateTransaction(id, updates as Partial<T>, isOffline);
     }
     // Add other entity types as needed
   }, [isOffline, options.entity]);
@@ -182,7 +184,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
           throw new Error('Failed to delete');
         }
       } catch (error) {
-        console.error('API delete failed, deleting offline:', error);
+        logger.error?.('API delete failed, deleting offline', error);
         // Fall through to offline delete
       }
     }

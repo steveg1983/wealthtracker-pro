@@ -117,3 +117,5 @@ Target journeys: **Dashboard**, **Budgeting**, **Data Imports**.
 - No shared service/context modifications
 - All changes isolated to UI layer
 - Component copy and DOM IDs remain stable
+# Regression Audit – 2025-10-29
+> **Note:** Superseded by `docs/regression-audit-20251101.md`. Keep this file for historical context only.

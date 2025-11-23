@@ -1,7 +1,7 @@
 import type { Transaction, Account, Budget, Category } from '../types';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
-import { startOfMonth, subMonths, differenceInDays, format } from 'date-fns';
+import { subMonths, differenceInDays, format } from 'date-fns';
 import type {
   Subscription,
   CategorySpendingStats,
@@ -175,7 +175,7 @@ class AdvancedAnalyticsService {
    */
   identifySavingsOpportunities(
     transactions: Transaction[],
-    accounts: Account[]
+    _accounts: Account[]
   ): SavingsOpportunity[] {
     const opportunities: SavingsOpportunity[] = [];
     
@@ -255,7 +255,7 @@ class AdvancedAnalyticsService {
     budgets: Budget[]
   ): FinancialInsight[] {
     const insights: FinancialInsight[] = [];
-    const today = new Date();
+    const _today = new Date();
     
     // 1. Spending velocity insight
     const spendingVelocity = this.calculateSpendingVelocity(transactions);
@@ -455,7 +455,7 @@ class AdvancedAnalyticsService {
   private makePrediction(
     monthlyTotals: Map<string, DecimalInstance>,
     trend: 'increasing' | 'stable' | 'decreasing',
-    monthsToPredict: number
+    _monthsToPredict: number
   ): { amount: DecimalInstance; confidence: number } {
     const values = Array.from(monthlyTotals.values());
     const recentAvg = values.slice(-3).reduce((a, b) => a.plus(b), toDecimal(0)).dividedBy(3);
@@ -504,7 +504,7 @@ class AdvancedAnalyticsService {
     });
     
     const subscriptions: Subscription[] = [];
-    recurring.forEach((trans, key) => {
+    recurring.forEach((trans, _key) => {
       if (trans.length >= 3) {
         // Check if transactions are roughly monthly
         const dates = trans.map(t => new Date(t.date)).sort((a, b) => a.getTime() - b.getTime());
@@ -530,22 +530,22 @@ class AdvancedAnalyticsService {
     return subscriptions;
   }
 
-  private analyzeCategorySpending(transactions: Transaction[]): Map<string, CategorySpendingStats> {
+  private analyzeCategorySpending(_transactions: Transaction[]): Map<string, CategorySpendingStats> {
     // Simplified implementation
     return new Map();
   }
 
-  private findDuplicateServices(transactions: Transaction[]): DuplicateService[] {
+  private findDuplicateServices(_transactions: Transaction[]): DuplicateService[] {
     // Simplified implementation
     return [];
   }
 
-  private analyzeMerchantSpending(transactions: Transaction[]): Map<string, MerchantSpendingStats> {
+  private analyzeMerchantSpending(_transactions: Transaction[]): Map<string, MerchantSpendingStats> {
     // Simplified implementation
     return new Map();
   }
 
-  private calculateSpendingVelocity(transactions: Transaction[]): SpendingVelocity {
+  private calculateSpendingVelocity(_transactions: Transaction[]): SpendingVelocity {
     // Simplified implementation
     return {
       isAccelerating: false,
@@ -558,7 +558,7 @@ class AdvancedAnalyticsService {
     };
   }
 
-  private analyzeSavingsBehavior(transactions: Transaction[], accounts: Account[]): SavingsBehavior {
+  private analyzeSavingsBehavior(_transactions: Transaction[], _accounts: Account[]): SavingsBehavior {
     // Simplified implementation
     return {
       consistentSaving: false,
@@ -571,7 +571,7 @@ class AdvancedAnalyticsService {
     };
   }
 
-  private analyzeBudgetPerformance(budget: Budget, transactions: Transaction[]): BudgetPerformance {
+  private analyzeBudgetPerformance(budget: Budget, _transactions: Transaction[]): BudgetPerformance {
     // Simplified implementation
     return {
       budgetId: budget.id,
@@ -585,7 +585,7 @@ class AdvancedAnalyticsService {
     };
   }
 
-  private analyzeIncomeStability(transactions: Transaction[]): IncomeStability {
+  private analyzeIncomeStability(_transactions: Transaction[]): IncomeStability {
     // Simplified implementation
     return {
       isStable: true,
@@ -597,12 +597,12 @@ class AdvancedAnalyticsService {
     };
   }
 
-  private detectSeasonalPatterns(transactions: Transaction[]): SeasonalPattern[] {
+  private detectSeasonalPatterns(_transactions: Transaction[]): SeasonalPattern[] {
     // Simplified implementation
     return [];
   }
 
-  private findRecurringBills(transactions: Transaction[]): RecurringBill[] {
+  private findRecurringBills(_transactions: Transaction[]): RecurringBill[] {
     // Simplified implementation
     return [];
   }

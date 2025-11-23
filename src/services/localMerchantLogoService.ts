@@ -1,4 +1,4 @@
-import { brandLogos, getBrandByDomain, getBrandByKeyword, searchBrands, BrandLogo } from '../data/brandDatabase';
+import { brandLogos, searchBrands, BrandLogo } from '../data/brandDatabase';
 
 // Simple SVG icon templates for different categories
 const categoryIcons = {

@@ -3,10 +3,7 @@
  * Context provider and consumer behavior
  */
 
-import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, fireEvent, waitFor, render } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { renderHook, act } from '@testing-library/react';
 import { PreferencesProvider, usePreferences } from './PreferencesContext';
 

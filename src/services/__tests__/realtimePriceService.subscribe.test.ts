@@ -5,8 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   RealTimePriceService,
-  type RealTimePriceServiceOptions,
-  type PriceUpdate
+  type RealTimePriceServiceOptions
 } from '../realtimePriceService';
 import * as stockPriceService from '../stockPriceService';
 
@@ -58,20 +57,28 @@ const createIntervalScheduler = () => {
 
 const buildService = (options: Partial<RealTimePriceServiceOptions> = {}) => {
   const scheduler = createIntervalScheduler();
+  const logger = {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn()
+  };
   const service = new RealTimePriceService({
     defaultUpdateFrequency: 50,
     enableMarketStatusCheck: false,
     setIntervalFn: scheduler.setInterval,
     clearIntervalFn: scheduler.clearInterval,
+    logger,
     ...options
   });
 
-  return { service, scheduler };
+  return { service, scheduler, logger };
 };
 
 describe('RealTimePriceService - subscriptions', () => {
   let service: RealTimePriceService;
   let scheduler: ReturnType<typeof createIntervalScheduler>;
+  let _logger: ReturnType<typeof buildService>['logger'];
 
   const resetMocks = () => {
     getStockQuoteMock.mockReset();
@@ -85,6 +92,7 @@ describe('RealTimePriceService - subscriptions', () => {
     const result = buildService();
     service = result.service;
     scheduler = result.scheduler;
+    _logger = result.logger;
   });
 
   afterEach(() => {

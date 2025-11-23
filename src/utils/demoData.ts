@@ -152,13 +152,6 @@ export const demoAccounts = [
   },
 ];
 
-// Demo transactions
-const transactionCategories = [
-  'Groceries', 'Restaurants', 'Transportation', 'Entertainment',
-  'Shopping', 'Bills & Utilities', 'Healthcare', 'Education',
-  'Travel', 'Insurance', 'Investments', 'Salary'
-];
-
 const transactionDescriptions = [
   'Whole Foods Market', 'Starbucks Coffee', 'Uber Ride', 'Netflix Subscription',
   'Amazon Purchase', 'Electric Bill', 'Doctor Visit', 'Online Course',

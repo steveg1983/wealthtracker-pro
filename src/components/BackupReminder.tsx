@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Shield, 
   Download, 
@@ -12,6 +12,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { exportService } from '../services/exportService';
 import { format, differenceInDays, addDays } from 'date-fns';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface BackupSettings {
   enabled: boolean;
@@ -25,6 +26,7 @@ interface BackupSettings {
 
 export default function BackupReminder(): React.JSX.Element {
   const { transactions, accounts, budgets, goals } = useApp();
+  const logger = useMemo(() => createScopedLogger('BackupReminder'), []);
   const [settings, setSettings] = useState<BackupSettings>({
     enabled: true,
     frequency: 'weekly',
@@ -149,7 +151,7 @@ export default function BackupReminder(): React.JSX.Element {
       }, 1500);
 
     } catch (error) {
-      console.error('Backup failed:', error);
+      logger.error('Backup failed', error as Error);
       alert('Backup failed. Please try again.');
       setIsBackingUp(false);
       setBackupProgress(0);

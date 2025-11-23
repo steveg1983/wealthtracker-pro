@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { enhancedEncryption, EncryptedData } from '../security/encryption-enhanced';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseEncryptedStateOptions {
   autoDecrypt?: boolean;
@@ -18,7 +19,8 @@ export function useEncryptedState<T>(
   initialValue: T,
   options: UseEncryptedStateOptions = {}
 ): [T, SetEncryptedState<T>, boolean, Error | null] {
-  const { autoDecrypt = true, storageKey, persist = false } = options;
+  const { autoDecrypt: _autoDecrypt = true, storageKey, persist = false } = options;
+  const logger = useMemoizedLogger('useEncryptedState');
   
   const [decryptedValue, setDecryptedValue] = useState<T>(initialValue);
   const [encryptedData, setEncryptedData] = useState<EncryptedData | null>(null);
@@ -26,32 +28,10 @@ export function useEncryptedState<T>(
   const [error, setError] = useState<Error | null>(null);
   const isInitialized = useRef(false);
 
-  // Initialize encryption service
-  useEffect(() => {
-    const init = async () => {
-      if (isInitialized.current) return;
-      
-      try {
-        await enhancedEncryption.initialize();
-        isInitialized.current = true;
-        
-        // Load persisted value if storage key is provided
-        if (storageKey && persist) {
-          await loadPersistedValue();
-        }
-      } catch (err) {
-        setError(err as Error);
-        console.error('Failed to initialize encryption:', err);
-      }
-    };
-    
-    init();
-  }, [storageKey, persist]);
-
   // Load value from storage
-  const loadPersistedValue = async () => {
+  const loadPersistedValue = useCallback(async () => {
     if (!storageKey) return;
-    
+
     setIsLoading(true);
     try {
       const stored = localStorage.getItem(storageKey);
@@ -63,11 +43,33 @@ export function useEncryptedState<T>(
       }
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to load encrypted value:', err);
+      logger.error?.('Failed to load encrypted value', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [storageKey, logger]);
+
+  // Initialize encryption service
+  useEffect(() => {
+    const init = async () => {
+      if (isInitialized.current) return;
+
+      try {
+        await enhancedEncryption.initialize();
+        isInitialized.current = true;
+
+        // Load persisted value if storage key is provided
+        if (storageKey && persist) {
+          await loadPersistedValue();
+        }
+      } catch (err) {
+        setError(err as Error);
+        logger.error?.('Failed to initialize encryption', err);
+      }
+    };
+
+    init();
+  }, [storageKey, persist, logger, loadPersistedValue]);
 
   // Set encrypted value
   const setValue: SetEncryptedState<T> = useCallback((value) => {
@@ -92,33 +94,33 @@ export function useEncryptedState<T>(
       }
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to encrypt value:', err);
+      logger.error?.('Failed to encrypt value', err);
     }
-  }, [decryptedValue, storageKey, persist]);
+  }, [decryptedValue, storageKey, persist, logger]);
 
   // Get encrypted data as string
-  const getEncryptedString = useCallback((): string | null => {
+  const _getEncryptedString = useCallback((): string | null => {
     return encryptedData ? JSON.stringify(encryptedData) : null;
   }, [encryptedData]);
 
   // Clear encrypted data
-  const clear = useCallback(() => {
+  const _clear = useCallback(() => {
     setDecryptedValue(initialValue);
     setEncryptedData(null);
     setError(null);
-    
+
     if (storageKey) {
       localStorage.removeItem(storageKey);
     }
   }, [initialValue, storageKey]);
 
   // Export encrypted data
-  const exportEncryptedData = useCallback((): EncryptedData | null => {
+  const _exportEncryptedData = useCallback((): EncryptedData | null => {
     return encryptedData;
   }, [encryptedData]);
 
   // Import encrypted data
-  const importEncryptedData = useCallback((data: EncryptedData) => {
+  const _importEncryptedData = useCallback((data: EncryptedData) => {
     try {
       const decrypted = enhancedEncryption.decrypt<T>(data);
       setDecryptedValue(decrypted);
@@ -129,20 +131,20 @@ export function useEncryptedState<T>(
       }
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to import encrypted data:', err);
+      logger.error?.('Failed to import encrypted data', err);
     }
-  }, [storageKey, persist]);
+  }, [storageKey, persist, logger]);
 
   return [decryptedValue, setValue, isLoading, error];
 }
 
 // Specialized hook for encrypted form data
-export function useEncryptedForm<T extends Record<string, any>>(
+export function useEncryptedForm<T extends Record<string, unknown>>(
   initialValues: T,
   options: UseEncryptedStateOptions = {}
 ): {
   values: T;
-  setFieldValue: (field: keyof T, value: any) => void;
+  setFieldValue: (field: keyof T, value: unknown) => void;
   setValues: (values: T) => void;
   getEncryptedValues: () => string | null;
   isLoading: boolean;
@@ -150,7 +152,7 @@ export function useEncryptedForm<T extends Record<string, any>>(
 } {
   const [values, setValues, isLoading, error] = useEncryptedState(initialValues, options);
 
-  const setFieldValue = useCallback((field: keyof T, value: any) => {
+  const setFieldValue = useCallback((field: keyof T, value: unknown) => {
     setValues(prev => ({
       ...prev,
       [field]: value

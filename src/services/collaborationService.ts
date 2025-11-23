@@ -1,4 +1,4 @@
-import { Transaction, Account, Budget, Goal } from '../types';
+import { Budget } from '../types';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 
@@ -343,7 +343,7 @@ class CollaborationService {
     return expenseSplit;
   }
 
-  getExpenseSplits(householdId?: string): ExpenseSplit[] {
+  getExpenseSplits(_householdId?: string): ExpenseSplit[] {
     // For now, return all splits (in a real app, filter by household)
     return [...this.expenseSplits];
   }

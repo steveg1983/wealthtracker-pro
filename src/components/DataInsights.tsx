@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { SpendingInsight } from '../services/dataIntelligenceService';
 import { 
@@ -18,6 +18,7 @@ import {
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface DataInsightsProps {
   onDataChange?: () => void;
@@ -43,22 +44,23 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
   const [sortBy, setSortBy] = useState<InsightSortKey>('createdAt');
   const [showDismissed, setShowDismissed] = useState(false);
   const { formatCurrency } = useCurrencyDecimal();
+  const logger = useMemo(() => createScopedLogger('DataInsights'), []);
 
-  useEffect(() => {
-    loadInsights();
-  }, []);
-
-  const loadInsights = () => {
+  const loadInsights = useCallback(() => {
     setIsLoading(true);
     try {
       const loadedInsights = dataIntelligenceService.getInsights();
       setInsights(loadedInsights);
     } catch (error) {
-      console.error('Error loading insights:', error);
+      logger.error('Error loading insights', error as Error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [logger]);
+
+  useEffect(() => {
+    loadInsights();
+  }, [loadInsights]);
 
   const handleDismissInsight = (insightId: string) => {
     dataIntelligenceService.dismissInsight(insightId);

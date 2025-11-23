@@ -19,7 +19,7 @@ interface AccountDistributionData {
   id: string;
   name: string;
   value: number;
-  [key: string]: any; // Index signature for chart compatibility
+  [key: string]: unknown; // Index signature for chart compatibility
 }
 
 interface ReconciliationData {

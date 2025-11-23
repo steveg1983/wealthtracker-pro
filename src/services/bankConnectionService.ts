@@ -1,4 +1,3 @@
-import type { Account, Transaction } from '../types';
 
 export interface BankConnection {
   id: string;
@@ -118,7 +117,7 @@ export class BankConnectionService {
   /**
    * Get available bank institutions
    */
-  async getInstitutions(country: string = 'GB'): Promise<BankInstitution[]> {
+  async getInstitutions(_country: string = 'GB'): Promise<BankInstitution[]> {
     // In a real implementation, this would call the provider APIs
     // For now, return mock data
     return [
@@ -209,7 +208,7 @@ export class BankConnectionService {
   /**
    * Handle OAuth callback (for TrueLayer)
    */
-  async handleOAuthCallback(code: string, state?: string): Promise<BankConnection> {
+  async handleOAuthCallback(_code: string, _state?: string): Promise<BankConnection> {
     // In a real implementation, this would:
     // 1. Exchange the code for access tokens
     // 2. Fetch account information

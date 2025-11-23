@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import goalsReducer, { addGoal, updateGoal, deleteGoal, setGoals, updateGoalProgress, loadGoals, saveGoals } from './goalsSlice';
+import goalsReducer, { addGoal, updateGoal, deleteGoal, setGoals, updateGoalProgress } from './goalsSlice';
 import type { Goal } from '../../types';
 
 // Mock storageAdapter

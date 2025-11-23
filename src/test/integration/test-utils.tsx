@@ -1,8 +1,10 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { render as rtlRender, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { configureStore, type PreloadedState } from '@reduxjs/toolkit';
+import { MemoryRouter, Routes } from 'react-router-dom';
+import type { RootState } from '../../store';
 
 // Import all slices
 import accountsReducer from '../../store/slices/accountsSlice';
@@ -16,22 +18,10 @@ import tagsReducer from '../../store/slices/tagsSlice';
 import notificationsReducer from '../../store/slices/notificationsSlice';
 import layoutReducer from '../../store/slices/layoutSlice';
 
-// Import all providers
-import { AppProvider } from '../../contexts/AppContext';
-import { BudgetProvider } from '../../contexts/BudgetContext';
-import { NotificationProvider } from '../../contexts/NotificationContext';
-import { PreferencesProvider } from '../../contexts/PreferencesContext';
-import { SecurityProvider } from '../../contexts/SecurityContext';
-import { InvestmentProvider } from '../../contexts/InvestmentContext';
-import { BillProvider } from '../../contexts/BillContext';
-import { ThemeProvider } from '../../contexts/ThemeContext';
-import { BackupProvider } from '../../contexts/BackupContext';
-import { GoalProvider } from '../../contexts/GoalContext';
-import { RecurringTransactionProvider } from '../../contexts/RecurringTransactionContext';
 import { CombinedProvider } from '../../contexts/CombinedProvider';
 
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: any;
+  preloadedState?: PreloadedState<RootState>;
   route?: string;
   routes?: React.ReactElement;
 }

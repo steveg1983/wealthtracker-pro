@@ -9,7 +9,7 @@ import { useCashFlowForecast, useSeasonalAnalysis } from '../useCashFlowForecast
 import { AllProviders } from '../../test/testUtils';
 import { Decimal } from 'decimal.js';
 import type { Transaction, Account } from '../../types';
-import type { ForecastResult, RecurringPattern } from '../../services/cashFlowForecastService';
+import type { ForecastResult } from '../../services/cashFlowForecastService';
 
 // Mock the AppContext
 vi.mock('../../contexts/AppContext', () => ({

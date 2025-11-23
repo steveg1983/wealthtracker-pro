@@ -1,15 +1,5 @@
 import { formatDecimal } from './decimal-format';
-
-const noop = () => {};
-const consoleTarget: Pick<Console, 'log' | 'warn'> & Partial<Pick<Console, 'group' | 'groupEnd'>> =
-  typeof console !== 'undefined'
-    ? console
-    : {
-        log: noop,
-        warn: noop,
-        group: noop,
-        groupEnd: noop,
-      };
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 const isTestMode = typeof import.meta !== 'undefined'
   ? import.meta.env?.MODE === 'test'
@@ -21,27 +11,17 @@ const isDevMode = typeof import.meta !== 'undefined'
 
 const devLoggingEnabled = isDevMode && !isTestMode;
 
-const devLog = (...args: Parameters<Console['log']>) => {
+const perfLogger = createScopedLogger('PerformanceMonitor');
+
+const devLog = (message: string, data?: unknown) => {
   if (devLoggingEnabled) {
-    consoleTarget.log(...args);
+    perfLogger.info(message, data);
   }
 };
 
-const devWarn = (...args: Parameters<Console['warn']>) => {
+const devWarn = (message: string, data?: unknown) => {
   if (devLoggingEnabled) {
-    consoleTarget.warn(...args);
-  }
-};
-
-const devGroup = (...args: Parameters<Console['group']>) => {
-  if (devLoggingEnabled && typeof consoleTarget.group === 'function') {
-    consoleTarget.group(...args);
-  }
-};
-
-const devGroupEnd = () => {
-  if (devLoggingEnabled && typeof consoleTarget.groupEnd === 'function') {
-    consoleTarget.groupEnd();
+    perfLogger.warn(message, data);
   }
 };
 
@@ -131,7 +111,7 @@ export class PerformanceMonitor {
 
   collectResourceMetrics(): void {
     if ('performance' in window && 'getEntriesByType' in performance) {
-      const resources = performance.getEntriesByType('resource');
+      const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
       
       let jsSize = 0;
       let cssSize = 0;
@@ -139,7 +119,7 @@ export class PerformanceMonitor {
       let fontSize = 0;
       let totalDuration = 0;
 
-      resources.forEach((resource: any) => {
+      resources.forEach(resource => {
         const size = resource.transferSize || 0;
         const duration = resource.duration || 0;
         totalDuration += duration;
@@ -201,36 +181,36 @@ export class PerformanceMonitor {
 
   logMetrics(): void {
     const metrics = this.getMetrics();
-    devGroup('📊 Performance Metrics');
-    
-    if (metrics.domContentLoaded) {
-      devLog(`DOM Content Loaded: ${formatDecimal(metrics.domContentLoaded, 2)}ms`);
+
+    if (metrics.domContentLoaded !== undefined) {
+      devLog('DOM Content Loaded', { durationMs: formatDecimal(metrics.domContentLoaded, 2) });
     }
-    if (metrics.loadComplete) {
-      devLog(`Page Load Complete: ${formatDecimal(metrics.loadComplete, 2)}ms`);
+    if (metrics.loadComplete !== undefined) {
+      devLog('Page Load Complete', { durationMs: formatDecimal(metrics.loadComplete, 2) });
     }
-    if (metrics.firstContentfulPaint) {
-      devLog(`First Contentful Paint: ${formatDecimal(metrics.firstContentfulPaint, 2)}ms`);
+    if (metrics.firstContentfulPaint !== undefined) {
+      devLog('First Contentful Paint', { durationMs: formatDecimal(metrics.firstContentfulPaint, 2) });
     }
-    if (metrics.largestContentfulPaint) {
-      devLog(`Largest Contentful Paint: ${formatDecimal(metrics.largestContentfulPaint, 2)}ms`);
+    if (metrics.largestContentfulPaint !== undefined) {
+      devLog('Largest Contentful Paint', { durationMs: formatDecimal(metrics.largestContentfulPaint, 2) });
     }
-    
-    devLog('\n📦 Resource Metrics:');
-    devLog(`Total Resources: ${metrics.totalResources}`);
-    devLog(`JS Size: ${this.formatBytes(metrics.jsSize || 0)}`);
-    devLog(`CSS Size: ${this.formatBytes(metrics.cssSize || 0)}`);
-    devLog(`Image Size: ${this.formatBytes(metrics.imageSize || 0)}`);
-    devLog(`Total Size: ${this.formatBytes(metrics.totalResourceSize || 0)}`);
-    
+
+    devLog('Resource Metrics', {
+      totalResources: metrics.totalResources ?? 0,
+      jsSize: this.formatBytes(metrics.jsSize ?? 0),
+      cssSize: this.formatBytes(metrics.cssSize ?? 0),
+      imageSize: this.formatBytes(metrics.imageSize ?? 0),
+      fontSize: this.formatBytes(metrics.fontSize ?? 0),
+      totalSize: this.formatBytes(metrics.totalResourceSize ?? 0),
+    });
+
     if (metrics.customMetrics && Object.keys(metrics.customMetrics).length > 0) {
-      devLog('\n⏱️ Custom Metrics:');
-      Object.entries(metrics.customMetrics).forEach(([name, duration]) => {
-        devLog(`${name}: ${formatDecimal(duration, 2)}ms`);
-      });
+      const formatted = Object.entries(metrics.customMetrics).reduce<Record<string, string>>((acc, [name, duration]) => {
+        acc[name] = `${formatDecimal(duration, 2)}ms`;
+        return acc;
+      }, {});
+      devLog('Custom performance metrics', formatted);
     }
-    
-    devGroupEnd();
   }
 
   private formatBytes(bytes: number): string {
@@ -263,9 +243,16 @@ export function measureComponentRender(componentName: string): { start: () => vo
   };
 }
 
-export function reportWebVitals(metric: any): void {
+interface WebVitalMetric {
+  name: string;
+  value: number;
+  delta?: number;
+  rating?: string;
+}
+
+export function reportWebVitals(metric: WebVitalMetric): void {
   // Send to analytics or logging service
-  devLog('Web Vital:', metric.name, metric.value);
+  devLog('Web vital metric captured', metric);
   
   // Thresholds based on Core Web Vitals
   const thresholds: Record<string, { good: number; needsImprovement: number }> = {
@@ -285,6 +272,6 @@ export function reportWebVitals(metric: any): void {
       rating = 'needs improvement';
     }
     
-    devLog(`${metric.name} rating: ${rating}`);
+    devLog('Web vital rating', { metric: metric.name, rating });
   }
 }

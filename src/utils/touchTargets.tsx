@@ -3,7 +3,7 @@
  * Components for ensuring minimum touch target sizes for mobile usability
  */
 
-import { useTouchTarget, touchTargetClasses } from './touchTargetConstants';
+import { useTouchTarget } from './touchTargetConstants';
 
 /**
  * Component wrapper to ensure touch target compliance

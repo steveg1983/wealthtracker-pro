@@ -6,7 +6,6 @@
 import React from 'react';
 import PageWrapper from '../../components/PageWrapper';
 import { PushNotificationSettings } from '../../components/pwa/PushNotificationSettings';
-import { BellIcon } from '../../components/icons';
 
 export default function Notifications() {
   return (

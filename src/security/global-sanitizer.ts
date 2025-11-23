@@ -12,6 +12,9 @@ import {
   sanitizeFilename,
   sanitizeQuery
 } from './xss-protection';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const logger = createScopedLogger('GlobalSanitizer');
 
 // Define sanitization rules for different data types
 interface SanitizationRule {
@@ -61,7 +64,7 @@ const SANITIZATION_RULES: SanitizationRule[] = [
 /**
  * Sanitize a single value based on field name
  */
-export const sanitizeByFieldName = (fieldName: string, value: any): any => {
+export const sanitizeByFieldName = (fieldName: string, value: unknown): unknown => {
   if (value == null) return value;
 
   // Find matching rule for the field
@@ -94,29 +97,50 @@ export const sanitizeByFieldName = (fieldName: string, value: any): any => {
   }
 };
 
+type SanitizableValue = Record<string, unknown> | unknown[];
+
+const isSanitizableValue = (value: unknown): value is SanitizableValue =>
+  typeof value === 'object' && value !== null && !(value instanceof Date);
+
 /**
- * Recursively sanitize an object
+ * Recursively sanitize an object or array
  */
-export const sanitizeObject = <T extends Record<string, any>>(obj: T, depth: number = 0): T => {
+export const sanitizeObject = <T extends SanitizableValue>(obj: T, depth: number = 0): T => {
   // Prevent infinite recursion
   if (depth > 10) {
-    console.warn('Maximum sanitization depth reached');
+    logger.warn('Maximum sanitization depth reached');
     return obj;
   }
 
-  const sanitized: any = Array.isArray(obj) ? [] : {};
+  if (Array.isArray(obj)) {
+    const sanitizedArray: unknown[] = [];
+
+    obj.forEach((value, index) => {
+      if (value == null) {
+        sanitizedArray[index] = value;
+      } else if (isSanitizableValue(value)) {
+        sanitizedArray[index] = sanitizeObject(value, depth + 1);
+      } else {
+        sanitizedArray[index] = sanitizeByFieldName(String(index), value);
+      }
+    });
+
+    return sanitizedArray as T;
+  }
+
+  const sanitizedRecord: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
     if (value == null) {
-      sanitized[key] = value;
-    } else if (typeof value === 'object' && !(value instanceof Date)) {
-      sanitized[key] = sanitizeObject(value, depth + 1);
+      sanitizedRecord[key] = value;
+    } else if (isSanitizableValue(value)) {
+      sanitizedRecord[key] = sanitizeObject(value, depth + 1);
     } else {
-      sanitized[key] = sanitizeByFieldName(key, value);
+      sanitizedRecord[key] = sanitizeByFieldName(key, value);
     }
   }
 
-  return sanitized as T;
+  return sanitizedRecord as T;
 };
 
 /**
@@ -127,7 +151,8 @@ export const sanitizeFormData = (formData: FormData): FormData => {
 
   formData.forEach((value, key) => {
     if (typeof value === 'string') {
-      sanitized.append(key, sanitizeByFieldName(key, value));
+      const sanitizedValue = sanitizeByFieldName(key, value);
+      sanitized.append(key, typeof sanitizedValue === 'string' ? sanitizedValue : String(value));
     } else if (value instanceof File) {
       // Sanitize filename
       const sanitizedFilename = sanitizeFilename(value.name);
@@ -148,18 +173,21 @@ export const sanitizeFormData = (formData: FormData): FormData => {
 /**
  * Create a proxy that automatically sanitizes object properties
  */
-export const createSanitizedProxy = <T extends Record<string, any>>(target: T): T => {
+export const createSanitizedProxy = <T extends Record<string, unknown>>(target: T): T => {
   return new Proxy(target, {
-    set(obj, prop: string | symbol, value) {
+    set(obj, prop: string | symbol, value: unknown) {
       if (typeof prop === 'string') {
-        Reflect.set(obj, prop, sanitizeByFieldName(prop, value));
+        const sanitizedValue = isSanitizableValue(value)
+          ? sanitizeObject(value)
+          : sanitizeByFieldName(prop, value);
+        return Reflect.set(obj, prop, sanitizedValue);
       }
-      return true;
+      return Reflect.set(obj, prop, value);
     },
-    get(obj, prop: string) {
-      const value = obj[prop];
-      if (typeof value === 'object' && value !== null && !(value instanceof Date)) {
-        return createSanitizedProxy(value);
+    get(obj, prop: string | symbol) {
+      const value = Reflect.get(obj, prop);
+      if (typeof prop === 'string' && isSanitizableValue(value)) {
+        return createSanitizedProxy(value as Record<string, unknown>);
       }
       return value;
     }
@@ -170,8 +198,8 @@ export const createSanitizedProxy = <T extends Record<string, any>>(target: T): 
  * Middleware function for API requests
  * Sanitizes request body before sending
  */
-export const sanitizeRequestMiddleware = (config: any) => {
-  if (config.data) {
+export const sanitizeRequestMiddleware = (config: { data?: unknown }) => {
+  if (config.data && isSanitizableValue(config.data)) {
     config.data = sanitizeObject(config.data);
   }
   return config;
@@ -181,8 +209,8 @@ export const sanitizeRequestMiddleware = (config: any) => {
  * Middleware function for API responses
  * Sanitizes response data before using
  */
-export const sanitizeResponseMiddleware = (response: any) => {
-  if (response.data) {
+export const sanitizeResponseMiddleware = (response: { data?: unknown }) => {
+  if (response.data && isSanitizableValue(response.data)) {
     response.data = sanitizeObject(response.data);
   }
   return response;

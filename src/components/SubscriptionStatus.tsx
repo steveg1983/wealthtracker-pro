@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Check, AlertCircle, CreditCard, Crown, Zap, Users } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface PlanFeature {
   name: string;
@@ -95,6 +96,9 @@ export default function SubscriptionStatus(): React.JSX.Element {
     isLoading
   } = useSubscription();
 
+  // All hooks must be called before any conditional returns
+  const logger = useMemo(() => createScopedLogger('SubscriptionStatus'), []);
+
   // These properties are not yet implemented in the context
   const billingCycle = subscription?.billingPeriod || 'monthly';
   const nextBillingDate = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
@@ -116,11 +120,11 @@ export default function SubscriptionStatus(): React.JSX.Element {
   const currentPlan = PLAN_DETAILS[resolvedPlanKey];
   const Icon = currentPlan.icon;
 
-  const handleUpgrade = async (newTier: 'basic' | 'premium' | 'enterprise'): Promise<void> => {
+  const handleUpgrade = async (_newTier: 'basic' | 'premium' | 'enterprise'): Promise<void> => {
     try {
       await updateSubscription();
     } catch (error) {
-      console.error('Failed to upgrade subscription:', error);
+      logger.error('Failed to upgrade subscription', error);
     }
   };
 
@@ -129,7 +133,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
       try {
         await cancelSubscription();
       } catch (error) {
-        console.error('Failed to cancel subscription:', error);
+        logger.error('Failed to cancel subscription', error);
       }
     }
   };
@@ -138,7 +142,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
     try {
       await reactivateSubscription();
     } catch (error) {
-      console.error('Failed to reactivate subscription:', error);
+      logger.error('Failed to reactivate subscription', error);
     }
   };
 

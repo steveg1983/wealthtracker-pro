@@ -30,7 +30,7 @@ export function useServiceWorker() {
 
   useEffect(() => {
     // Get initial registration
-    const registration = getRegistration() || (window as any).swRegistration;
+    const registration = getRegistration() || (window as unknown as { swRegistration?: ServiceWorkerRegistration }).swRegistration;
     if (registration) {
       setState(prev => ({ ...prev, registration }));
       

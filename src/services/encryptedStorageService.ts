@@ -6,7 +6,7 @@ import type { StorageOptions, StoredData, StorageItem, BulkStorageItem, StorageE
 type StorageReader = Pick<Storage, 'getItem'>;
 type StorageWriter = Pick<Storage, 'setItem' | 'removeItem'>;
 type Logger = Pick<Console, 'error' | 'warn'>;
-type NavigatorStorage = Pick<NavigatorStorage, 'estimate'>;
+type _NavigatorStorage = Pick<NavigatorStorage, 'estimate'>;
 
 export interface EncryptedStorageServiceOptions {
   sessionStorage?: StorageWriter & StorageReader | null;
@@ -229,7 +229,7 @@ export class EncryptedStorageService {
             value: parsedData,
             options: { encrypted: true }
           });
-        } catch (error) {
+        } catch {
           // If parsing fails, it might be a raw string value (like 'light' or 'blue')
           // Store it as-is
           migrationItems.push({

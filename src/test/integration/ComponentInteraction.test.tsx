@@ -74,11 +74,11 @@ vi.mock('../../pages/Budget', () => ({
 
 // Component interaction tests that verify components work together
 describe('Component Integration Tests', () => {
-  let localStorageMock: ReturnType<typeof mockLocalStorage>;
+  let _localStorageMock: ReturnType<typeof mockLocalStorage>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorageMock = mockLocalStorage();
+    _localStorageMock = mockLocalStorage();
   });
 
   describe('Dashboard Components Integration', () => {
@@ -128,7 +128,7 @@ describe('Component Integration Tests', () => {
       ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
-      const { rerender } = renderWithProviders(<Dashboard />, {
+      const { rerender: _rerender } = renderWithProviders(<Dashboard />, {
         preloadedState: {
           accounts: { accounts },
         }

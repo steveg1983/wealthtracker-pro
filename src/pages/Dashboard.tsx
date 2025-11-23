@@ -17,7 +17,7 @@ export default function Dashboard() {
   const { accounts, hasTestData, clearAllData } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
   const { user } = useAuth();
-  const [supabaseConnected, setSupabaseConnected] = useState(false);
+  const [_supabaseConnected, setSupabaseConnected] = useState(false);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   
@@ -39,7 +39,7 @@ export default function Dashboard() {
           } else {
             // Supabase connection issue - handled silently
           }
-        } catch (err) {
+        } catch {
           // Supabase connection failed - handled silently
           setSupabaseConnected(false);
         }

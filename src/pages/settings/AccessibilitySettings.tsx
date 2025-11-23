@@ -7,7 +7,7 @@ import AccessibilityChecklist from '../../components/AccessibilityChecklist';
 import { useHighContrastMode, useReducedMotion } from '../../hooks/useAccessibilityPreferences';
 
 export default function AccessibilitySettings(): React.JSX.Element {
-  const preferencesContext = usePreferences();
+  const _preferencesContext = usePreferences();
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const isHighContrast = useHighContrastMode();
   const prefersReducedMotion = useReducedMotion();

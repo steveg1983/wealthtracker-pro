@@ -307,11 +307,11 @@ export class OCRService {
     return undefined;
   }
 
-  private async extractDataFromPDF(file: File): Promise<ExtractedData> {
+  private async extractDataFromPDF(_file: File): Promise<ExtractedData> {
     // This is a placeholder for PDF extraction
     // In a real implementation, you would use pdf.js or a similar library
     this.logger.warn('PDF extraction not yet implemented');
-    
+
     return {
       confidence: 0,
       rawText: 'PDF extraction not yet implemented'

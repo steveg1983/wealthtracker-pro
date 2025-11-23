@@ -8,9 +8,13 @@
  * - Integrates with React DevTools
  */
 
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useRealtimeSync, type UseRealtimeSyncReturn } from '../hooks/useRealtimeSync';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const logger = createScopedLogger('RealtimeSyncProvider');
 
 interface RealtimeSyncContextType extends UseRealtimeSyncReturn {
   /**
@@ -68,12 +72,12 @@ export function RealtimeSyncProvider({
 
   // These would need state management to be fully functional
   const setEnabled = useCallback((enabled: boolean) => {
-    console.log('Setting real-time sync enabled:', enabled);
+    logger.info('Setting real-time sync enabled', { enabled });
     // Would need to implement state management here
   }, []);
 
   const setNotificationsEnabled = useCallback((enabled: boolean) => {
-    console.log('Setting real-time sync notifications enabled:', enabled);
+    logger.info('Setting real-time sync notifications enabled', { enabled });
     // Would need to implement state management here
   }, []);
 

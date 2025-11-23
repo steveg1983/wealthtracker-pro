@@ -237,7 +237,11 @@ class SearchService {
 
     if (options.recurring !== undefined) {
       filtered = filtered.filter(t => {
-        const flag = (t as any).isRecurring ?? (t as any).recurring ?? false;
+        const txWithRecurring = t as Transaction & {
+          isRecurring?: boolean;
+          recurring?: boolean;
+        };
+        const flag = txWithRecurring.isRecurring ?? txWithRecurring.recurring ?? false;
         return flag === options.recurring;
       });
     }

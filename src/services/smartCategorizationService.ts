@@ -25,7 +25,7 @@ export class SmartCategorizationService {
   /**
    * Learn from existing categorized transactions
    */
-  learnFromTransactions(transactions: Transaction[], categories: Category[]) {
+  learnFromTransactions(transactions: Transaction[], _categories: Category[]) {
     // Reset patterns
     this.patterns.clear();
     this.merchantCategoryMap.clear();

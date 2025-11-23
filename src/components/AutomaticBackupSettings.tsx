@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { automaticBackupService, type BackupConfig } from '../services/automaticBackupService';
 import { useNotifications } from '../contexts/NotificationContext';
 import {
@@ -16,6 +16,7 @@ import {
   // CalendarIcon // Currently unused
 } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 type BackupHistoryEntry = {
   timestamp: number;
@@ -34,22 +35,23 @@ export default function AutomaticBackupSettings() {
   const [storedBackups, setStoredBackups] = useState<StoredBackup[]>([]);
   // const [loading, setLoading] = useState(false); // Currently unused
   const [testingBackup, setTestingBackup] = useState(false);
+  const logger = useMemo(() => createScopedLogger('AutomaticBackupSettings'), []);
 
-  useEffect(() => {
-    loadBackupData();
-  }, []);
-
-  const loadBackupData = async () => {
+  const loadBackupData = useCallback(async () => {
     try {
       const history = JSON.parse(localStorage.getItem('money_management_backup_history') || '[]') as BackupHistoryEntry[];
       setBackupHistory(history.slice(0, 10)); // Show last 10 entries
-      
+
       const stored = await automaticBackupService.getStoredBackups();
       setStoredBackups(stored);
     } catch (error) {
-      console.error('Failed to load backup data:', error);
+      logger.error('Failed to load backup data', error as Error);
     }
-  };
+  }, [logger]);
+
+  useEffect(() => {
+    loadBackupData();
+  }, [loadBackupData]);
 
   const handleConfigChange = (updates: Partial<BackupConfig>) => {
     const newConfig = { ...config, ...updates };

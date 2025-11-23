@@ -6,15 +6,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ConflictResolutionService, ConflictAnalysis } from '../services/conflictResolutionService';
 import { syncService } from '../services/syncService';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export interface ConflictState {
   hasConflicts: boolean;
-  conflicts: any[];
+  conflicts: unknown[];
   autoResolvedCount: number;
   requiresUserIntervention: boolean;
 }
 
 export function useConflictResolution() {
+  const logger = useMemoizedLogger('useConflictResolution');
   const [conflictState, setConflictState] = useState<ConflictState>({
     hasConflicts: false,
     conflicts: [],
@@ -22,7 +24,7 @@ export function useConflictResolution() {
     requiresUserIntervention: false
   });
   
-  const [currentConflict, setCurrentConflict] = useState<any>(null);
+  const [currentConflict, setCurrentConflict] = useState<unknown>(null);
   const [currentAnalysis, setCurrentAnalysis] = useState<ConflictAnalysis | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -30,8 +32,8 @@ export function useConflictResolution() {
     // Track auto-resolved conflicts
     let autoResolvedCount = 0;
 
-    const handleConflictDetected = ({ conflict, analysis }: any) => {
-      console.log('Conflict detected:', conflict.entity, analysis);
+    const handleConflictDetected = ({ conflict, analysis }: { conflict: Record<string, unknown>; analysis: ConflictAnalysis }) => {
+      logger.info?.('Conflict detected', { entity: conflict.entity, analysis });
       
       // Check if it requires user intervention
       if (ConflictResolutionService.requiresUserIntervention(analysis)) {
@@ -51,9 +53,13 @@ export function useConflictResolution() {
       }
     };
 
-    const handleConflictAutoResolved = ({ conflict, analysis, resolution }: any) => {
+    const handleConflictAutoResolved = ({ conflict, analysis, resolution: _resolution }: { conflict: Record<string, unknown>; analysis: ConflictAnalysis; resolution: unknown }) => {
       autoResolvedCount++;
-      console.log(`Auto-resolved conflict #${autoResolvedCount} for ${conflict.entity} (${analysis.confidence}% confidence)`);
+      logger.info?.('Auto-resolved conflict', {
+        count: autoResolvedCount,
+        entity: conflict.entity,
+        confidence: analysis.confidence
+      });
       
       setConflictState(prev => ({
         ...prev,
@@ -62,10 +68,10 @@ export function useConflictResolution() {
       
       // Show toast notification (if you have a notification system)
       const message = `Automatically merged ${conflict.entity} changes (${analysis.confidence}% confidence)`;
-      console.log('✅', message);
+      logger.info?.('Auto-resolve summary', { message });
     };
 
-    const handleStatusChanged = (status: any) => {
+    const handleStatusChanged = (status: { conflicts?: unknown[] }) => {
       if (status.conflicts && status.conflicts.length > 0) {
         setConflictState(prev => ({
           ...prev,
@@ -85,11 +91,11 @@ export function useConflictResolution() {
       syncService.off('conflict-auto-resolved', handleConflictAutoResolved);
       syncService.off('status-changed', handleStatusChanged);
     };
-  }, [currentConflict]);
+  }, [currentConflict, logger]);
 
   const resolveConflict = useCallback(async (
     resolution: 'client' | 'server' | 'merge',
-    mergedData?: any
+    mergedData?: unknown
   ) => {
     if (!currentConflict) return;
     
@@ -131,9 +137,9 @@ export function useConflictResolution() {
         setCurrentAnalysis(null);
       }
     } catch (error) {
-      console.error('Failed to resolve conflict:', error);
+      logger.error?.('Failed to resolve conflict', error);
     }
-  }, [currentConflict, conflictState.conflicts]);
+  }, [currentConflict, conflictState.conflicts, logger]);
 
   const dismissConflict = useCallback(() => {
     setIsModalOpen(false);
@@ -160,8 +166,8 @@ export function useConflictResolution() {
 
   const analyzeConflict = useCallback((
     entityType: string,
-    clientData: any,
-    serverData: any,
+    clientData: unknown,
+    serverData: unknown,
     clientTimestamp?: number,
     serverTimestamp?: number
   ): ConflictAnalysis => {

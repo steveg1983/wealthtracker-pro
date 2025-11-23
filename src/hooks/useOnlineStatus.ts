@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export function useOnlineStatus(): boolean {
+  const logger = useMemoizedLogger('useOnlineStatus');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     const handleOnline = (): void => {
       setIsOnline(true);
-      console.log('Connection restored');
+      logger.info?.('Connection restored');
     };
 
     const handleOffline = (): void => {
       setIsOnline(false);
-      console.log('Connection lost');
+      logger.warn?.('Connection lost');
     };
 
     window.addEventListener('online', handleOnline);
@@ -27,7 +29,7 @@ export function useOnlineStatus(): boolean {
       window.removeEventListener('app-online', handleOnline);
       window.removeEventListener('app-offline', handleOffline);
     };
-  }, []);
+  }, [logger]);
 
   return isOnline;
 }

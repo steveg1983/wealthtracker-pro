@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { enhancedCsvImportService } from '../services/enhancedCsvImportService';
 import { importRulesService } from '../services/importRulesService';
 import PageWrapper from '../components/PageWrapper';
 import EnhancedImportWizard from '../components/EnhancedImportWizard';
 import BatchImportModal from '../components/BatchImportModal';
 import ImportRulesManager from '../components/ImportRulesManager';
-import { 
+import {
   UploadIcon,
   FolderIcon,
   WrenchIcon,
@@ -15,8 +14,7 @@ import {
   PlayIcon,
   SettingsIcon,
   RefreshCwIcon,
-  AlertCircleIcon,
-  DollarSignIcon
+  AlertCircleIcon
 } from '../components/icons';
 
 export default function EnhancedImport() {

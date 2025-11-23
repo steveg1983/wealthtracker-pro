@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Theme, themes, getTheme, getThemeByMode } from './themes';
 import { applyTheme } from './utils';
@@ -7,7 +8,7 @@ interface ThemeContextValue {
   setTheme: (themeId: string) => void;
   setThemeByMode: (colorTheme: string, isDark: boolean) => void;
   availableThemes: typeof themes;
-  createCustomTheme: (name: string, baseThemeId: string, overrides: any) => void;
+  createCustomTheme: (name: string, baseThemeId: string, overrides: Partial<Theme['colors']>) => void;
   customThemes: Theme[];
 }
 
@@ -62,7 +63,7 @@ export function ThemeProvider({
     setTheme(theme.id);
   }, [setTheme]);
 
-  const createCustomTheme = useCallback((name: string, baseThemeId: string, overrides: any) => {
+  const createCustomTheme = useCallback((name: string, baseThemeId: string, overrides: Partial<Theme['colors']>) => {
     const baseTheme = getTheme(baseThemeId);
     const customTheme: Theme = {
       id: `custom-${Date.now()}`,

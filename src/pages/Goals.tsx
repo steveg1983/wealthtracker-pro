@@ -4,12 +4,11 @@ import GoalModal from "../components/GoalModal";
 import { TargetIcon, TrendingUpIcon, CalendarIcon } from "../components/icons";
 import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
 import { IconButton } from "../components/icons/IconButton";
-import HelpTooltip from "../components/HelpTooltip";
 import type { Goal } from "../types";
 import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/decimal-types";
 import PageWrapper from "../components/PageWrapper";
 import { calculateGoalProgress } from "../utils/calculations-decimal";
-import { Decimal, toDecimal } from "../utils/decimal";
+import { toDecimal } from "../utils/decimal";
 import { formatDecimal } from "../utils/decimal-format";
 import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
 import Confetti from "../components/Confetti";
@@ -20,7 +19,7 @@ import { usePreferences } from "../contexts/PreferencesContext";
 import AchievementHistory from "../components/AchievementHistory";
 
 export default function Goals() {
-  const { goals, accounts, deleteGoal, getDecimalGoals, getDecimalAccounts } = useApp();
+  const { goals, accounts: _accounts, deleteGoal, getDecimalGoals, getDecimalAccounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { addNotification, checkGoalProgress } = useNotifications();
   const { enableGoalCelebrations } = usePreferences();
@@ -38,7 +37,7 @@ export default function Goals() {
       checkGoalProgress(goals, previousGoals);
     }
     setPreviousGoals([...goals]);
-  }, [goals, checkGoalProgress]);
+  }, [goals, previousGoals, checkGoalProgress]);
 
   const handleEdit = (goal: Goal) => {
     setEditingGoal(goal);
@@ -56,11 +55,11 @@ export default function Goals() {
     setEditingGoal(undefined);
   };
 
-  const getProgressPercentage = (goal: Goal) => {
+  const getProgressPercentage = useCallback((goal: Goal) => {
     const decimalGoal = getDecimalGoals().find((g: DecimalGoal) => g.id === goal.id);
     if (!decimalGoal) return 0;
     return calculateGoalProgress(decimalGoal);
-  };
+  }, [getDecimalGoals]);
 
   const getDaysRemaining = (targetDate: Date) => {
     const today = new Date();
@@ -141,7 +140,7 @@ export default function Goals() {
         });
       }
     });
-  }, [activeGoals, addNotification, enableGoalCelebrations]);
+  }, [activeGoals, addNotification, enableGoalCelebrations, getProgressPercentage]);
 
   const decimalGoals = getDecimalGoals();
   const activeDecimalGoals = decimalGoals.filter((g: DecimalGoal) => {

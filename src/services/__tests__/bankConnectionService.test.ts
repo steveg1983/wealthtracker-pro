@@ -170,8 +170,8 @@ describe('BankConnectionService', () => {
     const logger = createLogger();
 
     expect(() => {
-      // eslint-disable-next-line no-new
-      new BankConnectionService({ storage: faultyStorage, logger });
+      const _service = new BankConnectionService({ storage: faultyStorage, logger });
+      return _service;
     }).not.toThrow();
 
     expect(logger.error).toHaveBeenCalled();

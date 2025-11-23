@@ -11,7 +11,7 @@ interface PlatformAwareComponentProps<TProps> {
  * Wrapper component that renders different components based on device type
  * This allows gradual migration to desktop-first approach
  */
-export function PlatformAwareComponent<TProps extends Record<string, any> = Record<string, any>>({
+export function PlatformAwareComponent<TProps extends Record<string, unknown> = Record<string, unknown>>({
   desktopComponent: DesktopComponent,
   mobileComponent: MobileComponent,
   props = {} as TProps

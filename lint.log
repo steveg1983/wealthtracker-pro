@@ -1,0 +1,1152 @@
+
+> wealth-tracker@1.4.5 lint
+> eslint .
+
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/AutomaticBackupSettings.tsx
+  42:6  warning  React Hook useEffect has a missing dependency: 'loadBackupData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/BudgetSummaryWidget.tsx
+  5:10  warning  'formatDecimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/DataInsights.tsx
+  51:6  warning  React Hook useEffect has a missing dependency: 'loadInsights'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/DataValidation.tsx
+  388:6  warning  React Hook useMemo has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/DragDropImport.tsx
+   13:10  warning  'importService' is defined but never used. Allowed unused vars must match /^_/u                                               @typescript-eslint/no-unused-vars
+   56:3   warning  'onImportComplete' is defined but never used. Allowed unused args must match /^_/u                                            @typescript-eslint/no-unused-vars
+   68:10  warning  'showUpload' is assigned a value but never used. Allowed unused vars must match /^_/u                                         @typescript-eslint/no-unused-vars
+   69:27  warning  'setSelectedAccount' is assigned a value but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+  243:6   warning  React Hook useCallback has an unnecessary dependency: 'importTransactions'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  246:9   warning  'handleMappingConfirm' is assigned a value but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/ExcelExport.tsx
+  1:17  warning  'useMemo' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/ImportDataModal.tsx
+  2:10  warning  'useApp' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/Layout.tsx
+  31:10  warning  'FloatingActionButton' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/MileageTracker.tsx
+  15:21  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/OFXImportModal.tsx
+   75:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  150:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/PlaidLink.tsx
+   88:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  122:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/QIFImportModal.tsx
+   66:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  139:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/RealtimeSyncTest.tsx
+  130:6  warning  React Hook useEffect has missing dependencies: 'dbUserId' and 'logger'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/RecurringTransactionModal.tsx
+  28:36  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  31:39  warning  'id' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/SelectableTransactionRow.tsx
+  80:22  warning  'id' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/SmartCategorization.tsx
+  44:11  warning  'formatCurrency' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/SubscriptionStatus.tsx
+  120:18  error    React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render  react-hooks/rules-of-hooks
+  121:32  warning  'newTier' is defined but never used. Allowed unused args must match /^_/u                                                   @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/SupabaseDataLoader.tsx
+  80:6  warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/VirtualizedList.tsx
+  32:11  warning  'ItemRendererProps' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/VirtualizedSearchResults.tsx
+  385:9  warning  The 'formatAmount' function makes the dependencies of useCallback Hook (at line 413) change on every render. Move it inside the useCallback callback. Alternatively, wrap the definition of 'formatAmount' in its own useCallback() Hook  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/charts/ChartJsCharts.tsx
+  183:81  warning  'fill' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/security/SecureField.tsx
+   53:6  warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+   62:6  warning  React Hook useEffect has a missing dependency: 'decryptValue'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  104:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/security/withSanitizedProps.tsx
+  6:22  warning  'ComponentProps' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/settings/OfflineSettings.tsx
+  18:6  warning  React Hook useEffect has a missing dependency: 'calculateCacheSize'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/widgets/DataIntelligenceWidget.tsx
+  55:6  warning  React Hook React.useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/AppContext.backup.tsx
+  694:7  warning  React Hook useMemo has an unnecessary dependency: 'decimalRecurringTransactions'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/AppContext.tsx
+  164:6  warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array                           react-hooks/exhaustive-deps
+  249:6  warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array                           react-hooks/exhaustive-deps
+  696:7  warning  React Hook useMemo has an unnecessary dependency: 'decimalRecurringTransactions'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/AppContextSupabase.tsx
+   13:10  warning  'formatCurrency' is defined but never used. Allowed unused vars must match /^_/u                                                @typescript-eslint/no-unused-vars
+  281:9   warning  'refreshData' is assigned a value but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+  660:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/AuthContext.tsx
+   32:34  warning  'getToken' is assigned a value but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+   75:6   warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array                       react-hooks/exhaustive-deps
+  109:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  118:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  132:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/LayoutContext.test.tsx
+  358:15  warning  'result' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/NotificationContext.tsx
+  203:15  warning  'message' is assigned a value but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+  220:6   warning  React Hook useCallback has a missing dependency: 'formatCurrency'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  238:6   warning  React Hook useCallback has a missing dependency: 'formatCurrency'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  294:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/PreferencesContext.test.tsx
+  6:8   warning  'React' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  8:10  warning  'screen' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  8:18  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:29  warning  'waitFor' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  8:38  warning  'render' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  9:8   warning  'userEvent' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/RealtimeSyncProvider.tsx
+  131:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  144:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/SubscriptionContext.tsx
+   20:3   warning  'SubscriptionTier' is defined but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+  100:6   warning  React Hook useEffect has a missing dependency: 'loadSubscriptionData'. Either include it or remove the dependency array         react-hooks/exhaustive-deps
+  212:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  257:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/ToastContext.tsx
+   3:10  warning  'getUserFriendlyError' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+  16:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/contexts/__tests__/CombinedProvider.test.tsx
+  139:11  warning  'providersRendered' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/data/defaultTestData.ts
+  19:7  warning  'PORTFOLIO_PRICES' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/data/generateTransactions.ts
+  8:10  warning  'addDays' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/data/newTestData.ts
+   19:7   warning  'PORTFOLIO_PRICES' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  353:10  warning  'addDays' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/design-system/ThemeProvider.tsx
+  124:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/__tests__/useCashFlowForecast.test.ts
+  12:31  warning  'RecurringPattern' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/__tests__/useDebounce.test.ts
+  202:28  warning  'index' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/__tests__/useLocalStorage.test.ts
+  31:13  warning  'result' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/__tests__/useRealTimePrices.test.ts
+  2:27  warning  'waitFor' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/__tests__/useReconciliation.test.ts
+  128:15  warning  'result' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  152:15  warning  'result' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useAccessibilityAudit.tsx
+  15:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useActivityLogger.ts
+   35:6   warning  React Hook useEffect has a missing dependency: 'transactions'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  121:33  warning  'event' is defined but never used. Allowed unused args must match /^_/u                                          @typescript-eslint/no-unused-vars
+  129:30  warning  'event' is defined but never used. Allowed unused args must match /^_/u                                          @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useActivityTracking.ts
+  72:6  warning  React Hook useEffect has missing dependencies: 'addActivity' and 'checkForNewActivities'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useCashFlowForecast.ts
+   4:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
+   4:24  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u                                        @typescript-eslint/no-unused-vars
+  85:6   warning  React Hook useEffect has a missing dependency: 'generateForecast'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useConflictResolution.ts
+  63:63  warning  'resolution' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useCurrency.ts
+  12:2  error  Parsing error: Property or signature expected
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useCurrencyDecimal.test.ts
+  7:22  warning  'waitFor' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  8:10  warning  'ReactNode' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useDataSync.ts
+   28:5   warning  'transactions' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   29:5   warning  'accounts' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   30:5   warning  'budgets' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   31:5   warning  'goals' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  145:48  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+  157:15  warning  'oldData' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  158:15  warning  'newData' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useEncryptedState.ts
+   21:11  warning  'autoDecrypt' is assigned a value but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+   49:6   warning  React Hook useEffect has a missing dependency: 'loadPersistedValue'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  100:9   warning  'getEncryptedString' is assigned a value but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+  105:9   warning  'clear' is assigned a value but never used. Allowed unused vars must match /^_/u                                       @typescript-eslint/no-unused-vars
+  116:9   warning  'exportEncryptedData' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+  121:9   warning  'importEncryptedData' is assigned a value but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+  140:59  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  145:42  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+  153:61  warning  Unexpected any. Specify a different type                                                                               @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useEnhancedSearch.ts
+  64:6  warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+  88:6  warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useErrorHandler.ts
+  6:2  error  Parsing error: Property or signature expected
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useHapticFeedback.tsx
+   42:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  163:6   warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array                     react-hooks/exhaustive-deps
+  397:31  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  432:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  465:16  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useKeyboardNavigation.ts
+   46:5   warning  'accounts' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                         @typescript-eslint/no-unused-vars
+   47:5   warning  'categories' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                       @typescript-eslint/no-unused-vars
+   50:25  warning  'setIsCommandMode' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                 @typescript-eslint/no-unused-vars
+   57:9   warning  'searchInputRef' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                   @typescript-eslint/no-unused-vars
+  296:9   warning  The 'allShortcuts' array makes the dependencies of useCallback Hook (at line 347) change on every render. To fix this, wrap the initialization of 'allShortcuts' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useLayoutConfig.ts
+  1:10  warning  'useMemo' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useLocalStorage.test.ts
+    7:27  warning  'waitFor' is defined but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
+  344:7   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  357:7   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useOptimisticUpdate.ts
+   44:24  warning  'setIsProcessing' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   50:21  warning  The ref value 'retryTimeouts.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'retryTimeouts.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+  148:16  warning  'error' is defined but never used                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  310:36  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  311:36  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  312:27  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/usePWAInstall.ts
+  12:2  error  Parsing error: Property or signature expected
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/usePerformanceMonitoring.ts
+  184:16  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/usePredictiveLoading.tsx
+    8:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   56:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   85:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  112:18  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  181:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  183:26  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  214:39  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  230:22  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  265:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  307:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  368:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useRealtimeSync.ts
+   17:8   warning  'RealtimeEvent' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   23:10  warning  'setTransactions' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   24:10  warning  'setAccounts' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   25:10  warning  'setBudgets' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   26:10  warning  'setGoals' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  369:16  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  372:25  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useSmartCache.ts
+   32:19  warning  'setIsStale' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                               @typescript-eslint/no-unused-vars
+  166:5   warning  React Hook useMemo was passed a dependency list that is not an array literal. This means we can't statically verify whether you've passed the correct dependencies  react-hooks/exhaustive-deps
+  166:5   warning  React Hook useMemo has a missing dependency: 'calculator'. Either include it or remove the dependency array                                                         react-hooks/exhaustive-deps
+  380:28  warning  Unexpected any. Specify a different type                                                                                                                            @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useStockPrices.ts
+    5:15  warning  'DecimalInstance' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+   63:6   warning  React Hook useCallback has a missing dependency: 'logger'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  133:6   warning  React Hook useEffect has a missing dependency: 'logger'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useSwipeGestures.ts
+  46:5  warning  'rotationAngle' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useSyncStatus.ts
+  27:31  warning  'event' is defined but never used. Allowed unused args must match /^_/u                                         @typescript-eslint/no-unused-vars
+  47:6   warning  React Hook useEffect has a missing dependency: 'triggerSync'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  60:6   warning  React Hook useEffect has a missing dependency: 'triggerSync'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/hooks/useUserId.ts
+  108:6  warning  React Hook useEffect has a missing dependency: 'fetchDatabaseId'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/lib/stripe-webhooks.ts
+  323:9  warning  'paymentMethod' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/main-simple.tsx
+  9:10  warning  Fast refresh only works when a file has exports. Move your component(s) to a separate file  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/main.tsx
+  101:5  warning  'swRegistration' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/AccountTransactions.tsx
+    6:37   warning  'ChevronUpIcon' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                         @typescript-eslint/no-unused-vars
+    6:52   warning  'ChevronDownIcon' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                       @typescript-eslint/no-unused-vars
+    6:171  warning  'MinimizeIcon' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                          @typescript-eslint/no-unused-vars
+    6:185  warning  'MaximizeIcon' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                          @typescript-eslint/no-unused-vars
+   19:24   warning  'setCompactView' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                                                               @typescript-eslint/no-unused-vars
+  252:28   warning  Unexpected any. Specify a different type                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  304:9    warning  The 'getCategoryName' function makes the dependencies of useMemo Hook (at line 414) change on every render. Move it inside the useMemo callback. Alternatively, wrap the definition of 'getCategoryName' in its own useCallback() Hook  react-hooks/exhaustive-deps
+  628:31   warning  Unexpected any. Specify a different type                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+  630:30   warning  'index' is defined but never used. Allowed unused args must match /^_/u                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  645:39   warning  'index' is defined but never used. Allowed unused args must match /^_/u                                                                                                                                                                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Analytics.tsx
+   49:35  warning  'categories' is assigned a value but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+  143:6   warning  React Hook useCallback has a missing dependency: 'accounts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  234:27  warning  'chartConfig' is defined but never used. Allowed unused args must match /^_/u                                  @typescript-eslint/no-unused-vars
+  309:57  warning  Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  526:34  warning  Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Budget.test.tsx
+   7:10  warning  'render' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   7:26  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  10:31  warning  'createMockAccount' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  10:50  warning  'createMockTransaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Budget.tsx
+    8:10  warning  'InlineHelp' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+  191:6   warning  React Hook useMemo has a missing dependency: 'formatCurrency'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/BusinessFeatures.tsx
+   11:3   warning  'PlusIcon' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   13:3   warning  'AlertCircleIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   14:3   warning  'CheckCircleIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   15:3   warning  'ClockIcon' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   23:21  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  246:76  warning  'index' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/CustomReports.tsx
+   16:3   warning  'DownloadIcon' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   28:10  warning  'generatedData' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   28:54  warning  Unexpected any. Specify a different type                                                  @typescript-eslint/no-explicit-any
+  106:14  warning  'error' is defined but never used                                                         @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Dashboard.tsx
+  20:10  warning  'supabaseConnected' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  42:18  warning  'err' is defined but never used                                                               @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/DashboardOptimized.tsx
+   1:47  warning  'useMemo' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+   3:10  warning  'TrendingUpIcon' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   3:26  warning  'TrendingDownIcon' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   3:58  warning  'GridIcon' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   3:68  warning  'BarChart3Icon' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   3:83  warning  'DatabaseIcon' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   7:10  warning  'useReconciliation' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   9:24  warning  'SkeletonText' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+  10:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+  10:24  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+  11:15  warning  'ReportSettings' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  17:9   warning  'module' is assigned a value but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  22:7   warning  'DraggableGrid' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  23:7   warning  'GridItem' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  26:7   warning  'DashboardModal' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  27:7   warning  'EditTransactionModal' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  47:11  warning  'accounts' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  47:21  warning  'transactions' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  48:22  warning  'setFirstName' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  48:36  warning  'setCurrency' is assigned a value but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  49:27  warning  'convertAndSum' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  49:42  warning  'displayCurrency' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  50:11  warning  'layouts' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  50:20  warning  'updateDashboardLayout' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  50:43  warning  'resetDashboardLayout' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  51:9   warning  'navigate' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  56:10  warning  'showLayoutControls' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  56:30  warning  'setShowLayoutControls' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/DashboardRedux.tsx
+    3:58  warning  'GridIcon' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    6:10  warning  'PieChart' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    6:20  warning  'Pie' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    6:25  warning  'Cell' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+    6:31  warning  'ResponsiveContainer' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+    6:52  warning  'Tooltip' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    6:61  warning  'BarChart' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    6:71  warning  'Bar' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    6:76  warning  'XAxis' is defined but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+    6:83  warning  'YAxis' is defined but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+    6:90  warning  'CartesianGrid' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+    8:10  warning  'useReconciliation' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   10:10  warning  'DraggableGrid' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   11:10  warning  'GridItem' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   12:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+   15:8   warning  'DashboardModal' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   16:8   warning  'EditTransactionModal' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   17:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   32:27  warning  'convertAndSum' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   32:42  warning  'displayCurrency' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   33:11  warning  'layouts' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   33:20  warning  'updateDashboardLayout' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   33:43  warning  'resetDashboardLayout' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   37:10  warning  'isLoading' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   40:10  warning  'showLayoutControls' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   40:30  warning  'setShowLayoutControls' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   61:10  warning  'dashboardModal' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   61:26  warning  'setDashboardModal' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  111:9   warning  'netIncome' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/DataIntelligence.tsx
+   8:3  warning  'TagIcon' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  14:3  warning  'XCircleIcon' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  16:3  warning  'DollarSignIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  17:3  warning  'EyeIcon' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  18:3  warning  'ShieldIcon' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/EnhancedImport.tsx
+   2:10  warning  'enhancedCsvImportService' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  19:3   warning  'DollarSignIcon' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/EnhancedInvestments.tsx
+   26:11  warning  'accounts' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  202:9   warning  'renderDividends' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/ExportManager.tsx
+  10:3  warning  'MailIcon' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  11:3  warning  'SettingsIcon' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  13:3  warning  'EditIcon' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  17:3  warning  'EyeIcon' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  18:3  warning  'CopyIcon' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  19:3  warning  'CheckCircleIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  20:3  warning  'AlertCircleIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/FinancialPlanning.tsx
+   13:3   warning  'CalendarIcon' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   14:3   warning  'DollarSignIcon' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   42:10  warning  'mortgageCalculations' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   43:10  warning  'collegePlans' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  384:29  warning  'projection' is assigned a value but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Forecasting.tsx
+  14:3  warning  'BarChart3Icon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Goals.tsx
+    7:8   warning  'HelpTooltip' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+   12:10  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u                                                 @typescript-eslint/no-unused-vars
+   23:18  warning  'accounts' is assigned a value but never used. Allowed unused vars must match /^_/u                                       @typescript-eslint/no-unused-vars
+   41:6   warning  React Hook useEffect has a missing dependency: 'previousGoals'. Either include it or remove the dependency array          react-hooks/exhaustive-deps
+  144:6   warning  React Hook useEffect has a missing dependency: 'getProgressPercentage'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Investments.tsx
+  6:8  warning  'RealTimePortfolio' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/OpenBanking.tsx
+  1:27  warning  'useEffect' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  6:32  warning  'ClockIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Reconciliation.tsx
+  5:10  warning  'preserveDemoParam' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Reports.test.tsx
+   7:10  warning  'render' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   7:26  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  10:31  warning  'createMockAccount' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  10:50  warning  'createMockTransaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Transactions.test.tsx
+   7:10  warning  'render' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   7:26  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  10:31  warning  'createMockAccount' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  10:50  warning  'createMockTransaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/Transactions.tsx
+   14:36  warning  'XIcon' is defined but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
+   19:10  warning  'TransactionCard' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+   22:7   warning  'MobileTransactionList' is assigned a value but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   30:24  warning  'setCompactView' is assigned a value but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+   48:26  warning  'setBulkSelectMode' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+  161:6   warning  React Hook useCallback has a missing dependency: 'columnConfig'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/settings/AccessibilitySettings.tsx
+  10:9  warning  'preferencesContext' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/settings/AuditLogs.tsx
+  32:6  warning  React Hook useEffect has a missing dependency: 'applyFilters'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/settings/DeletedAccounts.tsx
+   8:10  warning  'AccountService' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  17:21  warning  'activeAccounts' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  17:37  warning  'updateAccount' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/settings/Notifications.tsx
+  9:10  warning  'BellIcon' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/settings/SecuritySettings.tsx
+  78:16  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pages/settings/ThemeSettings.tsx
+   8:3   warning  'MapPinIcon' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+  18:3   warning  'CheckCircleIcon' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  19:3   warning  'AlertCircleIcon' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  35:10  warning  'showCreatePreset' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  36:10  warning  'editingSchedule' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  97:9   warning  'handleCreateSchedule' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/pwa/service-worker.ts
+   10:25  warning  'NavigationRoute' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   14:3   warning  'StaleWhileRevalidate' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   26:11  warning  'SyncQueueItem' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   44:11  warning  'ConflictResolution' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   51:7   warning  'PRECACHE_NAME' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   60:7   warning  'syncQueue' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  229:3   warning  'db' is defined but never used. Allowed unused args must match /^_/u                      @typescript-eslint/no-unused-vars
+  456:17  warning  'data' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/security/__tests__/encryption.test.ts
+    7:8   warning  'CryptoJS' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  175:13  warning  'encrypted' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/security/csp.ts
+   42:7  warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  215:7  warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/security/index.ts
+  29:7  warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/security/rate-limiting.ts
+  311:17  warning  'options' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/security/xss-protection.ts
+   26:7   warning  'MARKDOWN_CONFIG' is assigned a value but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+  277:35  warning  'initialValue' is assigned a value but never used. Allowed unused args must match /^_/u                              @typescript-eslint/no-unused-vars
+  304:3   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  307:84  warning  'config' is defined but never used. Allowed unused args must match /^_/u                                             @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/bankConnectionService.test.ts
+  173:7  warning  Unused eslint-disable directive (no problems were reported from 'no-new')
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/exportService.test.ts
+  3:15  warning  'ExportTemplate' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/importRulesService.test.ts
+  8:27  warning  'ImportRuleCondition' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:48  warning  'ImportRuleAction' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/predictiveLoadingService.test.ts
+   43:80   warning  'timeout' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+   43:101  warning  'args' is defined but never used. Allowed unused args must match /^_/u      @typescript-eslint/no-unused-vars
+  247:48   warning  'callback' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/realtimePriceService.subscribe.test.ts
+  9:8  warning  'PriceUpdate' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/syncService.test.ts
+  26:47  warning  'timeout' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/__tests__/validationService.test.ts
+  200:13  warning  'invalidBudget' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/advancedAnalyticsService.ts
+    4:10  warning  'startOfMonth' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  178:5   warning  'accounts' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+  258:11  warning  'today' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  458:5   warning  'monthsToPredict' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  507:31  warning  'key' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+  533:35  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  538:33  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  543:35  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  548:37  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  561:34  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  561:63  warning  'accounts' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+  574:52  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  588:34  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  600:34  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  605:30  warning  'transactions' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/analyticsEngine.ts
+    6:10  warning  'Matrix' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   10:3   warning  'startOfMonth' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   14:3   warning  'differenceInDays' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   18:3   warning  'startOfQuarter' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   19:3   warning  'endOfQuarter' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   20:3   warning  'startOfYear' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   21:3   warning  'endOfYear' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   24:3   warning  'eachMonthOfInterval' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   25:3   warning  'eachQuarterOfInterval' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   27:37  warning  'Budget' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   27:45  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   28:10  warning  'toDecimal' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   29:15  warning  'DecimalInstance' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  309:56  warning  'x' is defined but never used. Allowed unused args must match /^_/u                      @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/anomalyDetectionService.ts
+  475:15  warning  'dayOfWeek' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  515:41  warning  'key' is defined but never used. Allowed unused args must match /^_/u                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/api/simpleAccountService.ts
+  202:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  228:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  256:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/autoSyncService.ts
+  363:27  warning  'userId' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  363:43  warning  'localData' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/automaticBackupService.ts
+  536:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/bankConnectionService.ts
+    1:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    1:24  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  121:25  warning  'country' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  212:29  warning  'code' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+  212:43  warning  'state' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/budgetCalculationService.test.ts
+  9:29  warning  'BudgetSpending' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/businessService.ts
+  2:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  2:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/cashFlowForecastService.test.ts
+   6:32  warning  'beforeEach' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  11:10  warning  'addDays' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/cashFlowForecastService.ts
+  4:80  warning  'startOfMonth' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  4:94  warning  'endOfMonth' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/collaborationService.ts
+    1:10  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    1:23  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+    1:40  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  346:20  warning  'householdId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/conflictResolutionService.ts
+    7:19  warning  'differenceWith' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+    7:35  warning  'intersectionWith' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  223:5   warning  'entityType' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+  340:13  warning  'serverTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/customReportService.ts
+    4:101  warning  'subYears' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  185:14   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  341:5    warning  'dateRange' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  342:5    warning  'config' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  412:5    warning  'config' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  468:5    warning  'config' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/dataIntelligenceService.ts
+  1:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  2:28  warning  'Category' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/debtCalculationService.ts
+  410:11  warning  'monthlyRate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/dividendService.ts
+  372:47  warning  'symbol' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/encryptedStorageService.test.ts
+    9:8   warning  'CryptoJS' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  467:13  warning  'newService' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  479:13  warning  'newService' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/encryptedStorageService.ts
+    9:6   warning  'NavigatorStorage' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  232:18  warning  'error' is defined but never used                                                   @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/enhancedCsvImportService.test.ts
+  13:3  warning  'ImportResult' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  14:3  warning  'ParseResult' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  15:3  warning  'DuplicateCheckResult' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/exportService.ts
+    3:7   warning  'html2canvas' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    4:37  warning  'Category' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+    5:31  warning  'GroupedData' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  390:46  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  393:41  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  480:13  warning  'remaining' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  513:86  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  551:33  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  770:44  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/financialPlanningService.ts
+  2:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/financialSummaryService.test.ts
+   9:15  warning  'SummaryData' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  10:60  warning  'subWeeks' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  10:70  warning  'subMonths' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/householdService.ts
+    1:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+    1:37  warning  'Budget' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    1:45  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  105:43  warning  Unexpected any. Specify a different type                                                      @typescript-eslint/no-explicit-any
+  115:56  warning  Unexpected any. Specify a different type                                                      @typescript-eslint/no-explicit-any
+  124:62  warning  Unexpected any. Specify a different type                                                      @typescript-eslint/no-explicit-any
+  399:11  warning  'totalHouseholdNet' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/investmentEnhancementService.test.ts
+  9:15  warning  'RebalancingSuggestion' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  9:38  warning  'RiskMetrics' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  9:51  warning  'DividendInfo' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  9:65  warning  'BenchmarkComparison' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  9:86  warning  'ESGScore' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/investmentEnhancementService.ts
+    1:22  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+    2:21  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  263:11  warning  'esgRatings' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/localMerchantLogoService.ts
+  1:22  warning  'getBrandByDomain' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  1:40  warning  'getBrandByKeyword' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/mobileService.ts
+    1:23  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  125:11  warning  Unused eslint-disable directive (no problems were reported from 'no-new')
+  268:30  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/notificationService.ts
+    1:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+    2:42  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  443:11  warning  'now' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/ocrService.ts
+  310:36  warning  'file' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/offlineDataService.ts
+  245:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  321:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/offlineService.test.ts
+  59:17  warning  'storeNames' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/ofxImportService.ts
+    1:10  warning  'toDecimal' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  246:11  warning  'expenseTypes' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/performanceOptimizationService.ts
+  170:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/performanceService.ts
+   32:11  warning  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+  103:60  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  107:16  warning  'e' is defined but never used                                     @typescript-eslint/no-unused-vars
+  123:16  warning  'e' is defined but never used                                     @typescript-eslint/no-unused-vars
+  132:28  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  133:37  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  139:16  warning  'e' is defined but never used                                     @typescript-eslint/no-unused-vars
+  154:16  warning  'e' is defined but never used                                     @typescript-eslint/no-unused-vars
+  172:46  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  182:16  warning  'e' is defined but never used                                     @typescript-eslint/no-unused-vars
+  234:46  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  275:25  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+  283:14  warning  'e' is defined but never used                                     @typescript-eslint/no-unused-vars
+  470:41  warning  Unexpected any. Specify a different type                          @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/plaidService.ts
+  142:25  warning  'userId' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  154:29  warning  'publicToken' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  292:65  warning  'endDate' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  466:36  warning  'accessToken' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  466:57  warning  'itemId' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+  479:42  warning  'endpoint' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  479:60  warning  'params' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/portfolioCalculationService.test.ts
+  6:44  warning  'vi' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  9:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/portfolioCalculationService.ts
+  253:5   warning  'transactions' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  389:25  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  394:31  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/portfolioRebalanceService.test.ts
+   2:32  warning  'AssetClassMapping' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   2:68  warning  'RebalanceAction' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  23:7   warning  'consoleErrorSpy' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/predictiveLoadingService.ts
+  619:29  warning  'key' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/pushNotificationService.ts
+  8:10  warning  'getRegistration' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/qifImportService.test.ts
+  263:32  warning  'trx4' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/qifImportService.ts
+  1:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/realtimeService.ts
+  208:5  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  272:5  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  336:5  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  400:5  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/scheduledReportService.ts
+    5:10  warning  'format' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  359:7   warning  Unused eslint-disable directive (no problems were reported from 'no-new')
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/searchService.test.ts
+  634:15  warning  'today' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/sharedFinanceService.ts
+  2:33  warning  'HouseholdMember' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/smartCacheService.ts
+   71:7   warning  'staleWhileRevalidate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  145:7   warning  'dependencies' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  246:25  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  338:35  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  348:49  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  411:28  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  452:28  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  471:37  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  512:65  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  572:7   warning  'SimpleLRUCache' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/smartCategorizationService.test.ts
+  374:13  warning  'mcdonaldsResult' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/smartCategorizationService.ts
+  28:54  warning  'categories' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/stockPriceService.test.ts
+   16:8   warning  'StockQuote' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   17:8   warning  'PortfolioMetrics' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   94:50  warning  'options' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+  254:18  warning  'error' is defined but never used                                                   @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/stockPriceService.ts
+  306:11  warning  'results' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  317:37  warning  'index' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/storageAdapter.ts
+    3:15  warning  'ExportableData' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  278:46  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  283:41  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  326:6   warning  React Hook useEffect has an unnecessary dependency: 'storageAdapter.isReady'. Either exclude it or remove the dependency array. Outer scope values like 'storageAdapter.isReady' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/stripeService.ts
+   15:3   warning  'SubscriptionTier' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   23:3   warning  'Invoice' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  321:5   warning  'request' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+  556:49  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/subscriptionApiService.ts
+  19:3  warning  'PaymentMethod' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  22:3  warning  'SubscriptionPreview' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  62:5  warning  'request' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+  91:5  warning  'subscriptionId' is defined but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  92:5  warning  'request' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/supabaseService.ts
+  19:11  warning  'SupabaseTableQuery' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/supabaseSubscriptionService.ts
+   17:3   warning  'SubscriptionTier' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+   18:3   warning  'SubscriptionStatus' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  175:14  warning  Unexpected any. Specify a different type                                              @typescript-eslint/no-explicit-any
+  196:12  warning  Unexpected any. Specify a different type                                              @typescript-eslint/no-explicit-any
+  459:61  warning  Unexpected any. Specify a different type                                              @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/themeSchedulingService.ts
+  570:13  warning  'currentTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  595:13  warning  'currentTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/transactionAnalyticsService.ts
+    3:38  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  225:11  warning  'endDate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  291:5   warning  'categories' is defined but never used. Allowed unused args must match /^_/u        @typescript-eslint/no-unused-vars
+  306:36  warning  'categoryId' is defined but never used. Allowed unused args must match /^_/u        @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/services/validationService.ts
+  4:3  warning  'sanitizeNumber' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  5:3  warning  'sanitizeDecimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  6:3  warning  'sanitizeDate' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  8:3  warning  'sanitizeQuery' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/__tests__/slices.test.ts
+   82:15  warning  'RootState' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  602:13  warning  'accountsState' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/hooks/useAppRedux.ts
+  11:10  warning  'saveTags' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  14:17  warning  'addAccountAction' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  15:20  warning  'updateAccountAction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  16:20  warning  'deleteAccountAction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  23:16  warning  'addBudgetAction' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  37:14  warning  'addGoalAction' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/middleware/syncMiddleware.ts
+  66:44  warning  'store' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/accountsSlice.test.ts
+  8:25  warning  'loadAccounts' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/accountsSlice.ts
+   2:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  71:30  warning  'state' is defined but never used. Allowed unused args must match /^_/u    @typescript-eslint/no-unused-vars
+  71:37  warning  'action' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  71:59  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/budgetsSlice.test.ts
+  8:96   warning  'loadBudgets' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:109  warning  'saveBudgets' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/categoriesSlice.test.ts
+  8:89   warning  'loadCategories' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:105  warning  'saveCategories' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/goalsSlice.test.ts
+  8:87  warning  'loadGoals' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:98  warning  'saveGoals' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/goalsSlice.ts
+  4:31  warning  'toISOString' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/layoutSlice.test.ts
+  244:13  warning  'errorReducer' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/transactionsSlice.test.ts
+  9:3  warning  'loadTransactions' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/slices/transactionsSlice.ts
+  3:8  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/thunks/index.ts
+   17:21  warning  'addTransactionAction' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   18:24  warning  'updateTransactionAction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   19:24  warning  'deleteTransactionAction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   25:3   warning  'updateAccountBalance' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   37:27  warning  'saveTags' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  267:11  warning  Unexpected any. Specify a different type                                                   @typescript-eslint/no-explicit-any
+  282:11  warning  Unexpected any. Specify a different type                                                   @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/store/thunks/supabaseThunks.ts
+   84:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+   93:62  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   93:79  warning  'dispatch' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+  169:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  182:24  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  239:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+  248:54  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  321:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  334:24  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  391:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+  400:68  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  466:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+  475:72  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/decimal-integration.test.tsx
+   2:10  warning  'render' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   2:18  warning  'screen' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   3:10  warning  'BrowserRouter' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   4:8   warning  'App' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   8:3   warning  'toDecimalTransaction' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  10:3   warning  'fromDecimalTransaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/ComponentInteraction.test.tsx
+   77:7   warning  'localStorageMock' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  131:15  warning  'rerender' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/CoreIntegration.test.tsx
+  8:10  warning  'toDecimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/CriticalWorkflows.test.tsx
+  2:26  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  9:45  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/DataFlow.test.tsx
+   3:10  warning  'BrowserRouter' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  98:13  warning  'setItemSpy' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/DecimalFinancialIntegration.test.tsx
+  2:26  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/ErrorHandlingIntegration.test.tsx
+  566:18  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/InvestmentPortfolioIntegration.test.tsx
+   1:35  warning  'within' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  40:9   warning  'user' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/SimpleIntegration.test.tsx
+    2:26  warning  'fireEvent' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+    9:70  warning  'createMockGoal' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  165:13  warning  'accounts' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/UserWorkflowIntegration.test.tsx
+  265:7   warning  'localStorageMock' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  284:15  warning  'store' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  302:15  warning  'store' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  322:15  warning  'store' is assigned a value but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/integration/test-utils.tsx
+    5:32  warning  'Route' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+   20:10  warning  'AppProvider' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   21:10  warning  'BudgetProvider' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   22:10  warning  'NotificationProvider' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   23:10  warning  'PreferencesProvider' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   24:10  warning  'SecurityProvider' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   25:10  warning  'InvestmentProvider' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   26:10  warning  'BillProvider' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   27:10  warning  'ThemeProvider' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   28:10  warning  'BackupProvider' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   29:10  warning  'GoalProvider' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   30:10  warning  'RecurringTransactionProvider' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   34:20  warning  Unexpected any. Specify a different type                                                        @typescript-eslint/no-explicit-any
+  216:1   warning  This rule can't verify that `export *` only exports components                                  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/sentry-simple.test.ts
+  1:32  warning  'vi' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/setup.ts
+  145:6   warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  152:15  warning  'callback' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  156:6   warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+  197:15  warning  'callback' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  203:6   warning  Unexpected any. Specify a different type                                    @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/test-utils.tsx
+   9:7  warning  Fast refresh only works when a file only exports components. Move your component(s) to a separate file  react-refresh/only-export-components
+  29:1  warning  This rule can't verify that `export *` only exports components                                          react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/test/testUtils.tsx
+   20:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   33:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   43:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   58:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   72:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   85:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  112:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  133:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  150:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  209:33  warning  Unexpected any. Specify a different type                                                                                        @typescript-eslint/no-explicit-any
+  212:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  234:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  239:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  249:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  259:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  261:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  278:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  334:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  342:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  357:1   warning  This rule can't verify that `export *` only exports components                                                                  react-refresh/only-export-components
+  358:10  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/types/__tests__/money.test.ts
+  40:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/calculations-decimal.test.ts
+   3:6  warning  'DecimalInstance' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  12:3  warning  'getTransactionsByCategory' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  13:3  warning  'getTransactionsByDateRange' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  15:3  warning  'calculateMonthlyAverage' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  16:3  warning  'calculateAccountTotals' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  23:3  warning  'calculateCategoryTrends' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/calculations.test.ts
+  12:3   warning  'calculateAverageTransactionAmount' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  13:3   warning  'calculateMonthlyAverage' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  16:3   warning  'groupTransactionsByDate' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  17:3   warning  'calculateAccountTotals' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  20:3   warning  'getRecentTransactions' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  21:3   warning  'getTopCategories' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+  22:3   warning  'calculateDailyBalance' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  23:3   warning  'calculateMonthlyTrends' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  24:3   warning  'calculateCategoryTrends' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  26:10  warning  'formatCurrency' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/csvImport.test.ts
+  6:24  warning  'expect' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+  6:32  warning  'beforeEach' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  6:44  warning  'vi' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+  7:10  warning  'importTransactionsFromCSV' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/currency-decimal.test.ts
+  7:3  warning  'convertCurrency' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  8:3  warning  'convertMultipleCurrencies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/financialCalculations.test.ts
+    7:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  356:13  warning  'daysInMonth' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/formatters.test.ts
+  6:24  warning  'expect' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  6:32  warning  'beforeEach' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  6:44  warning  'vi' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  7:10  warning  'formatCurrency' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/__tests__/reconciliation.test.ts
+  6:24  warning  'expect' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  6:32  warning  'beforeEach' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  6:44  warning  'vi' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+  7:10  warning  'mockBankTransactions' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/accessibility-audit.ts
+  140:13  warning  'backgroundColor' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/clerkSafarifix.ts
+   37:12  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+   49:12  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  139:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/csvExport.ts
+  3:10  warning  'toNumber' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/csvImport.test.ts
+  8:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/csvImport.ts
+  1:10  warning  'toDecimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/demoData.ts
+  156:7  warning  'transactionCategories' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/pdfExport.ts
+    6:10  warning  'toDecimal' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+    6:21  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  242:11  warning  'account' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/src/utils/touchTargets.tsx
+  6:26  warning  'touchTargetClasses' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 706 problems (4 errors, 702 warnings)
+  0 errors and 4 warnings potentially fixable with the `--fix` option.
+

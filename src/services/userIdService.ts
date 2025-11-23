@@ -17,8 +17,9 @@
 
 import { supabase, isSupabaseConfigured } from './api/supabaseClient';
 import { UserService } from './api/userService';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
-const userIdLogger = typeof console !== 'undefined' ? console : { log: () => {}, warn: () => {}, error: () => {} };
+const userIdLogger = createScopedLogger('UserIdService');
 
 // Types for clarity
 export type ClerkUserId = string; // Format: "user_2abc123..."
@@ -50,18 +51,18 @@ class UserIdService {
     // Check cache first
     const cached = this.cache.get(clerkId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      userIdLogger.log('[UserIdService] Using cached database ID for Clerk ID:', clerkId);
+      userIdLogger.info('Using cached database ID for Clerk ID', { clerkId });
       return cached.databaseId;
     }
 
     // If not using Supabase, return null (localStorage mode)
     if (!isSupabaseConfigured() || !supabase) {
-      userIdLogger.log('[UserIdService] Supabase not configured, using localStorage mode');
+      userIdLogger.info('Supabase not configured, using localStorage mode');
       return null;
     }
 
     try {
-      userIdLogger.log('[UserIdService] Fetching database ID for Clerk ID:', clerkId);
+      userIdLogger.info('Fetching database ID for Clerk ID', { clerkId });
       
       // Query the users table to get the database ID
       const { data: user, error } = await supabase
@@ -72,15 +73,15 @@ class UserIdService {
 
       if (error) {
         if (error.code === 'PGRST116') { // Not found
-          userIdLogger.log('[UserIdService] User not found for Clerk ID:', clerkId);
+          userIdLogger.info('User not found for Clerk ID', { clerkId });
           return null;
         }
-        userIdLogger.error('[UserIdService] Error fetching user:', error);
+        userIdLogger.error('Error fetching user', error);
         return null;
       }
 
       if (!user) {
-        userIdLogger.log('[UserIdService] No user found for Clerk ID:', clerkId);
+        userIdLogger.info('No user found for Clerk ID', { clerkId });
         return null;
       }
 
@@ -91,10 +92,10 @@ class UserIdService {
         timestamp: Date.now()
       });
 
-      userIdLogger.log('[UserIdService] Found database ID:', user.id, 'for Clerk ID:', clerkId);
+      userIdLogger.info('Found database ID for Clerk user', { clerkId, databaseId: user.id });
       return user.id;
     } catch (error) {
-      userIdLogger.error('[UserIdService] Failed to get database user ID:', error);
+      userIdLogger.error('Failed to get database user ID', error);
       return null;
     }
   }
@@ -121,7 +122,7 @@ class UserIdService {
       this.currentDatabaseId = fetchedId;
     }
 
-    userIdLogger.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', this.currentDatabaseId);
+    userIdLogger.info('Current user set', { clerkId, databaseId: this.currentDatabaseId });
   }
 
   /**
@@ -158,7 +159,7 @@ class UserIdService {
     this.cache.clear();
     this.currentClerkId = null;
     this.currentDatabaseId = null;
-    userIdLogger.log('[UserIdService] Cache cleared');
+    userIdLogger.info('User ID cache cleared');
   }
 
   /**
@@ -182,7 +183,7 @@ class UserIdService {
       
       if (!databaseId) {
         // User doesn't exist, create them
-        userIdLogger.log('[UserIdService] User not found, creating new user');
+        userIdLogger.info('User not found, creating new user');
         const user = await UserService.getOrCreateUser(clerkId, email, firstName, lastName);
         
         if (user) {

@@ -26,8 +26,9 @@ export const initializeSecurity = () => {
       setupCSPReporting();
       
       // Apply CSP meta tag for additional client-side protection
-      // @ts-ignore - Safari might not support import.meta.env
-      const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
+      const isProduction =
+        typeof import.meta !== 'undefined' &&
+        (import.meta as ImportMeta & { env?: { MODE?: string } }).env?.MODE === 'production';
       if (isProduction) {
         applyCSPMetaTag();
       }

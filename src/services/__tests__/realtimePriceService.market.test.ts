@@ -11,15 +11,23 @@ import {
 const noopInterval = () => ({} as NodeJS.Timeout);
 const noopClear = () => {};
 
-const createService = (options: Partial<RealTimePriceServiceOptions> = {}) =>
-  new RealTimePriceService({
+const createService = (options: Partial<RealTimePriceServiceOptions> = {}) => {
+  const logger = {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn()
+  };
+  return new RealTimePriceService({
     defaultUpdateFrequency: 1000,
     marketStatusCheckIntervalMs: 200,
     enableMarketStatusCheck: false,
     setIntervalFn: noopInterval,
     clearIntervalFn: noopClear,
+    logger,
     ...options
   });
+};
 
 describe('RealTimePriceService - market + frequency', () => {
   let service: RealTimePriceService;
@@ -42,13 +50,20 @@ describe('RealTimePriceService - market + frequency', () => {
 
     it('schedules periodic checks when enabled', () => {
       const setIntervalSpy = vi.fn(noopInterval);
+      const logger = {
+        error: vi.fn(),
+        warn: vi.fn(),
+        info: vi.fn(),
+        debug: vi.fn()
+      };
 
       service = new RealTimePriceService({
         enableMarketStatusCheck: true,
         marketStatusCheckIntervalMs: 200,
         now: () => new Date('2025-01-21T15:00:00Z'),
         setIntervalFn: setIntervalSpy,
-        clearIntervalFn: noopClear
+        clearIntervalFn: noopClear,
+        logger
       });
 
       expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 200);
@@ -61,8 +76,8 @@ describe('RealTimePriceService - market + frequency', () => {
     });
 
     it('sets custom frequency', () => {
-      service.setUpdateFrequency(5000);
-      expect(service['updateFrequency']).toBe(5000);
+      service.setUpdateFrequency(20000);
+      expect(service['updateFrequency']).toBe(20000);
     });
 
     it('enforces minimum frequency', () => {

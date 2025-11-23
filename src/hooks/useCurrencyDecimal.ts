@@ -8,6 +8,7 @@ import {
 } from '../utils/currency-decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { toDecimal } from '../utils/decimal';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export function useCurrencyDecimal(): {
   formatCurrency: (amount: DecimalInstance | number, originalCurrency?: string) => string;
@@ -18,6 +19,7 @@ export function useCurrencyDecimal(): {
   getCurrencySymbol: (currency: string) => string;
 } {
   const { currency: displayCurrency } = usePreferences();
+  const logger = useMemoizedLogger('useCurrencyDecimal');
 
   // Format amount in display currency (accepts Decimal or number)
   const formatCurrency = useCallback((amount: DecimalInstance | number, originalCurrency?: string) => {
@@ -35,10 +37,10 @@ export function useCurrencyDecimal(): {
       const converted = await convertCurrency(amount, fromCurrency, displayCurrency);
       return formatCurrency(converted, displayCurrency);
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error?.('Currency conversion error', error);
       return formatCurrency(amount, fromCurrency) + ' (!)';
     }
-  }, [displayCurrency, formatCurrency]);
+  }, [displayCurrency, formatCurrency, logger]);
 
   // Convert amount to display currency (returns Decimal)
   const convert = useCallback(async (amount: DecimalInstance | number, fromCurrency: string): Promise<DecimalInstance> => {
@@ -49,10 +51,10 @@ export function useCurrencyDecimal(): {
     try {
       return await convertCurrency(amount, fromCurrency, displayCurrency);
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error?.('Currency conversion error', error);
       return toDecimal(amount);
     }
-  }, [displayCurrency]);
+  }, [displayCurrency, logger]);
 
   // Convert multiple amounts to display currency and sum them
   const convertAndSum = useCallback(async (amounts: Array<{ amount: DecimalInstance | number; currency: string }>): Promise<DecimalInstance> => {
@@ -60,11 +62,11 @@ export function useCurrencyDecimal(): {
       const total = await convertMultipleCurrencies(amounts, displayCurrency);
       return total;
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error?.('Currency conversion error', error);
       // Fallback: just sum amounts without conversion
       return amounts.reduce((sum, item) => sum.plus(item.amount), toDecimal(0));
     }
-  }, [displayCurrency]);
+  }, [displayCurrency, logger]);
 
   return useMemo(() => ({
     formatCurrency,

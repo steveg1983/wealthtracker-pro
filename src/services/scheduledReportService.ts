@@ -2,7 +2,7 @@ import { customReportService } from './customReportService';
 import { exportService } from './exportService';
 import type { CustomReport } from '../components/CustomReportBuilder';
 import type { Transaction, Account, Budget, Category } from '../types';
-import { format } from 'date-fns';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -30,6 +30,15 @@ export interface ScheduledCustomReport {
   updatedAt: Date;
 }
 
+interface ReportHistoryEntry {
+  reportId: string;
+  reportName: string;
+  runTime: Date;
+  success: boolean;
+  format?: ScheduledCustomReport['deliveryFormat'];
+  error?: string;
+}
+
 export class ScheduledReportService {
   private readonly STORAGE_KEY = 'money_management_scheduled_custom_reports';
   private checkInterval: ReturnType<typeof setInterval> | null = null;
@@ -37,14 +46,16 @@ export class ScheduledReportService {
   private readonly setIntervalFn: typeof setInterval;
   private readonly clearIntervalFn: typeof clearInterval;
   private readonly now: () => Date;
+  private readonly logger: ReturnType<typeof createScopedLogger>;
 
   constructor(options: ScheduledReportServiceOptions = {}) {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
-    this.setIntervalFn = options.setIntervalFn ?? ((handler: TimerHandler, timeout?: number, ...args: any[]) =>
-      setInterval(handler, timeout, ...args)
-    );
+    this.setIntervalFn =
+      options.setIntervalFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
     this.clearIntervalFn = options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
     this.now = options.now ?? (() => new Date());
+    this.logger = options.logger ?? createScopedLogger('ScheduledReportService');
   }
 
   // Initialize the service
@@ -74,7 +85,7 @@ export class ScheduledReportService {
       const stored = this.storage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Failed to load scheduled reports:', error);
+      this.logger.error('Failed to load scheduled reports', error as Error);
       return [];
     }
   }
@@ -175,7 +186,7 @@ export class ScheduledReportService {
     }
   ): Promise<void> {
     try {
-      console.log(`[ScheduledReports] Running report: ${scheduledReport.reportName}`);
+      this.logger.info?.(`[ScheduledReports] Running report: ${scheduledReport.reportName}`);
       
       // Get the custom report configuration
       const customReports = customReportService.getCustomReports();
@@ -194,7 +205,7 @@ export class ScheduledReportService {
       const reportData = await customReportService.generateReportData(customReport, data);
       
       // Export in the requested format
-      let exportResult: any;
+      let exportResult: string | Uint8Array | Blob | ArrayBuffer | undefined;
       
       switch (scheduledReport.deliveryFormat) {
         case 'pdf':
@@ -230,9 +241,9 @@ export class ScheduledReportService {
         format: scheduledReport.deliveryFormat
       });
       
-      console.log(`[ScheduledReports] Report completed: ${scheduledReport.reportName}`);
+      this.logger.info?.(`[ScheduledReports] Report completed: ${scheduledReport.reportName}`);
     } catch (error) {
-      console.error(`[ScheduledReports] Report failed: ${scheduledReport.reportName}`, error);
+      this.logger.error(`[ScheduledReports] Report failed: ${scheduledReport.reportName}`, error as Error);
       
       // Save failure to history
       this.addToHistory({
@@ -266,7 +277,10 @@ export class ScheduledReportService {
   }
 
   // Export to PDF
-  private async exportToPDF(reportData: any, customReport: CustomReport): Promise<Blob> {
+  private async exportToPDF(
+    reportData: Awaited<ReturnType<typeof customReportService.generateReportData>>,
+    customReport: CustomReport
+  ): Promise<Blob> {
     // Use exportService for PDF generation
     const pdfData = await exportService.exportToPDF(
       {
@@ -292,7 +306,10 @@ export class ScheduledReportService {
   }
 
   // Export to CSV
-  private async exportToCSV(reportData: any, data: any): Promise<string> {
+  private async exportToCSV(
+    reportData: Awaited<ReturnType<typeof customReportService.generateReportData>>,
+    data: ReturnType<typeof this.getDataFromStorage>
+  ): Promise<string> {
     // Use existing export service
     const csvData = await exportService.exportData(
       {
@@ -318,7 +335,10 @@ export class ScheduledReportService {
   }
 
   // Export to Excel
-  private async exportToExcel(reportData: any, data: any): Promise<ArrayBuffer> {
+  private async exportToExcel(
+    reportData: Awaited<ReturnType<typeof customReportService.generateReportData>>,
+    data: ReturnType<typeof this.getDataFromStorage>
+  ): Promise<ArrayBuffer> {
     // Use existing export service
     const excelData = await exportService.exportData(
       {
@@ -346,18 +366,17 @@ export class ScheduledReportService {
   }
 
   // Notify email ready (placeholder for email functionality)
-  private notifyEmailReady(report: ScheduledCustomReport, attachment: any): void {
+  private notifyEmailReady(report: ScheduledCustomReport, attachment: Blob | Uint8Array): void {
     // In a real implementation, this would send an email
     // For now, just show a notification
     if (typeof Notification !== 'undefined') {
-      // eslint-disable-next-line no-new
-      new Notification('Report Ready for Email', {
+      void new Notification('Report Ready for Email', {
         body: `${report.reportName} has been generated and is ready to email to ${report.emailRecipients?.join(', ')}`,
         icon: '/icon-192.png',
         tag: 'scheduled-report-email'
       });
     } else {
-      console.log('[ScheduledReports] Email notification ready:', {
+      this.logger.info?.('[ScheduledReports] Email notification ready:', {
         report: report.reportName,
         recipients: report.emailRecipients,
         attachment
@@ -366,10 +385,10 @@ export class ScheduledReportService {
   }
 
   // Add to history
-  private addToHistory(entry: any): void {
+  private addToHistory(entry: ReportHistoryEntry): void {
     const historyKey = 'money_management_report_history';
     const historyJson = this.storage?.getItem(historyKey) ?? '[]';
-    const history = JSON.parse(historyJson);
+    const history = JSON.parse(historyJson) as ReportHistoryEntry[];
     history.unshift(entry);
     
     // Keep only last 100 entries
@@ -381,11 +400,12 @@ export class ScheduledReportService {
   }
 
   // Get report history
-  getReportHistory(): any[] {
+  getReportHistory(): ReportHistoryEntry[] {
     const historyKey = 'money_management_report_history';
     const historyJson = this.storage?.getItem(historyKey) ?? '[]';
-    return JSON.parse(historyJson);
+    return JSON.parse(historyJson) as ReportHistoryEntry[];
   }
 }
 
 export const scheduledReportService = new ScheduledReportService();
+import { createScopedLogger } from '../loggers/scopedLogger';

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseModalFormOptions<T> {
   onSubmit: (data: T) => void | Promise<void>;
@@ -10,6 +11,7 @@ export function useModalForm<T>(
   initialState: T | (() => T),
   { onSubmit, onClose, resetOnClose = true }: UseModalFormOptions<T>
 ) {
+  const logger = useMemoizedLogger('useModalForm');
   // Store the initial value once to avoid recalculating
   const [initialValue] = useState<T>(() => 
     typeof initialState === 'function' ? (initialState as () => T)() : initialState
@@ -65,12 +67,12 @@ export function useModalForm<T>(
       
       onClose();
     } catch (error) {
-      console.error('Form submission error:', error);
+      logger.error?.('Form submission error', error);
       setErrors({ submit: error instanceof Error ? error.message : 'An error occurred' });
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, onSubmit, onClose, resetOnClose, clearErrors, reset]);
+  }, [formData, onSubmit, onClose, resetOnClose, clearErrors, reset, logger]);
 
   return {
     formData,

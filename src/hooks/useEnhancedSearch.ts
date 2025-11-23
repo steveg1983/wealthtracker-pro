@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { searchService, SearchOptions, SearchResponse } from '../services/searchService';
 import type { Transaction, Account, Budget, Goal } from '../types';
 import { useDebounce } from './useDebounce';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseEnhancedSearchProps {
   transactions: Transaction[];
@@ -26,6 +27,7 @@ export function useEnhancedSearch({
   goals,
   categories
 }: UseEnhancedSearchProps) {
+  const logger = useMemoizedLogger('useEnhancedSearch');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOptions, setSearchOptions] = useState<SearchOptions>({});
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -51,15 +53,15 @@ export function useEnhancedSearch({
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSavedSearches(parsed.map((s: any) => ({
+        setSavedSearches(parsed.map((s: { createdAt: string | Date }) => ({
           ...s,
           createdAt: new Date(s.createdAt)
         })));
       } catch (error) {
-        console.error('Error loading saved searches:', error);
+        logger.error?.('Error loading saved searches', error);
       }
     }
-  }, []);
+  }, [logger]);
 
   // Perform search
   const performSearch = useCallback(async () => {
@@ -79,11 +81,11 @@ export function useEnhancedSearch({
       const response = searchService.searchTransactions(transactions, options);
       setSearchResponse(response);
     } catch (error) {
-      console.error('Search error:', error);
+      logger.error?.('Search error', error);
     } finally {
       setIsSearching(false);
     }
-  }, [transactions, searchOptions, debouncedQuery, naturalLanguageMode]);
+  }, [transactions, searchOptions, debouncedQuery, naturalLanguageMode, logger]);
 
   // Trigger search when query or options change
   useEffect(() => {

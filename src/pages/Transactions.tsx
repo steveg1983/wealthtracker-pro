@@ -11,15 +11,13 @@ import { lazy, Suspense } from 'react';
 const EditTransactionModal = lazy(() => import('../components/EditTransactionModal'));
 const TransactionDetailsView = lazy(() => import('../components/TransactionDetailsView'));
 const QuickDateFilters = lazy(() => import('../components/QuickDateFilters'));
-import { CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
+import { CalendarIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types';
 import PageWrapper from '../components/PageWrapper';
 import { TransactionRow } from '../components/TransactionRow';
-import { TransactionCard } from '../components/TransactionCard';
 // Lazy load list components that are conditionally rendered
 const VirtualizedTransactionList = lazy(() => import('../components/VirtualizedTransactionList').then(m => ({ default: m.VirtualizedTransactionList })));
-const MobileTransactionList = lazy(() => import('../components/MobileTransactionList').then(m => ({ default: m.MobileTransactionList })));
 const InfiniteScrollTransactionList = lazy(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
 import { useDebounce } from '../hooks/useDebounce';
@@ -27,7 +25,7 @@ import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 
 const Transactions = React.memo(function Transactions() {
   const { transactions, accounts, deleteTransaction, categories, getDecimalTransactions } = useApp();
-  const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
+  const { compactView, setCompactView: _setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView, setIsWideView } = useLayout();
   const { formatCurrency } = useCurrencyDecimal();
   const [searchParams] = useSearchParams();
@@ -45,7 +43,7 @@ const Transactions = React.memo(function Transactions() {
   const [transactionsPerPage, setTransactionsPerPage] = useState(20); // Increased for better UX
   const [sortField, setSortField] = useState<'date' | 'account' | 'description' | 'category' | 'amount'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [bulkSelectMode, _setBulkSelectMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState({
     date: 120,
@@ -158,7 +156,7 @@ const Transactions = React.memo(function Transactions() {
     setTimeout(() => {
       document.body.removeChild(dragImage);
     }, 0);
-  }, []);
+  }, [columnConfig]);
 
   // Handle column drag over
   const handleDragOver = useCallback((column: string, e: React.DragEvent) => {
@@ -978,4 +976,3 @@ const Transactions = React.memo(function Transactions() {
 });
 
 export default Transactions;
-

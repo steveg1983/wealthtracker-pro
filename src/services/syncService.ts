@@ -115,13 +115,13 @@ export class SyncService {
       (() => this.storage?.getItem?.('authToken') ?? null);
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
     this.clearIntervalFn =
       options.clearIntervalFn ??
       ((id: TimerHandle) => clearInterval(id));
     this.setTimeoutFn =
       options.setTimeoutFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setTimeout(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setTimeout(handler, timeout, ...args));
     this.clearTimeoutFn =
       options.clearTimeoutFn ??
       ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));

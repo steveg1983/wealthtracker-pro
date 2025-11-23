@@ -1,5 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { getCurrentISOString } from '../../utils/dateHelpers';
+import { createScopedLogger } from '../../loggers/scopedLogger';
+
+const logger = createScopedLogger('NotificationsSlice');
 
 export interface Notification {
   id: string;
@@ -34,7 +37,7 @@ const saveNotificationsToStorage = (notifications: Notification[]) => {
     const toSave = notifications.map(({ action, ...rest }) => rest);
     localStorage.setItem('notifications', JSON.stringify(toSave));
   } catch (error) {
-    console.error('Failed to save notifications:', error);
+    logger.error('Failed to save notifications', error);
   }
 };
 
@@ -53,7 +56,7 @@ const notificationsSlice = createSlice({
       const newNotification: Notification = {
         ...action.payload,
         id: crypto.randomUUID(),
-        timestamp: getCurrentISOString() as any,
+        timestamp: getCurrentISOString(),
         read: false,
       };
       state.notifications.unshift(newNotification);

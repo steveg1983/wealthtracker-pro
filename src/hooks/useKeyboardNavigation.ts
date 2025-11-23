@@ -43,21 +43,30 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
   const location = useLocation();
   const {
     transactions,
-    accounts,
-    categories
+    accounts: _accounts,
+    categories: _categories
   } = useApp();
-  
-  const [isCommandMode, setIsCommandMode] = useState(false);
+
+  const [isCommandMode, _setIsCommandMode] = useState(false);
   const [commandBuffer, setCommandBuffer] = useState('');
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  
+
   const lastFocusedElement = useRef<HTMLElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const _searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Scroll to selected item
+  const scrollToSelected = useCallback(() => {
+    const selected = document.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement;
+    if (selected) {
+      selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      selected.focus();
+    }
+  }, [selectedIndex]);
 
   // Define default shortcuts
-  const defaultShortcuts: KeyboardShortcut[] = [
+  const defaultShortcuts: KeyboardShortcut[] = useMemo(() => [
     // Navigation shortcuts
     {
       key: 'd',
@@ -210,10 +219,10 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
         }
       }
     }
-  ];
+  ], [navigate, setIsSearchFocused, isSearchFocused, setShowShortcutHelp]);
 
   // Vim mode navigation
-  const vimShortcuts: KeyboardShortcut[] = enableVimMode ? [
+  const vimShortcuts: KeyboardShortcut[] = useMemo(() => enableVimMode ? [
     {
       key: 'j',
       description: 'Move down',
@@ -290,19 +299,10 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
         }
       }
     }
-  ] : [];
+  ] : [], [enableVimMode, setSelectedIndex, transactions, scrollToSelected, commandBuffer, setCommandBuffer, selectedIndex]);
 
   // Combine all shortcuts
-  const allShortcuts = [...defaultShortcuts, ...vimShortcuts, ...customShortcuts];
-
-  // Scroll to selected item
-  const scrollToSelected = useCallback(() => {
-    const selected = document.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement;
-    if (selected) {
-      selected.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      selected.focus();
-    }
-  }, [selectedIndex]);
+  const allShortcuts = useMemo(() => [...defaultShortcuts, ...vimShortcuts, ...customShortcuts], [defaultShortcuts, vimShortcuts, customShortcuts]);
 
   // Handle keyboard events
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

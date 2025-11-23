@@ -1,7 +1,7 @@
 import type { CustomReport, ReportComponent } from '../components/CustomReportBuilder';
 import type { Transaction, Account, Budget, Category } from '../types';
 import Decimal from 'decimal.js';
-import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subYears, parseISO, format } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, parseISO, format } from 'date-fns';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 type Logger = Pick<Console, 'error'>;
@@ -67,7 +67,11 @@ export class CustomReportService {
       budgets: Budget[];
       categories: Category[];
     }
-  ): Promise<any> {
+  ): Promise<{
+    report: CustomReport;
+    dateRange: { startDate: Date; endDate: Date };
+    data: Record<string, unknown>;
+  }> {
     // Apply date filters
     const { startDate, endDate } = this.getDateRange(report.filters.dateRange, {
       start: report.filters.customStartDate,
@@ -102,7 +106,7 @@ export class CustomReportService {
     }
 
     // Generate component data
-    const componentData: Record<string, any> = {};
+    const componentData: Record<string, unknown> = {};
     
     for (const component of report.components) {
       componentData[component.id] = await this.generateComponentData(
@@ -163,7 +167,7 @@ export class CustomReportService {
       categories: Category[];
       dateRange: { startDate: Date; endDate: Date };
     }
-  ): Promise<any> {
+  ): Promise<unknown> {
     const { transactions, accounts, budgets, categories, dateRange } = context;
 
     switch (component.type) {
@@ -196,7 +200,10 @@ export class CustomReportService {
     }
   }
 
-  private generateSummaryStats(transactions: Transaction[], config: any): any {
+  private generateSummaryStats(
+    transactions: Transaction[],
+    config: ReportComponent['config']
+  ): Record<string, number> {
     const income = transactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
@@ -208,7 +215,7 @@ export class CustomReportService {
     const netIncome = income.minus(expenses);
     const savingsRate = income.gt(0) ? netIncome.div(income).times(100) : new Decimal(0);
 
-    const stats: Record<string, any> = {
+    const stats: Record<string, number> = {
       income: income.toNumber(),
       expenses: expenses.toNumber(),
       netIncome: netIncome.toNumber(),
@@ -232,8 +239,8 @@ export class CustomReportService {
   private generateLineChartData(
     transactions: Transaction[], 
     dateRange: { startDate: Date; endDate: Date },
-    config: any
-  ): any {
+    config: ReportComponent['config']
+  ): { labels: string[]; datasets: Array<{ label: string; data: number[]; borderColor: string; backgroundColor: string; borderWidth?: number }> } {
     // Group transactions by month
     const monthlyData = new Map<string, { income: typeof Decimal.prototype; expenses: typeof Decimal.prototype }>();
     
@@ -280,8 +287,8 @@ export class CustomReportService {
   private generatePieChartData(
     transactions: Transaction[],
     categories: Category[],
-    config: any
-  ): any {
+    config: ReportComponent['config']
+  ): { labels: string[]; data: number[] } {
     // Group expenses by category
     const categoryTotals = new Map<string, typeof Decimal.prototype>();
     
@@ -319,9 +326,9 @@ export class CustomReportService {
 
   private generateBarChartData(
     transactions: Transaction[],
-    dateRange: { startDate: Date; endDate: Date },
-    config: any
-  ): any {
+    _dateRange: { startDate: Date; endDate: Date },
+    _config: ReportComponent['config']
+  ): { labels: string[]; datasets: Array<{ label: string; data: number[]; backgroundColor: string; borderColor: string; borderWidth: number }> } {
     // Similar to line chart but with bar format
     const monthlyExpenses = new Map<string, typeof Decimal.prototype>();
     
@@ -352,8 +359,15 @@ export class CustomReportService {
   private generateTableData(
     transactions: Transaction[],
     accounts: Account[],
-    config: any
-  ): any {
+    config: ReportComponent['config']
+  ): Array<{
+    date: string;
+    description: string;
+    category: string;
+    account: string;
+    amount: number;
+    type: Transaction['type'];
+  }> {
     let sortedTransactions = [...transactions];
 
     // Apply sorting
@@ -390,8 +404,15 @@ export class CustomReportService {
     transactions: Transaction[],
     categories: Category[],
     budgets: Budget[],
-    config: any
-  ): any {
+    _config: ReportComponent['config']
+  ): Array<{
+    category: string;
+    actual: number;
+    budget: number;
+    variance: number;
+    count: number;
+    status: 'under' | 'over';
+  }> {
     // Group by category with budget comparison
     const categoryData = new Map<string, {
       actual: typeof Decimal.prototype;
@@ -446,8 +467,27 @@ export class CustomReportService {
   private generateDateComparison(
     transactions: Transaction[],
     dateRange: { startDate: Date; endDate: Date },
-    config: any
-  ): any {
+    _config: ReportComponent['config']
+  ): {
+    current: {
+      income: number;
+      expenses: number;
+      netIncome: number;
+      transactionCount: number;
+    };
+    previous: {
+      income: number;
+      expenses: number;
+      netIncome: number;
+      transactionCount: number;
+    };
+    changes: {
+      income: number;
+      expenses: number;
+      netIncome: number;
+    };
+    periodLabel: { current: string; previous: string };
+  } {
     // Calculate period length
     const periodLength = Math.round(
       (dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)

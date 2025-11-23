@@ -6,6 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { convertCurrency, convertMultipleCurrencies, formatCurrency as formatCurrencyUtil, getCurrencySymbol } from '../utils/currency';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export function useCurrency(): {
   displayCurrency: string;
@@ -16,6 +17,7 @@ export function useCurrency(): {
   convertAndSum: (amounts: Array<{ amount: number; currency: string }>) => Promise<number>;
 } {
   const { currency: displayCurrency } = usePreferences();
+  const logger = useMemoizedLogger('useCurrency');
 
   // Format amount in display currency
   const formatCurrency = useCallback((amount: number, originalCurrency?: string) => {
@@ -33,10 +35,10 @@ export function useCurrency(): {
       const converted = await convertCurrency(amount, fromCurrency, displayCurrency);
       return formatCurrency(converted, displayCurrency);
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error?.('Currency conversion error', error);
       return formatCurrency(amount, fromCurrency) + ' (!)';
     }
-  }, [displayCurrency, formatCurrency]);
+  }, [displayCurrency, formatCurrency, logger]);
 
   // Convert amount to display currency (returns number)
   const convert = useCallback(async (amount: number, fromCurrency: string): Promise<number> => {
@@ -47,10 +49,10 @@ export function useCurrency(): {
     try {
       return await convertCurrency(amount, fromCurrency, displayCurrency);
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error?.('Currency conversion error', error);
       return amount;
     }
-  }, [displayCurrency]);
+  }, [displayCurrency, logger]);
 
   // Convert multiple amounts to display currency and sum them
   const convertAndSum = useCallback(async (amounts: Array<{ amount: number; currency: string }>): Promise<number> => {
@@ -58,11 +60,11 @@ export function useCurrency(): {
       const total = await convertMultipleCurrencies(amounts, displayCurrency);
       return total;
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error?.('Currency conversion error', error);
       // Fallback: just sum amounts without conversion
       return amounts.reduce((sum, { amount }) => sum + amount, 0);
     }
-  }, [displayCurrency]);
+  }, [displayCurrency, logger]);
 
   const currencySymbol = useMemo(() => getCurrencySymbol(displayCurrency), [displayCurrency]);
 

@@ -41,7 +41,7 @@ export function SmartCategorization({
   autoLearn = true
 }: SmartCategorizationProps): React.JSX.Element | null {
   const { categories, transactions } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency: _formatCurrency } = useCurrencyDecimal();
   const [suggestions, setSuggestions] = useState<CategorizationSuggestion[]>([]);
   const [isLearning, setIsLearning] = useState(false);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);

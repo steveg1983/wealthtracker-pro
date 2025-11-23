@@ -48,7 +48,7 @@ export interface PredictionRule {
 export interface Prediction {
   type: 'page' | 'data' | 'component' | 'image';
   target: string;
-  loader: () => Promise<any>;
+  loader: () => Promise<unknown>;
   priority?: number;
   ttl?: number;
 }
@@ -83,12 +83,12 @@ export interface UserPattern {
 export class PredictiveLoadingService {
   private rules: Map<string, PredictionRule>;
   private userPatterns: Map<string, UserPattern>;
-  private loadingQueue: Map<string, Promise<any>>;
+  private loadingQueue: Map<string, Promise<unknown>>;
   private resourceBudget: number;
   private isLowBandwidth: boolean;
   private prefetchObserver?: IntersectionObserver;
   private hoverTimeout?: NodeJS.Timeout;
-  private analyticsQueue: any[];
+  private analyticsQueue: Array<{ predictionId: string; status: 'success' | 'failure'; timestamp: Date }>;
   private storage?: StorageAdapter | null;
   private setIntervalFn: typeof setInterval;
   private clearIntervalFn: typeof clearInterval;
@@ -553,35 +553,35 @@ export class PredictiveLoadingService {
     }
   }
 
-  private async fetchData(target: string): Promise<any> {
+  private async fetchData(target: string): Promise<unknown> {
     // Generic data fetcher - implement based on your API
     const response = await this.fetchFn(`/api/${target}`);
     return response.json();
   }
 
-  private async fetchRecentTransactions(): Promise<any> {
+  private async fetchRecentTransactions(): Promise<unknown> {
     return this.fetchData('transactions?limit=20&sort=date');
   }
 
-  private async fetchYesterdayTransactions(): Promise<any> {
+  private async fetchYesterdayTransactions(): Promise<unknown> {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     return this.fetchData(`transactions?date=${yesterday.toISOString()}`);
   }
 
-  private async fetchPendingTransactions(): Promise<any> {
+  private async fetchPendingTransactions(): Promise<unknown> {
     return this.fetchData('transactions?status=pending');
   }
 
-  private async fetchCategories(): Promise<any> {
+  private async fetchCategories(): Promise<unknown> {
     return this.fetchData('categories');
   }
 
-  private async fetchMonthlySummary(): Promise<any> {
+  private async fetchMonthlySummary(): Promise<unknown> {
     return this.fetchData('reports/monthly-summary');
   }
 
-  private async fetchStockPrices(): Promise<any> {
+  private async fetchStockPrices(): Promise<unknown> {
     return this.fetchData('portfolio/prices');
   }
 
@@ -595,7 +595,7 @@ export class PredictiveLoadingService {
     return true;
   }
 
-  private isCacheStale(data: any, ttl?: number): boolean {
+  private isCacheStale(_data: unknown, _ttl?: number): boolean {
     // Implementation depends on cache structure
     return false;
   }
@@ -605,7 +605,7 @@ export class PredictiveLoadingService {
     return [];
   }
 
-  private async refreshData(key: string): Promise<void> {
+  private async refreshData(_key: string): Promise<void> {
     // Refresh specific data
   }
 

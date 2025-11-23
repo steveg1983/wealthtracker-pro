@@ -97,7 +97,7 @@ export class ThemeSchedulingService {
     this.documentRef = options.documentRef ?? defaultDocument;
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
     this.clearIntervalFn =
       options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
     this.dateFactory = options.dateFactory ?? (() => new Date());
@@ -567,7 +567,7 @@ export class ThemeSchedulingService {
 
     if (this.currentSchedule.scheduleType === 'time-based') {
       const now = this.now();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const _currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const isDark = this.shouldUseDarkTheme();
       
       if (isDark) {
@@ -583,7 +583,7 @@ export class ThemeSchedulingService {
       }
     }
 
-    if (this.currentSchedule.scheduleType === 'sunrise-sunset' && 
+    if (this.currentSchedule.scheduleType === 'sunrise-sunset' &&
         this.currentSchedule.latitude && this.currentSchedule.longitude) {
       const now = this.now();
       const { sunrise, sunset } = this.calculateSunriseSunset(
@@ -591,8 +591,8 @@ export class ThemeSchedulingService {
         this.currentSchedule.longitude,
         now
       );
-      
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      const _currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const isDark = this.shouldUseDarkTheme();
       
       if (isDark) {

@@ -1,6 +1,6 @@
 import type { Transaction, Account } from '../types';
 import type { DecimalTransaction, DecimalAccount } from '../types/decimal-types';
-import { toNumber, toDecimal } from './decimal';
+import { toDecimal } from './decimal';
 import { formatDecimal } from './decimal-format';
 
 /**

@@ -8,7 +8,8 @@
  * - Real-time subscription updates
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { userIdService } from '../services/userIdService';
 import StripeService from '../services/stripeService';
@@ -16,17 +17,43 @@ import SubscriptionApiService from '../services/subscriptionApiService';
 import type {
   UserSubscription,
   SubscriptionPlan,
-  SubscriptionTier,
   FeatureLimits,
-  SubscriptionUsage 
+  SubscriptionUsage
 } from '../types/subscription';
+
+const createDefaultUsage = (subscriptionId: string, featureLimits: FeatureLimits): SubscriptionUsageState => {
+  const now = new Date();
+  return {
+    subscriptionId,
+    period: {
+      start: now,
+      end: now
+    },
+    usage: {
+      accounts: 0,
+      transactions: 0,
+      budgets: 0,
+      goals: 0,
+      storage: 0
+    },
+    limits: featureLimits,
+    percentageUsed: {
+      accounts: 0,
+      transactions: 0,
+      budgets: 0,
+      goals: 0,
+      storage: 0
+    },
+    lastCalculated: now
+  };
+};
 
 interface SubscriptionContextType {
   // Subscription state
   subscription: UserSubscription | null;
   tier: SubscriptionPlan;
   limits: FeatureLimits;
-  usage: SubscriptionUsage | null;
+  usage: SubscriptionUsageState | null;
   
   // Loading states
   isLoading: boolean;
@@ -39,7 +66,7 @@ interface SubscriptionContextType {
   
   // Actions
   refreshSubscription: () => Promise<void>;
-  updateUsage: (usage: Partial<SubscriptionUsage>) => void;
+  updateUsage: (usage: Partial<SubscriptionUsageState>) => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -48,10 +75,12 @@ interface SubscriptionProviderProps {
   children: ReactNode;
 }
 
+type SubscriptionUsageState = SubscriptionUsage & { lastCalculated?: Date };
+
 export function SubscriptionProvider({ children }: SubscriptionProviderProps): React.JSX.Element {
   const { user, isSignedIn } = useUser();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [usage, setUsage] = useState<SubscriptionUsage | null>(null);
+  const [usage, setUsage] = useState<SubscriptionUsageState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +89,39 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
 
   // Get feature limits for current tier
   const limits = StripeService.getFeatureLimits(tier);
+
+  const loadSubscriptionData = useCallback(async () => {
+    if (!user) {
+      setUsage(null);
+      setSubscription(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const subscriptionData = await SubscriptionApiService.getCurrentSubscription(user.id);
+      setSubscription(subscriptionData);
+      
+      // Load usage data from localStorage or API
+      const savedUsage = localStorage.getItem(`usage_${user.id}`);
+      if (savedUsage) {
+        setUsage(JSON.parse(savedUsage) as SubscriptionUsageState);
+      } else {
+        setUsage(createDefaultUsage(user.id, limits));
+      }
+    } catch (err) {
+      console.error('Error loading subscription data:', err);
+      setError('Failed to load subscription information');
+      
+      // Set free tier as fallback
+      setSubscription(null);
+      setUsage(createDefaultUsage(user.id, limits));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, limits]);
 
   useEffect(() => {
     if (isSignedIn && user) {
@@ -95,60 +157,22 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
       setIsLoading(false);
       setError(null);
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn, user, loadSubscriptionData]);
 
-  const loadSubscriptionData = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const subscriptionData = await SubscriptionApiService.getCurrentSubscription(user!.id);
-      setSubscription(subscriptionData);
-      
-      // Load usage data from localStorage or API
-      const savedUsage = localStorage.getItem(`usage_${user?.id}`);
-      if (savedUsage) {
-        setUsage(JSON.parse(savedUsage));
-      } else {
-        // Initialize with default usage
-        const defaultUsage = {
-          accounts: 0,
-          transactions: 0,
-          budgets: 0,
-          goals: 0,
-          lastCalculated: new Date()
-        } as any as SubscriptionUsage;
-        setUsage(defaultUsage);
-      }
-    } catch (err) {
-      console.error('Error loading subscription data:', err);
-      setError('Failed to load subscription information');
-      
-      // Set free tier as fallback
-      setSubscription(null);
-      const defaultUsage = {
-        accounts: 0,
-        transactions: 0,
-        budgets: 0,
-        goals: 0,
-        lastCalculated: new Date()
-      } as any as SubscriptionUsage;
-      setUsage(defaultUsage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const refreshSubscription = async () => {
+  const refreshSubscription = useCallback(async () => {
     await loadSubscriptionData();
-  };
+  }, [loadSubscriptionData]);
 
   const updateUsage = (newUsage: Partial<SubscriptionUsage>) => {
-    const updatedUsage = {
-      ...usage,
+    const baseUsage = usage ?? createDefaultUsage(user?.id ?? 'local', limits);
+    const updatedUsage: SubscriptionUsage = {
+      ...baseUsage,
       ...newUsage,
+      period: newUsage.period ?? baseUsage.period,
+      usage: newUsage.usage ?? baseUsage.usage,
+      percentageUsed: newUsage.percentageUsed ?? baseUsage.percentageUsed,
       lastCalculated: new Date()
-    } as SubscriptionUsage;
+    };
     
     setUsage(updatedUsage);
     
@@ -166,8 +190,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
     feature: 'accounts' | 'transactions' | 'budgets' | 'goals',
     currentCount: number
   ): boolean => {
-    const limitKey = `max${feature.charAt(0).toUpperCase() + feature.slice(1)}` as keyof FeatureLimits;
-    return StripeService.isWithinLimits(tier, currentCount, limitKey as any);
+    return StripeService.isWithinLimits(tier, currentCount, feature);
   };
 
   const getRemainingUsage = (
@@ -175,8 +198,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
   ): number => {
     if (!usage) return 0;
     
-    const limitKey = `max${feature.charAt(0).toUpperCase() + feature.slice(1)}` as keyof FeatureLimits;
-    const limit = limits[limitKey] as number;
+    const limit = limits[feature];
     const currentUsage = usage.usage[feature];
     
     // -1 means unlimited

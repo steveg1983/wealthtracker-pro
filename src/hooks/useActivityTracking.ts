@@ -41,7 +41,7 @@ export function useActivityTracking() {
     const stored = localStorage.getItem('recentActivities');
     if (stored) {
       const parsed = JSON.parse(stored);
-      const activities = parsed.map((a: any) => ({
+      const activities = parsed.map((a: { timestamp: string | Date }) => ({
         ...a,
         timestamp: new Date(a.timestamp)
       }));
@@ -60,16 +60,16 @@ export function useActivityTracking() {
       addActivity(event.detail);
     };
 
-    window.addEventListener('activity-logged' as any, handleActivity);
-    
+    window.addEventListener('activity-logged' as keyof WindowEventMap, handleActivity);
+
     // Check for new activities periodically
     const interval = setInterval(checkForNewActivities, 60000); // Every minute
 
     return () => {
-      window.removeEventListener('activity-logged' as any, handleActivity);
+      window.removeEventListener('activity-logged' as keyof WindowEventMap, handleActivity);
       clearInterval(interval);
     };
-  }, []);
+  }, [addActivity, checkForNewActivities]);
 
   const addActivity = useCallback((activity: Omit<ActivityItem, 'id' | 'timestamp' | 'read'>) => {
     const newActivity: ActivityItem = {
@@ -143,7 +143,7 @@ export function useActivityTracking() {
     const stored = localStorage.getItem('recentActivities');
     if (stored) {
       const parsed = JSON.parse(stored);
-      const activities = parsed.map((a: any) => ({
+      const activities = parsed.map((a: { timestamp: string | Date }) => ({
         ...a,
         timestamp: new Date(a.timestamp)
       }));

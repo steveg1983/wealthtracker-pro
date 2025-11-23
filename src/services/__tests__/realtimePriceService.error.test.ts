@@ -51,19 +51,27 @@ const createIntervalScheduler = () => {
 
 const buildService = (options: Partial<RealTimePriceServiceOptions> = {}) => {
   const scheduler = createIntervalScheduler();
+  const logger = {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn()
+  };
   const service = new RealTimePriceService({
     defaultUpdateFrequency: 50,
     enableMarketStatusCheck: false,
     setIntervalFn: scheduler.setInterval,
     clearIntervalFn: scheduler.clearInterval,
+    logger,
     ...options
   });
-  return { service, scheduler };
+  return { service, scheduler, logger };
 };
 
 describe('RealTimePriceService - error handling', () => {
   let service: RealTimePriceService;
   let scheduler: ReturnType<typeof createIntervalScheduler>;
+  let logger: ReturnType<typeof buildService>['logger'];
 
   const resetQuoteMock = () => {
     getStockQuoteMock.mockReset();
@@ -74,7 +82,7 @@ describe('RealTimePriceService - error handling', () => {
 
   beforeEach(() => {
     resetQuoteMock();
-    ({ service, scheduler } = buildService());
+    ({ service, scheduler, logger } = buildService());
   });
 
   afterEach(() => {
@@ -103,7 +111,6 @@ describe('RealTimePriceService - error handling', () => {
       throw new Error('Callback error');
     });
     const normalCallback = vi.fn();
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     service.subscribe('AAPL', errorCallback);
     service.subscribe('AAPL', normalCallback);
@@ -113,8 +120,7 @@ describe('RealTimePriceService - error handling', () => {
       expect(normalCallback).toHaveBeenCalled();
     });
 
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    expect(logger.error).toHaveBeenCalled();
   });
 
   it('ignores null quotes', async () => {

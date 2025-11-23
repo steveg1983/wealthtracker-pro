@@ -1,8 +1,32 @@
 import { Middleware } from '@reduxjs/toolkit';
 import { syncService } from '../../services/syncService';
+import type { AppDispatch, RootState } from '../index';
 
 type Logger = Pick<Console, 'error'>;
 const syncLogger: Logger = typeof console !== 'undefined' ? console : { error: () => {} };
+
+type SyncEntity = 'transaction' | 'account' | 'budget' | 'goal' | 'category';
+type SyncOperationType = 'CREATE' | 'UPDATE' | 'DELETE';
+
+interface SyncAction {
+  type: string;
+  payload?: unknown;
+}
+
+interface SyncServiceEvent {
+  entity: SyncEntity;
+  entityId: string;
+  data: unknown;
+}
+
+interface SyncFailureEvent {
+  entity: SyncEntity;
+  [key: string]: unknown;
+}
+
+interface RemoteSyncEvent extends SyncServiceEvent {
+  type: SyncOperationType;
+}
 
 // Action types to sync
 const SYNC_ACTIONS = {
@@ -40,7 +64,7 @@ const SYNC_ACTIONS = {
   'categories/add': { entity: 'category', type: 'CREATE' },
   'categories/update': { entity: 'category', type: 'UPDATE' },
   'categories/delete': { entity: 'category', type: 'DELETE' },
-} as const;
+} as const satisfies Record<string, { entity: SyncEntity; type: SyncOperationType }>;
 
 // Actions to ignore (fetched from server, not local changes)
 const IGNORE_ACTIONS = [
@@ -52,7 +76,7 @@ const IGNORE_ACTIONS = [
   // Add any bulk set operations that come from server
 ];
 
-export const syncMiddleware: Middleware = (store) => (next) => (action: any) => {
+export const syncMiddleware: Middleware<object, RootState> = (_store) => (next) => (action: SyncAction) => {
   // Execute the action first
   const result = next(action);
 
@@ -71,7 +95,7 @@ export const syncMiddleware: Middleware = (store) => (next) => (action: any) => 
     try {
       // Extract entity ID and data from the action
       let entityId: string | undefined;
-      let data: any;
+      let data: unknown = null;
       
       // Handle different action payload structures
       if (action.payload) {
@@ -96,15 +120,10 @@ export const syncMiddleware: Middleware = (store) => (next) => (action: any) => 
       
       // Queue the sync operation if we have an entity ID
       if (entityId) {
-        syncService.queueOperation(
-          syncConfig.type as 'CREATE' | 'UPDATE' | 'DELETE',
-          syncConfig.entity as any,
-          entityId,
-          data
-        );
+        syncService.queueOperation(syncConfig.type, syncConfig.entity, entityId, data);
       }
     } catch (error) {
-      syncLogger.error('Failed to queue sync operation:', error as Error);
+      syncLogger.error('Failed to queue sync operation:', error);
     }
   }
   
@@ -113,8 +132,8 @@ export const syncMiddleware: Middleware = (store) => (next) => (action: any) => 
 
 // Helper to handle incoming sync updates
 export const handleRemoteSyncUpdate = (
-  dispatch: any,
-  event: { entity: string; entityId: string; data: any; type: string }
+  dispatch: AppDispatch,
+  event: RemoteSyncEvent
 ) => {
   const { entity, entityId, data, type } = event;
   
@@ -191,26 +210,26 @@ export const handleRemoteSyncUpdate = (
 };
 
 // Initialize sync listeners when store is created
-export const initializeSyncListeners = (dispatch: any) => {
+export const initializeSyncListeners = (dispatch: AppDispatch) => {
   // Listen for remote updates
-  syncService.on('remote-create', (event: any) => {
+  syncService.on('remote-create', (event: SyncServiceEvent) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'CREATE' });
   });
   
-  syncService.on('remote-update', (event: any) => {
+  syncService.on('remote-update', (event: SyncServiceEvent) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'UPDATE' });
   });
   
-  syncService.on('remote-delete', (event: any) => {
+  syncService.on('remote-delete', (event: SyncServiceEvent) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'DELETE' });
   });
   
-  syncService.on('remote-merge', (event: any) => {
+  syncService.on('remote-merge', (event: SyncServiceEvent) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'UPDATE' });
   });
   
   // Handle sync failures
-  syncService.on('sync-failed', (operation: any) => {
+  syncService.on('sync-failed', (operation: SyncFailureEvent) => {
     syncLogger.error('Sync operation failed:', operation);
     // Could dispatch an action to show error to user
     dispatch({ 

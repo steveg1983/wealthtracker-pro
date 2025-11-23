@@ -355,7 +355,7 @@ describe('LayoutContext', () => {
 
   describe('performance considerations', () => {
     it('does not cause unnecessary re-renders when setting same value', () => {
-      const { result } = renderHook(() => useLayout(), { wrapper });
+      const { result: _result } = renderHook(() => useLayout(), { wrapper });
       
       let renderCount = 0;
       const { result: trackingResult } = renderHook(() => {

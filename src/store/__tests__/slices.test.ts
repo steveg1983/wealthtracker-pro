@@ -79,7 +79,6 @@ const createMockCategory = (overrides: Partial<Category> = {}): Category => ({
   updatedAt: new Date('2025-01-20'),
   ...overrides,
 });
-import type { RootState } from '../index';
 
 describe('Redux Slices', () => {
   let store: ReturnType<typeof configureStore>;
@@ -599,7 +598,7 @@ describe('Redux Slices', () => {
       store.dispatch(accountsSlice.actions.addAccount(account));
       store.dispatch(transactionsSlice.actions.addTransaction(transaction));
 
-      const accountsState = store.getState().accounts;
+      const _accountsState = store.getState().accounts;
       const transactionsState = store.getState().transactions;
 
       const relatedTransaction = transactionsState.transactions.find(

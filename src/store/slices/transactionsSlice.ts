@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { SerializedTransaction } from '../../types/redux-types';
-import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 import {
@@ -40,10 +39,11 @@ const transactionsSlice = createSlice({
       state.error = null;
     },
     addTransaction: (state, action: PayloadAction<Omit<Transaction, 'id'>>) => {
+      const isoDate = toISOString(action.payload.date) ?? getCurrentISOString();
       const newTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        date: toISOString(action.payload.date) || getCurrentISOString() as any,
+        date: isoDate,
       };
       state.transactions.push(newTransaction as unknown as SerializedTransaction);
     },

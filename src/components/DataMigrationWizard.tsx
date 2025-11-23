@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { 
   Upload, 
   FileText, 
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export type MigrationSource = 'mint' | 'quicken' | 'ynab' | 'personalcapital' | 'excel' | 'csv' | 'other';
 
@@ -140,6 +141,7 @@ export default function DataMigrationWizard({
   onClose, 
   onComplete 
 }: DataMigrationWizardProps): React.JSX.Element | null {
+  const logger = useMemo(() => createScopedLogger('DataMigrationWizard'), []);
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSource, setSelectedSource] = useState<MigrationSource | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -189,7 +191,7 @@ export default function DataMigrationWizard({
         setIsProcessing(false);
     } catch (error) {
       setError('Failed to process files');
-      console.error('File processing failed:', error);
+      logger.error('File processing failed', error as Error);
       setIsProcessing(false);
       return;
     }
@@ -212,7 +214,7 @@ export default function DataMigrationWizard({
         onClose();
       } catch (error) {
         setError('Migration failed. Please try again.');
-        console.error('Migration failed:', error);
+        logger.error('Migration failed', error as Error);
         setIsProcessing(false);
       }
       return;

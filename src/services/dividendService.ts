@@ -368,8 +368,8 @@ export class DividendService {
     });
 
     let projectedAnnual = toDecimal(0);
-    
-    Object.entries(symbolFrequency).forEach(([symbol, data]) => {
+
+    Object.entries(symbolFrequency).forEach(([_symbol, data]) => {
       // Annualize based on frequency
       let annualMultiplier = 1;
       switch (data.frequency) {

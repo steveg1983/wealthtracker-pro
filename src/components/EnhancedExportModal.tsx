@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { exportService } from '../services/exportService';
 import type { ExportOptions, ExportTemplate } from '../services/exportService';
 import { 
@@ -8,6 +8,7 @@ import {
   RefreshCwIcon,
   PlayIcon
 } from './icons';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface EnhancedExportModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export default function EnhancedExportModal({
   defaultOptions = {},
   title = "Export Data"
 }: EnhancedExportModalProps) {
+  const logger = useMemo(() => createScopedLogger('EnhancedExportModal'), []);
   const [templates] = useState<ExportTemplate[]>(exportService.getTemplates());
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -123,7 +125,7 @@ export default function EnhancedExportModal({
 
       onClose();
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed', error as Error);
       alert('Export failed. Please try again.');
     } finally {
       setIsLoading(false);

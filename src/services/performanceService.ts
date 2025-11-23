@@ -4,6 +4,7 @@
  */
 
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface PerformanceMetric {
   name: string;
@@ -22,14 +23,16 @@ interface PerformanceReport {
 interface WindowRef extends Partial<Window> {
   PerformanceObserver?: typeof PerformanceObserver;
   PerformanceEventTiming?: typeof PerformanceEventTiming;
-  gtag?: (...args: any[]) => void;
+  gtag?: (...args: unknown[]) => void;
 }
 
 interface DocumentRef extends Partial<Document> {
   scripts?: HTMLCollectionOf<HTMLScriptElement>;
 }
 
-interface NavigatorRef extends Partial<Navigator> {}
+interface NavigatorRef extends Partial<Navigator> {
+  connection?: unknown;
+}
 
 export interface PerformanceServiceOptions {
   windowRef?: WindowRef | null;
@@ -53,6 +56,7 @@ export class PerformanceService {
   private requestAnimationFrameFn: typeof requestAnimationFrame;
   private consoleRef: Pick<Console, 'log' | 'warn' | 'error'>;
   private fetchFn: typeof fetch;
+  private logger = createScopedLogger('PerformanceService');
 
   // Core Web Vitals thresholds
   private readonly thresholds = {
@@ -75,7 +79,7 @@ export class PerformanceService {
         ? requestAnimationFrame
         : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16)) as typeof requestAnimationFrame);
     this.consoleRef = options.consoleRef ?? console;
-    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as any);
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as unknown as typeof fetch);
   }
 
   init(callback?: (report: PerformanceReport) => void): void {
@@ -100,27 +104,30 @@ export class PerformanceService {
       try {
         const lcpObserver = new this.windowRef.PerformanceObserver((list) => {
           const entries = list.getEntries();
-          const lastEntry = entries[entries.length - 1] as any;
-          this.recordMetric('LCP', lastEntry.startTime, 'LCP');
+          const lastEntry = entries[entries.length - 1] as PerformanceEntry | undefined;
+          if (lastEntry) {
+            this.recordMetric('LCP', lastEntry.startTime, 'LCP');
+          }
         });
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
-      } catch (e) {
-        console.warn('LCP observer not supported');
+      } catch {
+        this.logger.warn?.('LCP observer not supported');
       }
 
       // Observe First Input Delay
       try {
         const fidObserver = new this.windowRef.PerformanceObserver((list) => {
           const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            if (entry.name === 'first-input') {
-              this.recordMetric('FID', entry.processingStart - entry.startTime, 'FID');
+          entries.forEach((entry) => {
+            if (entry.name === 'first-input' && 'processingStart' in entry) {
+              const perfEntry = entry as PerformanceEventTiming;
+              this.recordMetric('FID', perfEntry.processingStart - perfEntry.startTime, 'FID');
             }
           });
         });
         fidObserver.observe({ entryTypes: ['first-input'] });
-      } catch (e) {
-        console.warn('FID observer not supported');
+      } catch {
+        this.logger.warn?.('FID observer not supported');
       }
 
       // Observe Cumulative Layout Shift
@@ -128,15 +135,16 @@ export class PerformanceService {
         let clsValue = 0;
         const clsObserver = new this.windowRef.PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            if (!(entry as any).hadRecentInput) {
-              clsValue += (entry as any).value;
+            const layoutEntry = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+            if (!layoutEntry.hadRecentInput && typeof layoutEntry.value === 'number') {
+              clsValue += layoutEntry.value;
             }
           }
           this.recordMetric('CLS', clsValue, 'CLS');
         });
         clsObserver.observe({ entryTypes: ['layout-shift'] });
-      } catch (e) {
-        console.warn('CLS observer not supported');
+      } catch {
+        this.logger.warn?.('CLS observer not supported');
       }
 
       // Observe First Contentful Paint
@@ -150,8 +158,8 @@ export class PerformanceService {
           });
         });
         fcpObserver.observe({ entryTypes: ['paint'] });
-      } catch (e) {
-        console.warn('FCP observer not supported');
+      } catch {
+        this.logger.warn?.('FCP observer not supported');
       }
     }
 
@@ -168,18 +176,18 @@ export class PerformanceService {
     if (this.windowRef && 'PerformanceEventTiming' in this.windowRef) {
       let maxDuration = 0;
       const inpObserver = new this.windowRef.PerformanceObserver((list) => {
-        const entries = list.getEntries() as any[];
-        entries.forEach((entry) => {
-          if (entry.duration > maxDuration) {
-            maxDuration = entry.duration;
+        list.getEntries().forEach((entry) => {
+          const duration = (entry as PerformanceEntry & { duration?: number }).duration;
+          if (typeof duration === 'number' && duration > maxDuration) {
+            maxDuration = duration;
             this.recordMetric('INP', maxDuration, 'INP');
           }
         });
       });
       try {
         inpObserver.observe({ entryTypes: ['event'] });
-      } catch (e) {
-        console.warn('INP observer not supported');
+      } catch {
+        this.logger.warn?.('INP observer not supported');
       }
     }
   }
@@ -196,10 +204,7 @@ export class PerformanceService {
 
     this.metrics.push(metric);
 
-    // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Performance] ${name}: ${metric.value}ms (${rating})`);
-    }
+    this.logger.info?.(`[Performance] ${name}: ${metric.value}ms (${rating})`);
 
     // Send metric to analytics if configured
     this.sendToAnalytics(metric);
@@ -230,11 +235,13 @@ export class PerformanceService {
 
     // Memory usage (if available)
     if (this.performanceRef && 'memory' in this.performanceRef) {
-      const memory = (this.performanceRef as any).memory;
-      const usedMemoryMB = Math.round(memory.usedJSHeapSize / 1048576);
-      const totalMemoryMB = Math.round(memory.totalJSHeapSize / 1048576);
+      const memory = (this.performanceRef as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
+      if (memory) {
+        const usedMemoryMB = Math.round(memory.usedJSHeapSize / 1048576);
+        const totalMemoryMB = Math.round(memory.totalJSHeapSize / 1048576);
       
-      this.consoleRef.log(`[Performance] Memory: ${usedMemoryMB}MB / ${totalMemoryMB}MB`);
+        this.logger.info?.(`[Performance] Memory: ${usedMemoryMB}MB / ${totalMemoryMB}MB`);
+      }
     }
 
     // Frame rate monitoring
@@ -246,7 +253,7 @@ export class PerformanceService {
       if (currentTime >= lastTime + 1000) {
         const fps = Math.round((frames * 1000) / (currentTime - lastTime));
         if (fps < 30) {
-          this.consoleRef.warn(`[Performance] Low FPS detected: ${fps}`);
+          this.logger.warn?.(`[Performance] Low FPS detected: ${fps}`);
         }
         frames = 0;
         lastTime = currentTime;
@@ -267,11 +274,11 @@ export class PerformanceService {
       const slowResources = entries.filter((entry) => entry.duration > 1000);
       
       if (slowResources.length > 0) {
-        this.consoleRef.warn('[Performance] Slow resources detected:', 
+        this.logger.warn?.('[Performance] Slow resources detected', 
           slowResources.map(r => ({
             name: r.name,
             duration: Math.round(r.duration),
-            type: (r as any).initiatorType
+            type: (r as PerformanceResourceTiming).initiatorType
           }))
         );
       }
@@ -279,8 +286,8 @@ export class PerformanceService {
 
     try {
       resourceObserver.observe({ entryTypes: ['resource'] });
-    } catch (e) {
-      console.warn('Resource timing not supported');
+    } catch {
+      this.logger.warn?.('Resource timing not supported');
     }
   }
 
@@ -312,11 +319,11 @@ export class PerformanceService {
     const totalSize = scriptSizes.reduce((sum, s) => sum + s.size, 0);
     const totalSizeMB = formatDecimal(totalSize / 1048576, 2);
     
-    this.consoleRef.log(`[Performance] Total JS bundle size: ${totalSizeMB}MB`);
+    this.logger.info?.(`[Performance] Total JS bundle size: ${totalSizeMB}MB`);
     
     // Warn if bundle is too large
     if (totalSize > 5 * 1048576) { // 5MB
-      this.consoleRef.warn('[Performance] Bundle size exceeds 5MB threshold');
+      this.logger.warn?.('[Performance] Bundle size exceeds 5MB threshold');
     }
   }
 
@@ -466,7 +473,7 @@ export class PerformanceService {
       timestamp: Date.now(),
       url: this.windowRef?.location?.href ?? '',
       userAgent: this.navigatorRef?.userAgent ?? '',
-      connection: (this.navigatorRef as any)?.connection || {},
+      connection: (this.navigatorRef as Navigator & { connection?: unknown })?.connection || {},
     };
   }
 

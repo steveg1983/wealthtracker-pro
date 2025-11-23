@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { AlertCircleIcon, CheckCircleIcon } from '../icons';
 import { budgetCalculationService } from '../../services/budgetCalculationService';
 import type { BaseWidgetProps } from '../../types/widget-types';
+import type { Budget } from '../../types';
 
 interface BudgetSummaryWidgetSettings {
   period?: 'current' | 'last' | 'ytd';
@@ -14,6 +15,16 @@ interface BudgetSummaryWidgetSettings {
 
 type BudgetSummaryWidgetProps = BaseWidgetProps & {
   settings?: BudgetSummaryWidgetSettings;
+};
+
+const resolveBudgetCategoryId = (budget: Pick<Budget, 'categoryId'> & { category?: string | null }): string | null => {
+  if (budget.categoryId) {
+    return budget.categoryId;
+  }
+  if (budget.category && budget.category.trim().length > 0) {
+    return budget.category;
+  }
+  return null;
 };
 
 export default function BudgetSummaryWidget({ size = 'medium', settings }: BudgetSummaryWidgetProps) {
@@ -51,11 +62,14 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
     });
     
     // Convert budgets to service-compatible format
-    const serviceBudgets = budgets.map(budget => ({
-      ...budget,
-      categoryId: budget.categoryId ?? (budget as any).category,
-      period: budget.period || 'monthly' as const
-    }));
+    const serviceBudgets = budgets.map(budget => {
+      const normalizedCategoryId = resolveBudgetCategoryId(budget);
+      return {
+        ...budget,
+        categoryId: normalizedCategoryId ?? '',
+        period: budget.period || 'monthly' as const
+      };
+    });
     
     // Use the service to calculate budget spending
     const summary = budgetCalculationService.calculateAllBudgetSpending(
@@ -69,7 +83,7 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
       const budgetAmount = toDecimal(budget.amount);
       
       // Aggregate spending across all categories in this budget
-      const categoryIdentifier = budget.categoryId ?? (budget as any).category;
+      const categoryIdentifier = resolveBudgetCategoryId(budget);
       const categorySpending = summary.budgetsByCategory
         .filter(bs => bs.categoryId === categoryIdentifier)
         .reduce((sum, bs) => sum + bs.spentAmount, 0);

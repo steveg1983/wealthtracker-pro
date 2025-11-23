@@ -4,7 +4,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import CryptoJS from 'crypto-js';
 
 // Import after CryptoJS is available
 const getEnhancedEncryption = async () => {
@@ -172,8 +171,8 @@ describe('Enhanced Encryption Service', () => {
 
     it('clears sensitive data', async () => {
       const testData = 'Data before clear';
-      const encrypted = enhancedEncryption.encrypt(testData);
-      
+      const _encrypted = enhancedEncryption.encrypt(testData);
+
       enhancedEncryption.clearSensitiveData();
       
       // Should throw after clearing keys

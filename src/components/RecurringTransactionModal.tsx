@@ -25,10 +25,10 @@ interface RecurringTransactionFormData {
 export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps): React.JSX.Element {
   const { accounts, addTransaction, recurringTransactions = [] } = useApp();
   // TODO: Add these methods to AppContextSupabase
-  const addRecurringTransaction = (transaction: Omit<RecurringTransaction, 'id' | 'nextDate' | 'createdAt' | 'updatedAt'>) => {
+  const addRecurringTransaction = (_transaction: Omit<RecurringTransaction, 'id' | 'nextDate' | 'createdAt' | 'updatedAt'>) => {
     console.warn('addRecurringTransaction not yet implemented in AppContextSupabase');
   };
-  const deleteRecurringTransaction = (id: string) => {
+  const deleteRecurringTransaction = (_id: string) => {
     console.warn('deleteRecurringTransaction not yet implemented in AppContextSupabase');
   };
   const [showForm, setShowForm] = useState(false);

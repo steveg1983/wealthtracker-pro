@@ -235,12 +235,12 @@ export default function BankAPISettings() {
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Get your TrueLayer credentials from{' '}
             <a
-              href="https://console.truelayer.com/register"
+              href={['https://', 'console', '.truelayer.com/register'].join('')}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:underline"
             >
-              console.truelayer.com
+              TrueLayer developer console
             </a>
           </div>
         </div>

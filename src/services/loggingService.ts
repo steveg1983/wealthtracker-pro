@@ -30,6 +30,7 @@ interface LoggingDependencies {
   env?: {
     isDevelopment?: boolean;
     isTest?: boolean;
+    enableConsoleBridge?: boolean;
   };
   console?: ConsoleLike;
   captureException?: typeof captureException;
@@ -46,7 +47,7 @@ import { captureException, captureMessage } from '../lib/sentry';
 class LoggingService {
   private readonly isDevelopment: boolean;
   private readonly isTest: boolean;
-  private readonly console: ConsoleLike;
+  private readonly consoleLike: ConsoleLike;
   private readonly captureExceptionFn: typeof captureException;
   private readonly captureMessageFn: typeof captureMessage;
   private readonly storage: StorageLike | null;
@@ -55,6 +56,7 @@ class LoggingService {
   private readonly dateFactory: () => Date;
   private logHistory: LogEntry[] = [];
   private readonly maxHistorySize: number;
+  private readonly outputToConsole: boolean;
 
   constructor(dependencies: LoggingDependencies = {}) {
     const envIsDev = typeof import.meta !== 'undefined'
@@ -63,13 +65,13 @@ class LoggingService {
     const envMode = typeof import.meta !== 'undefined'
       ? import.meta.env?.MODE
       : (typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined);
-    const defaultConsole: ConsoleLike = typeof console !== 'undefined'
-      ?console 
+    const defaultConsoleLike: ConsoleLike = typeof console !== 'undefined'
+      ? console 
       : { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
 
     this.isDevelopment = dependencies.env?.isDevelopment ?? !!envIsDev;
     this.isTest = dependencies.env?.isTest ?? envMode === 'test';
-    this.console = dependencies.console ?? defaultConsole;
+    this.consoleLike = dependencies.console ?? defaultConsoleLike;
     this.captureExceptionFn = dependencies.captureException ?? captureException;
     this.captureMessageFn = dependencies.captureMessage ?? captureMessage;
     this.storage = dependencies.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
@@ -77,6 +79,7 @@ class LoggingService {
     this.urlProvider = dependencies.urlProvider ?? (() => (typeof window !== 'undefined' ? window.location.href : 'unknown'));
     this.dateFactory = dependencies.dateFactory ?? (() => new Date());
     this.maxHistorySize = dependencies.maxHistorySize ?? 100;
+    this.outputToConsole = dependencies.env?.enableConsoleBridge ?? (this.isDevelopment && !this.isTest);
   }
 
   /**
@@ -144,8 +147,8 @@ class LoggingService {
       this.logHistory.shift();
     }
 
-    // Output to console in development
-    if (this.isDevelopment || level === 'warn' || level === 'error') {
+    // Output to console when bridge is enabled
+    if (this.outputToConsole) {
       const prefix = source ? `[${source}]` : '';
       const isoTimestamp = entry.timestamp.toISOString();
       const timeSection = isoTimestamp.split('T')[1] ?? '';
@@ -153,16 +156,16 @@ class LoggingService {
 
       switch (level) {
         case 'debug':
-          this.console.debug(`🔍 ${timestamp} ${prefix}`, message, data ?? '');
+          this.consoleLike.debug(`🔍 ${timestamp} ${prefix}`, message, data ?? '');
           break;
         case 'info':
-          this.console.info(`ℹ️ ${timestamp} ${prefix}`, message, data ?? '');
+          this.consoleLike.info(`ℹ️ ${timestamp} ${prefix}`, message, data ?? '');
           break;
         case 'warn':
-          this.console.warn(`⚠️ ${timestamp} ${prefix}`, message, data ?? '');
+          this.consoleLike.warn(`⚠️ ${timestamp} ${prefix}`, message, data ?? '');
           break;
         case 'error':
-          this.console.error(`❌ ${timestamp} ${prefix}`, message, data ?? '');
+          this.consoleLike.error(`❌ ${timestamp} ${prefix}`, message, data ?? '');
           break;
       }
     }
@@ -177,7 +180,7 @@ class LoggingService {
       this.persistErrorLog(message, error, source);
     } catch (trackingError) {
       if (this.isDevelopment) {
-        this.console.warn('Failed to send error to tracking service', trackingError);
+        this.consoleLike.warn('Failed to send error to tracking service', trackingError);
       }
     }
   }

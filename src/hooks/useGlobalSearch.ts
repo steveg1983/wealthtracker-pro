@@ -13,7 +13,7 @@ export interface SearchResult {
   data: Account | Transaction | Budget | Goal | { id: string; name: string };
   score: number;
   matches: string[];
-  icon?: React.ComponentType<any>;
+  icon?: React.ComponentType<Record<string, unknown>>;
 }
 
 type Logger = Pick<Console, 'error'>;

@@ -26,6 +26,7 @@ const AgGridReact = lazy(() => import('ag-grid-react').then(module => ({ default
 // Import AG-Grid styles
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
+import type { ColDef } from 'ag-grid-community';
 
 // Import types
 import type { Dashboard as DashboardBuilderDashboard } from '../components/analytics/DashboardBuilder';
@@ -33,34 +34,47 @@ import type { Dashboard as DashboardBuilderDashboard } from '../components/analy
 // Import Query type
 import type { Query } from '../components/analytics/QueryBuilder';
 
+type IconComponent = React.ComponentType<{ size?: number }>;
+type DashboardLayoutItem = Record<string, unknown>;
+
 interface Dashboard {
   id: string;
   name: string;
   description: string;
-  widgets: any[];
-  layout: any[];
+  widgets: DashboardLayoutItem[];
+  layout: DashboardLayoutItem[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 interface SavedQuery extends Query {
   lastRun?: Date;
-  results?: any;
+  results?: QueryResult[];
 }
 
+interface Insight {
+  type: 'trend' | 'category';
+  title: string;
+  description: string;
+  severity: 'warning' | 'success' | 'info';
+}
+
+type QueryResult = Record<string, unknown>;
+
 export default function Analytics(): React.JSX.Element {
-  const { transactions, accounts, categories, budgets, goals, investments } = useApp();
+  const { transactions, accounts, categories: _categories, budgets, goals, investments } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
-  const [activeTab, setActiveTab] = useState<'dashboards' | 'explorer' | 'insights' | 'reports'>('dashboards');
+  type AnalyticsTab = 'dashboards' | 'explorer' | 'insights' | 'reports';
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>('dashboards');
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [activeDashboard, setActiveDashboard] = useState<Dashboard | null>(null);
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [showQueryBuilder, setShowQueryBuilder] = useState(false);
   const [showChartWizard, setShowChartWizard] = useState(false);
   const [showDashboardBuilder, setShowDashboardBuilder] = useState(false);
-  const [selectedData, setSelectedData] = useState<any>(null);
-  const [insights, setInsights] = useState<any[]>([]);
+  const [selectedData, setSelectedData] = useState<QueryResult[] | null>(null);
+  const [insights, setInsights] = useState<Insight[]>([]);
 
   const formatPercentage = useCallback((value: DecimalInstance | number, decimals: number = 1) => {
     const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
@@ -92,7 +106,7 @@ export default function Analytics(): React.JSX.Element {
   }, []);
 
   const generateInsights = useCallback(async () => {
-    const newInsights = [];
+    const newInsights: Insight[] = [];
     
     // Spending trends
     const spendingTrend = analyticsEngine.detectSeasonalPatterns(transactions, 'expenses');
@@ -143,31 +157,34 @@ export default function Analytics(): React.JSX.Element {
     // }
     
     setInsights(newInsights);
-  }, [transactions, formatCurrency, formatPercentage]);
+  }, [transactions, accounts, formatCurrency, formatPercentage]);
   
   useEffect(() => {
     generateInsights();
   }, [generateInsights]);
   
-  const executeQuery = (query: Query) => {
+  const executeQuery = (query: Query): QueryResult[] => {
     // Execute query against data
-    let results: any[] = [];
+    let results: QueryResult[] = [];
+
+    const cloneRecords = <T extends object>(items: T[]): QueryResult[] =>
+      items.map(item => ({ ...item }));
     
     switch (query.dataSource) {
       case 'transactions':
-        results = [...transactions];
+        results = cloneRecords(transactions);
         break;
       case 'accounts':
-        results = [...accounts];
+        results = cloneRecords(accounts);
         break;
       case 'budgets':
-        results = [...budgets];
+        results = cloneRecords(budgets);
         break;
       case 'goals':
-        results = [...goals];
+        results = cloneRecords(goals);
         break;
       case 'investments':
-        results = investments ? [...investments] : [];
+        results = investments ? cloneRecords(investments) : [];
         break;
     }
     
@@ -179,14 +196,16 @@ export default function Analytics(): React.JSX.Element {
           case 'equals':
             return value === condition.value;
           case 'contains':
-            return value?.toString().includes(condition.value);
+            return value !== undefined && value !== null
+              ? String(value).includes(String(condition.value))
+              : false;
           case 'greater':
-            return parseFloat(value as string) > parseFloat(condition.value as string);
+            return Number(value) > Number(condition.value);
           case 'less':
-            return parseFloat(value as string) < parseFloat(condition.value as string);
+            return Number(value) < Number(condition.value);
           case 'between':
-            return parseFloat(value as string) >= parseFloat(condition.value as string) &&
-                   parseFloat(value as string) <= parseFloat(condition.value2 as string);
+            return Number(value) >= Number(condition.value) &&
+                   Number(value) <= Number(condition.value2);
           default:
             return true;
         }
@@ -198,7 +217,15 @@ export default function Analytics(): React.JSX.Element {
       results.sort((a, b) => {
         const aVal = a[sort.field];
         const bVal = b[sort.field];
-        const comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        if (aVal === bVal) {
+          return 0;
+        }
+        const aNum = Number(aVal);
+        const bNum = Number(bVal);
+        const bothNumeric = !Number.isNaN(aNum) && !Number.isNaN(bNum);
+        const comparison = bothNumeric
+          ? (aNum > bNum ? 1 : -1)
+          : String(aVal ?? '').localeCompare(String(bVal ?? ''));
         return sort.direction === 'asc' ? comparison : -comparison;
       });
     });
@@ -234,7 +261,7 @@ export default function Analytics(): React.JSX.Element {
     setActiveDashboard(dashboard);
   };
   
-  const handleAddChart = (chartConfig: any) => {
+  const handleAddChart = (_chartConfig: Record<string, unknown>) => {
     // Add chart to current dashboard or create new widget
     setShowChartWizard(false);
   };
@@ -301,15 +328,15 @@ export default function Analytics(): React.JSX.Element {
             
             {/* Tabs */}
             <div className="flex gap-6 mt-6">
-              {[
+              {([
                 { id: 'dashboards', label: 'Dashboards', icon: GridIcon },
                 { id: 'explorer', label: 'Data Explorer', icon: GridIcon },
                 { id: 'insights', label: 'AI Insights', icon: LightbulbIcon },
                 { id: 'reports', label: 'Reports', icon: DownloadIcon }
-              ].map(tab => (
+              ] as Array<{ id: AnalyticsTab; label: string; icon: IconComponent }>).map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                     activeTab === tab.id
                       ? 'border-primary text-primary'
@@ -519,14 +546,14 @@ export default function Analytics(): React.JSX.Element {
                     </h3>
                     <div className="ag-theme-alpine-dark" style={{ height: 400 }}>
                       <Suspense fallback={<div className="flex items-center justify-center h-full">Loading grid...</div>}>
-                        <AgGridReact
+                        <AgGridReact<QueryResult>
                           rowData={selectedData}
-                          columnDefs={Object.keys(selectedData[0] || {}).map(key => ({
+                          columnDefs={Object.keys(selectedData[0] || {}).map((key): ColDef<QueryResult> => ({
                             field: key,
                             sortable: true,
                             filter: true,
                             resizable: true
-                          })) as any}
+                          }))}
                           defaultColDef={{
                             flex: 1,
                             minWidth: 100

@@ -32,7 +32,7 @@ export function useActivityLogger() {
         actionUrl: '/transactions'
       });
     }
-  }, [transactions.length]);
+  }, [transactions]);
 
   // Track account balance changes
   useEffect(() => {
@@ -118,7 +118,7 @@ export function useActivityLogger() {
 
   // Track sync events
   useEffect(() => {
-    const handleSyncComplete = (event: CustomEvent) => {
+    const handleSyncComplete = (_event: CustomEvent) => {
       logActivity({
         type: 'sync',
         title: 'Data Synchronized',
@@ -126,7 +126,7 @@ export function useActivityLogger() {
       });
     };
 
-    const handleSyncError = (event: CustomEvent) => {
+    const handleSyncError = (_event: CustomEvent) => {
       logActivity({
         type: 'system',
         title: 'Sync Error',
@@ -134,12 +134,12 @@ export function useActivityLogger() {
       });
     };
 
-    window.addEventListener('sync-complete' as any, handleSyncComplete);
-    window.addEventListener('sync-error' as any, handleSyncError);
+    window.addEventListener('sync-complete' as keyof WindowEventMap, handleSyncComplete);
+    window.addEventListener('sync-error' as keyof WindowEventMap, handleSyncError);
 
     return () => {
-      window.removeEventListener('sync-complete' as any, handleSyncComplete);
-      window.removeEventListener('sync-error' as any, handleSyncError);
+      window.removeEventListener('sync-complete' as keyof WindowEventMap, handleSyncComplete);
+      window.removeEventListener('sync-error' as keyof WindowEventMap, handleSyncError);
     };
   }, []);
 

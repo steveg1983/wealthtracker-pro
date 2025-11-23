@@ -1,21 +1,23 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseMNY } from '../mbfParser';
 
 describe('mbfParser', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-  });
+  let logger: { info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; debug: ReturnType<typeof vi.fn> };
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  beforeEach(() => {
+    logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    };
   });
 
   describe('parseMNY', () => {
     it('handles empty buffer', async () => {
       const buffer = new ArrayBuffer(0);
       
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
       
       // Returns default account with empty buffer
       expect(result.accounts).toHaveLength(1);
@@ -33,13 +35,13 @@ describe('mbfParser', () => {
       }
 
       try {
-        await parseMNY(buffer);
+        await parseMNY(buffer, { logger });
       } catch {
         // Expected to throw
       }
 
-      expect(console.log).toHaveBeenCalledWith(
-        'File signature:',
+      expect(logger.info).toHaveBeenCalledWith(
+        'File signature',
         '10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f'
       );
     });
@@ -52,7 +54,7 @@ describe('mbfParser', () => {
         uint8Array[i] = (i * 7) % 256;
       }
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       expect(result.accounts).toHaveLength(1);
       expect(result.accounts[0]).toEqual({
@@ -83,7 +85,7 @@ describe('mbfParser', () => {
       }
       uint8Array[nameOffset + accountName.length] = 0; // Null terminator
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       const checkingAccount = result.accounts.find(a => a.name === 'My Checking');
       expect(checkingAccount).toBeDefined();
@@ -129,7 +131,7 @@ describe('mbfParser', () => {
       addAccount(500, 'ACCT', 'Car Loan', 'loan');
       addAccount(700, 'ACCT', 'Investment', 'brokerage');
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       // Check that accounts were found
       expect(result.accounts.find(a => a.name === 'Visa Card')).toBeDefined();
@@ -164,7 +166,7 @@ describe('mbfParser', () => {
       }
       uint8Array[descOffset + desc.length] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       expect(result.transactions).toHaveLength(1);
       expect(result.transactions[0]).toMatchObject({
@@ -201,7 +203,7 @@ describe('mbfParser', () => {
       }
       uint8Array[descOffset + desc.length] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       expect(result.transactions).toHaveLength(1);
       expect(result.transactions[0].amount).toBe(250.75);
@@ -234,7 +236,7 @@ describe('mbfParser', () => {
       }
       uint8Array[descOffset + desc.length] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       if (result.transactions.length > 0) {
         expect(result.transactions[0].date.getFullYear()).toBe(2022);
@@ -270,7 +272,7 @@ describe('mbfParser', () => {
       }
       uint8Array[payeeOffset + payee.length] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       expect(result.transactions).toHaveLength(1);
       // Payee might be description or actual payee depending on parsing
@@ -301,7 +303,7 @@ describe('mbfParser', () => {
       uint8Array[nameOffset + accountName.length * 2] = 0;
       uint8Array[nameOffset + accountName.length * 2 + 1] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       const account = result.accounts.find(a => a.name.includes('Café') || a.name.includes('Account'));
       expect(account).toBeDefined();
@@ -331,7 +333,7 @@ describe('mbfParser', () => {
         uint8Array[descOffset + desc.length] = 0;
       }
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       // Should only have one transaction after deduplication
       const duplicates = result.transactions.filter(t => 
@@ -362,7 +364,7 @@ describe('mbfParser', () => {
         uint8Array[descOffset + desc.length] = 0;
       });
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       expect(result.transactions).toHaveLength(3);
       // Check dates are in ascending order
@@ -401,7 +403,7 @@ describe('mbfParser', () => {
       }
       uint8Array[descOffset + desc.length] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       // This specific format might not be detected, but check general parsing
       expect(result.transactions).toBeDefined();
@@ -424,7 +426,7 @@ describe('mbfParser', () => {
       // Invalid Unix timestamp (too small)
       dataView.setUint32(150, 100, true);
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       expect(result.transactions).toHaveLength(0);
     });
@@ -433,7 +435,7 @@ describe('mbfParser', () => {
       const buffer = new ArrayBuffer(10);
       // Too small to contain valid data
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
       
       // Should return default account even with small buffer
       expect(result.accounts).toHaveLength(1);
@@ -465,7 +467,7 @@ describe('mbfParser', () => {
         uint8Array[nameOffset + name.length] = 0;
       });
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       // Should find accounts from different patterns
       expect(result.accounts.length).toBeGreaterThanOrEqual(patterns.length);
@@ -504,7 +506,7 @@ describe('mbfParser', () => {
       }
       uint8Array[nameOffset + validName.length] = 0;
 
-      const result = await parseMNY(buffer);
+      const result = await parseMNY(buffer, { logger });
 
       // Should only include the valid account
       expect(result.accounts.find(a => a.name === 'Valid Account')).toBeDefined();

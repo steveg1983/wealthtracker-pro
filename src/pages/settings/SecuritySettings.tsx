@@ -20,7 +20,7 @@ export default function SecuritySettings() {
     securityService.getSecuritySettings()
   );
   const [showTwoFactorSetup, setShowTwoFactorSetup] = useState(false);
-  const [twoFactorSecret, setTwoFactorSecret] = useState<any>(null);
+  const [twoFactorSecret, setTwoFactorSecret] = useState<ReturnType<typeof securityService.generateTwoFactorSecret> | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [setupMessage, setSetupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -75,7 +75,7 @@ export default function SecuritySettings() {
         } else {
           setSetupMessage({ type: 'error', text: 'Failed to setup biometric authentication' });
         }
-      } catch (error) {
+      } catch {
         setSetupMessage({ type: 'error', text: 'Biometric authentication not available' });
       }
     } else {

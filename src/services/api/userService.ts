@@ -85,7 +85,7 @@ class UserServiceImpl {
       }
 
       if (fetchError?.code === 'PGRST116') {
-        const { data: newUser, error: createError } = await (client as any)
+        const { data: newUser, error: createError } = await client
           .from('users')
           .insert({
             clerk_id: clerkId,
@@ -127,7 +127,7 @@ class UserServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('users')
         .update(updates)
         .eq('clerk_id', clerkId)
@@ -154,7 +154,7 @@ class UserServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { error } = await (client as any)
+      const { error } = await client
         .from('users')
         .update({ preferences })
         .eq('clerk_id', clerkId);
@@ -177,7 +177,7 @@ class UserServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { error } = await (client as any)
+      const { error } = await client
         .from('users')
         .update({ settings })
         .eq('clerk_id', clerkId);
@@ -206,7 +206,7 @@ class UserServiceImpl {
         .single();
 
       if (error) {
-        if ((error as any).code === 'PGRST116') {
+        if ((error as { code?: string }).code === 'PGRST116') {
           return null;
         }
         this.logger.error('Error fetching user:', error);
@@ -227,7 +227,7 @@ class UserServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { error } = await (client as any)
+      const { error } = await client
         .from('users')
         .update({ last_sync_at: this.nowIso() })
         .eq('clerk_id', clerkId);
@@ -262,11 +262,11 @@ export class UserService {
     return this.service.updateUser(clerkId, updates);
   }
 
-  static updatePreferences(clerkId: string, preferences: Record<string, any>): Promise<void> {
+  static updatePreferences(clerkId: string, preferences: Record<string, unknown>): Promise<void> {
     return this.service.updatePreferences(clerkId, preferences);
   }
 
-  static updateSettings(clerkId: string, settings: Record<string, any>): Promise<void> {
+  static updateSettings(clerkId: string, settings: Record<string, unknown>): Promise<void> {
     return this.service.updateSettings(clerkId, settings);
   }
 

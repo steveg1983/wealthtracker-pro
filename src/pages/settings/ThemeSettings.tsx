@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { themeSchedulingService } from '../../services/themeSchedulingService';
 import type { ThemeSchedule, ThemePreset } from '../../services/themeSchedulingService';
-import { 
+import {
   MoonIcon,
   SunIcon,
   ClockIcon,
-  MapPinIcon,
   PaletteIcon,
   SettingsIcon,
   PlusIcon,
@@ -14,9 +13,7 @@ import {
   PlayIcon,
   StopIcon,
   EyeIcon,
-  RefreshCwIcon,
-  CheckCircleIcon,
-  AlertCircleIcon
+  RefreshCwIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
 import { formatDecimal } from '../../utils/decimal-format';
@@ -32,8 +29,8 @@ export default function ThemeSettings() {
   const [presets, setPresets] = useState<ThemePreset[]>([]);
   const [currentSchedule, setCurrentSchedule] = useState<ThemeSchedule | null>(null);
   const [showCreateSchedule, setShowCreateSchedule] = useState(false);
-  const [showCreatePreset, setShowCreatePreset] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState<ThemeSchedule | null>(null);
+  const [_showCreatePreset, setShowCreatePreset] = useState(false);
+  const [_editingSchedule, setEditingSchedule] = useState<ThemeSchedule | null>(null);
   const [nextThemeChange, setNextThemeChange] = useState<{ time: string; theme: 'light' | 'dark' } | null>(null);
 
   useEffect(() => {
@@ -94,7 +91,7 @@ export default function ThemeSettings() {
     }
   };
 
-  const handleCreateSchedule = (scheduleData: Omit<ThemeSchedule, 'id' | 'createdAt' | 'lastUpdated'>) => {
+  const _handleCreateSchedule = (scheduleData: Omit<ThemeSchedule, 'id' | 'createdAt' | 'lastUpdated'>) => {
     themeSchedulingService.createSchedule(scheduleData);
     loadData();
     setShowCreateSchedule(false);

@@ -1,5 +1,6 @@
 import { exportService } from './exportService';
 import type { ExportOptions } from './exportService';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -40,12 +41,13 @@ export class AutomaticBackupService {
   private readonly windowRef?: Window | null;
   private readonly permissionsQuery?: (descriptor: PermissionDescriptor) => Promise<PermissionStatus>;
   private fallbackInterval?: ReturnType<typeof setInterval>;
+  private readonly logger = createScopedLogger('AutomaticBackupService');
 
   constructor(options: AutomaticBackupServiceOptions = {}) {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
     this.clearIntervalFn = options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
     this.dateNow = options.dateNow ?? (() => Date.now());
     this.dateFactory = options.dateFactory ?? (() => new Date());
@@ -63,13 +65,13 @@ export class AutomaticBackupService {
     const config = this.getBackupConfig();
     
     if (!config.enabled) {
-      console.log('[AutomaticBackup] Backups disabled');
+      this.logger.info?.('[AutomaticBackup] Backups disabled');
       this.clearFallbackScheduler();
       return;
     }
 
     const navigatorRef = this.navigatorRef;
-    const registration = (this.windowRef as any)?.registration;
+    const registration = (this.windowRef as { registration?: ServiceWorkerRegistration } | null)?.registration;
     const supportsPeriodicSync =
       Boolean(navigatorRef?.serviceWorker?.controller) &&
       Boolean(registration && 'periodicSync' in registration);
@@ -83,9 +85,9 @@ export class AutomaticBackupService {
           await this.registerPeriodicSync();
           return;
         }
-        console.log('[AutomaticBackup] Periodic sync permission not granted');
+        this.logger.info?.('[AutomaticBackup] Periodic sync permission not granted');
       } catch (error) {
-        console.error('[AutomaticBackup] Failed to setup periodic sync:', error);
+        this.logger.error('[AutomaticBackup] Failed to setup periodic sync', error as Error);
       }
     }
 
@@ -106,12 +108,12 @@ export class AutomaticBackupService {
     const minInterval = this.getMinInterval(config.frequency);
     
     try {
-      await (registration as any).periodicSync.register('automatic-backup', {
+      await (registration as unknown as { periodicSync: { register: (tag: string, options: { minInterval: number }) => Promise<void> } }).periodicSync.register('automatic-backup', {
         minInterval,
       });
-      console.log('[AutomaticBackup] Periodic sync registered');
+      this.logger.info?.('[AutomaticBackup] Periodic sync registered');
     } catch (error) {
-      console.error('[AutomaticBackup] Failed to register periodic sync:', error);
+      this.logger.error('[AutomaticBackup] Failed to register periodic sync', error as Error);
       throw error;
     }
   }
@@ -165,7 +167,7 @@ export class AutomaticBackupService {
     }
 
     try {
-      console.log('[AutomaticBackup] Starting backup...');
+      this.logger.info?.('[AutomaticBackup] Starting backup...');
       
       // Get all data for backup
       const data = await this.collectBackupData();
@@ -200,9 +202,9 @@ export class AutomaticBackupService {
       // Send notification
       this.sendBackupNotification(true);
       
-      console.log('[AutomaticBackup] Backup completed successfully');
+      this.logger.info?.('[AutomaticBackup] Backup completed successfully');
     } catch (error) {
-      console.error('[AutomaticBackup] Backup failed:', error);
+      this.logger.error('[AutomaticBackup] Backup failed', error as Error);
       
       this.updateBackupHistory({
         timestamp: this.dateNow(),
@@ -214,7 +216,7 @@ export class AutomaticBackupService {
     }
   }
 
-  private async collectBackupData(): Promise<any> {
+  private async collectBackupData(): Promise<Record<string, unknown>> {
     // Collect all app data from localStorage
     const keys = [
       'money_management_transactions',
@@ -231,7 +233,7 @@ export class AutomaticBackupService {
       'money_management_scheduled_reports',
     ];
     
-    const data: Record<string, any> = {
+    const data: Record<string, unknown> = {
       version: '2.0',
       timestamp: new Date().toISOString(),
       app_version: process.env.REACT_APP_VERSION || '1.4.7',
@@ -243,7 +245,7 @@ export class AutomaticBackupService {
         try {
           data[key.replace('money_management_', '')] = JSON.parse(value);
         } catch (error) {
-          console.warn(`Failed to parse ${key}:`, error);
+          this.logger.warn?.(`Failed to parse ${key}`, error as Error);
         }
       }
     }
@@ -252,7 +254,7 @@ export class AutomaticBackupService {
   }
 
   private async createJSONBackup(
-    data: any, 
+    data: Record<string, unknown>, 
     config: BackupConfig
   ): Promise<{ format: string; data: Blob; filename: string }> {
     let jsonString = JSON.stringify(data, null, 2);
@@ -268,7 +270,9 @@ export class AutomaticBackupService {
     return { format: 'json', data: blob, filename };
   }
 
-  private async createCSVBackup(data: any): Promise<{ format: string; data: Blob; filename: string }> {
+  private async createCSVBackup(
+    data: Record<string, unknown>
+  ): Promise<{ format: string; data: Blob; filename: string }> {
     // Use existing export service to create CSV
     const options: ExportOptions = {
       startDate: new Date(0), // Beginning of time
@@ -381,7 +385,7 @@ export class AutomaticBackupService {
   ): Promise<void> {
     // This would integrate with cloud storage APIs
     // For now, we'll just log the intention
-    console.log(`[AutomaticBackup] Would sync ${backupFiles.length} files to ${provider}`);
+    this.logger.info?.(`[AutomaticBackup] Would sync ${backupFiles.length} files to ${provider}`);
     
     // In a real implementation, this would:
     // 1. Authenticate with the cloud provider
@@ -414,7 +418,7 @@ export class AutomaticBackupService {
     });
   }
 
-  private sendBackupNotification(success: boolean, error?: any): void {
+  private sendBackupNotification(success: boolean, error?: unknown): void {
     const title = success ? 'Backup Completed' : 'Backup Failed';
     const options: NotificationOptions = {
       body: success
@@ -447,7 +451,7 @@ export class AutomaticBackupService {
       try {
         return JSON.parse(stored);
       } catch (error) {
-        console.error('Failed to parse backup config:', error);
+        this.logger.error('Failed to parse backup config', error as Error);
       }
     }
     
@@ -511,21 +515,33 @@ export class AutomaticBackupService {
     return nextBackup.getTime();
   }
 
-  private getBackupHistory(): Array<any> {
+  private getBackupHistory(): Array<{
+    timestamp: number;
+    success: boolean;
+    format?: BackupConfig['format'];
+    filesCreated?: number;
+    error?: string;
+  }> {
     const stored = this.storage?.getItem(this.BACKUP_HISTORY_KEY);
     
     if (stored) {
       try {
         return JSON.parse(stored);
       } catch (error) {
-        console.error('Failed to parse backup history:', error);
+        this.logger.error('Failed to parse backup history', error as Error);
       }
     }
     
     return [];
   }
 
-  private updateBackupHistory(entry: any): void {
+  private updateBackupHistory(entry: {
+    timestamp: number;
+    success: boolean;
+    format?: BackupConfig['format'];
+    filesCreated?: number;
+    error?: string;
+  }): void {
     const history = this.getBackupHistory();
     history.unshift(entry);
     

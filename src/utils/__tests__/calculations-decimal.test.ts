@@ -1,6 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import Decimal from 'decimal.js';
-type DecimalInstance = InstanceType<typeof Decimal>;
 import {
   calculateTotalBalance,
   calculateNetWorth,
@@ -9,18 +7,6 @@ import {
   calculateBudgetUsage,
   calculateBudgetProgress,
   calculateGoalProgress,
-  getTransactionsByCategory,
-  getTransactionsByDateRange,
-  calculateAverageTransactionAmount,
-  calculateMonthlyAverage,
-  calculateAccountTotals,
-  calculateCashFlow,
-  calculateSavingsRate,
-  getRecentTransactions,
-  getTopCategories,
-  calculateDailyBalance,
-  calculateMonthlyTrends,
-  calculateCategoryTrends
 } from '../calculations-decimal';
 import {
   calculateNetIncome,

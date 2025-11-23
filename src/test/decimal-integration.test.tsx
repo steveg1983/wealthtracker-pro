@@ -1,13 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import App from '../App';
 import { toDecimal, toNumber } from '../utils/decimal';
-import { 
-  toDecimalAccount, 
-  toDecimalTransaction,
-  fromDecimalAccount,
-  fromDecimalTransaction 
+import {
+  toDecimalAccount,
+  fromDecimalAccount
 } from '../utils/decimal-converters';
 
 describe('Decimal.js Integration Tests', () => {

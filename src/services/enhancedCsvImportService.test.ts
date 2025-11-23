@@ -5,14 +5,11 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { enhancedCsvImportService } from '../enhancedCsvImportService';
-import type { 
-  Transaction, 
-  Account, 
-  ColumnMapping, 
-  ImportProfile,
-  ImportResult,
-  ParseResult,
-  DuplicateCheckResult
+import type {
+  Transaction,
+  Account,
+  ColumnMapping,
+  ImportProfile
 } from '../../types';
 
 // Mock storageAdapter

@@ -3,7 +3,7 @@
  * UI for resolving sync conflicts between local and server data
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useOfflineOperations } from '../../pwa/offline-storage';
 import { Modal } from '../common/Modal';
 import { AlertTriangleIcon, CheckIcon } from '../icons';
@@ -18,6 +18,7 @@ import {
   isBudgetConflict,
   isTransactionConflict
 } from '../../types/syncConflict';
+import { createScopedLogger } from '../../loggers/scopedLogger';
 
 interface ConflictResolutionModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   const { resolveConflict } = useOfflineOperations();
   const [selectedResolution, setSelectedResolution] = React.useState<'client' | 'server'>('server');
   const [isResolving, setIsResolving] = React.useState(false);
+  const logger = useMemo(() => createScopedLogger('ConflictResolutionModal'), []);
 
   if (!conflict) return null;
 
@@ -47,7 +49,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       await resolveConflict(conflict.id, resolvedData);
       onClose();
     } catch (error) {
-      console.error('Failed to resolve conflict:', error);
+      logger.error('Failed to resolve conflict', error as Error);
     } finally {
       setIsResolving(false);
     }

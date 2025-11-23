@@ -5,15 +5,14 @@ import { customReportService } from '../services/customReportService';
 import CustomReportBuilder from '../components/CustomReportBuilder';
 import ScheduledCustomReports from '../components/ScheduledCustomReports';
 import type { CustomReport } from '../components/CustomReportBuilder';
-import { 
-  PlusIcon, 
-  FileTextIcon, 
-  EditIcon, 
-  DeleteIcon, 
-  PlayIcon, 
+import {
+  PlusIcon,
+  FileTextIcon,
+  EditIcon,
+  DeleteIcon,
+  PlayIcon,
   CalendarIcon,
-  CopyIcon,
-  DownloadIcon
+  CopyIcon
 } from '../components/icons';
 import { format } from 'date-fns';
 
@@ -25,7 +24,7 @@ export default function CustomReports(): React.JSX.Element {
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingReport, setEditingReport] = useState<CustomReport | undefined>();
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
-  const [generatedData, setGeneratedData] = useState<any>(null);
+  const [_generatedData, _setGeneratedData] = useState<unknown>(null);
 
   useEffect(() => {
     loadReports();
@@ -103,7 +102,7 @@ export default function CustomReports(): React.JSX.Element {
         title: 'Report Generated',
         message: 'Your report has been generated successfully'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Generation Failed',

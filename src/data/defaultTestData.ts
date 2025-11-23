@@ -16,7 +16,7 @@ function getMonthEnd(year: number, month: number): Date {
 }
 
 // Stock/Fund prices as of 01/07/2024 (researched approximate values)
-const PORTFOLIO_PRICES = {
+const _PORTFOLIO_PRICES = {
   // FTSE 100 Shares (in GBP)
   'LLOY.L': { symbol: 'LLOY', name: 'Lloyds Banking Group', price: 0.54 }, // ~54p
   'BARC.L': { symbol: 'BARC', name: 'Barclays', price: 2.10 }, // ~210p

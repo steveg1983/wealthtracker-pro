@@ -631,7 +631,7 @@ describe('SearchService', () => {
   describe('parseNaturalLanguageQuery', () => {
     describe('date parsing', () => {
       it('parses "last week"', () => {
-        const today = new Date();
+        const _today = new Date();
         const options = searchService.parseNaturalLanguageQuery('groceries last week');
 
         expect(options.dateFrom).toBeInstanceOf(Date);

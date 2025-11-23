@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { investmentEnhancementService } from './investmentEnhancementService';
 import type { Investment, Transaction } from '../types';
-import type { RebalancingSuggestion, RiskMetrics, DividendInfo, BenchmarkComparison, ESGScore } from './investmentEnhancementService';
 
 // Mock decimal utility
 const createMockDecimal = (value: number) => ({

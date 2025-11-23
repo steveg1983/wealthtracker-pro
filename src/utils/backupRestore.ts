@@ -18,7 +18,7 @@ export interface BackupData {
 export function validateBackupData(data: unknown): data is BackupData {
   if (!data || typeof data !== 'object') return false;
   
-  const obj = data as any;
+  const obj = data as Partial<BackupData>;
   
   // Check required fields
   if (!Array.isArray(obj.accounts)) return false;

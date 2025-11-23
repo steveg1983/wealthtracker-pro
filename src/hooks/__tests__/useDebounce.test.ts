@@ -199,7 +199,7 @@ describe('useDebounce', () => {
     const values = ['change1', 'change2', 'change3', 'change4', 'final'];
     
     // Make rapid changes
-    values.forEach((value, index) => {
+    values.forEach((value, _index) => {
       rerender({ value, delay: 300 });
       
       // Advance time slightly between changes

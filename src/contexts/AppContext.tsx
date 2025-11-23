@@ -18,6 +18,7 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { recalculateAccountBalances } from '../utils/recalculateBalances';
 import { smartCategorizationService } from '../services/smartCategorizationService';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 import { storageAdapter, STORAGE_KEYS } from '../services/storageAdapter';
 
 export interface Tag {
@@ -134,6 +135,7 @@ function fromDecimalRecurringTransaction(recurring: DecimalRecurringTransaction)
 }
 
 export function AppProvider({ children }: { children: ReactNode }): React.JSX.Element {
+  const logger = useMemoizedLogger('AppContext');
   const [isStorageReady, setIsStorageReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -153,13 +155,13 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         await storageAdapter.init();
         setIsStorageReady(true);
       } catch (error) {
-        console.error('Failed to initialize storage:', error);
+        logger.error?.('Failed to initialize storage', error);
         // Continue with localStorage fallback
         setIsStorageReady(true);
       }
     };
     initStorage();
-  }, []);
+  }, [logger]);
 
   // Load data from secure storage
   useEffect((): void => {
@@ -228,7 +230,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         }
 
       } catch (error) {
-        console.error('Error loading data:', error);
+        logger.error?.('Error loading data', error);
         
         // Provide minimal working state without marking for clear
         setCategories(getMinimalSystemCategories());
@@ -244,7 +246,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
     };
 
     loadData();
-  }, [isStorageReady]);
+  }, [isStorageReady, logger]);
 
   // Convert Decimal types to regular types for external use
   const accounts = decimalAccounts.map(fromDecimalAccount);
@@ -704,7 +706,6 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
     decimalTransactions,
     decimalBudgets,
     decimalGoals,
-    decimalRecurringTransactions,
     getTagUsageCount,
     getSubCategories,
     getDetailCategories,

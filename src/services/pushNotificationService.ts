@@ -5,7 +5,11 @@
 
 import React from 'react';
 
-import { getRegistration } from '../utils/serviceWorkerRegistration';
+interface NotificationAction {
+  action: string;
+  title: string;
+  icon?: string;
+}
 
 interface NotificationOptions {
   title: string;
@@ -13,9 +17,20 @@ interface NotificationOptions {
   icon?: string;
   badge?: string;
   tag?: string;
-  data?: any;
-  actions?: any[];
+  data?: Record<string, unknown>;
+  actions?: NotificationAction[];
   requireInteraction?: boolean;
+}
+
+interface NotificationData {
+  id?: string;
+  name?: string;
+  amount?: number;
+  percentage?: number;
+  category?: string;
+  daysUntilDue?: number;
+  message?: string;
+  [key: string]: unknown;
 }
 
 interface NotificationPreferences {
@@ -76,7 +91,12 @@ export class PushNotificationService {
     this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
     this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
     this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
-    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as any);
+    const fetchFallback: typeof fetch = async (input, init) => {
+      void input;
+      void init;
+      return new Response();
+    };
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : fetchFallback);
     const defaultNotification = typeof Notification !== 'undefined'
       ? Notification
       : { permission: 'default' as NotificationPermission, requestPermission: async () => 'default' as NotificationPermission };
@@ -352,7 +372,7 @@ export class PushNotificationService {
   /**
    * Handle notification types
    */
-  static getNotificationConfig(type: string, data: any): NotificationOptions {
+  static getNotificationConfig(type: string, data: NotificationData): NotificationOptions {
     switch (type) {
       case 'budget-alert':
         return {

@@ -260,7 +260,7 @@ PTest Transaction
       expect(result.duplicates).toBe(0);
       expect(result.transactions).toHaveLength(4);
 
-      const [trx1, trx2, trx3, trx4] = result.transactions;
+      const [trx1, trx2, trx3, _trx4] = result.transactions;
 
       // Check first transaction
       expect(trx1).toMatchObject({

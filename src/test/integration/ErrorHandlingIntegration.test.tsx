@@ -17,11 +17,10 @@ vi.mock('../../pages/Dashboard', () => ({
   )
 }));
 
-// Mock console to capture errors
+// Mock logger to capture errors
 const mockConsoleError = vi.fn();
 const mockConsoleWarn = vi.fn();
-const originalError = console.error;
-const originalWarn = console.warn;
+const originalConsole = globalThis.console;
 
 describe('Error Handling Integration Tests', () => {
   let localStorageMock: ReturnType<typeof mockLocalStorage>;
@@ -32,8 +31,11 @@ describe('Error Handling Integration Tests', () => {
     mockConsoleWarn.mockClear();
     
     // Replace console methods
-    console.error = mockConsoleError;
-    console.warn = mockConsoleWarn;
+    globalThis.console = {
+      ...originalConsole,
+      error: mockConsoleError,
+      warn: mockConsoleWarn,
+    };
     
     // Setup fresh localStorage mock
     localStorageMock = mockLocalStorage();
@@ -41,8 +43,7 @@ describe('Error Handling Integration Tests', () => {
 
   afterEach(() => {
     // Restore console methods
-    console.error = originalError;
-    console.warn = originalWarn;
+    globalThis.console = originalConsole;
   });
 
   describe('localStorage Error Handling', () => {
@@ -563,7 +564,7 @@ describe('Error Handling Integration Tests', () => {
         let errorThrown = false;
         try {
           render(<Dashboard />);
-        } catch (error) {
+        } catch {
           errorThrown = true;
         }
         

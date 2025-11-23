@@ -1,5 +1,6 @@
 import type { Budget, Goal, Transaction } from '../types';
-import { householdService, type HouseholdMember } from './householdService';
+import { householdService } from './householdService';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface SharedBudget extends Budget {
   householdId: string;
@@ -83,6 +84,7 @@ class SharedFinanceService {
   private sharedGoals: SharedGoal[] = [];
   private approvals: BudgetApproval[] = [];
   private activities: SharedFinanceActivity[] = [];
+  private readonly logger = createScopedLogger('SharedFinanceService');
 
   constructor() {
     this.loadData();
@@ -92,7 +94,12 @@ class SharedFinanceService {
     try {
       const budgetsData = localStorage.getItem(this.BUDGETS_KEY);
       if (budgetsData) {
-        this.sharedBudgets = JSON.parse(budgetsData).map((b: any) => ({
+        type StoredSharedBudget = Omit<SharedBudget, 'createdAt' | 'updatedAt' | 'lastModifiedAt'> & {
+          createdAt: string;
+          updatedAt?: string;
+          lastModifiedAt?: string;
+        };
+        this.sharedBudgets = (JSON.parse(budgetsData) as StoredSharedBudget[]).map(b => ({
           ...b,
           createdAt: new Date(b.createdAt),
           updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
@@ -102,12 +109,21 @@ class SharedFinanceService {
 
       const goalsData = localStorage.getItem(this.GOALS_KEY);
       if (goalsData) {
-        this.sharedGoals = JSON.parse(goalsData).map((g: any) => ({
+        type StoredContributor = Omit<GoalContributor, 'lastContribution'> & {
+          lastContribution?: string;
+        };
+        type StoredSharedGoal = Omit<SharedGoal, 'createdAt' | 'targetDate' | 'lastModifiedAt' | 'contributors'> & {
+          createdAt: string;
+          targetDate: string;
+          lastModifiedAt?: string;
+          contributors: StoredContributor[];
+        };
+        this.sharedGoals = (JSON.parse(goalsData) as StoredSharedGoal[]).map(g => ({
           ...g,
           createdAt: new Date(g.createdAt),
           targetDate: new Date(g.targetDate),
           lastModifiedAt: g.lastModifiedAt ? new Date(g.lastModifiedAt) : undefined,
-          contributors: g.contributors.map((c: any) => ({
+          contributors: g.contributors.map(c => ({
             ...c,
             lastContribution: c.lastContribution ? new Date(c.lastContribution) : undefined
           }))
@@ -116,7 +132,11 @@ class SharedFinanceService {
 
       const approvalsData = localStorage.getItem(this.APPROVALS_KEY);
       if (approvalsData) {
-        this.approvals = JSON.parse(approvalsData).map((a: any) => ({
+        type StoredApproval = Omit<BudgetApproval, 'requestedAt' | 'reviewedAt'> & {
+          requestedAt: string;
+          reviewedAt?: string;
+        };
+        this.approvals = (JSON.parse(approvalsData) as StoredApproval[]).map(a => ({
           ...a,
           requestedAt: new Date(a.requestedAt),
           reviewedAt: a.reviewedAt ? new Date(a.reviewedAt) : undefined
@@ -125,13 +145,14 @@ class SharedFinanceService {
 
       const activitiesData = localStorage.getItem(this.ACTIVITIES_KEY);
       if (activitiesData) {
-        this.activities = JSON.parse(activitiesData).map((a: any) => ({
+        type StoredActivity = Omit<SharedFinanceActivity, 'timestamp'> & { timestamp: string };
+        this.activities = (JSON.parse(activitiesData) as StoredActivity[]).map(a => ({
           ...a,
           timestamp: new Date(a.timestamp)
         }));
       }
     } catch (error) {
-      console.error('Failed to load shared finance data:', error);
+      this.logger.error('Failed to load shared finance data', error as Error);
     }
   }
 
@@ -142,7 +163,7 @@ class SharedFinanceService {
       localStorage.setItem(this.APPROVALS_KEY, JSON.stringify(this.approvals));
       localStorage.setItem(this.ACTIVITIES_KEY, JSON.stringify(this.activities));
     } catch (error) {
-      console.error('Failed to save shared finance data:', error);
+      this.logger.error('Failed to save shared finance data', error as Error);
     }
   }
 

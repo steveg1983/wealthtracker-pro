@@ -11,16 +11,36 @@
 
 import { supabase } from '../lib/supabase';
 import { toDecimal, toStorageNumber } from '../utils/decimal';
-import type { 
-  UserSubscription, 
-  SubscriptionTier, 
-  SubscriptionStatus,
+import { createScopedLogger } from '../loggers/scopedLogger';
+import type {
+  UserSubscription,
   PaymentMethod,
   Invoice,
-  SubscriptionUsage 
+  SubscriptionUsage
 } from '../types/subscription';
 
+interface SubscriptionUsageRow {
+  user_id: string;
+  accounts_count: number;
+  transactions_count: number;
+  budgets_count: number;
+  goals_count: number;
+  last_calculated?: string | null;
+}
+
+interface SupabaseUserProfile {
+  id: string;
+  clerk_user_id: string;
+  email: string;
+  full_name?: string | null;
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export class SupabaseSubscriptionService {
+  private static logger = createScopedLogger('SupabaseSubscriptionService');
   /**
    * Get current subscription for a user
    */
@@ -60,7 +80,7 @@ export class SupabaseSubscriptionService {
         updatedAt: new Date(data.updated_at)
       };
     } catch (error) {
-      console.error('Error getting current subscription:', error);
+      this.logger.error('Error getting current subscription', error as Error);
       throw error;
     }
   }
@@ -115,7 +135,7 @@ export class SupabaseSubscriptionService {
         updatedAt: new Date(data.updated_at)
       };
     } catch (error) {
-      console.error('Error upserting subscription:', error);
+      this.logger.error('Error upserting subscription', error as Error);
       throw error;
     }
   }
@@ -129,7 +149,7 @@ export class SupabaseSubscriptionService {
         .from('subscription_usage')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .single<SubscriptionUsageRow>();
 
       if (error && error.code !== 'PGRST116') {
         throw error;
@@ -147,7 +167,7 @@ export class SupabaseSubscriptionService {
             goals_count: 0
           })
           .select()
-          .single();
+          .single<SubscriptionUsageRow>();
 
         if (insertError) throw insertError;
         
@@ -169,7 +189,7 @@ export class SupabaseSubscriptionService {
             goals: 0,
             storage: 0
           }
-        } as any;
+        };
       }
 
       return {
@@ -185,14 +205,14 @@ export class SupabaseSubscriptionService {
         limits: { accounts: 0, transactions: 0, budgets: 0, goals: 0 },
         percentageUsed: {
           accounts: 0,
-          transactions: 0,
-          budgets: 0,
-          goals: 0,
-          storage: 0
-        }
-      } as any;
+            transactions: 0,
+            budgets: 0,
+            goals: 0,
+            storage: 0
+          }
+        };
     } catch (error) {
-      console.error('Error getting subscription usage:', error);
+      this.logger.error('Error getting subscription usage', error as Error);
       throw error;
     }
   }
@@ -205,7 +225,7 @@ export class SupabaseSubscriptionService {
     usage: Partial<Omit<SubscriptionUsage, 'lastCalculated'>>
   ): Promise<void> {
     try {
-      const updateData: any = {
+      const updateData: Partial<SubscriptionUsageRow> & { last_calculated: string } = {
         last_calculated: new Date().toISOString()
       };
 
@@ -225,7 +245,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error updating subscription usage:', error);
+      this.logger.error('Error updating subscription usage', error as Error);
       throw error;
     }
   }
@@ -242,7 +262,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error refreshing usage counts:', error);
+      this.logger.error('Error refreshing usage counts', error as Error);
       throw error;
     }
   }
@@ -260,7 +280,7 @@ export class SupabaseSubscriptionService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error checking feature access:', error);
+      this.logger.error('Error checking feature access', error as Error);
       // Default to false for safety
       return false;
     }
@@ -289,7 +309,7 @@ export class SupabaseSubscriptionService {
         isDefault: pm.is_default
       }));
     } catch (error) {
-      console.error('Error getting payment methods:', error);
+      this.logger.error('Error getting payment methods', error as Error);
       throw error;
     }
   }
@@ -316,7 +336,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error adding payment method:', error);
+      this.logger.error('Error adding payment method', error as Error);
       throw error;
     }
   }
@@ -341,7 +361,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error setting default payment method:', error);
+      this.logger.error('Error setting default payment method', error as Error);
       throw error;
     }
   }
@@ -359,7 +379,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error removing payment method:', error);
+      this.logger.error('Error removing payment method', error as Error);
       throw error;
     }
   }
@@ -394,7 +414,7 @@ export class SupabaseSubscriptionService {
         };
       });
     } catch (error) {
-      console.error('Error getting invoices:', error);
+      this.logger.error('Error getting invoices', error as Error);
       throw error;
     }
   }
@@ -421,7 +441,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error adding invoice:', error);
+      this.logger.error('Error adding invoice', error as Error);
       throw error;
     }
   }
@@ -445,7 +465,7 @@ export class SupabaseSubscriptionService {
         throw error;
       }
     } catch (error) {
-      console.error('Error creating user profile:', error);
+      this.logger.error('Error creating user profile', error as Error);
       throw error;
     }
   }
@@ -453,18 +473,18 @@ export class SupabaseSubscriptionService {
   /**
    * Get user profile by Clerk ID
    */
-  static async getUserProfile(clerkUserId: string): Promise<any> {
+  static async getUserProfile(clerkUserId: string): Promise<SupabaseUserProfile | null> {
     try {
       const { data, error } = await supabase!
         .from('user_profiles')
         .select('*')
         .eq('clerk_user_id', clerkUserId)
-        .single();
+        .single<SupabaseUserProfile>();
 
       if (error) throw error;
-      return data;
+      return data ?? null;
     } catch (error) {
-      console.error('Error getting user profile:', error);
+      this.logger.error('Error getting user profile', error as Error);
       throw error;
     }
   }

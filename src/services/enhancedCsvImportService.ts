@@ -472,9 +472,9 @@ export class EnhancedCsvImportService {
               // Apply date parsing for date fields without transform
               transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
-              (transaction as any)[mapping.targetField] = mapping.transform(value);
+              (transaction as Record<string, JsonValue>)[mapping.targetField] = mapping.transform(value);
             } else {
-              (transaction as any)[mapping.targetField] = value;
+              (transaction as Record<string, JsonValue>)[mapping.targetField] = value;
             }
           }
         }
@@ -648,9 +648,9 @@ export class EnhancedCsvImportService {
             } else if (mapping.targetField === 'date' && !mapping.transform) {
               transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
-              (transaction as any)[mapping.targetField] = mapping.transform(value);
+              (transaction as Record<string, JsonValue>)[mapping.targetField] = mapping.transform(value);
             } else {
-              (transaction as any)[mapping.targetField] = value;
+              (transaction as Record<string, JsonValue>)[mapping.targetField] = value;
             }
           }
         }

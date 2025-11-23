@@ -56,7 +56,7 @@ const createInMemoryDb = () => {
   const clone = (value: any) => JSON.parse(JSON.stringify(value));
 
   const db = {
-    transaction(storeNames: (keyof typeof stores)[]) {
+    transaction(_storeNames: (keyof typeof stores)[]) {
       return {
         objectStore: (name: keyof typeof stores) => ({
           async put(value: any) {

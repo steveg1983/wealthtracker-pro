@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useLocalStorage } from './useLocalStorage';
 
 // Mock localStorage
@@ -25,9 +25,9 @@ const localStorageMock = (() => {
     get length() {
       return Object.keys(store).length;
     },
-    key: vi.fn((index: number) => {
+    key: vi.fn((_index: number) => {
       const keys = Object.keys(store);
-      return keys[index] || null;
+      return keys[_index] || null;
     }),
   };
 })();
@@ -341,7 +341,7 @@ describe('useLocalStorage', () => {
   describe.skip('SSR compatibility', () => {
     it('works when window is undefined', () => {
       const originalWindow = global.window;
-      // @ts-ignore
+      // @ts-expect-error - Testing SSR scenario where window is undefined
       delete global.window;
       
       const { result } = renderHook(() => useLocalStorage('test-key', 'ssr-default'));
@@ -354,7 +354,7 @@ describe('useLocalStorage', () => {
 
     it('works with function initializer when window is undefined', () => {
       const originalWindow = global.window;
-      // @ts-ignore
+      // @ts-expect-error - Testing SSR scenario where window is undefined
       delete global.window;
       
       const initializer = vi.fn(() => 'ssr-initialized');

@@ -1,91 +1,74 @@
-# SINGLE ENGINEERING BIBLE – WealthTracker (Web)
+# Engineering Bible – WealthTracker Web
 
-**Owner**: Frontend lead (ChatGPT)  
-**Last updated**: 2025-11-11
+**Owner**: Frontend/Platform (ChatGPT)  
+**Branch**: `claude-lint-cleanup`  
+**Updated**: 2025‑11‑02
 
 ---
 
-## 1. Current Status
+## 1. Current State
 
-- **Branch**: `decimal-migration-restore`
-- **Structure**: Restored to the flat Vite React app (no workspaces). All required config files (`vite.config.ts`, Tailwind/PostCSS configs, tsconfigs) and the entire `src/` tree are present again.
-- **Build Pipeline (Vercel)**:
-  - Helper script `scripts/build-web.mjs` now selects the correct app directory and runs `npm run build` so preview builds succeed.
-  - Latest deployment (`wealthtracker-l514dsq11`) completed 2025-10-29 21:33 UTC; build log stored at `logs/deployments/20251029_2133_wealthtracker-web.log`. Vercel executed `vite build` cleanly, though it emitted PostCSS `from` warnings and highlighted multiple >1 MB chunks (`chunk-tBQuDGzl.js`, `index-a-UlsUyK.js`, `xlsx-Bx0RsK1h.js`).
-- **Quality Gates (local, 2025-10-29)**:
-  - `npm run lint` → ✅
-  - `npm run typecheck:strict` → ✅
-  - `npm run test:smoke` → ✅ (34 tests)
-  - `npm run test:coverage` → ✅ (`apps/web/logs/quality-gates/20251029_141512_test-coverage.log`, 77.6 % statements / 57 % branches)
-  - `node scripts/verify-coverage-threshold.mjs … --statements=75 --branches=55` → ✅
-  - Supabase smoke (`npm run test:supabase-smoke`) → ✅ Seeds profile/account, writes a transaction via service role, reads it via anon client, and cleans up. Loads credentials from `.env.test.local`.
-- **CI Alignment**: `.github/workflows/handoff-snapshot.yml` `quality-gates` job now runs lint/typecheck/smoke/coverage/threshold/build/bundle checks **and** `npx supabase db lint --db-url "$SUPABASE_DB_URL"` when the GitHub secret `SUPABASE_DB_URL` is configured.
-- **Docs**: `docs/development-workflow.md` describes the Supabase credentials, coverage gate, and build flow.
+| Check | Command | Status | Notes |
+| --- | --- | --- | --- |
+| Lint | `npm run lint` | ✅ | Zero warnings/errors |
+| Strict types | `npm run typecheck:strict` | ✅ | TS 5.8 strict |
+| Smoke tests | `npm run test:smoke` | ✅ | JSdom + Vitest |
+| Realtime suite | `npm run test:realtime` | ✅ | Driven by `scripts/realtime-tests.json` |
+| Coverage | `npm run test:coverage` | ✅ | 77.6 % statements / 57 % branches |
+| Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥75 % statements / ≥55 % branches |
+| Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
+| Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
+
+Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). Build chunk warnings (Plotly/XLSX) tracked in `docs/bundle-optimization-plan.md`.
 
 ---
 
 ## 2. Guardrails & Tooling
 
-### Frontend Collaboration Rules
+### Quality Gates
+1. **Lint** → **Strict TS** → **Smoke** → **Realtime Suite** → **Coverage** → **Coverage Threshold** → **Bundle Check** → **Build** (see `.github/workflows/handoff-snapshot.yml`).
+2. `scripts/realtime-tests.json` enumerates every deterministic/timer-heavy service test. `npm run test:realtime` calls `scripts/run-realtime-suite.mjs` so adding coverage is a manifest edit.
+3. Coverage enforcement runs through `scripts/verify-coverage-threshold.mjs` (loads `coverage/coverage-final.json`, merges shards automatically).
 
-- All frontend branches must keep `npm run lint`, `npm run typecheck:strict`, and the dashboard/import Vitest suites green (`npx vitest run src/test/integration/DashboardInteractionsIntegration.test.tsx --environment jsdom`, etc.).
-- `npm run test:realtime` (deterministic Vitest split for the realtime price, predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, and subscription services) is now a hard gate. Husky (pre-commit & pre-push) and CI run it after the smoke suite; keep the suite fast by mocking intervals like the existing tests.
-- Do not touch Supabase schema or service contracts without a matching smoke update; coordinate with backend branches via feature flags if API shape changes are needed.
-- Log every multi-file UI refactor or bundle-impacting change in `docs/regression-audit-20251029.md` (or the latest audit doc) so backend teams know which journeys changed.
-- For shared files (context providers, hooks), open a PR draft and @mention the backend owner before merging.
-- Run `npm run test:coverage` locally before PRs; coverage may not drop below the enforced thresholds (≥75% statements / ≥55% branches).
-- Never bypass Husky/CI hooks; if a hotfix requires it, follow up with full test runs immediately afterward.
-- Keep component copy/IDs stable unless the change is part of a planned UX update; dashboard/import regression tests rely on those selectors.
+### Supabase
+- `scripts/run-supabase-smoke.mjs` discovers `supabase` tests, loads `.env.test.local`, and writes timestamped logs to `logs/supabase-smoke/<ISO>_supabase-smoke.log` plus `latest.log`. Nightly GitHub workflow uploads the log artifact for auditing.
+- Schema + migrations live under `supabase/`. Use `npm run db:migration:new`, `db:migrate`, `db:diff`, `db:lint`, `db:reset` with `SUPABASE_DB_URL`.
+- CI secrets required: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`.
 
-- **Coverage Gate**: CI must run `scripts/verify-coverage-threshold.mjs` (≥75 % statements, ≥55 % branches) after `npm run test:coverage`; the script now auto-merges Vitest shard outputs from `coverage/.tmp` into `coverage/coverage-final.json`, so no manual cleanup is required.
-- **Realtime Guard**: `npm run test:realtime` now bundles the four deterministic realtime-price suites (`subscribe`, `error`, `events`, `helpers`) plus the predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, and subscription suites. Husky hooks call it after `npm run test:smoke`, and `.github/workflows/handoff-snapshot.yml` runs it between smoke and coverage. Keep any new realtime work wired into those suites.
-- **Build Script**: Root `package.json` `"build"` delegates to `node scripts/build-web.mjs` to stay compatible with Vercel’s npm.
-- **Supabase Real Tests**: Set `RUN_SUPABASE_REAL_TESTS=true` and the three Supabase env vars. The script automatically maps `VITE_SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SERVICE_ROLE_KEY`.
-- **Supabase Migrations**: Migrations live under `supabase/migrations/` and are managed via Supabase CLI (see `supabase/README.md`). Use npm scripts (`db:migration:new`, `db:migrate`, `db:diff`, `db:lint`, `db:reset`) with `SUPABASE_DB_URL` scoped to staging/test.
-- **Supabase Schema Snapshot**: `supabase/migrations/20251030003814__initial-schema.sql` is the authoritative `pg_dump --schema-only --no-owner --no-privileges` export (user `postgres.nqbacrjjgdjabygqtcah`, host `aws-0-eu-west-2.pooler.supabase.com`). Re-dump and diff before major releases; store the DSN in the `SUPABASE_DB_URL` GitHub secret for CI.
-- **Supabase Function Fixes**: `202511010905__uuid-function-params.sql` refactors subscription helper functions to accept `uuid` arguments, and `202511010912__subscription-usage-uuid-constraint.sql` aligns the `subscription_usage` upsert to a `user_id` unique constraint so `supabase db lint` passes cleanly.
-- **CI Secrets**: Repository secrets must include `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` (postgres role DSN) so scheduled smoke + lint jobs can execute.
-- **Supabase Linting**: `.github/workflows/handoff-snapshot.yml` runs `npx supabase db lint --linked --fail-on error` whenever `SUPABASE_DB_URL` is present, ensuring migration regressions fail CI.
-- **Vitest Harness**: `vitest.config.ts` drives all suites (JSX automatic runtime, jsdom, backup folders excluded). `src/test/setup.ts` now mocks Clerk/App/Auth providers and polyfills storage.
-- **Remaining Monorepo Artifacts**: Packages under `packages/` remain from the old workspace layout but are not part of the current build. Leave untouched until a deliberate cleanup plan is executed.
+### Collaboration Rules
+- Keep selectors stable for dashboard/import journeys; log multi-file UI refactors in the latest regression audit doc.
+- No schema/service contract changes without Supabase smoke updates or feature flags.
+- Husky + CI hooks may not be bypassed. If an emergency hotfix requires it, run the full gate locally immediately afterwards.
 
 ---
 
-## 3. Next Steps
+## 3. Focus Forward
 
-1. ~~**CI Alignment** – Confirm GitHub Actions still runs lint, strict typecheck, coverage + threshold check, and smoke tests against the restored flat structure. Update workflow paths if necessary.~~ ✅ Updated `quality-gates` workflow 2025-10-29.
-2. ~~**Vercel Monitoring** – Watch next preview deployment to ensure `scripts/build-web.mjs` exits cleanly without timeouts; capture logs and update this file with deployment timestamp.~~ ✅ Logged deployment `wealthtracker-l514dsq11` (2025-10-29 21:33 UTC).
-3. ~~**Bundle Optimisation Plan** – Document an action list for the large chunks (Plotly/export bundles showing >1 MB). Start by identifying candidate routes for dynamic imports.~~ ✅ See `docs/bundle-optimization-plan.md`.
-4. ~~**Documentation Sweep** – Remove or archive references to the old workspace layout (e.g., README snippets, CI docs) so future work doesn’t re-introduce the broken structure.~~ ✅ `docs/` updated for flat layout.
- 5. ~~**Regression Audit** – Harness restored and runs logged in `docs/regression-audit-20251029.md`; dashboard + import journeys are now green under Vitest. Keep budgeting/import fixtures in sync with future UI tweaks and re-run the regression triad periodically.~~ ✅ 2025-11-01 triad re-run documented in `docs/regression-audit-20251101.md` (dashboard/budget/import + Supabase smoke).
-6. **Realtime Suite Expansion** – predictive loading, scheduled reports, automatic backups, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, and subscription services now ride on the deterministic runner. Continue extending this pattern to remaining timer-heavy services so `npm run test:realtime` remains the one-stop guardrail.
+| Area | Owner | Description |
+| --- | --- | --- |
+| **Design/AXE polish** | Frontend | Accessibility + visual sweep over dashboard/import flows (AXE violations, keyboard focus, copy tweaks). |
+| **Bundle follow-up** | Platform | Track large chunk work items documented in `docs/bundle-optimization-plan.md`; align with design polish so lazy-loading work doesn’t regress UX. |
+| **Supabase coverage** | BE + Platform | Continue monitoring nightly Supabase smoke logs; add RLS/import edge cases as regressions appear. |
 
-**Next Steps**
-1. **PWA/Mobile Telemetry Enhancements** – Now that service worker + mobile services emit scoped logs, thread those through to client message handlers (broadcast channel/AppContext hooks) so we can surface sync/camera errors in the UI and optionally forward them to Sentry.
-2. **Clerk/Sentry Config Messaging** – Mirror the new scoped logger pattern inside `docs/development-workflow.md` and any onboarding scripts so missing env keys or Sentry misconfigurations raise actionable warnings in CI/dev shells.
-3. **Legacy Import Tooling** – Finish wiring the remaining Money backup helpers (`src/utils/mbfParser.ts`, env-check utilities, color-contrast audits) into `createScopedLogger` or dev-only bridges so regression tests stay deterministic.
-4. **Supabase Smoke Workflow Monitoring** – Keep watching `.github/workflows/supabase-smoke.yml` nightly runs; add targeted RLS/import checks if the smoke logs show churn once the new logging surfaces more detail.
-
-**Next Major Initiative** – Monitor the new Supabase smoke workflow (`.github/workflows/supabase-smoke.yml`) nightly runs; add targeted cases (RLS edge cases, imports) as coverage gaps appear.
+Everything else (lint/type safety/tests/build) is green; once the design/AXE pass lands we’ll revisit this section.
 
 ---
 
 ## 4. Reference Commands
 
 ```bash
-# Lint / type safety
+# Quality gates
 npm run lint
 npm run typecheck:strict
-
-# Tests
 npm run test:smoke
+npm run test:realtime
 npm run test:coverage
 node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
 
-# Supabase (requires real credentials)
-RUN_SUPABASE_REAL_TESTS=true node scripts/run-supabase-smoke.mjs
+# Supabase smoke (requires real creds)
+RUN_SUPABASE_REAL_TESTS=true npm run test:supabase-smoke
 
-# Production build (local parity with Vercel)
+# Deploy parity
 npm run build
 ```
 
@@ -93,9 +76,10 @@ npm run build
 
 ## 5. Useful Paths
 
-- Coverage logs: `logs/quality-gates/`
-- Supabase smoke script: `scripts/run-supabase-smoke.mjs`
-- Build helper: `scripts/build-web.mjs`
-- Documentation updates: `docs/development-workflow.md`
+- `scripts/realtime-tests.json` – manifest for deterministic suites.
+- `scripts/run-realtime-suite.mjs` – Vitest runner (reads manifest).
+- `logs/supabase-smoke/` – timestamped nightly smoke logs.
+- `docs/development-workflow.md` – environment setup & guardrails.
+- `docs/regression-audit-*.md` – latest dashboard/import regression runs.
 
-Keep this file authoritative—update after every structural change, deployment, or guardrail adjustment.
+Update this file whenever guardrails, workflows, or focus areas change.

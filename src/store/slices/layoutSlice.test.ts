@@ -241,10 +241,6 @@ describe('layoutSlice', () => {
 
     it('state remains consistent after error in unrelated reducer', () => {
       // Create store with multiple reducers
-      const errorReducer = () => {
-        throw new Error('Test error');
-      };
-      
       const multiStore = configureStore({
         reducer: {
           layout: layoutReducer,

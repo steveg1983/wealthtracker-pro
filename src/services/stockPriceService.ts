@@ -2,16 +2,15 @@ import { getExchangeRates } from '../utils/currency';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, retryWithBackoff } from './errorHandlingService';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-type Logger = Pick<Console, 'warn' | 'error'>;
-
 interface StockPriceDependencies {
   fetch?: FetchLike | null;
   locationSearch?: () => string;
   now?: () => number;
   timeoutSignal?: (ms: number) => AbortSignal | null;
-  logger?: Logger;
+  logger?: ScopedLogger;
 }
 
 interface NormalizedDependencies {
@@ -19,7 +18,7 @@ interface NormalizedDependencies {
   locationSearch: () => string;
   now: () => number;
   timeoutSignal: (ms: number) => AbortSignal | null;
-  logger: Logger;
+  logger: ScopedLogger;
 }
 
 export interface StockQuote {
@@ -52,7 +51,7 @@ let dependencies: NormalizedDependencies = getDefaultDependencies();
 
 function getDefaultDependencies(): NormalizedDependencies {
   const globalFetch = typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null;
-  const logger = typeof console !== 'undefined' ? console : { warn: () => {}, error: () => {} };
+  const logger = createScopedLogger('StockPriceService');
   const locationSearch = () => {
     if (typeof window !== 'undefined' && window.location) {
       return window.location.search ?? '';
@@ -303,8 +302,8 @@ export async function getMultipleStockQuotes(symbols: string[]): Promise<Map<str
     
     // Limit concurrent requests
     const MAX_CONCURRENT = 5;
-    const results: Array<{ symbol: string; quote: StockQuote | null }> = [];
-    
+    const _results: Array<{ symbol: string; quote: StockQuote | null }> = [];
+
     for (let i = 0; i < symbols.length; i += MAX_CONCURRENT) {
       const batch = symbols.slice(i, i + MAX_CONCURRENT);
       const batchPromises = batch.map(async (symbol) => ({
@@ -313,8 +312,8 @@ export async function getMultipleStockQuotes(symbols: string[]): Promise<Map<str
       }));
       
       const batchResults = await Promise.allSettled(batchPromises);
-      
-      batchResults.forEach((result, index) => {
+
+      batchResults.forEach((result, _index) => {
         if (result.status === 'fulfilled' && result.value.quote) {
           quotes.set(result.value.symbol, result.value.quote);
         }

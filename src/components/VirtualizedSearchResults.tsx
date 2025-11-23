@@ -382,7 +382,7 @@ export function VirtualizedQuickSearch({
   const topResults = results.slice(0, 10);
   const { formatCurrency } = useCurrencyDecimal();
 
-  const formatAmount = (amount: number) => formatCurrency(toDecimal(amount));
+  const formatAmount = useCallback((amount: number) => formatCurrency(toDecimal(amount)), [formatCurrency]);
 
   const renderQuickResult = useCallback((result: SearchResult, _index: number) => (
     <div

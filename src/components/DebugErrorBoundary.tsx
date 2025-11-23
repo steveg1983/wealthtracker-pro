@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface Props {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface State {
 }
 
 export class DebugErrorBoundary extends Component<Props, State> {
+  private logger = createScopedLogger('DebugErrorBoundary');
   public state: State = {
     hasError: false,
     error: null,
@@ -22,7 +24,7 @@ export class DebugErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('DebugErrorBoundary caught:', error, errorInfo);
+    this.logger.error('DebugErrorBoundary caught', error, 'DebugErrorBoundary');
     this.setState({
       error,
       errorInfo

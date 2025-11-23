@@ -4,10 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Budget } from '../Budget';
-import { renderWithProviders, createMockAccount, createMockTransaction } from '../../test/testUtils';
+import { renderWithProviders } from '../../test/testUtils';
 
 describe('Budget', () => {
   beforeEach(() => {

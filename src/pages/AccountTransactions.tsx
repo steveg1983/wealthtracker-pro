@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { ArrowLeftIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, PlusIcon, CalendarIcon, BanknoteIcon, FileTextIcon, TagIcon, ArrowRightLeftIcon, XIcon, SettingsIcon, MinimizeIcon, MaximizeIcon } from '../components/icons';
+import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, BanknoteIcon, FileTextIcon, TagIcon, ArrowRightLeftIcon, XIcon, SettingsIcon } from '../components/icons';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -16,7 +16,7 @@ export default function AccountTransactions() {
   const location = useLocation();
   const { accounts, transactions, categories, deleteTransaction, addTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const { compactView, setCompactView } = usePreferences();
+  const { compactView, setCompactView: _setCompactView } = usePreferences();
   
   // Find the specific account
   const account = accounts.find(acc => acc.id === accountId);
@@ -49,7 +49,7 @@ export default function AccountTransactions() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Get account-specific transactions
-  const accountTransactions = useMemo(() => {
+  const accountTransactions = useMemo<Transaction[]>(() => {
     if (!account) return [];
     
     
@@ -102,8 +102,8 @@ export default function AccountTransactions() {
   }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, sortField, sortDirection, categories]);
   
   // Calculate running balance
-  const transactionsWithBalance = useMemo(() => {
-    if (!account) return [];
+  const transactionsWithBalance = useMemo<(Transaction & { balance: number })[]>(() => {
+    if (!account) return [] as (Transaction & { balance: number })[];
     
     
     // Sort transactions by date and type for proper balance calculation
@@ -249,7 +249,7 @@ export default function AccountTransactions() {
     }
     
     // Create the transaction
-    const transactionData: any = {
+    const transactionData: Partial<Transaction> = {
       date: new Date(quickAddForm.date),
       description: quickAddForm.description,
       amount: amount,
@@ -301,7 +301,7 @@ export default function AccountTransactions() {
   };
   
   // Get category display name
-  const getCategoryName = (categoryId: string) => {
+  const getCategoryName = useCallback((categoryId: string) => {
     const category = categories.find(c => c.id === categoryId);
     if (!category) return '';
     
@@ -311,7 +311,7 @@ export default function AccountTransactions() {
     }
     
     return category.name;
-  };
+  }, [categories]);
 
   // Define table columns for VirtualizedTable
   const columns: Column<Transaction & { balance: number }>[] = useMemo(() => [
@@ -625,9 +625,9 @@ export default function AccountTransactions() {
       >
         <VirtualizedTable
           items={transactionsWithBalance}
-          columns={columns as any}
-          getItemKey={(transaction) => (transaction as Transaction & { balance: number }).id}
-          onRowClick={(item, index) => handleTransactionClick(item as Transaction)}
+          columns={columns}
+          getItemKey={(transaction) => transaction.id}
+          onRowClick={(item) => handleTransactionClick(item)}
           rowHeight={compactView ? 48 : 64}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
@@ -642,8 +642,8 @@ export default function AccountTransactions() {
           threshold={50}
           className="virtualized-table bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
-          rowClassName={(transaction, index) => {
-            const isSelected = selectedTransactionId === (transaction as Transaction & { balance: number }).id;
+          rowClassName={(transaction) => {
+            const isSelected = selectedTransactionId === transaction.id;
             return isSelected ? 'selected-transaction-row' : '';
           }}
         />

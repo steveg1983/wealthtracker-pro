@@ -1,4 +1,4 @@
-import type { Transaction, Account, Category } from '../types';
+import type { Transaction, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
 
 export interface QIFTransaction {

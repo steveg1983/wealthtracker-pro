@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { REALTIME_SUBSCRIBE_STATES } from '@supabase/realtime-js';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useUserId } from '../hooks/useUserId';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 declare global {
   interface Window {
@@ -23,6 +24,7 @@ export default function RealtimeDebugger() {
   const { databaseId, isLoading } = useUserId();
   const [status, setStatus] = useState<SubscriptionStatus>('CLOSED');
   const [events, setEvents] = useState<DebugEvent[]>([]);
+  const logger = useMemo(() => createScopedLogger('RealtimeDebugger'), []);
 
   useEffect(() => {
     if (isLoading || !databaseId || !supabase) return;
@@ -41,7 +43,7 @@ export default function RealtimeDebugger() {
           filter: `user_id=eq.${databaseId}`
         },
         (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log('🎯 [RealtimeDebugger] Event received:', payload);
+          logger.info?.('🎯 [RealtimeDebugger] Event received', payload);
           setEvents(prev => [
             {
               time: new Date().toISOString(),
@@ -54,7 +56,7 @@ export default function RealtimeDebugger() {
         }
       )
       .subscribe((subscriptionStatus, error) => {
-        console.log('📡 [RealtimeDebugger] Status:', subscriptionStatus);
+        logger.info?.('📡 [RealtimeDebugger] Status', subscriptionStatus);
         const validStatuses: SubscriptionStatus[] = [
           REALTIME_SUBSCRIBE_STATES.SUBSCRIBED,
           REALTIME_SUBSCRIBE_STATES.TIMED_OUT,
@@ -66,17 +68,17 @@ export default function RealtimeDebugger() {
           : REALTIME_SUBSCRIBE_STATES.CLOSED;
         setStatus(normalizedStatus);
         if (error) {
-          console.error('❌ [RealtimeDebugger] Error:', error);
+          logger.error('❌ [RealtimeDebugger] Error', error as Error);
         }
       });
 
     return () => {
-      console.log('🔚 [RealtimeDebugger] Cleaning up');
+      logger.info?.('🔚 [RealtimeDebugger] Cleaning up');
       if (supabase) {
         supabase.removeChannel(channel);
       }
     };
-  }, [databaseId, isLoading]);
+  }, [databaseId, isLoading, logger]);
 
   return (
     <div className="fixed bottom-4 left-4 bg-[#d4dce8] dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md z-50">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { UploadIcon } from './icons/UploadIcon';
 import { FileTextIcon } from './icons/FileTextIcon';
@@ -10,6 +10,7 @@ import { parseMNY, parseMBF, applyMappingToData, type FieldMapping } from '../ut
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
 import MnyMappingModal from './MnyMappingModal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ interface ParsedData {
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps): React.JSX.Element {
   const { addAccount, addTransaction, accounts, hasTestData, clearAllData } = useApp();
+  const logger = useMemo(() => createScopedLogger('ImportDataModal'), []);
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [parsing, setParsing] = useState(false);
@@ -53,7 +55,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
   // Parse OFX file format
   const parseOFX = (content: string): ParsedData => {
-    console.log('Using OFX parser');
+    logger.info?.('Using OFX parser');
     const transactions: ParsedTransaction[] = [];
     const accountsMap = new Map<string, ParsedAccount>();
     
@@ -120,14 +122,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setParsing(true);
     
     const fileName = selectedFile.name.toLowerCase();
-    console.log('Processing file:', fileName);
-    console.log('File size:', selectedFile.size, 'bytes');
+      logger.info?.('Processing file', { fileName, size: selectedFile.size });
     
     try {
       let parsed: ParsedData | null = null;
       
       if (fileName.endsWith('.mny')) {
-        console.log('Detected MNY file');
+        logger.info?.('Detected MNY file');
         setMessage('Parsing Money database file... This may take a moment...');
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMNY(arrayBuffer);
@@ -140,7 +141,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           return;
         }
       } else if (fileName.endsWith('.mbf')) {
-        console.log('Detected MBF backup file');
+        logger.info?.('Detected MBF backup file');
         setMessage('Parsing Money backup file... This may take a moment...');
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMBF(arrayBuffer);
@@ -153,16 +154,15 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           return;
         }
       } else if (fileName.endsWith('.qif')) {
-        console.log('Detected QIF file');
+        logger.info?.('Detected QIF file');
         setMessage('Parsing QIF file...');
         const content = await selectedFile.text();
-        console.log('QIF file content length:', content.length);
-        console.log('First 200 chars:', content.substring(0, 200));
+        logger.debug?.('QIF file inspection', { length: content.length, preview: content.substring(0, 200) });
         
         // Use the enhanced QIF parser
         parsed = enhancedParseQIF(content);
       } else if (fileName.endsWith('.ofx')) {
-        console.log('Detected OFX file');
+        logger.info?.('Detected OFX file');
         setMessage('Parsing OFX file...');
         const content = await selectedFile.text();
         parsed = parseOFX(content);
@@ -171,7 +171,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       }
       
       if (parsed) {
-        console.log('Parse complete:', parsed.accounts.length, 'accounts,', parsed.transactions.length, 'transactions');
+        logger.info?.('Parse complete', { accounts: parsed.accounts.length, transactions: parsed.transactions.length });
         setPreview(parsed);
         if (parsed.warning) {
           setMessage(parsed.warning);
@@ -182,7 +182,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         }
       }
     } catch (error) {
-      console.error('Parse error:', error);
+      logger.error('Parse error', error as Error);
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Failed to parse file');
       setPreview(null);
@@ -192,7 +192,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   };
 
   const handleMappingComplete = (mapping: FieldMapping, data: Array<Record<string, unknown>>) => {
-    console.log('Applying mapping to data...');
+    logger.info?.('Applying mapping to data');
     const result = applyMappingToData(data, mapping);
     
     setPreview({
@@ -240,7 +240,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     
     setImporting(true);
     try {
-      console.log('Starting import of', preview.accounts.length, 'accounts and', preview.transactions.length, 'transactions');
+      logger.info?.('Starting import', { accounts: preview.accounts.length, transactions: preview.transactions.length });
       
       // Import accounts first
       const accountMap = new Map<string, string>();
@@ -251,7 +251,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         );
         
         if (existingAccount) {
-          console.log('Account already exists:', account.name);
+          logger.warn?.('Account already exists', { accountName: account.name });
           accountMap.set(account.name, existingAccount.id);
           continue;
         }
@@ -264,14 +264,14 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           institution: 'Imported',
           lastUpdated: new Date()
         };
-        console.log('Adding account:', newAccount);
+        logger.info?.('Adding account', newAccount);
         addAccount(newAccount);
         accountMap.set(account.name, `imported-${Date.now()}`);
       }
       
       // Import transactions
       const defaultAccountId = accounts[0]?.id || 'default';
-      console.log('Importing', preview.transactions.length, 'transactions');
+      logger.info?.('Importing transactions', { count: preview.transactions.length });
       
       for (const transaction of preview.transactions) {
         addTransaction({
@@ -291,7 +291,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         setMessage('');
       }, 2000);
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error', error as Error);
       setStatus('error');
       setMessage('Failed to import data');
     } finally {

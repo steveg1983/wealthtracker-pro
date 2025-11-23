@@ -41,13 +41,14 @@ export function useOptimisticUpdate<T extends { id: string }>(
   } = options;
 
   const [updates, setUpdates] = useState<Map<string, OptimisticUpdate<T>>>(new Map());
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [_isProcessing, _setIsProcessing] = useState(false);
   const retryTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Cleanup timeouts on unmount
   useEffect(() => {
+    const timeouts = retryTimeouts.current;
     return () => {
-      retryTimeouts.current.forEach(timeout => clearTimeout(timeout));
+      timeouts.forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 
@@ -145,7 +146,7 @@ export function useOptimisticUpdate<T extends { id: string }>(
 
         const result = await apiCall();
         markSuccess(id, result);
-      } catch (error) {
+      } catch {
         retryUpdate(id, apiCall);
       }
     }, delay);
@@ -307,9 +308,9 @@ export function useOptimisticUpdate<T extends { id: string }>(
 export function useOptimisticRedux<T extends { id: string }>(
   slice: string,
   actions: {
-    optimisticUpdate: (data: T) => any;
-    rollback: (originalData: T) => any;
-    confirm: (data: T) => any;
+    optimisticUpdate: (data: T) => { type: string; payload: T };
+    rollback: (originalData: T) => { type: string; payload: T };
+    confirm: (data: T) => { type: string; payload: T };
   }
 ) {
   const dispatch = useAppDispatch();

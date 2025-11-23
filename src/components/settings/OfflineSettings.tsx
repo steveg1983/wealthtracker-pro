@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useOffline } from '../../hooks/useOffline';
 import { offlineService } from '../../services/offlineService';
 import { formatBytes } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../common/Card';
 import { WifiOffIcon, DatabaseIcon, RefreshCwIcon, TrashIcon, DownloadIcon } from '../icons';
+import { createScopedLogger } from '../../loggers/scopedLogger';
 
 export function OfflineSettings(): React.JSX.Element {
   const { isOffline, isSyncing, pendingChanges, syncNow, clearOfflineData } = useOffline();
   const [cacheSize, setCacheSize] = useState<number | null>(null);
   const [isCalculatingSize, setIsCalculatingSize] = useState(false);
+  const logger = useMemo(() => createScopedLogger('OfflineSettings'), []);
 
-  useEffect(() => {
-    calculateCacheSize();
-  }, []);
-
-  const calculateCacheSize = async () => {
+  const calculateCacheSize = useCallback(async () => {
     setIsCalculatingSize(true);
     try {
       if ('storage' in navigator && 'estimate' in navigator.storage) {
@@ -23,11 +21,15 @@ export function OfflineSettings(): React.JSX.Element {
         setCacheSize(estimate.usage || 0);
       }
     } catch (error) {
-      console.error('Failed to calculate cache size:', error);
+      logger.error('Failed to calculate cache size', error as Error);
     } finally {
       setIsCalculatingSize(false);
     }
-  };
+  }, [logger]);
+
+  useEffect(() => {
+    calculateCacheSize();
+  }, [calculateCacheSize]);
 
   const clearCache = async () => {
     if (confirm('Are you sure you want to clear all cached data? This will remove all offline data.')) {
@@ -46,7 +48,7 @@ export function OfflineSettings(): React.JSX.Element {
         
         alert('Cache cleared successfully');
       } catch (error) {
-        console.error('Failed to clear cache:', error);
+        logger.error('Failed to clear cache', error as Error);
         alert('Failed to clear cache');
       }
     }
@@ -73,7 +75,7 @@ export function OfflineSettings(): React.JSX.Element {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to download offline data:', error);
+      logger.error('Failed to download offline data', error as Error);
       alert('Failed to download offline data');
     }
   };

@@ -1,16 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useUserId } from '../hooks/useUserId';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export default function RealtimeSyncTest() {
   const { clerkId, databaseId, isLoading } = useUserId();
   const [testStatus, setTestStatus] = useState<string[]>([]);
   const [dbUserId, setDbUserId] = useState<string | null>(null);
+  const logger = useMemo(() => createScopedLogger('RealtimeSyncTest'), []);
 
-  const addStatus = (message: string) => {
-    console.log(`[RealtimeSyncTest] ${message}`);
+  const addStatus = useCallback((message: string) => {
+    logger.info?.(`[RealtimeSyncTest] ${message}`);
     setTestStatus(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
-  };
+  }, [logger]);
 
   useEffect(() => {
     if (isLoading) {
@@ -57,13 +59,13 @@ export default function RealtimeSyncTest() {
             event: '*',
             schema: 'public',
             table: 'accounts',
-            filter: `user_id=eq.${databaseId}`
-          },
-          (payload) => {
-            addStatus(`🎯 REALTIME EVENT RECEIVED: ${payload.eventType}`);
-            console.log('Full payload:', payload);
-          }
-        )
+          filter: `user_id=eq.${databaseId}`
+        },
+        (payload) => {
+          addStatus(`🎯 REALTIME EVENT RECEIVED: ${payload.eventType}`);
+          logger.debug?.('Realtime payload', payload);
+        }
+      )
         .subscribe((status, error) => {
           addStatus(`Subscription status: ${status}`);
           if (error) {
@@ -122,7 +124,7 @@ export default function RealtimeSyncTest() {
     };
 
     runTest();
-  }, [clerkId, databaseId, isLoading]);
+  }, [clerkId, databaseId, isLoading, addStatus, dbUserId, logger]);
 
   return (
     <div className="fixed top-20 right-4 bg-[#d4dce8] dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-blue-500">

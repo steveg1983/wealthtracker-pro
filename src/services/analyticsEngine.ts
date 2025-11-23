@@ -3,30 +3,19 @@
  * Core calculation engine for advanced analytics and data processing
  */
 
-import { Matrix } from 'ml-matrix';
 import * as ss from 'simple-statistics';
 import regression from 'regression';
-import { 
-  startOfMonth, 
-  endOfMonth, 
-  subMonths, 
+import {
+  endOfMonth,
+  subMonths,
   addMonths,
-  differenceInDays,
   format,
   parseISO,
   isWithinInterval,
-  startOfQuarter,
-  endOfQuarter,
-  startOfYear,
-  endOfYear,
   getQuarter,
-  getYear,
-  eachMonthOfInterval,
-  eachQuarterOfInterval
+  getYear
 } from 'date-fns';
-import type { Transaction, Account, Budget, Goal } from '../types';
-import { toDecimal } from '../utils/decimal';
-import type { DecimalInstance } from '../types/decimal-types';
+import type { Transaction, Account } from '../types';
 
 // Time intelligence types
 export type PeriodType = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
@@ -52,13 +41,13 @@ export interface ChartDataPoint {
   x: string | number | Date;
   y: number;
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SegmentFilter {
   field: keyof Transaction | 'custom';
   operator: 'equals' | 'contains' | 'greater' | 'less' | 'between' | 'in';
-  value: any;
+  value: unknown;
   customFunction?: (transaction: Transaction) => boolean;
 }
 
@@ -77,7 +66,7 @@ export interface ForecastResult {
   predictions: Array<{ date: Date; value: number; lower: number; upper: number }>;
   accuracy: number;
   model: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 export interface CorrelationResult {
@@ -266,7 +255,7 @@ class AnalyticsEngine {
     
     // Calculate trend using linear regression
     const regressionData = values.map((y, x) => [x, y] as [number, number]);
-    const result = regression.linear(regressionData as any);
+    const result = regression.linear(regressionData);
     
     // Detrend the data
     const detrended = values.map((y, x) => y - result.predict(x)[1]);
@@ -302,38 +291,38 @@ class AnalyticsEngine {
       throw new Error('Insufficient data for forecasting');
     }
 
-    const values = historicalData.map((d, i) => [i, d.y]);
+    const values = historicalData.map((d, i) => [i, d.y] as [number, number]);
     
     // Select best model if auto
     let selectedModel = model;
-    let bestFit = { equation: [0, 0], r2: 0, predict: (x: number) => [0, 0] };
+    let bestFit: regression.Result = regression.linear(values);
     
     if (model === 'auto') {
       const models = {
-        linear: regression.linear(values as any),
-        exponential: regression.exponential(values as any),
-        polynomial: regression.polynomial(values as any, { order: 2 })
+        linear: regression.linear(values),
+        exponential: regression.exponential(values),
+        polynomial: regression.polynomial(values, { order: 2 })
       };
       
       // Select model with highest R²
       let maxR2 = 0;
-      Object.entries(models).forEach(([name, fit]) => {
+      Object.entries(models).forEach(([_name, fit]) => {
         if (fit.r2 > maxR2) {
           maxR2 = fit.r2;
-          selectedModel = name as any;
+          selectedModel = _name as typeof selectedModel;
           bestFit = fit;
         }
       });
     } else {
       switch (model) {
         case 'linear':
-          bestFit = regression.linear(values as any);
+          bestFit = regression.linear(values);
           break;
         case 'exponential':
-          bestFit = regression.exponential(values as any);
+          bestFit = regression.exponential(values);
           break;
         case 'polynomial':
-          bestFit = regression.polynomial(values as any, { order: 2 });
+          bestFit = regression.polynomial(values, { order: 2 });
           break;
       }
     }
@@ -451,7 +440,7 @@ class AnalyticsEngine {
   executeQuery(
     transactions: Transaction[],
     query: AnalyticsQuery
-  ): Array<Record<string, any>> {
+  ): Array<Record<string, unknown>> {
     let filteredTransactions = [...transactions];
 
     // Apply filters
@@ -470,10 +459,10 @@ class AnalyticsEngine {
       : new Map([['all', filteredTransactions]]);
 
     // Calculate metrics for each group
-    const results: Array<Record<string, any>> = [];
+    const results: Array<Record<string, unknown>> = [];
 
     grouped.forEach((groupTransactions, groupKey) => {
-      const row: Record<string, any> = {};
+      const row: Record<string, unknown> = {};
       
       if (query.groupBy) {
         row[query.groupBy] = groupKey;
@@ -658,8 +647,10 @@ class AnalyticsEngine {
             return Number(value) > Number(filter.value);
           case 'less':
             return Number(value) < Number(filter.value);
-          case 'between':
-            return Number(value) >= filter.value[0] && Number(value) <= filter.value[1];
+          case 'between': {
+            const [min, max] = filter.value as [number, number];
+            return Number(value) >= min && Number(value) <= max;
+          }
           case 'in':
             return Array.isArray(filter.value) && filter.value.includes(value);
           default:
@@ -690,7 +681,7 @@ class AnalyticsEngine {
   ): number {
     // Handle predefined metrics
     if (['income', 'expenses', 'net', 'count'].includes(metric)) {
-      return this.calculateMetric(transactions, metric as any);
+      return this.calculateMetric(transactions, metric as 'income' | 'expenses' | 'net' | 'count');
     }
 
     // Handle custom field aggregations

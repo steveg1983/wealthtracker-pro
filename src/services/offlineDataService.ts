@@ -3,18 +3,20 @@
  * Handles offline data synchronization using IndexedDB
  */
 
+import { createScopedLogger } from '../loggers/scopedLogger';
+
 interface PendingSync {
   id: string;
   type: 'transaction' | 'account' | 'budget' | 'goal';
   action: 'create' | 'update' | 'delete';
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   retryCount: number;
 }
 
 interface OfflineCache {
   key: string;
-  data: any;
+  data: unknown;
   timestamp: number;
   expiresAt?: number;
 }
@@ -51,12 +53,18 @@ export class OfflineDataService {
   private navigatorRef: NavigatorLike | null;
   private windowRef: WindowLike | null;
   private fetchFn: typeof fetch;
+  private logger = createScopedLogger('OfflineDataService');
 
   constructor(options: OfflineDataServiceOptions = {}) {
     this.indexedDBRef = options.indexedDB ?? indexedDB;
     this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
     this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
-    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as any);
+    const fallbackFetch: typeof fetch = async (input, init) => {
+      void input;
+      void init;
+      return new Response();
+    };
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : fallbackFetch);
   }
 
   async initialize(): Promise<void> {
@@ -98,7 +106,7 @@ export class OfflineDataService {
   async addToSyncQueue(
     type: PendingSync['type'],
     action: PendingSync['action'],
-    data: any
+    data: Record<string, unknown>
   ): Promise<void> {
     if (!this.db) await this.initialize();
 
@@ -156,7 +164,7 @@ export class OfflineDataService {
   }
 
   // Cache data for offline access
-  async cacheData(key: string, data: any, ttlMinutes?: number): Promise<void> {
+  async cacheData(key: string, data: unknown, ttlMinutes?: number): Promise<void> {
     if (!this.db) await this.initialize();
 
     const cache: OfflineCache = {
@@ -172,7 +180,7 @@ export class OfflineDataService {
   }
 
   // Get cached data
-  async getCachedData(key: string): Promise<any | null> {
+  async getCachedData<T = unknown>(key: string): Promise<T | null> {
     if (!this.db) await this.initialize();
 
     const transaction = this.db!.transaction(['offlineCache'], 'readonly');
@@ -187,7 +195,7 @@ export class OfflineDataService {
       return null;
     }
 
-    return cache.data;
+    return cache.data as T;
   }
 
   // Remove cached data
@@ -235,13 +243,16 @@ export class OfflineDataService {
       // Register background sync if available
       if (this.navigatorRef?.serviceWorker && 'sync' in ServiceWorkerRegistration.prototype) {
         const registration = await this.navigatorRef.serviceWorker.ready;
-        await (registration as any).sync.register('sync-data');
+        const syncCapable = registration as ServiceWorkerRegistration & {
+          sync?: { register: (tag: string) => Promise<void> };
+        };
+        await syncCapable.sync?.register('sync-data');
       } else {
         // Fallback to immediate sync
         await this.performSync();
       }
     } catch (error) {
-      console.error('Failed to trigger sync:', error);
+      this.logger.error('Failed to trigger sync', error as Error);
     } finally {
       this.syncInProgress = false;
     }
@@ -269,7 +280,7 @@ export class OfflineDataService {
           await this.updateSyncRetryCount(sync.id, sync.retryCount + 1);
         }
       } catch (error) {
-        console.error('Sync failed for item:', sync.id, error);
+        this.logger.error(`Sync failed for item: ${sync.id}`, error as Error);
         await this.updateSyncRetryCount(sync.id, sync.retryCount + 1);
       }
     }
@@ -291,7 +302,7 @@ export class OfflineDataService {
 
       return response.ok;
     } catch (error) {
-      console.error('Failed to sync item:', error);
+      this.logger.error('Failed to sync item', error as Error);
       return false;
     }
   }
@@ -311,7 +322,7 @@ export class OfflineDataService {
   }
 
   // Get conflicts
-  async getConflicts(): Promise<any[]> {
+  async getConflicts(): Promise<PendingSync[]> {
     if (!this.db) await this.initialize();
 
     const transaction = this.db!.transaction(['conflicts'], 'readonly');
@@ -377,16 +388,16 @@ export const offlineDataService = new OfflineDataService();
 
 // Initialize on module load
 if (typeof window !== 'undefined') {
-  offlineDataService.initialize().catch(console.error);
+  offlineDataService.initialize().catch((error) => offlineDataService['logger']?.error?.('Offline init failed', error as Error));
   
   // Set up online/offline listeners
   window.addEventListener('online', () => {
-    console.log('Back online, triggering sync...');
+    offlineDataService['logger']?.info?.('Back online, triggering sync...');
     offlineDataService.triggerSync();
   });
 
   // Clean expired cache periodically
   setInterval(() => {
-    offlineDataService.cleanExpiredCache().catch(console.error);
+    offlineDataService.cleanExpiredCache().catch((error) => offlineDataService['logger']?.error?.('Failed to clean expired cache', error as Error));
   }, 60 * 60 * 1000); // Every hour
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { PlusIcon } from '../components/icons';
 import CategoryCreationModal from './CategoryCreationModal';
@@ -11,6 +11,7 @@ import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
 import { LoadingButton } from './loading/LoadingState';
 import { useToast } from '../contexts/ToastContext';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const { showSuccess, showError } = useToast();
+  const logger = useMemo(() => createScopedLogger('AddTransactionModal'), []);
   
   const { formData, updateField, handleSubmit, isSubmitting } = useModalForm<FormData>(
     {
@@ -91,7 +93,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
           } else {
             // Show user-friendly error toast
             showError(error);
-            console.error('Failed to add transaction:', error);
+            logger.error('Failed to add transaction', error as Error);
             setValidationErrors({ general: 'Unable to save transaction. Please try again.' });
           }
         }

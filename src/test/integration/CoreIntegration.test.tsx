@@ -5,7 +5,6 @@ import { AppProvider, useApp } from '../../contexts/AppContext';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
 import { calculateTotalBalance, calculateBudgetUsage, calculateGoalProgress } from '../../utils/calculations';
 import * as decimalCalcs from '../../utils/calculations-decimal';
-import { toDecimal } from '../../utils/decimal';
 import { toDecimalAccount, toDecimalBudget, toDecimalTransaction } from '../../utils/decimal-converters';
 import type { Account, Transaction } from '../../types';
 

@@ -1,21 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
-import { 
+import {
   DatabaseIcon,
   TrendingUpIcon,
   BellIcon,
   CreditCardIcon,
-  TagIcon,
   BarChart3Icon,
   SearchIcon,
   RefreshCwIcon,
   AlertCircleIcon,
   CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  DollarSignIcon,
-  EyeIcon,
-  ShieldIcon
+  ClockIcon
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import SubscriptionManager from '../components/SubscriptionManager';

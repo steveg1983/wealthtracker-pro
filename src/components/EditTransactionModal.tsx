@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
@@ -14,6 +14,7 @@ import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
 import { toDecimal, Decimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ interface FormData {
 export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps): React.JSX.Element {
   const { accounts, categories, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
   const { addTransaction } = useTransactionNotifications();
+  const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -111,9 +113,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           onClose();
         } catch (error) {
           if (error instanceof z.ZodError) {
-            console.error('Validation failed:', ValidationService.formatErrors(error));
+            logger.error('Validation failed', error);
           } else {
-            console.error('Failed to update transaction:', error);
+            logger.error('Failed to update transaction', error as Error);
           }
         }
       },

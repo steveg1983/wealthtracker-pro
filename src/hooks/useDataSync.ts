@@ -1,23 +1,23 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { syncService, SyncStatus, SyncConflict } from '../services/syncService';
-import { Transaction, Account, Budget, Goal } from '../types';
+import { Transaction, Account } from '../types';
 
 interface DataSyncHook {
   syncStatus: SyncStatus;
   conflicts: SyncConflict[];
   forceSync: () => void;
-  resolveConflict: (conflictId: string, resolution: 'local' | 'remote' | 'merge', mergedData?: any) => void;
+  resolveConflict: (conflictId: string, resolution: 'local' | 'remote' | 'merge', mergedData?: unknown) => void;
   clearSyncQueue: () => void;
-  queueChange: (type: 'CREATE' | 'UPDATE' | 'DELETE', entity: string, entityId: string, data: any) => void;
+  queueChange: (type: 'CREATE' | 'UPDATE' | 'DELETE', entity: string, entityId: string, data: unknown) => void;
 }
 
 export function useDataSync(): DataSyncHook {
-  const { 
-    transactions, 
-    accounts, 
-    budgets, 
-    goals,
+  const {
+    transactions: _transactions,
+    accounts: _accounts,
+    budgets: _budgets,
+    goals: _goals,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -54,7 +54,7 @@ export function useDataSync(): DataSyncHook {
 
   // Listen for remote updates
   useEffect(() => {
-    const handleRemoteCreate = async (event: any) => {
+    const handleRemoteCreate = async (event: { entity: string; data: unknown }) => {
       const { entity, data } = event;
       
       switch (entity) {
@@ -68,7 +68,7 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteUpdate = async (event: any) => {
+    const handleRemoteUpdate = async (event: { entity: string; entityId: string; data: unknown }) => {
       const { entity, entityId, data } = event;
       
       switch (entity) {
@@ -82,7 +82,7 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteDelete = async (event: any) => {
+    const handleRemoteDelete = async (event: { entity: string; entityId: string }) => {
       const { entity, entityId } = event;
       
       switch (entity) {
@@ -96,7 +96,7 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteMerge = async (event: any) => {
+    const handleRemoteMerge = async (event: { entity: string; entityId: string; data: unknown }) => {
       const { entity, entityId, data } = event;
       
       // Handle merged data
@@ -129,9 +129,9 @@ export function useDataSync(): DataSyncHook {
     type: 'CREATE' | 'UPDATE' | 'DELETE',
     entity: string,
     entityId: string,
-    data: any
+    data: unknown
   ) => {
-    syncService.queueOperation(type, entity as any, entityId, data);
+    syncService.queueOperation(type, entity as 'transaction' | 'account' | 'budget' | 'goal', entityId, data);
   }, []);
 
   // Auto-queue local changes
@@ -143,8 +143,8 @@ export function useDataSync(): DataSyncHook {
       if (e.key === 'transactions' && e.newValue) {
         // Detect changes and queue them
         // This is a simplified example - you'd want more sophisticated change detection
-        const oldData = e.oldValue ? JSON.parse(e.oldValue) : [];
-        const newData = JSON.parse(e.newValue);
+        const _oldData = e.oldValue ? JSON.parse(e.oldValue) : [];
+        const _newData = JSON.parse(e.newValue);
         
         // Find differences and queue them
         // ... implementation depends on your data structure
@@ -165,7 +165,7 @@ export function useDataSync(): DataSyncHook {
   const resolveConflict = useCallback((
     conflictId: string,
     resolution: 'local' | 'remote' | 'merge',
-    mergedData?: any
+    mergedData?: unknown
   ) => {
     syncService.resolveConflict(conflictId, resolution, mergedData);
     setConflicts(syncService.getConflicts());
@@ -195,9 +195,9 @@ export function useAutoSync(
   useEffect(() => {
     // Set up mutation observers or other change detection
     // This is a simplified implementation
-    
-    let previousData: any[] = [];
-    
+
+    let previousData: unknown[] = [];
+
     switch (entityType) {
       case 'transaction':
         previousData = [...transactions];
@@ -215,8 +215,8 @@ export function useAutoSync(
 
     // Check for changes periodically
     const interval = setInterval(() => {
-      let currentData: any[] = [];
-      
+      let currentData: unknown[] = [];
+
       switch (entityType) {
         case 'transaction':
           currentData = transactions;
@@ -247,15 +247,15 @@ export function useAutoSync(
 }
 
 // Helper function to detect changes
-function detectChanges(oldData: any[], newData: any[]): Array<{
+function detectChanges(oldData: Array<{ id: string }>, newData: Array<{ id: string }>): Array<{
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   id: string;
-  data: any;
+  data: unknown;
 }> {
   const changes: Array<{
     type: 'CREATE' | 'UPDATE' | 'DELETE';
     id: string;
-    data: any;
+    data: unknown;
   }> = [];
 
   const oldMap = new Map(oldData.map(item => [item.id, item]));

@@ -143,7 +143,7 @@ export default function BillingDashboard({
 
   const formattedSubscriptionAmount = useMemo(() => {
     if (!subscription?.tier) return null;
-    const plan = StripeService.getPlanByTier(subscription.tier as any);
+    const plan = StripeService.getPlanByTier(subscription.tier as SubscriptionPlan);
     if (!plan || plan.price === undefined || plan.price === null) {
       return null;
     }

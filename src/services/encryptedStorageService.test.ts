@@ -6,7 +6,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { encryptedStorage, STORAGE_KEYS } from './encryptedStorageService';
 import { indexedDBService } from './indexedDBService';
-import CryptoJS from 'crypto-js';
 
 // Mock indexedDBService
 vi.mock('./indexedDBService', () => ({
@@ -462,9 +461,9 @@ describe('EncryptedStorageService', () => {
   describe('Encryption Key Management', () => {
     it('generates new encryption key if none exists', () => {
       mockSessionStorage.getItem.mockReturnValue(null);
-      
+
       // Create new instance to trigger key generation
-      const newService = new (encryptedStorage.constructor as any)();
+      const _newService = new (encryptedStorage.constructor as any)();
 
       expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
         'wt_enc_key',
@@ -476,7 +475,7 @@ describe('EncryptedStorageService', () => {
       mockSessionStorage.getItem.mockReturnValue('existing-key');
       
       // Create new instance
-      const newService = new (encryptedStorage.constructor as any)();
+      const _newService = new (encryptedStorage.constructor as any)();
 
       expect(mockSessionStorage.setItem).not.toHaveBeenCalled();
     });

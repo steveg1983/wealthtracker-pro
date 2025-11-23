@@ -197,7 +197,7 @@ describe('ValidationService', () => {
     });
 
     it('rejects budget with end date before start date', () => {
-      const invalidBudget = {
+      const _invalidBudget = {
         name: 'Test Budget',
         amount: '100.00',
         period: 'monthly',

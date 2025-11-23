@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { IconProps } from '../components/icons';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export interface BulkOperation<T> {
   id: string;
@@ -15,6 +16,7 @@ export function useBulkOperations<T extends { id: string }>(
   items: T[],
   operations: BulkOperation<T>[]
 ) {
+  const logger = useMemoizedLogger('useBulkOperations');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -70,12 +72,12 @@ export function useBulkOperations<T extends { id: string }>(
       await operation.action(selectedObjects);
       setSelectedItems(new Set()); // Clear selection after successful operation
     } catch (error) {
-      console.error('Bulk operation failed:', error);
+      logger.error?.('Bulk operation failed', error);
       throw error;
     } finally {
       setIsProcessing(false);
     }
-  }, [operations, items, selectedItems]);
+  }, [operations, items, selectedItems, logger]);
 
   const isSelected = useCallback((id: string) => selectedItems.has(id), [selectedItems]);
 

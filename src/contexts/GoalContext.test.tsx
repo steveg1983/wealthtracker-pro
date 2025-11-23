@@ -26,7 +26,7 @@ vi.mock('uuid', () => ({
   v4: () => mockUuidV4(),
 }));
 
-// Mock console.error
+// Mock error logging
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 describe('GoalContext', () => {

@@ -24,7 +24,7 @@ export function useSyncStatus(): SyncStatusHook {
 
   // Listen for data changes
   useEffect(() => {
-    const handleDataChange = (event: CustomEvent): void => {
+    const handleDataChange = (_event: CustomEvent): void => {
       if (isOnline) {
         setPendingChanges(prev => prev + 1);
         setStatus('pending');
@@ -40,11 +40,11 @@ export function useSyncStatus(): SyncStatusHook {
       }
     };
 
-    window.addEventListener('data-changed' as any, handleDataChange);
+    window.addEventListener('data-changed' as keyof WindowEventMap, handleDataChange);
     return () => {
-      window.removeEventListener('data-changed' as any, handleDataChange);
+      window.removeEventListener('data-changed' as keyof WindowEventMap, handleDataChange);
     };
-  }, [isOnline]);
+  }, [isOnline, triggerSync]);
 
   // Update status when online status changes
   useEffect(() => {
@@ -57,7 +57,7 @@ export function useSyncStatus(): SyncStatusHook {
     } else {
       setStatus('synced');
     }
-  }, [isOnline, pendingChanges]);
+  }, [isOnline, pendingChanges, triggerSync]);
 
   const triggerSync = useCallback(async (): Promise<void> => {
     if (!isOnline || status === 'syncing') return;

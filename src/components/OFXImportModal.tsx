@@ -14,6 +14,9 @@ import {
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
 import type { Account } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const logger = createScopedLogger('OFXImportModal');
 
 interface OFXImportModalProps {
   isOpen: boolean;
@@ -65,7 +68,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         setSelectedAccountId(result.matchedAccount.id);
       }
     } catch (error) {
-      console.error('Error parsing OFX file:', error);
+      logger.error('Error parsing OFX file', error);
       alert('Error parsing OFX file. Please check the file format.');
     } finally {
       setIsProcessing(false);
@@ -137,7 +140,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         account
       });
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error', error);
       setImportResult({
         success: false,
         error: error instanceof Error ? error.message : 'Import failed'

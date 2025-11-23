@@ -1,6 +1,6 @@
 // Global type declarations
 
-declare function gtag(...args: any[]): void;
+declare function gtag(...args: unknown[]): void;
 
 // Network Information API
 interface NetworkInformation {
@@ -14,7 +14,7 @@ interface Window {
   Sentry?: {
     captureException: (error: Error) => void;
     captureMessage: (message: string) => void;
-    withScope: (callback: (scope: any) => void) => void;
+    withScope: (callback: (scope: unknown) => void) => void;
   };
   Clerk?: {
     user?: {
@@ -26,4 +26,5 @@ interface Window {
     };
   };
   gtag?: typeof gtag;
+  swRegistration?: ServiceWorkerRegistration | null;
 }

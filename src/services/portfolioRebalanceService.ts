@@ -1,6 +1,7 @@
 // Portfolio Rebalancing Service
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface SavedPortfolioTarget {
   id: string;
@@ -58,11 +59,14 @@ export interface AssetClassMapping {
   subClass?: string;
 }
 
+import { createScopedLogger } from '../loggers/scopedLogger';
+
 class PortfolioRebalanceService {
   private targets: PortfolioTarget[] = [];
   private assetMappings: AssetClassMapping[] = [];
   private storageKey = 'wealthtracker_portfolio_targets';
   private mappingsKey = 'wealthtracker_asset_mappings';
+  private logger = createScopedLogger('PortfolioRebalanceService');
 
   constructor() {
     this.loadTargets();
@@ -82,7 +86,7 @@ class PortfolioRebalanceService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load portfolio targets:', error);
+      this.logger.error('Failed to load portfolio targets', error as Error);
       this.targets = [];
     }
   }
@@ -91,7 +95,7 @@ class PortfolioRebalanceService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.targets));
     } catch (error) {
-      console.error('Failed to save portfolio targets:', error);
+      this.logger.error('Failed to save portfolio targets', error as Error);
     }
   }
 
@@ -102,7 +106,7 @@ class PortfolioRebalanceService {
         this.assetMappings = JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Failed to load asset mappings:', error);
+      this.logger.error('Failed to load asset mappings', error as Error);
       this.assetMappings = [];
     }
   }
@@ -111,7 +115,7 @@ class PortfolioRebalanceService {
     try {
       localStorage.setItem(this.mappingsKey, JSON.stringify(this.assetMappings));
     } catch (error) {
-      console.error('Failed to save asset mappings:', error);
+      this.logger.error('Failed to save asset mappings', error as Error);
     }
   }
 

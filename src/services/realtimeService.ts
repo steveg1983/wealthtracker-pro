@@ -12,11 +12,12 @@
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { userIdService } from './userIdService';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import type { Account, Transaction, Budget, Goal } from '../types';
 
 export type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE';
 
-export interface RealtimeEvent<T = any> {
+export interface RealtimeEvent<T = unknown> {
   eventType: RealtimeEventType;
   new: T | null;
   old: T | null;
@@ -32,17 +33,15 @@ export interface ConnectionState {
   connectionCount: number;
 }
 
-export type RealtimeCallback<T = any> = (event: RealtimeEvent<T>) => void;
+export type RealtimeCallback<T = unknown> = (event: RealtimeEvent<T>) => void;
 export type ConnectionCallback = (state: ConnectionState) => void;
 
 type UserIdServiceLike = typeof userIdService;
 type SupabaseLike = SupabaseClient | null;
-type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
-
 export interface RealtimeServiceOptions {
   supabaseClient?: SupabaseLike;
   userIdService?: UserIdServiceLike;
-  logger?: Logger;
+  logger?: ScopedLogger;
   setTimeoutFn?: typeof setTimeout;
   clearTimeoutFn?: typeof clearTimeout;
 }
@@ -64,21 +63,17 @@ export class RealtimeService {
   private isInitialized = false;
   private supabaseClient: SupabaseLike;
   private userService: UserIdServiceLike;
-  private readonly logger: Logger;
+  private readonly logger: ScopedLogger;
   private readonly setTimeoutFn: typeof setTimeout;
   private readonly clearTimeoutFn: typeof clearTimeout;
 
   constructor(options: RealtimeServiceOptions = {}) {
     this.supabaseClient = options.supabaseClient ?? supabase ?? null;
     this.userService = options.userIdService ?? userIdService;
-    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
-    this.logger = {
-      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? (() => {})),
-      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {})),
-      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
-    };
+    this.logger = options.logger ?? createScopedLogger('RealtimeService');
     this.setTimeoutFn =
-      options.setTimeoutFn ?? ((handler: TimerHandler, timeout?: number, ...args: any[]) => setTimeout(handler, timeout, ...args));
+      options.setTimeoutFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setTimeout(handler, timeout, ...args));
     this.clearTimeoutFn =
       options.clearTimeoutFn ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
   }
@@ -106,7 +101,7 @@ export class RealtimeService {
     this.handleConnectionChange(true);
     
     // We'll monitor connection through subscription events instead
-    this.logger.log('Realtime monitoring initialized');
+    this.logger.info('Realtime monitoring initialized');
   }
 
   /**
@@ -159,7 +154,10 @@ export class RealtimeService {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
     
     this.reconnectTimeout = this.setTimeoutFn(() => {
-      this.logger.log(`Attempting to reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+      this.logger.info('Attempting to reconnect', {
+        attempt: this.reconnectAttempts + 1,
+        max: this.maxReconnectAttempts
+      });
       this.reconnectAttempts++;
       
       // Attempt to reconnect by re-establishing subscriptions
@@ -195,7 +193,7 @@ export class RealtimeService {
   private reestablishSubscription(table: string, userId: string): void {
     // This would need to be enhanced based on specific subscription requirements
     // For now, we'll let the application re-subscribe when needed
-    this.logger.log(`Re-establishing subscription for ${table}:${userId}`);
+    this.logger.info('Re-establishing subscription', { table, userId });
   }
 
   /**
@@ -203,9 +201,9 @@ export class RealtimeService {
    * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
   async subscribeToAccounts(
-    clerkOrDbId: string, 
+    clerkOrDbId: string,
     callback: RealtimeCallback<Account>,
-    options: { includeInitial?: boolean } = {}
+    _options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
     if (!this.supabaseClient || !clerkOrDbId) return null;
 
@@ -267,9 +265,9 @@ export class RealtimeService {
    * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
   async subscribeToTransactions(
-    clerkOrDbId: string, 
+    clerkOrDbId: string,
     callback: RealtimeCallback<Transaction>,
-    options: { includeInitial?: boolean } = {}
+    _options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
     if (!this.supabaseClient || !clerkOrDbId) return null;
 
@@ -331,9 +329,9 @@ export class RealtimeService {
    * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
   async subscribeToBudgets(
-    clerkOrDbId: string, 
+    clerkOrDbId: string,
     callback: RealtimeCallback<Budget>,
-    options: { includeInitial?: boolean } = {}
+    _options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
     if (!this.supabaseClient || !clerkOrDbId) return null;
 
@@ -395,9 +393,9 @@ export class RealtimeService {
    * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
   async subscribeToGoals(
-    clerkOrDbId: string, 
+    clerkOrDbId: string,
     callback: RealtimeCallback<Goal>,
-    options: { includeInitial?: boolean } = {}
+    _options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
     if (!this.supabaseClient || !clerkOrDbId) return null;
 

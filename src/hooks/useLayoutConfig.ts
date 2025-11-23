@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Layout, Layouts } from 'react-grid-layout';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 export interface LayoutConfig {
   dashboard: Layout[];
@@ -33,6 +34,7 @@ interface UseLayoutConfigReturn {
 }
 
 export function useLayoutConfig(): UseLayoutConfigReturn {
+  const logger = useMemoizedLogger('useLayoutConfig');
   const [layouts, setLayouts] = useState<LayoutConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -43,7 +45,7 @@ export function useLayoutConfig(): UseLayoutConfigReturn {
           return parsed;
         }
       } catch (e) {
-        console.error('Failed to parse saved layouts:', e);
+        logger.error?.('Failed to parse saved layouts', e);
       }
     }
     return {

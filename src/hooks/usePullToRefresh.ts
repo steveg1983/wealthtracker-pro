@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 type UsePullToRefreshOptions = {
   threshold?: number;
@@ -15,6 +16,7 @@ export function usePullToRefresh(
   onRefresh: () => Promise<void>,
   options: UsePullToRefreshOptions = {}
 ): UsePullToRefreshResult {
+  const logger = useMemoizedLogger('usePullToRefresh');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const { disabled = false } = options;
@@ -27,12 +29,12 @@ export function usePullToRefresh(
       await onRefresh();
       setLastRefresh(new Date());
     } catch (error) {
-      console.error('Refresh failed:', error);
+      logger.error?.('Refresh failed', error);
       throw error;
     } finally {
       setIsRefreshing(false);
     }
-  }, [onRefresh, isRefreshing, disabled]);
+  }, [onRefresh, isRefreshing, disabled, logger]);
 
   return {
     isRefreshing,

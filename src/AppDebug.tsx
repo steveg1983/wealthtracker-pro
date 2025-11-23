@@ -5,13 +5,16 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { PreferencesProvider } from './contexts/PreferencesContextSafe';
 import { AppProvider } from './contexts/AppContext';
 import { LayoutProvider } from './contexts/LayoutContext';
+import { createScopedLogger } from './loggers/scopedLogger';
+
+const debugLogger = createScopedLogger('AppDebug');
 
 function AppDebugInner() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string>('');
   
   useEffect(() => {
-    console.log('AppDebug mounted, step:', step);
+    debugLogger.info('AppDebug step updated', { step });
   }, [step]);
 
   const renderWithProviders = () => {
@@ -44,7 +47,7 @@ function AppDebugInner() {
             </ErrorBoundary>
           );
         case 4:
-          console.log('Attempting to render LayoutProvider...');
+          debugLogger.info('Attempting to render LayoutProvider');
           try {
             return (
               <ErrorBoundary>
@@ -58,7 +61,7 @@ function AppDebugInner() {
               </ErrorBoundary>
             );
           } catch (e) {
-            console.error('LayoutProvider render error:', e);
+            debugLogger.error('LayoutProvider render error', e);
             throw e;
           }
         case 5:
@@ -69,14 +72,14 @@ function AppDebugInner() {
           return <div>Test complete!</div>;
       }
     } catch (err) {
-      console.error('Render error at step', step, ':', err);
+      debugLogger.error('Render error', { step, error: err });
       setError(`Error at step ${step}: ${err}`);
       return <div style={{color: 'red'}}>Error: {error}</div>;
     }
   };
 
   const nextStep = () => {
-    console.log('Moving to step', step + 1);
+    debugLogger.info('Moving to step', { nextStep: step + 1 });
     setStep(step + 1);
     setError('');
   };

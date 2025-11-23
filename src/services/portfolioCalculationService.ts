@@ -250,7 +250,7 @@ class PortfolioCalculationService extends BaseService {
    */
   private calculatePerformance(
     holdings: Holding[],
-    transactions: Transaction[]
+    _transactions: Transaction[]
   ): PortfolioPerformance {
     // Simplified - would need historical price data
     const totalValue = holdings.reduce((sum, h) => sum + h.value, 0);
@@ -386,12 +386,12 @@ class PortfolioCalculationService extends BaseService {
     return transaction.merchant || null;
   }
 
-  private extractShares(transaction: Transaction): DecimalType {
+  private extractShares(_transaction: Transaction): DecimalType {
     // Would need to parse from description or metadata
     return new Decimal(1);
   }
 
-  private extractRealizedGain(transaction: Transaction): number {
+  private extractRealizedGain(_transaction: Transaction): number {
     // Would need to parse from description or metadata
     return 0;
   }

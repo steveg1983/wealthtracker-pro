@@ -1,11 +1,7 @@
 import { z } from 'zod';
-import { 
-  sanitizeText, 
-  sanitizeNumber, 
-  sanitizeDecimal, 
-  sanitizeDate,
+import {
+  sanitizeText,
   sanitizeFilename,
-  sanitizeQuery,
   sanitizeMarkdown
 } from '../security/xss-protection';
 import Decimal from 'decimal.js';

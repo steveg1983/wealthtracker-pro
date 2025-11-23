@@ -5,8 +5,10 @@
 
 import { supabase } from '../../lib/supabase';
 import type { Notification } from '../../contexts/NotificationContext';
+import { createScopedLogger } from '../../loggers/scopedLogger';
 
 export class NotificationServiceAPI {
+  private static logger = createScopedLogger('NotificationServiceAPI');
   /**
    * Get all notifications for a user
    */
@@ -22,7 +24,7 @@ export class NotificationServiceAPI {
         .limit(50);
 
       if (error) {
-        console.error('Error fetching notifications:', error);
+        this.logger.error('Error fetching notifications', error as Error);
         return [];
       }
 
@@ -35,7 +37,7 @@ export class NotificationServiceAPI {
         read: n.is_read
       }));
     } catch (error) {
-      console.error('Error in getNotifications:', error);
+      this.logger.error('Error in getNotifications', error as Error);
       return [];
     }
   }
@@ -63,7 +65,7 @@ export class NotificationServiceAPI {
         .single();
 
       if (error) {
-        console.error('Error creating notification:', error);
+        this.logger.error('Error creating notification', error as Error);
         return null;
       }
 
@@ -76,7 +78,7 @@ export class NotificationServiceAPI {
         read: data.is_read
       };
     } catch (error) {
-      console.error('Error in createNotification:', error);
+      this.logger.error('Error in createNotification', error as Error);
       return null;
     }
   }
@@ -94,13 +96,13 @@ export class NotificationServiceAPI {
         .eq('id', notificationId);
 
       if (error) {
-        console.error('Error marking notification as read:', error);
+        this.logger.error('Error marking notification as read', error as Error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in markAsRead:', error);
+      this.logger.error('Error in markAsRead', error as Error);
       return false;
     }
   }
@@ -119,13 +121,13 @@ export class NotificationServiceAPI {
         .eq('is_read', false);
 
       if (error) {
-        console.error('Error marking all as read:', error);
+        this.logger.error('Error marking all as read', error as Error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in markAllAsRead:', error);
+      this.logger.error('Error in markAllAsRead', error as Error);
       return false;
     }
   }
@@ -143,13 +145,13 @@ export class NotificationServiceAPI {
         .eq('id', notificationId);
 
       if (error) {
-        console.error('Error deleting notification:', error);
+        this.logger.error('Error deleting notification', error as Error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in deleteNotification:', error);
+      this.logger.error('Error in deleteNotification', error as Error);
       return false;
     }
   }
@@ -167,13 +169,13 @@ export class NotificationServiceAPI {
         .eq('user_id', userId);
 
       if (error) {
-        console.error('Error clearing all notifications:', error);
+        this.logger.error('Error clearing all notifications', error as Error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in clearAll:', error);
+      this.logger.error('Error in clearAll', error as Error);
       return false;
     }
   }
@@ -183,7 +185,7 @@ export class NotificationServiceAPI {
    */
   static subscribeToNotifications(
     userId: string,
-    onUpdate: (payload: any) => void
+    onUpdate: (payload: unknown) => void
   ): () => void {
     if (!supabase) return () => {};
 
@@ -224,13 +226,13 @@ export class NotificationServiceAPI {
         .select();
 
       if (error) {
-        console.error('Error cleaning up old notifications:', error);
+        this.logger.error('Error cleaning up old notifications', error as Error);
         return 0;
       }
 
       return data?.length || 0;
     } catch (error) {
-      console.error('Error in cleanupOldNotifications:', error);
+      this.logger.error('Error in cleanupOldNotifications', error as Error);
       return 0;
     }
   }

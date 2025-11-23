@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createScopedLogger } from '../../loggers/scopedLogger';
 
 // Database type is not properly exported, using unknown for now
 type Database = unknown;
@@ -6,9 +7,10 @@ type Database = unknown;
 // Get environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseLogger = createScopedLogger('SupabaseClient');
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials not configured. Using localStorage fallback.');
+  supabaseLogger.warn?.('Supabase credentials not configured. Using localStorage fallback.');
 }
 
 // Create Supabase client
@@ -41,15 +43,16 @@ export const getCurrentUserId = async (): Promise<string | null> => {
 };
 
 // Helper to handle Supabase errors
-export const handleSupabaseError = (error: any): string => {
-  if (error?.message) {
-    return error.message;
+export const handleSupabaseError = (error: unknown): string => {
+  const err = error as { message?: string; details?: string; hint?: string };
+  if (typeof err?.message === 'string') {
+    return err.message;
   }
-  if (error?.details) {
-    return error.details;
+  if (typeof err?.details === 'string') {
+    return err.details;
   }
-  if (error?.hint) {
-    return error.hint;
+  if (typeof err?.hint === 'string') {
+    return err.hint;
   }
   return 'An unexpected error occurred';
 };

@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import budgetsReducer, { addBudget, updateBudget, deleteBudget, setBudgets, updateBudgetSpent, loadBudgets, saveBudgets } from './budgetsSlice';
+import budgetsReducer, { addBudget, updateBudget, deleteBudget, setBudgets, updateBudgetSpent } from './budgetsSlice';
 import type { Budget } from '../../types';
 
 // Mock storageAdapter

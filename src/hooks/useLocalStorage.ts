@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 type SetValue<T> = T | ((val: T) => T);
 
@@ -6,6 +7,7 @@ export function useLocalStorage<T>(
   key: string,
   initialValue: T | (() => T)
 ): [T, (value: SetValue<T>) => void] {
+  const logger = useMemoizedLogger('useLocalStorage');
   // Get from local storage then parse stored json or return initialValue
   const readValue = useCallback((): T => {
     // Prevent build error "window is undefined" but keep working
@@ -20,10 +22,10 @@ export function useLocalStorage<T>(
       }
       return JSON.parse(item) as T;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+      logger.error?.(`Error reading localStorage key "${key}"`, error);
       return initialValue instanceof Function ? initialValue() : initialValue;
     }
-  }, [initialValue, key]);
+  }, [initialValue, key, logger]);
 
   // State to store our value
   // Pass initial state function to useState so logic is only executed once
@@ -52,10 +54,10 @@ export function useLocalStorage<T>(
           window.dispatchEvent(new Event('local-storage'));
         }
       } catch (error) {
-        console.error(`Error setting localStorage key "${key}":`, error);
+        logger.error?.(`Error setting localStorage key "${key}"`, error);
       }
     },
-    [key, storedValue]
+    [key, storedValue, logger]
   );
 
   // Remove the useEffect that re-reads on mount since we now use lazy initialization

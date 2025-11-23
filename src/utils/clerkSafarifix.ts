@@ -34,7 +34,7 @@ export const checkLocalStorage = (): boolean => {
     localStorage.setItem(test, test);
     localStorage.removeItem(test);
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 };
@@ -46,7 +46,7 @@ export const checkSessionStorage = (): boolean => {
     sessionStorage.setItem(test, test);
     sessionStorage.removeItem(test);
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 };
@@ -136,12 +136,12 @@ const applySafariFixes = () => {
 const polyfillSafari = () => {
   // Ensure Promise.allSettled exists (Safari < 13)
   if (!Promise.allSettled) {
-    Promise.allSettled = function(promises: Promise<any>[]) {
+    Promise.allSettled = function<T>(promises: Promise<T>[]) {
       return Promise.all(
         promises.map(p =>
           Promise.resolve(p).then(
-            value => ({ status: 'fulfilled' as const, value }),
-            reason => ({ status: 'rejected' as const, reason })
+            value => ({ status: 'fulfilled', value } as const),
+            reason => ({ status: 'rejected', reason } as const)
           )
         )
       );
@@ -170,7 +170,7 @@ const polyfillSafari = () => {
 };
 
 // Error handler specifically for Clerk errors in Safari
-export const handleClerkSafariError = (error: any): { message: string; solution: string } => {
+export const handleClerkSafariError = (error: unknown): { message: string; solution: string } => {
   const errorStr = error?.message || error?.toString() || '';
   
   if (errorStr.includes('localStorage') || errorStr.includes('sessionStorage')) {

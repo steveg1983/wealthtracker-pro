@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   Cloud, 
   CloudOff, 
@@ -13,12 +13,14 @@ import {
 import { useDataSync } from '../hooks/useDataSync';
 import { formatDistanceToNow } from 'date-fns';
 import { SyncConflict } from '../services/syncService';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export default function DataSyncManager(): React.JSX.Element {
   const { syncStatus, conflicts, forceSync, resolveConflict, clearSyncQueue } = useDataSync();
   const [showDetails, setShowDetails] = useState(false);
   const [showConflicts, setShowConflicts] = useState(false);
   const [resolvingConflict, setResolvingConflict] = useState<string | null>(null);
+  const logger = useMemo(() => createScopedLogger('DataSyncManager'), []);
 
   const handleResolveConflict = async (
     conflictId: string, 
@@ -29,7 +31,7 @@ export default function DataSyncManager(): React.JSX.Element {
       resolveConflict(conflictId, resolution);
       setTimeout(() => setResolvingConflict(null), 500);
     } catch (error) {
-      console.error('Failed to resolve conflict:', error);
+      logger.error('Failed to resolve conflict', error as Error);
       setResolvingConflict(null);
     }
   };

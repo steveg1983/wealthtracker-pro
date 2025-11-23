@@ -1,18 +1,20 @@
 // Dynamic imports for heavy libraries
-let jsPDF: typeof import('jspdf').jsPDF | null = null;
-const html2canvas: typeof import('html2canvas').default | null = null;
-import type { Transaction, Account, Category, Investment, Budget } from '../types';
-import type { ExportableData, GroupedData, ChartData, SavedReport, SavedTemplate } from '../types/export';
+let jsPDF: JsPDFClass | null = null;
+const _html2canvas: typeof import('html2canvas').default | null = null;
+import type { Transaction, Account, Investment, Budget } from '../types';
+import type { ExportableData, ChartData, SavedReport, SavedTemplate } from '../types/export';
 import Decimal from 'decimal.js';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-type Logger = Pick<Console, 'error' | 'warn'>;
+type JsPDFClass = typeof import('jspdf').jsPDF;
+type JsPDFInstance = InstanceType<JsPDFClass>;
 
 export interface ExportServiceOptions {
   storage?: StorageLike | null;
-  logger?: Logger;
+  logger?: ScopedLogger;
   now?: () => Date;
   idGenerator?: () => string;
 }
@@ -56,17 +58,13 @@ export class ExportService {
   private scheduledReports: ScheduledReport[] = [];
   private templates: ExportTemplate[] = [];
   private readonly storage: StorageLike | null;
-  private readonly logger: Logger;
+  private readonly logger: ScopedLogger;
   private readonly nowProvider: () => Date;
   private readonly idGenerator: () => string;
 
   constructor(options: ExportServiceOptions = {}) {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
-    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
-    this.logger = {
-      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {})),
-      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {}))
-    };
+    this.logger = options.logger ?? createScopedLogger('ExportService');
     this.nowProvider = options.now ?? (() => new Date());
     this.idGenerator = options.idGenerator ?? (() => Date.now().toString());
     this.loadData();
@@ -104,7 +102,7 @@ export class ExportService {
         }));
       }
     } catch (error) {
-      this.logger.error('Error loading export data:', error as Error);
+      this.logger.error('Error loading export data', error);
     }
   }
 
@@ -114,7 +112,7 @@ export class ExportService {
       this.storage.setItem('scheduled-reports', JSON.stringify(this.scheduledReports));
       this.storage.setItem('export-templates', JSON.stringify(this.templates));
     } catch (error) {
-      this.logger.error('Error saving export data:', error as Error);
+      this.logger.error('Error saving export data', error);
     }
   }
 
@@ -344,7 +342,7 @@ export class ExportService {
       jsPDF = module.jsPDF;
     }
 
-    const doc = new jsPDF!();
+    const doc: JsPDFInstance = new jsPDF!();
     let yPosition = 20;
 
     // Add header
@@ -361,7 +359,7 @@ export class ExportService {
       try {
         doc.addImage(options.logoUrl, 'PNG', 150, 10, 40, 20);
       } catch (error) {
-        this.logger.warn('Could not add logo to PDF:', error as Error);
+        this.logger.warn('Could not add logo to PDF', error);
       }
     }
 
@@ -384,13 +382,18 @@ export class ExportService {
 
     // Add charts if requested
     if (options.includeCharts) {
-      await this.addChartsToPDF(doc, data as any, yPosition);
+      await this.addChartsToPDF(doc, undefined, yPosition);
     }
 
-    return doc.output('arraybuffer') as any as Uint8Array;
+    const buffer = doc.output('arraybuffer');
+    return new Uint8Array(buffer);
   }
 
-  private async addAccountsSummaryToPDF(doc: any, accounts: Account[], yPosition: number): Promise<number> {
+  private async addAccountsSummaryToPDF(
+    doc: JsPDFInstance,
+    accounts: Account[],
+    yPosition: number
+  ): Promise<number> {
     doc.setFontSize(16);
     doc.text('Accounts Summary', 20, yPosition);
     yPosition += 10;
@@ -409,7 +412,7 @@ export class ExportService {
   }
 
   private async addTransactionsSummaryToPDF(
-    doc: any, 
+    doc: JsPDFInstance, 
     transactions: Transaction[], 
     yPosition: number, 
     options: ExportOptions
@@ -442,7 +445,11 @@ export class ExportService {
     return yPosition + 15;
   }
 
-  private async addInvestmentsSummaryToPDF(doc: any, investments: Investment[], yPosition: number): Promise<number> {
+  private async addInvestmentsSummaryToPDF(
+    doc: JsPDFInstance,
+    investments: Investment[],
+    yPosition: number
+  ): Promise<number> {
     doc.setFontSize(16);
     doc.text('Investments Summary', 20, yPosition);
     yPosition += 10;
@@ -465,7 +472,11 @@ export class ExportService {
     return yPosition + 15;
   }
 
-  private async addBudgetsSummaryToPDF(doc: any, budgets: Budget[], yPosition: number): Promise<number> {
+  private async addBudgetsSummaryToPDF(
+    doc: JsPDFInstance,
+    budgets: Budget[],
+    yPosition: number
+  ): Promise<number> {
     doc.setFontSize(16);
     doc.text('Budget Summary', 20, yPosition);
     yPosition += 10;
@@ -474,7 +485,7 @@ export class ExportService {
     budgets.forEach(budget => {
       const spent = new Decimal(budget.spent || 0);
       const budgeted = new Decimal(budget.budgeted || 0);
-      const remaining = budgeted.minus(spent);
+      const _remaining = budgeted.minus(spent);
       const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
 
       doc.text(
@@ -488,7 +499,11 @@ export class ExportService {
     return yPosition + 15;
   }
 
-  private async addChartsToPDF(doc: any, data: ChartData, yPosition: number): Promise<void> {
+  private async addChartsToPDF(
+    doc: JsPDFInstance,
+    _data: ChartData | undefined,
+    yPosition: number
+  ): Promise<void> {
     // This would capture chart elements from the DOM and add them to PDF
     // For now, we'll add a placeholder
     doc.setFontSize(14);
@@ -496,21 +511,34 @@ export class ExportService {
   }
 
   // Utility functions
-  private groupData(data: ExportableData[], groupBy: string): ExportableData[] | Record<string, ExportableData[]> {
-    if (groupBy === 'none') return data;
+  private groupData(
+    data: ExportableData[],
+    groupBy: ExportOptions['groupBy'] = 'none'
+  ): ExportableData[] | Record<string, ExportableData[]> {
+    if (!groupBy || groupBy === 'none') return data;
 
-    return data.reduce((groups, item) => {
-      let key: string;
-      
+    return data.reduce<Record<string, ExportableData[]>>((groups, item) => {
+      let key = 'All';
+
       switch (groupBy) {
         case 'category':
-          key = ('category' in item ? item.category : undefined) || 'Uncategorized';
+          key = ('category' in item && item.category) ? item.category : 'Uncategorized';
           break;
-        case 'account':
-          key = ('accountId' in item ? item.accountId : 'account' in item ? (item as any).account : undefined) || 'Unknown';
+        case 'account': {
+          if ('accountId' in item && typeof item.accountId === 'string') {
+            key = item.accountId;
+          } else {
+            const recordItem = item as Record<string, unknown>;
+            const accountValue = recordItem.account;
+            key = typeof accountValue === 'string' ? accountValue : 'Unknown';
+          }
           break;
+        }
         case 'month': {
-          const dateValue = ('date' in item ? item.date : 'createdAt' in item ? item.createdAt : undefined) || new Date();
+          const dateValue =
+            ('date' in item && item.date) ||
+            ('createdAt' in item && item.createdAt) ||
+            new Date();
           const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           break;
@@ -522,9 +550,9 @@ export class ExportService {
       if (!groups[key]) {
         groups[key] = [];
       }
-      groups[key].push(item);
+      groups[key]!.push(item);
       return groups;
-    }, {} as Record<string, ExportableData[]>);
+    }, {});
   }
 
   private calculateGroupTotal(items: ExportableData[]): number {
@@ -540,17 +568,18 @@ export class ExportService {
   private arrayToCSV(data: ExportableData[]): string {
     if (data.length === 0) return '';
 
-    const headers = Object.keys(data[0]);
+    const headers = Object.keys(data[0] as Record<string, unknown>);
     const csvRows = [
       headers.join(','),
       ...data.map(row => 
         headers.map(header => {
-          const value = (row as any)[header];
+          const record = row as Record<string, unknown>;
+          const value = record[header];
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
             return `"${value.replace(/"/g, '""')}"`;
           }
-          return value;
+          return value ?? '';
         }).join(',')
       )
     ];
@@ -581,7 +610,7 @@ export class ExportService {
       // 2. Send email via email service (SendGrid, Mailgun, etc.)
       // 3. Update the lastRun and nextRun dates
 
-      console.log(`Sending scheduled report "${report.name}" to ${report.email}`);
+      this.logger.info?.(`Sending scheduled report "${report.name}" to ${report.email}`);
       
       // Update the report
       report.lastRun = new Date();
@@ -590,7 +619,7 @@ export class ExportService {
 
       return true;
     } catch (error) {
-      console.error('Error sending scheduled report:', error);
+      this.logger.error('Error sending scheduled report', error as Error);
       return false;
     }
   }
@@ -763,8 +792,13 @@ NEWFILEUID:${now}
     switch (format) {
       case 'csv': {
         // CSV can only export one type at a time, prioritize by what's available
-        const csvData = data.transactions || data.accounts || data.investments || [];
-        return this.exportToCSV(csvData as any, options);
+        const csvData =
+          (data.transactions as ExportableData[] | undefined) ||
+          (data.accounts as ExportableData[] | undefined) ||
+          (data.investments as ExportableData[] | undefined) ||
+          (data.budgets as ExportableData[] | undefined) ||
+          [];
+        return this.exportToCSV(csvData, options);
       }
       
       case 'pdf':

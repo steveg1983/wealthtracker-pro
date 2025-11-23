@@ -209,7 +209,7 @@ export function clearCaches(): Promise<void> {
 }
 
 // Get sync status from service worker
-export function getSyncStatus(): Promise<any> {
+export function getSyncStatus(): Promise<unknown> {
   return new Promise((resolve, reject) => {
     if (!navigator.serviceWorker.controller) {
       reject(new Error('No active service worker'));

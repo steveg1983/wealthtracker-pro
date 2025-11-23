@@ -1,9 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Test Utilities
  * Common testing utilities and helpers for unit and integration tests
  */
 
 import React from 'react';
+import { createScopedLogger } from '../loggers/scopedLogger';
 import { render, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
@@ -206,7 +208,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
     budgets?: Budget[];
     goals?: Goal[];
   };
-  wrapper?: React.ComponentType<any>;
+  wrapper?: React.ComponentType<{ children?: React.ReactNode }>;
 }
 
 export const renderWithProviders = (
@@ -304,6 +306,7 @@ export const mockLocalStorage = () => {
 };
 
 // Error boundary for testing
+const testLogger = createScopedLogger('TestErrorBoundary');
 export class TestErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error?: Error }
@@ -318,7 +321,7 @@ export class TestErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Test error boundary caught an error:', error, errorInfo);
+    testLogger.error('Test error boundary caught an error', { error, errorInfo });
   }
 
   render() {

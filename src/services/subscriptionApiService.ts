@@ -16,10 +16,8 @@ import type {
   UpdateSubscriptionRequest,
   UserSubscription,
   BillingHistory,
-  PaymentMethod,
   BillingInvoice,
-  SubscriptionPlan,
-  SubscriptionPreview
+  SubscriptionPlan
 } from '../types/subscription';
 import { toDecimal, toStorageNumber } from '../utils/decimal';
 
@@ -59,7 +57,7 @@ export class SubscriptionApiService {
    * In a real app, this would be a backend API call
    */
   static async createSubscription(
-    request: CreateSubscriptionRequest
+    _request: CreateSubscriptionRequest
   ): Promise<CreateSubscriptionResponse> {
     try {
       // In a real implementation, this would:
@@ -88,8 +86,8 @@ export class SubscriptionApiService {
    * Update subscription (simulates backend endpoint)
    */
   static async updateSubscription(
-    subscriptionId: string,
-    request: UpdateSubscriptionRequest
+    _subscriptionId: string,
+    _request: UpdateSubscriptionRequest
   ): Promise<UserSubscription> {
     try {
       throw new Error(

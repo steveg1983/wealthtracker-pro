@@ -6,8 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { financialSummaryService } from './financialSummaryService';
 import type { Transaction, Account, Budget, Goal } from '../types';
-import type { SummaryData } from './financialSummaryService';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
 // Mock localStorage
 const mockLocalStorage = (() => {

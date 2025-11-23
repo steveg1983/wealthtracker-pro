@@ -125,7 +125,7 @@ describe('useReconciliation', () => {
     });
 
     it('should recalculate when accounts change', () => {
-      const { result, rerender } = renderHook(
+      const { result: _result, rerender } = renderHook(
         ({ accounts, transactions }) => useReconciliation(accounts, transactions),
         {
           initialProps: { accounts: mockAccounts, transactions: mockTransactions }
@@ -149,7 +149,7 @@ describe('useReconciliation', () => {
     });
 
     it('should recalculate when transactions change', () => {
-      const { result, rerender } = renderHook(
+      const { result: _result, rerender } = renderHook(
         ({ accounts, transactions }) => useReconciliation(accounts, transactions),
         {
           initialProps: { accounts: mockAccounts, transactions: mockTransactions }

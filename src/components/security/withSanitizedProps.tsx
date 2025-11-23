@@ -3,7 +3,7 @@
  * Wrap any component with this to automatically sanitize its inputs
  */
 
-import React, { type ComponentProps } from 'react';
+import React from 'react';
 import { sanitizeText, sanitizeNumber, sanitizeDate } from '../../security/xss-protection';
 
 type SanitizeOptions = {
@@ -57,7 +57,7 @@ export function withSanitizedProps<C extends React.ComponentType<Record<string, 
       return result as Props;
     }, [props]);
 
-    return <Component {...(sanitizedProps as any)} ref={ref} />;
+    return <Component {...sanitizedProps} ref={ref} />;
   });
 
   Sanitized.displayName = `withSanitizedProps(${Component.displayName ?? Component.name ?? 'Component'})`;

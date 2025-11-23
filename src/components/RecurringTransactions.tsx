@@ -117,7 +117,7 @@ export default function RecurringTransactions(): React.JSX.Element {
           : t
       ));
     } catch (error) {
-      console.error('Failed to process recurring template:', error);
+      logger.error('Failed to process recurring template', error as Error);
     } finally {
       setProcessingTemplates(prev => {
         const next = new Set(prev);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { financialPlanningService } from '../services/financialPlanningService';
-import { 
+import {
   CalculatorIcon,
   PiggyBankIcon,
   TrendingUpIcon,
@@ -10,8 +10,6 @@ import {
   TargetIcon,
   ShieldIcon,
   BarChart3Icon,
-  CalendarIcon,
-  DollarSignIcon,
   AlertCircleIcon,
   CheckCircleIcon,
   ArrowRightIcon
@@ -39,8 +37,8 @@ type ActiveTab = 'overview' | 'retirement' | 'mortgage' | 'college' | 'debt' | '
 export default function FinancialPlanning() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [retirementPlans, setRetirementPlans] = useState<RetirementPlan[]>([]);
-  const [mortgageCalculations, setMortgageCalculations] = useState<MortgageCalculation[]>([]);
-  const [collegePlans, setCollegePlans] = useState<CollegePlan[]>([]);
+  const [_mortgageCalculations, setMortgageCalculations] = useState<MortgageCalculation[]>([]);
+  const [_collegePlans, setCollegePlans] = useState<CollegePlan[]>([]);
   const [debtPlans, setDebtPlans] = useState<DebtPayoffPlan[]>([]);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [insuranceNeeds, setInsuranceNeeds] = useState<InsuranceNeed[]>([]);
@@ -381,7 +379,7 @@ export default function FinancialPlanning() {
                 ) : (
                   <div className="space-y-3">
                     {financialGoals.slice(0, 3).map((goal) => {
-                      const projection = financialPlanningService.calculateGoalProjection(goal);
+                      const _projection = financialPlanningService.calculateGoalProjection(goal);
                       const currentSavingsDecimal = toDecimal(goal.currentSavings ?? 0);
                       const targetAmountDecimal = toDecimal(goal.targetAmount ?? 0);
                       const progressDecimal = targetAmountDecimal.equals(0)

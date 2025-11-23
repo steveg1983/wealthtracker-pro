@@ -3,7 +3,6 @@ let jsPDF: typeof import('jspdf').default | null = null;
 let html2canvas: typeof import('html2canvas').default | null = null;
 import { Transaction, Account } from '../types';
 import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
-import { toDecimal, Decimal } from './decimal';
 import { formatDecimal } from './decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -25,7 +24,7 @@ interface ReportData {
   chartElements?: HTMLElement[];
 }
 
-export async function generatePDFReport(data: ReportData, accounts: Account[]): Promise<void> {
+export async function generatePDFReport(data: ReportData, _accounts: Account[]): Promise<void> {
   // Load libraries dynamically
   if (!jsPDF) {
     const module = await import('jspdf');
@@ -239,7 +238,6 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
       pdf.rect(margin, yPosition - 5, pageWidth - 2 * margin, 8, 'F');
     }
     
-    const account = accounts.find(a => a.id === transaction.accountId);
     pdf.setFontSize(9);
     pdf.text(new Date(transaction.date).toLocaleDateString('en-GB'), margin + 2, yPosition);
     

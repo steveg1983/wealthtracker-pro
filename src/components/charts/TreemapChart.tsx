@@ -10,7 +10,7 @@ interface TreemapData {
   name: string;
   value: number;
   children?: TreemapData[];
-  [key: string]: any; // Index signature for Recharts compatibility
+  [key: string]: unknown; // Index signature for Recharts compatibility
 }
 
 interface TreemapChartProps {

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
 import { AppProvider, useApp } from '../../contexts/AppContext';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
@@ -95,8 +94,6 @@ describe('Data Flow Integration Tests', () => {
     });
 
     it('persists data to localStorage when state changes', async () => {
-      const setItemSpy = vi.mocked(localStorage.setItem);
-      
       renderWithProvider(<TestComponent />);
 
       // Add an account

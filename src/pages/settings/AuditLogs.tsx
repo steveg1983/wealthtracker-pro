@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { securityService } from '../../services/securityService';
 import { 
   FileTextIcon,
@@ -29,14 +29,14 @@ export default function AuditLogs() {
 
   useEffect(() => {
     applyFilters();
-  }, [logs, filters]);
+  }, [logs, filters, applyFilters]);
 
   const loadLogs = () => {
     const auditLogs = securityService.getAuditLogs();
     setLogs(auditLogs);
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...logs];
 
     // Filter by action
@@ -73,7 +73,7 @@ export default function AuditLogs() {
     }
 
     setFilteredLogs(filtered);
-  };
+  }, [filters, logs]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -115,7 +115,7 @@ export default function AuditLogs() {
     }
   };
 
-  const formatChanges = (changes: Record<string, any> | undefined) => {
+  const formatChanges = (changes: Record<string, unknown> | undefined) => {
     if (!changes) return null;
     
     const changeKeys = Object.keys(changes);
@@ -339,10 +339,10 @@ export default function AuditLogs() {
 
         {/* Logs Table */}
         <div style={{ height: '600px' }}>
-          <VirtualizedTable
+          <VirtualizedTable<AuditLog>
             items={filteredLogs}
-            columns={columns as any}
-            getItemKey={(log) => (log as AuditLog).id}
+            columns={columns}
+            getItemKey={(log) => log.id}
             rowHeight={80}
             emptyMessage={
               logs.length === 0 

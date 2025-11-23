@@ -5,7 +5,6 @@ import PageWrapper from '../../components/PageWrapper';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useUserId } from '../../hooks/useUserId';
-import { AccountService } from '../../services/api/accountService';
 import { supabase } from '../../lib/supabase';
 import type { Account } from '../../types';
 import { createScopedLogger } from '../../loggers/scopedLogger';
@@ -14,7 +13,7 @@ const deletedAccountsLogger = createScopedLogger('DeletedAccountsPage');
 
 export default function DeletedAccounts() {
   const navigate = useNavigate();
-  const { accounts: activeAccounts, updateAccount } = useApp();
+  const { accounts: _activeAccounts, updateAccount: _updateAccount } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { databaseId, isLoading: userIdLoading } = useUserId();
   const [deletedAccounts, setDeletedAccounts] = useState<Account[]>([]);

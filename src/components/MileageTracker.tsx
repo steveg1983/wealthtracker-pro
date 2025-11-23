@@ -12,7 +12,7 @@ import {
 } from './icons';
 import type { MileageEntry } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 

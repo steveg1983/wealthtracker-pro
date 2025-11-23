@@ -5,7 +5,7 @@ function getMonthEnd(year: number, month: number): Date {
   return new Date(year, month + 1, 0);
 }
 
-function addDays(date: Date, days: number): Date {
+function _addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;

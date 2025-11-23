@@ -4,6 +4,9 @@
 import { Server } from 'socket.io';
 import type { Socket } from 'socket.io';
 import { createServer } from 'http';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const logger = createScopedLogger('MockSyncServer');
 
 interface ClientData {
   clientId: string;
@@ -69,7 +72,7 @@ class MockSyncServer {
 
     const port = process.env.VITE_SYNC_PORT || 3001;
     httpServer.listen(port, () => {
-      console.log(`Mock sync server running on port ${port}`);
+      logger.info(`Mock sync server running on port ${port}`);
     });
   }
 
@@ -82,7 +85,7 @@ class MockSyncServer {
         typeof handshakeClientId === 'string' && handshakeClientId.trim().length > 0
           ? handshakeClientId
           : socket.id;
-      console.log(`Client connected: ${clientId}`);
+      logger.info('Client connected', { clientId });
 
       // Register client
       this.clients.set(socket.id, {
@@ -109,7 +112,7 @@ class MockSyncServer {
 
       // Handle disconnection
       socket.on('disconnect', () => {
-        console.log(`Client disconnected: ${clientId}`);
+        logger.info('Client disconnected', { clientId });
         this.clients.delete(socket.id);
       });
 
@@ -129,7 +132,7 @@ class MockSyncServer {
   ): void {
     const { id, type, entity, entityId, clientId, version } = operation;
     
-    console.log(`Sync operation received: ${type} ${entity} ${entityId}`);
+    logger.info('Sync operation received', { type, entity, entityId });
 
     // Check for conflicts
     const conflict = this.checkForConflict(entityId, clientId, version);
@@ -223,7 +226,7 @@ class MockSyncServer {
   ): void {
     const { conflictId, choice, mergedData } = resolution;
     
-    console.log(`Conflict resolution: ${conflictId} - ${choice}`);
+    logger.info('Conflict resolution received', { conflictId, choice });
     
     // Apply the resolution
     if (choice === 'merge' && mergedData) {
@@ -292,5 +295,5 @@ export const mockSyncServer = new MockSyncServer();
 
 // Development-only auto-start
 if (process.env.NODE_ENV === 'development' && typeof window === 'undefined') {
-  console.log('Starting mock sync server for development...');
+  logger.info('Starting mock sync server for development');
 }

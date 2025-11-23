@@ -23,7 +23,7 @@ const baseOptions = () => ({
   socketFactory: vi.fn(() => createSocket()),
   setIntervalFn: vi.fn(),
   clearIntervalFn: vi.fn(),
-  setTimeoutFn: vi.fn((handler: TimerHandler, timeout?: number) => {
+  setTimeoutFn: vi.fn((handler: TimerHandler, _timeout?: number) => {
     if (typeof handler === 'function') handler();
   }),
   clearTimeoutFn: vi.fn(),

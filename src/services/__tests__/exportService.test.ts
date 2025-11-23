@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ExportService } from '../exportService';
-import type { ExportTemplate, ScheduledReport, ExportOptions } from '../exportService';
+import type { ScheduledReport, ExportOptions } from '../exportService';
 
 const createStorage = () => {
   const store = new Map<string, string>();

@@ -7,6 +7,17 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import type { Notification } from './notificationsSlice';
 
+const mockLogger = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+};
+
+vi.mock('../../loggers/scopedLogger', () => ({
+  createScopedLogger: vi.fn(() => mockLogger),
+}));
+
 // Mock localStorage
 const mockLocalStorage = {
   getItem: vi.fn(),
@@ -25,9 +36,6 @@ global.crypto = {
   ...global.crypto,
   randomUUID: mockUUID,
 };
-
-// Mock console.error
-const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 describe('notificationsSlice', () => {
   let store: ReturnType<typeof configureStore>;
@@ -164,7 +172,7 @@ describe('notificationsSlice', () => {
       expect(state.notifications[0]).toMatchObject({
         ...newNotification,
         id: 'test-uuid-123',
-        timestamp: new Date('2025-01-20T12:00:00'),
+        timestamp: '2025-01-20T12:00:00.000Z',
         read: false,
       });
       expect(state.unreadCount).toBe(1);
@@ -486,8 +494,8 @@ describe('notificationsSlice', () => {
 
       const state = store.getState().notifications;
       expect(state.notifications).toHaveLength(1); // State still updates
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to save notifications:',
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to save notifications',
         expect.any(Error)
       );
     });

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
 import { AppProvider } from '../../contexts/AppContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
-import type { Transaction, Account, Budget, Goal } from '../../types';
+import type { Transaction, Account, Budget } from '../../types';
 import { formatCurrency as formatCurrencyDecimal, formatCurrencyWhole } from '../../utils/currency-decimal';
 import { formatDecimal } from '../../utils/decimal-format';
 

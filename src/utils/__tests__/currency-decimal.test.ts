@@ -4,8 +4,6 @@ import {
   getCurrencySymbol,
   formatCurrency,
   getExchangeRates,
-  convertCurrency,
-  convertMultipleCurrencies,
   supportedCurrencies,
   currencySymbols
 } from '../currency-decimal';

@@ -40,7 +40,7 @@ const createService = (overrides: PredictiveLoadingServiceOptions = {}) => {
   const storage = overrides.storage ?? createStorageMock();
   const intervalCallbacks: Array<() => void> = [];
   const intervalHandle = { id: Symbol('analytics') } as unknown as ReturnType<typeof setInterval>;
-  const defaultSetInterval: typeof setInterval = vi.fn((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+  const defaultSetInterval: typeof setInterval = vi.fn((handler: TimerHandler, _timeout?: number, ..._args: any[]) => {
     if (typeof handler === 'function') {
       intervalCallbacks.push(handler as () => void);
     }
@@ -244,7 +244,7 @@ describe('PredictiveLoadingService', () => {
 
   it('clears resources via dispose', () => {
     const disconnectMock = vi.fn();
-    const intersectionObserverFactory = vi.fn((callback: IntersectionObserverCallback) => {
+    const intersectionObserverFactory = vi.fn((_callback: IntersectionObserverCallback) => {
       return {
         observe: vi.fn(),
         disconnect: disconnectMock,

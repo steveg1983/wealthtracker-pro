@@ -5,7 +5,6 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { importTransactionsFromCSV, importAccountsFromCSV } from './csvImport';
-import type { Transaction, Account } from '../types';
 
 describe('CSV Import', () => {
   let consoleErrorSpy: any;

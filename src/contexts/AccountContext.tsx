@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface Holding {
   ticker: string;
@@ -42,6 +43,7 @@ interface AccountContextType {
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
+const logger = createScopedLogger('AccountContext');
 
 interface AccountProviderProps {
   children: ReactNode;
@@ -60,7 +62,7 @@ export function AccountProvider({ children, initialAccounts = [] }: AccountProvi
           openingBalanceDate: acc.openingBalanceDate ? new Date(acc.openingBalanceDate) : undefined
         }));
       } catch (error) {
-        console.error('Error parsing saved accounts:', error);
+        logger.error('Error parsing saved accounts', error);
         return initialAccounts;
       }
     }
@@ -117,4 +119,3 @@ export function useAccounts() {
   }
   return context;
 }
-

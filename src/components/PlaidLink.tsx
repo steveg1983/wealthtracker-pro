@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { plaidService, PlaidPublicToken } from '../services/plaidService';
 import { useApp } from '../contexts/AppContextSupabase';
 import { LinkIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, CheckCircleIcon } from './icons';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface PlaidLinkProps {
   onSuccess?: () => void;
@@ -13,6 +14,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
   const [connections, setConnections] = useState(plaidService.getConnections());
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
   const { addAccount, addTransaction } = useApp();
+  const logger = useMemo(() => createScopedLogger('PlaidLink'), []);
 
   // Simulate Plaid Link flow
   const handleConnectBank = useCallback(async () => {
@@ -78,12 +80,12 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
       
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Failed to connect bank:', error);
+      logger.error('Failed to connect bank', error as Error);
       if (onError) onError(error as Error);
     } finally {
       setIsLinking(false);
     }
-  }, [addAccount, onSuccess, onError]);
+  }, [addAccount, onSuccess, onError, logger]);
 
   // Sync accounts and transactions for a connection
   const handleSync = useCallback(async (connectionId: string) => {
@@ -107,7 +109,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
       // Refresh connections
       setConnections(plaidService.getConnections());
     } catch (error) {
-      console.error('Sync failed:', error);
+      logger.error('Sync failed', error as Error);
       plaidService.updateConnectionStatus(connectionId, 'error', (error as Error).message);
       setConnections(plaidService.getConnections());
     } finally {
@@ -117,7 +119,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
         return next;
       });
     }
-  }, [addAccount, addTransaction]);
+  }, [addAccount, addTransaction, logger]);
 
   // Remove a connection
   const handleRemoveConnection = useCallback((connectionId: string) => {

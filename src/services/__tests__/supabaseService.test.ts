@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSupabaseService, SupabaseService } from '../supabaseService';
 
-const createLogger = () => ({ error: vi.fn(), warn: vi.fn() });
+const createLogger = () => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn()
+});
 
 describe('SupabaseService (fallback)', () => {
   const logger = createLogger();

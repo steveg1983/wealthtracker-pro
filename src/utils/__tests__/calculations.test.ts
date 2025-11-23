@@ -7,23 +7,7 @@ import {
   calculateBudgetUsage,
   calculateBudgetProgress,
   calculateGoalProgress,
-  getTransactionsByCategory,
-  getTransactionsByDateRange,
-  calculateAverageTransactionAmount,
-  calculateMonthlyAverage,
-  getCategoryIcon,
-  getAccountTypeIcon,
-  groupTransactionsByDate,
-  calculateAccountTotals,
-  calculateCashFlow,
-  calculateSavingsRate,
-  getRecentTransactions,
-  getTopCategories,
-  calculateDailyBalance,
-  calculateMonthlyTrends,
-  calculateCategoryTrends
 } from '../calculations';
-import { formatCurrency } from '../currency';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../../test/factories';
 
 describe('Calculation Utilities', () => {

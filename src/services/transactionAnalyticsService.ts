@@ -1,6 +1,6 @@
 import { BaseService } from './base/BaseService';
 import Decimal from 'decimal.js';
-import type { Transaction, Category, Account } from '../types';
+import type { Transaction, Category } from '../types';
 
 type DecimalType = InstanceType<typeof Decimal>;
 
@@ -222,7 +222,7 @@ class TransactionAnalyticsService extends BaseService {
     categories: Category[],
     months: number = 6
   ): CategoryTrend[] {
-    const endDate = new Date();
+    const _endDate = new Date();
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - months);
 
@@ -288,7 +288,7 @@ class TransactionAnalyticsService extends BaseService {
    */
   findAnomalousTransactions(
     transactions: Transaction[],
-    categories: Category[]
+    _categories: Category[]
   ): Transaction[] {
     const anomalous: Transaction[] = [];
     
@@ -303,7 +303,7 @@ class TransactionAnalyticsService extends BaseService {
         categoryGroups.set(transaction.category, group);
       });
 
-    categoryGroups.forEach((group, categoryId) => {
+    categoryGroups.forEach((group, _categoryId) => {
       if (group.length < 5) return; // Need enough data for statistics
 
       // Calculate mean and standard deviation

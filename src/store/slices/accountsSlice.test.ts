@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import accountsSlice, { loadAccounts, addAccount, updateAccount, deleteAccount } from './accountsSlice';
+import accountsSlice, { addAccount, updateAccount, deleteAccount } from './accountsSlice';
 
 // Mock crypto.randomUUID
 global.crypto = {

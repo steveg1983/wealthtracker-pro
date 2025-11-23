@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -37,7 +37,7 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/investments' } 
 };
 
 describe('Investment Portfolio Integration', () => {
-  const user = userEvent.setup();
+  const _user = userEvent.setup();
 
   beforeEach(() => {
     vi.clearAllMocks();

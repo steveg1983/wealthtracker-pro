@@ -1,5 +1,4 @@
 import Decimal from 'decimal.js';
-import type { Transaction } from '../types';
 import type {
   SavedRetirementPlan,
   SavedMortgageCalculation,
@@ -9,6 +8,7 @@ import type {
   SavedFinancialGoal,
   SavedInsuranceNeed
 } from '../types/financial-planning';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface RetirementPlan {
   id: string;
@@ -172,6 +172,7 @@ class FinancialPlanningService {
   private debtPlans: DebtPayoffPlan[] = [];
   private financialGoals: FinancialGoal[] = [];
   private insuranceNeeds: InsuranceNeed[] = [];
+  private logger = createScopedLogger('FinancialPlanningService');
 
   constructor() {
     this.loadData();
@@ -235,7 +236,7 @@ class FinancialPlanningService {
         }));
       }
     } catch (error) {
-      console.error('Error loading financial planning data:', error);
+      this.logger.error('Error loading financial planning data', error as Error);
     }
   }
 
@@ -248,7 +249,7 @@ class FinancialPlanningService {
       localStorage.setItem('financial-goals', JSON.stringify(this.financialGoals));
       localStorage.setItem('financial-insurance-needs', JSON.stringify(this.insuranceNeeds));
     } catch (error) {
-      console.error('Error saving financial planning data:', error);
+      this.logger.error('Error saving financial planning data', error as Error);
     }
   }
 

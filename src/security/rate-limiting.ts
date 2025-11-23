@@ -3,10 +3,18 @@
  * Prevents abuse by limiting the frequency of operations
  */
 
+interface RateLimitContext {
+  ip?: string;
+  email?: string;
+  userId?: string;
+  fileType?: string;
+  [key: string]: unknown;
+}
+
 interface RateLimitConfig {
   maxRequests: number;
   windowMs: number;
-  keyGenerator?: (context: any) => string;
+  keyGenerator?: (context?: RateLimitContext) => string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
 }
@@ -17,9 +25,33 @@ interface RateLimitEntry {
   firstRequest: number;
 }
 
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetTime: number;
+}
+
+interface RateLimitControls {
+  check: (context?: RateLimitContext) => RateLimitResult;
+  consume: (context?: RateLimitContext, success?: boolean) => boolean;
+  reset: (context?: RateLimitContext) => void;
+}
+
+interface ExpressLikeRequest extends RateLimitContext {
+  ip?: string;
+}
+
+interface ExpressLikeResponse {
+  setHeader(name: string, value: string): void;
+  status(code: number): ExpressLikeResponse;
+  json(body: unknown): void;
+}
+
+type NextFunction = (err?: unknown) => void;
+
 class RateLimiter {
   private limits: Map<string, Map<string, RateLimitEntry>> = new Map();
-  private cleanupInterval: number | null = null;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     // Start cleanup interval
@@ -29,7 +61,7 @@ class RateLimiter {
   /**
    * Create a rate limiter for a specific operation
    */
-  createLimiter(name: string, config: RateLimitConfig) {
+  createLimiter(name: string, config: RateLimitConfig): RateLimitControls {
     const {
       maxRequests,
       windowMs,
@@ -42,7 +74,7 @@ class RateLimiter {
       /**
        * Check if the operation is allowed
        */
-      check: (context?: any): { allowed: boolean; remaining: number; resetTime: number } => {
+      check: (context?: RateLimitContext): RateLimitResult => {
         const key = keyGenerator(context);
         const now = Date.now();
         
@@ -77,7 +109,7 @@ class RateLimiter {
       /**
        * Consume a request
        */
-      consume: (context?: any, success: boolean = true): boolean => {
+      consume: (context?: RateLimitContext, success: boolean = true): boolean => {
         if ((success && skipSuccessfulRequests) || (!success && skipFailedRequests)) {
           return true;
         }
@@ -116,7 +148,7 @@ class RateLimiter {
       /**
        * Reset limits for a specific key
        */
-      reset: (context?: any) => {
+      reset: (context?: RateLimitContext) => {
         const key = keyGenerator(context);
         const limitMap = this.limits.get(name);
         if (limitMap) {
@@ -131,7 +163,7 @@ class RateLimiter {
    */
   private startCleanup() {
     // Run cleanup every minute
-    this.cleanupInterval = window.setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       
       this.limits.forEach((limitMap) => {
@@ -218,8 +250,8 @@ export const useRateLimiter = (limiterName: keyof typeof rateLimiters) => {
   const limiter = rateLimiters[limiterName];
 
   return {
-    check: (context?: any) => limiter.check(context),
-    checkAndConsume: (context?: any): boolean => {
+    check: (context?: RateLimitContext) => limiter.check(context),
+    checkAndConsume: (context?: RateLimitContext): boolean => {
       const result = limiter.check(context);
       if (result.allowed) {
         limiter.consume(context);
@@ -227,7 +259,7 @@ export const useRateLimiter = (limiterName: keyof typeof rateLimiters) => {
       }
       return false;
     },
-    reset: (context?: any) => limiter.reset(context)
+    reset: (context?: RateLimitContext) => limiter.reset(context)
   };
 };
 
@@ -241,7 +273,7 @@ export const createRateLimitMiddleware = (
     message?: string;
     statusCode?: number;
     headers?: boolean;
-    keyGenerator?: (req: any) => string;
+    keyGenerator?: (req: ExpressLikeRequest) => string;
   }
 ) => {
   const limiter = rateLimiter.createLimiter(limiterName, {
@@ -249,12 +281,12 @@ export const createRateLimitMiddleware = (
     keyGenerator: options?.keyGenerator || ((req) => req.ip || 'unknown')
   });
 
-  return (req: any, res: any, next: any) => {
+  return (req: ExpressLikeRequest, res: ExpressLikeResponse, next: NextFunction) => {
     const result = limiter.check(req);
 
     if (options?.headers !== false) {
-      res.setHeader('X-RateLimit-Limit', config.maxRequests);
-      res.setHeader('X-RateLimit-Remaining', result.remaining);
+      res.setHeader('X-RateLimit-Limit', String(config.maxRequests));
+      res.setHeader('X-RateLimit-Remaining', String(result.remaining));
       res.setHeader('X-RateLimit-Reset', new Date(result.resetTime).toISOString());
     }
 
@@ -275,10 +307,10 @@ export const createRateLimitMiddleware = (
  * Decorator for rate limiting class methods
  */
 export function RateLimit(limiterName: keyof typeof rateLimiters) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
+  return function (_target: object, _propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value as (...args: unknown[]) => unknown | Promise<unknown>;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const limiter = rateLimiters[limiterName];
       const result = limiter.check();
 
@@ -307,8 +339,8 @@ export const initializeRateLimiter = () => {
   // Add global API interceptor for fetch
   const originalFetch = window.fetch;
   
-  window.fetch = async function(...args) {
-    const [url, options] = args;
+  window.fetch = async function (this: typeof window, ...args: Parameters<typeof window.fetch>) {
+    const [url, _options] = args;
     
     // Check if this is an API call (but exclude external APIs like Stripe/Supabase/backend)
     const isApiCall = typeof url === 'string' && (
@@ -334,7 +366,7 @@ export const initializeRateLimiter = () => {
  * Get rate limit status for all limiters
  */
 export const getRateLimitStatus = () => {
-  const status: Record<string, any> = {};
+  const status: Record<string, { allowed: boolean; remaining: number; resetTime: string; resetIn: number }> = {};
   
   Object.entries(rateLimiters).forEach(([name, limiter]) => {
     const result = limiter.check();

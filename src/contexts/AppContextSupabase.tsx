@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * AppContext with Supabase Integration
  * This version uses the DataService layer to work with either Supabase or localStorage
@@ -10,12 +11,13 @@ import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
 import { userIdService } from '../services/userIdService';
 import { getDefaultCategories } from '../data/defaultCategories';
-import { formatCurrency } from '../utils/formatters';
+// formatCurrency import removed - not used in this context
 import { 
   toDecimalTransaction, 
   toDecimalAccount, 
   toDecimalGoal 
 } from '../utils/decimal-converters';
+import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
 import type { 
   Account, 
   Transaction, 
@@ -76,9 +78,9 @@ export interface AppContextType extends AppState {
   importData: (data: Partial<AppState>) => void;
   exportData: () => string;
   clearAllData: () => Promise<void>;
-  getDecimalTransactions: () => any[]; // Returns DecimalTransaction[] for decimal calculations
-  getDecimalAccounts: () => any[]; // Returns DecimalAccount[] for decimal calculations
-  getDecimalGoals: () => any[]; // Returns DecimalGoal[] for decimal calculations
+  getDecimalTransactions: () => DecimalTransaction[];
+  getDecimalAccounts: () => DecimalAccount[];
+  getDecimalGoals: () => DecimalGoal[];
   
   // Sync status
   isLoading: boolean;
@@ -275,7 +277,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoaded]);
 
   // Refresh data from source
-  const refreshData = useCallback(async () => {
+  const _refreshData = useCallback(async () => {
     setIsSyncing(true);
     try {
       const data = await DataService.refreshData();
@@ -556,17 +558,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return JSON.stringify(data, null, 2);
   }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
 
-  const getDecimalTransactions = useCallback(() => {
+  const getDecimalTransactions = useCallback((): DecimalTransaction[] => {
     // Convert all transactions to decimal format for precise calculations
     return transactions.map(toDecimalTransaction);
   }, [transactions]);
 
-  const getDecimalAccounts = useCallback(() => {
+  const getDecimalAccounts = useCallback((): DecimalAccount[] => {
     // Convert all accounts to decimal format for precise calculations
     return accounts.map(toDecimalAccount);
   }, [accounts]);
 
-  const getDecimalGoals = useCallback(() => {
+  const getDecimalGoals = useCallback((): DecimalGoal[] => {
     // Convert all goals to decimal format for precise calculations
     return goals.map(toDecimalGoal);
   }, [goals]);

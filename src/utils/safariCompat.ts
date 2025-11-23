@@ -15,8 +15,8 @@ export const getEnvVar = (key: string, defaultValue: string = '') => {
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
       return import.meta.env[key];
     }
-  } catch (e) {
-    safariCompatLogger.warn(`Failed to access import.meta.env.${key}`, e);
+  } catch (error) {
+    safariCompatLogger.warn(`Failed to access import.meta.env.${key}`, error);
   }
   
   // Fallback for Safari
@@ -50,8 +50,8 @@ export const checkIndexedDBSupport = async (): Promise<boolean> => {
     });
     
     return true;
-  } catch (e) {
-    safariCompatLogger.warn('IndexedDB test failed', e);
+  } catch (error) {
+    safariCompatLogger.warn('IndexedDB test failed', error);
     return false;
   }
 };
@@ -60,20 +60,20 @@ export const checkIndexedDBSupport = async (): Promise<boolean> => {
 export class SafariStorageFallback {
   private prefix = 'wt_fallback_';
   
-  async setItem(key: string, value: any): Promise<void> {
+  async setItem(key: string, value: unknown): Promise<void> {
     try {
       localStorage.setItem(this.prefix + key, JSON.stringify(value));
-    } catch (e) {
-      safariCompatLogger.error('Safari storage fallback setItem failed', e);
+    } catch (error) {
+      safariCompatLogger.error('Safari storage fallback setItem failed', error);
     }
   }
   
-  async getItem(key: string): Promise<any> {
+  async getItem<T = unknown>(key: string): Promise<T | null> {
     try {
       const item = localStorage.getItem(this.prefix + key);
-      return item ? JSON.parse(item) : null;
-    } catch (e) {
-      safariCompatLogger.error('Safari storage fallback getItem failed', e);
+      return item ? (JSON.parse(item) as T) : null;
+    } catch (error) {
+      safariCompatLogger.error('Safari storage fallback getItem failed', error);
       return null;
     }
   }
@@ -81,8 +81,8 @@ export class SafariStorageFallback {
   async removeItem(key: string): Promise<void> {
     try {
       localStorage.removeItem(this.prefix + key);
-    } catch (e) {
-      safariCompatLogger.error('Safari storage fallback removeItem failed', e);
+    } catch (error) {
+      safariCompatLogger.error('Safari storage fallback removeItem failed', error);
     }
   }
   
@@ -94,8 +94,8 @@ export class SafariStorageFallback {
           localStorage.removeItem(key);
         }
       });
-    } catch (e) {
-      safariCompatLogger.error('Safari storage fallback clear failed', e);
+    } catch (error) {
+      safariCompatLogger.error('Safari storage fallback clear failed', error);
     }
   }
 }
@@ -116,8 +116,8 @@ export const registerServiceWorkerSafari = async () => {
     
     safariCompatLogger.info('Service Worker registered for Safari', registration);
     return registration;
-  } catch (e) {
-    safariCompatLogger.warn('Service Worker registration failed in Safari', e);
+  } catch (error) {
+    safariCompatLogger.warn('Service Worker registration failed in Safari', error);
     return null;
   }
 };
@@ -126,9 +126,12 @@ export const registerServiceWorkerSafari = async () => {
 export const ensureRandomUUID = () => {
   if (!crypto.randomUUID) {
     crypto.randomUUID = function randomUUID() {
-      return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c: any) =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-      ) as `${string}-${string}-${string}-${string}-${string}`;
+      return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (char) => {
+        const c = Number(char);
+        const random = crypto.getRandomValues(new Uint8Array(1))[0];
+        const value = (c ^ random & 15 >> c / 4).toString(16);
+        return value;
+      }) as `${string}-${string}-${string}-${string}-${string}`;
     };
   }
 };

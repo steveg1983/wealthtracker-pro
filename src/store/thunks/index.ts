@@ -2,7 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AppDispatch, RootState } from '../index';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
-import type { SerializedTransaction } from '../../types/redux-types';
+import type { SerializedBudget, SerializedTransaction } from '../../types/redux-types';
 
 // Helper to deserialize transaction
 const deserializeTransaction = (transaction: SerializedTransaction): Transaction => {
@@ -13,28 +13,24 @@ const deserializeTransaction = (transaction: SerializedTransaction): Transaction
     reconciledDate: transaction.reconciledDate ? new Date(transaction.reconciledDate) : undefined
   } as Transaction;
 };
-import { 
-  addTransaction as addTransactionAction,
-  updateTransaction as updateTransactionAction,
-  deleteTransaction as deleteTransactionAction,
+import {
   createTransactionInSupabase,
   updateTransactionInSupabase,
   deleteTransactionFromSupabase
 } from '../slices/transactionsSlice';
-import { 
-  updateAccountBalance, 
+import {
   fetchAccountsFromSupabase as loadAccounts,
   updateAccountInSupabase
 } from '../slices/accountsSlice';
-import { 
-  updateBudgetSpent, 
+import {
+  updateBudgetSpent,
   fetchBudgetsFromSupabase as loadBudgets
 } from '../slices/budgetsSlice';
-import { 
-  updateGoalProgress, 
+import {
+  updateGoalProgress,
   fetchGoalsFromSupabase as loadGoals
 } from '../slices/goalsSlice';
-import { addMultipleTags, saveTags, loadTags } from '../slices/tagsSlice';
+import { addMultipleTags, loadTags } from '../slices/tagsSlice';
 import { fetchTransactionsFromSupabase as loadTransactions } from '../slices/transactionsSlice';
 import { loadCategories } from '../slices/categoriesSlice';
 import { loadRecurringTransactions } from '../slices/recurringTransactionsSlice';
@@ -264,7 +260,7 @@ function calculateAccountBalance(
 
 function calculateBudgetSpent(
   transactions: Transaction[],
-  budget: any
+  budget: SerializedBudget
 ): number {
   const budgetTransactions = transactions.filter(t =>
     t.type === 'expense' &&
@@ -279,7 +275,7 @@ function calculateBudgetSpent(
 
 function isTransactionInBudgetPeriod(
   transactionDate: Date | string,
-  budget: any
+  budget: SerializedBudget
 ): boolean {
   const date = new Date(transactionDate);
   const now = new Date();

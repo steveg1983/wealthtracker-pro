@@ -5,11 +5,10 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import transactionsSlice, { 
-  loadTransactions,
+import transactionsSlice, {
   addTransaction,
   updateTransaction,
-  deleteTransaction 
+  deleteTransaction
 } from './transactionsSlice';
 
 // Mock crypto.randomUUID

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePerformanceMonitoring } from '../hooks/usePerformanceMonitoring';
 import { Card } from './common/Card';
 import ActivityIcon from './icons/ActivityIcon';
 import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface WebVitalScore {
   metric: string;
@@ -27,6 +28,7 @@ export const PerformanceDashboard: React.FC = () => {
     getMemoryUsage,
     getBundleSize
   } = usePerformanceMonitoring();
+  const logger = useMemo(() => createScopedLogger('PerformanceDashboard'), []);
 
   const [navigationTiming, setNavigationTiming] = useState<ReturnType<typeof getNavigationTiming> | null>(null);
   const [resourceMetrics, setResourceMetrics] = useState<ResourceSummary | null>(null);
@@ -87,14 +89,14 @@ export const PerformanceDashboard: React.FC = () => {
     try {
       observer.observe({ type: 'paint', buffered: true });
     } catch (error) {
-      console.warn('Paint timing not supported', error);
+      logger.warn?.('Paint timing not supported', error as Error);
     }
 
     return () => {
       window.removeEventListener('load', collectMetrics);
       observer.disconnect();
     };
-  }, [getNavigationTiming, getResourceTiming, getMemoryUsage, getBundleSize]);
+  }, [getNavigationTiming, getResourceTiming, getMemoryUsage, getBundleSize, logger]);
 
   const getRatingIcon = (rating: WebVitalScore['rating']) => {
     switch (rating) {

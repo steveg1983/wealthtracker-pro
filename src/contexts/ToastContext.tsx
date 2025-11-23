@@ -1,6 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { ToastContainer, ToastMessage } from '../components/common/Toast';
-import { getUserFriendlyError, formatErrorNotification } from '../utils/errorMessages';
+import { formatErrorNotification } from '../utils/errorMessages';
 
 interface ToastContextType {
   showToast: (message: Omit<ToastMessage, 'id'>) => void;

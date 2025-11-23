@@ -18,11 +18,11 @@ export class ApiErrorHandler {
     
     // Type guard for axios-like errors
     if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as any; // or create a proper type
-      if (axiosError.response) {
-        apiError.status = axiosError.response.status;
-        apiError.statusText = axiosError.response.statusText;
-        apiError.responseBody = axiosError.response.data;
+      const { response } = error as { response?: { status?: number; statusText?: string; data?: unknown } };
+      if (response) {
+        apiError.status = response.status;
+        apiError.statusText = response.statusText;
+        apiError.responseBody = response.data;
       }
     }
     

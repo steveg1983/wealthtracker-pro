@@ -23,7 +23,7 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       // Remove 'strict-dynamic' as it blocks our lazy-loaded modules
       // "'strict-dynamic'", // This was blocking dynamic imports
       'https:', // For CDNs in production
-      // @ts-ignore - Safari compatibility
+      // @ts-expect-error - Safari compatibility
       (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') ? "'unsafe-inline'" : '', // Only for dev
       "'unsafe-eval'", // Required for React lazy loading and service worker
     ].filter(Boolean),
@@ -196,7 +196,7 @@ export const setupCSPReporting = (): void => {
       });
 
       // In production, you might want to send this to a logging service
-      // @ts-ignore - Safari compatibility
+      // @ts-expect-error - Safari compatibility
       const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
       if (isProduction) {
         // Example: Send to logging service
@@ -207,11 +207,24 @@ export const setupCSPReporting = (): void => {
 };
 
 // Vite plugin configuration helper
+interface ViteLikeServer {
+  middlewares: {
+    use: (handler: (req: unknown, res: { setHeader: (key: string, value: string) => void; locals?: Record<string, unknown> }, next: () => void) => void) => void;
+  };
+}
+
+interface ExpressLikeResponse {
+  setHeader: (key: string, value: string) => void;
+  locals: Record<string, unknown>;
+}
+
+type NextFunction = () => void;
+
 export const viteCSPPlugin = () => {
   return {
     name: 'csp-header',
-    configureServer(server: any) {
-      server.middlewares.use((_req: any, res: any, next: any) => {
+    configureServer(server: ViteLikeServer) {
+      server.middlewares.use((_req, res, next) => {
         const nonce = generateNonce();
         const cspHeader = getCSPHeader(nonce);
         const securityHeaders = getSecurityHeaders();
@@ -235,7 +248,7 @@ export const viteCSPPlugin = () => {
 };
 
 // Express/Node.js middleware for production
-export const cspMiddleware = (_req: any, res: any, next: any) => {
+export const cspMiddleware = (_req: unknown, res: ExpressLikeResponse, next: NextFunction) => {
   const nonce = generateNonce();
   const cspHeader = getCSPHeader(nonce);
   const securityHeaders = getSecurityHeaders();

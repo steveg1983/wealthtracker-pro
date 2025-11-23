@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import categoriesReducer, { addCategory, updateCategory, deleteCategory, setCategories, loadCategories, saveCategories } from './categoriesSlice';
+import categoriesReducer, { addCategory, updateCategory, deleteCategory, setCategories } from './categoriesSlice';
 import type { Category } from '../../types';
 
 // Mock storageAdapter

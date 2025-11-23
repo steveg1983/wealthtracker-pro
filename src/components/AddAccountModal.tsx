@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { Building2, Wallet, CreditCard, TrendingUp, PiggyBank, Banknote, Package, AlertCircle } from 'lucide-react';
 import type { Account } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ const currencies = [
 export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps): React.JSX.Element {
   const { addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
+  const logger = useMemo(() => createScopedLogger('AddAccountModal'), []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<AccountFormData>({
@@ -78,7 +80,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
     setError(null);
     
     try {
-      console.log('[AddAccountModal] Submitting account:', formData);
+      logger.info?.('[AddAccountModal] Submitting account:', formData);
       
       // Validate the form data
       if (!formData.name.trim()) {
@@ -106,7 +108,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
       // Create the account
       const result = await addAccount(newAccountPayload);
       
-      console.log('[AddAccountModal] Account added successfully:', result);
+      logger.info?.('[AddAccountModal] Account added successfully:', result);
       
       // Reset form and close modal only after successful creation
       setFormData({
@@ -124,7 +126,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
       }, 100);
       
     } catch (error) {
-      console.error('[AddAccountModal] Failed to add account:', error);
+      logger.error('[AddAccountModal] Failed to add account', error as Error);
       setError(error instanceof Error ? error.message : 'Failed to add account. Please try again.');
       setIsSubmitting(false); // Only reset on error, not on success
     }

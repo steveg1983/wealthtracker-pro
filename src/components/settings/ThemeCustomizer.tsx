@@ -12,7 +12,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
   type ThemeMode = 'light' | 'dark' | 'auto' | 'scheduled';
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('light');
   const [selectedColor, setSelectedColor] = useState('blue');
-  const [customThemes] = useState<any[]>([]);
+  const [customThemes] = useState<unknown[]>([]);
   
   useEffect(() => {
     // Determine current mode and color from theme ID

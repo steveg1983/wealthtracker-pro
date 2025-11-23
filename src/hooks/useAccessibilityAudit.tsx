@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * React Hook for Accessibility Auditing
  * Provides easy access to accessibility testing in components
@@ -5,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AccessibilityTester } from '../utils/accessibility-testing';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseAccessibilityAuditOptions {
   autoAudit?: boolean; // Run audit automatically on mount
@@ -17,6 +19,7 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
   const [issues, setIssues] = useState<ReturnType<typeof AccessibilityTester.audit>>([]);
   const [isAuditing, setIsAuditing] = useState(false);
   const [lastAuditTime, setLastAuditTime] = useState<Date | null>(null);
+  const logger = useMemoizedLogger('useAccessibilityAudit');
 
   const runAudit = useCallback(() => {
     setIsAuditing(true);
@@ -31,30 +34,21 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
 
       // Log results in development
       if (process.env.NODE_ENV === 'development') {
-        console.group('🔍 Accessibility Audit Results');
-        console.log(`Found ${auditResults.length} issues`);
+        logger.info?.('Accessibility audit results', { total: auditResults.length });
         
         const errors = auditResults.filter(i => i.type === 'error');
         const warnings = auditResults.filter(i => i.type === 'warning');
         
         if (errors.length > 0) {
-          console.error(`❌ ${errors.length} errors`);
-          errors.forEach(error => {
-            console.error(`- ${error.message}`, error.element);
-          });
+          logger.error?.('Accessibility errors', errors);
         }
         
         if (warnings.length > 0) {
-          console.warn(`⚠️ ${warnings.length} warnings`);
-          warnings.forEach(warning => {
-            console.warn(`- ${warning.message}`, warning.element);
-          });
+          logger.warn?.('Accessibility warnings', warnings);
         }
-        
-        console.groupEnd();
       }
     }, auditDelay);
-  }, [rootElement, auditDelay]);
+  }, [rootElement, auditDelay, logger]);
 
   const clearIssues = useCallback(() => {
     setIssues([]);
@@ -86,7 +80,7 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
         // Ctrl/Cmd + Shift + A for Accessibility audit
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
           e.preventDefault();
-          console.log('🔍 Running accessibility audit...');
+          logger.info?.('Running accessibility audit via hotkey');
           runAudit();
         }
       };
@@ -94,7 +88,7 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
       window.addEventListener('keydown', handleKeyPress);
       return () => window.removeEventListener('keydown', handleKeyPress);
     }
-  }, [runAudit]);
+  }, [runAudit, logger]);
 
   return {
     issues,

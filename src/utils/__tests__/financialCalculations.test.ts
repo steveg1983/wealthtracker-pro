@@ -4,7 +4,6 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import Decimal from 'decimal.js';
 import {
   calculateTotalIncome,
   calculateTotalExpenses,
@@ -353,7 +352,6 @@ describe('Financial Calculations', () => {
 
     it('calculates average spending rate', () => {
       const budget = mockBudgets[0];
-      const daysInMonth = 31;
       const daysPassed = 20; // Assuming we're 20 days into the month
       
       const averageSpending = calculateAverageSpending(

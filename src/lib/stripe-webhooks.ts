@@ -320,7 +320,7 @@ async function handlePaymentMethodAttached(
 async function handlePaymentMethodDetached(
   event: Stripe.PaymentMethodDetachedEvent
 ): Promise<WebhookHandlerResult> {
-  const paymentMethod = event.data.object;
+  const _paymentMethod = event.data.object;
   
   // Note: paymentMethod.customer is null after detachment
   // Would need to track this differently if needed
@@ -380,10 +380,12 @@ async function sendSubscriptionEmail(
   // 4. Handle email delivery errors
 }
 
+type SubscriptionEventPayload = Stripe.Subscription | Stripe.Invoice | Record<string, unknown>;
+
 async function logSubscriptionEvent(
   userId: string,
   eventType: string,
-  data: any
+  data: SubscriptionEventPayload
 ): Promise<void> {
   try {
     await supabase!.from('subscription_events').insert({

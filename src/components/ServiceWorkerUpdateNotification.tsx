@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { skipWaiting } from '../utils/serviceWorkerRegistration';
 import { RefreshCwIcon, XIcon } from './icons';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface ServiceWorkerUpdateNotificationProps {
   registration: ServiceWorkerRegistration | null;
@@ -11,6 +12,7 @@ export default function ServiceWorkerUpdateNotification({
 }: ServiceWorkerUpdateNotificationProps): React.JSX.Element | null {
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const logger = useMemo(() => createScopedLogger('ServiceWorkerUpdateNotification'), []);
 
   useEffect(() => {
     if (!registration) return;
@@ -18,7 +20,7 @@ export default function ServiceWorkerUpdateNotification({
     // In development, don't show update prompts as they can be confusing
     const isDevelopment = window.location.hostname === 'localhost' && window.location.port === '5173';
     if (isDevelopment) {
-      console.log('[SW Update] Skipping update prompt in development');
+      logger.info?.('[SW Update] Skipping update prompt in development');
       return;
     }
 
@@ -44,14 +46,14 @@ export default function ServiceWorkerUpdateNotification({
     return () => {
       registration.removeEventListener('updatefound', handleUpdateFound);
     };
-  }, [registration]);
+  }, [registration, logger]);
 
   const handleUpdate = () => {
     setIsUpdating(true);
     
     // Set a timeout to force reload if the update gets stuck
     const reloadTimeout = setTimeout(() => {
-      console.log('[SW Update] Update seems stuck, forcing reload...');
+      logger.warn?.('[SW Update] Update seems stuck, forcing reload...');
       window.location.reload();
     }, 3000); // Force reload after 3 seconds if update doesn't complete
     

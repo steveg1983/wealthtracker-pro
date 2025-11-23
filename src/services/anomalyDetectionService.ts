@@ -472,8 +472,8 @@ export class AnomalyDetectionService {
       .forEach(t => {
         const date = new Date(t.date);
         const hour = date.getHours();
-        const dayOfWeek = date.getDay();
-        
+        const _dayOfWeek = date.getDay();
+
         // Suspicious if transaction between midnight and 5 AM
         if (hour >= 0 && hour < 5) {
           suspiciousTimeTransactions.push(t);
@@ -512,9 +512,9 @@ export class AnomalyDetectionService {
         potentialDuplicates.set(key, group);
       });
 
-    potentialDuplicates.forEach((group, key) => {
+    potentialDuplicates.forEach((group, _key) => {
       if (group.length < 2) return;
-      
+
       // Check for transactions within 3 days of each other
       for (let i = 0; i < group.length - 1; i++) {
         for (let j = i + 1; j < group.length; j++) {

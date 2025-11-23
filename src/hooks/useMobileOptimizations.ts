@@ -21,9 +21,9 @@ export const useMobileOptimizations = (): MobileOptimizations => {
                      window.innerWidth < 768;
 
     // Check connection speed
-    const connection = (navigator as any).connection || 
-                      (navigator as any).mozConnection || 
-                      (navigator as any).webkitConnection;
+    const connection = (navigator as unknown as { connection?: NetworkInformation; mozConnection?: NetworkInformation; webkitConnection?: NetworkInformation }).connection ||
+                      (navigator as unknown as { connection?: NetworkInformation; mozConnection?: NetworkInformation; webkitConnection?: NetworkInformation }).mozConnection ||
+                      (navigator as unknown as { connection?: NetworkInformation; mozConnection?: NetworkInformation; webkitConnection?: NetworkInformation }).webkitConnection;
     
     const isSlowConnection = connection && (
       connection.effectiveType === 'slow-2g' || 

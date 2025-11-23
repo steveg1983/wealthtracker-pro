@@ -137,8 +137,6 @@ export class AccessibilityAuditor {
       const el = element as HTMLElement;
       const styles = window.getComputedStyle(el);
       const color = styles.color;
-      const backgroundColor = styles.backgroundColor;
-      
       // Check for very light gray text
       if (color.includes('rgb') && this.isLowContrast(color)) {
         this.addIssue(el, 'Text may have insufficient contrast', 'warning', 'WCAG 1.4.3', 'Ensure text has at least 4.5:1 contrast ratio');

@@ -54,7 +54,7 @@ interface CacheStats {
  * 5. Performance metrics tracking
  */
 export class SmartCacheService {
-  private memoryCache: LRUCache<string, CacheEntry<any>>;
+  private memoryCache: LRUCache<string, CacheEntry<unknown>>;
   private stats: CacheStats;
   private dependencies: Map<string, Set<string>>;
   private revalidationQueue: Set<string>;
@@ -68,7 +68,7 @@ export class SmartCacheService {
     const {
       maxSize = 100,
       ttl = 5 * 60 * 1000, // 5 minutes default
-      staleWhileRevalidate = true,
+      staleWhileRevalidate: _staleWhileRevalidate = true,
       persistToStorage = true,
       storage,
       now,
@@ -83,10 +83,10 @@ export class SmartCacheService {
       updateAgeOnGet: true,
       updateAgeOnHas: false,
       // Size calculation based on JSON string length
-      sizeCalculation: (value: CacheEntry<any>) => {
+      sizeCalculation: (value: CacheEntry<unknown>) => {
         return JSON.stringify(value.data).length;
       },
-      dispose: (value: CacheEntry<any>, key: string) => {
+      dispose: (value: CacheEntry<unknown>, key: string) => {
         this.stats.evictions++;
         this.removeDependencies(key);
       }
@@ -142,7 +142,7 @@ export class SmartCacheService {
     const {
       forceRefresh = false,
       staleWhileRevalidate = true,
-      dependencies = []
+      dependencies: _dependencies = []
     } = options;
 
     // Force refresh if requested
@@ -243,7 +243,7 @@ export class SmartCacheService {
   /**
    * Cache expensive calculations
    */
-  memoize<TArgs extends any[], TResult>(
+  memoize<TArgs extends unknown[], TResult>(
     fn: (...args: TArgs) => TResult | Promise<TResult>,
     options: {
       keyGenerator?: (...args: TArgs) => string;
@@ -289,7 +289,7 @@ export class SmartCacheService {
   /**
    * Cache user preferences
    */
-  cachePreference(key: string, value: any): void {
+  cachePreference(key: string, value: unknown): void {
     const prefKey = `pref:${key}`;
     this.set(prefKey, value, { ttl: Infinity }); // Never expire preferences
     
@@ -329,14 +329,14 @@ export class SmartCacheService {
   /**
    * Cache filter states
    */
-  async cacheFilters(page: string, filters: any): Promise<void> {
+  async cacheFilters(page: string, filters: unknown): Promise<void> {
     const filterKey = `filters:${page}`;
     this.set(filterKey, filters, { ttl: 24 * 60 * 60 * 1000 }); // 24 hours
 
     // Track recent filters
     const recentKey = 'filters:recent';
-    const recent = await this.get<any[]>(recentKey) || [];
-    const updated = [filters, ...recent.filter((f: any) =>
+    const recent = await this.get<unknown[]>(recentKey) || [];
+    const updated = [filters, ...recent.filter(f =>
       JSON.stringify(f) !== JSON.stringify(filters)
     )].slice(0, 10);
     this.set(recentKey, updated);
@@ -345,8 +345,8 @@ export class SmartCacheService {
   /**
    * Get cached filters
    */
-  async getCachedFilters(page: string): Promise<any> {
-    return this.get(`filters:${page}`);
+  async getCachedFilters<T = unknown>(page: string): Promise<T | null> {
+    return this.get<T>(`filters:${page}`);
   }
 
   /**
@@ -354,8 +354,8 @@ export class SmartCacheService {
    */
   cacheCalculation(
     type: string,
-    params: any,
-    result: any,
+    params: unknown,
+    result: unknown,
     dependencies?: string[]
   ): void {
     const key = `calc:${type}:${JSON.stringify(params)}`;
@@ -368,7 +368,7 @@ export class SmartCacheService {
   /**
    * Get cached calculation
    */
-  async getCachedCalculation<T>(type: string, params: any): Promise<T | null> {
+  async getCachedCalculation<T>(type: string, params: unknown): Promise<T | null> {
     const key = `calc:${type}:${JSON.stringify(params)}`;
     return this.get<T>(key);
   }
@@ -379,7 +379,13 @@ export class SmartCacheService {
   async batch<T>(operations: Array<{
     key: string;
     fetcher: () => Promise<T>;
-    options?: any;
+    options?: {
+      ttl?: number;
+      dependencies?: string[];
+      compress?: boolean;
+      forceRefresh?: boolean;
+      staleWhileRevalidate?: boolean;
+    };
   }>): Promise<(T | null)[]> {
     return Promise.all(
       operations.map(op => this.get(op.key, op.fetcher, op.options))
@@ -408,7 +414,7 @@ export class SmartCacheService {
    */
   async warmUp(predictions: Array<{
     key: string;
-    fetcher: () => Promise<any>;
+    fetcher: () => Promise<unknown>;
     priority?: number;
   }>): Promise<void> {
     // Sort by priority
@@ -431,7 +437,11 @@ export class SmartCacheService {
   private async fetchAndCache<T>(
     key: string,
     fetcher: () => Promise<T>,
-    options: any
+    options: {
+      ttl?: number;
+      dependencies?: string[];
+      compress?: boolean;
+    }
   ): Promise<T> {
     try {
       const data = await fetcher();
@@ -449,8 +459,12 @@ export class SmartCacheService {
 
   private revalidateInBackground(
     key: string,
-    fetcher: () => Promise<any>,
-    options: any
+    fetcher: () => Promise<unknown>,
+    options: {
+      ttl?: number;
+      dependencies?: string[];
+      compress?: boolean;
+    }
   ): void {
     if (this.revalidationQueue.has(key)) return;
     
@@ -468,7 +482,7 @@ export class SmartCacheService {
       });
   }
 
-  private isStale(entry: CacheEntry<any>, ttl?: number): boolean {
+  private isStale(entry: CacheEntry<unknown>, ttl?: number): boolean {
     const maxAge = ttl || 5 * 60 * 1000; // 5 minutes default
     return this.nowFn() - entry.timestamp > maxAge;
   }
@@ -504,12 +518,12 @@ export class SmartCacheService {
     return keys;
   }
 
-  private shouldCompress(data: any): boolean {
+  private shouldCompress(data: unknown): boolean {
     const size = JSON.stringify(data).length;
     return size > 10000; // Compress if larger than 10KB
   }
 
-  private async compressAndStore(key: string, entry: CacheEntry<any>): Promise<void> {
+  private async compressAndStore(key: string, entry: CacheEntry<unknown>): Promise<void> {
     // Simplified compression - in production, use proper compression
     const compressed = JSON.stringify(entry.data);
     entry.data = compressed;
@@ -569,13 +583,13 @@ export const smartCache = new SmartCacheService({
 });
 
 // LRU Cache implementation (simplified version)
-class SimpleLRUCache<K, V> {
+class _SimpleLRUCache<K, V> {
   private cache: Map<K, V>;
   private maxSize: number;
   private ttl: number;
   private timers: Map<K, NodeJS.Timeout>;
 
-  constructor(options: any) {
+  constructor(options: { max?: number; ttl?: number }) {
     this.cache = new Map();
     this.maxSize = options.max || 100;
     this.ttl = options.ttl || 0;

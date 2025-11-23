@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { offlineDataService } from '../services/offlineDataService';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseOfflineDataReturn {
   isOnline: boolean;
   syncInProgress: boolean;
   pendingSyncCount: number;
-  conflicts: any[];
+  conflicts: unknown[];
   addToSyncQueue: (
     type: 'transaction' | 'account' | 'budget' | 'goal',
     action: 'create' | 'update' | 'delete',
-    data: any
+    data: unknown
   ) => Promise<void>;
   resolveConflict: (id: string) => Promise<void>;
   triggerSync: () => Promise<void>;
@@ -17,10 +18,11 @@ interface UseOfflineDataReturn {
 }
 
 export function useOfflineData(): UseOfflineDataReturn {
+  const logger = useMemoizedLogger('useOfflineData');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
-  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [conflicts, setConflicts] = useState<unknown[]>([]);
 
   // Update pending sync count
   const updatePendingSyncCount = useCallback(async () => {
@@ -28,9 +30,9 @@ export function useOfflineData(): UseOfflineDataReturn {
       const syncs = await offlineDataService.getPendingSyncs();
       setPendingSyncCount(syncs.length);
     } catch (error) {
-      console.error('Failed to get pending syncs:', error);
+      logger.error?.('Failed to get pending syncs', error);
     }
-  }, []);
+  }, [logger]);
 
   // Update conflicts
   const updateConflicts = useCallback(async () => {
@@ -38,15 +40,15 @@ export function useOfflineData(): UseOfflineDataReturn {
       const conflictList = await offlineDataService.getConflicts();
       setConflicts(conflictList);
     } catch (error) {
-      console.error('Failed to get conflicts:', error);
+      logger.error?.('Failed to get conflicts', error);
     }
-  }, []);
+  }, [logger]);
 
   // Add to sync queue
   const addToSyncQueue = useCallback(async (
     type: 'transaction' | 'account' | 'budget' | 'goal',
     action: 'create' | 'update' | 'delete',
-    data: any
+    data: unknown
   ) => {
     await offlineDataService.addToSyncQueue(type, action, data);
     await updatePendingSyncCount();

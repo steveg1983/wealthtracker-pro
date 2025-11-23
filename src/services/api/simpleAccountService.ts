@@ -27,7 +27,21 @@ export interface SimpleAccountServiceOptions {
 
 const noop = () => {};
 
-function transformAccountFromDb(dbAccount: any): Account {
+type DbAccount = {
+  id: string;
+  name: string;
+  type: string;
+  balance: number;
+  currency: string;
+  institution?: string | null;
+  is_active?: boolean;
+  initial_balance?: number;
+  created_at?: Date;
+  updated_at?: Date;
+  last_updated?: Date;
+};
+
+function transformAccountFromDb(dbAccount: DbAccount): Account {
   return {
     id: dbAccount.id,
     name: dbAccount.name,
@@ -122,7 +136,7 @@ class SimpleAccountServiceImpl {
         institution: account.institution || null
       };
 
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('accounts')
         .insert(accountData)
         .select()
@@ -179,7 +193,7 @@ class SimpleAccountServiceImpl {
       }
 
       return (data || []).map(transformAccountFromDb);
-    } catch (error) {
+    } catch {
       this.logger.warn('[SimpleAccountService] Using localStorage fallback');
       return this.localAccounts();
     }
@@ -192,7 +206,7 @@ class SimpleAccountServiceImpl {
         throw new Error('Supabase not configured');
       }
 
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('accounts')
         .update(updates)
         .eq('id', accountId)
@@ -205,7 +219,7 @@ class SimpleAccountServiceImpl {
       }
 
       return transformAccountFromDb(data);
-    } catch (error) {
+    } catch {
       const accounts = await this.localAccounts();
       const index = accounts.findIndex(account => account.id === accountId);
       if (index === -1) {
@@ -233,14 +247,14 @@ class SimpleAccountServiceImpl {
         this.logger.error('[SimpleAccountService] Error deleting account:', error);
         throw error;
       }
-    } catch (error) {
+    } catch {
       const accounts = await this.localAccounts();
       const filtered = accounts.filter(account => account.id !== accountId);
       await this.persistAccounts(filtered);
     }
   }
 
-  async subscribeToAccountChanges(clerkId: string, callback: (payload: any) => void): Promise<() => void> {
+  async subscribeToAccountChanges(clerkId: string, callback: (payload: unknown) => void): Promise<() => void> {
     const client = this.clientReady;
     if (!client) {
       return () => {};
@@ -310,7 +324,7 @@ export function deleteAccount(accountId: string): Promise<void> {
 
 export function subscribeToAccountChanges(
   clerkId: string,
-  callback: (payload: any) => void
+  callback: (payload: unknown) => void
 ): Promise<() => void> {
   return defaultService.subscribeToAccountChanges(clerkId, callback);
 }

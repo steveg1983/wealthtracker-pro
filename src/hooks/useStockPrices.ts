@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getStockQuote, getMultipleStockQuotes } from '../services/stockPriceService';
 import type { Holding } from '../types';
-import type { DecimalInstance } from '../utils/decimal';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface StockPrice {
   symbol: string;
@@ -22,6 +22,7 @@ interface UseStockPricesResult {
 }
 
 export function useStockPrices(holdings: Holding[]): UseStockPricesResult {
+  const logger = useMemoizedLogger('useStockPrices');
   const [prices, setPrices] = useState<Map<string, StockPrice>>(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +55,11 @@ export function useStockPrices(holdings: Holding[]): UseStockPricesResult {
       setPrices(newPrices);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch stock prices');
-      console.error('Error fetching stock prices:', err);
+      logger.error?.('Error fetching stock prices', err);
     } finally {
       setLoading(false);
     }
-  }, [holdings]);
+  }, [holdings, logger]);
 
   useEffect(() => {
     fetchPrices();
@@ -84,6 +85,7 @@ export function useStockPrices(holdings: Holding[]): UseStockPricesResult {
 
 // Hook for single stock price
 export function useStockPrice(symbol: string | undefined) {
+  const logger = useMemoizedLogger('useStockPrice');
   const [price, setPrice] = useState<StockPrice | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +117,7 @@ export function useStockPrice(symbol: string | undefined) {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch stock price');
-        console.error('Error fetching stock price:', err);
+        logger.error?.('Error fetching stock price', err);
       } finally {
         setLoading(false);
       }
@@ -127,7 +129,7 @@ export function useStockPrice(symbol: string | undefined) {
     const interval = setInterval(fetchPrice, 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [symbol]);
+  }, [symbol, logger]);
 
   return { price, loading, error };
 }

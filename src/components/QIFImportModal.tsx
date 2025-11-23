@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
 import type { Account } from '../types';
@@ -13,6 +13,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import { createScopedLogger } from '../loggers/scopedLogger';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface QIFImportModalProps {
@@ -43,6 +44,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const logger = useMemo(() => createScopedLogger('QIFImportModal'), []);
 
   const parseFile = useCallback(async (targetFile: File) => {
     setIsProcessing(true);
@@ -56,12 +58,12 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         setSelectedAccountId(accounts[0].id);
       }
     } catch (error) {
-      console.error('Error parsing QIF file:', error);
+      logger.error('Error parsing QIF file', error as Error);
       alert('Error parsing QIF file. Please check the file format.');
     } finally {
       setIsProcessing(false);
     }
-  }, [accounts]);
+  }, [accounts, logger]);
   
   // Handle file upload
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,7 +128,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         account
       });
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error', error as Error);
       setImportResult({
         success: false,
         error: error instanceof Error ? error.message : 'Import failed'
@@ -134,7 +136,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     } finally {
       setIsProcessing(false);
     }
-  }, [accounts, addTransaction, categories, file, parseResult, selectedAccountId, skipDuplicates, transactions]);
+  }, [accounts, addTransaction, categories, file, parseResult, selectedAccountId, skipDuplicates, transactions, logger]);
   
   // Reset modal
   const resetModal = useCallback(() => {

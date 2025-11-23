@@ -10,7 +10,6 @@ import {
   SparklesIcon
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
-import { importService } from '../services/importService';
 import type { Transaction } from '../types';
 
 interface DragDropImportProps {
@@ -52,9 +51,9 @@ interface PreviewData {
  * 4. Import progress visualization
  * 5. Preview and mapping before import
  */
-export function DragDropImport({ 
-  onImportComplete,
-  compact = false 
+export function DragDropImport({
+  onImportComplete: _onImportComplete,
+  compact = false
 }: DragDropImportProps): React.JSX.Element {
   const { addTransaction, accounts } = useApp();
   const [isDragging, setIsDragging] = useState(false);
@@ -65,8 +64,8 @@ export function DragDropImport({
   });
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showMapping, setShowMapping] = useState(false);
-  const [showUpload, setShowUpload] = useState(true);
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [_showUpload, setShowUpload] = useState(true);
+  const [selectedAccount, _setSelectedAccount] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
@@ -240,10 +239,10 @@ export function DragDropImport({
         errors: [error instanceof Error ? error.message : 'Unknown error']
       });
     }
-  }, [detectFormat, parseCSVPreview, importTransactions]);
+  }, [detectFormat, parseCSVPreview]);
 
   // Handle CSV mapping confirmation
-  const handleMappingConfirm = useCallback(async () => {
+  const _handleMappingConfirm = useCallback(async () => {
     if (!previewData) return;
 
     const transactions: Partial<Transaction>[] = previewData.rows.map(row => ({

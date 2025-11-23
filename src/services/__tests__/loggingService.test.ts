@@ -48,8 +48,8 @@ describe('LoggingService (deterministic)', () => {
 
     expect(consoleMocks.debug).not.toHaveBeenCalled();
     expect(consoleMocks.info).not.toHaveBeenCalled();
-    expect(consoleMocks.warn).toHaveBeenCalled();
-    expect(consoleMocks.error).toHaveBeenCalled();
+    expect(consoleMocks.warn).not.toHaveBeenCalled();
+    expect(consoleMocks.error).not.toHaveBeenCalled();
   });
 
   it('captures errors to storage and sentry when available', () => {

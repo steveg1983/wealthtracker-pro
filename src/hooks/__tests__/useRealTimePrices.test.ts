@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useRealTimePrices, useRealTimePrice } from '../useRealTimePrices';
 import { realTimePriceService } from '../../services/realtimePriceServiceInstance';
 import type { PriceUpdate } from '../../services/realtimePriceService';

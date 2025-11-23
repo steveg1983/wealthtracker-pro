@@ -136,7 +136,7 @@ describe('CombinedProvider', () => {
   it('passes initial data to respective providers', () => {
     // This test verifies that providers are properly nested and can receive props
     // We check this by ensuring all providers render their children
-    const providersRendered = true;
+    const _providersRendered = true;
     
     const TestComponent = () => {
       // If we can render this component, it means all providers are working

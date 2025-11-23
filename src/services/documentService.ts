@@ -146,7 +146,7 @@ export class DocumentService {
     // Check if we have documents in localStorage that need migration
     const stored = this.storage?.getItem(this.storageKey);
     if (stored) {
-      await this.migrateFn<any>(this.storageKey, 'documents', (doc) => ({
+      await this.migrateFn<Document>(this.storageKey, 'documents', (doc) => ({
         ...doc,
         uploadDate: new Date(doc.uploadDate),
         expiryDate: doc.expiryDate ? new Date(doc.expiryDate) : undefined,

@@ -1,21 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, GridIcon, BarChart3Icon, DatabaseIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, BarChart3Icon, DatabaseIcon } from '../components/icons';
 import { useAppRedux } from '../store/hooks/useAppRedux';
 import { usePreferencesRedux } from '../store/hooks/usePreferencesRedux';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useReconciliation } from '../hooks/useReconciliation';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
-import { DraggableGrid } from '../components/layout/DraggableGrid';
-import { GridItem } from '../components/layout/GridItem';
-import type { Account } from '../types';
+import type { ReportSettings } from '../components/IncomeExpenditureReport';
 import TestDataWarningModal from '../components/TestDataWarningModal';
 import OnboardingModal from '../components/OnboardingModal';
-import DashboardModal from '../components/DashboardModal';
-import EditTransactionModal from '../components/EditTransactionModal';
-import type { Transaction } from '../types';
-import type { ReportSettings } from '../components/IncomeExpenditureReport';
 import PageWrapper from '../components/PageWrapper';
 import CustomizableDashboard from '../components/CustomizableDashboard';
 import DataImportExport from '../components/DataImportExport';
@@ -29,15 +21,15 @@ export default function DashboardRedux() {
   // Use Redux through migration hooks
   const { accounts, transactions, clearAllData } = useAppRedux();
   const { firstName, setFirstName, setCurrency } = usePreferencesRedux();
-  const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
-  const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
+  const { formatCurrency, convertAndSum: _convertAndSum, displayCurrency: _displayCurrency } = useCurrencyDecimal();
+  const { layouts: _layouts, updateDashboardLayout: _updateDashboardLayout, resetDashboardLayout: _resetDashboardLayout } = useLayoutConfig();
   const navigate = useNavigate();
-  
+
   const [activeTab, setActiveTab] = useState<'classic' | 'modern' | 'import-export' | 'redux'>('redux');
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showLayoutControls, setShowLayoutControls] = useState(false);
+  const [_showLayoutControls, _setShowLayoutControls] = useState(false);
   
   type ModalData = 
     | Array<{ month: string; netWorth: number }>
@@ -58,7 +50,7 @@ export default function DashboardRedux() {
         }>;
       };
 
-  const [dashboardModal, setDashboardModal] = useState<{
+  const [_dashboardModal, _setDashboardModal] = useState<{
     isOpen: boolean;
     title: string;
     type: 'netWorth' | 'accounts' | 'reconciliation' | 'incomeExpenditure';
@@ -108,7 +100,7 @@ export default function DashboardRedux() {
       .reduce((sum, t) => sum + t.amount, 0);
   }, [transactions]);
 
-  const netIncome = monthlyIncome - monthlyExpenses;
+  const _netIncome = monthlyIncome - monthlyExpenses;
 
   return (
     <PageWrapper

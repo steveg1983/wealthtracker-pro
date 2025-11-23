@@ -17,6 +17,7 @@ import FixSummaryModal from './FixSummaryModal';
 import type { ChangeRecord } from './FixSummaryModal';
 import BalanceReconciliationModal from './BalanceReconciliationModal';
 import type { ReconciliationOption } from './BalanceReconciliationModal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface DataValidationProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ interface ValidationIssue {
 export default function DataValidation({ isOpen, onClose }: DataValidationProps) {
   const { transactions, accounts, categories, updateTransaction, deleteTransaction, updateAccount, addTransaction, addCategory } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const logger = useMemo(() => createScopedLogger('DataValidation'), []);
   
   const [fixing, setFixing] = useState(false);
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
@@ -308,7 +310,8 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       const expenseTotal = accountTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
       const transferTotal = accountTransactions.filter(t => t.type === 'transfer').reduce((s, t) => s + t.amount, 0);
       
-      console.log(`Account: ${account.name}`, {
+      logger.info?.('Account balance diagnostics', {
+        account: account.name,
         transactionCount: accountTransactions.length,
         income: incomeTotal,
         expenses: expenseTotal,
@@ -382,7 +385,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     }
     
     return issues;
-  }, [transactions, accounts, categories, updateTransaction, deleteTransaction, formatCurrency]);
+  }, [transactions, accounts, categories, updateTransaction, deleteTransaction, formatCurrency, logger]);
 
   // Group issues by category
   const issuesByCategory = useMemo(() => {
@@ -453,7 +456,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       setChanges(allChanges);
       setShowSummary(true);
     } catch (error) {
-      console.error('Error fixing issues:', error);
+      logger.error?.('Error fixing issues', error);
     } finally {
       setFixing(false);
       setFixProgress({ current: 0, total: 0 });
@@ -468,7 +471,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     if (change.type === 'transaction') {
       if (change.field === 'deleted') {
         // Can't undo deletions in this simple implementation
-        console.warn('Cannot undo deletion');
+        logger.warn?.('Cannot undo deletion in DataValidation undo flow');
       } else {
         updateTransaction(change.itemId, { [change.field]: change.oldValue });
       }
@@ -507,7 +510,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       const currentOpeningBalance = account?.openingBalance || 0;
       const newOpeningBalance = currentOpeningBalance + difference;
 
-      console.log('Updating opening balance:', {
+      logger.info?.('Updating opening balance', {
         account: accountName,
         currentOpeningBalance,
         difference,
@@ -534,7 +537,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       let adjustmentCategory = categories.find(c => c.id === 'account-adjustments');
       
       if (!adjustmentCategory) {
-        console.log('Account Adjustments category not found, creating it...');
+        logger.info?.('Account Adjustments category missing; creating');
         
         // First check if the parent category exists
         const adjustmentParent = categories.find(c => c.id === 'sub-adjustments');
@@ -567,9 +570,11 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       
       const categoryToUse = adjustmentCategory?.id || adjustmentCategory?.name || 'Account Adjustments';
       
-      console.log('Categories available:', categories.length, 'categories');
-      console.log('Adjustment category:', adjustmentCategory);
-      console.log('Using category:', categoryToUse);
+      logger.debug?.('Category diagnostics', {
+        totalCategories: categories.length,
+        adjustmentCategory,
+        categoryToUse
+      });
 
       // Create adjustment transaction
       const adjustmentType = difference > 0 ? 'income' : 'expense';
@@ -585,7 +590,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         cleared: true
       };
 
-      console.log('Creating adjustment transaction:', {
+      logger.info?.('Creating adjustment transaction', {
         account: accountName,
         accountId,
         difference,
@@ -598,17 +603,20 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
 
       // Check current transactions before adding
       const transactionsBefore = transactions.filter(t => t.accountId === accountId);
-      console.log(`Before: Account ${accountName} has ${transactionsBefore.length} transactions`);
+      logger.debug?.('Transactions before adjustment', {
+        account: accountName,
+        transactionCount: transactionsBefore.length
+      });
 
       try {
         addTransaction(newTransaction);
-        console.log('Transaction added successfully');
+        logger.info?.('Adjustment transaction added successfully');
         
         // Add a delay to ensure state updates
         await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (error) {
-        console.error('Error adding transaction:', error);
+        logger.error?.('Error adding adjustment transaction', error);
       }
 
       fixChanges.push({

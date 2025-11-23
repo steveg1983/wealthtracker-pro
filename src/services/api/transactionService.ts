@@ -110,7 +110,7 @@ class TransactionServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('transactions')
         .insert({
           ...transaction,
@@ -166,7 +166,7 @@ class TransactionServiceImpl {
         .eq('id', id)
         .single();
 
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('transactions')
         .update(updates)
         .eq('id', id)
@@ -178,9 +178,9 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      if (oldTransaction && updates.amount !== undefined && updates.amount !== (oldTransaction as any).amount) {
-        const difference = (updates.amount as number) - (oldTransaction as any).amount;
-        await this.updateAccountBalance((oldTransaction as any).account_id, difference);
+      if (oldTransaction && updates.amount !== undefined && updates.amount !== (oldTransaction as { amount?: number }).amount) {
+        const difference = (updates.amount as number) - (oldTransaction as { amount?: number }).amount;
+        await this.updateAccountBalance((oldTransaction as { account_id?: string }).account_id, difference);
       }
 
       return data!;
@@ -217,7 +217,10 @@ class TransactionServiceImpl {
       }
 
       if (transaction) {
-        await this.updateAccountBalance((transaction as any).account_id, -(transaction as any).amount);
+        const { account_id: accountId, amount } = transaction as { account_id?: string; amount?: number };
+        if (accountId && typeof amount === 'number') {
+          await this.updateAccountBalance(accountId, -amount);
+        }
       }
     } catch (error) {
       this.logger.error('TransactionService.deleteTransaction error:', error as Error);
@@ -336,7 +339,7 @@ class TransactionServiceImpl {
         user_id: userId
       }));
 
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('transactions')
         .insert(transactionsWithUser)
         .select();
@@ -347,7 +350,10 @@ class TransactionServiceImpl {
       }
 
       for (const transaction of data || []) {
-        await this.updateAccountBalance((transaction as any).account_id, (transaction as any).amount);
+        const { account_id: accountId, amount } = transaction as { account_id?: string; amount?: number };
+        if (accountId && typeof amount === 'number') {
+          await this.updateAccountBalance(accountId, amount);
+        }
       }
 
       return data || [];
@@ -357,7 +363,7 @@ class TransactionServiceImpl {
     }
   }
 
-  subscribeToTransactions(userId: string, callback: (payload: any) => void): () => void {
+  subscribeToTransactions(userId: string, callback: (payload: unknown) => void): () => void {
     if (!this.isSupabaseReady()) {
       return () => {};
     }
@@ -396,9 +402,9 @@ class TransactionServiceImpl {
         .single();
 
       if (account) {
-        const newBalance = ((account as any).balance || 0) + amount;
+        const newBalance = ((account as { balance?: number } | null)?.balance || 0) + amount;
 
-        await (client as any)
+        await client
           .from('accounts')
           .update({ balance: newBalance })
           .eq('id', accountId);
@@ -458,7 +464,7 @@ export class TransactionService {
     return this.service.bulkCreateTransactions(userId, transactions);
   }
 
-  static subscribeToTransactions(userId: string, callback: (payload: any) => void): () => void {
+  static subscribeToTransactions(userId: string, callback: (payload: unknown) => void): () => void {
     return this.service.subscribeToTransactions(userId, callback);
   }
 }

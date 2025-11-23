@@ -1,4 +1,5 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import predictiveLoader from '../services/predictiveLoadingService';
 
@@ -98,19 +99,18 @@ export function useViewportPrefetch(
 /**
  * Component for predictive link
  */
+type PredictiveLinkProps = React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  to: string;
+  preloadDelay?: number;
+};
+
 export function PredictiveLink({
   to,
   children,
   className = '',
   preloadDelay = 100,
   ...props
-}: {
-  to: string;
-  children: React.ReactNode;
-  className?: string;
-  preloadDelay?: number;
-  [key: string]: any;
-}) {
+}: PredictiveLinkProps) {
   const navigate = useNavigate();
   const hoverTimeout = useRef<NodeJS.Timeout>();
   const [isPreloading, setIsPreloading] = useState(false);
@@ -178,9 +178,9 @@ export function PredictiveLink({
 /**
  * Hook for smart data prefetching based on user patterns
  */
-export function useSmartPrefetch(
+export function useSmartPrefetch<T = unknown>(
   dataType: string,
-  fetcher: () => Promise<any>,
+  fetcher: () => Promise<T>,
   options: {
     prefetchOn?: 'mount' | 'hover' | 'viewport' | 'idle';
     priority?: number;
@@ -210,8 +210,17 @@ export function useSmartPrefetch(
         setIsPrefetching(false);
         setPrefetchComplete(true);
       });
-    } else if (prefetchOn === 'idle' && 'requestIdleCallback' in window) {
-      const idleCallback = (window as any).requestIdleCallback(() => {
+    } else if (prefetchOn === 'idle') {
+      const idleWindow = window as Window & {
+        requestIdleCallback?: (callback: IdleRequestCallback) => number;
+        cancelIdleCallback?: (handle: number) => void;
+      };
+
+      if (!idleWindow.requestIdleCallback) {
+        return;
+      }
+
+      const idleCallback = idleWindow.requestIdleCallback(() => {
         setIsPrefetching(true);
         predictiveLoader.preload({
           type: 'data',
@@ -226,9 +235,7 @@ export function useSmartPrefetch(
       });
 
       return () => {
-        if ('cancelIdleCallback' in window) {
-          (window as any).cancelIdleCallback(idleCallback);
-        }
+        idleWindow.cancelIdleCallback?.(idleCallback);
       };
     }
   }, [dataType, fetcher, prefetchOn, priority, ttl]);
@@ -347,7 +354,7 @@ export function useRoutePrefetch() {
             }
             setPrefetchedRoutes(prev => new Set(prev).add(route));
           } catch (error) {
-            console.warn(`Failed to prefetch route ${route}:`, error);
+            logger.warn?.('Failed to prefetch route', { route, error });
           }
         }
       });

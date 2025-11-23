@@ -28,7 +28,6 @@ import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
-import { FloatingActionButton } from './FloatingActionButton';
 import DemoModeIndicator from './DemoModeIndicator';
 import SyncStatusIndicator from './SyncStatusIndicator';
 

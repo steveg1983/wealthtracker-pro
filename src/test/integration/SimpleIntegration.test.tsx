@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AppProvider } from '../../contexts/AppContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { BudgetProvider } from '../../contexts/BudgetContext';
-import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
+import { createMockAccount, createMockTransaction, createMockBudget } from '../factories';
 import Dashboard from '../../pages/Dashboard';
 import { calculateTotalBalance, calculateBudgetUsage } from '../../utils/calculations';
 
@@ -162,11 +162,6 @@ describe('Simple Integration Tests', () => {
 
   describe('Data Relationships', () => {
     it('maintains account-transaction relationships', () => {
-      const accounts = [
-        createMockAccount({ id: '1', name: 'Checking' }),
-        createMockAccount({ id: '2', name: 'Savings' }),
-      ];
-
       const transactions = [
         createMockTransaction({ id: '1', accountId: '1', description: 'Salary' }),
         createMockTransaction({ id: '2', accountId: '2', description: 'Interest' }),

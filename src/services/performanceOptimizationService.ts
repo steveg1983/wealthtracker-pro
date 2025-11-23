@@ -117,9 +117,10 @@ export class PerformanceOptimizationService {
   private observeLCP(): void {
     const observer = this.performanceObserverFactory((list) => {
       const entries = list.getEntries();
-      const lastEntry = entries[entries.length - 1] as any;
+      const lastEntry = entries[entries.length - 1] as PerformanceEntry | undefined;
       if (lastEntry) {
-        this.metrics.largestContentfulPaint = lastEntry.renderTime || lastEntry.loadTime;
+        const lcpEntry = lastEntry as PerformanceEntry & { renderTime?: number; loadTime?: number };
+        this.metrics.largestContentfulPaint = lcpEntry.renderTime ?? lcpEntry.loadTime ?? undefined;
       }
     });
     if (!observer) return;
@@ -130,9 +131,9 @@ export class PerformanceOptimizationService {
   private observeFCP(): void {
     const observer = this.performanceObserverFactory((list) => {
       const entries = list.getEntries();
-      const fcpEntry = entries.find((entry) => (entry as any).name === 'first-contentful-paint');
+      const fcpEntry = entries.find((entry) => entry.name === 'first-contentful-paint');
       if (fcpEntry) {
-        this.metrics.firstContentfulPaint = (fcpEntry as any).startTime;
+        this.metrics.firstContentfulPaint = fcpEntry.startTime;
       }
     });
     if (!observer) return;
@@ -143,9 +144,10 @@ export class PerformanceOptimizationService {
   private observeFID(): void {
     const observer = this.performanceObserverFactory((list) => {
       const entries = list.getEntries();
-      entries.forEach((entry: any) => {
-        if (entry.processingStart && entry.startTime !== undefined) {
-          const inputDelay = entry.processingStart - entry.startTime;
+      entries.forEach((entry) => {
+        const perfEntry = entry as PerformanceEventTiming;
+        if (perfEntry.processingStart && perfEntry.startTime !== undefined) {
+          const inputDelay = perfEntry.processingStart - perfEntry.startTime;
           if (inputDelay > 100) {
             this.logger.warn(`Slow interaction detected: ${inputDelay}ms`);
           }
@@ -161,8 +163,9 @@ export class PerformanceOptimizationService {
     const observer = this.performanceObserverFactory((list) => {
       let clsScore = this.metrics.cumulativeLayoutShift ?? 0;
       for (const entry of list.getEntries()) {
-        if (!(entry as any).hadRecentInput) {
-          clsScore += (entry as any).value;
+        const shiftEntry = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+        if (!shiftEntry.hadRecentInput && typeof shiftEntry.value === 'number') {
+          clsScore += shiftEntry.value;
         }
       }
       this.metrics.cumulativeLayoutShift = clsScore;
@@ -232,7 +235,7 @@ export class PerformanceOptimizationService {
   /**
    * Debounce expensive operations
    */
-  debounce<T extends (...args: any[]) => any>(
+  debounce<T extends (...args: unknown[]) => unknown>(
     func: T,
     wait: number
   ): (...args: Parameters<T>) => void {
@@ -247,7 +250,7 @@ export class PerformanceOptimizationService {
   /**
    * Throttle frequent operations
    */
-  throttle<T extends (...args: any[]) => any>(
+  throttle<T extends (...args: unknown[]) => unknown>(
     func: T,
     limit: number
   ): (...args: Parameters<T>) => void {

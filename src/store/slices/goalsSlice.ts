@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Goal } from '../../types';
 import type { SerializedGoal } from '../../types/redux-types';
-import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
+import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchGoalsFromSupabase,
   createGoalInSupabase

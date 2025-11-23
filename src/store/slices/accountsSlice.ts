@@ -1,5 +1,4 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import Decimal from 'decimal.js';
 import type { Account } from '../../types';
 import type { SerializedAccount } from '../../types/redux-types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
@@ -43,7 +42,7 @@ const accountsSlice = createSlice({
       const newAccount = {
         ...action.payload,
         id: crypto.randomUUID(),
-        lastUpdated: getCurrentISOString() as any,
+        lastUpdated: getCurrentISOString(),
         updatedAt: getCurrentISOString(),
       };
       state.accounts.push(newAccount as unknown as SerializedAccount);
@@ -68,7 +67,7 @@ const accountsSlice = createSlice({
         account.updatedAt = getCurrentISOString();
       }
     },
-    recalculateAllBalances: (state, action: PayloadAction<any[]>) => {
+    recalculateAllBalances: (_state, _action: PayloadAction<unknown[]>) => {
       // This will be implemented when we have the transactions state
       // For now, just a placeholder
     },

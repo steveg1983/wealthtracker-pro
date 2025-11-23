@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, DeleteIcon, XIcon, CheckCircleIcon, Building2Icon, CreditCardIcon, CircleDotIcon } from '../components/icons';
-import { preserveDemoParam } from '../utils/navigation';
 import { IconButton } from '../components/icons/IconButton';
 import HelpTooltip from '../components/HelpTooltip';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -342,7 +341,7 @@ export default function Reconciliation() {
     setSelectedAccount(accountId);
     // Preserve demo mode when setting account
     const isDemoMode = new URLSearchParams(location.search).get('demo') === 'true';
-    const params: any = { account: accountId };
+    const params: Record<string, string> = { account: accountId };
     if (isDemoMode) params.demo = 'true';
     setSearchParams(params);
   };

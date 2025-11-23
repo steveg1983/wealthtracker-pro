@@ -13,17 +13,16 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useAppDispatch } from '../store';
 import { toast } from 'react-hot-toast';
-import realtimeService, { 
-  type RealtimeEvent, 
+import realtimeService, {
   type ConnectionState,
-  type RealtimeCallback 
+  type RealtimeCallback
 } from '../services/realtimeService';
 
 // Import Redux actions for real-time updates
-import { setTransactions, addTransaction, updateTransaction, deleteTransaction } from '../store/slices/transactionsSlice';
-import { setAccounts, addAccount, updateAccount, deleteAccount } from '../store/slices/accountsSlice';
-import { setBudgets, addBudget, updateBudget, deleteBudget } from '../store/slices/budgetsSlice';
-import { setGoals, addGoal, updateGoal, deleteGoal } from '../store/slices/goalsSlice';
+import { addTransaction, updateTransaction, deleteTransaction } from '../store/slices/transactionsSlice';
+import { addAccount, updateAccount, deleteAccount } from '../store/slices/accountsSlice';
+import { addBudget, updateBudget, deleteBudget } from '../store/slices/budgetsSlice';
+import { addGoal, updateGoal, deleteGoal } from '../store/slices/goalsSlice';
 
 import type { Account, Transaction, Budget, Goal } from '../types';
 
@@ -366,10 +365,10 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions = {}): UseRealti
   // Provide functions to update action timestamp for echo prevention
   useEffect(() => {
     // Expose the timestamp updater globally for Redux actions to use
-    (window as any).__updateRealtimeActionTimestamp = updateLastActionTimestamp;
-    
+    (window as unknown as { __updateRealtimeActionTimestamp?: (entity: string, actionType: string) => void }).__updateRealtimeActionTimestamp = updateLastActionTimestamp;
+
     return () => {
-      delete (window as any).__updateRealtimeActionTimestamp;
+      delete (window as unknown as { __updateRealtimeActionTimestamp?: (entity: string, actionType: string) => void }).__updateRealtimeActionTimestamp;
     };
   }, [updateLastActionTimestamp]);
 

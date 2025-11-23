@@ -25,7 +25,7 @@
     "test:batched": "node scripts/run-all-tests.mjs",
     "test:unit": "vitest run --exclude='**/integration/**'",
     "test:integration": "vitest run src/test/integration",
-    "test:realtime": "vitest run src/services/__tests__/realtimePriceService.subscribe.test.ts src/services/__tests__/realtimePriceService.error.test.ts src/services/__tests__/realtimePriceService.events.test.ts src/services/__tests__/realtimePriceService.helpers.test.ts src/services/__tests__/predictiveLoadingService.test.ts src/services/__tests__/scheduledReportService.test.ts src/services/__tests__/automaticBackupService.test.ts src/services/__tests__/storageAdapter.test.ts src/services/themeSchedulingService.test.ts src/services/__tests__/syncService.test.ts src/services/__tests__/autoSyncService.test.ts src/services/__tests__/smartCacheService.test.ts src/services/__tests__/notificationService.test.ts src/services/__tests__/errorHandlingService.test.ts src/services/__tests__/stripeService.test.ts src/services/stockPriceService.test.ts src/services/__tests__/loggingService.test.ts src/services/offlineService.test.ts src/services/__tests__/mobileService.test.ts src/services/performanceService.test.ts src/services/__tests__/pushNotificationService.test.ts src/services/__tests__/merchantLogoService.test.ts src/services/__tests__/securityService.test.ts src/services/__tests__/bankConnectionService.test.ts src/services/__tests__/offlineDataService.test.ts src/services/__tests__/dividendService.test.ts src/services/__tests__/anomalyDetectionService.test.ts src/services/__tests__/dataMigrationService.test.ts src/services/__tests__/dataIntelligenceService.test.ts src/services/__tests__/enhancedCsvImportService.test.ts src/services/__tests__/budgetRecommendationService.test.ts src/services/__tests__/performanceOptimizationService.test.ts src/services/__tests__/financialSummaryService.test.ts src/services/__tests__/customReportService.test.ts src/services/__tests__/encryptedStorageService.test.ts src/services/__tests__/exportService.test.ts src/services/__tests__/documentService.test.ts src/services/__tests__/ocrService.test.ts src/services/__tests__/subscriptionApiService.test.ts src/services/__tests__/realtimeService.test.ts src/services/__tests__/transactionService.test.ts src/services/__tests__/accountService.test.ts src/services/__tests__/userService.test.ts src/services/__tests__/dataService.test.ts src/services/__tests__/supabaseService.test.ts src/services/__tests__/simpleAccountService.test.ts",
+    "test:realtime": "node scripts/run-realtime-suite.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
@@ -57,7 +57,9 @@
     "deploy:prod": "./deploy.sh prod",
     "vercel:login": "vercel login",
     "vercel:link": "vercel link",
-    "vercel:env": "vercel env pull"
+    "vercel:env": "vercel env pull",
+    "env:doctor": "node --loader ts-node/esm scripts/env-doctor.ts",
+    "setup": "npm run env:doctor"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.42.1",
@@ -162,6 +164,7 @@
     "typescript-eslint": "^8.35.1",
     "vercel": "^44.7.0",
     "vite": "^7.0.4",
+    "ts-node": "^10.9.1",
     "vite-plugin-compression2": "^2.2.0",
     "vitest": "^3.2.4",
     "workbox-background-sync": "^7.3.0",

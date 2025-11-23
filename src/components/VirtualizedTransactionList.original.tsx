@@ -248,7 +248,7 @@ export const VirtualizedTransactionList: React.FC<VirtualizedTransactionListProp
                   if (typeof ref === 'function') {
                     ref(list);
                   } else if (ref && 'current' in ref) {
-                    (ref as React.MutableRefObject<any>).current = list;
+                    (ref as React.MutableRefObject<unknown>).current = list;
                   }
                   listRef.current = list;
                 }}

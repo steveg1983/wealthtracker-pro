@@ -36,7 +36,6 @@ class ImportService {
   // Parse CSV file
   async parseCSV(content: string): Promise<ImportResult> {
     return new Promise((resolve) => {
-      const results: any[] = [];
       const errors: string[] = [];
 
       try {
@@ -44,10 +43,10 @@ class ImportService {
           columns: true,
           skip_empty_lines: true,
           trim: true
-        });
+        }) as Record<string, string | number | undefined>[];
 
         // Map CSV records to transactions
-        const transactions = records.map((record: any) => ({
+        const transactions = records.map(record => ({
           date: this.parseDate(record.Date || record.date || record.DATE),
           description: record.Description || record.description || record.DESCRIPTION || '',
           amount: this.parseAmount(record.Amount || record.amount || record.AMOUNT),
@@ -59,8 +58,8 @@ class ImportService {
           errors: [],
           warnings: []
         });
-      } catch (err: any) {
-        errors.push(err.message);
+      } catch (err: unknown) {
+        errors.push(err instanceof Error ? err.message : 'Failed to parse CSV');
         resolve({ transactions: [], errors, warnings: [] });
       }
     });
@@ -73,7 +72,7 @@ class ImportService {
     const warnings: string[] = [];
 
     const lines = content.split('\n');
-    let currentTransaction: any = {};
+    let currentTransaction: Partial<Transaction> = {};
 
     for (const line of lines) {
       if (!line || line.trim() === '') continue;
@@ -117,7 +116,7 @@ class ImportService {
 
     if (transactionMatches) {
       for (const match of transactionMatches) {
-        const transaction: any = {};
+        const transaction: Partial<Transaction> = {};
 
         // Extract date
         const dateMatch = match.match(/<DTPOSTED>(\d+)/);

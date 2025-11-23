@@ -369,9 +369,9 @@ describe('SmartCategorizationService', () => {
       ];
       
       const results = smartCategorizationService.autoCategorize(uncategorizedTransactions, 0.7);
-      
+
       // McDonald's might not reach the 0.7 threshold with current data
-      const mcdonaldsResult = results.find(r => r.transaction.id === 'auto1');
+      const _mcdonaldsResult = results.find(r => r.transaction.id === 'auto1');
       
       // Lower threshold to test
       const lowThresholdResults = smartCategorizationService.autoCategorize(uncategorizedTransactions, 0.5);

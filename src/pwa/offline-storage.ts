@@ -11,11 +11,13 @@ const offlineLogger = typeof console !== 'undefined'
   ? console
   : { log: () => {}, error: () => {} };
 
+type OfflineEntityData = Transaction | Account | Budget | Goal | Record<string, unknown>;
+
 export interface OfflineQueueItem {
   id?: string;
   type: 'create' | 'update' | 'delete';
   entity: 'transaction' | 'account' | 'budget' | 'goal';
-  data: any;
+  data: OfflineEntityData;
   timestamp: number;
   synced: boolean;
   retries: number;
@@ -25,10 +27,11 @@ export interface OfflineQueueItem {
 interface ConflictItem {
   id?: string;
   operationId: string;
+  entity: OfflineQueueItem['entity'];
   resolved: boolean;
-  resolutionData?: any;
-  localData: any;
-  remoteData: any;
+  resolutionData?: OfflineEntityData;
+  localData: OfflineEntityData;
+  remoteData: OfflineEntityData;
   timestamp: number;
 }
 
@@ -203,19 +206,20 @@ class OfflineStorageService {
         } catch (error) {
           offlineLogger.error(`[OfflineStorage] Failed to sync operation ${operation.id}:`, error);
           
-          // Handle conflict
-          if ((error as any).status === 409) {
-            await this.handleConflict(operation, (error as any).data);
+          const conflictError = error as { status?: number; data?: OfflineEntityData };
+          if (conflictError?.status === 409 && conflictError.data) {
+            await this.handleConflict(operation, conflictError.data);
+            continue;
+          }
+
+          // Increment retry count
+          operation.retries++;
+          operation.error = (error as Error).message;
+          
+          if (operation.retries >= 3) {
+            offlineLogger.error(`[OfflineStorage] Operation ${operation.id} failed after 3 retries`);
           } else {
-            // Increment retry count
-            operation.retries++;
-            operation.error = (error as Error).message;
-            
-            if (operation.retries >= 3) {
-              offlineLogger.error(`[OfflineStorage] Operation ${operation.id} failed after 3 retries`);
-            } else {
-              await indexedDBService.put(this.OFFLINE_QUEUE_STORE, { ...operation });
-            }
+            await indexedDBService.put(this.OFFLINE_QUEUE_STORE, { ...operation });
           }
         }
       }
@@ -307,13 +311,13 @@ class OfflineStorageService {
   /**
    * Handle sync conflicts
    */
-  private async handleConflict(operation: OfflineQueueItem, serverData: any) {
-    const conflict = {
+  private async handleConflict(operation: OfflineQueueItem, serverData: OfflineEntityData) {
+    const conflict: ConflictItem = {
       id: crypto.randomUUID(),
       operationId: operation.id,
-      clientData: operation.data,
-      serverData,
       entity: operation.entity,
+      localData: operation.data,
+      remoteData: serverData,
       timestamp: Date.now(),
       resolved: false
     };
@@ -341,19 +345,28 @@ class OfflineStorageService {
    */
   private async autoResolveConflict(
     operation: OfflineQueueItem, 
-    serverData: any
-  ): Promise<ConflictResolution<any>> {
+    serverData: OfflineEntityData
+  ): Promise<ConflictResolution<OfflineEntityData>> {
     const clientData = operation.data;
     
     switch (operation.entity) {
       case 'transaction':
-        return this.resolveTransactionConflict(clientData, serverData);
+        return this.resolveTransactionConflict(
+          clientData as Transaction,
+          serverData as Transaction
+        );
       
       case 'account':
-        return this.resolveAccountConflict(clientData, serverData);
+        return this.resolveAccountConflict(
+          clientData as Account,
+          serverData as Account
+        );
       
       case 'budget':
-        return this.resolveBudgetConflict(clientData, serverData);
+        return this.resolveBudgetConflict(
+          clientData as Budget,
+          serverData as Budget
+        );
       
       default:
         return {
@@ -396,7 +409,11 @@ class OfflineStorageService {
    */
   private resolveAccountConflict(client: Account, server: Account): ConflictResolution<Account> {
     // For balance conflicts, calculate the difference
-    const balanceDiff = client.balance - (client as any).originalBalance;
+    const originalBalance =
+      'originalBalance' in client && typeof (client as { originalBalance?: number }).originalBalance === 'number'
+        ? (client as { originalBalance: number }).originalBalance
+        : client.balance;
+    const balanceDiff = client.balance - originalBalance;
     
     return {
       client,
@@ -488,7 +505,7 @@ class OfflineStorageService {
   /**
    * Manually resolve a conflict
    */
-  async resolveConflict(conflictId: string, resolution: any) {
+  async resolveConflict(conflictId: string, resolution: OfflineEntityData) {
     const conflict = await indexedDBService.get<ConflictItem>(this.CONFLICT_STORE, conflictId);
     if (!conflict) {
       throw new Error('Conflict not found');
@@ -536,7 +553,7 @@ class OfflineStorageService {
   /**
    * Notify about conflicts
    */
-  private notifyConflict(conflict: any) {
+  private notifyConflict(conflict: ConflictItem) {
     window.dispatchEvent(new CustomEvent('sync-conflict', {
       detail: conflict
     }));
@@ -552,7 +569,7 @@ export const useOfflineState = () => {
 
   React.useEffect(() => {
     const handleStateChange = (event: Event) => {
-      setState((event as CustomEvent).detail);
+      setState((event as CustomEvent<OfflineState>).detail);
     };
 
     window.addEventListener('offline-state-change', handleStateChange);
@@ -581,7 +598,7 @@ export const useOfflineOperations = () => {
   );
 
   const resolveConflict = React.useCallback(
-    (conflictId: string, resolution: any) => 
+    (conflictId: string, resolution: OfflineEntityData) => 
       offlineStorage.resolveConflict(conflictId, resolution),
     []
   );

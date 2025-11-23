@@ -17,6 +17,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { userIdService, type ClerkUserId, type DatabaseUserId } from '../services/userIdService';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 interface UseUserIdReturn {
   /** The Clerk authentication ID (e.g., "user_2abc123...") */
@@ -41,22 +42,23 @@ interface UseUserIdReturn {
  */
 export function useUserId(): UseUserIdReturn {
   const { user, isLoaded } = useUser();
+  const logger = useMemoizedLogger('useUserId');
   const [databaseId, setDatabaseId] = useState<DatabaseUserId | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDatabaseId = async (clerkId: ClerkUserId) => {
+  const fetchDatabaseId = useCallback(async (clerkId: ClerkUserId) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // First check if we already have it cached in the service
       let dbId = userIdService.getCurrentDatabaseUserId();
-      
+
       // If not cached or different user, fetch it
       if (!dbId || userIdService.getCurrentClerkId() !== clerkId) {
-        console.log('[useUserId] Fetching database ID for Clerk ID:', clerkId);
-        
+        logger.info?.('Fetching database ID for Clerk ID', { clerkId });
+
         // For logged-in users with email, ensure they exist in database
         if (user?.emailAddresses?.[0]?.emailAddress) {
           dbId = await userIdService.ensureUserExists(
@@ -69,27 +71,27 @@ export function useUserId(): UseUserIdReturn {
           // Just try to get existing ID
           dbId = await userIdService.getDatabaseUserId(clerkId);
         }
-        
+
         // Update the current user in the service
         if (dbId) {
           await userIdService.setCurrentUser(clerkId, dbId);
         }
       }
-      
+
       setDatabaseId(dbId);
-      
+
       if (!dbId) {
-        console.warn('[useUserId] No database ID found for Clerk ID:', clerkId);
+        logger.warn?.('No database ID found for Clerk ID', { clerkId });
       } else {
-        console.log('[useUserId] Database ID resolved:', dbId);
+        logger.info?.('Database ID resolved', { dbId });
       }
     } catch (err) {
-      console.error('[useUserId] Error fetching database ID:', err);
+      logger.error?.('Error fetching database ID', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch database ID');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, logger]);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -105,7 +107,7 @@ export function useUserId(): UseUserIdReturn {
       setIsLoading(false);
       userIdService.clearCache();
     }
-  }, [user?.id, isLoaded]);
+  }, [user?.id, isLoaded, fetchDatabaseId]);
 
   const refresh = async () => {
     if (user?.id) {

@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
 import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
-import { InlineHelp } from '../components/HelpTooltip';
 import BudgetModal from '../components/BudgetModal';
 import EnvelopeBudgeting from '../components/EnvelopeBudgeting';
 import RecurringBudgetTemplates from '../components/RecurringBudgetTemplates';
@@ -109,6 +108,13 @@ export default function Budget() {
     return map;
   }, [categories]);
 
+  type BudgetWithLegacyCategory = Budget & { category?: string };
+  const getBudgetCategoryLabel = useCallback((budget: Budget) => {
+    const legacyCategory = (budget as BudgetWithLegacyCategory).category;
+    const categoryKey = budget.categoryId ?? legacyCategory ?? '';
+    return categoryNameById.get(categoryKey) ?? budget.name ?? (categoryKey || 'Budget');
+  }, [categoryNameById]);
+
   // Set loading to false when data is loaded
   useEffect(() => {
     if (budgets !== undefined && transactions !== undefined && categories !== undefined) {
@@ -121,12 +127,11 @@ export default function Budget() {
     const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
-        const category =
-          categoryNameById.get(budget.categoryId ?? (budget as any).category) ?? budget.name ?? (budget as any).category;
+        const categoryLabel = getBudgetCategoryLabel(budget);
         if (budget.percentage >= 100) {
           return {
             budgetId: budget.id,
-            categoryName: category || 'Unknown',
+            categoryName: categoryLabel || 'Unknown',
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
             budget: budget.amount,
@@ -136,7 +141,7 @@ export default function Budget() {
         } else if (budget.percentage >= alertThreshold) {
           return {
             budgetId: budget.id,
-            categoryName: category || 'Unknown',
+            categoryName: categoryLabel || 'Unknown',
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
             budget: budget.amount,
@@ -151,7 +156,7 @@ export default function Budget() {
     if (alerts.length > 0) {
       checkBudgetAlerts(alerts);
     }
-  }, [budgetsWithSpent, categoryNameById, alertThreshold, checkBudgetAlerts]);
+  }, [budgetsWithSpent, categoryNameById, alertThreshold, checkBudgetAlerts, getBudgetCategoryLabel]);
 
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
@@ -186,7 +191,7 @@ export default function Budget() {
       totalRemaining: formatCurrency(remaining),
       totalRemainingValue: remaining.toNumber()
     };
-  }, [budgetsWithSpent]);
+  }, [budgetsWithSpent, formatCurrency]);
 
   // Check for enhanced budget alerts whenever budgets change
   useEffect(() => {
@@ -366,7 +371,7 @@ export default function Budget() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {categoryNameById.get(budget.categoryId ?? (budget as any).category) ?? budget.name ?? (budget as any).category ?? 'Budget'}
+                  {getBudgetCategoryLabel(budget)}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {budget.period === 'monthly' ? 'Monthly' : 'Yearly'} budget

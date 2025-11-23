@@ -3,7 +3,6 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
-import RealTimePortfolio from '../components/RealTimePortfolio';
 import RealTimePortfolioEnhanced from '../components/RealTimePortfolioEnhanced';
 import PortfolioManager from '../components/PortfolioManager';
 import StockWatchlist from '../components/StockWatchlist';
@@ -323,7 +322,7 @@ export default function Investments() {
               <XAxis dataKey="month" stroke="#9CA3AF" />
               <YAxis 
                 stroke="#9CA3AF" 
-                tickFormatter={(value: any) => {
+                tickFormatter={(value: number) => {
                   const formatted = formatCurrency(value);
                   if (value >= 1000) {
                     const thousands = formatDecimal(
@@ -336,7 +335,7 @@ export default function Investments() {
                 }}
               />
               <Tooltip
-                formatter={(value: any) => formatCurrency(toDecimal(value))}
+                formatter={(value: number) => formatCurrency(toDecimal(value))}
                 contentStyle={{ 
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                   border: '1px solid #ccc',
@@ -445,7 +444,7 @@ export default function Investments() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: any) => formatCurrency(toDecimal(value))}
+                      formatter={(value: number) => formatCurrency(toDecimal(value))}
                       contentStyle={{ 
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         border: '1px solid #ccc',

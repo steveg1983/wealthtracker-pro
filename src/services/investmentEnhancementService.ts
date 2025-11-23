@@ -1,5 +1,5 @@
-import { Investment, Account, Transaction } from '../types';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { Investment, Transaction } from '../types';
+import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance } from '../utils/decimal';
 
@@ -260,7 +260,7 @@ class InvestmentEnhancementService {
   // ESG Scoring
   getESGScores(investments: Investment[]): ESGScore[] {
     // Mock ESG data for demo
-    const esgRatings = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC'] as const;
+    const _esgRatings = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC'] as const;
     
     return investments.map(inv => {
       const environmental = Math.floor(Math.random() * 40) + 60;

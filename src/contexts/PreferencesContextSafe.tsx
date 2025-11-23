@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface PreferencesContextType {
   compactView: boolean;
@@ -34,9 +35,10 @@ interface PreferencesContextType {
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
+const logger = createScopedLogger('PreferencesContextSafe');
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  console.log('PreferencesProvider initializing...');
+  logger.info('PreferencesProvider initializing');
   
   // Use simple defaults without localStorage for testing
   const [compactView, setCompactView] = useState(true); // Default to compact view
@@ -56,7 +58,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const actualTheme: 'light' | 'dark' = 'light'; // Simplified for testing
 
-  console.log('PreferencesProvider state initialized');
+  logger.info('PreferencesProvider state initialized');
 
   const value = {
     compactView,
@@ -82,7 +84,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setEnableGoalCelebrations,
   };
 
-  console.log('PreferencesProvider rendering with value:', value);
+  logger.debug('PreferencesProvider rendering with value', value);
 
   return (
     <PreferencesContext.Provider value={value}>

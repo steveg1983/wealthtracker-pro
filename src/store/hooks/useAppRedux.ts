@@ -8,19 +8,15 @@ import {
   loadAllData
 } from '../thunks';
 import { setTransactions } from '../slices/transactionsSlice';
-import { saveTags, setTags } from '../slices/tagsSlice';
+import { setTags } from '../slices/tagsSlice';
 import type { BackupData } from '../../utils/backupRestore';
 import {
-  addAccount as addAccountAction,
-  updateAccount as updateAccountAction,
-  deleteAccount as deleteAccountAction,
   createAccountInSupabase,
   updateAccountInSupabase,
   deleteAccountFromSupabase,
   setAccounts
 } from '../slices/accountsSlice';
 import {
-  addBudget as addBudgetAction,
   updateBudget as updateBudgetAction,
   deleteBudget as deleteBudgetAction,
   createBudgetInSupabase,
@@ -34,7 +30,6 @@ import {
   setCategories
 } from '../slices/categoriesSlice';
 import {
-  addGoal as addGoalAction,
   updateGoal as updateGoalAction,
   deleteGoal as deleteGoalAction,
   createGoalInSupabase,

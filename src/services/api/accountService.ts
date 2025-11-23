@@ -171,7 +171,7 @@ class AccountServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { data, error } = await (client as any)
+      const { data, error } = await client
         .from('accounts')
         .update(updates)
         .eq('id', id)
@@ -200,7 +200,7 @@ class AccountServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { error } = await (client as any)
+      const { error } = await client
         .from('accounts')
         .update({ is_active: false })
         .eq('id', id);
@@ -230,7 +230,7 @@ class AccountServiceImpl {
         .single();
 
       if (error) {
-        if ((error as any).code === 'PGRST116') {
+        if (typeof (error as { code?: string }).code === 'string' && (error as { code?: string }).code === 'PGRST116') {
           return null;
         }
         this.logger.error('Error fetching account:', error);
@@ -259,7 +259,7 @@ class AccountServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { error } = await (client as any)
+      const { error } = await client
         .from('accounts')
         .update({ balance: newBalance })
         .eq('id', id);
@@ -276,7 +276,7 @@ class AccountServiceImpl {
 
   async recalculateBalance(accountId: string): Promise<number> {
     if (!this.isSupabaseReady()) {
-      const transactions = await this.storage.get<any[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+      const transactions = await this.storage.get<{ account_id: string; amount: number }[]>(STORAGE_KEYS.TRANSACTIONS) || [];
       const accountTransactions = transactions.filter(t => t.account_id === accountId);
       const balance = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
 
@@ -297,8 +297,8 @@ class AccountServiceImpl {
         .select('amount')
         .eq('account_id', accountId);
 
-      const transactionTotal = transactions?.reduce((sum, t) => sum + (t as any).amount, 0) || 0;
-      const initialBalance = (account as any)?.initial_balance || 0;
+      const transactionTotal = transactions?.reduce((sum, t) => sum + (t as { amount: number }).amount, 0) || 0;
+      const initialBalance = (account as { initial_balance?: number } | null)?.initial_balance || 0;
       const newBalance = initialBalance + transactionTotal;
 
       await this.updateBalance(accountId, newBalance);
@@ -309,7 +309,7 @@ class AccountServiceImpl {
     }
   }
 
-  subscribeToAccounts(userId: string, callback: (payload: any) => void): () => void {
+  subscribeToAccounts(userId: string, callback: (payload: unknown) => void): () => void {
     if (!this.isSupabaseReady()) {
       return () => {};
     }
@@ -377,7 +377,7 @@ export class AccountService {
     return this.service.recalculateBalance(accountId);
   }
 
-  static subscribeToAccounts(userId: string, callback: (payload: any) => void): () => void {
+  static subscribeToAccounts(userId: string, callback: (payload: unknown) => void): () => void {
     return this.service.subscribeToAccounts(userId, callback);
   }
 }

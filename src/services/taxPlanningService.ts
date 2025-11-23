@@ -46,7 +46,7 @@ export interface TaxReport {
   year: number;
   summary: TaxEstimate;
   deductions: TaxDeduction[];
-  capitalGains: any; // You may want to define a proper type for this
+  capitalGains: CapitalGain[];
   optimizations: TaxOptimization[]; 
   generatedDate: Date;
 }

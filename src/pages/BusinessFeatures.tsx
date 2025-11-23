@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { businessService } from '../services/businessService';
-import { 
+import {
   DollarSignIcon,
   FileTextIcon,
   TrendingUpIcon,
@@ -8,11 +8,7 @@ import {
   BriefcaseIcon,
   MapPinIcon,
   CalendarIcon,
-  PlusIcon,
-  BarChart3Icon,
-  AlertCircleIcon,
-  CheckCircleIcon,
-  ClockIcon
+  BarChart3Icon
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import InvoiceManager from '../components/InvoiceManager';
@@ -20,7 +16,7 @@ import MileageTracker from '../components/MileageTracker';
 import BusinessExpenseManager from '../components/BusinessExpenseManager';
 import type { BusinessMetrics } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -243,7 +239,7 @@ export default function BusinessFeatures() {
                   <h3 className="font-semibold text-gray-900 dark:text-white">Top Expenses</h3>
                 </div>
                 <div className="space-y-3">
-                  {metrics.topExpenseCategories.slice(0, 3).map((category, index) => (
+                  {metrics.topExpenseCategories.slice(0, 3).map((category, _index) => (
                     <div key={category.category} className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">
                         {category.category.replace('_', ' ')}

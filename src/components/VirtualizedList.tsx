@@ -29,7 +29,7 @@ interface ItemData<T> {
   getItemKey: (item: T, index: number) => string;
 }
 
-interface ItemRendererProps<T> {
+interface _ItemRendererProps<T> {
   index: number;
   style: React.CSSProperties;
   data: ItemData<T>;
@@ -40,14 +40,14 @@ const ItemRenderer = memo(function ItemRenderer({
   index,
   style,
   data
-}: ListChildComponentProps<ItemData<any>>) {
+}: ListChildComponentProps<ItemData<unknown>>) {
   const { items, renderItem } = data;
   const item = items[index];
 
   if (!item) return null;
 
   return <>{renderItem(item, index, style)}</>;
-}) as React.ComponentType<ListChildComponentProps<ItemData<any>>>;
+}) as React.ComponentType<ListChildComponentProps<ItemData<unknown>>>;
 
 export const VirtualizedList = memo(function VirtualizedList<T>({
   items,
@@ -149,7 +149,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                         ref(list);
                       } else if (ref && 'current' in ref) {
                         // Type assertion for mutable ref
-                        (ref as React.MutableRefObject<any>).current = list;
+                        (ref as React.MutableRefObject<unknown>).current = list;
                       }
                     }
                   }}
@@ -181,7 +181,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                         ref(list);
                       } else if (ref && 'current' in ref) {
                         // Type assertion for mutable ref
-                        (ref as React.MutableRefObject<any>).current = list;
+                        (ref as React.MutableRefObject<unknown>).current = list;
                       }
                     }
                   }}

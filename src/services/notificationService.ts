@@ -1,8 +1,8 @@
-import Decimal from 'decimal.js';
-import type { Transaction, Budget, Goal, Account, Category } from '../types';
+import type { Transaction, Budget, Goal, Category } from '../types';
 import type { Notification } from '../contexts/NotificationContext';
 import type { JsonValue, UnknownObject } from '../types/common';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 
 export interface NotificationRule {
   id: string;
@@ -65,12 +65,10 @@ type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
 type NavigateFn = (path: string) => void;
 
-type Logger = Pick<Console, 'warn' | 'error'>;
-
 export interface NotificationServiceOptions {
   storage?: StorageLike | null;
   navigate?: NavigateFn | null;
-  logger?: Logger;
+  logger?: ScopedLogger;
   now?: () => number;
 }
 
@@ -98,7 +96,7 @@ export class NotificationService {
   };
   private storage: StorageLike | null;
   private navigate: NavigateFn | null;
-  private logger: Logger;
+  private logger: ScopedLogger;
   private nowProvider: () => number;
 
   constructor(options: NotificationServiceOptions = {}) {
@@ -108,11 +106,7 @@ export class NotificationService {
         window.location.href = path;
       }
     });
-    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
-    this.logger = {
-      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {})),
-      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
-    };
+    this.logger = options.logger ?? createScopedLogger('NotificationService');
     this.nowProvider = options.now ?? (() => Date.now());
     this.loadConfig();
     this.loadRules();
@@ -178,7 +172,7 @@ export class NotificationService {
       const parsed = JSON.parse(stored);
       return parsed;
     } catch (error) {
-      this.logger.warn?.(`Failed to load "${key}" from storage:`, error as Error);
+      this.logger.warn(`Failed to load configuration from storage`, { key, error });
       return {};
     }
   }
@@ -188,7 +182,7 @@ export class NotificationService {
     try {
       this.storage.setItem(key, JSON.stringify(data));
     } catch (error) {
-      this.logger.warn?.(`Failed to save "${key}" to storage:`, error as Error);
+      this.logger.warn('Failed to save configuration to storage', { key, error });
     }
   }
 
@@ -440,7 +434,7 @@ export class NotificationService {
   // Goal Celebration Methods
   checkGoalProgress(goals: Goal[], previousGoals?: Goal[]): Notification[] {
     const notifications: Notification[] = [];
-    const now = this.getCurrentDate();
+    const _now = this.getCurrentDate();
 
     goals.forEach(goal => {
       const currentProgress = this.calculateGoalProgress(goal);

@@ -5,13 +5,12 @@ import SeasonalTrends from '../components/SeasonalTrends';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
-import { 
-  LineChartIcon, 
-  CalendarIcon, 
+import {
+  LineChartIcon,
+  CalendarIcon,
   AlertCircleIcon,
   TrendingUpIcon,
   TrendingDownIcon,
-  BarChart3Icon,
   BanknoteIcon,
   RepeatIcon,
   PiggyBankIcon,

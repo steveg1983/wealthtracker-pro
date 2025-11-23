@@ -4,12 +4,12 @@
  * for a "top tier" sync experience
  */
 
-import { isEqual, differenceWith, intersectionWith } from 'lodash';
+import { isEqual } from 'lodash';
 
 export interface FieldChange {
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   timestamp: number;
 }
 
@@ -19,7 +19,7 @@ export interface ConflictAnalysis {
   nonConflictingFields: string[];
   canAutoResolve: boolean;
   suggestedResolution: 'merge' | 'client' | 'server' | 'manual';
-  mergedData?: any;
+  mergedData?: Record<string, unknown>;
   confidence: number; // 0-100 confidence in auto-resolution
 }
 
@@ -31,7 +31,7 @@ export interface MergeStrategy {
 export interface MergeRule {
   field: string;
   strategy: 'newer' | 'older' | 'sum' | 'min' | 'max' | 'concat' | 'union' | 'clientWins' | 'serverWins';
-  condition?: (clientValue: any, serverValue: any) => boolean;
+  condition?: (clientValue: unknown, serverValue: unknown) => boolean;
 }
 
 // Business rules for financial data
@@ -75,8 +75,8 @@ export class ConflictResolutionService {
    */
   static analyzeConflict(
     entityType: string,
-    clientData: any,
-    serverData: any,
+    clientData: Record<string, unknown>,
+    serverData: Record<string, unknown>,
     clientTimestamp: number,
     serverTimestamp: number
   ): ConflictAnalysis {
@@ -124,7 +124,7 @@ export class ConflictResolutionService {
   /**
    * Get list of fields that differ between two objects
    */
-  private static getChangedFields(obj1: any, obj2: any): string[] {
+  private static getChangedFields(obj1: Record<string, unknown>, obj2: Record<string, unknown>): string[] {
     const allKeys = new Set([...Object.keys(obj1), ...Object.keys(obj2)]);
     const changedFields: string[] = [];
 
@@ -147,8 +147,8 @@ export class ConflictResolutionService {
    */
   private static categorizeChanges(
     entityType: string,
-    clientData: any,
-    serverData: any,
+    clientData: Record<string, unknown>,
+    serverData: Record<string, unknown>,
     changedFields: string[],
     clientTimestamp: number,
     serverTimestamp: number
@@ -215,9 +215,9 @@ export class ConflictResolutionService {
    */
   private static isNonConflictingChange(
     field: string,
-    clientValue: any,
-    serverValue: any,
-    entityType: string
+    clientValue: unknown,
+    serverValue: unknown,
+    _entityType: string
   ): boolean {
     // If one is undefined/null and other has value, take the value
     if ((clientValue == null && serverValue != null) || 
@@ -260,12 +260,12 @@ export class ConflictResolutionService {
    */
   private static performSmartMerge(
     entityType: string,
-    clientData: any,
-    serverData: any,
+    clientData: Record<string, unknown>,
+    serverData: Record<string, unknown>,
     analysis: ConflictAnalysis,
     clientTimestamp: number,
     serverTimestamp: number
-  ): any {
+  ): Record<string, unknown> {
     const merged = { ...serverData }; // Start with server as base
 
     // Apply non-conflicting changes from client
@@ -313,12 +313,12 @@ export class ConflictResolutionService {
    */
   private static mergeFieldValue(
     field: string,
-    clientValue: any,
-    serverValue: any,
+    clientValue: unknown,
+    serverValue: unknown,
     entityType: string,
     clientTimestamp: number,
     serverTimestamp: number
-  ): any {
+  ): unknown {
     // Handle null/undefined
     if (clientValue == null) return serverValue;
     if (serverValue == null) return clientValue;
@@ -334,8 +334,8 @@ export class ConflictResolutionService {
       
       // Concatenate with timestamp indicator
       const clientTime = new Date(clientTimestamp).toLocaleString();
-      const serverTime = new Date(serverTimestamp).toLocaleString();
-      
+      const _serverTime = new Date(serverTimestamp).toLocaleString();
+
       return `${serverValue}\n---\n[Added ${clientTime}]: ${clientValue}`;
     }
 
@@ -353,11 +353,11 @@ export class ConflictResolutionService {
    */
   private static applyMergeRule(
     rule: MergeRule,
-    clientValue: any,
-    serverValue: any,
+    clientValue: unknown,
+    serverValue: unknown,
     clientTimestamp: number,
     serverTimestamp: number
-  ): any {
+  ): unknown {
     // Check condition if exists
     if (rule.condition && !rule.condition(clientValue, serverValue)) {
       return serverValue; // Default to server if condition not met

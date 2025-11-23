@@ -4,7 +4,7 @@ import { lazy, LazyExoticComponent, ComponentType } from 'react';
 const MOBILE_PRIORITY_ROUTES = ['Dashboard', 'Transactions', 'Accounts'];
 
 // Create optimized lazy loading for mobile
-export function lazyLoadForMobile<T extends ComponentType<any>>(
+export function lazyLoadForMobile<T extends ComponentType<unknown>>(
   importFunc: () => Promise<{ default: T }>,
   componentName: string
 ): LazyExoticComponent<T> {
@@ -37,11 +37,18 @@ export function preloadMobileCriticalRoutes() {
   
   if (isMobile) {
     // Wait for initial render to complete
-    requestIdleCallback(() => {
-      // Preload only the most critical routes
-      import('../pages/Dashboard');
-      import('../pages/Transactions');
-      import('../pages/Accounts');
-    }, { timeout: 2000 });
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => {
+        import('../pages/Dashboard');
+        import('../pages/Transactions');
+        import('../pages/Accounts');
+      }, { timeout: 2000 });
+    } else {
+      setTimeout(() => {
+        import('../pages/Dashboard');
+        import('../pages/Transactions');
+        import('../pages/Accounts');
+      }, 0);
+    }
   }
 }

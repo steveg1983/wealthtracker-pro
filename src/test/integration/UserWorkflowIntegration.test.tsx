@@ -262,11 +262,11 @@ vi.mock('../../pages/Reports', () => ({
 }));
 
 describe('User Workflow Integration Tests', () => {
-  let localStorageMock: ReturnType<typeof mockLocalStorage>;
+  let _localStorageMock: ReturnType<typeof mockLocalStorage>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorageMock = mockLocalStorage();
+    _localStorageMock = mockLocalStorage();
   });
 
   describe('New User Onboarding Workflow', () => {
@@ -281,7 +281,7 @@ describe('User Workflow Integration Tests', () => {
 
     it('handles first account creation', async () => {
       const Accounts = (await import('../../pages/Accounts')).default;
-      const { store } = renderWithProviders(<Accounts />);
+      const { store: _store } = renderWithProviders(<Accounts />);
 
       await waitFor(() => {
         expect(screen.getByText('Accounts')).toBeInTheDocument();
@@ -299,7 +299,7 @@ describe('User Workflow Integration Tests', () => {
       const testData = createTestData();
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
-      const { store } = renderWithProviders(<Dashboard />, {
+      const { store: _store } = renderWithProviders(<Dashboard />, {
         preloadedState: {
           accounts: { accounts: testData.accounts },
           transactions: { transactions: [] },
@@ -319,7 +319,7 @@ describe('User Workflow Integration Tests', () => {
       const testData = createTestData();
       const Transactions = (await import('../../pages/Transactions')).default;
       
-      const { store } = renderWithProviders(<Transactions />, {
+      const { store: _store } = renderWithProviders(<Transactions />, {
         preloadedState: {
           accounts: { accounts: testData.accounts },
           transactions: { transactions: [] },

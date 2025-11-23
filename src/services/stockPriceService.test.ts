@@ -12,9 +12,7 @@ import {
   clearQuoteCache,
   validateSymbol,
   configureStockPriceService,
-  resetStockPriceService,
-  type StockQuote,
-  type PortfolioMetrics
+  resetStockPriceService
 } from './stockPriceService';
 import { toDecimal } from '../utils/decimal';
 import { errorHandlingService } from './errorHandlingService';
@@ -91,7 +89,7 @@ describe('StockPriceService', () => {
       GBP: 1.00
     });
     
-    mockRetryWithBackoff.mockImplementation((fn, options) => fn());
+    mockRetryWithBackoff.mockImplementation((fn, _options) => fn());
     
     // Reset fetch mock to default behavior
     mockFetch.mockReset();
@@ -251,7 +249,7 @@ describe('StockPriceService', () => {
       mockRetryWithBackoff.mockImplementation(async (fn) => {
         try {
           return await fn();
-        } catch (error) {
+        } catch {
           // Try again with different endpoint
           return await fn();
         }

@@ -8,28 +8,28 @@ const LazyLineChart = lazy(() => import('./LazyLineChartComponent'));
 const LazyTreemap = lazy(() => import('./LazyTreemapComponent'));
 
 // Define minimal prop types for charts
-interface PieChartProps extends Record<string, any> {
+interface PieChartProps extends Record<string, unknown> {
   width?: number;
   height?: number;
-  data?: any[];
+  data?: unknown[];
 }
 
-interface BarChartProps extends Record<string, any> {
+interface BarChartProps extends Record<string, unknown> {
   width?: number;
   height?: number;
-  data?: any[];
+  data?: unknown[];
 }
 
-interface LineChartProps extends Record<string, any> {
+interface LineChartProps extends Record<string, unknown> {
   width?: number;
   height?: number;
-  data?: any[];
+  data?: unknown[];
 }
 
-interface TreemapProps extends Record<string, any> {
+interface TreemapProps extends Record<string, unknown> {
   width?: number;
   height?: number;
-  data?: any;
+  data?: unknown;
 }
 
 // Loading component for charts

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { ErrorBoundary } from '@sentry/react';
 import { SentryErrorBoundary } from '../lib/sentry';
 

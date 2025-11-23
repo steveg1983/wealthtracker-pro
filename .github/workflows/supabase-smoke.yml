@@ -30,3 +30,11 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run test:supabase-smoke
+
+      - name: Upload Supabase smoke log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-smoke-log
+          path: logs/supabase-smoke/latest.log
+          if-no-files-found: warn

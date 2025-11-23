@@ -85,11 +85,11 @@ function getFallbackHeight(props: unknown): number {
   return 300;
 }
 
-function createLazyChart<P extends Record<string, any>>(LazyComponent: React.LazyExoticComponent<ComponentType<P>>) {
+function createLazyChart<P extends Record<string, unknown>>(LazyComponent: React.LazyExoticComponent<ComponentType<P>>) {
   return function LazyLoadedChart(props: P) {
     return (
       <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
-        <LazyComponent {...(props as any)} />
+        <LazyComponent {...props} />
       </Suspense>
     );
   };

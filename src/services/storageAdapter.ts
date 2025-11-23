@@ -1,6 +1,5 @@
 import { encryptedStorage, STORAGE_KEYS } from './encryptedStorageService';
 import { indexedDBService } from './indexedDBService';
-import type { ExportableData } from '../types/export';
 
 // Re-export STORAGE_KEYS for external use
 export { STORAGE_KEYS } from './encryptedStorageService';
@@ -55,12 +54,12 @@ export class SecureStorageAdapter implements StorageAdapter {
     this.sessionStorageRef = options.sessionStorage ?? defaultSessionStorage;
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
     this.clearIntervalFn =
       options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
     this.setTimeoutFn =
       options.setTimeoutFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setTimeout(handler, timeout, ...args));
+      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setTimeout(handler, timeout, ...args));
     this.clearTimeoutFn =
       options.clearTimeoutFn ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
     const defaultLogger = typeof console !== 'undefined'
@@ -187,7 +186,7 @@ export class SecureStorageAdapter implements StorageAdapter {
         STORAGE_KEYS.GOALS,
       ];
       
-      const isFinancialData = sensitiveKeys.includes(key as any) || 
+      const isFinancialData = sensitiveKeys.includes(key) || 
                               key.includes('transaction') || 
                               key.includes('account') ||
                               key.includes('budget') ||
@@ -275,12 +274,12 @@ export class SecureStorageAdapter implements StorageAdapter {
   }
 
   // Export data for backup
-  async exportData(): Promise<Record<string, any>> {
+  async exportData(): Promise<Record<string, unknown>> {
     return await encryptedStorage.exportData();
   }
 
   // Import data from backup
-  async importData(data: Record<string, any>): Promise<void> {
+  async importData(data: Record<string, unknown>): Promise<void> {
     await encryptedStorage.importData(data, { encrypted: true });
   }
 
@@ -298,10 +297,13 @@ export const storageAdapter = new SecureStorageAdapter();
 
 // Hook for React components
 import { useEffect, useState } from 'react';
+import { createScopedLogger } from '../loggers/scopedLogger';
+const uiStorageLogger = createScopedLogger('useSecureStorage');
 
 export function useSecureStorage<T>(key: string, initialValue: T): [T, (value: T) => Promise<void>, boolean] {
   const [value, setValue] = useState<T>(initialValue);
   const [isLoading, setIsLoading] = useState(true);
+  const isReady = storageAdapter.isReady;
 
   useEffect(() => {
     const loadValue = async () => {
@@ -311,16 +313,16 @@ export function useSecureStorage<T>(key: string, initialValue: T): [T, (value: T
           setValue(stored);
         }
       } catch (error) {
-        console.error(`Error loading ${key}:`, error);
+        uiStorageLogger.error(`Error loading ${key}`, error as Error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (storageAdapter.isReady) {
+    if (isReady) {
       loadValue();
     }
-  }, [key, storageAdapter.isReady]);
+  }, [key, isReady]);
 
   const setStoredValue = async (newValue: T) => {
     setValue(newValue);

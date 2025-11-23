@@ -22,23 +22,23 @@ describe('useLocalStorage', () => {
   });
 
   it('initializes with correct default state', () => {
-    const { result } = renderHook(() => useLocalStorage());
-    
+    const { result } = renderHook(() => useLocalStorage('test-key', 'initial-value'));
+
     expect(result.current).toBeDefined();
   });
 
   it('updates state correctly', () => {
-    const { result } = renderHook(() => useLocalStorage());
-    
+    const { result: _result } = renderHook(() => useLocalStorage('test-key-2', 'initial-value'));
+
     act(() => {
       // Trigger state update
     });
-    
+
     // Assert state change
   });
 
   it('handles cleanup on unmount', () => {
-    const { unmount } = renderHook(() => useLocalStorage());
+    const { unmount } = renderHook(() => useLocalStorage('test-key-3', 'initial-value'));
     
     unmount();
     

@@ -1,4 +1,4 @@
-import { Transaction, Account, Budget } from '../types';
+import { Transaction, Budget } from '../types';
 import { Decimal, toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
@@ -122,8 +122,7 @@ export class MobileService {
           : Promise.resolve('default'),
       show: (title, opts) => {
         if (globalNotification && globalNotification.permission === 'granted') {
-          // eslint-disable-next-line no-new
-          new globalNotification(title, opts);
+          void new globalNotification(title, opts);
         }
       }
     };
@@ -265,7 +264,7 @@ export class MobileService {
     this.saveOfflineData();
   }
 
-  private async simulateSync(transaction: OfflineTransaction): Promise<void> {
+  private async simulateSync(_transaction: OfflineTransaction): Promise<void> {
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 500));
     

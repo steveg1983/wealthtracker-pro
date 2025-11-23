@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
-import { ReactNode } from 'react';
+import { renderHook } from '@testing-library/react';
 import { useCurrencyDecimal } from './useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal as formatDecimalHelper } from '../utils/decimal-format';

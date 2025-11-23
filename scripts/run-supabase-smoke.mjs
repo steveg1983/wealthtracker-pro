@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, statSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 
 const rootDir = process.cwd();
 const searchRoots = ['src/test', 'src/tests'];
 const supabaseTests = [];
 const matcher = /supabase/i;
+const logDir = path.join(rootDir, 'logs', 'supabase-smoke');
+const timestamp = new Date();
 
 function loadEnvFile(filePath) {
   try {
@@ -77,6 +79,13 @@ for (const relRoot of searchRoots) {
 
 if (supabaseTests.length === 0) {
   console.log('[supabase-smoke] No supabase-specific test files detected under src/test or src/tests. Skipping run.');
+  await writeLog({
+    status: 'SKIPPED',
+    note: 'No supabase-specific test files detected.',
+    stdout: '',
+    stderr: '',
+    tests: []
+  });
   process.exit(0);
 }
 
@@ -90,19 +99,80 @@ const missingKeys = requiredKeys.filter((key) => !process.env[key]);
 if (missingKeys.length > 0) {
   console.error('[supabase-smoke] Missing required env vars:', missingKeys.join(', '));
   console.error('[supabase-smoke] Provide them in your shell or .env.test.local before running.');
+  await writeLog({
+    status: 'FAILED',
+    note: `Missing env vars: ${missingKeys.join(', ')}`,
+    stdout: '',
+    stderr: '',
+    tests: []
+  });
   process.exit(1);
 }
 
 process.env.RUN_SUPABASE_REAL_TESTS = 'true';
 
-const result = spawnSync(
-  'npx',
-  ['vitest', 'run', '--environment', 'node', ...supabaseTests],
-  {
-    stdio: 'inherit',
-    shell: false,
-    env: { ...process.env, RUN_SUPABASE_REAL_TESTS: 'true' },
-  }
-);
+const args = ['vitest', 'run', '--environment', 'node', ...supabaseTests];
+console.log(`[supabase-smoke] Running ${supabaseTests.length} test files...`);
+const { code, stdout, stderr } = await runVitest(args);
 
-process.exit(result.status ?? 1);
+await writeLog({
+  status: code === 0 ? 'PASSED' : 'FAILED',
+  stdout,
+  stderr,
+  tests: supabaseTests
+});
+
+process.exit(code ?? 1);
+
+async function runVitest(args) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn('npx', args, {
+      env: { ...process.env, RUN_SUPABASE_REAL_TESTS: 'true' },
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      process.stdout.write(text);
+    });
+
+    child.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      process.stderr.write(text);
+    });
+
+    child.on('error', (error) => reject(error));
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+async function writeLog({ status, note = '', stdout = '', stderr = '', tests }) {
+  try {
+    mkdirSync(logDir, { recursive: true });
+    const iso = timestamp.toISOString();
+    const safe = iso.replace(/[:.]/g, '-');
+    const logPath = path.join(logDir, `${safe}_supabase-smoke.log`);
+    const latestPath = path.join(logDir, 'latest.log');
+    const contents = [
+      `Supabase Smoke Run`,
+      `Timestamp: ${iso}`,
+      `Status: ${status}`,
+      note ? `Note: ${note}` : '',
+      `Test files: ${tests.length}`,
+      '',
+      stdout ? `STDOUT:\n${stdout.trim()}\n` : '',
+      stderr ? `STDERR:\n${stderr.trim()}\n` : ''
+    ].filter(Boolean).join('\n');
+    writeFileSync(logPath, contents, 'utf8');
+    writeFileSync(latestPath, contents, 'utf8');
+    console.log(`[supabase-smoke] log written to ${logPath}`);
+  } catch (error) {
+    console.warn('[supabase-smoke] Failed to write log:', error.message);
+  }
+}

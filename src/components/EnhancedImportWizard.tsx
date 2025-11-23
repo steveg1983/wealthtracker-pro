@@ -20,6 +20,7 @@ import {
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface EnhancedImportWizardProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ interface ImportSummary {
 
 export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImportWizardProps): React.JSX.Element {
   const { accounts, transactions, addTransaction, categories, hasTestData, clearAllData } = useApp();
+  const logger = useMemo(() => createScopedLogger('EnhancedImportWizard'), []);
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('files');
   const [files, setFiles] = useState<FileInfo[]>([]);
@@ -194,7 +196,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                   imported++;
                 } else if (!isDuplicate) {
                   // Skip transactions with missing required fields
-                  console.warn('Skipping transaction with missing required fields:', transaction);
+                  logger.warn?.('Skipping transaction with missing required fields', transaction);
                 } else {
                   duplicates++;
                 }
@@ -255,7 +257,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
           successfulFiles++;
           
         } catch (error) {
-          console.error(`Error processing file ${fileInfo.name}:`, error);
+          logger.error(`Error processing file ${fileInfo.name}`, error as Error);
           setFiles(prev => prev.map((f, index) => 
             index === i ? { 
               ...f, 
