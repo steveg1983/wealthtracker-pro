@@ -64,6 +64,7 @@ export interface SyncServiceOptions {
   setTimeoutFn?: typeof setTimeout;
   clearTimeoutFn?: typeof clearTimeout;
   now?: () => number;
+  logger?: Pick<Console, 'log' | 'warn' | 'error'>;
 }
 
 const isStoredQueueItem = (value: unknown): value is { operation: SyncOperation } => {
@@ -102,6 +103,7 @@ export class SyncService {
   private readonly setTimeoutFn: typeof setTimeout;
   private readonly clearTimeoutFn: typeof clearTimeout;
   private readonly now: () => number;
+  private readonly logger: Pick<Console, 'log' | 'warn' | 'error'>;
 
   constructor(options: SyncServiceOptions = {}) {
     const defaultStorage = typeof window !== 'undefined' ? window.localStorage : null;
@@ -113,18 +115,10 @@ export class SyncService {
     this.authTokenProvider =
       options.authTokenProvider ??
       (() => this.storage?.getItem?.('authToken') ?? null);
-    this.setIntervalFn =
-      options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
-    this.clearIntervalFn =
-      options.clearIntervalFn ??
-      ((id: TimerHandle) => clearInterval(id));
-    this.setTimeoutFn =
-      options.setTimeoutFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setTimeout(handler, timeout, ...args));
-    this.clearTimeoutFn =
-      options.clearTimeoutFn ??
-      ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+    this.setIntervalFn = options.setIntervalFn ?? setInterval;
+    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval;
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
     this.now = options.now ?? (() => Date.now());
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     this.logger = {

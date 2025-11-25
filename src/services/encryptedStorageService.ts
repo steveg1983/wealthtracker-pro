@@ -6,7 +6,7 @@ import type { StorageOptions, StoredData, StorageItem, BulkStorageItem, StorageE
 type StorageReader = Pick<Storage, 'getItem'>;
 type StorageWriter = Pick<Storage, 'setItem' | 'removeItem'>;
 type Logger = Pick<Console, 'error' | 'warn'>;
-type _NavigatorStorage = Pick<NavigatorStorage, 'estimate'>;
+type _NavigatorStorage = Pick<StorageManager, 'estimate'>;
 
 export interface EncryptedStorageServiceOptions {
   sessionStorage?: StorageWriter & StorageReader | null;

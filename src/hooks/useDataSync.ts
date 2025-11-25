@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { syncService, SyncStatus, SyncConflict } from '../services/syncService';
+import { syncService, SyncStatus, SyncConflict, SyncPayload } from '../services/syncService';
 import { Transaction, Account } from '../types';
 
 interface DataSyncHook {
@@ -54,9 +54,9 @@ export function useDataSync(): DataSyncHook {
 
   // Listen for remote updates
   useEffect(() => {
-    const handleRemoteCreate = async (event: { entity: string; data: unknown }) => {
-      const { entity, data } = event;
-      
+    const handleRemoteCreate = async (payload?: unknown) => {
+      const { entity, data } = payload as { entity: string; data: unknown };
+
       switch (entity) {
         case 'transaction':
           await addTransaction(data as Transaction);
@@ -68,23 +68,23 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteUpdate = async (event: { entity: string; entityId: string; data: unknown }) => {
-      const { entity, entityId, data } = event;
-      
+    const handleRemoteUpdate = async (payload?: unknown) => {
+      const { entity, entityId, data } = payload as { entity: string; entityId: string; data: unknown };
+
       switch (entity) {
         case 'transaction':
-          await updateTransaction(entityId, data);
+          await updateTransaction(entityId, data as Partial<Transaction>);
           break;
         case 'account':
-          await updateAccount(entityId, data);
+          await updateAccount(entityId, data as Partial<Account>);
           break;
         // Add more entities as needed
       }
     };
 
-    const handleRemoteDelete = async (event: { entity: string; entityId: string }) => {
-      const { entity, entityId } = event;
-      
+    const handleRemoteDelete = async (payload?: unknown) => {
+      const { entity, entityId } = payload as { entity: string; entityId: string };
+
       switch (entity) {
         case 'transaction':
           await deleteTransaction(entityId);
@@ -96,16 +96,16 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteMerge = async (event: { entity: string; entityId: string; data: unknown }) => {
-      const { entity, entityId, data } = event;
-      
+    const handleRemoteMerge = async (payload?: unknown) => {
+      const { entity, entityId, data } = payload as { entity: string; entityId: string; data: unknown };
+
       // Handle merged data
       switch (entity) {
         case 'transaction':
-          await updateTransaction(entityId, data);
+          await updateTransaction(entityId, data as Partial<Transaction>);
           break;
         case 'account':
-          await updateAccount(entityId, data);
+          await updateAccount(entityId, data as Partial<Account>);
           break;
         // Add more entities as needed
       }
@@ -131,7 +131,7 @@ export function useDataSync(): DataSyncHook {
     entityId: string,
     data: unknown
   ) => {
-    syncService.queueOperation(type, entity as 'transaction' | 'account' | 'budget' | 'goal', entityId, data);
+    syncService.queueOperation(type, entity as 'transaction' | 'account' | 'budget' | 'goal', entityId, data as SyncPayload);
   }, []);
 
   // Auto-queue local changes
@@ -167,7 +167,7 @@ export function useDataSync(): DataSyncHook {
     resolution: 'local' | 'remote' | 'merge',
     mergedData?: unknown
   ) => {
-    syncService.resolveConflict(conflictId, resolution, mergedData);
+    syncService.resolveConflict(conflictId, resolution, mergedData as SyncPayload | undefined);
     setConflicts(syncService.getConflicts());
   }, []);
 
@@ -233,8 +233,8 @@ export function useAutoSync(
       }
 
       // Detect changes
-      const changes = detectChanges(previousData, currentData);
-      
+      const changes = detectChanges(previousData as { id: string }[], currentData as { id: string }[]);
+
       changes.forEach(change => {
         queueChange(change.type, entityType, change.id, change.data);
       });

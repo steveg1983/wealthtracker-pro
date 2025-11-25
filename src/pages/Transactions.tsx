@@ -123,6 +123,59 @@ const Transactions = React.memo(function Transactions() {
     setStartWidth(columnWidths[column as keyof typeof columnWidths]);
   }, [columnWidths]);
 
+  // Column configuration with display names and properties (defined before use in callbacks)
+  const columnConfig = useMemo(() => ({
+    date: {
+      label: 'Date',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'pl-7 pr-6',
+      hidden: ''
+    },
+    reconciled: {
+      label: 'R',
+      sortable: false,
+      className: 'text-center',
+      cellClassName: 'px-2',
+      hidden: ''
+    },
+    account: {
+      label: 'Account',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'px-6',
+      hidden: ''
+    },
+    description: {
+      label: 'Description',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'px-6',
+      hidden: ''
+    },
+    category: {
+      label: 'Category',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'px-6',
+      hidden: 'hidden sm:table-cell'
+    },
+    amount: {
+      label: 'Amount',
+      sortable: true,
+      className: 'text-right',
+      cellClassName: 'px-6',
+      hidden: ''
+    },
+    actions: {
+      label: 'Actions',
+      sortable: false,
+      className: 'text-right',
+      cellClassName: 'pl-6 pr-7',
+      hidden: ''
+    }
+  }), []);
+
   // Handle column drag start
   const handleDragStart = useCallback((column: string, e: React.DragEvent) => {
     setDraggedColumn(column);
@@ -292,59 +345,6 @@ const Transactions = React.memo(function Transactions() {
 
   // Get filtered account name for display
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;
-
-  // Column configuration with display names and properties
-  const columnConfig = useMemo(() => ({
-    date: {
-      label: 'Date',
-      sortable: true,
-      className: 'text-left',
-      cellClassName: 'pl-7 pr-6',
-      hidden: ''
-    },
-    reconciled: {
-      label: 'R',
-      sortable: false,
-      className: 'text-center',
-      cellClassName: 'px-2',
-      hidden: ''
-    },
-    account: {
-      label: 'Account',
-      sortable: true,
-      className: 'text-left',
-      cellClassName: 'px-6',
-      hidden: ''
-    },
-    description: {
-      label: 'Description',
-      sortable: true,
-      className: 'text-left',
-      cellClassName: 'px-6',
-      hidden: ''
-    },
-    category: {
-      label: 'Category',
-      sortable: true,
-      className: 'text-left',
-      cellClassName: 'px-6',
-      hidden: 'hidden sm:table-cell'
-    },
-    amount: {
-      label: 'Amount',
-      sortable: true,
-      className: 'text-right',
-      cellClassName: 'px-6',
-      hidden: ''
-    },
-    actions: {
-      label: 'Actions',
-      sortable: false,
-      className: 'text-right',
-      cellClassName: 'pl-6 pr-7',
-      hidden: ''
-    }
-  }), []);
 
   // Render table header cell
   const renderHeaderCell = useCallback((columnKey: string) => {

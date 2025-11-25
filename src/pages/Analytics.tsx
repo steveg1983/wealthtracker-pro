@@ -167,24 +167,24 @@ export default function Analytics(): React.JSX.Element {
     // Execute query against data
     let results: QueryResult[] = [];
 
-    const cloneRecords = <T extends object>(items: T[]): QueryResult[] =>
+    const cloneRecords = (items: Record<string, unknown>[]): QueryResult[] =>
       items.map(item => ({ ...item }));
     
     switch (query.dataSource) {
       case 'transactions':
-        results = cloneRecords(transactions);
+        results = cloneRecords(transactions as unknown as Record<string, unknown>[]);
         break;
       case 'accounts':
-        results = cloneRecords(accounts);
+        results = cloneRecords(accounts as unknown as Record<string, unknown>[]);
         break;
       case 'budgets':
-        results = cloneRecords(budgets);
+        results = cloneRecords(budgets as unknown as Record<string, unknown>[]);
         break;
       case 'goals':
-        results = cloneRecords(goals);
+        results = cloneRecords(goals as unknown as Record<string, unknown>[]);
         break;
       case 'investments':
-        results = investments ? cloneRecords(investments) : [];
+        results = investments ? cloneRecords(investments as unknown as Record<string, unknown>[]) : [];
         break;
     }
     
@@ -546,9 +546,9 @@ export default function Analytics(): React.JSX.Element {
                     </h3>
                     <div className="ag-theme-alpine-dark" style={{ height: 400 }}>
                       <Suspense fallback={<div className="flex items-center justify-center h-full">Loading grid...</div>}>
-                        <AgGridReact<QueryResult>
+                        <AgGridReact
                           rowData={selectedData}
-                          columnDefs={Object.keys(selectedData[0] || {}).map((key): ColDef<QueryResult> => ({
+                          columnDefs={Object.keys(selectedData[0] || {}).map((key): ColDef => ({
                             field: key,
                             sortable: true,
                             filter: true,

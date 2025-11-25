@@ -173,7 +173,7 @@ export class PerformanceService {
     }
 
     // Measure Interaction to Next Paint (INP)
-    if (this.windowRef && 'PerformanceEventTiming' in this.windowRef) {
+    if (this.windowRef && 'PerformanceEventTiming' in this.windowRef && this.windowRef.PerformanceObserver) {
       let maxDuration = 0;
       const inpObserver = new this.windowRef.PerformanceObserver((list) => {
         list.getEntries().forEach((entry) => {
@@ -222,13 +222,32 @@ export class PerformanceService {
 
   // Measure custom metrics
   private measureCustomMetrics() {
+    // Helper to safely call performance.now() with proper context
+    const getNow = (): number => {
+      if (this.performanceRef?.now) {
+        // Use call() to preserve proper 'this' context for native API
+        return this.performanceRef.now.call(this.performanceRef);
+      }
+      return Date.now();
+    };
+
+    // Helper to safely call requestAnimationFrame with proper context
+    const safeRAF = (callback: FrameRequestCallback): void => {
+      if (this.windowRef && 'requestAnimationFrame' in this.windowRef) {
+        // Call directly on window to preserve context
+        (this.windowRef as Window).requestAnimationFrame(callback);
+      } else {
+        setTimeout(() => callback(Date.now()), 16);
+      }
+    };
+
     // Time to Interactive (approximation)
     if (this.documentRef?.readyState === 'complete') {
-      const tti = this.performanceRef?.now ? this.performanceRef.now() : Date.now();
+      const tti = getNow();
       this.recordMetric('TTI', tti, 'FCP'); // Use FCP thresholds
     } else {
       this.windowRef?.addEventListener?.('load', () => {
-        const tti = this.performanceRef?.now ? this.performanceRef.now() : Date.now();
+        const tti = getNow();
         this.recordMetric('TTI', tti, 'FCP');
       });
     }
@@ -245,11 +264,11 @@ export class PerformanceService {
     }
 
     // Frame rate monitoring
-    let lastTime = performance.now();
+    let lastTime = getNow();
     let frames = 0;
     const checkFPS = (): void => {
       frames++;
-      const currentTime = this.performanceRef?.now ? this.performanceRef.now() : Date.now();
+      const currentTime = getNow();
       if (currentTime >= lastTime + 1000) {
         const fps = Math.round((frames * 1000) / (currentTime - lastTime));
         if (fps < 30) {
@@ -259,10 +278,10 @@ export class PerformanceService {
         lastTime = currentTime;
       }
       if (this.isInitialized) {
-        this.requestAnimationFrameFn(checkFPS);
+        safeRAF(checkFPS);
       }
     };
-    this.requestAnimationFrameFn(checkFPS);
+    safeRAF(checkFPS);
   }
 
   // Setup resource timing observer

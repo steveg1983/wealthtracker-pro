@@ -30,7 +30,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.logger.error('Error caught by boundary', error, 'ErrorBoundary');
+    this.logger.error('Error caught by boundary', { error, context: 'ErrorBoundary' });
     this.setState({ errorInfo });
     
     // Report to Sentry

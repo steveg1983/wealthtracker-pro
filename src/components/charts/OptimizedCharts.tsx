@@ -85,11 +85,15 @@ function getFallbackHeight(props: unknown): number {
   return 300;
 }
 
-function createLazyChart<P extends Record<string, unknown>>(LazyComponent: React.LazyExoticComponent<ComponentType<P>>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createLazyChart<P extends Record<string, any>>(LazyComponent: React.LazyExoticComponent<ComponentType<P>>) {
   return function LazyLoadedChart(props: P) {
+    // Cast to any to work around complex generic type inference issues with lazy components
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const LazyComp = LazyComponent as React.ComponentType<any>;
     return (
       <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
-        <LazyComponent {...props} />
+        <LazyComp {...props} />
       </Suspense>
     );
   };

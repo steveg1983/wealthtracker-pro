@@ -41,7 +41,7 @@ export function useOptimisticUpdate<T extends { id: string }>(
   } = options;
 
   const [updates, setUpdates] = useState<Map<string, OptimisticUpdate<T>>>(new Map());
-  const [_isProcessing, _setIsProcessing] = useState(false);
+  const [isProcessing, _setIsProcessing] = useState(false);
   const retryTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Cleanup timeouts on unmount

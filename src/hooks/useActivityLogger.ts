@@ -118,7 +118,7 @@ export function useActivityLogger() {
 
   // Track sync events
   useEffect(() => {
-    const handleSyncComplete = (_event: CustomEvent) => {
+    const handleSyncComplete = (_event: Event) => {
       logActivity({
         type: 'sync',
         title: 'Data Synchronized',
@@ -126,7 +126,7 @@ export function useActivityLogger() {
       });
     };
 
-    const handleSyncError = (_event: CustomEvent) => {
+    const handleSyncError = (_event: Event) => {
       logActivity({
         type: 'system',
         title: 'Sync Error',
@@ -134,12 +134,12 @@ export function useActivityLogger() {
       });
     };
 
-    window.addEventListener('sync-complete' as keyof WindowEventMap, handleSyncComplete);
-    window.addEventListener('sync-error' as keyof WindowEventMap, handleSyncError);
+    window.addEventListener('sync-complete', handleSyncComplete);
+    window.addEventListener('sync-error', handleSyncError);
 
     return () => {
-      window.removeEventListener('sync-complete' as keyof WindowEventMap, handleSyncComplete);
-      window.removeEventListener('sync-error' as keyof WindowEventMap, handleSyncError);
+      window.removeEventListener('sync-complete', handleSyncComplete);
+      window.removeEventListener('sync-error', handleSyncError);
     };
   }, []);
 

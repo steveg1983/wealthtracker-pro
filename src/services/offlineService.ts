@@ -330,8 +330,9 @@ export class OfflineService {
     
     // Update local sync status
     if (item.entity === 'transaction' && item.type !== 'delete') {
+      const transactionData = item.data as Transaction & { syncStatus?: string };
       await this.db!.put('transactions', {
-        ...item.data,
+        ...transactionData,
         syncStatus: 'synced',
       });
     }

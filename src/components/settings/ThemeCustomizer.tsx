@@ -7,12 +7,18 @@ interface ThemeCustomizerProps {
   onClose?: () => void;
 }
 
+interface CustomTheme {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.Element {
   const { theme, setTheme, setThemeByMode } = useTheme();
   type ThemeMode = 'light' | 'dark' | 'auto' | 'scheduled';
   const [selectedMode, setSelectedMode] = useState<ThemeMode>('light');
   const [selectedColor, setSelectedColor] = useState('blue');
-  const [customThemes] = useState<unknown[]>([]);
+  const [customThemes] = useState<CustomTheme[]>([]);
   
   useEffect(() => {
     // Determine current mode and color from theme ID

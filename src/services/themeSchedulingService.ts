@@ -95,11 +95,8 @@ export class ThemeSchedulingService {
 
     this.storage = options.localStorage ?? defaultStorage;
     this.documentRef = options.documentRef ?? defaultDocument;
-    this.setIntervalFn =
-      options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
-    this.clearIntervalFn =
-      options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+    this.setIntervalFn = options.setIntervalFn ?? setInterval;
+    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval;
     this.dateFactory = options.dateFactory ?? (() => new Date());
     const noop = () => {};
     const globalLogger = typeof console !== 'undefined' ? console : undefined;
@@ -609,7 +606,7 @@ export class ThemeSchedulingService {
     return this.dateFactory();
   }
 
-  private getClassList(): DOMTokenList | null {
+  private getClassList() {
     return this.documentRef?.documentElement?.classList ?? null;
   }
 

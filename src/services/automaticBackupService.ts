@@ -1,13 +1,15 @@
 import { exportService } from './exportService';
 import type { ExportOptions } from './exportService';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import type { Transaction, Account, Investment, Budget } from '../types';
 
 type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type TimerId = ReturnType<typeof setInterval>;
 
 export interface AutomaticBackupServiceOptions {
   storage?: StorageAdapter | null;
-  setIntervalFn?: typeof setInterval;
-  clearIntervalFn?: typeof clearInterval;
+  setIntervalFn?: (handler: () => void, timeout: number) => TimerId;
+  clearIntervalFn?: (id: TimerId) => void;
   dateNow?: () => number;
   dateFactory?: () => Date;
   notificationFactory?: (title: string, options?: NotificationOptions) => void;
@@ -32,23 +34,23 @@ export class AutomaticBackupService {
   private readonly BACKUP_HISTORY_KEY = 'money_management_backup_history';
   private readonly MAX_HISTORY_ENTRIES = 30;
   private storage: StorageAdapter | null;
-  private readonly setIntervalFn: typeof setInterval;
-  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly setIntervalFn: (handler: () => void, timeout: number) => TimerId;
+  private readonly clearIntervalFn: (id: TimerId) => void;
   private readonly dateNow: () => number;
   private readonly dateFactory: () => Date;
   private readonly notificationFactory?: (title: string, options?: NotificationOptions) => void;
   private readonly navigatorRef?: Navigator | null;
   private readonly windowRef?: Window | null;
   private readonly permissionsQuery?: (descriptor: PermissionDescriptor) => Promise<PermissionStatus>;
-  private fallbackInterval?: ReturnType<typeof setInterval>;
+  private fallbackInterval?: TimerId;
   private readonly logger = createScopedLogger('AutomaticBackupService');
 
   constructor(options: AutomaticBackupServiceOptions = {}) {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
-    this.clearIntervalFn = options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+      ((handler: () => void, timeout: number) => setInterval(handler, timeout));
+    this.clearIntervalFn = options.clearIntervalFn ?? ((id: TimerId) => clearInterval(id));
     this.dateNow = options.dateNow ?? (() => Date.now());
     this.dateFactory = options.dateFactory ?? (() => new Date());
     this.notificationFactory = options.notificationFactory;
@@ -285,12 +287,13 @@ export class AutomaticBackupService {
       format: 'csv',
     };
     
+    const typedData = data as { transactions?: Transaction[]; accounts?: Account[]; investments?: Investment[]; budgets?: Budget[] };
     const csvData = await exportService.exportData(
       {
-        transactions: data.transactions || [],
-        accounts: data.accounts || [],
-        investments: data.investments || [],
-        budgets: data.budgets || [],
+        transactions: typedData.transactions || [],
+        accounts: typedData.accounts || [],
+        investments: typedData.investments || [],
+        budgets: typedData.budgets || [],
       },
       options
     );
@@ -420,10 +423,11 @@ export class AutomaticBackupService {
 
   private sendBackupNotification(success: boolean, error?: unknown): void {
     const title = success ? 'Backup Completed' : 'Backup Failed';
+    const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : 'Unknown error');
     const options: NotificationOptions = {
       body: success
         ? 'Your financial data has been backed up successfully.'
-        : `Backup failed: ${error?.message || 'Unknown error'}`,
+        : `Backup failed: ${errorMessage}`,
       icon: '/icon-192.png',
       tag: 'backup-notification'
     };

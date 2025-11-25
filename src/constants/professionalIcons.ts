@@ -59,7 +59,15 @@ export type ProfessionalIconName =
   | 'chevronDown';
 
 // Mapping to actual icon components (placeholder for now)
-export type ProfessionalIconComponent = ComponentType | null;
+export interface IconProps {
+  size?: number;
+  stroke?: number;
+  color?: string;
+  className?: string;
+  onClick?: () => void;
+  'aria-label'?: string;
+}
+export type ProfessionalIconComponent = ComponentType<IconProps> | null;
 
 export const iconMap: Record<ProfessionalIconName, ProfessionalIconComponent> = {
   dashboard: null,

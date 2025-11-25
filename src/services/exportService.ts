@@ -528,7 +528,7 @@ export class ExportService {
           if ('accountId' in item && typeof item.accountId === 'string') {
             key = item.accountId;
           } else {
-            const recordItem = item as Record<string, unknown>;
+            const recordItem = item as unknown as Record<string, unknown>;
             const accountValue = recordItem.account;
             key = typeof accountValue === 'string' ? accountValue : 'Unknown';
           }
@@ -568,12 +568,12 @@ export class ExportService {
   private arrayToCSV(data: ExportableData[]): string {
     if (data.length === 0) return '';
 
-    const headers = Object.keys(data[0] as Record<string, unknown>);
+    const headers = Object.keys(data[0] as unknown as Record<string, unknown>);
     const csvRows = [
       headers.join(','),
-      ...data.map(row => 
+      ...data.map(row =>
         headers.map(header => {
-          const record = row as Record<string, unknown>;
+          const record = row as unknown as Record<string, unknown>;
           const value = record[header];
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
@@ -793,10 +793,9 @@ NEWFILEUID:${now}
       case 'csv': {
         // CSV can only export one type at a time, prioritize by what's available
         const csvData =
-          (data.transactions as ExportableData[] | undefined) ||
-          (data.accounts as ExportableData[] | undefined) ||
-          (data.investments as ExportableData[] | undefined) ||
-          (data.budgets as ExportableData[] | undefined) ||
+          data.transactions ||
+          data.accounts ||
+          data.investments ||
           [];
         return this.exportToCSV(csvData, options);
       }

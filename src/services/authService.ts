@@ -33,11 +33,11 @@ export class AuthService {
       email: clerkUser.primaryEmailAddress?.emailAddress || '',
       name: clerkUser.fullName || undefined,
       imageUrl: clerkUser.imageUrl,
-      createdAt: new Date(clerkUser.createdAt as number),
-      lastSignIn: new Date((clerkUser.lastSignInAt || clerkUser.createdAt) as number),
+      createdAt: new Date(clerkUser.createdAt as unknown as number),
+      lastSignIn: new Date((clerkUser.lastSignInAt || clerkUser.createdAt) as unknown as number),
       emailVerified: clerkUser.primaryEmailAddress?.verification?.status === 'verified',
       hasPasskey: Array.isArray((clerkUser as unknown as { passkeyUsernames?: unknown }).passkeyUsernames) &&
-        (clerkUser as unknown as { passkeyUsernames?: unknown[] }).passkeyUsernames?.length > 0,
+        ((clerkUser as unknown as { passkeyUsernames?: unknown[] }).passkeyUsernames?.length ?? 0) > 0,
       hasMFA: clerkUser.totpEnabled || clerkUser.backupCodeEnabled || clerkUser.twoFactorEnabled
     };
   }

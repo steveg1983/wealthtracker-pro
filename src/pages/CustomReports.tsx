@@ -24,7 +24,7 @@ export default function CustomReports(): React.JSX.Element {
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingReport, setEditingReport] = useState<CustomReport | undefined>();
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
-  const [_generatedData, _setGeneratedData] = useState<unknown>(null);
+  const [_generatedData, setGeneratedData] = useState<unknown>(null);
 
   useEffect(() => {
     loadReports();

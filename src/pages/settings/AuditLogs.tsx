@@ -23,14 +23,6 @@ export default function AuditLogs() {
     search: ''
   });
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [logs, filters, applyFilters]);
-
   const loadLogs = () => {
     const auditLogs = securityService.getAuditLogs();
     setLogs(auditLogs);
@@ -74,6 +66,14 @@ export default function AuditLogs() {
 
     setFilteredLogs(filtered);
   }, [filters, logs]);
+
+  useEffect(() => {
+    loadLogs();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [logs, filters, applyFilters]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -339,13 +339,13 @@ export default function AuditLogs() {
 
         {/* Logs Table */}
         <div style={{ height: '600px' }}>
-          <VirtualizedTable<AuditLog>
+          <VirtualizedTable
             items={filteredLogs}
             columns={columns}
-            getItemKey={(log) => log.id}
+            getItemKey={(log: AuditLog) => log.id}
             rowHeight={80}
             emptyMessage={
-              logs.length === 0 
+              logs.length === 0
                 ? 'No activities have been logged yet'
                 : 'Try adjusting your filters to see more results'
             }

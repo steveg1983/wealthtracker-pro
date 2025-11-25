@@ -3,7 +3,8 @@ import { Search, X, Filter, Calendar, DollarSign, Tag, FileText } from 'lucide-r
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
 // Simple debounce implementation to avoid lodash type issues
-function debounce<T extends (...args: unknown[]) => unknown>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function debounce<T extends (...args: any[]) => void>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) & { cancel: () => void } {

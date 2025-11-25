@@ -35,11 +35,12 @@ export const useMobileOptimizations = (): MobileOptimizations => {
     const shouldReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Determine if we should lazy load based on device and connection
-    const shouldLazyLoad = isMobile || isSlowConnection;
+    const slowConnection = isSlowConnection ?? false;
+    const shouldLazyLoad = isMobile || slowConnection;
 
     setOptimizations({
       isMobile,
-      isSlowConnection: !!isSlowConnection,
+      isSlowConnection: slowConnection,
       shouldReduceMotion,
       shouldLazyLoad
     });

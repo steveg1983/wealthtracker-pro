@@ -1,10 +1,12 @@
 import { lazy, ComponentType, LazyExoticComponent } from 'react';
 
-export interface PreloadableComponent<T extends ComponentType<unknown>> extends LazyExoticComponent<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface PreloadableComponent<T extends ComponentType<any>> extends LazyExoticComponent<T> {
   preload: () => Promise<{ default: T }>;
 }
 
-export function lazyWithPreload<T extends ComponentType<unknown>>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function lazyWithPreload<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ): PreloadableComponent<T> {
   const Component = lazy(factory) as PreloadableComponent<T>;
@@ -13,7 +15,8 @@ export function lazyWithPreload<T extends ComponentType<unknown>>(
 }
 
 // Preload a component when the user hovers over a link
-export function preloadOnHover<T extends ComponentType<unknown>>(component: PreloadableComponent<T>): { onMouseEnter: () => void; onTouchStart: () => void } {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function preloadOnHover<T extends ComponentType<any>>(component: PreloadableComponent<T>): { onMouseEnter: () => void; onTouchStart: () => void } {
   return {
     onMouseEnter: () => component.preload(),
     onTouchStart: () => component.preload(),
@@ -21,7 +24,8 @@ export function preloadOnHover<T extends ComponentType<unknown>>(component: Prel
 }
 
 // Preload a component when the browser is idle
-export function preloadWhenIdle<T extends ComponentType<unknown>>(component: PreloadableComponent<T>): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function preloadWhenIdle<T extends ComponentType<any>>(component: PreloadableComponent<T>): void {
   if ('requestIdleCallback' in window) {
     requestIdleCallback(() => component.preload());
   } else {
@@ -31,7 +35,8 @@ export function preloadWhenIdle<T extends ComponentType<unknown>>(component: Pre
 }
 
 // Preload components based on user patterns
-export function preloadByRoute<T extends ComponentType<unknown>>(currentPath: string, components: Record<string, PreloadableComponent<T>>): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function preloadByRoute<T extends ComponentType<any>>(currentPath: string, components: Record<string, PreloadableComponent<T>>): void {
   // Common navigation patterns
   const preloadMap: Record<string, string[]> = {
     '/dashboard': ['/transactions', '/accounts', '/budget'],

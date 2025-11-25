@@ -14,7 +14,7 @@
  * ```
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { userIdService, type ClerkUserId, type DatabaseUserId } from '../services/userIdService';
 import { useMemoizedLogger } from '../loggers/useMemoizedLogger';

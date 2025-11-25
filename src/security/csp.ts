@@ -23,7 +23,6 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       // Remove 'strict-dynamic' as it blocks our lazy-loaded modules
       // "'strict-dynamic'", // This was blocking dynamic imports
       'https:', // For CDNs in production
-      // @ts-expect-error - Safari compatibility
       (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') ? "'unsafe-inline'" : '', // Only for dev
       "'unsafe-eval'", // Required for React lazy loading and service worker
     ].filter(Boolean),
@@ -196,7 +195,6 @@ export const setupCSPReporting = (): void => {
       });
 
       // In production, you might want to send this to a logging service
-      // @ts-expect-error - Safari compatibility
       const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
       if (isProduction) {
         // Example: Send to logging service

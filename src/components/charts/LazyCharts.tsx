@@ -26,10 +26,17 @@ interface LineChartProps extends Record<string, unknown> {
   data?: unknown[];
 }
 
+type TreemapDataType = {
+  name?: string;
+  value?: number;
+  children?: readonly TreemapDataType[];
+  [key: string]: unknown;
+};
+
 interface TreemapProps extends Record<string, unknown> {
   width?: number;
   height?: number;
-  data?: unknown;
+  data?: readonly TreemapDataType[];
 }
 
 // Loading component for charts

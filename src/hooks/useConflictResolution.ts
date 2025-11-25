@@ -8,9 +8,18 @@ import { ConflictResolutionService, ConflictAnalysis } from '../services/conflic
 import { syncService } from '../services/syncService';
 import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
+interface Conflict {
+  id: string;
+  entity: string;
+  clientData: Record<string, unknown>;
+  serverData: Record<string, unknown>;
+  clientTimestamp?: number;
+  serverTimestamp?: number;
+}
+
 export interface ConflictState {
   hasConflicts: boolean;
-  conflicts: unknown[];
+  conflicts: Conflict[];
   autoResolvedCount: number;
   requiresUserIntervention: boolean;
 }
@@ -23,8 +32,8 @@ export function useConflictResolution() {
     autoResolvedCount: 0,
     requiresUserIntervention: false
   });
-  
-  const [currentConflict, setCurrentConflict] = useState<unknown>(null);
+
+  const [currentConflict, setCurrentConflict] = useState<Conflict | null>(null);
   const [currentAnalysis, setCurrentAnalysis] = useState<ConflictAnalysis | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -32,51 +41,55 @@ export function useConflictResolution() {
     // Track auto-resolved conflicts
     let autoResolvedCount = 0;
 
-    const handleConflictDetected = ({ conflict, analysis }: { conflict: Record<string, unknown>; analysis: ConflictAnalysis }) => {
-      logger.info?.('Conflict detected', { entity: conflict.entity, analysis });
-      
+    const handleConflictDetected = (payload?: unknown) => {
+      const { conflict, analysis } = payload as { conflict: Conflict; analysis: ConflictAnalysis };
+      const typedConflict = conflict;
+      logger.info?.('Conflict detected', { entity: typedConflict.entity, analysis });
+
       // Check if it requires user intervention
       if (ConflictResolutionService.requiresUserIntervention(analysis)) {
         setConflictState(prev => ({
           ...prev,
           hasConflicts: true,
-          conflicts: [...prev.conflicts, conflict],
+          conflicts: [...prev.conflicts, typedConflict],
           requiresUserIntervention: true
         }));
-        
+
         // Show modal for first conflict that needs attention
         if (!currentConflict) {
-          setCurrentConflict(conflict);
+          setCurrentConflict(typedConflict);
           setCurrentAnalysis(analysis);
           setIsModalOpen(true);
         }
       }
     };
 
-    const handleConflictAutoResolved = ({ conflict, analysis, resolution: _resolution }: { conflict: Record<string, unknown>; analysis: ConflictAnalysis; resolution: unknown }) => {
+    const handleConflictAutoResolved = (payload?: unknown) => {
+      const { conflict, analysis } = payload as { conflict: Conflict; analysis: ConflictAnalysis; resolution: unknown };
       autoResolvedCount++;
       logger.info?.('Auto-resolved conflict', {
         count: autoResolvedCount,
         entity: conflict.entity,
         confidence: analysis.confidence
       });
-      
+
       setConflictState(prev => ({
         ...prev,
         autoResolvedCount: autoResolvedCount
       }));
-      
+
       // Show toast notification (if you have a notification system)
       const message = `Automatically merged ${conflict.entity} changes (${analysis.confidence}% confidence)`;
       logger.info?.('Auto-resolve summary', { message });
     };
 
-    const handleStatusChanged = (status: { conflicts?: unknown[] }) => {
+    const handleStatusChanged = (payload?: unknown) => {
+      const status = payload as { conflicts?: Conflict[] };
       if (status.conflicts && status.conflicts.length > 0) {
         setConflictState(prev => ({
           ...prev,
           hasConflicts: true,
-          conflicts: status.conflicts
+          conflicts: status.conflicts ?? []
         }));
       }
     };
@@ -95,10 +108,10 @@ export function useConflictResolution() {
 
   const resolveConflict = useCallback(async (
     resolution: 'client' | 'server' | 'merge',
-    mergedData?: unknown
+    mergedData?: Record<string, unknown>
   ) => {
     if (!currentConflict) return;
-    
+
     try {
       // Map resolution types: client -> local, server -> remote
       const syncResolution = resolution === 'client' ? 'local' : resolution === 'server' ? 'remote' : 'merge';
@@ -166,8 +179,8 @@ export function useConflictResolution() {
 
   const analyzeConflict = useCallback((
     entityType: string,
-    clientData: unknown,
-    serverData: unknown,
+    clientData: Record<string, unknown>,
+    serverData: Record<string, unknown>,
     clientTimestamp?: number,
     serverTimestamp?: number
   ): ConflictAnalysis => {

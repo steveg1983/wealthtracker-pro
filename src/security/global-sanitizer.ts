@@ -85,9 +85,9 @@ export const sanitizeByFieldName = (fieldName: string, value: unknown): unknown 
     case 'url':
       return typeof value === 'string' ? sanitizeURL(value) : value;
     case 'number':
-      return sanitizeNumber(value);
+      return sanitizeNumber(typeof value === 'number' ? value : String(value ?? ''));
     case 'date':
-      return sanitizeDate(value);
+      return sanitizeDate(value instanceof Date ? value : String(value ?? ''));
     case 'filename':
       return typeof value === 'string' ? sanitizeFilename(value) : value;
     case 'query':

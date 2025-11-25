@@ -1,14 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Transaction } from '../types';
 import { enhancedCsvImportService, type ColumnMapping } from '../services/enhancedCsvImportService';
 import { importRulesService } from '../services/importRulesService';
 import { ofxImportService } from '../services/ofxImportService';
 import { qifImportService } from '../services/qifImportService';
-import { 
-  UploadIcon, 
-  FileTextIcon, 
-  CheckIcon, 
+import {
+  UploadIcon,
+  FileTextIcon,
+  CheckIcon,
   XIcon,
   AlertCircleIcon,
   ChevronRightIcon,
@@ -18,9 +18,9 @@ import {
   FolderIcon
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
-import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface EnhancedImportWizardProps {
   isOpen: boolean;

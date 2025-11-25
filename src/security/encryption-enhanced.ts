@@ -366,8 +366,11 @@ class EnhancedEncryptionService {
     const db = await this.openIndexedDB();
     const transaction = db.transaction([storeName], 'readonly');
     const store = transaction.objectStore(storeName);
-    const result = await store.get(key);
-    return result;
+    return new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result ?? null);
+    });
   }
 
   /**

@@ -36,18 +36,18 @@ interface _ItemRendererProps<T> {
 }
 
 // Memoized item renderer component
-const ItemRenderer = memo(function ItemRenderer({
+const ItemRenderer = memo(function ItemRenderer<T>({
   index,
   style,
   data
-}: ListChildComponentProps<ItemData<unknown>>) {
+}: ListChildComponentProps<ItemData<T>>) {
   const { items, renderItem } = data;
   const item = items[index];
 
   if (!item) return null;
 
   return <>{renderItem(item, index, style)}</>;
-}) as React.ComponentType<ListChildComponentProps<ItemData<unknown>>>;
+}) as <T>(props: ListChildComponentProps<ItemData<T>>) => JSX.Element | null;
 
 export const VirtualizedList = memo(function VirtualizedList<T>({
   items,

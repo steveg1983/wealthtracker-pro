@@ -335,8 +335,8 @@ export default function Investments() {
                 }}
               />
               <Tooltip
-                formatter={(value: number) => formatCurrency(toDecimal(value))}
-                contentStyle={{ 
+                formatter={(value) => formatCurrency(toDecimal(Number(value)))}
+                contentStyle={{
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                   border: '1px solid #ccc',
                   borderRadius: '8px'
@@ -444,8 +444,8 @@ export default function Investments() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => formatCurrency(toDecimal(value))}
-                      contentStyle={{ 
+                      formatter={(value) => formatCurrency(toDecimal(Number(value)))}
+                      contentStyle={{
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         border: '1px solid #ccc',
                         borderRadius: '8px'

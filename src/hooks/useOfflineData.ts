@@ -50,7 +50,7 @@ export function useOfflineData(): UseOfflineDataReturn {
     action: 'create' | 'update' | 'delete',
     data: unknown
   ) => {
-    await offlineDataService.addToSyncQueue(type, action, data);
+    await offlineDataService.addToSyncQueue(type, action, data as Record<string, unknown>);
     await updatePendingSyncCount();
   }, [updatePendingSyncCount]);
 
@@ -178,19 +178,19 @@ export function useOfflineQuery<T>(
         // Offline - try to get cached data
         const cachedData = await offlineDataService.getCachedData(key);
         if (cachedData) {
-          setData(cachedData);
+          setData(cachedData as T);
         } else {
           throw new Error('No cached data available');
         }
       }
     } catch (err) {
       setError(err as Error);
-      
+
       // Try to get cached data as fallback
       try {
         const cachedData = await offlineDataService.getCachedData(key);
         if (cachedData) {
-          setData(cachedData);
+          setData(cachedData as T);
           setError(null); // Clear error if we got cached data
         }
       } catch {

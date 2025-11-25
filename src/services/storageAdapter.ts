@@ -52,16 +52,10 @@ export class SecureStorageAdapter implements StorageAdapter {
 
     this.localStorageRef = options.localStorage ?? defaultLocalStorage;
     this.sessionStorageRef = options.sessionStorage ?? defaultSessionStorage;
-    this.setIntervalFn =
-      options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
-    this.clearIntervalFn =
-      options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
-    this.setTimeoutFn =
-      options.setTimeoutFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setTimeout(handler, timeout, ...args));
-    this.clearTimeoutFn =
-      options.clearTimeoutFn ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+    this.setIntervalFn = options.setIntervalFn ?? setInterval;
+    this.clearIntervalFn = options.clearIntervalFn ?? clearInterval;
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
     const defaultLogger = typeof console !== 'undefined'
       ? console
       : { log: () => {}, warn: () => {}, error: () => {} };
@@ -122,8 +116,9 @@ export class SecureStorageAdapter implements StorageAdapter {
     ];
 
     // Add other keys that start with wealthtracker_ or money_management_
-    for (let i = 0; i < (this.localStorageRef?.length ?? 0); i++) {
-      const key = this.localStorageRef?.key(i);
+    const storageLength = this.localStorageRef?.length ?? 0;
+    for (let i = 0; i < storageLength; i++) {
+      const key = this.localStorageRef?.key?.(i);
       if (key && (key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
         if (!keysToMigrate.includes(key)) {
           keysToMigrate.push(key);
@@ -186,8 +181,8 @@ export class SecureStorageAdapter implements StorageAdapter {
         STORAGE_KEYS.GOALS,
       ];
       
-      const isFinancialData = sensitiveKeys.includes(key) || 
-                              key.includes('transaction') || 
+      const isFinancialData = (sensitiveKeys as readonly string[]).includes(key) ||
+                              key.includes('transaction') ||
                               key.includes('account') ||
                               key.includes('budget') ||
                               key.includes('financial');
@@ -201,7 +196,7 @@ export class SecureStorageAdapter implements StorageAdapter {
 
       // Remove from localStorage if migration is complete
       if (this.migrationCompleted) {
-        this.localStorageRef?.removeItem(key);
+        this.localStorageRef?.removeItem?.(key);
       }
     } catch (error) {
       this.logger.error(`Error setting ${key}:`, error);
@@ -213,10 +208,10 @@ export class SecureStorageAdapter implements StorageAdapter {
   async remove(key: string): Promise<void> {
     try {
       await encryptedStorage.removeItem(key);
-      this.localStorageRef?.removeItem(key); // Also remove from localStorage
+      this.localStorageRef?.removeItem?.(key); // Also remove from localStorage
     } catch (error) {
       this.logger.error(`Error removing ${key}:`, error);
-      this.localStorageRef?.removeItem(key);
+      this.localStorageRef?.removeItem?.(key);
     }
   }
 
@@ -225,13 +220,14 @@ export class SecureStorageAdapter implements StorageAdapter {
       await encryptedStorage.clear();
       // Clear related localStorage keys
       const keysToRemove: string[] = [];
-      for (let i = 0; i < (this.localStorageRef?.length ?? 0); i++) {
-        const key = this.localStorageRef?.key(i);
+      const storageLength = this.localStorageRef?.length ?? 0;
+      for (let i = 0; i < storageLength; i++) {
+        const key = this.localStorageRef?.key?.(i);
         if (key && (key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
           keysToRemove.push(key);
         }
       }
-      keysToRemove.forEach(key => this.localStorageRef?.removeItem(key));
+      keysToRemove.forEach(key => this.localStorageRef?.removeItem?.(key));
     } catch (error) {
       this.logger.error('Error clearing storage:', error);
     }
@@ -280,7 +276,7 @@ export class SecureStorageAdapter implements StorageAdapter {
 
   // Import data from backup
   async importData(data: Record<string, unknown>): Promise<void> {
-    await encryptedStorage.importData(data, { encrypted: true });
+    await encryptedStorage.importData(data as Record<string, import('../types/common').JsonValue>, { encrypted: true });
   }
 
   // Get storage usage info

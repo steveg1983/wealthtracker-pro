@@ -40,7 +40,15 @@ export class OCRService {
       error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
     };
     this.urlAdapter = options.urlAdapter ?? this.getBrowserUrlAdapter();
-    this.tesseractLoader = options.tesseractLoader ?? (() => import('tesseract.js'));
+    this.tesseractLoader = options.tesseractLoader ?? (async () => {
+      const module = await import('tesseract.js');
+      return {
+        createWorker: async (lang: string) => {
+          const worker = await module.createWorker(lang);
+          return worker as unknown as TesseractWorker;
+        }
+      };
+    });
   }
 
   private getBrowserUrlAdapter(): UrlAdapter | null {

@@ -165,7 +165,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
 
   const updateUsage = (newUsage: Partial<SubscriptionUsage>) => {
     const baseUsage = usage ?? createDefaultUsage(user?.id ?? 'local', limits);
-    const updatedUsage: SubscriptionUsage = {
+    const updatedUsage: SubscriptionUsageState = {
       ...baseUsage,
       ...newUsage,
       period: newUsage.period ?? baseUsage.period,

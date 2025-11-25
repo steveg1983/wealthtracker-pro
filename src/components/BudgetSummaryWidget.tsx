@@ -5,7 +5,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 export default function BudgetSummaryWidget() {
   const { budgets, transactions } = useApp();
-  const { formatCurrency: _formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency } = useCurrencyDecimal();
   
   // Calculate current month's spending
   const currentMonth = new Date().getMonth();

@@ -132,7 +132,7 @@ export class DataMigrationService {
   private accountIdMapping: Map<string, string> = new Map();
 
   constructor(options: DataMigrationServiceOptions = {}) {
-    this.supabaseClient = options.supabaseClient ?? supabase;
+    this.supabaseClient = options.supabaseClient ?? (supabase as unknown as SupabaseClientLike);
     this.storeRef = options.store ?? store;
     this.userIdSvc = options.userIdService ?? userIdService;
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
@@ -264,8 +264,9 @@ export class DataMigrationService {
       // Store mapping of old IDs to new IDs for transaction migration
       const idMapping = new Map<string, string>();
       accounts.forEach((oldAccount, index) => {
-        if (data?.[index]) {
-          idMapping.set(oldAccount.id, data[index].id);
+        const newAccount = data?.[index] as { id: string } | undefined;
+        if (newAccount?.id) {
+          idMapping.set(oldAccount.id, newAccount.id);
         }
       });
       

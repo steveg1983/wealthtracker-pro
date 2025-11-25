@@ -164,7 +164,7 @@ export class MerchantLogoService {
 
   constructor(options: MerchantLogoServiceOptions = {}) {
     this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
-    const defaultImageFactory = typeof Image !== 'undefined' ? () => new Image() : null;
+    const defaultImageFactory = typeof Image !== 'undefined' ? (() => new Image() as unknown as ImageLike) : null;
     this.createImage = options.imageFactory ?? defaultImageFactory;
     this.timers = options.timers ?? {
       setTimeout: (handler, timeout) => setTimeout(handler, timeout),

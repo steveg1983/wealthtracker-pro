@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { offlineService } from '../services/offlineService';
 import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
+import type { Transaction } from '../types';
 
 interface UseOfflineReturn {
   isOffline: boolean;
@@ -118,6 +119,7 @@ interface UseOfflineDataOptions {
 }
 
 export function useOfflineData<T extends { id: string }>(options: UseOfflineDataOptions) {
+  const logger = useMemoizedLogger('useOfflineData');
   const { isOffline } = useOffline();
 
   const save = useCallback(async (data: T): Promise<void> => {
@@ -141,10 +143,10 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
 
     // Always save to offline store
     if (options.entity === 'transaction') {
-      await offlineService.saveTransaction(data as unknown as { id: string }, isOffline);
+      await offlineService.saveTransaction(data as unknown as Transaction, isOffline);
     }
     // Add other entity types as needed
-  }, [isOffline, options.entity]);
+  }, [isOffline, options.entity, logger]);
 
   const update = useCallback(async (id: string, updates: Partial<T>): Promise<void> => {
     // If online, update via API first
@@ -170,7 +172,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
       await offlineService.updateTransaction(id, updates as Partial<T>, isOffline);
     }
     // Add other entity types as needed
-  }, [isOffline, options.entity]);
+  }, [isOffline, options.entity, logger]);
 
   const remove = useCallback(async (id: string): Promise<void> => {
     // If online, delete via API first
@@ -194,7 +196,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
       await offlineService.deleteTransaction(id, isOffline);
     }
     // Add other entity types as needed
-  }, [isOffline, options.entity]);
+  }, [isOffline, options.entity, logger]);
 
   return {
     save,

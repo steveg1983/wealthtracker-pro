@@ -132,7 +132,7 @@ class AccountServiceImpl {
 
       const { data, error } = await client
         .from('accounts')
-        .insert(accountData)
+        .insert(accountData as never)
         .select()
         .single();
 
@@ -173,7 +173,7 @@ class AccountServiceImpl {
       const client = this.supabaseClient!;
       const { data, error } = await client
         .from('accounts')
-        .update(updates)
+        .update(updates as never)
         .eq('id', id)
         .select()
         .single();
@@ -202,7 +202,7 @@ class AccountServiceImpl {
       const client = this.supabaseClient!;
       const { error } = await client
         .from('accounts')
-        .update({ is_active: false })
+        .update({ is_active: false } as never)
         .eq('id', id);
 
       if (error) {
@@ -261,7 +261,7 @@ class AccountServiceImpl {
       const client = this.supabaseClient!;
       const { error } = await client
         .from('accounts')
-        .update({ balance: newBalance })
+        .update({ balance: newBalance } as never)
         .eq('id', id);
 
       if (error) {

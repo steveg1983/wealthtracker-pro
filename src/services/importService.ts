@@ -46,11 +46,11 @@ class ImportService {
         }) as Record<string, string | number | undefined>[];
 
         // Map CSV records to transactions
-        const transactions = records.map(record => ({
-          date: this.parseDate(record.Date || record.date || record.DATE),
-          description: record.Description || record.description || record.DESCRIPTION || '',
-          amount: this.parseAmount(record.Amount || record.amount || record.AMOUNT),
-          category: record.Category || record.category || record.CATEGORY || 'Uncategorized'
+        const transactions: Partial<Transaction>[] = records.map(record => ({
+          date: this.parseDate(String(record.Date || record.date || record.DATE || '')),
+          description: String(record.Description || record.description || record.DESCRIPTION || ''),
+          amount: this.parseAmount(record.Amount ?? record.amount ?? record.AMOUNT ?? 0),
+          category: String(record.Category || record.category || record.CATEGORY || 'Uncategorized')
         }));
 
         resolve({

@@ -102,7 +102,7 @@ class SharedFinanceService {
         this.sharedBudgets = (JSON.parse(budgetsData) as StoredSharedBudget[]).map(b => ({
           ...b,
           createdAt: new Date(b.createdAt),
-          updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
+          updatedAt: b.updatedAt ? new Date(b.updatedAt) : new Date(b.createdAt),
           lastModifiedAt: b.lastModifiedAt ? new Date(b.lastModifiedAt) : undefined
         }));
       }

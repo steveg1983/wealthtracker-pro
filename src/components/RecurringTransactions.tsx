@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Repeat, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Play, 
+import {
+  Repeat,
+  Plus,
+  Edit2,
+  Trash2,
+  Play,
   Pause
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
 import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const logger = createScopedLogger('RecurringTransactions');
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
 

@@ -121,7 +121,7 @@ export class PredictiveLoadingService {
       throw new Error('Fetch API is not available and no fetchFn override was provided.');
     });
     this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
-    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator as unknown as NavigatorLike : null);
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     this.logger = {
       warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {}))
@@ -611,17 +611,17 @@ export class PredictiveLoadingService {
 
   private trackPredictionSuccess(prediction: Prediction) {
     this.analyticsQueue.push({
-      type: 'prediction_success',
-      prediction,
-      timestamp: Date.now()
+      predictionId: prediction.target,
+      status: 'success',
+      timestamp: new Date()
     });
   }
 
   private trackPredictionFailure(prediction: Prediction) {
     this.analyticsQueue.push({
-      type: 'prediction_failure',
-      prediction,
-      timestamp: Date.now()
+      predictionId: prediction.target,
+      status: 'failure',
+      timestamp: new Date()
     });
   }
 

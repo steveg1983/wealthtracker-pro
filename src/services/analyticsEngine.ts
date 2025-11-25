@@ -295,7 +295,7 @@ class AnalyticsEngine {
     
     // Select best model if auto
     let selectedModel = model;
-    let bestFit: regression.Result = regression.linear(values);
+    let bestFit = regression.linear(values);
     
     if (model === 'auto') {
       const models = {
@@ -478,8 +478,8 @@ class AnalyticsEngine {
     // Sort results
     if (query.orderBy) {
       results.sort((a, b) => {
-        const aVal = a[query.orderBy!.field];
-        const bVal = b[query.orderBy!.field];
+        const aVal = Number(a[query.orderBy!.field] ?? 0);
+        const bVal = Number(b[query.orderBy!.field] ?? 0);
         const diff = aVal - bVal;
         return query.orderBy!.direction === 'asc' ? diff : -diff;
       });

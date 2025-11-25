@@ -33,6 +33,7 @@ interface SyncStatus {
 }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type TimerId = ReturnType<typeof setInterval>;
 
 interface WindowLike {
   addEventListener?: Window['addEventListener'];
@@ -45,8 +46,8 @@ export interface AutoSyncServiceOptions {
   storage?: StorageLike | null;
   windowRef?: WindowLike | null;
   uuidGenerator?: () => string;
-  setIntervalFn?: typeof setInterval;
-  clearIntervalFn?: typeof clearInterval;
+  setIntervalFn?: (handler: () => void, timeout: number) => TimerId;
+  clearIntervalFn?: (id: TimerId) => void;
   dateFactory?: () => Date;
   now?: () => number;
   logger?: Logger;
@@ -62,14 +63,14 @@ export class AutoSyncService {
     pendingChanges: 0,
     syncErrors: []
   };
-  private syncInterval: NodeJS.Timeout | null = null;
+  private syncInterval: TimerId | null = null;
   private userId: string | null = null;
   private isInitialized = false;
   private storage: StorageLike | null;
   private windowRef: WindowLike | null;
   private readonly uuidGenerator: () => string;
-  private readonly setIntervalFn: typeof setInterval;
-  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly setIntervalFn: (handler: () => void, timeout: number) => TimerId;
+  private readonly clearIntervalFn: (id: TimerId) => void;
   private readonly dateFactory: () => Date;
   private readonly now: () => number;
   private readonly onlineHandler: () => void;
@@ -82,10 +83,10 @@ export class AutoSyncService {
     this.uuidGenerator = options.uuidGenerator ?? (() => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`));
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
+      ((handler: () => void, timeout: number) => setInterval(handler, timeout));
     this.clearIntervalFn =
       options.clearIntervalFn ??
-      ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+      ((id: TimerId) => clearInterval(id));
     this.dateFactory = options.dateFactory ?? (() => new Date());
     this.now = options.now ?? (() => Date.now());
     const defaultLogger = typeof console !== 'undefined'
@@ -204,16 +205,16 @@ export class AutoSyncService {
    * Check if there's any local data
    */
   private hasLocalData(data: {
-    accounts: Account[];
-    transactions: Transaction[];
-    budgets: Budget[];
-    goals: Goal[];
-    categories: Category[];
+    accounts: Account[] | null;
+    transactions: Transaction[] | null;
+    budgets: Budget[] | null;
+    goals: Goal[] | null;
+    categories: Category[] | null;
   }): boolean {
-    return data.accounts.length > 0 || 
-           data.transactions.length > 0 || 
-           data.budgets.length > 0 || 
-           data.goals.length > 0;
+    return (data.accounts?.length ?? 0) > 0 ||
+           (data.transactions?.length ?? 0) > 0 ||
+           (data.budgets?.length ?? 0) > 0 ||
+           (data.goals?.length ?? 0) > 0;
   }
 
   /**
@@ -222,11 +223,11 @@ export class AutoSyncService {
   private async migrateToCloud(
     userId: string,
     localData: {
-      accounts: Account[];
-      transactions: Transaction[];
-      budgets: Budget[];
-      goals: Goal[];
-      categories: Category[];
+      accounts: Account[] | null;
+      transactions: Transaction[] | null;
+      budgets: Budget[] | null;
+      goals: Goal[] | null;
+      categories: Category[] | null;
     }
   ): Promise<void> {
     if (!supabase) return;
@@ -241,8 +242,8 @@ export class AutoSyncService {
       }
 
       // Migrate accounts first (other entities depend on them)
-      if (localData.accounts.length > 0) {
-        const accountsToInsert = localData.accounts.map((account: Account) => ({
+      if ((localData.accounts?.length ?? 0) > 0) {
+        const accountsToInsert = (localData.accounts ?? []).map((account: Account) => ({
           user_id: dbUserId,
           name: account.name,
           type: account.type === 'current' ? 'checking' : account.type,
@@ -267,7 +268,7 @@ export class AutoSyncService {
       }
 
       // Migrate transactions
-      if (localData.transactions.length > 0) {
+      if ((localData.transactions?.length ?? 0) > 0) {
         // Get the mapping of local account IDs to cloud account IDs
         const { data: cloudAccounts } = await supabase
           .from('accounts')
@@ -277,12 +278,12 @@ export class AutoSyncService {
         if (cloudAccounts) {
           const accountMap = new Map(
             cloudAccounts.map(acc => [
-              localData.accounts.find((la: Account) => la.name === acc.name)?.id,
+              (localData.accounts ?? []).find((la: Account) => la.name === acc.name)?.id,
               acc.id
             ])
           );
 
-          const transactionsToInsert = localData.transactions
+          const transactionsToInsert = (localData.transactions ?? [])
             .filter((t: Transaction) => accountMap.has(t.accountId))
             .map((transaction: Transaction) => ({
               user_id: dbUserId,
@@ -368,11 +369,11 @@ export class AutoSyncService {
   private async mergeData(
     _userId: string,
     _localData: {
-      accounts: Account[];
-      transactions: Transaction[];
-      budgets: Budget[];
-      goals: Goal[];
-      categories: Category[];
+      accounts: Account[] | null;
+      transactions: Transaction[] | null;
+      budgets: Budget[] | null;
+      goals: Goal[] | null;
+      categories: Category[] | null;
     }
   ): Promise<void> {
     // For now, prefer cloud data (it's the source of truth)

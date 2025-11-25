@@ -179,8 +179,9 @@ export class DataIntelligenceService {
     try {
       const savedMerchants = this.readJsonFromStorage<SavedMerchantData[]>('data-intelligence-merchants');
       if (savedMerchants) {
-        this.merchants = savedMerchants.map((merchant: SavedMerchantData) => ({
+        this.merchants = savedMerchants.map((merchant: SavedMerchantData): MerchantData => ({
           ...merchant,
+          frequency: merchant.frequency as MerchantData['frequency'],
           createdAt: new Date(merchant.createdAt),
           lastUpdated: new Date(merchant.lastUpdated)
         }));
@@ -188,8 +189,11 @@ export class DataIntelligenceService {
 
       const savedSubscriptions = this.readJsonFromStorage<SavedSubscription[]>('data-intelligence-subscriptions');
       if (savedSubscriptions) {
-        this.subscriptions = savedSubscriptions.map((sub: SavedSubscription) => ({
+        this.subscriptions = savedSubscriptions.map((sub: SavedSubscription): Subscription => ({
           ...sub,
+          frequency: sub.frequency as Subscription['frequency'],
+          status: sub.status as Subscription['status'],
+          renewalType: sub.renewalType as Subscription['renewalType'],
           nextPaymentDate: new Date(sub.nextPaymentDate),
           startDate: new Date(sub.startDate),
           endDate: sub.endDate ? new Date(sub.endDate) : undefined,
@@ -200,16 +204,22 @@ export class DataIntelligenceService {
 
       const savedPatterns = this.readJsonFromStorage<SavedSpendingPattern[]>('data-intelligence-patterns');
       if (savedPatterns) {
-        this.spendingPatterns = savedPatterns.map((pattern: SavedSpendingPattern) => ({
+        this.spendingPatterns = savedPatterns.map((pattern: SavedSpendingPattern): SpendingPattern => ({
           ...pattern,
+          patternType: pattern.patternType as SpendingPattern['patternType'],
           detectedAt: new Date(pattern.detectedAt)
         }));
       }
 
       const savedSmartCategories = this.readJsonFromStorage<SavedSmartCategory[]>('data-intelligence-smart-categories');
       if (savedSmartCategories) {
-        this.smartCategories = savedSmartCategories.map((cat: SavedSmartCategory) => ({
+        this.smartCategories = savedSmartCategories.map((cat: SavedSmartCategory): SmartCategory => ({
           ...cat,
+          rules: cat.rules.map(rule => ({
+            ...rule,
+            type: rule.type as SmartCategoryRule['type'],
+            condition: rule.condition as SmartCategoryRule['condition']
+          })),
           createdAt: new Date(cat.createdAt),
           lastTrained: new Date(cat.lastTrained)
         }));
@@ -217,8 +227,10 @@ export class DataIntelligenceService {
 
       const savedInsights = this.readJsonFromStorage<SavedSpendingInsight[]>('data-intelligence-insights');
       if (savedInsights) {
-        this.insights = savedInsights.map((insight: SavedSpendingInsight) => ({
+        this.insights = savedInsights.map((insight: SavedSpendingInsight): SpendingInsight => ({
           ...insight,
+          type: insight.type as SpendingInsight['type'],
+          severity: insight.severity as SpendingInsight['severity'],
           createdAt: new Date(insight.createdAt)
         }));
       }

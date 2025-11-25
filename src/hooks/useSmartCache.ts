@@ -29,7 +29,7 @@ export function useCachedData<T>({
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [_isStale, _setIsStale] = useState(false);
+  const [isStale, _setIsStale] = useState(false);
   const fetcherRef = useRef(fetcher);
 
   // Update fetcher ref
@@ -129,7 +129,7 @@ export function useCachedFilters(page: string) {
   useEffect(() => {
     smartCache.getCachedFilters(page).then((cached) => {
       if (cached) {
-        setFilters(cached);
+        setFilters(cached as Record<string, unknown>);
       }
     });
   }, [page]);

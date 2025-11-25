@@ -5,12 +5,14 @@ import type { Transaction, Account, Budget, Category } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type TimerId = ReturnType<typeof setInterval>;
 
 export interface ScheduledReportServiceOptions {
   storage?: StorageAdapter | null;
-  setIntervalFn?: typeof setInterval;
-  clearIntervalFn?: typeof clearInterval;
+  setIntervalFn?: (handler: () => void, timeout: number) => TimerId;
+  clearIntervalFn?: (id: TimerId) => void;
   now?: () => Date;
+  logger?: ReturnType<typeof createScopedLogger>;
 }
 
 export interface ScheduledCustomReport {
@@ -41,10 +43,10 @@ interface ReportHistoryEntry {
 
 export class ScheduledReportService {
   private readonly STORAGE_KEY = 'money_management_scheduled_custom_reports';
-  private checkInterval: ReturnType<typeof setInterval> | null = null;
+  private checkInterval: TimerId | null = null;
   private storage: StorageAdapter | null;
-  private readonly setIntervalFn: typeof setInterval;
-  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly setIntervalFn: (handler: () => void, timeout: number) => TimerId;
+  private readonly clearIntervalFn: (id: TimerId) => void;
   private readonly now: () => Date;
   private readonly logger: ReturnType<typeof createScopedLogger>;
 
@@ -52,8 +54,8 @@ export class ScheduledReportService {
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
     this.setIntervalFn =
       options.setIntervalFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setInterval(handler, timeout, ...args));
-    this.clearIntervalFn = options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+      ((handler: () => void, timeout: number) => setInterval(handler, timeout));
+    this.clearIntervalFn = options.clearIntervalFn ?? ((id: TimerId) => clearInterval(id));
     this.now = options.now ?? (() => new Date());
     this.logger = options.logger ?? createScopedLogger('ScheduledReportService');
   }
@@ -282,11 +284,12 @@ export class ScheduledReportService {
     customReport: CustomReport
   ): Promise<Blob> {
     // Use exportService for PDF generation
+    const data = reportData.data as { transactions?: Transaction[]; accounts?: Account[]; budgets?: Budget[] };
     const pdfData = await exportService.exportToPDF(
       {
-        transactions: reportData.transactions || [],
-        accounts: reportData.accounts || [],
-        budgets: reportData.budgets || []
+        transactions: data.transactions || [],
+        accounts: data.accounts || [],
+        budgets: data.budgets || []
       },
       {
         startDate: reportData.dateRange?.startDate || new Date(),
@@ -408,4 +411,3 @@ export class ScheduledReportService {
 }
 
 export const scheduledReportService = new ScheduledReportService();
-import { createScopedLogger } from '../loggers/scopedLogger';

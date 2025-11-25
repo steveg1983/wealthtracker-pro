@@ -59,56 +59,63 @@ export const useSanitizedForm = <T extends Record<string, unknown>>(
       return newErrors;
     });
 
+    // Convert unknown to string for most sanitizers
+    const stringValue = typeof value === 'string' ? value : String(value ?? '');
+
     switch (config.type) {
       case 'text':
-        return sanitizeText(value);
-      
+        return sanitizeText(stringValue);
+
       case 'html':
-        return sanitizeHTML(value);
-      
+        return sanitizeHTML(stringValue);
+
       case 'url': {
-        const sanitizedUrl = sanitizeURL(value);
+        const sanitizedUrl = sanitizeURL(stringValue);
         if (value && !sanitizedUrl) {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid URL' }));
         }
         return sanitizedUrl;
       }
-      
+
       case 'query':
-        return sanitizeQuery(value);
-      
+        return sanitizeQuery(stringValue);
+
       case 'number': {
-        const num = sanitizeNumber(value);
+        const numValue = typeof value === 'number' ? value : stringValue;
+        const num = sanitizeNumber(numValue);
         if (value && num === 0 && value !== '0' && value !== 0) {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid number' }));
         }
         return num;
       }
-      
-      case 'decimal':
-        return sanitizeDecimal(value, config.decimals);
-      
+
+      case 'decimal': {
+        const decValue = typeof value === 'number' ? value : stringValue;
+        return sanitizeDecimal(decValue, config.decimals);
+      }
+
       case 'date': {
-        const date = sanitizeDate(value);
+        const dateValue = value instanceof Date ? value : stringValue;
+        const date = sanitizeDate(dateValue);
         if (value && !date) {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid date' }));
         }
         return date;
       }
-      
+
       case 'filename':
-        return sanitizeFilename(value);
-      
+        return sanitizeFilename(stringValue);
+
       case 'json':
         try {
-          return sanitizeJSON(value);
+          return sanitizeJSON(stringValue);
         } catch {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid JSON' }));
           return '{}';
         }
-      
+
       default:
-        return sanitizeText(value);
+        return sanitizeText(stringValue);
     }
   }, []);
 

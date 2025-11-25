@@ -115,7 +115,7 @@ class TransactionServiceImpl {
         .insert({
           ...transaction,
           user_id: userId
-        })
+        } as never)
         .select()
         .single();
 
@@ -168,7 +168,7 @@ class TransactionServiceImpl {
 
       const { data, error } = await client
         .from('transactions')
-        .update(updates)
+        .update(updates as never)
         .eq('id', id)
         .select()
         .single();
@@ -179,8 +179,11 @@ class TransactionServiceImpl {
       }
 
       if (oldTransaction && updates.amount !== undefined && updates.amount !== (oldTransaction as { amount?: number }).amount) {
-        const difference = (updates.amount as number) - (oldTransaction as { amount?: number }).amount;
-        await this.updateAccountBalance((oldTransaction as { account_id?: string }).account_id, difference);
+        const difference = (updates.amount as number) - ((oldTransaction as { amount?: number }).amount ?? 0);
+        const accountId = (oldTransaction as { account_id?: string }).account_id;
+        if (accountId) {
+          await this.updateAccountBalance(accountId, difference);
+        }
       }
 
       return data!;
@@ -341,7 +344,7 @@ class TransactionServiceImpl {
 
       const { data, error } = await client
         .from('transactions')
-        .insert(transactionsWithUser)
+        .insert(transactionsWithUser as never)
         .select();
 
       if (error) {
@@ -406,7 +409,7 @@ class TransactionServiceImpl {
 
         await client
           .from('accounts')
-          .update({ balance: newBalance })
+          .update({ balance: newBalance } as never)
           .eq('id', accountId);
       }
     } catch (error) {

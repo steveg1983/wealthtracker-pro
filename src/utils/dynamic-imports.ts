@@ -1,4 +1,5 @@
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { formatDecimal } from './decimal-format';
 
 /**
  * Dynamic Import Utilities
@@ -84,15 +85,18 @@ export const featureImports = {
       importXLSX(),
       importPDFLibraries()
     ]);
-    return { xlsx, ...pdfLibs };
+    return {
+      xlsx,
+      ...(pdfLibs as Record<string, unknown>)
+    };
   },
-  
+
   async importOCR() {
     return importTesseract();
   },
-  
+
   async importAdvancedCharts() {
-    const charts = await importCharts();
+    const charts = await importCharts() as Record<string, unknown>;
     // Return specific advanced chart components
     return {
       Treemap: charts.Treemap,
@@ -101,7 +105,7 @@ export const featureImports = {
       Funnel: charts.Funnel
     };
   },
-  
+
   async importAnimations() {
     return importFramerMotion();
   }

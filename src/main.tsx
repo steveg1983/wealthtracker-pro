@@ -80,8 +80,6 @@ try {
               }
             }}
             allowedRedirectOrigins={[window.location.origin]}
-            isSatellite={false}
-            domain={window.location.hostname}
           >
             <Provider store={store}>
               <App />

@@ -314,7 +314,7 @@ class OfflineStorageService {
   private async handleConflict(operation: OfflineQueueItem, serverData: OfflineEntityData) {
     const conflict: ConflictItem = {
       id: crypto.randomUUID(),
-      operationId: operation.id,
+      operationId: operation.id ?? crypto.randomUUID(),
       entity: operation.entity,
       localData: operation.data,
       remoteData: serverData,
@@ -322,21 +322,21 @@ class OfflineStorageService {
       resolved: false
     };
 
-    await indexedDBService.put(this.CONFLICT_STORE, conflict);
-    
+    await indexedDBService.put(this.CONFLICT_STORE, conflict as unknown as Record<string, unknown>);
+
     // Notify about conflict
     this.notifyConflict(conflict);
-    
+
     // Try automatic resolution
     const resolution = await this.autoResolveConflict(operation, serverData);
     if (resolution.resolved) {
       // Update operation with resolved data
       operation.data = resolution.resolved;
       await this.syncOperation(operation);
-      
+
       // Mark conflict as resolved
       conflict.resolved = true;
-      await indexedDBService.put(this.CONFLICT_STORE, conflict);
+      await indexedDBService.put(this.CONFLICT_STORE, conflict as unknown as Record<string, unknown>);
     }
   }
 

@@ -2,11 +2,13 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import predictiveLoader from '../services/predictiveLoadingService';
+import { useMemoizedLogger } from '../loggers/useMemoizedLogger';
 
 /**
  * Hook for predictive loading based on navigation context
  */
 export function usePredictiveLoading() {
+  const _logger = useMemoizedLogger('usePredictiveLoading');
   const location = useLocation();
   const previousPath = useRef<string>();
   const [isPreloading, setIsPreloading] = useState(false);
@@ -312,6 +314,7 @@ export function usePredictiveImages(
  * Hook for route prefetching based on likely navigation
  */
 export function useRoutePrefetch() {
+  const logger = useMemoizedLogger('useRoutePrefetch');
   const location = useLocation();
   const [prefetchedRoutes, setPrefetchedRoutes] = useState<Set<string>>(new Set());
 
@@ -361,7 +364,7 @@ export function useRoutePrefetch() {
     }, 2000); // Wait 2 seconds before prefetching
 
     return () => clearTimeout(timer);
-  }, [location, prefetchedRoutes]);
+  }, [location, prefetchedRoutes, logger]);
 
   return {
     prefetchedRoutes,

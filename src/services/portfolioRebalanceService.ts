@@ -59,8 +59,6 @@ export interface AssetClassMapping {
   subClass?: string;
 }
 
-import { createScopedLogger } from '../loggers/scopedLogger';
-
 class PortfolioRebalanceService {
   private targets: PortfolioTarget[] = [];
   private assetMappings: AssetClassMapping[] = [];

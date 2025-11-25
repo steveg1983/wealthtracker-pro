@@ -307,8 +307,9 @@ if (typeof window !== 'undefined') {
     (import.meta as ImportMeta & { env?: { MODE?: string } }).env?.MODE === 'development';
   if (isDevelopment) {
     DOMPurify.addHook('beforeSanitizeElements', (node, data: DOMPurify.HookEvent) => {
-      if (data && data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
-        xssLogger.warn('DOMPurify blocked dangerous element:', data.tagName);
+      const hookData = data as { tagName?: string };
+      if (hookData && hookData.tagName && ['script', 'iframe', 'object', 'embed'].includes(hookData.tagName)) {
+        xssLogger.warn('DOMPurify blocked dangerous element:', hookData.tagName);
       }
     });
   }

@@ -4,6 +4,9 @@ import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
 import type { SerializedBudget, SerializedTransaction } from '../../types/redux-types';
 
+type Logger = Pick<Console, 'error'>;
+const thunkLogger: Logger = typeof console !== 'undefined' ? console : { error: () => {} };
+
 // Helper to deserialize transaction
 const deserializeTransaction = (transaction: SerializedTransaction): Transaction => {
   return {

@@ -112,16 +112,16 @@ function registerValidSW(swUrl: string, config?: Config): void {
       // Handle messages from service worker
       navigator.serviceWorker.addEventListener('message', (event) => {
         const { type, data } = event.data;
-        
+
         switch (type) {
           case 'sync-success':
-            swRegistrationLogger.log('Data synced successfully:', data);
+            swRegistrationLogger.info('Data synced successfully', data);
             break;
           case 'accounts-updated':
-            swRegistrationLogger.log('Accounts updated in background:', data);
+            swRegistrationLogger.info('Accounts updated in background', data);
             break;
           case 'sync-status':
-            swRegistrationLogger.log('Sync status:', data);
+            swRegistrationLogger.info('Sync status', data);
             break;
         }
       });

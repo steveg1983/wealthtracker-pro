@@ -96,7 +96,7 @@ class UserServiceImpl {
             subscription_status: 'active',
             settings: {},
             preferences: {}
-          })
+          } as never)
           .select()
           .single();
 
@@ -129,7 +129,7 @@ class UserServiceImpl {
       const client = this.supabaseClient!;
       const { data, error } = await client
         .from('users')
-        .update(updates)
+        .update(updates as never)
         .eq('clerk_id', clerkId)
         .select()
         .single();
@@ -156,7 +156,7 @@ class UserServiceImpl {
       const client = this.supabaseClient!;
       const { error } = await client
         .from('users')
-        .update({ preferences })
+        .update({ preferences } as never)
         .eq('clerk_id', clerkId);
 
       if (error) {
@@ -179,7 +179,7 @@ class UserServiceImpl {
       const client = this.supabaseClient!;
       const { error } = await client
         .from('users')
-        .update({ settings })
+        .update({ settings } as never)
         .eq('clerk_id', clerkId);
 
       if (error) {
@@ -229,7 +229,7 @@ class UserServiceImpl {
       const client = this.supabaseClient!;
       const { error } = await client
         .from('users')
-        .update({ last_sync_at: this.nowIso() })
+        .update({ last_sync_at: this.nowIso() } as never)
         .eq('clerk_id', clerkId);
 
       if (error) {

@@ -24,7 +24,7 @@ export class DebugErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    this.logger.error('DebugErrorBoundary caught', error, 'DebugErrorBoundary');
+    this.logger.error('DebugErrorBoundary caught', { error, context: 'DebugErrorBoundary' });
     this.setState({
       error,
       errorInfo

@@ -36,6 +36,106 @@ export function useActivityTracking() {
   });
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
 
+  const updateCounts = useCallback((activities: ActivityItem[]) => {
+    // Filter out sync and system notifications - only count app-data notifications
+    const appActivities = activities.filter(a => a.type !== 'sync' && a.type !== 'system');
+    const counts: ActivityCounts = {
+      total: appActivities.length,
+      unread: appActivities.filter(a => !a.read).length,
+      transactions: appActivities.filter(a => a.type === 'transaction').length,
+      accounts: appActivities.filter(a => a.type === 'account').length,
+      budgets: appActivities.filter(a => a.type === 'budget').length,
+      goals: appActivities.filter(a => a.type === 'goal').length,
+      system: 0 // Always 0 since we're excluding system notifications
+    };
+    setCounts(counts);
+  }, []);
+
+  const addActivity = useCallback((activity: Omit<ActivityItem, 'id' | 'timestamp' | 'read'>) => {
+    const newActivity: ActivityItem = {
+      ...activity,
+      id: `activity_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      timestamp: new Date(),
+      read: false
+    };
+
+    setActivities(prev => {
+      const updated = [newActivity, ...prev].slice(0, 100); // Keep last 100 activities
+      localStorage.setItem('recentActivities', JSON.stringify(updated));
+      updateCounts(updated);
+      return updated;
+    });
+
+    // Dispatch event for notification bell update
+    window.dispatchEvent(new CustomEvent('activity-added', {
+      detail: newActivity
+    }));
+  }, [updateCounts]);
+
+  const markAsRead = useCallback((activityId: string) => {
+    setActivities(prev => {
+      const updated = prev.map(a =>
+        a.id === activityId ? { ...a, read: true } : a
+      );
+      localStorage.setItem('recentActivities', JSON.stringify(updated));
+      updateCounts(updated);
+      return updated;
+    });
+  }, [updateCounts]);
+
+  const markAllAsRead = useCallback(() => {
+    setActivities(prev => {
+      const updated = prev.map(a => ({ ...a, read: true }));
+      localStorage.setItem('recentActivities', JSON.stringify(updated));
+      updateCounts(updated);
+      return updated;
+    });
+
+    const now = new Date();
+    setLastChecked(now);
+    localStorage.setItem('lastActivityCheck', now.toISOString());
+  }, [updateCounts]);
+
+  const clearActivities = useCallback(() => {
+    setActivities([]);
+    localStorage.removeItem('recentActivities');
+    updateCounts([]);
+  }, [updateCounts]);
+
+  const checkForNewActivities = useCallback(() => {
+    // In production, this would check with the backend
+    // For now, we'll simulate by checking localStorage
+    const stored = localStorage.getItem('recentActivities');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const activities = parsed.map((a: { timestamp: string | Date }) => ({
+        ...a,
+        timestamp: new Date(a.timestamp)
+      }));
+      setActivities(activities);
+      updateCounts(activities);
+    }
+  }, [updateCounts]);
+
+  const getRecentByType = useCallback((type: ActivityItem['type'], limit = 5) => {
+    return activities
+      .filter(a => a.type === type)
+      .slice(0, limit);
+  }, [activities]);
+
+  const getUnreadCount = useCallback((type?: ActivityItem['type']) => {
+    // Exclude sync and system notifications from counts - only count app-data notifications
+    const appActivities = activities.filter(a => a.type !== 'sync' && a.type !== 'system');
+    if (type) {
+      return appActivities.filter(a => a.type === type && !a.read).length;
+    }
+    return appActivities.filter(a => !a.read).length;
+  }, [activities]);
+
+  const getNewSinceLastCheck = useCallback(() => {
+    return activities.filter(a => a.timestamp > lastChecked);
+  }, [activities, lastChecked]);
+
   // Load activities from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem('recentActivities');
@@ -56,120 +156,21 @@ export function useActivityTracking() {
     }
 
     // Listen for activity events
-    const handleActivity = (event: CustomEvent<ActivityItem>) => {
-      addActivity(event.detail);
+    const handleActivity = (event: Event) => {
+      const customEvent = event as CustomEvent<ActivityItem>;
+      addActivity(customEvent.detail);
     };
 
-    window.addEventListener('activity-logged' as keyof WindowEventMap, handleActivity);
+    window.addEventListener('activity-logged', handleActivity);
 
     // Check for new activities periodically
     const interval = setInterval(checkForNewActivities, 60000); // Every minute
 
     return () => {
-      window.removeEventListener('activity-logged' as keyof WindowEventMap, handleActivity);
+      window.removeEventListener('activity-logged', handleActivity);
       clearInterval(interval);
     };
-  }, [addActivity, checkForNewActivities]);
-
-  const addActivity = useCallback((activity: Omit<ActivityItem, 'id' | 'timestamp' | 'read'>) => {
-    const newActivity: ActivityItem = {
-      ...activity,
-      id: `activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date(),
-      read: false
-    };
-
-    setActivities(prev => {
-      const updated = [newActivity, ...prev].slice(0, 100); // Keep last 100 activities
-      localStorage.setItem('recentActivities', JSON.stringify(updated));
-      updateCounts(updated);
-      return updated;
-    });
-
-    // Dispatch event for notification bell update
-    window.dispatchEvent(new CustomEvent('activity-added', {
-      detail: newActivity
-    }));
-  }, []);
-
-  const updateCounts = (activities: ActivityItem[]) => {
-    // Filter out sync and system notifications - only count app-data notifications
-    const appActivities = activities.filter(a => a.type !== 'sync' && a.type !== 'system');
-    const counts: ActivityCounts = {
-      total: appActivities.length,
-      unread: appActivities.filter(a => !a.read).length,
-      transactions: appActivities.filter(a => a.type === 'transaction').length,
-      accounts: appActivities.filter(a => a.type === 'account').length,
-      budgets: appActivities.filter(a => a.type === 'budget').length,
-      goals: appActivities.filter(a => a.type === 'goal').length,
-      system: 0 // Always 0 since we're excluding system notifications
-    };
-    setCounts(counts);
-  };
-
-  const markAsRead = useCallback((activityId: string) => {
-    setActivities(prev => {
-      const updated = prev.map(a => 
-        a.id === activityId ? { ...a, read: true } : a
-      );
-      localStorage.setItem('recentActivities', JSON.stringify(updated));
-      updateCounts(updated);
-      return updated;
-    });
-  }, []);
-
-  const markAllAsRead = useCallback(() => {
-    setActivities(prev => {
-      const updated = prev.map(a => ({ ...a, read: true }));
-      localStorage.setItem('recentActivities', JSON.stringify(updated));
-      updateCounts(updated);
-      return updated;
-    });
-    
-    const now = new Date();
-    setLastChecked(now);
-    localStorage.setItem('lastActivityCheck', now.toISOString());
-  }, []);
-
-  const clearActivities = useCallback(() => {
-    setActivities([]);
-    localStorage.removeItem('recentActivities');
-    updateCounts([]);
-  }, []);
-
-  const checkForNewActivities = useCallback(() => {
-    // In production, this would check with the backend
-    // For now, we'll simulate by checking localStorage
-    const stored = localStorage.getItem('recentActivities');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const activities = parsed.map((a: { timestamp: string | Date }) => ({
-        ...a,
-        timestamp: new Date(a.timestamp)
-      }));
-      setActivities(activities);
-      updateCounts(activities);
-    }
-  }, []);
-
-  const getRecentByType = useCallback((type: ActivityItem['type'], limit = 5) => {
-    return activities
-      .filter(a => a.type === type)
-      .slice(0, limit);
-  }, [activities]);
-
-  const getUnreadCount = useCallback((type?: ActivityItem['type']) => {
-    // Exclude sync and system notifications from counts - only count app-data notifications
-    const appActivities = activities.filter(a => a.type !== 'sync' && a.type !== 'system');
-    if (type) {
-      return appActivities.filter(a => a.type === type && !a.read).length;
-    }
-    return appActivities.filter(a => !a.read).length;
-  }, [activities]);
-
-  const getNewSinceLastCheck = useCallback(() => {
-    return activities.filter(a => a.timestamp > lastChecked);
-  }, [activities, lastChecked]);
+  }, [addActivity, checkForNewActivities, updateCounts]);
 
   return {
     activities,

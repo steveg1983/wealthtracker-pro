@@ -171,8 +171,8 @@ const polyfillSafari = () => {
 
 // Error handler specifically for Clerk errors in Safari
 export const handleClerkSafariError = (error: unknown): { message: string; solution: string } => {
-  const errorStr = error?.message || error?.toString() || '';
-  
+  const errorStr = error instanceof Error ? error.message : (typeof error === 'string' ? error : String(error));
+
   if (errorStr.includes('localStorage') || errorStr.includes('sessionStorage')) {
     return {
       message: 'Storage access blocked in Safari',

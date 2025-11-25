@@ -207,11 +207,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const unsubscribeAccountsPromise = SimpleAccountService.subscribeToAccountChanges(
             user.id,
             async (payload) => {
-              appLogger.debug('Real-time account update received', payload);
-              appLogger.debug('Real-time account update type', { eventType: payload.eventType });
-              
+              const realtimePayload = payload as { eventType: string; new?: { is_active?: boolean } };
+              appLogger.debug('Real-time account update received', realtimePayload);
+              appLogger.debug('Real-time account update type', { eventType: realtimePayload.eventType });
+
               // Handle different event types
-              if (payload.eventType === 'UPDATE' && payload.new && !payload.new.is_active) {
+              if (realtimePayload.eventType === 'UPDATE' && realtimePayload.new && !realtimePayload.new.is_active) {
                 appLogger.debug('Real-time account marked inactive');
               }
               

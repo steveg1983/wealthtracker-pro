@@ -22,43 +22,7 @@ export function useSyncStatus(): SyncStatusHook {
   const [pendingChanges, setPendingChanges] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Listen for data changes
-  useEffect(() => {
-    const handleDataChange = (_event: CustomEvent): void => {
-      if (isOnline) {
-        setPendingChanges(prev => prev + 1);
-        setStatus('pending');
-        
-        // Auto-sync after a delay
-        setTimeout(() => {
-          if (isOnline) {
-            triggerSync();
-          }
-        }, 2000);
-      } else {
-        setPendingChanges(prev => prev + 1);
-      }
-    };
-
-    window.addEventListener('data-changed' as keyof WindowEventMap, handleDataChange);
-    return () => {
-      window.removeEventListener('data-changed' as keyof WindowEventMap, handleDataChange);
-    };
-  }, [isOnline, triggerSync]);
-
-  // Update status when online status changes
-  useEffect(() => {
-    if (!isOnline) {
-      setStatus('offline');
-    } else if (pendingChanges > 0) {
-      setStatus('pending');
-      // Trigger sync when coming back online
-      triggerSync();
-    } else {
-      setStatus('synced');
-    }
-  }, [isOnline, pendingChanges, triggerSync]);
-
+  // Define triggerSync first (before useEffects that reference it)
   const triggerSync = useCallback(async (): Promise<void> => {
     if (!isOnline || status === 'syncing') return;
 
@@ -91,6 +55,43 @@ export function useSyncStatus(): SyncStatusHook {
       }));
     }
   }, [isOnline, status]);
+
+  // Listen for data changes
+  useEffect(() => {
+    const handleDataChange = (_event: Event): void => {
+      if (isOnline) {
+        setPendingChanges(prev => prev + 1);
+        setStatus('pending');
+
+        // Auto-sync after a delay
+        setTimeout(() => {
+          if (isOnline) {
+            triggerSync();
+          }
+        }, 2000);
+      } else {
+        setPendingChanges(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('data-changed', handleDataChange);
+    return () => {
+      window.removeEventListener('data-changed', handleDataChange);
+    };
+  }, [isOnline, triggerSync]);
+
+  // Update status when online status changes
+  useEffect(() => {
+    if (!isOnline) {
+      setStatus('offline');
+    } else if (pendingChanges > 0) {
+      setStatus('pending');
+      // Trigger sync when coming back online
+      triggerSync();
+    } else {
+      setStatus('synced');
+    }
+  }, [isOnline, pendingChanges, triggerSync]);
 
   return {
     status,

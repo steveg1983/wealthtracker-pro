@@ -40,8 +40,9 @@ export const usePerformanceMonitoring = () => {
     // Observe First Input Delay
     const fidObserver = new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
-      entries.forEach((entry: PerformanceEntry & { processingStart: number }) => {
-        metrics.fid = entry.processingStart - entry.startTime;
+      entries.forEach((entry) => {
+        const fidEntry = entry as PerformanceEntry & { processingStart: number };
+        metrics.fid = fidEntry.processingStart - fidEntry.startTime;
         perfLogger.info('FID observed', { value: metrics.fid });
       });
     });
@@ -49,9 +50,10 @@ export const usePerformanceMonitoring = () => {
     // Observe Cumulative Layout Shift
     const clsObserver = new PerformanceObserver((entryList) => {
       let cls = 0;
-      entryList.getEntries().forEach((entry: PerformanceEntry & { hadRecentInput?: boolean; value: number }) => {
-        if (!entry.hadRecentInput) {
-          cls += entry.value;
+      entryList.getEntries().forEach((entry) => {
+        const clsEntry = entry as PerformanceEntry & { hadRecentInput?: boolean; value: number };
+        if (!clsEntry.hadRecentInput) {
+          cls += clsEntry.value;
         }
       });
       metrics.cls = cls;

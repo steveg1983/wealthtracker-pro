@@ -278,7 +278,9 @@ export const createRateLimitMiddleware = (
 ) => {
   const limiter = rateLimiter.createLimiter(limiterName, {
     ...config,
-    keyGenerator: options?.keyGenerator || ((req) => req.ip || 'unknown')
+    keyGenerator: options?.keyGenerator
+      ? (context) => options.keyGenerator!(context as unknown as ExpressLikeRequest)
+      : ((context) => (context as ExpressLikeRequest | undefined)?.ip || 'unknown')
   });
 
   return (req: ExpressLikeRequest, res: ExpressLikeResponse, next: NextFunction) => {

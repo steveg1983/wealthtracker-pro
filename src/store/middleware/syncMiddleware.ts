@@ -76,57 +76,60 @@ const IGNORE_ACTIONS = [
   // Add any bulk set operations that come from server
 ];
 
-export const syncMiddleware: Middleware<object, RootState> = (_store) => (next) => (action: SyncAction) => {
+export const syncMiddleware: Middleware<object, RootState> = (_store) => (next) => (action: unknown) => {
+  const syncAction = action as SyncAction;
+
   // Execute the action first
-  const result = next(action);
+  const result = next(syncAction);
 
   // Check if this action should be synced
-  const actionType = action.type as string;
-  
+  const actionType = syncAction.type as string;
+
   // Ignore bulk set operations (usually from server)
   if (IGNORE_ACTIONS.includes(actionType)) {
     return result;
   }
-  
+
   // Check if this is a syncable action
   const syncConfig = SYNC_ACTIONS[actionType as keyof typeof SYNC_ACTIONS];
-  
+
   if (syncConfig) {
     try {
       // Extract entity ID and data from the action
       let entityId: string | undefined;
       let data: unknown = null;
-      
+
       // Handle different action payload structures
-      if (action.payload) {
-        if (typeof action.payload === 'object') {
+      if (syncAction.payload) {
+        if (typeof syncAction.payload === 'object' && syncAction.payload !== null) {
+          const payloadObj = syncAction.payload as Record<string, unknown>;
           // Most actions have an id field
-          entityId = action.payload.id || action.payload.entityId;
-          
+          entityId = (payloadObj.id as string) || (payloadObj.entityId as string);
+
           // For delete actions, we might only have the ID
           if (syncConfig.type === 'DELETE') {
-            entityId = typeof action.payload === 'string' ? action.payload : action.payload.id;
+            entityId = typeof syncAction.payload === 'string' ? syncAction.payload : (payloadObj.id as string);
             data = null;
           } else {
             // For create/update, send the full payload
-            data = action.payload;
+            data = syncAction.payload;
           }
-        } else if (typeof action.payload === 'string') {
+        } else if (typeof syncAction.payload === 'string') {
           // Some delete actions just pass the ID as a string
-          entityId = action.payload;
+          entityId = syncAction.payload;
           data = null;
         }
       }
-      
+
       // Queue the sync operation if we have an entity ID
       if (entityId) {
-        syncService.queueOperation(syncConfig.type, syncConfig.entity, entityId, data);
+        syncService.queueOperation(syncConfig.type, syncConfig.entity, entityId, (data ?? {}) as Record<string, unknown>);
       }
     } catch (error) {
       syncLogger.error('Failed to queue sync operation:', error);
     }
   }
-  
+
   return result;
 };
 
@@ -145,21 +148,21 @@ export const handleRemoteSyncUpdate = (
           dispatch({ type: 'transactions/addTransaction', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'transactions/updateTransaction', payload: { id: entityId, ...data } });
+          dispatch({ type: 'transactions/updateTransaction', payload: { id: entityId, ...(data as object) } });
           break;
         case 'DELETE':
           dispatch({ type: 'transactions/deleteTransaction', payload: entityId });
           break;
       }
       break;
-      
+
     case 'account':
       switch (type) {
         case 'CREATE':
           dispatch({ type: 'accounts/addAccount', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'accounts/updateAccount', payload: { id: entityId, ...data } });
+          dispatch({ type: 'accounts/updateAccount', payload: { id: entityId, ...(data as object) } });
           break;
         case 'DELETE':
           dispatch({ type: 'accounts/deleteAccount', payload: entityId });
@@ -185,21 +188,21 @@ export const handleRemoteSyncUpdate = (
           dispatch({ type: 'goals/addGoal', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'goals/updateGoal', payload: { id: entityId, ...data } });
+          dispatch({ type: 'goals/updateGoal', payload: { id: entityId, ...(data as object) } });
           break;
         case 'DELETE':
           dispatch({ type: 'goals/deleteGoal', payload: entityId });
           break;
       }
       break;
-      
+
     case 'category':
       switch (type) {
         case 'CREATE':
           dispatch({ type: 'categories/addCategory', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'categories/updateCategory', payload: { id: entityId, ...data } });
+          dispatch({ type: 'categories/updateCategory', payload: { id: entityId, ...(data as object) } });
           break;
         case 'DELETE':
           dispatch({ type: 'categories/deleteCategory', payload: entityId });
@@ -212,28 +215,33 @@ export const handleRemoteSyncUpdate = (
 // Initialize sync listeners when store is created
 export const initializeSyncListeners = (dispatch: AppDispatch) => {
   // Listen for remote updates
-  syncService.on('remote-create', (event: SyncServiceEvent) => {
+  syncService.on('remote-create', (payload?: unknown) => {
+    const event = payload as SyncServiceEvent;
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'CREATE' });
   });
-  
-  syncService.on('remote-update', (event: SyncServiceEvent) => {
+
+  syncService.on('remote-update', (payload?: unknown) => {
+    const event = payload as SyncServiceEvent;
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'UPDATE' });
   });
-  
-  syncService.on('remote-delete', (event: SyncServiceEvent) => {
+
+  syncService.on('remote-delete', (payload?: unknown) => {
+    const event = payload as SyncServiceEvent;
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'DELETE' });
   });
-  
-  syncService.on('remote-merge', (event: SyncServiceEvent) => {
+
+  syncService.on('remote-merge', (payload?: unknown) => {
+    const event = payload as SyncServiceEvent;
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'UPDATE' });
   });
-  
+
   // Handle sync failures
-  syncService.on('sync-failed', (operation: SyncFailureEvent) => {
+  syncService.on('sync-failed', (payload?: unknown) => {
+    const operation = payload as SyncFailureEvent;
     syncLogger.error('Sync operation failed:', operation);
     // Could dispatch an action to show error to user
-    dispatch({ 
-      type: 'ui/showNotification', 
+    dispatch({
+      type: 'ui/showNotification',
       payload: {
         type: 'error',
         message: `Failed to sync ${operation.entity}. Changes saved locally.`

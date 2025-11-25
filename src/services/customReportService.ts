@@ -228,8 +228,9 @@ export class CustomReportService {
 
     // Filter based on config
     if (config.metrics && Array.isArray(config.metrics)) {
+      const metrics = config.metrics as string[];
       return Object.keys(stats)
-        .filter(key => config.metrics.includes(key))
+        .filter(key => metrics.includes(key))
         .reduce((obj, key) => ({ ...obj, [key]: stats[key] }), {});
     }
 
@@ -302,7 +303,7 @@ export class CustomReportService {
     // Sort by amount and apply limit
     const sortedCategories = Array.from(categoryTotals.entries())
       .sort((a, b) => b[1].toNumber() - a[1].toNumber())
-      .slice(0, config.limit || 10);
+      .slice(0, typeof config.limit === 'number' ? config.limit : 10);
 
     // If there are more categories, group them as "Other"
     if (categoryTotals.size > sortedCategories.length) {
@@ -385,7 +386,7 @@ export class CustomReportService {
     }
 
     // Apply limit
-    if (config.limit) {
+    if (typeof config.limit === 'number') {
       sortedTransactions = sortedTransactions.slice(0, config.limit);
     }
 

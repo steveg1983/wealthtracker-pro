@@ -57,7 +57,10 @@ export function withSanitizedProps<C extends React.ComponentType<Record<string, 
       return result as Props;
     }, [props]);
 
-    return <Component {...sanitizedProps} ref={ref} />;
+    // Cast to any to work around complex HOC type inference issues
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Comp = Component as React.ComponentType<any>;
+    return <Comp {...sanitizedProps} ref={ref} />;
   });
 
   Sanitized.displayName = `withSanitizedProps(${Component.displayName ?? Component.name ?? 'Component'})`;

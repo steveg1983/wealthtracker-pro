@@ -71,7 +71,7 @@ export class StripeService {
       typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null;
     const locationOrigin =
       typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost:3000';
-    const env = typeof import.meta !== 'undefined' ? import.meta.env ?? {} : {};
+    const env = (typeof import.meta !== 'undefined' ? import.meta.env ?? {} : {}) as Record<string, string | undefined>;
     const logger = typeof console !== 'undefined' ? console : { warn: () => {}, error: () => {} };
 
     return {

@@ -10,6 +10,8 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import type { Transaction } from '../types';
 
+type TransactionWithBalance = Transaction & { balance: number };
+
 export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -102,8 +104,8 @@ export default function AccountTransactions() {
   }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, sortField, sortDirection, categories]);
   
   // Calculate running balance
-  const transactionsWithBalance = useMemo<(Transaction & { balance: number })[]>(() => {
-    if (!account) return [] as (Transaction & { balance: number })[];
+  const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
+    if (!account) return [] as TransactionWithBalance[];
     
     
     // Sort transactions by date and type for proper balance calculation
@@ -249,7 +251,7 @@ export default function AccountTransactions() {
     }
     
     // Create the transaction
-    const transactionData: Partial<Transaction> = {
+    const transactionData: Omit<Transaction, 'id'> = {
       date: new Date(quickAddForm.date),
       description: quickAddForm.description,
       amount: amount,
@@ -257,12 +259,10 @@ export default function AccountTransactions() {
       accountId: account.id,
       tags: quickAddForm.tags,
       notes: quickAddForm.notes,
-      cleared: false
+      cleared: false,
+      category: quickAddForm.category
     };
-    
-    // Add category based on type
-    transactionData.category = quickAddForm.category;
-    
+
     const newTransaction = await addTransaction(transactionData);
     
     // For transfers, create the opposite transaction in the target account
@@ -314,7 +314,7 @@ export default function AccountTransactions() {
   }, [categories]);
 
   // Define table columns for VirtualizedTable
-  const columns: Column<Transaction & { balance: number }>[] = useMemo(() => [
+  const columns: Column<TransactionWithBalance>[] = useMemo(() => [
     {
       key: 'date',
       header: 'Date',
@@ -626,7 +626,7 @@ export default function AccountTransactions() {
         <VirtualizedTable
           items={transactionsWithBalance}
           columns={columns}
-          getItemKey={(transaction) => transaction.id}
+          getItemKey={(transaction: TransactionWithBalance) => transaction.id}
           onRowClick={(item) => handleTransactionClick(item)}
           rowHeight={compactView ? 48 : 64}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
@@ -642,7 +642,7 @@ export default function AccountTransactions() {
           threshold={50}
           className="virtualized-table bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
-          rowClassName={(transaction) => {
+          rowClassName={(transaction: TransactionWithBalance) => {
             const isSelected = selectedTransactionId === transaction.id;
             return isSelected ? 'selected-transaction-row' : '';
           }}

@@ -213,7 +213,7 @@ class CSRFProtection {
   expressMiddleware() {
     return (
       req: { method: string; headers: Record<string, unknown>; body?: Record<string, unknown> } & { session?: { userId?: string } },
-      _res: unknown,
+      res: { status: (code: number) => { json: (body: unknown) => void } },
       next: () => void
     ) => {
       // Skip CSRF check for safe methods
@@ -223,10 +223,10 @@ class CSRFProtection {
       }
       
       // Get token from header or body
-      const token = req.headers[this.tokenHeader.toLowerCase()] || 
+      const token = req.headers[this.tokenHeader.toLowerCase()] ||
                    req.body?.[this.tokenField];
-      
-      if (!this.validateToken(token)) {
+
+      if (!this.validateToken(typeof token === 'string' ? token : String(token ?? ''))) {
         return res.status(403).json({
           error: 'Invalid CSRF token'
         });

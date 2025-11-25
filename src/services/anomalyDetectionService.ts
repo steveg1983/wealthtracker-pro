@@ -106,7 +106,7 @@ export class AnomalyDetectionService {
       if (stored) {
         return {
           ...stored,
-          enabledTypes: new Set(stored.enabledTypes)
+          enabledTypes: new Set(stored.enabledTypes as Anomaly['type'][])
         };
       }
     } catch (error) {

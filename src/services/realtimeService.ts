@@ -71,11 +71,8 @@ export class RealtimeService {
     this.supabaseClient = options.supabaseClient ?? supabase ?? null;
     this.userService = options.userIdService ?? userIdService;
     this.logger = options.logger ?? createScopedLogger('RealtimeService');
-    this.setTimeoutFn =
-      options.setTimeoutFn ??
-      ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => setTimeout(handler, timeout, ...args));
-    this.clearTimeoutFn =
-      options.clearTimeoutFn ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
   }
 
   /**
@@ -242,12 +239,12 @@ export class RealtimeService {
             schema: payload.schema,
           };
           
-          this.logger.log('Accounts real-time event:', event);
+          this.logger.info('Accounts real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        this.logger.log(`Accounts subscription status: ${status}`);
+        this.logger.info(`Accounts subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -306,12 +303,12 @@ export class RealtimeService {
             schema: payload.schema,
           };
           
-      this.logger.log('Transactions real-time event:', event);
+      this.logger.info('Transactions real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        this.logger.log(`Transactions subscription status: ${status}`);
+        this.logger.info(`Transactions subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -370,12 +367,12 @@ export class RealtimeService {
             schema: payload.schema,
           };
           
-          this.logger.log('Budgets real-time event:', event);
+          this.logger.info('Budgets real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        this.logger.log(`Budgets subscription status: ${status}`);
+        this.logger.info(`Budgets subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -434,12 +431,12 @@ export class RealtimeService {
             schema: payload.schema,
           };
           
-          this.logger.log('Goals real-time event:', event);
+          this.logger.info('Goals real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        this.logger.log(`Goals subscription status: ${status}`);
+        this.logger.info(`Goals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -460,7 +457,7 @@ export class RealtimeService {
     if (channel) {
       channel.unsubscribe();
       this.subscriptions.delete(subscriptionKey);
-    this.logger.log(`Unsubscribed from: ${subscriptionKey}`);
+    this.logger.info(`Unsubscribed from: ${subscriptionKey}`);
     }
   }
 
@@ -470,7 +467,7 @@ export class RealtimeService {
   unsubscribeAll(): void {
     this.subscriptions.forEach((channel, key) => {
       channel.unsubscribe();
-      this.logger.log(`Unsubscribed from: ${key}`);
+      this.logger.info(`Unsubscribed from: ${key}`);
     });
     this.subscriptions.clear();
 

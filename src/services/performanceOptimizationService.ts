@@ -50,8 +50,9 @@ type IntersectionObserverFactory = (
 
 type Logger = Pick<Console, 'warn'>;
 
-type SetIntervalFn = (handler: () => void, timeout: number) => number;
-type ClearIntervalFn = (id: number) => void;
+type TimerId = ReturnType<typeof setInterval>;
+type SetIntervalFn = (handler: () => void, timeout: number) => TimerId;
+type ClearIntervalFn = (id: TimerId) => void;
 
 export interface PerformanceOptimizationServiceOptions {
   performanceObserverFactory?: PerformanceObserverFactory;
@@ -73,7 +74,7 @@ export class PerformanceOptimizationService {
   private readonly logger: Logger;
   private readonly setIntervalFn: SetIntervalFn;
   private readonly clearIntervalFn: ClearIntervalFn;
-  private memoryIntervalId: number | null = null;
+  private memoryIntervalId: TimerId | null = null;
 
   constructor(options: PerformanceOptimizationServiceOptions = {}) {
     this.performanceObserverFactory =
@@ -94,7 +95,7 @@ export class PerformanceOptimizationService {
         return new window.IntersectionObserver(callback);
       });
 
-    this.documentRef = options.documentRef ?? (typeof document !== 'undefined' ? document : null);
+    this.documentRef = options.documentRef ?? (typeof document !== 'undefined' ? document as unknown as DocumentLike : null);
     this.performanceRef = options.performanceRef ?? (typeof performance !== 'undefined' ? performance : null);
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     this.logger = {
@@ -215,13 +216,14 @@ export class PerformanceOptimizationService {
   }
 
   private prefetchCriticalResources(): void {
-    if (!this.documentRef?.head) return;
+    const docRef = this.documentRef;
+    if (!docRef?.head) return;
     const criticalRoutes = ['/dashboard', '/transactions', '/accounts'];
     criticalRoutes.forEach((route) => {
-      const link = this.documentRef.createElement('link');
+      const link = docRef.createElement('link');
       link.rel = 'prefetch';
       link.href = route;
-      this.documentRef.head!.appendChild(link);
+      docRef.head!.appendChild(link);
     });
   }
 

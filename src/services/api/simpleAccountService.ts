@@ -138,7 +138,7 @@ class SimpleAccountServiceImpl {
 
       const { data, error } = await client
         .from('accounts')
-        .insert(accountData)
+        .insert(accountData as never)
         .select()
         .single();
 
@@ -208,7 +208,7 @@ class SimpleAccountServiceImpl {
 
       const { data, error } = await client
         .from('accounts')
-        .update(updates)
+        .update(updates as never)
         .eq('id', accountId)
         .select()
         .single();

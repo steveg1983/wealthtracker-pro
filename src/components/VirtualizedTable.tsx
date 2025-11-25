@@ -127,7 +127,7 @@ const TableHeader = memo(function TableHeader<T>({
 
 TableHeader.displayName = 'TableHeader';
 
-export const VirtualizedTable = memo(function VirtualizedTable<T>({
+const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   items,
   columns,
   getItemKey,
@@ -275,4 +275,9 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
   );
 });
 
-VirtualizedTable.displayName = 'VirtualizedTable';
+VirtualizedTableComponent.displayName = 'VirtualizedTable';
+
+// Re-export with proper generic type preservation
+// memo() erases generic type information, so we need to cast it back
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const VirtualizedTable = VirtualizedTableComponent as any as <T>(props: VirtualizedTableProps<T>) => React.ReactElement;

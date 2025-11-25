@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { bankConnectionService, type BankConnection, type BankInstitution } from '../services/bankConnectionService';
 import { Modal } from './common/Modal';
-import { 
-  Building2Icon, 
-  RefreshCwIcon, 
-  LinkIcon, 
+import {
+  Building2Icon,
+  RefreshCwIcon,
+  LinkIcon,
   UnlinkIcon,
   AlertCircleIcon,
   CheckCircleIcon,
@@ -13,6 +13,7 @@ import {
   SearchIcon
 } from './icons';
 import { format } from 'date-fns';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface BankConnectionsProps {
   onAccountsLinked?: () => void;
@@ -92,7 +93,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         loadConnections();
         onAccountsLinked?.();
       } else {
-        logger.error('Sync failed', result.errors as Error);
+        logger.error('Sync failed', result.errors);
       }
     } finally {
       setSyncingConnections(prev => {

@@ -252,7 +252,9 @@ async function handleConflict(
 // Conflict resolution strategies
 function resolveTransactionConflict(client: Transaction, server: Transaction): ConflictResolutionResult {
   // For transactions, prefer the one with the latest timestamp
-  if (client.updatedAt > server.updatedAt) {
+  const clientUpdated = client.updatedAt ?? new Date(0);
+  const serverUpdated = server.updatedAt ?? new Date(0);
+  if (clientUpdated > serverUpdated) {
     return { resolved: true, resolvedData: client };
   }
   return { resolved: true, resolvedData: server };
@@ -355,7 +357,7 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
 });
 
 // Periodic background sync for data freshness
-self.addEventListener('periodicsync', (event: PeriodicSyncEvent) => {
+self.addEventListener('periodicsync' as never, (event: PeriodicSyncEvent) => {
   if (event.tag === 'update-accounts') {
     event.waitUntil(updateAccountBalances());
   } else if (event.tag === 'check-bills') {
@@ -447,7 +449,7 @@ async function updateInvestmentPrices() {
         Math.abs(change.percentChange) >= 5
       );
       
-      if (significantChanges?.length > 0) {
+      if ((significantChanges?.length ?? 0) > 0) {
         await self.registration.showNotification('Investment Alert', {
           body: `Significant price changes detected in your portfolio`,
           icon: '/icon-192.png',
