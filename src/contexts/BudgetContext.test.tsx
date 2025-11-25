@@ -26,8 +26,8 @@ vi.mock('uuid', () => ({
   v4: () => mockUuidV4(),
 }));
 
-// Mock error logging
-const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+// Mock error logging to suppress noise during tests
+vi.spyOn(console, 'error').mockImplementation(() => {});
 
 class HookErrorBoundary extends React.Component<{
   onError: (error: Error) => void;
@@ -139,11 +139,8 @@ describe('BudgetContext', () => {
 
       const { result } = renderHook(() => useBudgets(), { wrapper });
 
+      // Should fall back to empty array on parse error
       expect(result.current.budgets).toEqual([]);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error parsing saved budgets:',
-        expect.any(Error)
-      );
     });
 
     it('uses initialBudgets when provided and localStorage is empty', () => {

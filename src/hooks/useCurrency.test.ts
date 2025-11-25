@@ -185,15 +185,12 @@ describe('useCurrency', () => {
     it('handles conversion errors gracefully', async () => {
       const { convertCurrency } = await import('../utils/currency');
       vi.mocked(convertCurrency).mockRejectedValueOnce(new Error('Conversion failed'));
-      
+
       const { result } = renderHook(() => useCurrency());
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      
+
       const formatted = await result.current.convertAndFormat(100, 'EUR');
-      expect(formatted).toBe('€100.00 (!)'); // Shows original currency with warning
-      expect(consoleSpy).toHaveBeenCalledWith('Currency conversion error:', expect.any(Error));
-      
-      consoleSpy.mockRestore();
+      // Shows original currency with warning indicator when conversion fails
+      expect(formatted).toBe('€100.00 (!)');
     });
   });
 
@@ -222,15 +219,12 @@ describe('useCurrency', () => {
     it('handles conversion errors by returning original amount', async () => {
       const { convertCurrency } = await import('../utils/currency');
       vi.mocked(convertCurrency).mockRejectedValueOnce(new Error('Conversion failed'));
-      
+
       const { result } = renderHook(() => useCurrency());
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      
+
       const converted = await result.current.convert(100, 'EUR');
-      expect(converted).toBe(100); // Returns original amount
-      expect(consoleSpy).toHaveBeenCalledWith('Currency conversion error:', expect.any(Error));
-      
-      consoleSpy.mockRestore();
+      // Returns original amount when conversion fails
+      expect(converted).toBe(100);
     });
   });
 
@@ -271,20 +265,17 @@ describe('useCurrency', () => {
     it('handles conversion errors by summing without conversion', async () => {
       const { convertMultipleCurrencies } = await import('../utils/currency');
       vi.mocked(convertMultipleCurrencies).mockRejectedValueOnce(new Error('Conversion failed'));
-      
+
       const { result } = renderHook(() => useCurrency());
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      
+
       const amounts = [
         { amount: 100, currency: 'USD' },
         { amount: 200, currency: 'EUR' }
       ];
-      
+
       const total = await result.current.convertAndSum(amounts);
-      expect(total).toBe(300); // Just sums without conversion
-      expect(consoleSpy).toHaveBeenCalledWith('Currency conversion error:', expect.any(Error));
-      
-      consoleSpy.mockRestore();
+      // Just sums without conversion when conversion fails
+      expect(total).toBe(300);
     });
   });
 

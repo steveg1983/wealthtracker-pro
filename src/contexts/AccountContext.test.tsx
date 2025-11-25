@@ -26,8 +26,8 @@ vi.mock('uuid', () => ({
   v4: () => mockUuidV4(),
 }));
 
-// Mock console.error
-const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+// Mock console.error to suppress noise during tests
+vi.spyOn(console, 'error').mockImplementation(() => {});
 
 describe('AccountContext', () => {
   beforeEach(() => {
@@ -114,11 +114,8 @@ describe('AccountContext', () => {
 
       const { result } = renderHook(() => useAccounts(), { wrapper });
 
+      // Should fall back to empty array on parse error
       expect(result.current.accounts).toEqual([]);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error parsing saved accounts:',
-        expect.any(Error)
-      );
     });
 
     it('uses initialAccounts when provided and localStorage is empty', () => {

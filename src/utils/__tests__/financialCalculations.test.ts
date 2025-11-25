@@ -21,7 +21,7 @@ import {
   calculateDebtToIncomeRatio,
   calculateEmergencyFundCoverage,
 } from '../../utils/calculations';
-import { createMockTransaction, createMockAccount, createMockBudget, createMockGoal } from '../../test/testUtils';
+import { createMockTransaction, createMockAccount, createMockBudget, createMockGoal } from '../../test/factories';
 import type { Transaction, Account, Budget, Goal } from '../../types';
 
 describe('Financial Calculations', () => {
@@ -113,21 +113,21 @@ describe('Financial Calculations', () => {
     mockBudgets = [
       createMockBudget({
         id: '1',
-        category: 'groceries',
+        categoryId: 'groceries',
         amount: 800,
         spent: 650, // 650 spent out of 800
         period: 'monthly',
       }),
       createMockBudget({
         id: '2',
-        category: 'entertainment',
+        categoryId: 'entertainment',
         amount: 300,
         spent: 200,
         period: 'monthly',
       }),
       createMockBudget({
         id: '3',
-        category: 'housing',
+        categoryId: 'housing',
         amount: 1500,
         spent: 1200,
         period: 'monthly',

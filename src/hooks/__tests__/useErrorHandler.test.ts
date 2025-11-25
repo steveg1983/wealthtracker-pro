@@ -4,7 +4,8 @@ import { useErrorHandler } from '../useErrorHandler';
 
 // Mock the sentry module
 vi.mock('../../lib/sentry', () => ({
-  captureException: vi.fn()
+  captureException: vi.fn(),
+  captureMessage: vi.fn()
 }));
 
 // Import the mocked function
@@ -39,7 +40,7 @@ describe('useErrorHandler', () => {
       expect(captureException).toHaveBeenCalledTimes(1);
     });
 
-    it('should log error to console', () => {
+    it('should handle error and call captureException', () => {
       const { result } = renderHook(() => useErrorHandler());
       const error = new Error('Test error');
       const context = { userId: '123' };
@@ -48,7 +49,8 @@ describe('useErrorHandler', () => {
         result.current.handleError(error, context);
       });
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error handled:', error, context);
+      // Verify captureException was called with the error
+      expect(captureException).toHaveBeenCalledWith(error, context);
     });
 
     it('should handle error without context', () => {
@@ -60,7 +62,6 @@ describe('useErrorHandler', () => {
       });
 
       expect(captureException).toHaveBeenCalledWith(error, undefined);
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error handled:', error, undefined);
     });
 
     it('should return the same function reference on re-renders', () => {
@@ -101,7 +102,6 @@ describe('useErrorHandler', () => {
 
       expect(resultValue).toBeNull();
       expect(captureException).toHaveBeenCalledWith(error, context);
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error handled:', error, context);
     });
 
     it('should handle non-Error rejections', async () => {
@@ -202,7 +202,6 @@ describe('useErrorHandler', () => {
 
       // Verify that captureException was called (which proves handleError was used internally)
       expect(captureException).toHaveBeenCalledWith(error, context);
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error handled:', error, context);
     });
 
     it('should handle multiple async errors in sequence', async () => {

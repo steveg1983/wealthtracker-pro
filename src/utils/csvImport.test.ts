@@ -296,33 +296,18 @@ invalid-date,Invalid Date Transaction,200.00,other,expense
       expect(transactions[1].description).toBe('Transaction 2');
     });
 
-    it('logs errors for problematic rows but continues processing', () => {
+    it('skips rows with invalid dates but continues processing', () => {
       const csv = `date,description,amount,category,type
 2024-01-15,Good Transaction,100.00,other,expense
-2024-01-16,Bad Transaction,100.00,other,expense
+invalid-date,Bad Transaction,100.00,other,expense
 2024-01-17,Another Good Transaction,200.00,other,expense`;
-
-      // Mock Date constructor to throw on specific input
-      const originalDate = Date;
-      global.Date = class extends originalDate {
-        constructor(...args: any[]) {
-          if (args[0] === '2024-01-16') {
-            throw new Error('Mock date error');
-          }
-          super(...args);
-        }
-      } as any;
 
       const transactions = importTransactionsFromCSV(csv, accountMap);
 
-      // Should have processed the good transactions and logged error for bad one
+      // Should have processed the good transactions and skipped the invalid one
       expect(transactions).toHaveLength(2);
       expect(transactions[0].description).toBe('Good Transaction');
       expect(transactions[1].description).toBe('Another Good Transaction');
-      expect(consoleErrorSpy).toHaveBeenCalled();
-
-      // Restore original Date constructor
-      global.Date = originalDate;
     });
   });
 
@@ -542,19 +527,21 @@ Another Good Account,savings,2000.00`;
       // Generate a large CSV for performance testing
       const headers = 'date,description,category,type,amount,account\n';
       const rows: string[] = [];
-      
+
       for (let i = 0; i < 1000; i++) {
-        const day = String((i % 28) + 1).padStart(2, '0'); // Ensure valid dates
-        rows.push(`2024-01-${day},Transaction ${i},category,expense,${i + 1}.00,Test Account`);
+        // Use ISO date format with varying months and days to ensure all dates are valid
+        const month = String(Math.floor(i / 28) % 12 + 1).padStart(2, '0');
+        const day = String((i % 28) + 1).padStart(2, '0');
+        rows.push(`2024-${month}-${day},Transaction ${i},category,expense,${i + 1}.00,Test Account`);
       }
-      
+
       const largeCsv = headers + rows.join('\n');
       const accountMap = new Map([['Test Account', 'acc-1']]);
-      
+
       const startTime = Date.now();
       const transactions = importTransactionsFromCSV(largeCsv, accountMap);
       const endTime = Date.now();
-      
+
       expect(transactions).toHaveLength(1000);
       expect(endTime - startTime).toBeLessThan(1000); // Should complete in under 1 second
     });

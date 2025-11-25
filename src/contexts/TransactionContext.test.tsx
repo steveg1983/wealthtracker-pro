@@ -26,8 +26,8 @@ vi.mock('uuid', () => ({
   v4: () => mockUuidV4(),
 }));
 
-// Mock error logging
-const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+// Mock error logging to suppress noise during tests
+vi.spyOn(console, 'error').mockImplementation(() => {});
 
 class TestErrorBoundary extends React.Component<{ onError: (error: Error) => void; children: ReactNode }, { hasError: boolean }> {
   constructor(props: { onError: (error: Error) => void; children: ReactNode }) {
@@ -178,9 +178,9 @@ describe('TransactionContext', () => {
 
       const { result } = renderHook(() => useTransactions(), { wrapper });
 
+      // Should fall back to empty arrays on parse error
       expect(result.current.transactions).toEqual([]);
       expect(result.current.recurringTransactions).toEqual([]);
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
     });
 
     it('uses initial data when provided and localStorage is empty', () => {

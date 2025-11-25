@@ -9,7 +9,10 @@ import {
   fetchTransactionByIdService,
 } from './helpers';
 
-describe('Supabase smoke', { timeout: 60000 }, () => {
+// Only run these tests when RUN_SUPABASE_REAL_TESTS is set
+const shouldRunTests = process.env.RUN_SUPABASE_REAL_TESTS === 'true';
+
+describe.skipIf(!shouldRunTests)('Supabase smoke', { timeout: 60000 }, () => {
   let userId: string;
   let accountId: string;
 

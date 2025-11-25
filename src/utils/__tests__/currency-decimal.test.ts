@@ -48,9 +48,9 @@ describe('currency-decimal', () => {
       expect(formatCurrency(99.9, 'EUR')).toBe('€99.90');
     });
 
-    it('formats negative amounts as positive with symbol', () => {
-      expect(formatCurrency(-1234.56, 'GBP')).toBe('£1,234.56');
-      expect(formatCurrency(-50, 'USD')).toBe('$50.00');
+    it('formats negative amounts with negative sign', () => {
+      expect(formatCurrency(-1234.56, 'GBP')).toBe('-£1,234.56');
+      expect(formatCurrency(-50, 'USD')).toBe('-$50.00');
     });
 
     it('formats zero correctly', () => {

@@ -2,8 +2,8 @@
 export type Money = string & { readonly __brand: 'Money' };
 
 // Create Money from a number or string (normalized to 2 decimal places)
-import { toDecimal, formatDecimalFixed } from '@wealthtracker/utils';
-import type { DecimalInstance } from '@wealthtracker/utils';
+import { toDecimal, formatDecimalFixed } from '../../packages/utils/decimal';
+import type { DecimalInstance } from '../../packages/utils/decimal';
 
 export function toMoney(value: number | string | DecimalInstance): Money {
   const decimalValue = toDecimal(value);

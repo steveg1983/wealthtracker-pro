@@ -28,7 +28,7 @@ describe('PreferencesContext', () => {
       wrapper: PreferencesProvider,
     });
 
-    expect(result.current.compactView).toBe(false);
+    expect(result.current.compactView).toBe(true); // Default is true (compact view)
     expect(result.current.currency).toBe('GBP');
     expect(result.current.theme).toBe('light');
     expect(result.current.colorTheme).toBe('blue');

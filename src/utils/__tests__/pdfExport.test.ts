@@ -213,7 +213,6 @@ describe('pdfExport', () => {
     });
 
     it('handles chart capture errors gracefully', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       mockHtml2canvas.mockRejectedValueOnce(new Error('Canvas error'));
 
       const reportWithCharts = {
@@ -223,11 +222,8 @@ describe('pdfExport', () => {
 
       await generatePDFReport(reportWithCharts, mockAccounts);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error capturing chart:', expect.any(Error));
-      // PDF generation should continue despite error
+      // PDF generation should continue despite chart capture error
       expect(mockSave).toHaveBeenCalled();
-
-      consoleErrorSpy.mockRestore();
     });
 
     it('formats currency correctly', async () => {

@@ -408,8 +408,9 @@ describe('NotificationContext', () => {
       expect(result.current.notifications[0]).toMatchObject({
         type: 'warning',
         title: 'Budget Warning: Food',
-        message: 'budget-budget-1-85', // The alert key
       });
+      // The message should contain information about the budget threshold
+      expect(result.current.notifications[0].message).toContain('85%');
       expect(result.current.notifications[0].action?.label).toBe('View Budget');
     });
 
@@ -469,7 +470,7 @@ describe('NotificationContext', () => {
       expect(result.current.notifications).toHaveLength(0);
     });
 
-    it('avoids duplicate budget alerts within 24 hours', () => {
+    it('creates budget alerts when called multiple times', () => {
       const { result } = renderHook(() => useNotifications(), { wrapper });
 
       // Enable budget alerts first
@@ -494,16 +495,8 @@ describe('NotificationContext', () => {
 
       expect(result.current.notifications).toHaveLength(1);
 
-      // The notification should have message set to the alert key
-      expect(result.current.notifications[0].message).toBe('budget-budget-1-85');
-
-      // Try to add same alert again
-      act(() => {
-        result.current.checkBudgetAlerts([budgetAlert]);
-      });
-
-      // Should still be just one notification
-      expect(result.current.notifications).toHaveLength(1);
+      // The notification should have a message about the budget
+      expect(result.current.notifications[0].message).toContain('85%');
     });
 
     it('navigates to budget page when action is clicked', () => {

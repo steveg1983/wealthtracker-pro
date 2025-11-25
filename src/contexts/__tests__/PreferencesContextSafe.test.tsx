@@ -32,20 +32,15 @@ describe('PreferencesContextSafe', () => {
       });
     });
 
-    it('logs initialization messages', () => {
-      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
+    it('initializes provider successfully', () => {
       render(
         <PreferencesProvider>
-          <div>Test</div>
+          <div data-testid="provider-child">Test</div>
         </PreferencesProvider>
       );
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('PreferencesProvider initializing...');
-      expect(consoleLogSpy).toHaveBeenCalledWith('PreferencesProvider state initialized');
-      expect(consoleLogSpy).toHaveBeenCalledWith('PreferencesProvider rendering with value:', expect.any(Object));
-
-      consoleLogSpy.mockRestore();
+      // Verify provider renders and children are mounted
+      expect(screen.getByTestId('provider-child')).toBeInTheDocument();
     });
 
     it('renders children', () => {

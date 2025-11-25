@@ -7,8 +7,6 @@ import {
   calculateBudgetUsage,
   calculateBudgetProgress,
   calculateGoalProgress,
-} from '../calculations-decimal';
-import {
   calculateNetIncome,
   calculateAccountBalance,
   calculateBudgetSpending,
@@ -23,7 +21,13 @@ import {
   calculateAverageTransaction,
   calculateInvestmentReturn,
   calculateCompoundInterest,
-  calculateDailyBalance
+  calculateDailyBalance,
+  calculateAverageTransactionAmount,
+  getRecentTransactions,
+  getTopCategories,
+  calculateMonthlyTrends,
+  calculateSavingsRate,
+  calculateCashFlow,
 } from '../calculations-decimal';
 import { toDecimal } from '../decimal';
 import type { DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal } from '../../types/decimal-types';
@@ -54,11 +58,13 @@ const createMockDecimalTransaction = (overrides?: Partial<DecimalTransaction>): 
 
 const createMockDecimalBudget = (overrides?: Partial<DecimalBudget>): DecimalBudget => ({
   id: '1',
-  category: 'groceries',
+  categoryId: 'groceries',
   amount: toDecimal(500),
   period: 'monthly',
   isActive: true,
   createdAt: new Date(),
+  spent: 0,
+  updatedAt: new Date(),
   ...overrides,
 });
 
@@ -135,7 +141,7 @@ describe('Decimal Calculation Utilities', () => {
 
   describe('calculateBudgetUsage', () => {
     it('calculates budget usage with decimal precision', () => {
-      const budget = createMockDecimalBudget({ category: 'groceries', amount: toDecimal(500) });
+      const budget = createMockDecimalBudget({ categoryId: 'groceries', amount: toDecimal(500) });
       const transactions = [
         createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(150.50), type: 'expense' }),
         createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(100.25), type: 'expense' }),
@@ -148,7 +154,7 @@ describe('Decimal Calculation Utilities', () => {
 
   describe('calculateBudgetProgress', () => {
     it('calculates budget progress percentage with decimal precision', () => {
-      const budget = createMockDecimalBudget({ category: 'groceries', amount: toDecimal(500) });
+      const budget = createMockDecimalBudget({ categoryId: 'groceries', amount: toDecimal(500) });
       const transactions = [
         createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(125), type: 'expense' })
       ];
@@ -157,7 +163,7 @@ describe('Decimal Calculation Utilities', () => {
     });
 
     it('handles decimal percentages correctly', () => {
-      const budget = createMockDecimalBudget({ category: 'groceries', amount: toDecimal(300) });
+      const budget = createMockDecimalBudget({ categoryId: 'groceries', amount: toDecimal(300) });
       const transactions = [
         createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(100), type: 'expense' })
       ];
@@ -326,7 +332,7 @@ describe('Decimal Calculation Utilities', () => {
 
   describe('calculateBudgetSpending', () => {
     it('calculates budget spending within date range', () => {
-      const budget = createMockDecimalBudget({ category: 'groceries' });
+      const budget = createMockDecimalBudget({ categoryId: 'groceries' });
       const startDate = new Date('2023-01-01');
       const endDate = new Date('2023-01-31');
       const transactions = [

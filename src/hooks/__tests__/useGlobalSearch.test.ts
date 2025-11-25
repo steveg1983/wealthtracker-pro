@@ -38,7 +38,7 @@ const mockTransactions: Transaction[] = [
 const mockBudgets: Budget[] = [
   {
     id: 'budget1',
-    category: 'cat1',
+    categoryId: 'cat1',
     amount: 500,
     period: 'monthly'
   }
@@ -63,7 +63,8 @@ const mockCategories: Category[] = [
   }
 ];
 
-vi.mock('../../contexts/AppContext', async (importOriginal) => {
+// Mock the correct module - useGlobalSearch imports from AppContextSupabase
+vi.mock('../../contexts/AppContextSupabase', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,

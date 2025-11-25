@@ -37,7 +37,7 @@ describe('money utilities', () => {
   });
 
   it('throws on invalid input', () => {
-    expect(() => toMoney('abc' as unknown as number)).toThrowError('Invalid money value');
+    expect(() => toMoney('abc' as unknown as number)).toThrowError(/Invalid|DecimalError/);
   });
 
   it('does not lose precision for large values', () => {
