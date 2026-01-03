@@ -41,6 +41,11 @@ interface SupabaseUserProfile {
 
 export class SupabaseSubscriptionService {
   private static logger = createScopedLogger('SupabaseSubscriptionService');
+
+  // In-memory lock to prevent duplicate profile creation attempts
+  // Maps clerk_user_id to a promise that resolves when profile creation completes
+  private static profileCreationLocks = new Map<string, Promise<void>>();
+
   /**
    * Get current subscription for a user
    */
@@ -52,9 +57,10 @@ export class SupabaseSubscriptionService {
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      if (error) {
+        this.logger.error('Error getting current subscription', error as Error);
         throw error;
       }
 
@@ -260,10 +266,18 @@ export class SupabaseSubscriptionService {
         p_user_id: userId
       });
 
-      if (error) throw error;
+      if (error) {
+        // Log but don't throw - usage counts are non-critical
+        // RLS policies may not be configured yet
+        this.logger.warn('Unable to refresh usage counts (non-critical)', {
+          code: error.code,
+          message: error.message
+        });
+        return;
+      }
     } catch (error) {
-      this.logger.error('Error refreshing usage counts', error as Error);
-      throw error;
+      // Catch and log, but don't throw - usage counts are non-critical
+      this.logger.warn('Error refreshing usage counts (non-critical)', error as Error);
     }
   }
 
@@ -450,7 +464,68 @@ export class SupabaseSubscriptionService {
    * Create user profile (for new users)
    */
   static async createUserProfile(clerkUserId: string, email: string, fullName?: string): Promise<void> {
+    // Double-checked locking pattern to prevent race conditions
+    let lockPromise = this.profileCreationLocks.get(clerkUserId);
+
+    if (!lockPromise) {
+      // Create new lock promise
+      lockPromise = this.executeProfileCreation(clerkUserId, email, fullName);
+
+      // Set it in the map immediately (atomic operation in JS single-threaded environment)
+      this.profileCreationLocks.set(clerkUserId, lockPromise);
+
+      // Clean up after completion
+      lockPromise.finally(() => {
+        this.profileCreationLocks.delete(clerkUserId);
+      });
+    }
+
+    // Wait for the lock to complete (either we created it, or we're waiting for existing one)
+    await lockPromise;
+  }
+
+  /**
+   * Internal method to execute profile creation
+   */
+  private static async executeProfileCreation(
+    clerkUserId: string,
+    email: string,
+    fullName?: string
+  ): Promise<void> {
     try {
+      // Check if user already exists by Clerk ID
+      const existingByClerkId = await this.getUserProfile(clerkUserId);
+      if (existingByClerkId) {
+        this.logger.info('User profile already exists (by Clerk ID), skipping creation', { clerkUserId });
+        return;
+      }
+
+      // Also check if email already exists (handles Clerk user recreation/reset scenarios)
+      const { data: existingByEmail } = await supabase!
+        .from('user_profiles')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle<SupabaseUserProfile>();
+
+      if (existingByEmail) {
+        this.logger.info('Email already exists, updating with new Clerk ID', {
+          oldClerkId: existingByEmail.clerk_user_id,
+          newClerkId: clerkUserId,
+          email
+        });
+
+        // Update existing profile with new Clerk ID (handles Clerk dev resets)
+        await supabase!
+          .from('user_profiles')
+          .update({ clerk_user_id: clerkUserId, full_name: fullName })
+          .eq('id', existingByEmail.id);
+
+        return;
+      }
+
+      this.logger.info('Creating new user profile', { clerkUserId, email });
+
+      // Simple insert - any conflicts are caught and ignored below
       const { error } = await supabase!
         .from('user_profiles')
         .insert({
@@ -461,12 +536,27 @@ export class SupabaseSubscriptionService {
           subscription_status: 'active'
         });
 
-      if (error && error.code !== '23505') { // 23505 = unique violation (user already exists)
+      if (error) {
+        this.logger.warn('Insert returned error', { code: error.code, message: error.message });
+      }
+
+      // Silently ignore duplicate constraint violations (23505)
+      // This handles race conditions when multiple contexts initialize simultaneously
+      if (error && error.code !== '23505') {
+        this.logger.error('Error creating user profile', error as Error);
         throw error;
+      } else if (error) {
+        this.logger.info('Ignoring duplicate constraint violation (user already exists)', { code: error.code });
+      } else {
+        this.logger.info('User profile created successfully', { clerkUserId });
       }
     } catch (error) {
-      this.logger.error('Error creating user profile', error as Error);
-      throw error;
+      // Catch any errors that weren't caught above
+      const dbError = error as { code?: string };
+      if (dbError?.code !== '23505') {
+        this.logger.error('Unexpected error in createUserProfile', error as Error);
+      }
+      // Don't throw - this method must be idempotent
     }
   }
 
@@ -479,9 +569,14 @@ export class SupabaseSubscriptionService {
         .from('user_profiles')
         .select('*')
         .eq('clerk_user_id', clerkUserId)
-        .single<SupabaseUserProfile>();
+        .maybeSingle<SupabaseUserProfile>();
 
-      if (error) throw error;
+      // maybeSingle() returns null if no rows found (doesn't throw)
+      if (error) {
+        this.logger.error('Error getting user profile', error as Error);
+        throw error;
+      }
+
       return data ?? null;
     } catch (error) {
       this.logger.error('Error getting user profile', error as Error);

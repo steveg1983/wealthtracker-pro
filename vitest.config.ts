@@ -27,6 +27,7 @@ export default createVitestReactConfig({
     '**/CLAUDE.md.backup.*',
     'WealthTracker-Backups/**',
     'apps/**',
+    'api/**', // Backend API endpoints tested separately
   ],
   test: {
     environment: process.env.RUN_SUPABASE_REAL_TESTS === 'true' ? 'node' : 'jsdom',

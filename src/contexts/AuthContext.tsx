@@ -12,7 +12,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
 import { AuthService, AuthUser } from '../services/authService';
-import { syncClerkUser } from '../lib/supabase';
 import { setSentryUser, clearSentryUser } from '../lib/sentry';
 
 interface AuthContextType {
@@ -49,19 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: clerkUser.primaryEmailAddress?.emailAddress,
         username: clerkUser.username || clerkUser.fullName || undefined
       });
-      
-      // Sync user with Supabase
-      syncClerkUser(
-        clerkUser.id,
-        clerkUser.primaryEmailAddress?.emailAddress || '',
-        clerkUser.fullName || undefined
-      ).then(success => {
-        if (success) {
-          console.log('User synced with Supabase');
-        } else {
-          console.warn('Failed to sync user with Supabase');
-        }
-      });
+
+      // Note: User sync with Supabase is handled by AppContextSupabase and SubscriptionContext
+      // Removed deprecated syncClerkUser() call to prevent duplicate user creation attempts
     } else if (isLoaded && !clerkUser) {
       setAuthUser(null);
       setSecurityScore(0);

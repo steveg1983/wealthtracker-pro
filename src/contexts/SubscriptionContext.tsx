@@ -136,16 +136,16 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
 
         if (databaseId) {
           // Initialize user profile if needed
-          SubscriptionApiService.initializeUserProfile(
+          await SubscriptionApiService.initializeUserProfile(
             user.id,
             user.primaryEmailAddress?.emailAddress || '',
             user.fullName || undefined
-          ).then(() => {
-            loadSubscriptionData();
-          }).catch(() => {
-            // Profile might already exist, just load data
-            loadSubscriptionData();
+          ).catch(() => {
+            // Profile might already exist, that's fine
           });
+
+          // Load subscription data after profile is initialized
+          loadSubscriptionData();
         }
       };
 
@@ -157,7 +157,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
       setIsLoading(false);
       setError(null);
     }
-  }, [isSignedIn, user, loadSubscriptionData]);
+    // Only run when user signs in/out - NOT when loadSubscriptionData changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, user?.id]);
 
   const refreshSubscription = useCallback(async () => {
     await loadSubscriptionData();
