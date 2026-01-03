@@ -1,3 +1,4 @@
+// @ts-expect-error - truelayer-client has types but Vercel build can't resolve them
 import { AuthAPIClient, Constants } from 'truelayer-client';
 import { getOptionalEnv, getRequiredEnv } from './env.js';
 

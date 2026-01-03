@@ -7,19 +7,8 @@ import { getAuthClient, getRedirectUri, isSandboxEnvironment } from '../_lib/tru
 const AUTH_SCOPES = ['info', 'accounts', 'balance', 'transactions', 'offline_access'];
 
 const parseRequestBody = (req: VercelRequest): unknown => {
-  if (req.body) {
-    return req.body;
-  }
-
-  if (req.rawBody) {
-    try {
-      return JSON.parse(req.rawBody.toString('utf8'));
-    } catch {
-      throw new Error('Invalid JSON body');
-    }
-  }
-
-  return undefined;
+  // Vercel automatically parses JSON body
+  return req.body;
 };
 
 const createErrorResponse = (
