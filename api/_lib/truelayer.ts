@@ -1,5 +1,5 @@
 import { AuthAPIClient, Constants } from 'truelayer-client';
-import { getOptionalEnv, getRequiredEnv } from './env';
+import { getOptionalEnv, getRequiredEnv } from './env.js';
 
 const SANDBOX_AUTH_URL = 'https://auth.truelayer-sandbox.com';
 

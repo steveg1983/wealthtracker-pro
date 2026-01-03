@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from 'node:crypto';
-import { getOptionalEnv } from './env';
+import { getOptionalEnv } from './env.js';
 
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 

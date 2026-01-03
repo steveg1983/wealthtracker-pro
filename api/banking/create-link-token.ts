@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomBytes } from 'node:crypto';
-import type { BankingAPI } from '../../src/types/banking-api';
-import { createStateToken } from '../_lib/state';
-import { getAuthClient, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer';
+import type { BankingAPI } from '../../src/types/banking-api.js';
+import { createStateToken } from '../_lib/state.js';
+import { getAuthClient, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
 
 const AUTH_SCOPES = ['info', 'accounts', 'balance', 'transactions', 'offline_access'];
 
