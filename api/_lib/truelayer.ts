@@ -1,4 +1,7 @@
-import { AuthAPIClient, Constants } from 'truelayer-client/dist/index.js';
+/* eslint-disable @typescript-eslint/triple-slash-reference */
+/// <reference path="../../types/truelayer-client.d.ts" />
+/* eslint-enable @typescript-eslint/triple-slash-reference */
+import { AuthAPIClient, Constants } from 'truelayer-client';
 import { getOptionalEnv, getRequiredEnv } from './env.js';
 
 const SANDBOX_AUTH_URL = 'https://auth.truelayer-sandbox.com';
