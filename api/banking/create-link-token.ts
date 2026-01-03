@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomBytes } from 'node:crypto';
-import type { BankingAPI } from '../../src/types/banking-api.js';
+import type {
+  CreateLinkTokenRequest,
+  CreateLinkTokenResponse,
+  ErrorResponse
+} from '../../src/types/banking-api.js';
 import { createStateToken } from '../_lib/state.js';
 import { getAuthClient, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
 
@@ -22,7 +26,7 @@ const createErrorResponse = (
     error,
     code,
     details
-  } satisfies BankingAPI.ErrorResponse);
+  } satisfies ErrorResponse);
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -32,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const body = parseRequestBody(req) as BankingAPI.CreateLinkTokenRequest | undefined;
+    const body = parseRequestBody(req) as CreateLinkTokenRequest | undefined;
     if (!body || typeof body.userId !== 'string' || !body.userId.trim()) {
       return createErrorResponse(res, 400, 'userId is required', 'invalid_request');
     }
@@ -50,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       enableMock: isSandboxEnvironment()
     });
 
-    const response: BankingAPI.CreateLinkTokenResponse = {
+    const response: CreateLinkTokenResponse = {
       authUrl,
       state
     };
