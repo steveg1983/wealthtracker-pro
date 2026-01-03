@@ -1,4 +1,4 @@
-import { AuthAPIClient, Constants } from 'truelayer-client';
+import { AuthAPIClient, Constants } from 'truelayer-client/dist/index.js';
 import { getOptionalEnv, getRequiredEnv } from './env.js';
 
 const SANDBOX_AUTH_URL = 'https://auth.truelayer-sandbox.com';
@@ -8,7 +8,7 @@ let authClient: AuthAPIClient | null = null;
 const applyEnvironmentOverrides = (): void => {
   const environment = (getOptionalEnv('TRUELAYER_ENVIRONMENT') ?? 'production').toLowerCase();
   if (environment !== 'production') {
-    Constants.AUTH_URL = SANDBOX_AUTH_URL;
+    Reflect.set(Constants, 'AUTH_URL', SANDBOX_AUTH_URL);
   }
 };
 
