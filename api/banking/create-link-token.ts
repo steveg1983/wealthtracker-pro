@@ -6,7 +6,7 @@ import type {
   ErrorResponse
 } from '../../src/types/banking-api.js';
 import { createStateToken } from '../_lib/state.js';
-import { getAuthClient, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
+import { buildAuthUrl, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
 
 const AUTH_SCOPES = ['info', 'accounts', 'balance', 'transactions', 'offline_access'];
 
@@ -43,9 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const state = createStateToken(body.userId.trim());
     const nonce = randomBytes(12).toString('hex');
-    const client = getAuthClient();
-    const authUrl = client.getAuthUrl({
-      redirectURI: getRedirectUri(),
+    const authUrl = buildAuthUrl({
+      redirectUri: getRedirectUri(),
       scope: AUTH_SCOPES,
       nonce,
       state,

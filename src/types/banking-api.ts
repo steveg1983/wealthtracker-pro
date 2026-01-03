@@ -15,9 +15,11 @@ export interface ExchangeTokenRequest {
 }
 
 export interface ExchangeTokenResponse {
+  success: boolean;
   connectionId: string;
   institutionId: string;
   institutionName: string;
+  institutionLogo?: string;
   accountsCount: number;
 }
 
