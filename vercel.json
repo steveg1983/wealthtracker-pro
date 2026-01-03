@@ -2,9 +2,7 @@
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 10,
-      "includeFiles": [
-        "node_modules/truelayer-client/**"
-      ]
+      "includeFiles": "node_modules/truelayer-client/**"
     }
   }
 }
