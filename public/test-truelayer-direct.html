@@ -215,30 +215,55 @@
             const result = document.getElementById('tokenResult');
             result.innerHTML = '<p>Exchanging code for access token...</p>';
 
-            try {
-                const response = await fetch('https://wealthtracker-pro-git-claude-lint-30c58d-steven-greens-projects.vercel.app/api/banking/exchange-token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code, state })
-                });
+            // Try multiple deployment URLs in case one isn't ready yet
+            const deploymentUrls = [
+                'https://wealthtracker-pro-git-claude-lint-cleanup-steven-greens-projects.vercel.app',
+                'https://wealthtracker-pro-git-claude-lint-cleanup-d175c327-steven-greens-projects.vercel.app',
+                'https://wealthtracker-pro-git-claude-lint-30c58d-steven-greens-projects.vercel.app'
+            ];
 
-                const data = await response.json();
+            let lastError = null;
 
-                if (response.ok && data.success) {
-                    result.innerHTML = `
-                        <p class="success">✅ Token Exchange Successful!</p>
-                        <p><strong>Connection ID:</strong> ${data.connectionId}</p>
-                        <p><strong>Institution:</strong> ${data.institutionName} (${data.institutionId})</p>
-                        <p><strong>Accounts Found:</strong> ${data.accountsCount}</p>
-                        ${data.institutionLogo ? `<p><img src="${data.institutionLogo}" alt="Bank logo" style="max-width: 100px;"></p>` : ''}
-                        <p class="success">🎉 Full OAuth flow complete! Bank connection saved to database.</p>
-                    `;
-                } else {
-                    result.innerHTML = `<p class="error">❌ Token exchange failed: <pre>${JSON.stringify(data, null, 2)}</pre></p>`;
+            for (const baseUrl of deploymentUrls) {
+                try {
+                    result.innerHTML = `<p>Trying ${baseUrl.split('//')[1].split('.')[0]}...</p>`;
+
+                    const response = await fetch(`${baseUrl}/api/banking/exchange-token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code, state })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        result.innerHTML = `
+                            <p class="success">✅ Token Exchange Successful! (Used: ${baseUrl.split('//')[1].split('.')[0]})</p>
+                            <p><strong>Connection ID:</strong> ${data.connectionId}</p>
+                            <p><strong>Institution:</strong> ${data.institutionName} (${data.institutionId})</p>
+                            <p><strong>Accounts Found:</strong> ${data.accountsCount}</p>
+                            ${data.institutionLogo ? `<p><img src="${data.institutionLogo}" alt="Bank logo" style="max-width: 100px;"></p>` : ''}
+                            <p class="success">🎉 Full OAuth flow complete! Bank connection saved to database.</p>
+                        `;
+                        return; // Success, exit loop
+                    } else {
+                        lastError = data;
+                    }
+                } catch (error) {
+                    lastError = error;
+                    // Try next URL
                 }
-            } catch (error) {
-                result.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
             }
+
+            // All URLs failed
+            result.innerHTML = `
+                <p class="error">❌ Token exchange failed on all deployment URLs</p>
+                <p>This likely means the latest deployment with CORS headers isn't ready yet.</p>
+                <p><strong>Last error:</strong></p>
+                <pre>${lastError ? JSON.stringify(lastError, null, 2) : 'Unknown error'}</pre>
+                <p>Wait 2-3 minutes for Vercel to deploy, then try again.</p>
+                <button onclick="exchangeToken()">🔄 Retry</button>
+            `;
         }
     </script>
 </body>
