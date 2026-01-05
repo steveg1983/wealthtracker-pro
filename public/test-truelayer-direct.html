@@ -33,6 +33,11 @@
     <label>Scopes (space-separated):</label>
     <input type="text" id="scopes" value="info accounts balance transactions offline_access" />
 
+    <label>API Base URL (for token exchange):</label>
+    <input type="text" id="apiBaseUrl" value="https://wealthtracker-pro-git-claude-lint-cleanup-steven-greens-projects.vercel.app" />
+    <button onclick="testApiConnection()">🔍 Test API Connection</button>
+    <div id="apiTestResult"></div>
+
     <h2>Test Different Auth URL Formats</h2>
 
     <button onclick="testMinimalUrl()">Test Minimal URL</button>
@@ -209,61 +214,72 @@
             `;
         }
 
+        async function testApiConnection() {
+            const baseUrl = document.getElementById('apiBaseUrl').value;
+            const result = document.getElementById('apiTestResult');
+            result.innerHTML = '<p>Testing API connection...</p>';
+
+            try {
+                const response = await fetch(`${baseUrl}/api/banking/health`);
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    result.innerHTML = `
+                        <p class="success">✅ API Connected!</p>
+                        <p><strong>Environment:</strong> ${data.env_check.environment}</p>
+                        <p><strong>Has Client ID:</strong> ${data.env_check.has_truelayer_client_id ? '✅' : '❌'}</p>
+                        <p><strong>Has Secret:</strong> ${data.env_check.has_truelayer_secret ? '✅' : '❌'}</p>
+                        <p><strong>Redirect URI:</strong> ${data.env_check.redirect_uri || 'Not set'}</p>
+                    `;
+                } else {
+                    result.innerHTML = `<p class="error">❌ API test failed: ${JSON.stringify(data)}</p>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<p class="error">❌ Cannot connect to API: ${error.message}</p>`;
+            }
+        }
+
         async function exchangeToken() {
             const code = urlParams.get('code');
             const state = urlParams.get('state');
             const result = document.getElementById('tokenResult');
-            result.innerHTML = '<p>Exchanging code for access token...</p>';
+            const baseUrl = document.getElementById('apiBaseUrl').value;
 
-            // Try multiple deployment URLs in case one isn't ready yet
-            const deploymentUrls = [
-                'https://wealthtracker-pro-git-claude-lint-cleanup-steven-greens-projects.vercel.app',
-                'https://wealthtracker-pro-git-claude-lint-cleanup-d175c327-steven-greens-projects.vercel.app',
-                'https://wealthtracker-pro-git-claude-lint-30c58d-steven-greens-projects.vercel.app'
-            ];
+            result.innerHTML = `<p>Exchanging code for access token using ${baseUrl.split('//')[1].split('.')[0]}...</p>`;
 
-            let lastError = null;
+            try {
+                const response = await fetch(`${baseUrl}/api/banking/exchange-token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, state })
+                });
 
-            for (const baseUrl of deploymentUrls) {
-                try {
-                    result.innerHTML = `<p>Trying ${baseUrl.split('//')[1].split('.')[0]}...</p>`;
+                const data = await response.json();
 
-                    const response = await fetch(`${baseUrl}/api/banking/exchange-token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code, state })
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                        result.innerHTML = `
-                            <p class="success">✅ Token Exchange Successful! (Used: ${baseUrl.split('//')[1].split('.')[0]})</p>
-                            <p><strong>Connection ID:</strong> ${data.connectionId}</p>
-                            <p><strong>Institution:</strong> ${data.institutionName} (${data.institutionId})</p>
-                            <p><strong>Accounts Found:</strong> ${data.accountsCount}</p>
-                            ${data.institutionLogo ? `<p><img src="${data.institutionLogo}" alt="Bank logo" style="max-width: 100px;"></p>` : ''}
-                            <p class="success">🎉 Full OAuth flow complete! Bank connection saved to database.</p>
-                        `;
-                        return; // Success, exit loop
-                    } else {
-                        lastError = data;
-                    }
-                } catch (error) {
-                    lastError = error;
-                    // Try next URL
+                if (response.ok && data.success) {
+                    result.innerHTML = `
+                        <p class="success">✅ Token Exchange Successful!</p>
+                        <p><strong>Connection ID:</strong> ${data.connectionId}</p>
+                        <p><strong>Institution:</strong> ${data.institutionName} (${data.institutionId})</p>
+                        <p><strong>Accounts Found:</strong> ${data.accountsCount}</p>
+                        ${data.institutionLogo ? `<p><img src="${data.institutionLogo}" alt="Bank logo" style="max-width: 100px;"></p>` : ''}
+                        <p class="success">🎉 Full OAuth flow complete! Bank connection saved to database.</p>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p class="error">❌ Token exchange failed</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <p>Try testing the API connection first with the button above.</p>
+                        <button onclick="exchangeToken()">🔄 Retry</button>
+                    `;
                 }
+            } catch (error) {
+                result.innerHTML = `
+                    <p class="error">❌ Error: ${error.message}</p>
+                    <p>Make sure the API Base URL is correct and the deployment has CORS enabled.</p>
+                    <button onclick="exchangeToken()">🔄 Retry</button>
+                `;
             }
-
-            // All URLs failed
-            result.innerHTML = `
-                <p class="error">❌ Token exchange failed on all deployment URLs</p>
-                <p>This likely means the latest deployment with CORS headers isn't ready yet.</p>
-                <p><strong>Last error:</strong></p>
-                <pre>${lastError ? JSON.stringify(lastError, null, 2) : 'Unknown error'}</pre>
-                <p>Wait 2-3 minutes for Vercel to deploy, then try again.</p>
-                <button onclick="exchangeToken()">🔄 Retry</button>
-            `;
         }
     </script>
 </body>
