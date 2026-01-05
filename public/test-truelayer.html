@@ -47,19 +47,28 @@
                 if (data.authUrl) {
                     // Update the redirect URI to point back to this test page
                     const url = new URL(data.authUrl);
+                    const originalRedirect = url.searchParams.get('redirect_uri');
                     url.searchParams.set('redirect_uri', 'http://localhost:5173/test-truelayer.html');
 
                     result.innerHTML = `
                         <p class="success">✅ Auth URL Generated!</p>
                         <p><strong>Client ID:</strong> ${url.searchParams.get('client_id')}</p>
-                        <p><strong>Redirect URI:</strong> ${url.searchParams.get('redirect_uri')}</p>
+                        <p><strong>Original Redirect:</strong> <code>${originalRedirect}</code></p>
+                        <p><strong>Updated Redirect:</strong> <code>${url.searchParams.get('redirect_uri')}</code></p>
                         <p><strong>Environment:</strong> ${url.hostname.includes('sandbox') ? 'Sandbox' : 'Production'}</p>
-                        <details>
-                            <summary>Full Auth URL</summary>
-                            <pre>${url.toString()}</pre>
+                        <p class="info">⚠️ Make sure <code>http://localhost:5173/test-truelayer.html</code> is added to your TrueLayer redirect URIs!</p>
+                        <details open>
+                            <summary>Full Auth URL (click to expand)</summary>
+                            <pre style="word-wrap: break-word; white-space: pre-wrap; font-size: 11px;">${url.toString()}</pre>
+                            <br>
+                            <strong>Parameters:</strong>
+                            <ul style="font-size: 12px;">
+                                ${Array.from(url.searchParams.entries()).map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`).join('')}
+                            </ul>
                         </details>
                         <br>
                         <button onclick="window.location.href='${url.toString()}'">🚀 Start OAuth Flow</button>
+                        <p style="font-size: 12px; color: #666;">Note: If you get a "Bad Request" error, the parameters above might not match TrueLayer's requirements.</p>
                     `;
                 } else {
                     result.innerHTML = `<p class="error">❌ Error: ${JSON.stringify(data, null, 2)}</p>`;

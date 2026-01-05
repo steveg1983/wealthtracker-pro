@@ -213,10 +213,13 @@ export function ImprovedDashboard() {
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
       {/* Primary Focus: Net Worth Hero Card */}
-      <div className="bg-[#6b7d98] rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+      <section 
+        aria-labelledby="net-worth-heading"
+        className="bg-[#6b7d98] rounded-2xl p-6 sm:p-8 text-white shadow-xl"
+      >
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-lg sm:text-xl opacity-90 font-medium">Your Net Worth</h2>
+            <h2 id="net-worth-heading" className="text-lg sm:text-xl opacity-90 font-medium">Your Net Worth</h2>
             <div className="mt-2 flex items-baseline gap-3">
               <span className="text-3xl sm:text-4xl lg:text-5xl font-bold">
                 {formatCurrencyWithSymbol(metrics.netWorth)}
@@ -246,7 +249,12 @@ export function ImprovedDashboard() {
         </div>
         
         {/* Quick stats */}
-        <div data-testid="dashboard-grid" className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20">
+        <div 
+          data-testid="dashboard-grid" 
+          className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20"
+          role="group"
+          aria-label="Assets and liabilities summary"
+        >
           <div>
             <p className="text-sm opacity-70">Assets</p>
             <p className="text-xl font-semibold text-green-300">
@@ -260,11 +268,14 @@ export function ImprovedDashboard() {
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Secondary Focus: This Month's Performance */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <section 
+        aria-labelledby="monthly-performance-heading"
+        className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6"
+      >
+        <h3 id="monthly-performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           This Month's Performance
         </h3>
         
@@ -302,12 +313,16 @@ export function ImprovedDashboard() {
             <TargetIcon size={24} className="text-blue-500" />
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Budget Status Section - Shows current budget progress */}
       {metrics.budgetStatus.length > 0 && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6" data-testid="budget-status">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+        <section 
+          aria-labelledby="budget-status-heading"
+          className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6" 
+          data-testid="budget-status"
+        >
+          <h3 id="budget-status-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" />
             Budget Status
             <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
@@ -317,7 +332,7 @@ export function ImprovedDashboard() {
           
           <div className="space-y-3">
             {metrics.budgetStatus.slice(0, 3).map(budget => (
-              <div key={budget.id} className="space-y-2">
+              <div key={budget.id} className="space-y-2" role="group" aria-label={`Budget for ${budget.categoryId}`}>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
                     {budget.categoryId}
@@ -328,7 +343,14 @@ export function ImprovedDashboard() {
                     {formatCurrencyWithSymbol(budget.spent)} / {formatCurrencyWithSymbol(budget.amount)}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden"
+                  role="progressbar"
+                  aria-valuenow={Math.min(budget.percentUsed, 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${budget.categoryId} budget: ${Math.min(budget.percentUsed, 100).toFixed(0)}% used`}
+                >
                   <div 
                     className={`h-full transition-all duration-300 ${
                       budget.percentUsed > 100 ? 'bg-red-500' :
@@ -351,13 +373,16 @@ export function ImprovedDashboard() {
               </button>
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Account Balances Section - Customizable by user */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <section 
+        aria-labelledby="key-accounts-heading"
+        className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6"
+      >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <h3 id="key-accounts-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <WalletIcon size={24} className="text-gray-500" />
             Key Account Balances
             {displayedAccounts.length > 0 && (
@@ -368,8 +393,9 @@ export function ImprovedDashboard() {
           </h3>
           <button
             onClick={() => setShowAccountSettings(!showAccountSettings)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            aria-label="Customize accounts"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Customize displayed accounts"
+            aria-expanded={showAccountSettings}
           >
             <SettingsIcon size={20} className="text-gray-500" />
           </button>
@@ -384,7 +410,8 @@ export function ImprovedDashboard() {
               </p>
               <button
                 onClick={() => setShowAccountSettings(false)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                aria-label="Close account settings"
               >
                 <XIcon size={16} className="text-gray-500" />
               </button>
@@ -421,16 +448,18 @@ export function ImprovedDashboard() {
             displayedAccounts.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 data-testid="account-balance-card"
                 onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
                     navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
                   }
                 }}
+                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(account.balance)}`}
               >
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -457,7 +486,7 @@ export function ImprovedDashboard() {
               </div>
             ))
           ) : accounts.length > 0 ? (
-            <div className="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400" role="status" aria-live="polite">
               <SettingsIcon size={48} className="mx-auto mb-3 opacity-50" />
               <p className="font-medium">No accounts selected</p>
               <p className="text-sm mt-1">Click the settings icon above to select accounts to display</p>
@@ -470,14 +499,19 @@ export function ImprovedDashboard() {
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Attention Required Section */}
       {metrics.accountsNeedingAttention.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+        <section 
+          aria-labelledby="attention-heading"
+          className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6"
+          role="alert"
+          aria-live="polite"
+        >
           <div className="flex items-center gap-3 mb-4">
-            <AlertCircleIcon size={24} className="text-yellow-600 dark:text-yellow-400" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <AlertCircleIcon size={24} className="text-yellow-600 dark:text-yellow-400" aria-hidden="true" />
+            <h3 id="attention-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
               Needs Your Attention
             </h3>
           </div>
@@ -486,10 +520,20 @@ export function ImprovedDashboard() {
             {metrics.accountsNeedingAttention.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+                className="flex items-center justify-between p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
+                  }
+                }}
+                aria-label={`${account.name} needs attention: ${(account.type === 'current' || account.type === 'checking') && account.balance < 500 ? 'Low balance' : 'High utilization'}`}
               >
                 <div className="flex items-center gap-3">
-                  <WalletIcon size={20} className="text-gray-500" />
+                  <WalletIcon size={20} className="text-gray-500" aria-hidden="true" />
                   <div>
                     <p className="font-medium text-gray-900 dark:text-white">
                       {account.name}
@@ -501,17 +545,20 @@ export function ImprovedDashboard() {
                     </p>
                   </div>
                 </div>
-                <ChevronRightIcon size={20} className="text-gray-400" />
+                <ChevronRightIcon size={20} className="text-gray-400" aria-hidden="true" />
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Net Worth Chart */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <BarChart3Icon size={24} className="text-gray-500" />
+      <section 
+        aria-labelledby="net-worth-chart-heading"
+        className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6"
+      >
+        <h3 id="net-worth-chart-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <BarChart3Icon size={24} className="text-gray-500" aria-hidden="true" />
           Net Worth Over Time
         </h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -547,17 +594,21 @@ export function ImprovedDashboard() {
                   if (value >= 1000) return `${formatDecimal(value / 1000, 0)}K`;
                   return formatDecimal(value, 0);
                 }}
+                aria-label="Bar chart showing net worth over time"
               />
             </ResponsiveContainer>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Account Distribution Chart */}
       {pieData.length > 0 && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <PieChartIcon size={24} className="text-gray-500" />
+        <section 
+          aria-labelledby="account-distribution-heading"
+          className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6"
+        >
+          <h3 id="account-distribution-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <PieChartIcon size={24} className="text-gray-500" aria-hidden="true" />
             Account Distribution
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -574,16 +625,20 @@ export function ImprovedDashboard() {
                     }}
                 formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
                 contentStyle={chartStyles.pieTooltip}
+                aria-label="Pie chart showing distribution of account balances"
               />
             </ResponsiveContainer>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Recent Transactions Table */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <CreditCardIcon size={24} className="text-gray-500" />
+      <section 
+        aria-labelledby="recent-transactions-heading"
+        className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6"
+      >
+        <h3 id="recent-transactions-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <CreditCardIcon size={24} className="text-gray-500" aria-hidden="true" />
           Recent Transactions
         </h3>
         <div className="space-y-1 overflow-auto" style={{ maxHeight: '400px' }}>
@@ -623,22 +678,24 @@ export function ImprovedDashboard() {
           {metrics.recentActivity.length > 10 && (
             <button 
               onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
-              className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="View all transactions"
             >
               View All Transactions →
             </button>
           )}
         </div>
-      </div>
+      </section>
 
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+      <nav aria-label="Quick actions" className="grid grid-cols-2 sm:grid-cols-4 gap-6">
         <button
           onClick={() => setShowAddTransactionModal(true)}
-          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Add a new transaction"
         >
-          <CreditCardIcon size={32} className="mx-auto mb-3 text-blue-600" />
+          <CreditCardIcon size={32} className="mx-auto mb-3 text-blue-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Add Transaction
           </span>
@@ -646,9 +703,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="View all accounts"
         >
-          <WalletIcon size={32} className="mx-auto mb-3 text-green-600" />
+          <WalletIcon size={32} className="mx-auto mb-3 text-green-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             View Accounts
           </span>
@@ -656,9 +714,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Set up or view budgets"
         >
-          <TargetIcon size={32} className="mx-auto mb-3 text-purple-600" />
+          <TargetIcon size={32} className="mx-auto mb-3 text-purple-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Set Budget
           </span>
@@ -666,14 +725,15 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/analytics', location.search))}
-          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="View financial analytics"
         >
-          <TrendingUpIcon size={32} className="mx-auto mb-3 text-orange-600" />
+          <TrendingUpIcon size={32} className="mx-auto mb-3 text-orange-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Analytics
           </span>
         </button>
-      </div>
+      </nav>
       
       {/* Add Transaction Modal */}
       <AddTransactionModal

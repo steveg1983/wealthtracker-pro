@@ -778,19 +778,33 @@ function StepIndicator({
 }) {
   return (
     <div className="flex flex-col items-center">
-      <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-          isComplete
-            ? 'bg-green-500 text-white'
-            : isActive
-            ? 'bg-primary text-white'
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-        }`}
-      >
-        {isComplete ? <CheckIcon size={20} /> : label.charAt(0)}
+      <div className="relative">
+        {/* Animated ring for active step */}
+        {isActive && (
+          <div className="absolute inset-0 w-10 h-10 rounded-full bg-primary/20 animate-ping" />
+        )}
+        <div
+          className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+            isComplete
+              ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg shadow-green-500/30 scale-105'
+              : isActive
+              ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/30 scale-110'
+              : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          {isComplete ? (
+            <CheckIcon size={20} className="animate-[bounce_0.5s_ease-in-out]" />
+          ) : (
+            <span className="font-semibold">{label.charAt(0)}</span>
+          )}
+        </div>
       </div>
-      <span className={`text-xs mt-1 ${
-        isActive ? 'text-primary font-medium' : 'text-gray-500 dark:text-gray-400'
+      <span className={`text-xs mt-2 font-medium transition-colors duration-200 ${
+        isComplete
+          ? 'text-green-600 dark:text-green-400'
+          : isActive 
+          ? 'text-primary' 
+          : 'text-gray-500 dark:text-gray-400'
       }`}>
         {label}
       </span>
