@@ -52,12 +52,18 @@ export const isSandboxEnvironment = (): boolean =>
 export const buildAuthUrl = (options: AuthUrlOptions): string => {
   const url = new URL(getAuthBaseUrl());
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('response_mode', 'query'); // Add response_mode
+  url.searchParams.set('response_mode', 'query');
   url.searchParams.set('client_id', getRequiredEnv('TRUELAYER_CLIENT_ID'));
   url.searchParams.set('redirect_uri', options.redirectUri);
   url.searchParams.set('scope', options.scope.join(' '));
   url.searchParams.set('nonce', options.nonce);
   url.searchParams.set('state', options.state);
+
+  // CRITICAL: TrueLayer requires at least one provider to be specified
+  // In sandbox, use 'mock' provider. In production, use 'uk-ob-all' for all UK banks
+  const isSandbox = isSandboxEnvironment();
+  url.searchParams.set('providers', isSandbox ? 'mock' : 'uk-ob-all');
+
   if (options.enableMock) {
     url.searchParams.set('enable_mock', 'true');
   }

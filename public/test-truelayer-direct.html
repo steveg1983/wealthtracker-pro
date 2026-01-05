@@ -84,9 +84,9 @@
             url.searchParams.set('redirect_uri', redirectUri);
             url.searchParams.set('scope', 'info accounts balance transactions'); // No offline_access
             url.searchParams.set('state', state);
-            // No nonce, no enable_mock, nothing extra
+            url.searchParams.set('providers', 'mock'); // CRITICAL: Required by TrueLayer
 
-            showResult('Super Minimal (no nonce, no offline_access, bare minimum)', url);
+            showResult('Super Minimal + providers=mock (bare minimum that works)', url);
         }
 
         function testWithResponseMode() {
