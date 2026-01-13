@@ -1,5 +1,5 @@
 # Type Safety Improvement Progress
-**Date**: 2026-01-12
+**Date**: 2026-01-13
 **Status**: IN PROGRESS
 
 ---
@@ -12,10 +12,10 @@ Continuing systematic elimination of type safety violations following CLAUDE.md 
 
 | Metric | Baseline | Previous | Current | Change |
 |--------|----------|----------|---------|--------|
-| **Total violations** | 3,901 | 324 | 313 | -11 ✅ |
-| **"as any" in production** | Unknown | 1 | 0 | -1 ✅ |
-| **"as unknown as" in production** | Unknown | 80 | 69 | -11 ✅ |
-| **Overall progress** | 0% | 91.7% | 92.0% | +0.3% |
+| **Total violations** | 3,901 | 313 | 301 | -12 ✅ |
+| **"as any" in production** | Unknown | 0 | 0 | 0 ✅ |
+| **"as unknown as" in production** | Unknown | 69 | 56 | -13 ✅ |
+| **Overall progress** | 0% | 92.0% | 92.3% | +0.3% |
 
 ---
 
@@ -106,6 +106,58 @@ const budgetLimitValue = budget.amount ?? (budget as { limit?: number }).limit ?
 
 ---
 
+### 4. Fixed Export Service Type Casts ✅ (2026-01-13)
+
+**File**: [src/services/exportService.ts](src/services/exportService.ts)
+
+**Before** (4 "as unknown as" casts):
+```typescript
+const headers = Object.keys(data[0] as unknown as Record<string, unknown>);
+const record = row as unknown as Record<string, unknown>;
+const recordItem = item as unknown as Record<string, unknown>;
+const summaryRows = [...] as unknown as ExportableData[];
+```
+
+**After** (1 acceptable single-level cast inside generic function):
+```typescript
+private arrayToCSV<T extends object>(data: T[]): string {
+  const record = row as Record<string, unknown>;  // Single-level cast for dynamic access
+  // ... rest of implementation
+}
+```
+
+**Improvement**: Made `arrayToCSV` generic with `T extends object`. Eliminated 4 double casts, replaced with 1 single-level cast inside the generic function (acceptable pattern for CSV serialization).
+
+---
+
+### 5. Fixed Auth Service Type Casts ✅ (2026-01-13)
+
+**File**: [src/services/authService.ts](src/services/authService.ts)
+
+**Before** (4 "as unknown as" casts for Clerk user mapping):
+```typescript
+createdAt: new Date(clerkUser.createdAt as unknown as number),
+lastSignIn: new Date((clerkUser.lastSignInAt || clerkUser.createdAt) as unknown as number),
+hasPasskey: Array.isArray((clerkUser as unknown as { passkeyUsernames?: unknown }).passkeyUsernames) && ...
+```
+
+**After** (0 casts, using type guards and helper function):
+```typescript
+const toDate = (value: Date | number | null | undefined): Date => {
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') return new Date(value);
+  return new Date();
+};
+
+const hasPasskey = 'passkeys' in clerkUser &&
+  Array.isArray(clerkUser.passkeys) &&
+  clerkUser.passkeys.length > 0;
+```
+
+**Improvement**: Eliminated 4 double casts by using proper type guards and helper functions. Uses `in` operator for safe property access.
+
+---
+
 ## Type Cast Analysis
 
 ### Double Casts (`as unknown as`) - AVOID
@@ -138,20 +190,24 @@ const budgetLimitValue = budget.amount ?? (budget as { limit?: number }).limit ?
 
 ### Production Code
 
-**69 "as unknown as" violations remaining** in production code
+**56 "as unknown as" violations remaining** in production code
 
-**Top files** (by count):
-- Analytics.tsx: 2 remaining
-- Various Redux slices: ~20 total
-- Various services: ~30 total
-- Various hooks: ~15 total
+**Categorization** (after analysis):
 
-**Categories**:
 1. **Browser API augmentation** (~10): Legitimate use for non-standard APIs
    - `navigator.connection`, `window.hapticFeedback`, etc.
-2. **Redux type system** (~20): May need Redux Toolkit type improvements
-3. **Service layer** (~30): May indicate API contract mismatches
-4. **React/hooks** (~9): May be legitimate React patterns
+   - **Status**: ACCEPTABLE - documented browser API patterns
+2. **Dependency injection** (~8): Converting library types to minimal interfaces
+   - Supabase client, Tesseract worker, etc.
+   - **Status**: ACCEPTABLE - standard DI pattern
+3. **Serialization/deserialization** (~12): Redux serialized types to runtime types
+   - Date string → Date object conversions
+   - **Status**: ACCEPTABLE - documented serialization pattern
+4. **Legacy data handling** (~6): Fallback for older data formats
+   - **Status**: ACCEPTABLE - with documentation
+5. **Remaining to fix** (~20): Various service and store patterns
+   - Redux slices: ~10
+   - Other services: ~10
 
 ### Test Code
 

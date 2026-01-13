@@ -28,16 +28,27 @@ export class AuthService {
    * Convert Clerk user to our app user format
    */
   static mapClerkUser(clerkUser: User): AuthUser {
+    // Helper to safely convert Clerk date (Date | number | null) to Date
+    const toDate = (value: Date | number | null | undefined): Date => {
+      if (value instanceof Date) return value;
+      if (typeof value === 'number') return new Date(value);
+      return new Date();
+    };
+
+    // Check for passkey support - use 'in' operator for type-safe property access
+    const hasPasskey = 'passkeys' in clerkUser &&
+      Array.isArray(clerkUser.passkeys) &&
+      clerkUser.passkeys.length > 0;
+
     return {
       id: clerkUser.id,
       email: clerkUser.primaryEmailAddress?.emailAddress || '',
       name: clerkUser.fullName || undefined,
       imageUrl: clerkUser.imageUrl,
-      createdAt: new Date(clerkUser.createdAt as unknown as number),
-      lastSignIn: new Date((clerkUser.lastSignInAt || clerkUser.createdAt) as unknown as number),
+      createdAt: toDate(clerkUser.createdAt),
+      lastSignIn: toDate(clerkUser.lastSignInAt ?? clerkUser.createdAt),
       emailVerified: clerkUser.primaryEmailAddress?.verification?.status === 'verified',
-      hasPasskey: Array.isArray((clerkUser as unknown as { passkeyUsernames?: unknown }).passkeyUsernames) &&
-        ((clerkUser as unknown as { passkeyUsernames?: unknown[] }).passkeyUsernames?.length ?? 0) > 0,
+      hasPasskey,
       hasMFA: clerkUser.totpEnabled || clerkUser.backupCodeEnabled || clerkUser.twoFactorEnabled
     };
   }

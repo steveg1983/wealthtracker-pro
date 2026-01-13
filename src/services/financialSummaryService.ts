@@ -240,20 +240,17 @@ export class FinancialSummaryService {
 
     // Budget performance
     const budgetPerformance = budgets.map(budget => {
-      const budgetCategoryId = (budget as unknown as { categoryId?: string; category?: string }).categoryId
-        ?? (budget as unknown as { category?: string }).category
-        ?? '';
+      // Handle legacy data: old budgets may have 'category' instead of 'categoryId'
+      const budgetCategoryId = budget.categoryId || (budget as { category?: string }).category || '';
       const budgetTransactions = periodTransactions.filter(t =>
         t.type === 'expense' && budgetCategoryId && t.category === budgetCategoryId
       );
       const spent = budgetTransactions.reduce(
-        (sum, t) => sum.plus(toDecimal(t.amount)), 
+        (sum, t) => sum.plus(toDecimal(t.amount)),
         toDecimal(0)
       );
-      const limitValue =
-        (budget as unknown as { limit?: number; amount?: number }).limit ??
-        (budget as unknown as { amount?: number }).amount ??
-        0;
+      // Handle legacy data: old budgets may have 'limit' instead of 'amount'
+      const limitValue = budget.amount ?? (budget as { limit?: number }).limit ?? 0;
       const limit = toDecimal(limitValue);
       
       return {

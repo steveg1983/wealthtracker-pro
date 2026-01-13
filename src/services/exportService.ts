@@ -317,12 +317,12 @@ export class ExportService {
       return this.arrayToCSV(groupedData);
     } else {
       // For grouped data, create summary CSV
-      const summaryRows = Object.entries(groupedData).map(([group, items]) => ({
-        id: group, // Add required fields for ExportableData compatibility
+      const summaryRows: Record<string, unknown>[] = Object.entries(groupedData).map(([group, items]) => ({
+        id: group,
         Group: group,
         Count: Array.isArray(items) ? items.length : 1,
         Total: this.calculateGroupTotal(items)
-      })) as unknown as ExportableData[];
+      }));
       return this.arrayToCSV(summaryRows);
     }
   }
@@ -527,10 +527,10 @@ export class ExportService {
         case 'account': {
           if ('accountId' in item && typeof item.accountId === 'string') {
             key = item.accountId;
+          } else if ('account' in item && typeof item.account === 'string') {
+            key = item.account;
           } else {
-            const recordItem = item as unknown as Record<string, unknown>;
-            const accountValue = recordItem.account;
-            key = typeof accountValue === 'string' ? accountValue : 'Unknown';
+            key = 'Unknown';
           }
           break;
         }
@@ -565,23 +565,23 @@ export class ExportService {
     }, 0);
   }
 
-  private arrayToCSV(data: ExportableData[]): string {
+  private arrayToCSV<T extends object>(data: T[]): string {
     if (data.length === 0) return '';
 
-    const headers = Object.keys(data[0] as unknown as Record<string, unknown>);
+    const headers = Object.keys(data[0]);
     const csvRows = [
       headers.join(','),
-      ...data.map(row =>
-        headers.map(header => {
-          const record = row as unknown as Record<string, unknown>;
+      ...data.map(row => {
+        const record = row as Record<string, unknown>;
+        return headers.map(header => {
           const value = record[header];
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
             return `"${value.replace(/"/g, '""')}"`;
           }
           return value ?? '';
-        }).join(',')
-      )
+        }).join(',');
+      })
     ];
 
     return csvRows.join('\n');
