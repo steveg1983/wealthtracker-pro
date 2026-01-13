@@ -1,6 +1,6 @@
 // POST /api/banking/create-link-token
 export interface CreateLinkTokenRequest {
-  userId: string;
+  userId?: string;
 }
 
 export interface CreateLinkTokenResponse {
@@ -70,6 +70,7 @@ export interface DisconnectResponse {
 export interface BankConnection {
   id: string;
   provider: string;
+  institutionId: string;
   institutionName: string;
   institutionLogo?: string;
   status: 'connected' | 'error' | 'reauth_required';

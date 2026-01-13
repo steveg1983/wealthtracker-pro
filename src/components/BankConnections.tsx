@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { bankConnectionService, type BankConnection, type BankInstitution } from '../services/bankConnectionService';
 import { Modal } from './common/Modal';
 import {
@@ -28,14 +29,20 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
   const [configStatus, setConfigStatus] = useState({ plaid: false, trueLayer: false });
   const logger = useMemo(() => createScopedLogger('BankConnections'), []);
+  const { getToken } = useClerkAuth();
 
   useEffect(() => {
-    loadConnections();
-    loadInstitutions();
-    checkConfig();
+    bankConnectionService.setAuthTokenProvider(() => getToken());
+  }, [getToken]);
+
+  useEffect(() => {
+    void loadConnections();
+    void loadInstitutions();
+    void checkConfig();
   }, []);
 
-  const loadConnections = () => {
+  const loadConnections = async () => {
+    await bankConnectionService.refreshConnections();
     setConnections(bankConnectionService.getConnections());
   };
 
@@ -44,7 +51,8 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
     setInstitutions(inst);
   };
 
-  const checkConfig = () => {
+  const checkConfig = async () => {
+    await bankConnectionService.refreshConfigStatus();
     setConfigStatus(bankConnectionService.getConfigStatus());
   };
 
@@ -68,7 +76,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         const checkAuth = setInterval(() => {
           if (authWindow?.closed) {
             clearInterval(checkAuth);
-            loadConnections();
+            void loadConnections();
             setShowAddBank(false);
           }
         }, 1000);
@@ -90,7 +98,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
       const result = await bankConnectionService.syncConnection(connectionId);
       
       if (result.success) {
-        loadConnections();
+        void loadConnections();
         onAccountsLinked?.();
       } else {
         logger.error('Sync failed', result.errors);
@@ -115,7 +123,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
   const handleDisconnect = async (connectionId: string) => {
     if (confirm('Are you sure you want to disconnect this bank? This will stop automatic syncing.')) {
       await bankConnectionService.disconnect(connectionId);
-      loadConnections();
+      void loadConnections();
     }
   };
 
@@ -148,7 +156,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
                 Bank connections not configured
               </p>
               <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                To enable automatic bank syncing, configure API credentials in the settings.
+                To enable bank syncing, add your provider credentials to the backend environment variables.
               </p>
             </div>
           </div>
@@ -211,7 +219,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
                       {getStatusIcon(connection.status)}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      <span>{connection.accounts.length} accounts linked</span>
+                      <span>{connection.accountsCount ?? connection.accounts.length} accounts linked</span>
                       {connection.lastSync && (
                         <span className="flex items-center gap-1">
                           <ClockIcon size={12} />

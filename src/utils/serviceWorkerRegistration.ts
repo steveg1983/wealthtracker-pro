@@ -179,7 +179,7 @@ export function getRegistration(): ServiceWorkerRegistration | null {
 // Manually check for updates
 export function checkForUpdates(): Promise<void> {
   if (swRegistration) {
-    return swRegistration.update();
+    return swRegistration.update().then(() => undefined);
   }
   return Promise.reject(new Error('No service worker registration found'));
 }

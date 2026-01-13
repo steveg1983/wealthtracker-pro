@@ -1,3 +1,9 @@
+import type {
+  ConnectionsResponse,
+  CreateLinkTokenResponse,
+  DisconnectResponse,
+  ExchangeTokenResponse
+} from '../types/banking-api';
 
 export interface BankConnection {
   id: string;
@@ -7,8 +13,9 @@ export interface BankConnection {
   institutionLogo?: string;
   status: 'connected' | 'error' | 'reauth_required';
   lastSync?: Date;
-  accounts: string[]; // Account IDs linked to this connection
-  createdAt: Date;
+  accounts: string[];
+  accountsCount?: number;
+  createdAt?: Date;
   expiresAt?: Date;
   error?: string;
 }
@@ -31,52 +38,27 @@ export interface SyncResult {
   errors: string[];
 }
 
-interface PlaidConfig {
-  clientId?: string;
-  secret?: string;
-  environment?: 'sandbox' | 'development' | 'production';
-  publicKey?: string;
-}
-
-interface TrueLayerConfig {
-  clientId?: string;
-  clientSecret?: string;
-  environment?: 'sandbox' | 'live';
-  redirectUri?: string;
-}
-
-interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
-interface LocationLike {
-  origin: string;
-}
-
+type FetchLike = typeof fetch;
 type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+type AuthTokenProvider = () => Promise<string | null>;
 
 export interface BankConnectionServiceOptions {
-  storage?: StorageLike | null;
-  location?: LocationLike | null;
+  fetch?: FetchLike;
   logger?: Logger;
-  now?: () => number;
-  idFactory?: () => string;
+  apiBaseUrl?: string;
+  authTokenProvider?: AuthTokenProvider | null;
 }
 
 export class BankConnectionService {
   private connections: BankConnection[] = [];
-  private plaidConfig: PlaidConfig = {};
-  private trueLayerConfig: TrueLayerConfig = {};
-  private storage: StorageLike | null;
-  private location: LocationLike | null;
+  private configStatus = { plaid: false, trueLayer: false };
+  private fetcher: FetchLike | null;
   private logger: Logger;
-  private nowProvider: () => number;
-  private idFactory: () => string;
-  
+  private apiBaseUrl: string;
+  private tokenProvider: AuthTokenProvider | null;
+
   constructor(options: BankConnectionServiceOptions = {}) {
-    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
-    this.location = options.location ?? (typeof window !== 'undefined' ? window.location : null);
+    this.fetcher = options.fetch ?? (typeof fetch !== 'undefined' ? fetch : null);
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     const noop = () => {};
     this.logger = {
@@ -84,42 +66,130 @@ export class BankConnectionService {
       warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
       error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
     };
-    this.nowProvider = options.now ?? (() => Date.now());
-    this.idFactory = options.idFactory ?? (() => `conn_${this.nowProvider()}`);
-    this.loadConnections();
-    this.loadConfig();
+    const envBase = typeof import.meta !== 'undefined'
+      ? (import.meta.env?.VITE_BANKING_API_BASE_URL as string | undefined)
+      : undefined;
+    this.apiBaseUrl = (options.apiBaseUrl ?? envBase ?? '').trim();
+    this.tokenProvider = options.authTokenProvider ?? null;
   }
 
-  private getOrigin(): string {
-    return this.location?.origin ?? 'http://localhost:3000';
+  setAuthTokenProvider(provider: AuthTokenProvider | null): void {
+    this.tokenProvider = provider;
   }
 
-  private getNowDate(offsetMs = 0): Date {
-    return new Date(this.nowProvider() + offsetMs);
+  setApiBaseUrl(baseUrl: string | null): void {
+    this.apiBaseUrl = (baseUrl ?? '').trim();
   }
 
-  /**
-   * Initialize service with API credentials
-   */
-  initialize(config: {
-    plaid?: PlaidConfig;
-    trueLayer?: TrueLayerConfig;
-  }) {
-    if (config.plaid) {
-      this.plaidConfig = config.plaid;
+  private resolveUrl(path: string): string {
+    if (/^https?:\/\//i.test(path)) {
+      return path;
     }
-    if (config.trueLayer) {
-      this.trueLayerConfig = config.trueLayer;
+    const base = this.apiBaseUrl.replace(/\/+$/, '');
+    if (!base) {
+      return path.startsWith('/') ? path : `/${path}`;
     }
-    this.saveConfig();
+    if (path.startsWith('/')) {
+      return `${base}${path}`;
+    }
+    return `${base}/${path}`;
   }
 
-  /**
-   * Get available bank institutions
-   */
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const token = this.tokenProvider ? await this.tokenProvider() : null;
+    if (!token) {
+      throw new Error('Missing authentication token');
+    }
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    if (!this.fetcher) {
+      throw new Error('Fetch API is not available');
+    }
+
+    const headers = new Headers(init.headers ?? {});
+    if (init.body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    const authHeaders = await this.getAuthHeaders();
+    Object.entries(authHeaders).forEach(([key, value]) => headers.set(key, value));
+
+    const response = await this.fetcher(this.resolveUrl(path), {
+      ...init,
+      headers
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Request failed with status ${response.status}`);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  async refreshConnections(): Promise<BankConnection[]> {
+    try {
+      const data = await this.request<ConnectionsResponse>('/api/banking/connections', {
+        method: 'GET'
+      });
+
+      this.connections = data.map((connection) => ({
+        id: connection.id,
+        provider: connection.provider as BankConnection['provider'],
+        institutionId: connection.institutionId,
+        institutionName: connection.institutionName,
+        institutionLogo: connection.institutionLogo,
+        status: connection.status,
+        lastSync: connection.lastSync ? new Date(connection.lastSync) : undefined,
+        accounts: [],
+        accountsCount: connection.accountsCount,
+        expiresAt: connection.expiresAt ? new Date(connection.expiresAt) : undefined
+      }));
+    } catch (error) {
+      this.logger.error('Failed to load bank connections', error as Error);
+      this.connections = [];
+    }
+
+    return this.connections;
+  }
+
+  getConnections(): BankConnection[] {
+    return this.connections;
+  }
+
+  async refreshConfigStatus(): Promise<{ plaid: boolean; trueLayer: boolean }> {
+    try {
+      const data = await this.request<{ env_check?: { has_truelayer_client_id?: boolean; has_truelayer_secret?: boolean; has_redirect_uri?: boolean } }>(
+        '/api/banking/health',
+        { method: 'GET' }
+      );
+
+      const envCheck = data.env_check;
+      const trueLayerConfigured = Boolean(
+        envCheck?.has_truelayer_client_id &&
+        envCheck?.has_truelayer_secret &&
+        envCheck?.has_redirect_uri
+      );
+
+      this.configStatus = {
+        plaid: false,
+        trueLayer: trueLayerConfigured
+      };
+    } catch (error) {
+      this.logger.warn('Failed to load banking config status', error as Error);
+      this.configStatus = { plaid: false, trueLayer: false };
+    }
+
+    return this.configStatus;
+  }
+
+  getConfigStatus(): { plaid: boolean; trueLayer: boolean } {
+    return this.configStatus;
+  }
+
   async getInstitutions(_country: string = 'GB'): Promise<BankInstitution[]> {
-    // In a real implementation, this would call the provider APIs
-    // For now, return mock data
     return [
       {
         id: 'barclays',
@@ -158,19 +228,19 @@ export class BankConnectionService {
         supportsBalance: true
       },
       {
-        id: 'revolut',
-        name: 'Revolut',
-        country: 'GB',
-        provider: 'truelayer',
+        id: 'chase',
+        name: 'Chase',
+        country: 'US',
+        provider: 'plaid',
         supportsAccountDetails: true,
         supportsTransactions: true,
         supportsBalance: true
       },
       {
-        id: 'monzo',
-        name: 'Monzo',
-        country: 'GB',
-        provider: 'truelayer',
+        id: 'bank-of-america',
+        name: 'Bank of America',
+        country: 'US',
+        provider: 'plaid',
         supportsAccountDetails: true,
         supportsTransactions: true,
         supportsBalance: true
@@ -178,277 +248,68 @@ export class BankConnectionService {
     ];
   }
 
-  /**
-   * Initiate bank connection flow
-   */
   async connectBank(
-    institutionId: string,
+    _institutionId: string,
     provider: 'plaid' | 'truelayer'
   ): Promise<{ url?: string; linkToken?: string }> {
-    // In a real implementation, this would:
-    // 1. For Plaid: Create a link token and return it
-    // 2. For TrueLayer: Generate an auth URL for OAuth flow
-    
     if (provider === 'truelayer') {
-      // Mock TrueLayer OAuth URL
-      const redirectUri = this.trueLayerConfig.redirectUri ?? `${this.getOrigin()}/auth/callback`;
-      const authUrl = `https://auth.truelayer.com/?response_type=code&client_id=${
-        this.trueLayerConfig.clientId || 'demo'
-      }&scope=info%20accounts%20balance%20transactions&redirect_uri=${
-        encodeURIComponent(redirectUri)
-      }&providers=${institutionId}`;
-      
-      return { url: authUrl };
-    } else {
-      // Mock Plaid Link token
-      return { linkToken: 'link-sandbox-demo-token' };
+      const response = await this.request<CreateLinkTokenResponse>('/api/banking/create-link-token', {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      return { url: response.authUrl };
     }
+
+    return { linkToken: 'plaid-not-configured' };
   }
 
-  /**
-   * Handle OAuth callback (for TrueLayer)
-   */
-  async handleOAuthCallback(_code: string, _state?: string): Promise<BankConnection> {
-    // In a real implementation, this would:
-    // 1. Exchange the code for access tokens
-    // 2. Fetch account information
-    // 3. Create a bank connection record
-    
-    const createdAt = this.getNowDate();
-    const expiresAt = this.getNowDate(90 * 24 * 60 * 60 * 1000);
+  async handleOAuthCallback(code: string, state?: string): Promise<BankConnection | null> {
+    if (!state) {
+      throw new Error('Missing state parameter');
+    }
 
-    const connection: BankConnection = {
-      id: this.idFactory(),
-      provider: 'truelayer',
-      institutionId: 'demo-bank',
-      institutionName: 'Demo Bank',
-      status: 'connected',
-      lastSync: createdAt,
-      accounts: [],
-      createdAt,
-      expiresAt
+    const response = await this.request<ExchangeTokenResponse>('/api/banking/exchange-token', {
+      method: 'POST',
+      body: JSON.stringify({ code, state })
+    });
+
+    await this.refreshConnections();
+    return this.connections.find((connection) => connection.id === response.connectionId) ?? null;
+  }
+
+  async syncConnection(_connectionId: string): Promise<SyncResult> {
+    return {
+      success: false,
+      accountsUpdated: 0,
+      transactionsImported: 0,
+      errors: ['Sync endpoints are not implemented yet']
     };
-    
-    this.connections.push(connection);
-    this.saveConnections();
-    
-    return connection;
   }
 
-  /**
-   * Sync accounts and transactions
-   */
-  async syncConnection(connectionId: string): Promise<SyncResult> {
-    const connection = this.connections.find(c => c.id === connectionId);
-    if (!connection) {
-      return {
-        success: false,
-        accountsUpdated: 0,
-        transactionsImported: 0,
-        errors: ['Connection not found']
-      };
-    }
-
-    try {
-      // In a real implementation, this would:
-      // 1. Call the provider API to fetch latest data
-      // 2. Update account balances
-      // 3. Import new transactions
-      // 4. Handle duplicates and reconciliation
-      
-      connection.lastSync = this.getNowDate();
-      connection.status = 'connected';
-      this.saveConnections();
-      
-      return {
-        success: true,
-        accountsUpdated: connection.accounts.length,
-        transactionsImported: 0, // Would be actual count
-        errors: []
-      };
-    } catch (error) {
-      connection.status = 'error';
-      connection.error = error instanceof Error ? error.message : 'Unknown error';
-      this.saveConnections();
-      this.logger.error('Failed to sync bank connection:', error);
-      
-      return {
-        success: false,
-        accountsUpdated: 0,
-        transactionsImported: 0,
-        errors: [connection.error]
-      };
-    }
-  }
-
-  /**
-   * Sync all connections
-   */
   async syncAll(): Promise<Map<string, SyncResult>> {
     const results = new Map<string, SyncResult>();
-    
     for (const connection of this.connections) {
-      if (connection.status === 'connected') {
-        const result = await this.syncConnection(connection.id);
-        results.set(connection.id, result);
-      }
+      results.set(connection.id, await this.syncConnection(connection.id));
     }
-    
     return results;
   }
 
-  /**
-   * Disconnect a bank connection
-   */
   async disconnect(connectionId: string): Promise<boolean> {
-    const index = this.connections.findIndex(c => c.id === connectionId);
-    if (index === -1) return false;
-    
-    // In a real implementation, this would also:
-    // 1. Revoke access tokens
-    // 2. Clean up any stored credentials
-    
-    this.connections.splice(index, 1);
-    this.saveConnections();
-    
+    await this.request<DisconnectResponse>('/api/banking/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ connectionId })
+    });
+
+    this.connections = this.connections.filter((connection) => connection.id !== connectionId);
     return true;
   }
 
-  /**
-   * Get all connections
-   */
-  getConnections(): BankConnection[] {
-    return this.connections;
-  }
-
-  /**
-   * Get connection by ID
-   */
-  getConnection(id: string): BankConnection | undefined {
-    return this.connections.find(c => c.id === id);
-  }
-
-  /**
-   * Check if any connections need reauthorization
-   */
   needsReauth(): BankConnection[] {
-    const now = this.nowProvider();
-    return this.connections.filter(c => 
-      c.status === 'reauth_required' || 
-      (c.expiresAt && new Date(c.expiresAt).getTime() < now)
+    const now = Date.now();
+    return this.connections.filter((connection) =>
+      connection.status === 'reauth_required' ||
+      (connection.expiresAt && connection.expiresAt.getTime() < now)
     );
-  }
-
-  /**
-   * Map external account to internal account
-   */
-  linkAccount(connectionId: string, externalAccountId: string, internalAccountId: string): void {
-    const connection = this.connections.find(c => c.id === connectionId);
-    if (connection && !connection.accounts.includes(internalAccountId)) {
-      connection.accounts.push(internalAccountId);
-      this.saveConnections();
-    }
-  }
-
-  /**
-   * Check if service is configured
-   */
-  isConfigured(): boolean {
-    return !!(
-      (this.plaidConfig.clientId && this.plaidConfig.secret) ||
-      (this.trueLayerConfig.clientId && this.trueLayerConfig.clientSecret)
-    );
-  }
-
-  /**
-   * Get configuration status
-   */
-  getConfigStatus(): {
-    plaid: boolean;
-    trueLayer: boolean;
-  } {
-    return {
-      plaid: !!(this.plaidConfig.clientId && this.plaidConfig.secret),
-      trueLayer: !!(this.trueLayerConfig.clientId && this.trueLayerConfig.clientSecret)
-    };
-  }
-
-  /**
-   * Load connections from localStorage
-   */
-  private loadConnections(): void {
-    if (!this.storage) {
-      this.connections = [];
-      return;
-    }
-    try {
-      const stored = this.storage.getItem('bankConnections');
-      if (stored) {
-        const rawConnections = JSON.parse(stored) as BankConnection[];
-        this.connections = rawConnections.map(connection => ({
-          ...connection,
-          createdAt: connection.createdAt ? new Date(connection.createdAt) : this.getNowDate(),
-          lastSync: connection.lastSync ? new Date(connection.lastSync) : undefined,
-          expiresAt: connection.expiresAt ? new Date(connection.expiresAt) : undefined
-        }));
-      } else {
-        this.connections = [];
-      }
-    } catch (error) {
-      this.logger.error('Failed to load bank connections:', error);
-      this.connections = [];
-    }
-  }
-
-  /**
-   * Save connections to localStorage
-   */
-  private saveConnections(): void {
-    if (!this.storage) {
-      return;
-    }
-    try {
-      this.storage.setItem('bankConnections', JSON.stringify(this.connections));
-    } catch (error) {
-      this.logger.error('Failed to save bank connections:', error);
-    }
-  }
-
-  /**
-   * Load API configuration
-   */
-  private loadConfig(): void {
-    if (!this.storage) {
-      return;
-    }
-    try {
-      const stored = this.storage.getItem('bankAPIConfig');
-      if (stored) {
-        const config = JSON.parse(stored);
-        this.plaidConfig = config.plaid || {};
-        this.trueLayerConfig = config.trueLayer || {};
-      }
-    } catch (error) {
-      this.logger.error('Failed to load bank API config:', error);
-    }
-  }
-
-  /**
-   * Save API configuration
-   */
-  private saveConfig(): void {
-    if (!this.storage) {
-      return;
-    }
-    try {
-      const config = {
-        plaid: this.plaidConfig,
-        trueLayer: this.trueLayerConfig
-      };
-      this.storage.setItem('bankAPIConfig', JSON.stringify(config));
-    } catch (error) {
-      this.logger.error('Failed to save bank API config:', error);
-    }
   }
 }
 

@@ -1,5 +1,6 @@
 import type { Transaction, Account, Budget, Goal } from '../types';
 import Fuse from 'fuse.js';
+import { toDecimal, toNumber } from '../utils/decimal';
 
 export interface SearchOptions {
   // Text search
@@ -477,13 +478,13 @@ class SearchService {
     // Parse amount ranges
     const amountMatch = query.match(/(?:over|above|greater than|>)\s*\$?(\d+(?:\.\d+)?)/i);
     if (amountMatch) {
-      options.amountMin = parseFloat(amountMatch[1]);
+      options.amountMin = toNumber(toDecimal(amountMatch[1]));
       query = query.replace(amountMatch[0], '').trim();
     }
 
     const underMatch = query.match(/(?:under|below|less than|<)\s*\$?(\d+(?:\.\d+)?)/i);
     if (underMatch) {
-      options.amountMax = parseFloat(underMatch[1]);
+      options.amountMax = toNumber(toDecimal(underMatch[1]));
       query = query.replace(underMatch[0], '').trim();
     }
 

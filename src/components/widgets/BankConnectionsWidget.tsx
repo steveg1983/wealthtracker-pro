@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { bankConnectionService, type BankConnection } from '../../services/bankConnectionService';
 import { Building2Icon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, LinkIcon } from '../icons';
 import { format } from 'date-fns';
@@ -11,13 +12,19 @@ export default function BankConnectionsWidget({ size = 'medium' }: BankConnectio
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
+  const { getToken } = useClerkAuth();
 
-  const loadConnections = React.useCallback(() => {
+  const loadConnections = React.useCallback(async () => {
+    await bankConnectionService.refreshConnections();
     setConnections(bankConnectionService.getConnections());
   }, []);
 
   useEffect(() => {
-    loadConnections();
+    bankConnectionService.setAuthTokenProvider(() => getToken());
+  }, [getToken]);
+
+  useEffect(() => {
+    void loadConnections();
     
     // Check for connections needing reauth
     const needsReauth = bankConnectionService.needsReauth();
@@ -30,7 +37,7 @@ export default function BankConnectionsWidget({ size = 'medium' }: BankConnectio
     setIsSyncing(true);
     try {
       await bankConnectionService.syncAll();
-      loadConnections();
+      void loadConnections();
     } finally {
       setIsSyncing(false);
     }
@@ -102,7 +109,7 @@ export default function BankConnectionsWidget({ size = 'medium' }: BankConnectio
                     {connection.institutionName}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {connection.accounts.length} accounts • 
+                    {connection.accountsCount ?? connection.accounts.length} accounts • 
                     {connection.lastSync && (
                       <span> Last sync {format(new Date(connection.lastSync), 'MMM d')}</span>
                     )}

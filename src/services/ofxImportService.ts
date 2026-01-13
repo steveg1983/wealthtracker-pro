@@ -1,5 +1,6 @@
 import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
+import { toDecimal, toNumber } from '../utils/decimal';
 
 interface OFXTransaction {
   type: string;
@@ -153,7 +154,7 @@ export class OFXImportService {
         transactions.push({
           type,
           datePosted: this.parseOFXDate(datePosted),
-          amount: parseFloat(amountStr),
+          amount: toNumber(toDecimal(amountStr)),
           fitId: fitId.trim(),
           name: this.cleanString(name),
           memo: memo ? this.cleanString(memo) : undefined,
@@ -178,7 +179,7 @@ export class OFXImportService {
     
     if (balanceAmount && balanceDate) {
       return {
-        amount: parseFloat(balanceAmount),
+        amount: toNumber(toDecimal(balanceAmount)),
         dateAsOf: this.parseOFXDate(balanceDate)
       };
     }

@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon, KeyIcon } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 
@@ -20,7 +20,6 @@ const SmartCategorizationSettings = lazy(() => import('../../components/SmartCat
 const BatchImportModal = lazy(() => import('../../components/BatchImportModal'));
 const ImportRulesManager = lazy(() => import('../../components/ImportRulesManager'));
 const BankConnections = lazy(() => import('../../components/BankConnections'));
-const BankAPISettings = lazy(() => import('../../components/BankAPISettings'));
 const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBackupSettings'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
@@ -41,7 +40,6 @@ export default function DataManagementSettings() {
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [showImportRules, setShowImportRules] = useState(false);
   const [showBankConnections, setShowBankConnections] = useState(false);
-  const [showBankAPISettings, setShowBankAPISettings] = useState(false);
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
 
   const handleExportData = () => {
@@ -97,14 +95,6 @@ export default function DataManagementSettings() {
           >
             <Building2Icon size={20} />
             Manage Bank Connections
-          </button>
-          
-          <button
-            onClick={() => setShowBankAPISettings(true)}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <KeyIcon size={20} />
-            Configure API Keys
           </button>
         </div>
       </div>
@@ -503,27 +493,6 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      {/* Bank API Settings Modal */}
-      {showBankAPISettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank API Configuration</h2>
-              <button
-                onClick={() => setShowBankAPISettings(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <XCircleIcon size={24} />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
-              <Suspense fallback={<LoadingState />}>
-                <BankAPISettings />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import type {
   ExchangeTokenResponse,
   ErrorResponse
 } from '../../src/types/banking-api.js';
+import { AuthError, requireAuth } from '../_lib/auth.js';
+import { setCorsHeaders } from '../_lib/cors.js';
 import { encryptSecret } from '../_lib/encryption.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { decodeStateToken } from '../_lib/state.js';
@@ -55,14 +57,8 @@ const getProviderFromAccounts = (
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Add CORS headers for local development
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Handle preflight request
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (setCorsHeaders(req, res)) {
+    return;
   }
 
   if (req.method !== 'POST') {
@@ -71,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const auth = await requireAuth(req);
     const body = req.body as ExchangeTokenRequest | undefined;
     if (!body || typeof body.code !== 'string' || typeof body.state !== 'string') {
       return createErrorResponse(res, 400, 'code and state are required', 'invalid_request');
@@ -81,7 +78,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 400, 'Invalid or expired state token', 'invalid_state');
     }
 
-    const userId = statePayload.userId;
+    if (statePayload.userId !== auth.userId) {
+      return createErrorResponse(res, 403, 'State token does not match user', 'invalid_state');
+    }
+
+    const userId = auth.userId;
     const { access_token: accessToken, refresh_token: refreshToken } = await exchangeCodeForToken(body.code);
 
     const encryptedAccess = encryptSecret(accessToken);
@@ -180,6 +181,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json(response);
   } catch (error) {
+    if (error instanceof AuthError) {
+      return createErrorResponse(res, error.status, error.message, error.code);
+    }
     console.error('exchange-token error', error);
     return createErrorResponse(res, 500, 'Unexpected error', 'internal_error');
   }

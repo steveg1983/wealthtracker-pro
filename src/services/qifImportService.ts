@@ -1,5 +1,6 @@
 import type { Transaction, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
+import { toDecimal, toNumber } from '../utils/decimal';
 
 export interface QIFTransaction {
   date: string;
@@ -132,8 +133,8 @@ export class QIFImportService {
     
     // Remove parentheses and negative sign
     value = value.replace(/[()+-]/g, '');
-    
-    const amount = parseFloat(value) || 0;
+
+    const amount = toNumber(toDecimal(value));
     return isNegative ? -Math.abs(amount) : Math.abs(amount);
   }
   

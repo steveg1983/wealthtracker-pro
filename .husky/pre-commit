@@ -1,11 +1,1 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-echo "🔍 Running lint with fresh cache..."
-npm run lint -- --no-cache || exit 1
-
-echo "🧪 Running Supabase smoke tests..."
-npm run test:supabase-smoke || exit 1
-
-echo "⚡ Running realtime backend tests..."
-npm run test:realtime || exit 1
+npm run verify:pre-commit

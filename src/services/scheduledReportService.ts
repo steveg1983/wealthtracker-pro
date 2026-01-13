@@ -305,7 +305,7 @@ export class ScheduledReportService {
     );
 
     // Convert Uint8Array to Blob
-    return new Blob([pdfData], { type: 'application/pdf' });
+    return new Blob([new Uint8Array(pdfData)], { type: 'application/pdf' });
   }
 
   // Export to CSV
@@ -364,8 +364,8 @@ export class ScheduledReportService {
 
     // exportData returns string | Uint8Array, for Excel it's Uint8Array
     // Convert Uint8Array to ArrayBuffer
-    const uint8Array = excelData as Uint8Array;
-    return uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength);
+    const uint8Array = new Uint8Array(excelData as Uint8Array);
+    return uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength) as ArrayBuffer;
   }
 
   // Notify email ready (placeholder for email functionality)

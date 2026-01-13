@@ -190,7 +190,7 @@ export class PushNotificationService {
       // Subscribe
       const subscription = await this.registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey
+        applicationServerKey: new Uint8Array(applicationServerKey)
       });
 
       // Send subscription to server

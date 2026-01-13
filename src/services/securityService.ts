@@ -646,7 +646,7 @@ export class SecurityService {
     const nodeBuffer = (globalThis as { Buffer?: { from: (input: string, encoding: string) => Uint8Array } }).Buffer;
     if (nodeBuffer) {
       const buffer = nodeBuffer.from(base64, 'base64');
-      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
     }
 
     throw new Error('Base64 decoding not supported in this environment');

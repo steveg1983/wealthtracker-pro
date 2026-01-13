@@ -1,5 +1,5 @@
 import { Transaction, Budget } from '../types';
-import { Decimal, toDecimal } from '../utils/decimal';
+import { Decimal, toDecimal, toNumber } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import type {
@@ -335,7 +335,7 @@ export class MobileService {
     
     // Extract amount using regex
     const amountMatch = mockText.match(/\$?(\d+\.?\d*)/);
-    const suggestedAmount = amountMatch ? parseFloat(amountMatch[1]) : undefined;
+    const suggestedAmount = amountMatch ? toNumber(toDecimal(amountMatch[1])) : undefined;
     
     // Determine merchant and category
     const merchantMatch = mockText.match(/([A-Z\s]+)(?=\n)/);

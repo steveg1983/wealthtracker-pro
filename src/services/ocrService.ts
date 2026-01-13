@@ -3,6 +3,7 @@
 
 import type { ExtractedData, ExtractedItem } from './documentService';
 import type { TesseractWorker, TesseractLine } from '../types/tesseract';
+import { toDecimal, toNumber } from '../utils/decimal';
 
 interface OCRResult {
   text: string;
@@ -184,9 +185,11 @@ export class OCRService {
     for (const pattern of amountPatterns) {
       const matches = text.matchAll(pattern instanceof RegExp && pattern.global ? pattern : new RegExp(pattern, 'g'));
       for (const match of matches) {
-        const amount = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(amount)) {
+        try {
+          const amount = toNumber(toDecimal(match[1].replace(',', '.')));
           amounts.push(amount);
+        } catch {
+          // Skip invalid amounts
         }
       }
     }
@@ -205,10 +208,11 @@ export class OCRService {
     for (const pattern of taxPatterns) {
       const match = text.match(pattern);
       if (match) {
-        const taxAmount = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(taxAmount)) {
-          data.taxAmount = taxAmount;
+        try {
+          data.taxAmount = toNumber(toDecimal(match[1].replace(',', '.')));
           break;
+        } catch {
+          // Skip invalid tax amount
         }
       }
     }
@@ -255,15 +259,15 @@ export class OCRService {
       const itemMatch = line.match(itemPattern);
       if (itemMatch) {
         const description = itemMatch[1].trim();
-        const price = parseFloat(itemMatch[2].replace(',', '.'));
-        
+        const price = toNumber(toDecimal(itemMatch[2].replace(',', '.')));
+
         // Check if line contains quantity information
         const qtyMatch = line.match(quantityPattern);
         if (qtyMatch) {
           items.push({
             description: description.replace(qtyMatch[0], '').trim(),
             quantity: parseInt(qtyMatch[1]),
-            unitPrice: parseFloat(qtyMatch[2].replace(',', '.')),
+            unitPrice: toNumber(toDecimal(qtyMatch[2].replace(',', '.'))),
             totalPrice: price
           });
         } else {

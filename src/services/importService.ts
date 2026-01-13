@@ -2,6 +2,7 @@
 
 import { parse as parseCSV } from 'csv-parse/sync';
 import type { Transaction, Account } from '../types';
+import { toDecimal, toNumber } from '../utils/decimal';
 
 export interface ImportResult {
   transactions: Partial<Transaction>[];
@@ -127,7 +128,7 @@ class ImportService {
         // Extract amount
         const amountMatch = match.match(/<TRNAMT>([-\d.]+)/);
         if (amountMatch) {
-          transaction.amount = parseFloat(amountMatch[1]);
+          transaction.amount = toNumber(toDecimal(amountMatch[1]));
         }
 
         // Extract description
@@ -191,7 +192,7 @@ class ImportService {
 
     // Remove currency symbols and commas
     const cleaned = amountStr.toString().replace(/[^0-9.-]/g, '');
-    return parseFloat(cleaned) || 0;
+    return toNumber(toDecimal(cleaned));
   }
 
   // Main import function

@@ -297,8 +297,9 @@ export class AutomaticBackupService {
       },
       options
     );
-    
-    const blob = new Blob([csvData], { type: 'text/csv' });
+
+    const blobData = typeof csvData === 'string' ? csvData : new Uint8Array(csvData);
+    const blob = new Blob([blobData], { type: 'text/csv' });
     const filename = `wealthtracker-backup-${new Date().toISOString().split('T')[0]}.csv`;
     
     return { format: 'csv', data: blob, filename };

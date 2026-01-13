@@ -2,6 +2,7 @@ import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
 import { importRulesService } from './importRulesService';
 import type { JsonValue } from '../types/common';
+import { toDecimal, toNumber } from '../utils/decimal';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -341,11 +342,11 @@ export class EnhancedCsvImportService {
   private parseAmount(value: string): number {
     // Remove currency symbols and spaces
     const cleaned = value.replace(/[£$€¥,\s]/g, '');
-    
+
     // Handle parentheses for negative amounts
     const isNegative = cleaned.startsWith('(') || cleaned.startsWith('-');
-    const amount = Math.abs(parseFloat(cleaned.replace(/[()]/g, '')));
-    
+    const amount = Math.abs(toNumber(toDecimal(cleaned.replace(/[()]/g, ''))));
+
     return isNegative ? -amount : amount;
   }
 

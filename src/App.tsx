@@ -33,6 +33,7 @@ import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 // Lazy load all pages for code splitting with preload support
 // Using webpack magic comments for better chunk naming and preloading hints
 const Login = lazyWithPreload(() => import(/* webpackChunkName: "login" */ './pages/Login'));
+const BankingCallback = lazyWithPreload(() => import(/* webpackChunkName: "banking-callback" */ './pages/BankingCallback'));
 const Welcome = lazyWithPreload(() => import(/* webpackChunkName: "welcome" */ './pages/Welcome'));
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard", webpackPreload: true */ './pages/Dashboard'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
@@ -146,6 +147,11 @@ function App(): React.JSX.Element {
                         <Route path="/login" element={
                           <Suspense fallback={<PageLoader />}>
                             <Login />
+                          </Suspense>
+                        } />
+                        <Route path="/auth/callback" element={
+                          <Suspense fallback={<PageLoader />}>
+                            <BankingCallback />
                           </Suspense>
                         } />
                         

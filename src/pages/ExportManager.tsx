@@ -60,7 +60,7 @@ export default function ExportManager() {
 
       if (exportOptions.format === 'pdf') {
         const pdfData = await exportService.exportToPDF(data, exportOptions);
-        const blob = new Blob([pdfData], { type: 'application/pdf' });
+        const blob = new Blob([new Uint8Array(pdfData)], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
