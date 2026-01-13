@@ -167,24 +167,26 @@ export default function Analytics(): React.JSX.Element {
     // Execute query against data
     let results: QueryResult[] = [];
 
-    const cloneRecords = (items: Record<string, unknown>[]): QueryResult[] =>
-      items.map(item => ({ ...item }));
-    
+    // Convert typed objects to query results
+    // Using 'as const' spread preserves the shape while allowing type widening
+    const cloneRecords = <T extends object>(items: T[]): QueryResult[] =>
+      items.map(item => ({ ...item }) as QueryResult);
+
     switch (query.dataSource) {
       case 'transactions':
-        results = cloneRecords(transactions as unknown as Record<string, unknown>[]);
+        results = cloneRecords(transactions);
         break;
       case 'accounts':
-        results = cloneRecords(accounts as unknown as Record<string, unknown>[]);
+        results = cloneRecords(accounts);
         break;
       case 'budgets':
-        results = cloneRecords(budgets as unknown as Record<string, unknown>[]);
+        results = cloneRecords(budgets);
         break;
       case 'goals':
-        results = cloneRecords(goals as unknown as Record<string, unknown>[]);
+        results = cloneRecords(goals);
         break;
       case 'investments':
-        results = investments ? cloneRecords(investments as unknown as Record<string, unknown>[]) : [];
+        results = investments ? cloneRecords(investments) : [];
         break;
     }
     

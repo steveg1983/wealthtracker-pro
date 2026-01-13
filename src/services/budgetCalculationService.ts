@@ -85,13 +85,10 @@ class BudgetCalculationService extends BaseService {
     categories: Category[]
   ): BudgetSpending {
     const period = this.getCurrentPeriod(budget);
-    const budgetCategoryId = (budget as unknown as { categoryId?: string; category?: string }).categoryId
-      ?? (budget as unknown as { category?: string }).category
-      ?? '';
-    const budgetLimitValue =
-      (budget as unknown as { amount?: number; limit?: number }).amount ??
-      (budget as unknown as { limit?: number }).limit ??
-      0;
+    // Handle legacy data: old budgets may have 'category' instead of 'categoryId'
+    const budgetCategoryId = budget.categoryId || (budget as { category?: string }).category || '';
+    // Handle legacy data: old budgets may have 'limit' instead of 'amount'
+    const budgetLimitValue = budget.amount ?? (budget as { limit?: number }).limit ?? 0;
     const category = categories.find(c => c.id === budgetCategoryId);
     
     // Filter transactions for this budget's category and period
@@ -177,8 +174,8 @@ class BudgetCalculationService extends BaseService {
     budget: Budget,
     period: BudgetPeriod
   ): Transaction[] {
-    const budgetCategoryId = (budget as unknown as { categoryId?: string; category?: string }).categoryId
-      ?? (budget as unknown as { category?: string }).category;
+    // Handle legacy data: old budgets may have 'category' instead of 'categoryId'
+    const budgetCategoryId = budget.categoryId || (budget as { category?: string }).category;
     return transactions.filter(transaction => {
       // Must be an expense
       if (transaction.type !== 'expense') return false;

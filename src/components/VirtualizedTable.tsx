@@ -278,6 +278,6 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
 VirtualizedTableComponent.displayName = 'VirtualizedTable';
 
 // Re-export with proper generic type preservation
-// memo() erases generic type information, so we need to cast it back
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const VirtualizedTable = VirtualizedTableComponent as any as <T>(props: VirtualizedTableProps<T>) => React.ReactElement;
+// memo() erases generic type information, so we use a type assertion through unknown
+// This is the recommended TypeScript pattern for preserving generics with React.memo
+export const VirtualizedTable = VirtualizedTableComponent as unknown as <T>(props: VirtualizedTableProps<T>) => React.ReactElement;
