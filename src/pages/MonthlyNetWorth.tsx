@@ -149,7 +149,7 @@ export default function MonthlyNetWorth() {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
@@ -165,7 +165,7 @@ export default function MonthlyNetWorth() {
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
@@ -177,7 +177,7 @@ export default function MonthlyNetWorth() {
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
@@ -196,7 +196,7 @@ export default function MonthlyNetWorth() {
         <div>
           <h2 className="text-2xl font-bold text-theme-heading dark:text-white mb-6">Assets</h2>
           {Object.keys(groupedAssets).length === 0 ? (
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-8 text-center">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">No assets to display</p>
             </div>
           ) : (
@@ -205,7 +205,7 @@ export default function MonthlyNetWorth() {
                 const typeTotal = accountsList.reduce((sum, acc) => sum + acc.convertedBalance, 0);
                 
                 return (
-                  <div key={accountType} className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow">
+                  <div key={accountType} className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -266,7 +266,7 @@ export default function MonthlyNetWorth() {
         <div>
           <h2 className="text-2xl font-bold text-theme-heading dark:text-white mb-6">Liabilities</h2>
           {Object.keys(groupedLiabilities).length === 0 ? (
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-8 text-center">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">No liabilities to display</p>
             </div>
           ) : (
@@ -275,7 +275,7 @@ export default function MonthlyNetWorth() {
                 const typeTotal = accountsList.reduce((sum, acc) => sum + Math.abs(acc.convertedBalance), 0);
                 
                 return (
-                  <div key={accountType} className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow">
+                  <div key={accountType} className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">

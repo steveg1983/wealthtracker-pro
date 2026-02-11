@@ -3,7 +3,7 @@ import { GraduationCapIcon } from './icons';
 
 export default function CollegePlanner() {
   return (
-    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center">
+    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-12 text-center">
       <GraduationCapIcon size={48} className="mx-auto mb-4 text-gray-400" />
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
         College Planning

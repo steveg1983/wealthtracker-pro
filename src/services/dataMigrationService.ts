@@ -54,7 +54,7 @@ function deserializeBudget(budget: SerializedBudget): Budget {
     endDate: budget.endDate ? new Date(budget.endDate) : undefined,
     createdAt: budget.createdAt ? new Date(budget.createdAt) : new Date(),
     updatedAt: budget.updatedAt ? new Date(budget.updatedAt) : new Date()
-  } as unknown as Budget;
+  } as Budget; // Direct cast - standard DTO deserialization pattern
 }
 
 function deserializeGoal(goal: SerializedGoal): Goal {
@@ -63,7 +63,7 @@ function deserializeGoal(goal: SerializedGoal): Goal {
     targetDate: new Date(goal.targetDate),
     createdAt: goal.createdAt ? new Date(goal.createdAt) : new Date(),
     updatedAt: goal.updatedAt ? new Date(goal.updatedAt) : new Date()
-  } as unknown as Goal;
+  } as Goal; // Direct cast - standard DTO deserialization pattern
 }
 
 interface MigrationStatus {
@@ -78,31 +78,8 @@ interface MigrationStatus {
   };
 }
 
-interface SupabaseQueryResult<T> {
-  data: T | null;
-  error: { message: string } | null;
-}
-
-interface SupabaseSelectFilterBuilder<T> {
-  eq: (column: string, value: unknown) => SupabaseSelectFilterBuilder<T>;
-  limit: (count: number) => Promise<SupabaseQueryResult<T[]>>;
-  single: () => Promise<SupabaseQueryResult<T>>;
-}
-
-interface SupabaseInsertBuilder<T> {
-  select: () => Promise<SupabaseQueryResult<T[]>>;
-}
-
-type SupabaseFromBuilder<T> = {
-  select: (columns?: string) => SupabaseSelectFilterBuilder<T>;
-  insert: (
-    values: ReadonlyArray<Record<string, unknown>> | Record<string, unknown>
-  ) => SupabaseInsertBuilder<T>;
-};
-
-type SupabaseClientLike = {
-  from: <T = Record<string, unknown>>(table: string) => SupabaseFromBuilder<T>;
-};
+// Use standard pattern from other services (transactionService, supabaseService, etc.)
+type SupabaseClientLike = typeof supabase;
 
 type StoreLike = Pick<typeof store, 'getState'>;
 
@@ -132,7 +109,8 @@ export class DataMigrationService {
   private accountIdMapping: Map<string, string> = new Map();
 
   constructor(options: DataMigrationServiceOptions = {}) {
-    this.supabaseClient = options.supabaseClient ?? (supabase as unknown as SupabaseClientLike);
+    // Standard pattern: no cast needed when using typeof supabase
+    this.supabaseClient = options.supabaseClient ?? supabase;
     this.storeRef = options.store ?? store;
     this.userIdSvc = options.userIdService ?? userIdService;
     this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);

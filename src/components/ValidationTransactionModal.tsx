@@ -123,7 +123,7 @@ export default function ValidationTransactionModal({
                               [transaction.id]: { ...values, description: e.target.value }
                             })}
                             className="w-full px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg
-                                     bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white"
+                                     bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white"
                           />
                         </div>
 
@@ -139,7 +139,7 @@ export default function ValidationTransactionModal({
                                 [transaction.id]: { ...values, amount: e.target.value }
                               })}
                               className={`w-full px-3 py-1 border rounded-lg
-                                       bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white
+                                       bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white
                                        ${parseFloat(values.amount) <= 0 
                                          ? 'border-red-500' 
                                          : 'border-gray-300 dark:border-gray-600'}`}
@@ -155,7 +155,7 @@ export default function ValidationTransactionModal({
                                 [transaction.id]: { ...values, category: e.target.value }
                               })}
                               className={`w-full px-3 py-1 border rounded-lg
-                                       bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white
+                                       bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white
                                        ${!validCategories.includes(values.category) && values.category !== ''
                                          ? 'border-red-500' 
                                          : 'border-gray-300 dark:border-gray-600'}`}

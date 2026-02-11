@@ -203,7 +203,7 @@ export function DarkModeRefinements({
         <div className="flex items-center gap-2">
           <button
             onClick={toggleTheme}
-            className="p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group"
+            className="p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group"
             aria-label="Toggle theme"
           >
             {currentTheme === 'light' ? (
@@ -215,7 +215,7 @@ export function DarkModeRefinements({
           
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+            className="p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
             aria-label="Theme settings"
           >
             <SettingsIcon size={20} className="text-gray-700 dark:text-gray-300" />
@@ -226,7 +226,7 @@ export function DarkModeRefinements({
       {/* Settings Panel */}
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">

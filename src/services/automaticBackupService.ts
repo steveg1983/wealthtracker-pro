@@ -6,6 +6,13 @@ import type { Transaction, Account, Investment, Budget } from '../types';
 type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 type TimerId = ReturnType<typeof setInterval>;
 
+// Type for experimental Periodic Background Sync API
+interface ServiceWorkerRegistrationWithPeriodicSync extends ServiceWorkerRegistration {
+  readonly periodicSync: {
+    register(tag: string, options: { minInterval: number }): Promise<void>;
+  };
+}
+
 export interface AutomaticBackupServiceOptions {
   storage?: StorageAdapter | null;
   setIntervalFn?: (handler: () => void, timeout: number) => TimerId;
@@ -110,7 +117,9 @@ export class AutomaticBackupService {
     const minInterval = this.getMinInterval(config.frequency);
     
     try {
-      await (registration as unknown as { periodicSync: { register: (tag: string, options: { minInterval: number }) => Promise<void> } }).periodicSync.register('automatic-backup', {
+      // Direct cast to experimental API type
+      const regWithSync = registration as ServiceWorkerRegistrationWithPeriodicSync;
+      await regWithSync.periodicSync.register('automatic-backup', {
         minInterval,
       });
       this.logger.info?.('[AutomaticBackup] Periodic sync registered');

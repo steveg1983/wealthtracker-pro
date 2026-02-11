@@ -11,6 +11,20 @@ export default {
         primary: 'var(--color-primary, #0078d4)',
         secondary: 'var(--color-secondary, #005a9e)',
         accent: '#FFF2CC',
+
+        // WCAG AA compliant card backgrounds
+        'card-bg': {
+          light: '#e5eaf2',  // Lighter than #d4dce8, better contrast
+          DEFAULT: '#d4dce8', // Backward compatible
+          dark: '#1f2937',    // Dark mode (gray-800)
+        },
+
+        // Accessible text colors for card backgrounds
+        'card-text': {
+          light: '#374151',   // gray-700: 7.8:1 contrast on #e5eaf2 (WCAG AAA!)
+          DEFAULT: '#1f2937', // gray-800: 10.5:1 contrast (WCAG AAA!)
+        },
+
         success: '#34c759',
         danger: '#ff3b30',
         warning: '#ff9500',

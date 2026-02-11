@@ -1,18 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  DeadLetterAdminAuditResponse,
+  DeadLetterAdminListResponse,
+  DeadLetterAdminResetResponse,
+  ConnectionsResponse,
+  CreateLinkTokenResponse,
+  ExchangeTokenResponse,
+  OpsAlertStatsResponse,
+  OpsAlertTestResponse
+} from '../../types/banking-api';
 import { BankConnectionService } from '../bankConnectionService';
-
-type StorageSeed = Record<string, string>;
-
-const createStorageMock = (seed: StorageSeed = {}) => {
-  const store = new Map<string, string>(Object.entries(seed));
-  return {
-    getItem: vi.fn((key: string) => (store.has(key) ? store.get(key)! : null)),
-    setItem: vi.fn((key: string, value: string) => {
-      store.set(key, value);
-    }),
-    dump: () => Object.fromEntries(store)
-  };
-};
 
 const createLogger = () => ({
   log: vi.fn(),
@@ -20,160 +17,825 @@ const createLogger = () => ({
   error: vi.fn()
 });
 
-const DAY = 24 * 60 * 60 * 1000;
+const createFetchMock = () => vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>();
 
-const createService = (options?: { storageSeed?: StorageSeed; startTime?: number }) => {
-  const storage = createStorageMock(options?.storageSeed);
-  const logger = createLogger();
-  let currentTime = options?.startTime ?? Date.UTC(2025, 0, 1);
-  let idCounter = 0;
-
-  const service = new BankConnectionService({
-    storage,
-    location: { origin: 'https://app.wealth.local' },
-    logger,
-    now: () => currentTime,
-    idFactory: () => `conn_test_${++idCounter}`
+const jsonResponse = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
   });
 
-  return {
-    service,
-    storage,
+const textResponse = (body: string, status: number): Response => new Response(body, { status });
+
+const getRequestHeader = (init: RequestInit | undefined, header: string): string | null =>
+  new Headers(init?.headers).get(header);
+
+const getJsonBody = (init: RequestInit | undefined): unknown =>
+  JSON.parse(String(init?.body ?? '{}'));
+
+const createService = (fetchMock: typeof fetch) => {
+  const logger = createLogger();
+  const service = new BankConnectionService({
+    fetch: fetchMock,
     logger,
-    advance: (ms: number) => {
-      currentTime += ms;
-    }
-  };
+    authTokenProvider: async () => 'test-token'
+  });
+  return { service, logger };
 };
 
 describe('BankConnectionService', () => {
-  it('restores persisted connections and config from storage', () => {
-    const seedConnection = [
+  const env = import.meta.env as Record<string, string | undefined>;
+  const originalE2eAuthFlag = env.VITE_E2E_TEST_MODE_AUTH;
+  const originalLocation = window.location.pathname + window.location.search;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    env.VITE_E2E_TEST_MODE_AUTH = originalE2eAuthFlag;
+    window.localStorage.removeItem('isTestMode');
+    window.history.replaceState({}, '', originalLocation);
+  });
+
+  it('loads connections from the authenticated API and maps date fields', async () => {
+    const fetchMock = createFetchMock();
+    const apiConnections: ConnectionsResponse = [
       {
-        id: 'conn_seed',
-        provider: 'plaid' as const,
-        institutionId: 'seed-bank',
-        institutionName: 'Seed Bank',
-        status: 'connected' as const,
-        accounts: ['acc_1'],
-        createdAt: '2025-01-01T00:00:00.000Z',
-        lastSync: '2025-01-02T00:00:00.000Z'
+        id: 'conn_123',
+        provider: 'truelayer',
+        institutionId: 'provider_1',
+        institutionName: 'Barclays',
+        institutionLogo: 'https://logo.test/barclays.svg',
+        status: 'connected',
+        lastSync: '2026-01-01T00:00:00.000Z',
+        accountsCount: 2,
+        expiresAt: '2026-12-31T00:00:00.000Z'
+      }
+    ];
+    fetchMock.mockResolvedValueOnce(jsonResponse(apiConnections));
+    const { service } = createService(fetchMock);
+
+    const result = await service.refreshConnections();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('conn_123');
+    expect(result[0].lastSync).toBeInstanceOf(Date);
+    expect(result[0].expiresAt).toBeInstanceOf(Date);
+    expect(result[0].accountsCount).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/connections');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+  });
+
+  it('logs and returns an empty connection list when loading connections fails', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(textResponse('db unavailable', 500));
+    const { service, logger } = createService(fetchMock);
+
+    const result = await service.refreshConnections();
+
+    expect(result).toEqual([]);
+    expect(logger.error).toHaveBeenCalledWith('Failed to load bank connections', expect.any(Error));
+  });
+
+  it('loads TrueLayer configuration status from backend health endpoint', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        env_check: {
+          has_truelayer_client_id: true,
+          has_truelayer_secret: true,
+          has_redirect_uri: true
+        }
+      })
+    );
+    const { service } = createService(fetchMock);
+
+    const status = await service.refreshConfigStatus();
+
+    expect(status).toEqual({ plaid: false, trueLayer: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/health');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+  });
+
+  it('builds a TrueLayer connection URL by calling create-link-token endpoint', async () => {
+    const fetchMock = createFetchMock();
+    const response: CreateLinkTokenResponse = {
+      authUrl: 'https://auth.truelayer.com/?state=signed-state',
+      state: 'signed-state'
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(response));
+    const { service } = createService(fetchMock);
+
+    const result = await service.connectBank('barclays', 'truelayer');
+
+    expect(result).toEqual({ url: response.authUrl });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/create-link-token');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({
+      institutionId: 'barclays',
+      mode: 'connect'
+    });
+  });
+
+  it('starts reauthorization using connection context and mode=reauth', async () => {
+    const fetchMock = createFetchMock();
+    const connectionsResponse: ConnectionsResponse = [
+      {
+        id: 'conn_abc',
+        provider: 'truelayer',
+        institutionId: 'barclays',
+        institutionName: 'Barclays',
+        status: 'reauth_required',
+        accountsCount: 2
+      }
+    ];
+    const response: CreateLinkTokenResponse = {
+      authUrl: 'https://auth.truelayer.com/?state=signed-state',
+      state: 'signed-state'
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(connectionsResponse));
+    fetchMock.mockResolvedValueOnce(jsonResponse(response));
+    const { service } = createService(fetchMock);
+
+    await service.refreshConnections();
+    const result = await service.reauthorizeConnection('conn_abc');
+
+    expect(result).toEqual({ url: response.authUrl });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/banking/create-link-token');
+    expect(getJsonBody(fetchMock.mock.calls[1]?.[1])).toEqual({
+      institutionId: 'barclays',
+      mode: 'reauth',
+      connectionId: 'conn_abc'
+    });
+  });
+
+  it('rejects OAuth callback handling when state is missing', async () => {
+    const fetchMock = createFetchMock();
+    const { service } = createService(fetchMock);
+
+    await expect(service.handleOAuthCallback('auth-code')).rejects.toThrow('Missing state parameter');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('exchanges TrueLayer OAuth code and returns the created connection', async () => {
+    const fetchMock = createFetchMock();
+    const exchangeResponse: ExchangeTokenResponse = {
+      success: true,
+      connectionId: 'conn_123',
+      institutionId: 'provider_1',
+      institutionName: 'Barclays',
+      institutionLogo: 'https://logo.test/barclays.svg',
+      accountsCount: 3
+    };
+    const connectionsResponse: ConnectionsResponse = [
+      {
+        id: 'conn_123',
+        provider: 'truelayer',
+        institutionId: 'provider_1',
+        institutionName: 'Barclays',
+        institutionLogo: 'https://logo.test/barclays.svg',
+        status: 'connected',
+        accountsCount: 3
       }
     ];
 
-    const seedConfig = {
-      plaid: { clientId: 'abc', secret: 'def' },
-      trueLayer: { clientId: 'ghi', clientSecret: 'jkl' }
-    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(exchangeResponse));
+    fetchMock.mockResolvedValueOnce(jsonResponse(connectionsResponse));
+    const { service } = createService(fetchMock);
 
-    const { service } = createService({
-      storageSeed: {
-        bankConnections: JSON.stringify(seedConnection),
-        bankAPIConfig: JSON.stringify(seedConfig)
+    const connection = await service.handleOAuthCallback('auth-code', 'signed-state');
+
+    expect(connection?.id).toBe('conn_123');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/exchange-token');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({
+      code: 'auth-code',
+      state: 'signed-state'
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/banking/connections');
+  });
+
+  it('disconnects a connection via backend and removes it from local state', async () => {
+    const fetchMock = createFetchMock();
+    const connectionsResponse: ConnectionsResponse = [
+      {
+        id: 'conn_abc',
+        provider: 'truelayer',
+        institutionId: 'provider_1',
+        institutionName: 'Barclays',
+        status: 'connected',
+        accountsCount: 1
       }
-    });
+    ];
+    fetchMock.mockResolvedValueOnce(jsonResponse(connectionsResponse));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ success: true }));
+    const { service } = createService(fetchMock);
 
-    expect(service.getConnections()).toHaveLength(1);
-    expect(service.getConnections()[0].createdAt).toBeInstanceOf(Date);
-    expect(service.getConfigStatus()).toEqual({ plaid: true, trueLayer: true });
-  });
+    await service.refreshConnections();
+    const removed = await service.disconnect('conn_abc');
 
-  it('builds a TrueLayer auth URL using configured redirect', async () => {
-    const { service } = createService();
-    service.initialize({
-      trueLayer: { clientId: 'tl-client', redirectUri: 'https://demo/callback' }
-    });
-
-    const result = await service.connectBank('barclays', 'truelayer');
-    expect(result.url).toContain('auth.truelayer.com');
-    expect(result.url).toContain('client_id=tl-client');
-    expect(result.url).toContain(encodeURIComponent('https://demo/callback'));
-    expect(result.linkToken).toBeUndefined();
-  });
-
-  it('falls back to Plaid link tokens when requested', async () => {
-    const { service } = createService();
-    const result = await service.connectBank('hsbc', 'plaid');
-    expect(result.linkToken).toBe('link-sandbox-demo-token');
-    expect(result.url).toBeUndefined();
-  });
-
-  it('creates and persists a connection after OAuth callback', async () => {
-    const { service, storage } = createService();
-    const connection = await service.handleOAuthCallback('auth-code');
-
-    expect(connection.id).toMatch(/^conn_test_/);
-    expect(connection.createdAt).toBeInstanceOf(Date);
-    const stored = storage.dump().bankConnections;
-    expect(stored).toContain(connection.id);
-    expect(service.getConnection(connection.id)).toBeDefined();
-  });
-
-  it('updates lastSync during syncConnection and reports account counts', async () => {
-    const { service, advance } = createService();
-    const connection = await service.handleOAuthCallback('code');
-    const initialLastSync = connection.lastSync?.getTime() ?? 0;
-    service.linkAccount(connection.id, 'ext-1', 'acc-1');
-
-    advance(DAY);
-    const result = await service.syncConnection(connection.id);
-    expect(result.success).toBe(true);
-    expect(result.accountsUpdated).toBe(1);
-    expect(service.getConnection(connection.id)?.lastSync?.getTime()).toBeGreaterThan(initialLastSync);
-  });
-
-  it('identifies connections that require reauthorization by status or expiry', async () => {
-    const { service, advance } = createService({ startTime: Date.UTC(2025, 0, 1) });
-    const reauthNeeded = await service.handleOAuthCallback('reauth');
-    const expired = await service.handleOAuthCallback('expired');
-    const healthy = await service.handleOAuthCallback('healthy');
-
-    // Force statuses
-    service.getConnection(reauthNeeded.id)!.status = 'reauth_required';
-    const expiredConn = service.getConnection(expired.id)!;
-    expiredConn.expiresAt = new Date(expiredConn.createdAt.getTime() + DAY);
-
-    advance(2 * DAY);
-    const list = service.needsReauth();
-    expect(list.map(c => c.id)).toEqual(expect.arrayContaining([reauthNeeded.id, expired.id]));
-    expect(list.map(c => c.id)).not.toContain(healthy.id);
-  });
-
-  it('disconnect removes the connection and updates persistent storage', async () => {
-    const { service, storage } = createService();
-    const connection = await service.handleOAuthCallback('code');
-    const removed = await service.disconnect(connection.id);
     expect(removed).toBe(true);
-    expect(service.getConnection(connection.id)).toBeUndefined();
-    expect(storage.dump().bankConnections).toBe('[]');
+    expect(service.getConnections()).toEqual([]);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/banking/disconnect');
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe('POST');
+    expect(getJsonBody(fetchMock.mock.calls[1]?.[1])).toEqual({ connectionId: 'conn_abc' });
   });
 
-  it('reports configuration status per provider', () => {
-    const { service } = createService();
-    service.initialize({
-      plaid: { clientId: 'plaid', secret: 'secret' }
+  it('identifies connections requiring reauthorization by status or expiry', async () => {
+    const fetchMock = createFetchMock();
+    const expiredIso = '2020-01-01T00:00:00.000Z';
+    const futureIso = '2030-01-01T00:00:00.000Z';
+    const connectionsResponse: ConnectionsResponse = [
+      {
+        id: 'conn_expired',
+        provider: 'truelayer',
+        institutionId: 'provider_1',
+        institutionName: 'Expired Bank',
+        status: 'connected',
+        accountsCount: 1,
+        expiresAt: expiredIso
+      },
+      {
+        id: 'conn_reauth',
+        provider: 'truelayer',
+        institutionId: 'provider_2',
+        institutionName: 'Reauth Bank',
+        status: 'reauth_required',
+        accountsCount: 1,
+        expiresAt: futureIso
+      },
+      {
+        id: 'conn_ok',
+        provider: 'truelayer',
+        institutionId: 'provider_3',
+        institutionName: 'Healthy Bank',
+        status: 'connected',
+        accountsCount: 1,
+        expiresAt: futureIso
+      }
+    ];
+    fetchMock.mockResolvedValueOnce(jsonResponse(connectionsResponse));
+    const { service } = createService(fetchMock);
+
+    await service.refreshConnections();
+    const needsReauth = service.needsReauth();
+
+    expect(needsReauth.map((connection) => connection.id)).toEqual(
+      expect.arrayContaining(['conn_expired', 'conn_reauth'])
+    );
+    expect(needsReauth.map((connection) => connection.id)).not.toContain('conn_ok');
+  });
+
+  it('syncs a connection via backend sync endpoints and returns aggregated stats', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        accountsSynced: 2,
+        accounts: []
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        transactionsImported: 15,
+        duplicatesSkipped: 3
+      })
+    );
+    fetchMock.mockResolvedValueOnce(jsonResponse([] satisfies ConnectionsResponse));
+    const { service } = createService(fetchMock);
+
+    const result = await service.syncConnection('conn_123');
+
+    expect(result).toEqual({
+      success: true,
+      accountsUpdated: 2,
+      transactionsImported: 15,
+      errors: []
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/sync-accounts');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/banking/sync-transactions');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/banking/connections');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({ connectionId: 'conn_123' });
+    expect(getJsonBody(fetchMock.mock.calls[1]?.[1])).toEqual({ connectionId: 'conn_123' });
+  });
+
+  it('returns a failed sync result when sync endpoints error', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(textResponse('sync failed', 500));
+    const { service } = createService(fetchMock);
+
+    const result = await service.syncConnection('conn_123');
+
+    expect(result).toEqual({
+      success: false,
+      accountsUpdated: 0,
+      transactionsImported: 0,
+      errors: ['sync failed']
+    });
+  });
+
+  it('loads ops alert stats with query filters', async () => {
+    const fetchMock = createFetchMock();
+    const payload: OpsAlertStatsResponse = {
+      success: true,
+      filters: {
+        eventType: 'banking.dead_letter_detected',
+        minSuppressed: 2,
+        limit: 25,
+        onlyAboveThreshold: false
+      },
+      threshold: {
+        enabled: true,
+        suppressionThreshold: 5,
+        suppressionNotifyEvery: 2
+      },
+      count: 1,
+      summary: {
+        totalSuppressed: 5,
+        maxSuppressedCount: 5,
+        mostRecentLastSentAt: '2026-02-10T10:00:00.000Z',
+        mostRecentUpdatedAt: '2026-02-10T10:05:00.000Z',
+        rowsAboveThreshold: 1
+      },
+      rows: [
+        {
+          dedupeKey: 'banking.dead_letter_detected:abc',
+          eventType: 'banking.dead_letter_detected',
+          lastSentAt: '2026-02-10T10:00:00.000Z',
+          suppressedCount: 5,
+          updatedAt: '2026-02-10T10:05:00.000Z',
+          isAboveThreshold: true
+        }
+      ]
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const result = await service.getOpsAlertStats({
+      eventType: 'banking.dead_letter_detected',
+      minSuppressed: 2,
+      limit: 25
     });
 
-    expect(service.isConfigured()).toBe(true);
-    expect(service.getConfigStatus()).toEqual({ plaid: true, trueLayer: false });
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/banking/ops-alert-stats?eventType=banking.dead_letter_detected&minSuppressed=2&limit=25'
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
   });
 
-  it('logs and swallows storage errors', () => {
-    const faultyStorage = {
-      getItem: vi.fn(() => {
-        throw new Error('boom');
-      }),
-      setItem: vi.fn(() => {
-        throw new Error('boom');
-      })
-    };
+  it('uses explicit e2e auth fallback only when enabled and test mode is active', async () => {
+    const fetchMock = createFetchMock();
     const logger = createLogger();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        filters: {
+          eventType: null,
+          eventTypePrefix: null,
+          minSuppressed: 0,
+          limit: 10,
+          onlyAboveThreshold: false
+        },
+        threshold: {
+          enabled: true,
+          suppressionThreshold: 0,
+          suppressionNotifyEvery: 0
+        },
+        count: 0,
+        summary: {
+          totalSuppressed: 0,
+          maxSuppressedCount: 0,
+          mostRecentLastSentAt: null,
+          mostRecentUpdatedAt: null,
+          rowsAboveThreshold: 0
+        },
+        rows: []
+      } satisfies OpsAlertStatsResponse)
+    );
 
-    expect(() => {
-      const _service = new BankConnectionService({ storage: faultyStorage, logger });
-      return _service;
-    }).not.toThrow();
+    env.VITE_E2E_TEST_MODE_AUTH = 'true';
+    window.history.replaceState({}, '', '/settings/data?testMode=true');
 
-    expect(logger.error).toHaveBeenCalled();
+    const service = new BankConnectionService({
+      fetch: fetchMock,
+      logger,
+      authTokenProvider: async () => null
+    });
+
+    await service.getOpsAlertStats();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer e2e-test-token');
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Using VITE_E2E_TEST_MODE_AUTH fallback token for banking API requests in test mode'
+    );
+  });
+
+  it('does not use e2e auth fallback when explicit flag is disabled', async () => {
+    const fetchMock = createFetchMock();
+    const logger = createLogger();
+    env.VITE_E2E_TEST_MODE_AUTH = undefined;
+    window.history.replaceState({}, '', '/settings/data?testMode=true');
+
+    const service = new BankConnectionService({
+      fetch: fetchMock,
+      logger,
+      authTokenProvider: async () => null
+    });
+
+    await expect(service.getOpsAlertStats()).rejects.toThrow('Missing authentication token');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      'Using VITE_E2E_TEST_MODE_AUTH fallback token for banking API requests in test mode'
+    );
+  });
+
+  it('throws enriched API errors for non-2xx JSON responses', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: 'Admin access required',
+          code: 'forbidden'
+        },
+        403
+      )
+    );
+    const { service } = createService(fetchMock);
+
+    await expect(service.getOpsAlertStats()).rejects.toMatchObject({
+      message: 'Admin access required',
+      status: 403,
+      code: 'forbidden'
+    });
+  });
+
+  it('encodes onlyAboveThreshold filter when enabled', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        filters: {
+          eventType: null,
+          minSuppressed: 0,
+          limit: 10,
+          onlyAboveThreshold: true
+        },
+        threshold: {
+          enabled: true,
+          suppressionThreshold: 5,
+          suppressionNotifyEvery: 2
+        },
+        count: 0,
+        summary: {
+          totalSuppressed: 0,
+          maxSuppressedCount: 0,
+          mostRecentLastSentAt: null,
+          mostRecentUpdatedAt: null,
+          rowsAboveThreshold: 0
+        },
+        rows: []
+      } satisfies OpsAlertStatsResponse)
+    );
+    const { service } = createService(fetchMock);
+
+    await service.getOpsAlertStats({ onlyAboveThreshold: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/ops-alert-stats?onlyAboveThreshold=1');
+  });
+
+  it('encodes eventTypePrefix filter for grouped ops views', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        filters: {
+          eventType: null,
+          eventTypePrefix: 'banking.truelayer.jwks_circuit_',
+          minSuppressed: 0,
+          limit: 10,
+          onlyAboveThreshold: false
+        },
+        threshold: {
+          enabled: true,
+          suppressionThreshold: 5,
+          suppressionNotifyEvery: 2
+        },
+        count: 0,
+        summary: {
+          totalSuppressed: 0,
+          maxSuppressedCount: 0,
+          mostRecentLastSentAt: null,
+          mostRecentUpdatedAt: null,
+          rowsAboveThreshold: 0
+        },
+        rows: []
+      } satisfies OpsAlertStatsResponse)
+    );
+    const { service } = createService(fetchMock);
+
+    await service.getOpsAlertStats({ eventTypePrefix: 'banking.truelayer.jwks_circuit_' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/banking/ops-alert-stats?eventTypePrefix=banking.truelayer.jwks_circuit_'
+    );
+  });
+
+  it('sends a manual ops alert test via authenticated endpoint', async () => {
+    const fetchMock = createFetchMock();
+    const payload: OpsAlertTestResponse = {
+      success: true,
+      eventType: 'banking.ops_alert_test',
+      delivered: true
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const result = await service.triggerOpsAlertTest('  Preview smoke test  ');
+
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/ops-alert-test');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({ message: 'Preview smoke test' });
+  });
+
+  it('resets all dead-lettered connections with confirmation and reason', async () => {
+    const fetchMock = createFetchMock();
+    const payload: DeadLetterAdminResetResponse = {
+      success: true,
+      maxRetryAttempts: 6,
+      requested: 2,
+      resetConnectionIds: ['conn_1', 'conn_2'],
+      auditId: 'audit_1',
+      auditStatus: 'completed'
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const result = await service.resetAllDeadLettered('RESET_ALL_DEAD_LETTERED', '  Resolve support ticket #321  ', 100);
+
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/dead-letter-admin');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({
+      resetAllDeadLettered: true,
+      confirm: 'RESET_ALL_DEAD_LETTERED',
+      reason: 'Resolve support ticket #321',
+      limit: 100
+    });
+  });
+
+  it('rejects dead-letter reset when reason is empty', async () => {
+    const fetchMock = createFetchMock();
+    const { service } = createService(fetchMock);
+
+    await expect(service.resetAllDeadLettered('RESET_ALL_DEAD_LETTERED', '   ')).rejects.toThrow('Reason is required');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('loads dead-letter preview rows with a bounded limit', async () => {
+    const fetchMock = createFetchMock();
+    const payload: DeadLetterAdminListResponse = {
+      success: true,
+      maxRetryAttempts: 6,
+      count: 1,
+      rows: [
+        {
+          connectionId: 'conn_1',
+          userId: 'user_1',
+          provider: 'truelayer',
+          status: 'connected',
+          institutionName: 'Barclays',
+          queueAttempts: 7,
+          queueLastError: 'dead_letter:transactions:500',
+          queueNextRetryAt: null,
+          updatedAt: '2026-02-10T00:00:00.000Z'
+        }
+      ]
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const result = await service.getDeadLetterRows(999);
+
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/dead-letter-admin?limit=200');
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+  });
+
+  it('loads dead-letter admin audit rows with filters', async () => {
+    const fetchMock = createFetchMock();
+    const payload: DeadLetterAdminAuditResponse = {
+      success: true,
+      filters: {
+        status: 'completed',
+        scope: 'bulk',
+        action: 'reset_dead_letter',
+        adminClerkId: 'clerk_admin_1',
+        since: '2026-02-09T00:00:00.000Z',
+        until: '2026-02-11T00:00:00.000Z',
+        cursor: null,
+        limit: 25
+      },
+      count: 1,
+      summary: {
+        requestedTotal: 11,
+        resetTotal: 11,
+        pendingCount: 0,
+        completedCount: 1,
+        failedCount: 0
+      },
+      page: {
+        limit: 25,
+        hasMore: false,
+        nextCursor: null
+      },
+      rows: [
+        {
+          id: 'audit_1',
+          adminUserId: 'user_admin_1',
+          adminClerkId: 'clerk_admin_1',
+          action: 'reset_dead_letter',
+          scope: 'bulk',
+          reason: 'Support replay',
+          requestedCount: 11,
+          resetCount: 11,
+          maxRetryAttempts: 6,
+          connectionIds: ['conn_1', 'conn_2'],
+          metadata: { source: 'explicit_selection' },
+          status: 'completed',
+          error: null,
+          createdAt: '2026-02-10T10:00:00.000Z',
+          completedAt: '2026-02-10T10:01:00.000Z'
+        }
+      ]
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const result = await service.getDeadLetterAudit({
+      status: 'completed',
+      scope: 'bulk',
+      action: 'reset_dead_letter',
+      adminClerkId: 'clerk_admin_1',
+      since: '2026-02-09T00:00:00.000Z',
+      until: '2026-02-11T00:00:00.000Z',
+      limit: 25
+    });
+
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/banking/dead-letter-admin-audit?status=completed&scope=bulk&action=reset_dead_letter&adminClerkId=clerk_admin_1&since=2026-02-09T00%3A00%3A00.000Z&until=2026-02-11T00%3A00%3A00.000Z&limit=25'
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+  });
+
+  it('encodes cursor when loading additional dead-letter audit rows', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        filters: {
+          status: null,
+          scope: null,
+          action: null,
+          adminClerkId: null,
+          since: null,
+          until: null,
+          cursor: 'eyJjcmVhdGVkQXQiOiIyMDI2LTAyLTEwVDEwOjAwOjAwLjAwMFoiLCJpZCI6ImF1ZGl0XzEifQ',
+          limit: 10
+        },
+        count: 0,
+        summary: {
+          requestedTotal: 0,
+          resetTotal: 0,
+          pendingCount: 0,
+          completedCount: 0,
+          failedCount: 0
+        },
+        page: {
+          limit: 10,
+          hasMore: false,
+          nextCursor: null
+        },
+        rows: []
+      } satisfies DeadLetterAdminAuditResponse)
+    );
+    const { service } = createService(fetchMock);
+
+    await service.getDeadLetterAudit({
+      cursor: 'eyJjcmVhdGVkQXQiOiIyMDI2LTAyLTEwVDEwOjAwOjAwLjAwMFoiLCJpZCI6ImF1ZGl0XzEifQ',
+      limit: 10
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/banking/dead-letter-admin-audit?cursor=eyJjcmVhdGVkQXQiOiIyMDI2LTAyLTEwVDEwOjAwOjAwLjAwMFoiLCJpZCI6ImF1ZGl0XzEifQ&limit=10'
+    );
+  });
+
+  it('exports dead-letter audit rows as csv with filters', async () => {
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(
+      new Response('"id","createdAt"\n"audit_1","2026-02-10T10:00:00.000Z"', {
+        status: 200,
+        headers: { 'Content-Type': 'text/csv; charset=utf-8' }
+      })
+    );
+    const { service } = createService(fetchMock);
+
+    const csv = await service.exportDeadLetterAuditCsv({
+      status: 'completed',
+      scope: 'bulk',
+      action: 'reset_dead_letter',
+      limit: 1000
+    });
+
+    expect(csv).toContain('"audit_1"');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/banking/dead-letter-admin-audit-export?status=completed&scope=bulk&action=reset_dead_letter&limit=1000'
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
+    expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+  });
+
+  it('resets selected dead-letter connections with deduplicated ids', async () => {
+    const fetchMock = createFetchMock();
+    const payload: DeadLetterAdminResetResponse = {
+      success: true,
+      maxRetryAttempts: 6,
+      requested: 2,
+      resetConnectionIds: ['conn_1', 'conn_2'],
+      auditId: 'audit_2',
+      auditStatus: 'completed'
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const result = await service.resetDeadLetterConnections([' conn_1 ', 'conn_1', 'conn_2'], '  replay dead-letter queue  ');
+
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/dead-letter-admin');
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({
+      connectionIds: ['conn_1', 'conn_2'],
+      reason: 'replay dead-letter queue'
+    });
+  });
+
+  it('includes bulk confirmation token when resetting selected dead-letter connections', async () => {
+    const fetchMock = createFetchMock();
+    const payload: DeadLetterAdminResetResponse = {
+      success: true,
+      maxRetryAttempts: 6,
+      requested: 11,
+      resetConnectionIds: Array.from({ length: 11 }, (_value, index) => `conn_${index + 1}`),
+      auditId: 'audit_3',
+      auditStatus: 'completed'
+    };
+    fetchMock.mockResolvedValueOnce(jsonResponse(payload));
+    const { service } = createService(fetchMock);
+
+    const connectionIds = Array.from({ length: 11 }, (_value, index) => `conn_${index + 1}`);
+    await service.resetDeadLetterConnections(connectionIds, 'bulk replay', ' RESET_SELECTED_BULK ');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getJsonBody(fetchMock.mock.calls[0]?.[1])).toEqual({
+      connectionIds,
+      reason: 'bulk replay',
+      confirm: 'RESET_SELECTED_BULK'
+    });
+  });
+
+  it('rejects selected dead-letter reset when no valid connection ids are provided', async () => {
+    const fetchMock = createFetchMock();
+    const { service } = createService(fetchMock);
+
+    await expect(service.resetDeadLetterConnections(['  '], 'valid reason')).rejects.toThrow(
+      'At least one connection is required'
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

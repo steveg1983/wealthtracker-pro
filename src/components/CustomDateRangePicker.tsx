@@ -431,14 +431,14 @@ export function CustomDateRangePicker({
       <div className="relative" ref={containerRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
         >
           <CalendarIcon size={16} />
           <span className="text-sm">{formatRange()}</span>
         </button>
         
         {isOpen && (
-          <div className="absolute z-50 mt-2 p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
+          <div className="absolute z-50 mt-2 p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
             <div className="space-y-2">
               {presetRanges.slice(0, 5).map(preset => (
                 <button
@@ -464,7 +464,7 @@ export function CustomDateRangePicker({
       {/* Input Field */}
       <div
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-4 py-3 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer"
+        className="flex items-center gap-2 px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors cursor-pointer"
       >
         <CalendarIcon size={20} className="text-gray-400" />
         <span className="flex-1 text-gray-900 dark:text-white">
@@ -485,7 +485,7 @@ export function CustomDateRangePicker({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full min-w-[600px] bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="absolute z-50 mt-2 w-full min-w-[600px] bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             {showPresets && (

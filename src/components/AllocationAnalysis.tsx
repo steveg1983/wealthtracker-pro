@@ -185,7 +185,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
             <option value="symbol">By Symbol</option>
           </select>
           
-          <div className="flex items-center gap-2 bg-[#d4dce8] dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+          <div className="flex items-center gap-2 bg-card-bg-light dark:bg-card-bg-dark rounded-lg border border-gray-300 dark:border-gray-600">
             <button
               onClick={() => setViewMode('pie')}
               className={`px-3 py-1.5 rounded-l-lg transition-colors ${
@@ -239,7 +239,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Value</p>
@@ -249,7 +249,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
           </div>
         </div>
         
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Categories</p>
@@ -259,7 +259,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
           </div>
         </div>
         
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Largest Holding</p>
@@ -273,7 +273,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
           </div>
         </div>
         
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Concentration</p>
@@ -289,7 +289,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
       </div>
 
       {/* Charts */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Allocation Visualization</h3>
         
         {viewMode === 'pie' && (
@@ -348,7 +348,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                   if (active && payload && payload[0]) {
                     const data = payload[0].payload;
                     return (
-                      <div className="bg-[#d4dce8] dark:bg-gray-800 p-2 border border-gray-300 dark:border-gray-600 rounded shadow">
+                      <div className="bg-card-bg-light dark:bg-card-bg-dark p-2 border border-gray-300 dark:border-gray-600 rounded shadow">
                         <p className="font-medium">{data.name}</p>
                         <p className="text-sm">{formatCurrency(data.value)}</p>
                         <p className="text-sm">{data.percent !== undefined ? formatDecimal(data.percent, 1) : '0.0'}%</p>
@@ -364,7 +364,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
       </div>
 
       {/* Detailed Table */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Allocation Details</h3>
         
         <div className="overflow-x-auto">

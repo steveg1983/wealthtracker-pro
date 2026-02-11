@@ -49,6 +49,10 @@ const { retryWithBackoff } = await import('./errorHandlingService');
 const mockRetryWithBackoff = retryWithBackoff as any;
 
 describe('StockPriceService', () => {
+  const env = import.meta.env as Record<string, string | boolean | undefined>;
+  const originalMode = env.MODE;
+  const originalDev = env.DEV;
+  const originalProd = env.PROD;
   const mockYahooResponse = {
     chart: {
       result: [{
@@ -73,6 +77,9 @@ describe('StockPriceService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearQuoteCache();
+    env.MODE = originalMode;
+    env.DEV = originalDev;
+    env.PROD = originalProd;
 
     configureStockPriceService({
       fetch: mockFetch,
@@ -189,6 +196,49 @@ describe('StockPriceService', () => {
         expect.stringContaining('AAPL'),
         expect.any(Object)
       );
+    });
+
+    it('uses mock stock data in non-production demo mode', async () => {
+      env.MODE = 'test';
+      env.DEV = true;
+      env.PROD = false;
+      configureStockPriceService({
+        fetch: mockFetch,
+        locationSearch: () => '?demo=true',
+        now: () => Date.now(),
+        timeoutSignal: () => null,
+        logger: { warn: vi.fn(), error: vi.fn() }
+      });
+
+      const quote = await getStockQuote('AAPL');
+
+      expect(quote).not.toBeNull();
+      expect(quote!.name).toBe('Apple Inc.');
+      expect(quote!.symbol).toBe('AAPL');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('ignores demo query fallback in production runtime', async () => {
+      env.MODE = 'production';
+      env.DEV = false;
+      env.PROD = true;
+      configureStockPriceService({
+        fetch: mockFetch,
+        locationSearch: () => '?demo=true',
+        now: () => Date.now(),
+        timeoutSignal: () => null,
+        logger: { warn: vi.fn(), error: vi.fn() }
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockYahooResponse)
+      });
+
+      const quote = await getStockQuote('AAPL');
+
+      expect(quote).not.toBeNull();
+      expect(quote!.price.toNumber()).toBe(150.25);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it('rejects invalid symbols', async () => {

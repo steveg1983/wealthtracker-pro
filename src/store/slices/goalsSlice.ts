@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Goal } from '../../types';
 import type { SerializedGoal } from '../../types/redux-types';
+import { serializeGoal, serializeGoals } from '../../types/redux-types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchGoalsFromSupabase,
@@ -31,26 +32,32 @@ const goalsSlice = createSlice({
   initialState,
   reducers: {
     setGoals: (state, action: PayloadAction<Goal[]>) => {
-      state.goals = action.payload as unknown as SerializedGoal[];
+      state.goals = serializeGoals(action.payload);
       state.error = null;
     },
     addGoal: (state, action: PayloadAction<Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      const newGoal = {
+      const now = getCurrentISOString();
+      const newGoal: Goal = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
       };
-      state.goals.push(newGoal as unknown as SerializedGoal);
+      state.goals.push(serializeGoal(newGoal));
     },
     updateGoal: (state, action: PayloadAction<{ id: string; updates: Partial<Goal> }>) => {
       const index = state.goals.findIndex(g => g.id === action.payload.id);
       if (index !== -1) {
+        // Extract date fields to handle separately
+        const { targetDate, createdAt, updatedAt: _, ...nonDateUpdates } = action.payload.updates;
+
         state.goals[index] = {
           ...state.goals[index],
-          ...action.payload.updates,
+          ...nonDateUpdates,
           updatedAt: getCurrentISOString(),
-        } as unknown as SerializedGoal;
+          ...(targetDate !== undefined && { targetDate: targetDate instanceof Date ? targetDate.toISOString() : targetDate }),
+          ...(createdAt !== undefined && { createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt }),
+        };
       }
     },
     deleteGoal: (state, action: PayloadAction<string>) => {
@@ -73,7 +80,7 @@ const goalsSlice = createSlice({
       })
       .addCase(fetchGoalsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.goals = action.payload as unknown as SerializedGoal[];
+        state.goals = serializeGoals(action.payload);
       })
       .addCase(fetchGoalsFromSupabase.rejected, (state, action) => {
         state.loading = false;
@@ -86,12 +93,13 @@ const goalsSlice = createSlice({
       })
       .addCase(createGoalInSupabase.fulfilled, (state, action) => {
         state.loading = false;
+        const serializedPayload = serializeGoal(action.payload);
         // Remove any temporary goal with the same name
-        state.goals = state.goals.filter(goal => 
-          !(goal.id.startsWith('temp-') && goal.name === action.payload.name)
+        state.goals = state.goals.filter(goal =>
+          !(goal.id.startsWith('temp-') && goal.name === serializedPayload.name)
         );
         // Add the new goal from Supabase
-        state.goals.push(action.payload);
+        state.goals.push(serializedPayload);
       })
       .addCase(createGoalInSupabase.rejected, (state, action) => {
         state.loading = false;

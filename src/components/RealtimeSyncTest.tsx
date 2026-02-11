@@ -127,7 +127,7 @@ export default function RealtimeSyncTest() {
   }, [clerkId, databaseId, isLoading, addStatus, dbUserId, logger]);
 
   return (
-    <div className="fixed top-20 right-4 bg-[#d4dce8] dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-blue-500">
+    <div className="fixed top-20 right-4 bg-card-bg-light dark:bg-card-bg-dark p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-blue-500">
       <h3 className="font-bold text-sm mb-2 text-blue-600">🧪 Realtime Sync Test</h3>
       <div className="text-xs space-y-1 font-mono">
         <div>Clerk ID: {clerkId?.slice(0, 10)}...</div>

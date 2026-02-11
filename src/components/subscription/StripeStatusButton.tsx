@@ -77,7 +77,7 @@ export default function StripeStatusButton(): React.JSX.Element {
   };
 
   return (
-    <div className="p-4 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow">
+    <div className="p-4 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
       <h3 className="text-lg font-semibold mb-4">Stripe Subscription Status</h3>
       
       <button

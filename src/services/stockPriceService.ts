@@ -3,6 +3,7 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, retryWithBackoff } from './errorHandlingService';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
+import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 interface StockPriceDependencies {
@@ -164,11 +165,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
       throw new Error('Invalid stock symbol');
     }
 
-    // Check if we're in demo mode
-    const urlParams = new URLSearchParams(dependencies.locationSearch());
-    const isDemoMode = urlParams.get('demo') === 'true';
-    
-    if (isDemoMode) {
+    if (isDemoModeStockFallbackEnabled()) {
       // Return mock data for demo mode
       return generateMockStockQuote(cleanedSymbol);
     }
@@ -467,4 +464,12 @@ function ensureFetch(): FetchLike {
 
 function getCurrentDate(): Date {
   return new Date(dependencies.now());
+}
+
+function isDemoModeStockFallbackEnabled(): boolean {
+  if (!isDemoModeRuntimeAllowed(import.meta.env)) {
+    return false;
+  }
+  const urlParams = new URLSearchParams(dependencies.locationSearch());
+  return urlParams.get('demo') === 'true';
 }

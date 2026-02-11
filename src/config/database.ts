@@ -2,6 +2,7 @@
  * Database Configuration
  * Controls whether to use Supabase or localStorage
  */
+import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
 // Check if Supabase is configured
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -49,6 +50,9 @@ export const getDataSource = (): 'supabase' | 'localStorage' => {
 
 // Helper to check if we're in demo mode
 export const isDemoMode = (): boolean => {
+  if (!isDemoModeRuntimeAllowed(import.meta.env)) {
+    return false;
+  }
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('demo') === 'true';
 };

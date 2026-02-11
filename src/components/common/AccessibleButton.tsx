@@ -73,8 +73,9 @@ export const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonPr
       // Space or Enter should activate button
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        if (!disabled && !isLoading && onClick) {
-          onClick(e as unknown as React.MouseEvent<HTMLButtonElement>);
+        if (!disabled && !isLoading) {
+          // Trigger native click to generate proper MouseEvent for onClick handler
+          e.currentTarget.click();
         }
       }
     };

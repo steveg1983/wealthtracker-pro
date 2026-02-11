@@ -6,7 +6,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import ExcelExport from './ExcelExport';
 import type { Transaction, Account, Budget, Category } from '../types';
 import { toDecimal } from '../utils/decimal';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
@@ -139,10 +138,13 @@ vi.mock('../contexts/AppContext', () => ({
 global.alert = vi.fn();
 
 describe('ExcelExport', () => {
+  let ExcelExport: typeof import('./ExcelExport').default;
   const mockOnClose = vi.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+    ({ default: ExcelExport } = await import('./ExcelExport'));
   });
 
   afterEach(() => {

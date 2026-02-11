@@ -284,7 +284,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -668,7 +668,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
 
       {showRuleEditor && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

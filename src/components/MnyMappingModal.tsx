@@ -129,7 +129,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold dark:text-white">Map Your Data Fields</h2>
           <button
@@ -163,7 +163,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
                 {columns.map((_, colIndex) => (
                   <th key={colIndex} className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700">
                     <select
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white"
                       value={mapping[colIndex] || 'ignore'}
                       onChange={(e) => handleFieldChange(colIndex, e.target.value)}
                     >

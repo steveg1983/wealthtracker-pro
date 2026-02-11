@@ -58,7 +58,7 @@ export function ResponsiveTable<T>({
         <div className="sm:hidden space-y-3">
           {/* Mobile skeleton */}
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow">
+            <div key={i} className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 shadow">
               <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
               <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
             </div>
@@ -93,7 +93,7 @@ export function ResponsiveTable<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
             {data.map(item => {
               const key = getRowKey(item);
               return (
@@ -125,7 +125,7 @@ export function ResponsiveTable<T>({
             <div
               key={key}
               onClick={onRowClick ? () => onRowClick(item) : undefined}
-              className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4 ${
+              className={`bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4 ${
                 onRowClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''
               }`}
             >

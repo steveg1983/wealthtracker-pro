@@ -204,7 +204,9 @@ export class DocumentService {
   private async saveDocument(document: Document): Promise<void> {
     try {
       await this.ensureInitialized();
-      await this.dbService.put('documents', document as unknown as Record<string, unknown>);
+      // Serialize document for IndexedDB storage (convert Dates to strings)
+      const serialized = { ...document, uploadDate: document.uploadDate.toISOString(), expiryDate: document.expiryDate?.toISOString() };
+      await this.dbService.put('documents', serialized as Record<string, unknown>);
     } catch (error) {
       this.logger.error('Failed to save document to IndexedDB:', error as Error);
       // Fallback: Keep in memory only, don't save to localStorage

@@ -119,7 +119,7 @@ export function MobileBottomSheet({
       {/* Bottom Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 bg-[#d4dce8] dark:bg-gray-800 rounded-t-2xl shadow-2xl z-50 transition-transform"
+        className="fixed bottom-0 left-0 right-0 bg-card-bg-light dark:bg-card-bg-dark rounded-t-2xl shadow-2xl z-50 transition-transform"
         style={{
           height: `${currentHeight}px`,
           transform: isOpen ? 'translateY(0)' : 'translateY(100%)',

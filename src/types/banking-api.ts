@@ -1,6 +1,8 @@
 // POST /api/banking/create-link-token
 export interface CreateLinkTokenRequest {
-  userId?: string;
+  institutionId?: string;
+  mode?: 'connect' | 'reauth';
+  connectionId?: string;
 }
 
 export interface CreateLinkTokenResponse {
@@ -88,9 +90,145 @@ export interface WebhookPayload {
   [key: string]: unknown;
 }
 
+// GET /api/banking/ops-alert-stats
+export interface OpsAlertStatsRow {
+  dedupeKey: string;
+  eventType: string;
+  lastSentAt: string | null;
+  suppressedCount: number;
+  updatedAt: string | null;
+  isAboveThreshold: boolean;
+}
+
+export interface OpsAlertStatsSummary {
+  totalSuppressed: number;
+  maxSuppressedCount: number;
+  mostRecentLastSentAt: string | null;
+  mostRecentUpdatedAt: string | null;
+  rowsAboveThreshold: number;
+}
+
+export interface OpsAlertStatsResponse {
+  success: boolean;
+  filters: {
+    eventType: string | null;
+    eventTypePrefix?: string | null;
+    minSuppressed: number;
+    limit: number;
+    onlyAboveThreshold: boolean;
+  };
+  threshold: {
+    enabled: boolean;
+    suppressionThreshold: number | null;
+    suppressionNotifyEvery: number | null;
+  };
+  count: number;
+  summary: OpsAlertStatsSummary;
+  rows: OpsAlertStatsRow[];
+}
+
+// POST /api/banking/ops-alert-test
+export interface OpsAlertTestRequest {
+  message?: string;
+}
+
+export interface OpsAlertTestResponse {
+  success: boolean;
+  eventType: string;
+  delivered: boolean;
+}
+
+// POST /api/banking/dead-letter-admin
+export interface DeadLetterAdminResetRequest {
+  connectionId?: string;
+  connectionIds?: string[];
+  resetAllDeadLettered?: boolean;
+  confirm?: string;
+  reason?: string;
+  limit?: number;
+}
+
+export interface DeadLetterAdminRow {
+  connectionId: string;
+  userId: string | null;
+  provider: string | null;
+  status: string | null;
+  institutionName: string | null;
+  queueAttempts: number;
+  queueLastError: string | null;
+  queueNextRetryAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface DeadLetterAdminListResponse {
+  success: boolean;
+  maxRetryAttempts: number;
+  count: number;
+  rows: DeadLetterAdminRow[];
+}
+
+export interface DeadLetterAdminResetResponse {
+  success: boolean;
+  maxRetryAttempts: number;
+  requested: number;
+  resetConnectionIds: string[];
+  auditId: string;
+  auditStatus: 'completed' | 'pending';
+}
+
+// GET /api/banking/dead-letter-admin-audit
+export interface DeadLetterAdminAuditRow {
+  id: string;
+  adminUserId: string | null;
+  adminClerkId: string;
+  action: string;
+  scope: string;
+  reason: string | null;
+  requestedCount: number;
+  resetCount: number;
+  maxRetryAttempts: number | null;
+  connectionIds: string[];
+  metadata: Record<string, unknown>;
+  status: string;
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface DeadLetterAdminAuditSummary {
+  requestedTotal: number;
+  resetTotal: number;
+  pendingCount: number;
+  completedCount: number;
+  failedCount: number;
+}
+
+export interface DeadLetterAdminAuditResponse {
+  success: boolean;
+  filters: {
+    status: string | null;
+    scope: string | null;
+    action: string | null;
+    adminClerkId: string | null;
+    since: string | null;
+    until: string | null;
+    cursor: string | null;
+    limit: number;
+  };
+  count: number;
+  summary: DeadLetterAdminAuditSummary;
+  page: {
+    limit: number;
+    hasMore: boolean;
+    nextCursor: string | null;
+  };
+  rows: DeadLetterAdminAuditRow[];
+}
+
 export interface ErrorResponse {
   error: string;
   code: string;
+  requestId?: string;
   details?: unknown;
 }
 
@@ -113,4 +251,16 @@ export type { DisconnectResponse as BankingAPIDisconnectResponse };
 export type { BankConnection as BankingAPIConnection };
 export type { ConnectionsResponse as BankingAPIConnectionsResponse };
 export type { WebhookPayload as BankingAPIWebhookPayload };
+export type { OpsAlertStatsRow as BankingAPIOpsAlertStatsRow };
+export type { OpsAlertStatsSummary as BankingAPIOpsAlertStatsSummary };
+export type { OpsAlertStatsResponse as BankingAPIOpsAlertStatsResponse };
+export type { OpsAlertTestRequest as BankingAPIOpsAlertTestRequest };
+export type { OpsAlertTestResponse as BankingAPIOpsAlertTestResponse };
+export type { DeadLetterAdminRow as BankingAPIDeadLetterAdminRow };
+export type { DeadLetterAdminListResponse as BankingAPIDeadLetterAdminListResponse };
+export type { DeadLetterAdminResetRequest as BankingAPIDeadLetterAdminResetRequest };
+export type { DeadLetterAdminResetResponse as BankingAPIDeadLetterAdminResetResponse };
+export type { DeadLetterAdminAuditRow as BankingAPIDeadLetterAdminAuditRow };
+export type { DeadLetterAdminAuditSummary as BankingAPIDeadLetterAdminAuditSummary };
+export type { DeadLetterAdminAuditResponse as BankingAPIDeadLetterAdminAuditResponse };
 export type { ErrorResponse as BankingAPIErrorResponse };

@@ -61,7 +61,7 @@ export default function Welcome() {
                 </button>
               </SignUpButton>
               <SignInButton mode="modal">
-                <button className="px-8 py-4 bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border border-gray-200 dark:border-gray-700">
+                <button className="px-8 py-4 bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border border-gray-200 dark:border-gray-700">
                   Sign In
                 </button>
               </SignInButton>
@@ -90,7 +90,7 @@ export default function Welcome() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid md:grid-cols-3 gap-8">
           {/* Feature 1 */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
               <BarChart3Icon size={24} className="text-blue-600 dark:text-blue-400" />
             </div>
@@ -103,7 +103,7 @@ export default function Welcome() {
           </div>
 
           {/* Feature 2 */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
               <TrendingUpIcon size={24} className="text-green-600 dark:text-green-400" />
             </div>
@@ -116,7 +116,7 @@ export default function Welcome() {
           </div>
 
           {/* Feature 3 */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
               <UsersIcon size={24} className="text-purple-600 dark:text-purple-400" />
             </div>

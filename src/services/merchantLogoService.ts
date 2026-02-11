@@ -11,12 +11,8 @@ interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
-export interface ImageLike {
-  crossOrigin?: string;
-  onload?: (() => void) | null;
-  onerror?: (() => void) | null;
-  src: string;
-}
+// Use Partial<HTMLImageElement> for testability - real Image extends this
+export type ImageLike = Partial<Pick<HTMLImageElement, 'crossOrigin' | 'onload' | 'onerror' | 'src'>> & { src: string };
 
 export interface TimerAdapter {
   setTimeout(handler: () => void, timeout: number): ReturnType<typeof setTimeout>;
@@ -164,7 +160,7 @@ export class MerchantLogoService {
 
   constructor(options: MerchantLogoServiceOptions = {}) {
     this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
-    const defaultImageFactory = typeof Image !== 'undefined' ? (() => new Image() as unknown as ImageLike) : null;
+    const defaultImageFactory = typeof Image !== 'undefined' ? (() => new Image()) : null;
     this.createImage = options.imageFactory ?? defaultImageFactory;
     this.timers = options.timers ?? {
       setTimeout: (handler, timeout) => setTimeout(handler, timeout),

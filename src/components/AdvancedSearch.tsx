@@ -384,7 +384,7 @@ export default function AdvancedSearch({
   };
 
   return (
-    <div className={`bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 ${className}`}>
+    <div className={`bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 ${className}`}>
       {/* Search Bar */}
       <div className="p-4">
         <div className="flex items-center gap-3">

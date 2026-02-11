@@ -134,7 +134,7 @@ export default function FinancialPlanning() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm mb-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 overflow-x-auto">
               <button
@@ -250,7 +250,7 @@ export default function FinancialPlanning() {
           <div className="space-y-6">
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Retirement Plans</p>
@@ -262,7 +262,7 @@ export default function FinancialPlanning() {
                 </div>
               </div>
 
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Active Goals</p>
@@ -274,7 +274,7 @@ export default function FinancialPlanning() {
                 </div>
               </div>
 
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Debt Plans</p>
@@ -286,7 +286,7 @@ export default function FinancialPlanning() {
                 </div>
               </div>
 
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Insurance Items</p>
@@ -302,7 +302,7 @@ export default function FinancialPlanning() {
             {/* Active Plans Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Retirement Plans */}
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <PiggyBankIcon size={20} className="text-purple-600 dark:text-purple-400" />
@@ -352,7 +352,7 @@ export default function FinancialPlanning() {
               </div>
 
               {/* Financial Goals */}
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <TargetIcon size={20} className="text-blue-600 dark:text-blue-400" />
@@ -424,7 +424,7 @@ export default function FinancialPlanning() {
             {/* Debt Plans and Insurance */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Debt Plans */}
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <CreditCardIcon size={20} className="text-red-600 dark:text-red-400" />
@@ -478,7 +478,7 @@ export default function FinancialPlanning() {
               </div>
 
               {/* Insurance Overview */}
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <ShieldIcon size={20} className="text-green-600 dark:text-green-400" />

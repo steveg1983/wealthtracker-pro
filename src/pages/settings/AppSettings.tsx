@@ -407,7 +407,7 @@ export default function AppSettings() {
       <LargeTransactionAlertSettings />
 
       {/* Goal Celebrations */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Goal Celebrations</h3>
         
         <div className="flex items-center justify-between">

@@ -387,7 +387,7 @@ export default function RecurringBudgetTemplates() {
       {/* Create Template Modal */}
       {showCreateTemplate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create Budget Template</h3>
             
             <div className="space-y-4">
@@ -468,7 +468,7 @@ export default function RecurringBudgetTemplates() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recurring Settings</h3>
             
             <div className="space-y-4">

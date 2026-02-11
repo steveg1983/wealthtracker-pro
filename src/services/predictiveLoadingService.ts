@@ -14,6 +14,7 @@ interface WindowLike {
   innerWidth?: number;
 }
 
+// Minimal interface for Network Information API (not in standard Navigator type)
 interface NavigatorLike {
   connection?: {
     effectiveType?: string;
@@ -121,7 +122,8 @@ export class PredictiveLoadingService {
       throw new Error('Fetch API is not available and no fetchFn override was provided.');
     });
     this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
-    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator as unknown as NavigatorLike : null);
+    // Direct cast: navigator implements NavigatorLike structurally (has connection property)
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator as NavigatorLike : null);
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     this.logger = {
       warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {}))

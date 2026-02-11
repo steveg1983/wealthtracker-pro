@@ -61,7 +61,7 @@ export function MobileNavigation({ isOpen, onClose, links }: MobileNavigationPro
               stiffness: 300,
               damping: 30
             }}
-            className="fixed top-0 left-0 bottom-0 w-80 bg-[#d4dce8] dark:bg-gray-800 shadow-xl z-50 sm:hidden overflow-y-auto"
+            className="fixed top-0 left-0 bottom-0 w-80 bg-card-bg-light dark:bg-card-bg-dark shadow-xl z-50 sm:hidden overflow-y-auto"
           >
             {/* Header */}
             <div className="bg-primary dark:bg-gray-900 p-4 flex items-center justify-between">
@@ -164,7 +164,7 @@ export function MobileNavigation({ isOpen, onClose, links }: MobileNavigationPro
             </nav>
 
             {/* Footer */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-[#d4dce8] dark:bg-gray-800">
+            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-card-bg-light dark:bg-card-bg-dark">
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 WealthTracker © {new Date().getFullYear()}
               </p>

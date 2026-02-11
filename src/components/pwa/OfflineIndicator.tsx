@@ -4,20 +4,19 @@
  */
 
 import React from 'react';
-import { useOfflineState, useOfflineOperations } from '../../pwa/offline-storage';
+import { useOfflineState, useOfflineOperations, type ConflictItem } from '../../pwa/offline-storage';
 import { WifiOffIcon, WifiIcon, RefreshCwIcon, AlertCircleIcon } from '../icons';
-import type { SyncConflict } from '../../types/syncConflict';
 
 export const OfflineIndicator: React.FC = () => {
   const offlineState = useOfflineState();
   const { sync, getConflicts } = useOfflineOperations();
-  const [conflicts, setConflicts] = React.useState<SyncConflict[]>([]);
+  const [conflicts, setConflicts] = React.useState<ConflictItem[]>([]);
   const [showDetails, setShowDetails] = React.useState(false);
 
   React.useEffect(() => {
     const loadConflicts = async () => {
       const conflictList = await getConflicts();
-      setConflicts(conflictList as unknown as SyncConflict[]);
+      setConflicts(conflictList);
     };
     
     loadConflicts();
@@ -43,7 +42,7 @@ export const OfflineIndicator: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 min-w-[280px]">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 min-w-[280px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -131,7 +130,7 @@ export const OfflineIndicator: React.FC = () => {
                     <div className="space-y-1">
                       {conflicts.map((conflict) => (
                         <div
-                          key={conflict.id}
+                          key={conflict.id ?? conflict.operationId}
                           className="text-xs text-gray-600 dark:text-gray-400 flex items-center justify-between"
                         >
                           <span>{conflict.entity} conflict</span>
@@ -140,7 +139,7 @@ export const OfflineIndicator: React.FC = () => {
                             onClick={() => {
                               // Open conflict resolution modal
                               window.dispatchEvent(
-                                new CustomEvent<SyncConflict>('open-conflict-resolver', {
+                                new CustomEvent<ConflictItem>('open-conflict-resolver', {
                                   detail: conflict
                                 })
                               );

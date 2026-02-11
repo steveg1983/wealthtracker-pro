@@ -46,6 +46,9 @@ export class OCRService {
       return {
         createWorker: async (lang: string) => {
           const worker = await module.createWorker(lang);
+          // ACCEPTABLE: tesseract.js Worker type doesn't match our TesseractWorker interface
+          // The library's type definition is incomplete/different from our custom interface
+          // This cast is necessary for testability (dependency injection pattern)
           return worker as unknown as TesseractWorker;
         }
       };

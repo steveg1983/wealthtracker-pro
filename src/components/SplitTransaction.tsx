@@ -198,7 +198,7 @@ export default function SplitTransaction({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600">
           <div className="flex items-center justify-between">
@@ -311,7 +311,7 @@ export default function SplitTransaction({
                           )}
                           step={splitMode === 'amount' ? '0.01' : '1'}
                           min="0"
-                          className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800"
+                          className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card-bg-light dark:bg-card-bg-dark"
                         />
                       </div>
                     </div>
@@ -324,7 +324,7 @@ export default function SplitTransaction({
                       <select
                         value={split.category}
                         onChange={(e) => updateSplit(split.id, 'category', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card-bg-light dark:bg-card-bg-dark"
                       >
                         <option value="Uncategorized">Uncategorized</option>
                         {categories.map(cat => (
@@ -343,7 +343,7 @@ export default function SplitTransaction({
                         value={split.description}
                         onChange={(e) => updateSplit(split.id, 'description', e.target.value)}
                         placeholder="Optional description"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card-bg-light dark:bg-card-bg-dark"
                       />
                     </div>
                   </div>

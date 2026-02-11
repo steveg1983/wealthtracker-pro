@@ -50,7 +50,7 @@ export default function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-fadeIn">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-4">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center">
             <div className="w-10 h-10 bg-[#8EA9DB] rounded-lg flex items-center justify-center mr-3">

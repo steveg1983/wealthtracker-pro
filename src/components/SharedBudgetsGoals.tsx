@@ -287,7 +287,7 @@ export default function SharedBudgetsGoals() {
           </h3>
           <div className="space-y-2">
             {pendingApprovals.map(approval => (
-              <div key={approval.id} className="flex items-center justify-between p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg">
+              <div key={approval.id} className="flex items-center justify-between p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-lg">
                 <div>
                   <p className="font-medium">
                     {approval.requestedByName} requested to change budget to {formatCurrency(approval.amount)}
@@ -321,7 +321,7 @@ export default function SharedBudgetsGoals() {
       )}
 
       {/* Tabs */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-1 flex">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-1 flex">
         <button
           onClick={() => setActiveTab('budgets')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
@@ -370,7 +370,7 @@ export default function SharedBudgetsGoals() {
             const isExceeded = spending > budget.amount;
 
             return (
-              <div key={budget.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
+              <div key={budget.id} className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold">{budget.name}</h3>
@@ -465,7 +465,7 @@ export default function SharedBudgetsGoals() {
             const myContribution = goal.contributors.find(c => c.memberId === currentMember?.id);
 
             return (
-              <div key={goal.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
+              <div key={goal.id} className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold">{goal.name}</h3>
@@ -567,7 +567,7 @@ export default function SharedBudgetsGoals() {
       )}
 
       {/* Recent Activity */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
         <div className="space-y-3">
           {activities.slice(0, 5).map(activity => (
@@ -591,7 +591,7 @@ export default function SharedBudgetsGoals() {
       {/* Create Budget Modal */}
       {showCreateBudget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Create Shared Budget</h3>
             
             <form onSubmit={handleCreateBudget} className="space-y-4">
@@ -705,7 +705,7 @@ export default function SharedBudgetsGoals() {
       {/* Create Goal Modal */}
       {showCreateGoal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Create Shared Goal</h3>
             
             <form onSubmit={handleCreateGoal} className="space-y-4">

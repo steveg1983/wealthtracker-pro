@@ -384,7 +384,7 @@ export function QuickFiltersAndSearch({
             onChange={(e) => handleSearch(e.target.value)}
             onFocus={() => setShowSearchDropdown(true)}
             placeholder="Search transactions..."
-            className="w-full pl-10 pr-10 py-3 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full pl-10 pr-10 py-3 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           {searchQuery && (
             <button
@@ -398,7 +398,7 @@ export function QuickFiltersAndSearch({
         
         {/* Search Dropdown */}
         {showSearchDropdown && (
-          <div className="absolute z-10 w-full mt-1 bg-[#d4dce8] dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+          <div className="absolute z-10 w-full mt-1 bg-card-bg-light dark:bg-card-bg-dark border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
             {/* Search Suggestions */}
             {searchSuggestions.length > 0 && (
               <div className="p-2 border-b border-gray-200 dark:border-gray-700">
@@ -524,7 +524,7 @@ export function QuickFiltersAndSearch({
               .map(search => (
                 <div
                   key={search.id}
-                  className="flex items-center justify-between p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-lg"
                 >
                   <button
                     onClick={() => {
@@ -558,7 +558,7 @@ export function QuickFiltersAndSearch({
       {/* Save Filter Modal */}
       {showCustomFilterModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-6 max-w-md w-full">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Save Current Filter
             </h3>

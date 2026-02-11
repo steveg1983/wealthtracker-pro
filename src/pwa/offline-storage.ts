@@ -24,7 +24,7 @@ export interface OfflineQueueItem {
   error?: string;
 }
 
-interface ConflictItem {
+export interface ConflictItem {
   id?: string;
   operationId: string;
   entity: OfflineQueueItem['entity'];
@@ -322,7 +322,7 @@ class OfflineStorageService {
       resolved: false
     };
 
-    await indexedDBService.put(this.CONFLICT_STORE, conflict as unknown as Record<string, unknown>);
+    await indexedDBService.put(this.CONFLICT_STORE, { ...conflict });
 
     // Notify about conflict
     this.notifyConflict(conflict);
@@ -336,7 +336,7 @@ class OfflineStorageService {
 
       // Mark conflict as resolved
       conflict.resolved = true;
-      await indexedDBService.put(this.CONFLICT_STORE, conflict as unknown as Record<string, unknown>);
+      await indexedDBService.put(this.CONFLICT_STORE, { ...conflict });
     }
   }
 

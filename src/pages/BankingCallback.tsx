@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import PageWrapper from '../components/PageWrapper';
@@ -21,6 +21,18 @@ export default function BankingCallback() {
   const error = params.get('error');
   const errorDescription = params.get('error_description');
 
+  const notifyOpener = useCallback((payload: { status: 'success' | 'error'; error?: string }) => {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage(
+        {
+          type: 'wealthtracker:bank-oauth-complete',
+          ...payload
+        },
+        window.location.origin
+      );
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoaded) {
       return;
@@ -29,12 +41,17 @@ export default function BankingCallback() {
     if (error) {
       setStatus('error');
       setMessage(errorDescription || error);
+      notifyOpener({ status: 'error', error: errorDescription || error });
       return;
     }
 
     if (!code || !state) {
       setStatus('error');
       setMessage('Missing authorization details from bank connection.');
+      notifyOpener({
+        status: 'error',
+        error: 'Missing authorization details from bank connection.'
+      });
       return;
     }
 
@@ -46,19 +63,25 @@ export default function BankingCallback() {
         await bankConnectionService.handleOAuthCallback(code, state);
         setStatus('success');
         setMessage('Bank connection successful. You can now sync your data.');
+        notifyOpener({ status: 'success' });
+        if (window.opener && !window.opener.closed) {
+          window.setTimeout(() => window.close(), 800);
+        }
       } catch (err) {
         logger.error('Banking callback failed', err as Error);
         setStatus('error');
-        setMessage(err instanceof Error ? err.message : 'Unable to complete bank connection.');
+        const errorMessage = err instanceof Error ? err.message : 'Unable to complete bank connection.';
+        setMessage(errorMessage);
+        notifyOpener({ status: 'error', error: errorMessage });
       }
     };
 
     void run();
-  }, [code, state, error, errorDescription, getToken, isLoaded]);
+  }, [code, state, error, errorDescription, getToken, isLoaded, notifyOpener]);
 
   return (
     <PageWrapper title="Bank Connection">
-      <div className="max-w-xl mx-auto bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-8 text-center space-y-4">
+      <div className="max-w-xl mx-auto bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-8 text-center space-y-4">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
           {status === 'success' ? 'Connected' : status === 'error' ? 'Connection Issue' : 'Connecting...'}
         </h2>

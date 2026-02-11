@@ -114,7 +114,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
     if (this.state.hasError) {
       return this.props.fallback || (
         <div className="min-h-[400px] flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
+          <div className="max-w-md w-full bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-xl p-8 text-center">
             <div className="flex justify-center mb-6">
               <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
                 <AlertTriangleIcon size={40} className="text-red-600 dark:text-red-400" />

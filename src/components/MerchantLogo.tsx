@@ -23,18 +23,33 @@ export default function MerchantLogo({
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (merchantInfo?.domain) {
       setIsLoading(true);
       merchantLogoService.fetchLogoUrl(merchantInfo.domain)
         .then(url => {
-          setLogoUrl(url);
+          if (isMounted) {
+            setLogoUrl(url);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setLogoUrl(null);
+          }
         })
         .finally(() => {
-          setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+          }
         });
     } else {
       setLogoUrl(null);
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [merchantInfo]);
 
   if (!merchantInfo) {

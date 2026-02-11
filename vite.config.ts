@@ -2,9 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import compression from 'vite-plugin-compression2'
 import path from 'path'
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
 
 // https://vite.dev/config/
 export default defineConfig({
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss,
+        autoprefixer,
+      ],
+    },
+  },
   plugins: [
     react(),
     // Add gzip compression for better mobile performance
@@ -42,7 +52,7 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500, // Lowered from 1000 to enforce stricter bundle size limits
     rollupOptions: {
       output: {
         // Optimized chunking - keep React together to avoid module errors
@@ -51,26 +61,34 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             // Excel/CSV libraries
             if (id.includes('xlsx') || id.includes('sheetjs')) {
-              return 'excel';
+              return 'xlsx';
             }
             // PDF libraries
             if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('autotable')) {
               return 'pdf';
             }
-            // Charts - Recharts and related libraries
+            // Charts - Recharts and D3 (excluding Plotly)
             if (id.includes('recharts') || id.includes('d3-') || id.includes('victory') || id.includes('chart')) {
               return 'charts';
             }
+            // Plotly - separate due to large size
+            if (id.includes('plotly')) {
+              return 'plotly';
+            }
             // Core React ecosystem
-            if (id.includes('react') || id.includes('redux')) {
+            if (id.includes('react') || id.includes('redux') || id.includes('react-dom')) {
               return 'vendor';
+            }
+            // Authentication libraries
+            if (id.includes('@supabase') || id.includes('@clerk')) {
+              return 'auth';
             }
             // Date utilities
             if (id.includes('date-fns') || id.includes('dayjs') || id.includes('moment')) {
               return 'date-utils';
             }
             // All other node_modules
-            return 'vendor';
+            return 'vendor-misc';
           }
         },
         // Use content hash for better caching

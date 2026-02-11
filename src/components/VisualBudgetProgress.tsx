@@ -182,7 +182,7 @@ export function VisualBudgetProgress({
   }
 
   return (
-    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>

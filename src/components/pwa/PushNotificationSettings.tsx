@@ -114,7 +114,7 @@ export const PushNotificationSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Main Toggle */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {isSubscribed ? (
@@ -185,7 +185,7 @@ export const PushNotificationSettings: React.FC = () => {
 
       {/* Notification Types */}
       {isSubscribed && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
           <div className="p-6 border-b dark:border-gray-700">
             <h3 className="text-lg font-medium">Notification Preferences</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

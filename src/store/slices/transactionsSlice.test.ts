@@ -53,12 +53,16 @@ describe('transactionsSlice', () => {
       accountId: 'acc-1',
       date: '2024-01-01',
     };
-    
+
     store.dispatch(addTransaction(newTransaction));
-    
+
     const state = store.getState().transactions;
     expect(state.transactions).toHaveLength(1);
-    expect(state.transactions[0]).toMatchObject(newTransaction);
+    const { date: _newTransactionDate, ...newTransactionWithoutDate } = newTransaction;
+    expect(state.transactions[0]).toMatchObject({
+      ...newTransactionWithoutDate,
+    });
+    expect(new Date(state.transactions[0].date).toISOString()).toBe(new Date('2024-01-01').toISOString());
     expect(state.transactions[0].id).toBeDefined();
   });
 

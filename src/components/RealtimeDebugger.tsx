@@ -81,7 +81,7 @@ export default function RealtimeDebugger() {
   }, [databaseId, isLoading, logger]);
 
   return (
-    <div className="fixed bottom-4 left-4 bg-[#d4dce8] dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md z-50">
+    <div className="fixed bottom-4 left-4 bg-card-bg-light dark:bg-card-bg-dark p-4 rounded-lg shadow-lg max-w-md z-50">
       <h3 className="font-bold text-sm mb-2">Realtime Debugger</h3>
       <div className="text-xs space-y-1">
         <div>Status: <span className={status === 'SUBSCRIBED' ? 'text-green-600' : 'text-yellow-600'}>{status}</span></div>

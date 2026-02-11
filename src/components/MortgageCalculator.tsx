@@ -96,7 +96,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
       </div>
 
       {calculations.length === 0 ? (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-12 text-center">
           <HomeIcon size={48} className="mx-auto mb-4 text-gray-400" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             No mortgage calculations yet
@@ -115,7 +115,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Calculations List */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900 dark:text-white">Your Calculations</h3>
               <button
@@ -166,7 +166,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
               <>
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                  <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Payment</p>
@@ -178,7 +178,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                     </div>
                   </div>
 
-                  <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                  <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Total Interest</p>
@@ -192,7 +192,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                 </div>
 
                 {/* Loan Details */}
-                <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                     <HomeIcon size={20} />
                     Loan Details
@@ -244,7 +244,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                 </div>
 
                 {/* Amortization Preview */}
-                <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                   <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
                     Amortization Schedule (First 12 Months)
                   </h3>
@@ -297,7 +297,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
       {/* Calculator Modal */}
       {showCalculator && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

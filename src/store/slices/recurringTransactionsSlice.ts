@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { RecurringTransaction } from '../../types';
 import type { SerializedRecurringTransaction } from '../../types/redux-types';
+import { serializeRecurringTransaction, serializeRecurringTransactions } from '../../types/redux-types';
 import { storageAdapter } from '../../services/storageAdapter';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 
@@ -39,30 +40,39 @@ const recurringTransactionsSlice = createSlice({
   initialState,
   reducers: {
     setRecurringTransactions: (state, action: PayloadAction<RecurringTransaction[]>) => {
-      state.recurringTransactions = action.payload as unknown as SerializedRecurringTransaction[];
+      state.recurringTransactions = serializeRecurringTransactions(action.payload);
       state.error = null;
     },
     addRecurringTransaction: (state, action: PayloadAction<Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      const newRecurring: SerializedRecurringTransaction = {
+      const now = getCurrentISOString();
+      const newRecurring: RecurringTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
-        startDate: action.payload.startDate instanceof Date ? action.payload.startDate.toISOString() : action.payload.startDate,
-        endDate: action.payload.endDate ? (action.payload.endDate instanceof Date ? action.payload.endDate.toISOString() : action.payload.endDate) : undefined,
-        lastProcessed: action.payload.lastProcessed ? (action.payload.lastProcessed instanceof Date ? action.payload.lastProcessed.toISOString() : action.payload.lastProcessed) : undefined,
-        nextDate: action.payload.nextDate instanceof Date ? action.payload.nextDate.toISOString() : action.payload.nextDate
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
+        startDate: action.payload.startDate instanceof Date ? action.payload.startDate : new Date(action.payload.startDate),
+        endDate: action.payload.endDate ? (action.payload.endDate instanceof Date ? action.payload.endDate : new Date(action.payload.endDate)) : undefined,
+        lastProcessed: action.payload.lastProcessed ? (action.payload.lastProcessed instanceof Date ? action.payload.lastProcessed : new Date(action.payload.lastProcessed)) : undefined,
+        nextDate: action.payload.nextDate instanceof Date ? action.payload.nextDate : new Date(action.payload.nextDate)
       };
-      state.recurringTransactions.push(newRecurring);
+      state.recurringTransactions.push(serializeRecurringTransaction(newRecurring));
     },
     updateRecurringTransaction: (state, action: PayloadAction<{ id: string; updates: Partial<RecurringTransaction> }>) => {
       const index = state.recurringTransactions.findIndex((r: SerializedRecurringTransaction) => r.id === action.payload.id);
       if (index !== -1) {
+        // Extract date fields to handle separately
+        const { startDate, endDate, nextDate, lastProcessed, createdAt, updatedAt: _, ...nonDateUpdates } = action.payload.updates;
+
         state.recurringTransactions[index] = {
           ...state.recurringTransactions[index],
-          ...action.payload.updates,
+          ...nonDateUpdates,
           updatedAt: getCurrentISOString(),
-        } as unknown as SerializedRecurringTransaction;
+          ...(startDate !== undefined && { startDate: startDate instanceof Date ? startDate.toISOString() : startDate }),
+          ...(endDate !== undefined && { endDate: endDate instanceof Date ? endDate.toISOString() : endDate }),
+          ...(nextDate !== undefined && { nextDate: nextDate instanceof Date ? nextDate.toISOString() : nextDate }),
+          ...(lastProcessed !== undefined && { lastProcessed: lastProcessed instanceof Date ? lastProcessed.toISOString() : lastProcessed }),
+          ...(createdAt !== undefined && { createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt }),
+        };
       }
     },
     deleteRecurringTransaction: (state, action: PayloadAction<string>) => {
@@ -85,7 +95,7 @@ const recurringTransactionsSlice = createSlice({
       })
       .addCase(loadRecurringTransactions.fulfilled, (state, action) => {
         state.loading = false;
-        state.recurringTransactions = action.payload as unknown as SerializedRecurringTransaction[];
+        state.recurringTransactions = serializeRecurringTransactions(action.payload);
       })
       .addCase(loadRecurringTransactions.rejected, (state, action) => {
         state.loading = false;
@@ -93,7 +103,7 @@ const recurringTransactionsSlice = createSlice({
       })
       // Handle saveRecurringTransactions
       .addCase(saveRecurringTransactions.fulfilled, (state, action) => {
-        state.recurringTransactions = action.payload as unknown as SerializedRecurringTransaction[];
+        state.recurringTransactions = serializeRecurringTransactions(action.payload);
       });
   },
 });

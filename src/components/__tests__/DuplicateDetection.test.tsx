@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DuplicateDetection from '../DuplicateDetection';
 import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
@@ -257,18 +257,14 @@ describe('DuplicateDetection', () => {
     it('updates threshold settings', async () => {
       render(<DuplicateDetection isOpen={true} onClose={vi.fn()} />);
       
-      // Find date threshold input by its value
-      const inputs = screen.getAllByRole('spinbutton');
-      const dateThresholdInput = inputs.find(input => input.getAttribute('value') === '3');
-      
-      if (dateThresholdInput) {
-        await userEvent.clear(dateThresholdInput);
-        await userEvent.type(dateThresholdInput, '7');
+      const [dateThresholdInput] = screen.getAllByRole('spinbutton');
+      expect(dateThresholdInput).toHaveValue(3);
+
+      fireEvent.change(dateThresholdInput, { target: { value: '7' } });
+
+      await waitFor(() => {
         expect(dateThresholdInput).toHaveValue(7);
-      } else {
-        // Skip this test if we can't find the input
-        expect(true).toBe(true);
-      }
+      });
     });
 
     it('handles auto-select high confidence toggle', async () => {

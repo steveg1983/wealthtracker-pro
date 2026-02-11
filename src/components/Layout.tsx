@@ -30,6 +30,7 @@ import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import DemoModeIndicator from './DemoModeIndicator';
 import SyncStatusIndicator from './SyncStatusIndicator';
+import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
 interface SidebarLinkProps {
   to: string;
@@ -51,7 +52,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
 
   // Preserve demo mode parameter in navigation
   const searchParams = new URLSearchParams(location.search);
-  const isDemoMode = searchParams.get('demo') === 'true';
+  const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const linkTo = isDemoMode ? `${to}?demo=true` : to;
 
   const handleLinkClick = () => {
@@ -116,6 +117,8 @@ export default function Layout(): React.JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
+  const isDemoModeRoutingEnabled =
+    isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const { registration } = useServiceWorker();
   const { 
     showGoals, 
@@ -320,7 +323,7 @@ export default function Layout(): React.JSX.Element {
               {!isSidebarCollapsed ? (
                 <div>
                   <Link
-                    to={searchParams.get('demo') === 'true' ? '/accounts?demo=true' : '/accounts'}
+                    to={isDemoModeRoutingEnabled ? '/accounts?demo=true' : '/accounts'}
                     onClick={() => setAccountsExpanded(!accountsExpanded)}
                     className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
                       location.pathname === '/accounts' || location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation')
@@ -355,7 +358,7 @@ export default function Layout(): React.JSX.Element {
                 {!isSidebarCollapsed ? (
                   <div>
                     <Link
-                      to={searchParams.get('demo') === 'true' ? '/investments?demo=true' : '/investments'}
+                      to={isDemoModeRoutingEnabled ? '/investments?demo=true' : '/investments'}
                       onClick={() => setInvestmentsExpanded(!investmentsExpanded)}
                       className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
                         location.pathname === '/investments' || location.pathname.startsWith('/enhanced-investments')
@@ -390,7 +393,7 @@ export default function Layout(): React.JSX.Element {
                 {!isSidebarCollapsed ? (
                   <div>
                     <Link
-                      to={searchParams.get('demo') === 'true' ? '/forecasting?demo=true' : '/forecasting'}
+                      to={isDemoModeRoutingEnabled ? '/forecasting?demo=true' : '/forecasting'}
                       onClick={() => setForecastingExpanded(!forecastingExpanded)}
                       className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
                         location.pathname === '/forecasting' || location.pathname === '/budget' || location.pathname === '/goals'
@@ -425,7 +428,7 @@ export default function Layout(): React.JSX.Element {
             <div>
               {!isSidebarCollapsed ? (
                 <Link
-                  to={searchParams.get('demo') === 'true' ? '/advanced?demo=true' : '/advanced'}
+                  to={isDemoModeRoutingEnabled ? '/advanced?demo=true' : '/advanced'}
                   onClick={() => setAdvancedExpanded(!advancedExpanded)}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
                     location.pathname === '/advanced' || location.pathname.startsWith('/ai-') || location.pathname === '/custom-reports' || 
@@ -466,7 +469,7 @@ export default function Layout(): React.JSX.Element {
             <div>
               {!isSidebarCollapsed ? (
                 <Link
-                  to={searchParams.get('demo') === 'true' ? '/settings?demo=true' : '/settings'}
+                  to={isDemoModeRoutingEnabled ? '/settings?demo=true' : '/settings'}
                   onClick={() => setSettingsExpanded(!settingsExpanded)}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
                     location.pathname.startsWith('/settings') || location.pathname === '/enhanced-import' || 
@@ -507,7 +510,7 @@ export default function Layout(): React.JSX.Element {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#d4dce8] dark:bg-gray-800 shadow-md" role="banner">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card-bg-light dark:bg-card-bg-dark shadow-md" role="banner">
         <div className="flex items-center justify-between p-4">
           <button
             onClick={toggleMobileMenu}
@@ -555,7 +558,7 @@ export default function Layout(): React.JSX.Element {
       {isMobileSearchVisible && (
         <div
           data-testid="mobile-search-container"
-          className="md:hidden px-4 pb-3 bg-[#d4dce8] dark:bg-gray-800 shadow-sm"
+          className="md:hidden px-4 pb-3 bg-card-bg-light dark:bg-card-bg-dark shadow-sm"
         >
           <GlobalSearch
             ref={mobileSearchRef}
@@ -615,7 +618,7 @@ export default function Layout(): React.JSX.Element {
                 {/* Accounts with Sub-navigation (but no "All Accounts" redundancy) */}
                 <div>
                   <Link
-                    to={searchParams.get('demo') === 'true' ? '/accounts?demo=true' : '/accounts'}
+                    to={isDemoModeRoutingEnabled ? '/accounts?demo=true' : '/accounts'}
                     onClick={() => {
                       setAccountsExpanded(!accountsExpanded);
                       toggleMobileMenu();
@@ -641,7 +644,7 @@ export default function Layout(): React.JSX.Element {
                 {(showInvestments || showEnhancedInvestments) && (
                   <div>
                     <Link
-                      to={searchParams.get('demo') === 'true' ? '/investments?demo=true' : '/investments'}
+                      to={isDemoModeRoutingEnabled ? '/investments?demo=true' : '/investments'}
                       onClick={() => {
                         setInvestmentsExpanded(!investmentsExpanded);
                         toggleMobileMenu();
@@ -667,7 +670,7 @@ export default function Layout(): React.JSX.Element {
                 {showGoals && (
                   <div>
                     <Link
-                      to={searchParams.get('demo') === 'true' ? '/forecasting?demo=true' : '/forecasting'}
+                      to={isDemoModeRoutingEnabled ? '/forecasting?demo=true' : '/forecasting'}
                       onClick={() => {
                         setForecastingExpanded(!forecastingExpanded);
                         toggleMobileMenu();

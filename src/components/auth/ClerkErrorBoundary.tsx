@@ -118,7 +118,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+          <div className="max-w-md w-full bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className={`px-6 py-4 ${
               this.state.isSafariIssue 

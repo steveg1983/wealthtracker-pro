@@ -166,7 +166,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Patterns</p>
@@ -178,7 +178,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Recurring</p>
@@ -190,7 +190,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">High Confidence</p>
@@ -202,7 +202,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Anomalies</p>
@@ -216,7 +216,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
       </div>
 
       {/* Pattern Type Distribution */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-6 shadow-sm">
         <h4 className="font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <LineChartIcon size={18} />
           Pattern Distribution
@@ -247,7 +247,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value as PatternFilter)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
           >
             {patternTypes.map(type => (
               <option key={type} value={type}>
@@ -261,7 +261,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
           >
             {categories.map(category => (
               <option key={category} value={category}>
@@ -280,7 +280,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
                 e.target.value as 'confidence' | 'amount' | 'detectedAt' | 'frequency'
               )
             }
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
           >
             <option value="confidence">Confidence</option>
             <option value="amount">Amount</option>
@@ -291,7 +291,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
       </div>
 
       {/* Patterns List */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm overflow-hidden">
         {filteredPatterns.length === 0 ? (
           <div className="text-center py-8">
             <TrendingUpIcon size={48} className="mx-auto mb-4 text-gray-400" />
@@ -331,7 +331,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredPatterns.map((pattern) => (
                   <tr key={pattern.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4">

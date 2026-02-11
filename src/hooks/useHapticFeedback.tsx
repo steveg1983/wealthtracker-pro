@@ -109,12 +109,13 @@ export function useHapticFeedback() {
       
       // iOS Haptic Feedback API (if available)
       // Note: This requires HTTPS and user gesture
-      if (window.navigator && (window.navigator as unknown as { hapticFeedback?: Record<string, () => void> }).hapticFeedback) {
-        const hapticAPI = (window.navigator as unknown as { hapticFeedback: Record<string, () => void> }).hapticFeedback;
+      // Uses non-standard Navigator.hapticFeedback defined in global.d.ts
+      if (navigator.hapticFeedback) {
         const hapticType = getIOSHapticType(pattern);
-        
-        if (hapticAPI[hapticType]) {
-          hapticAPI[hapticType]();
+        const hapticFn = navigator.hapticFeedback[hapticType];
+
+        if (hapticFn) {
+          hapticFn();
           return true;
         }
       }

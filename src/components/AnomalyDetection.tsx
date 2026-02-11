@@ -142,7 +142,7 @@ export default function AnomalyDetection() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Detection Settings</h3>
           
           <div className="space-y-4">
@@ -249,7 +249,7 @@ export default function AnomalyDetection() {
 
       {/* Anomalies List */}
       {anomalies.length === 0 ? (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-8 text-center">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-8 text-center">
           <CheckIcon className="mx-auto text-green-500 mb-3" size={48} />
           <h3 className="text-lg font-semibold mb-2">No Anomalies Detected</h3>
           <p className="text-gray-600 dark:text-gray-400">
@@ -261,7 +261,7 @@ export default function AnomalyDetection() {
           {anomalies.map(anomaly => (
             <div
               key={anomaly.id}
-              className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-4 hover:shadow-lg transition-shadow cursor-pointer"
+              className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-4 hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => setSelectedAnomaly(anomaly)}
             >
               <div className="flex items-start gap-4">
@@ -323,7 +323,7 @@ export default function AnomalyDetection() {
       {/* Anomaly Detail Modal */}
       {selectedAnomaly && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-xl max-w-lg w-full p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${getSeverityColor(selectedAnomaly.severity)}`}>

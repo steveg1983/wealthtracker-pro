@@ -54,7 +54,7 @@ export class LazyErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex flex-col items-center justify-center p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md">
+        <div className="flex flex-col items-center justify-center p-8 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md">
           <AlertCircle className="w-12 h-12 text-red-500 mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Something went wrong

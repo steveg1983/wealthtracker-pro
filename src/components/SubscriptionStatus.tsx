@@ -109,7 +109,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 animate-pulse">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6 animate-pulse">
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
       </div>
@@ -149,7 +149,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Current Plan Card */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -303,7 +303,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             Upgrade to Pro or Business to access unlimited accounts, bank sync, advanced analytics, and more.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Crown size={20} className="text-blue-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Pro</span>
@@ -313,7 +313,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 Perfect for individuals managing personal finances
               </p>
             </div>
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Users size={20} className="text-purple-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Business</span>

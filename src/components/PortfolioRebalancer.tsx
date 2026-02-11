@@ -225,7 +225,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
 
       {/* Active Target */}
       {activeTarget && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">{activeTarget.name}</h3>
             <button
@@ -263,7 +263,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
       {/* Current Allocation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart */}
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Current Allocation</h3>
           
           {chartData.length > 0 ? (
@@ -291,7 +291,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
         </div>
 
         {/* Allocation Table */}
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Allocation Details</h3>
           
           <div className="space-y-2">
@@ -333,7 +333,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
 
       {/* Rebalancing Actions */}
       {rebalanceActions.length > 0 && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Rebalancing Actions</h3>
             <button

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BulkTransactionEdit from '../BulkTransactionEdit';
 import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
@@ -257,12 +257,13 @@ describe('BulkTransactionEdit', () => {
       await userEvent.click(screen.getByText('Filters'));
       
       const searchInput = screen.getByPlaceholderText('Search descriptions, notes, tags...');
-      await userEvent.type(searchInput, 'coffee');
+      fireEvent.change(searchInput, { target: { value: 'coffee' } });
       
-      // Should only show Coffee Shop transaction
-      expect(screen.getByText('Coffee Shop')).toBeInTheDocument();
-      expect(screen.queryByText('Grocery Store')).not.toBeInTheDocument();
-      expect(screen.getByText('0 of 1 transactions selected')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Coffee Shop')).toBeInTheDocument();
+        expect(screen.queryByText('Grocery Store')).not.toBeInTheDocument();
+        expect(screen.getByText('0 of 1 transactions selected')).toBeInTheDocument();
+      });
     });
 
     it('filters by transaction type', async () => {

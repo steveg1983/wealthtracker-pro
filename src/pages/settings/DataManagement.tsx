@@ -1,8 +1,11 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
+import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../../constants/bankingOps';
+import BankingCriticalIncidentBadge from '../../components/BankingCriticalIncidentBadge';
+import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
 
 // Lazy load heavy components to reduce initial bundle size
 const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
@@ -25,6 +28,10 @@ const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
+  const initialBankingOpsUrlState = useMemo(
+    () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
+    []
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
@@ -39,8 +46,23 @@ export default function DataManagementSettings() {
   const [showSmartCategorization, setShowSmartCategorization] = useState(false);
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [showImportRules, setShowImportRules] = useState(false);
-  const [showBankConnections, setShowBankConnections] = useState(false);
+  const [showBankConnections, setShowBankConnections] = useState(initialBankingOpsUrlState.modalOpen);
+  const [showBankConnectionsWithCriticalFilter, setShowBankConnectionsWithCriticalFilter] = useState(initialBankingOpsUrlState.onlyAboveThreshold);
+  const [showBankConnectionsWithOpsEventType, setShowBankConnectionsWithOpsEventType] = useState(initialBankingOpsUrlState.eventType);
+  const [showBankConnectionsWithOpsEventPrefix, setShowBankConnectionsWithOpsEventPrefix] = useState(initialBankingOpsUrlState.eventTypePrefix);
+  const [showBankConnectionsWithFailedAuditFilter, setShowBankConnectionsWithFailedAuditFilter] = useState(initialBankingOpsUrlState.auditOpen);
+  const [showBankConnectionsWithAuditStatus, setShowBankConnectionsWithAuditStatus] = useState(initialBankingOpsUrlState.auditStatus);
+  const [showBankConnectionsWithAuditScope, setShowBankConnectionsWithAuditScope] = useState(initialBankingOpsUrlState.auditScope);
+  const [showBankConnectionsWithAuditDateRangePreset, setShowBankConnectionsWithAuditDateRangePreset] = useState(initialBankingOpsUrlState.auditDateRangePreset);
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
+
+  const replaceBankingOpsQueryState = (updates: Parameters<typeof withBankingOpsUrlState>[1]) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const nextSearch = withBankingOpsUrlState(window.location.search, updates);
+    replaceBrowserSearch(nextSearch);
+  };
 
   const handleExportData = () => {
     const dataStr = exportData();
@@ -66,6 +88,83 @@ export default function DataManagementSettings() {
     setShowTestDataConfirm(false);
   };
 
+  const openBankConnections = () => {
+    setShowBankConnectionsWithCriticalFilter(false);
+    setShowBankConnectionsWithOpsEventType(undefined);
+    setShowBankConnectionsWithOpsEventPrefix(undefined);
+    setShowBankConnectionsWithFailedAuditFilter(false);
+    setShowBankConnectionsWithAuditStatus(undefined);
+    setShowBankConnectionsWithAuditScope(undefined);
+    setShowBankConnectionsWithAuditDateRangePreset(undefined);
+    setShowBankConnections(true);
+    replaceBankingOpsQueryState({
+      modalOpen: true,
+      onlyAboveThreshold: false,
+      eventType: null,
+      eventTypePrefix: null,
+      auditOpen: false,
+      auditStatus: null,
+      auditScope: null,
+      auditDateRangePreset: null
+    });
+  };
+
+  const openBankConnectionsWithCriticalFilter = () => {
+    setShowBankConnectionsWithCriticalFilter(true);
+    setShowBankConnectionsWithOpsEventType(undefined);
+    setShowBankConnectionsWithOpsEventPrefix(undefined);
+    setShowBankConnectionsWithFailedAuditFilter(true);
+    setShowBankConnectionsWithAuditStatus('failed');
+    setShowBankConnectionsWithAuditScope(undefined);
+    setShowBankConnectionsWithAuditDateRangePreset(undefined);
+    setShowBankConnections(true);
+    replaceBankingOpsQueryState({
+      modalOpen: true,
+      onlyAboveThreshold: true,
+      eventType: null,
+      eventTypePrefix: null,
+      auditOpen: true,
+      auditStatus: 'failed',
+      auditScope: null,
+      auditDateRangePreset: null
+    });
+  };
+
+  const openBankConnectionsWithJwksCircuitFilter = () => {
+    setShowBankConnectionsWithCriticalFilter(true);
+    setShowBankConnectionsWithOpsEventType(undefined);
+    setShowBankConnectionsWithOpsEventPrefix(TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX);
+    setShowBankConnectionsWithFailedAuditFilter(false);
+    setShowBankConnectionsWithAuditStatus(undefined);
+    setShowBankConnectionsWithAuditScope(undefined);
+    setShowBankConnectionsWithAuditDateRangePreset(undefined);
+    setShowBankConnections(true);
+    replaceBankingOpsQueryState({
+      modalOpen: true,
+      onlyAboveThreshold: true,
+      eventType: null,
+      eventTypePrefix: TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX,
+      auditOpen: false,
+      auditStatus: null,
+      auditScope: null,
+      auditDateRangePreset: null
+    });
+  };
+
+  const closeBankConnections = () => {
+    setShowBankConnections(false);
+    setShowBankConnectionsWithCriticalFilter(false);
+    setShowBankConnectionsWithOpsEventType(undefined);
+    setShowBankConnectionsWithOpsEventPrefix(undefined);
+    setShowBankConnectionsWithFailedAuditFilter(false);
+    setShowBankConnectionsWithAuditStatus(undefined);
+    setShowBankConnectionsWithAuditScope(undefined);
+    setShowBankConnectionsWithAuditDateRangePreset(undefined);
+    replaceBankingOpsQueryState({
+      modalOpen: false
+    });
+  };
+
   return (
     <div>
       <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
@@ -85,12 +184,16 @@ export default function DataManagementSettings() {
       )}
 
       {/* Bank Connections */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bank Connections</h3>
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6 mb-6">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bank Connections</h3>
+          <BankingCriticalIncidentBadge onClick={openBankConnectionsWithCriticalFilter} />
+          <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={openBankConnectionsWithJwksCircuitFilter} />
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
-            onClick={() => setShowBankConnections(true)}
+            onClick={openBankConnections}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
           >
             <Building2Icon size={20} />
@@ -99,7 +202,7 @@ export default function DataManagementSettings() {
         </div>
       </div>
 
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
         
         {/* Migration Wizard - Full Width */}
@@ -161,7 +264,7 @@ export default function DataManagementSettings() {
         </Suspense>
       </div>
 
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
         
         {/* Enhanced Export Manager - Full Width */}
@@ -190,7 +293,7 @@ export default function DataManagementSettings() {
         </div>
       </div>
 
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Advanced System Data Options</h3>
         
         <div className="space-y-3">
@@ -263,7 +366,7 @@ export default function DataManagementSettings() {
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-red-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
@@ -300,7 +403,7 @@ export default function DataManagementSettings() {
       {/* Test Data Confirmation Dialog */}
       {showTestDataConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <DatabaseIcon className="text-purple-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>
@@ -430,7 +533,7 @@ export default function DataManagementSettings() {
       {/* Smart Categorization Modal */}
       {showSmartCategorization && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Categorization</h2>
               <button
@@ -450,7 +553,7 @@ export default function DataManagementSettings() {
       {/* Import Rules Modal */}
       {showImportRules && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Import Rules & Transformations</h2>
               <button
@@ -472,11 +575,11 @@ export default function DataManagementSettings() {
       {/* Bank Connections Modal */}
       {showBankConnections && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Connections</h2>
               <button
-                onClick={() => setShowBankConnections(false)}
+                onClick={closeBankConnections}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <XCircleIcon size={24} />
@@ -486,7 +589,15 @@ export default function DataManagementSettings() {
               <Suspense fallback={<LoadingState />}>
                 <BankConnections onAccountsLinked={() => {
                   // Refresh accounts/transactions if needed
-                }} />
+                }}
+                defaultOpsOnlyAboveThreshold={showBankConnectionsWithCriticalFilter}
+                defaultOpsEventType={showBankConnectionsWithOpsEventType}
+                defaultOpsEventTypePrefix={showBankConnectionsWithOpsEventPrefix}
+                defaultOpenOpsAuditLog={showBankConnectionsWithFailedAuditFilter}
+                defaultOpsAuditStatus={showBankConnectionsWithAuditStatus}
+                defaultOpsAuditScope={showBankConnectionsWithAuditScope}
+                defaultOpsAuditDateRangePreset={showBankConnectionsWithAuditDateRangePreset}
+                />
               </Suspense>
             </div>
           </div>

@@ -136,7 +136,7 @@ export default function DeletedAccounts() {
       </div>
 
       {/* Deleted Accounts List */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Deleted Accounts ({deletedAccounts.length})

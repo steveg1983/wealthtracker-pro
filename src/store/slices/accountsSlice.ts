@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Account } from '../../types';
 import type { SerializedAccount } from '../../types/redux-types';
+import { serializeAccount, serializeAccounts } from '../../types/redux-types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchAccountsFromSupabase,
@@ -35,26 +36,34 @@ const accountsSlice = createSlice({
   initialState,
   reducers: {
     setAccounts: (state, action: PayloadAction<Account[]>) => {
-      state.accounts = action.payload as unknown as SerializedAccount[];
+      state.accounts = serializeAccounts(action.payload);
       state.error = null;
     },
     addAccount: (state, action: PayloadAction<Omit<Account, 'id' | 'lastUpdated'>>) => {
-      const newAccount = {
+      const now = new Date();
+      const newAccount: Account = {
         ...action.payload,
         id: crypto.randomUUID(),
-        lastUpdated: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        lastUpdated: now,
+        updatedAt: now,
       };
-      state.accounts.push(newAccount as unknown as SerializedAccount);
+      state.accounts.push(serializeAccount(newAccount));
     },
     updateAccount: (state, action: PayloadAction<{ id: string; updates: Partial<Account> }>) => {
       const index = state.accounts.findIndex(acc => acc.id === action.payload.id);
       if (index !== -1) {
+        // Merge updates into existing serialized account
+        // Extract non-date fields and handle date fields separately
+        const { lastUpdated, openingBalanceDate, createdAt, updatedAt: _, ...nonDateUpdates } = action.payload.updates;
+
         state.accounts[index] = {
           ...state.accounts[index],
-          ...action.payload.updates,
+          ...nonDateUpdates,
           updatedAt: getCurrentISOString(),
-        } as unknown as SerializedAccount;
+          ...(lastUpdated !== undefined && { lastUpdated: lastUpdated instanceof Date ? lastUpdated.toISOString() : lastUpdated }),
+          ...(openingBalanceDate !== undefined && { openingBalanceDate: openingBalanceDate instanceof Date ? openingBalanceDate.toISOString() : openingBalanceDate }),
+          ...(createdAt !== undefined && { createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt }),
+        };
       }
     },
     deleteAccount: (state, action: PayloadAction<string>) => {

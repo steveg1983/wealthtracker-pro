@@ -132,7 +132,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
   return (
     <div className="space-y-6">
       {/* Connect New Bank Button */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Connect Your Bank</h3>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Securely connect your bank accounts to automatically import transactions and keep your balances up to date.
@@ -152,7 +152,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
 
       {/* Connected Banks */}
       {connections.length > 0 && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Connected Banks</h3>
           <div className="space-y-4">
             {connections.map(connection => (

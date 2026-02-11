@@ -5,7 +5,7 @@ import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import { LineChart } from '../components/charts/LazyChart';
+import LineChart from '../components/charts/LineChart';
 import DoughnutChart from '../components/charts/DoughnutChart';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
@@ -366,8 +366,7 @@ export default function Reports() {
               <SkeletonCard className="h-full w-full" />
             ) : (
             <LineChart
-              data={monthlyTrendData as unknown as Parameters<typeof LineChart>[0]['data']}
-              width={500}
+              data={monthlyTrendData}
               height={250}
             />
             )}

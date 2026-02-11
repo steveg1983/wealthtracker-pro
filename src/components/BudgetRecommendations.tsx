@@ -212,7 +212,7 @@ export default function BudgetRecommendations() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Recommendation Settings</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -334,7 +334,7 @@ export default function BudgetRecommendations() {
           {analysis.recommendations.map(recommendation => (
             <div
               key={recommendation.categoryId}
-              className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-4"
+              className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-4"
             >
               <div className="flex items-start gap-4">
                 <input
@@ -426,7 +426,7 @@ export default function BudgetRecommendations() {
       )}
 
       {analysis.recommendations.length === 0 && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-8 text-center">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-8 text-center">
           <CheckIcon className="mx-auto text-green-500 mb-3" size={48} />
           <h3 className="text-lg font-semibold mb-2">No Recommendations Available</h3>
           <p className="text-gray-600 dark:text-gray-400">

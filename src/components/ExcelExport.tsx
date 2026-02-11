@@ -496,7 +496,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                     }
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-[#d4dce8] dark:bg-gray-800"
+                           bg-card-bg-light dark:bg-card-bg-dark"
                 />
               </div>
               <div>
@@ -513,7 +513,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                     }
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-[#d4dce8] dark:bg-gray-800"
+                           bg-card-bg-light dark:bg-card-bg-dark"
                 />
               </div>
             </div>
@@ -532,7 +532,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                 groupBy: e.target.value as ExportOptions['groupBy']
               })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                       bg-[#d4dce8] dark:bg-gray-800"
+                       bg-card-bg-light dark:bg-card-bg-dark"
             >
               <option value="none">No Grouping</option>
               <option value="month">Group by Month</option>

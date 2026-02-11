@@ -169,7 +169,7 @@ export default function NetWorthSummary() {
       </div>
 
       {/* Summary Card */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6 mb-6">
         <div className="text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{getTitle()}</p>
           <p className={`text-4xl font-bold ${
@@ -213,7 +213,7 @@ export default function NetWorthSummary() {
           const typeTotal = (accountsList as ConvertedAccount[]).reduce((sum, acc) => sum + acc.convertedBalance, 0);
           
           return (
-            <div key={accountType} className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow">
+            <div key={accountType} className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -280,7 +280,7 @@ export default function NetWorthSummary() {
       </div>
 
       {relevantAccounts.length === 0 && !isLoading && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-12 text-center">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">
             No {type === 'assets' ? 'assets' : type === 'liabilities' ? 'liabilities' : 'accounts'} to display
           </p>

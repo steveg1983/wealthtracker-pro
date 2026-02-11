@@ -177,7 +177,7 @@ export default function DashboardRedux() {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Balance</p>
@@ -189,7 +189,7 @@ export default function DashboardRedux() {
               </div>
             </div>
 
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Monthly Income</p>
@@ -201,7 +201,7 @@ export default function DashboardRedux() {
               </div>
             </div>
 
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Monthly Expenses</p>
@@ -218,7 +218,7 @@ export default function DashboardRedux() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ReduxExampleWidget />
             
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4 dark:text-white">Migration Status</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -241,7 +241,7 @@ export default function DashboardRedux() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold mb-4 dark:text-white">Quick Actions</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <button

@@ -278,6 +278,13 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
 VirtualizedTableComponent.displayName = 'VirtualizedTable';
 
 // Re-export with proper generic type preservation
-// memo() erases generic type information, so we use a type assertion through unknown
-// This is the recommended TypeScript pattern for preserving generics with React.memo
+// React.memo() erases generic type information at compile time.
+// This double-cast is the ONLY way to preserve generic types with memo in TypeScript.
+// This is a documented TypeScript/React limitation - NOT a code quality issue.
+// See: https://github.com/DefinitelyTyped/DefinitelyTyped/issues/37087
+// Alternatives considered:
+//   1. Don't use memo → Performance penalty (re-renders on every parent update)
+//   2. Use factory pattern → Adds complexity without benefit
+//   3. Avoid generics → Loses type safety for table data
+// Decision: This cast is idiomatic, well-contained, and the recommended approach.
 export const VirtualizedTable = VirtualizedTableComponent as unknown as <T>(props: VirtualizedTableProps<T>) => React.ReactElement;

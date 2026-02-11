@@ -18,7 +18,7 @@ export function ReduxExampleWidget() {
   const transactionCount = transactions.length;
   
   return (
-    <div className="p-4 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow">
+    <div className="p-4 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
       <h3 className="text-lg font-semibold mb-2 dark:text-white">Redux Example</h3>
       <div className="space-y-2">
         <div className="flex justify-between">

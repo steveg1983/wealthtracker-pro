@@ -228,7 +228,7 @@ export default function AccessibilityChecklist(): React.JSX.Element {
   const stats = getStats();
 
   return (
-    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           Accessibility Checklist

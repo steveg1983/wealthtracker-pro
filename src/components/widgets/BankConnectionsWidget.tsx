@@ -101,7 +101,7 @@ export default function BankConnectionsWidget({ size = 'medium' }: BankConnectio
                 key={connection.id}
                 className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
               >
-                <div className="w-10 h-10 bg-[#d4dce8] dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-card-bg-light dark:bg-card-bg-dark rounded-lg flex items-center justify-center">
                   <Building2Icon size={20} className="text-gray-600 dark:text-gray-400" />
                 </div>
                 <div className="flex-1 min-w-0">

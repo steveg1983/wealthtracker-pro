@@ -162,7 +162,7 @@ export function BatchOperationsToolbar({
                     className="fixed inset-0 z-10"
                     onClick={() => setShowMoreMenu(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-48 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                  <div className="absolute right-0 mt-2 w-48 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
                     <div className="py-1">
                       {secondaryOps.map(operation => (
                         <button
@@ -199,7 +199,7 @@ export function BatchOperationsToolbar({
       {/* Category Picker Modal */}
       {showCategoryPicker && onCategorySelect && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[60vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-xl max-w-md w-full max-h-[60vh] overflow-hidden">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Select Category
@@ -270,7 +270,7 @@ function TagPicker({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-xl max-w-md w-full">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Add Tags

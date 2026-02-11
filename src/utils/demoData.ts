@@ -7,12 +7,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { toDecimal } from './decimal';
 import { formatDecimal } from './decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { isDemoModeRuntimeAllowed } from './runtimeMode';
+
+export { isDemoModeRuntimeAllowed } from './runtimeMode';
 
 const demoLogger = createScopedLogger('DemoData');
 
 // Check if we're in demo mode
 export const isDemoMode = (): boolean => {
   if (typeof window === 'undefined') return false;
+  if (!isDemoModeRuntimeAllowed(import.meta.env)) {
+    return false;
+  }
   return new URLSearchParams(window.location.search).get('demo') === 'true';
 };
 

@@ -146,7 +146,7 @@ export default function AdvancedAnalytics() {
       </div>
 
       {/* Content */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
         {/* Insights Tab */}
         {activeTab === 'insights' && (
           <div className="space-y-4">

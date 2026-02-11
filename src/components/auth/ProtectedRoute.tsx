@@ -2,6 +2,7 @@ import { useAuth } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { Skeleton } from '../loading/Skeleton';
+import { isAuthBypassRuntimeAllowed as isAuthBypassRuntimeAllowedFromRuntimeMode } from '../../utils/runtimeMode';
 
 export interface ProtectedRouteProps {
   children: ReactNode;
@@ -9,6 +10,9 @@ export interface ProtectedRouteProps {
   requiredRole?: string;
   fallbackPath?: string;
 }
+
+// eslint-disable-next-line react-refresh/only-export-components -- Utility function closely related to ProtectedRoute component
+export const isAuthBypassRuntimeAllowed = isAuthBypassRuntimeAllowedFromRuntimeMode;
 
 const ProtectedRoute = ({ 
   children, 
@@ -18,18 +22,17 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps): React.ReactElement | null => {
   const { isLoaded, isSignedIn } = useAuth();
   const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
   void requirePremium;
   void requiredRole;
-  
-  // Check if we're in test mode (for Playwright tests) or demo mode (for UI/UX testing)
-  const isTestMode = typeof window !== 'undefined' && (
-    window.localStorage.getItem('isTestMode') === 'true' ||
-    new URLSearchParams(window.location.search).get('testMode') === 'true'
-  );
-  
-  const isDemoMode = typeof window !== 'undefined' && (
-    new URLSearchParams(window.location.search).get('demo') === 'true'
-  );
+
+  const bypassAllowed = isAuthBypassRuntimeAllowed(import.meta.env);
+  const queryTestModeEnabled = queryParams.get('testMode') === 'true';
+  const localStorageTestModeEnabled = typeof window !== 'undefined' &&
+    window.localStorage.getItem('isTestMode') === 'true';
+  const isTestMode = bypassAllowed && (queryTestModeEnabled || localStorageTestModeEnabled);
+
+  const isDemoMode = bypassAllowed && queryParams.get('demo') === 'true';
 
   // Show loading state while Clerk is initializing (skip in test mode or demo mode)
   if (!isLoaded && !isTestMode && !isDemoMode) {

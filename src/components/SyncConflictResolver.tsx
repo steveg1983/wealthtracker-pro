@@ -161,7 +161,7 @@ export function SyncConflictResolver(): React.JSX.Element | null {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>

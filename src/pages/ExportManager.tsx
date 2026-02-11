@@ -199,7 +199,7 @@ export default function ExportManager() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm mb-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 overflow-x-auto">
               <button
@@ -263,7 +263,7 @@ export default function ExportManager() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Export Options */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
                 
                 {/* Date Range */}
@@ -440,7 +440,7 @@ export default function ExportManager() {
             </div>
 
             {/* Preview */}
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Preview</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
@@ -478,7 +478,7 @@ export default function ExportManager() {
 
         {/* Templates Tab */}
         {activeTab === 'templates' && (
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Export Templates</h3>
@@ -555,7 +555,7 @@ export default function ExportManager() {
 
         {/* Scheduled Reports Tab */}
         {activeTab === 'scheduled' && (
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Scheduled Reports</h3>
@@ -641,7 +641,7 @@ export default function ExportManager() {
 
         {/* History Tab */}
         {activeTab === 'history' && (
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export History</h3>
             <div className="text-center py-8">
               <CalendarIcon size={48} className="mx-auto mb-4 text-gray-400" />

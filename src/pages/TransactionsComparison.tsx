@@ -42,7 +42,7 @@ export default function TransactionsComparison() {
               onClick={() => setUseRedux(false)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 !useRedux 
-                  ? 'bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
+                  ? 'bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white shadow' 
                   : 'text-gray-600 dark:text-gray-400'
               }`}
             >
@@ -53,7 +53,7 @@ export default function TransactionsComparison() {
               onClick={() => setUseRedux(true)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 useRedux 
-                  ? 'bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
+                  ? 'bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white shadow' 
                   : 'text-gray-600 dark:text-gray-400'
               }`}
             >

@@ -91,7 +91,7 @@ export default function Advanced() {
             <Link
               key={feature.link}
               to={feature.link}
-              className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 block"
+              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 block"
             >
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 dark:bg-primary/20 p-3 rounded-lg">

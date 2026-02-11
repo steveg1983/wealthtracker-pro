@@ -16,7 +16,7 @@ interface SummaryCardProps {
 export const SummaryCard = memo(({ title, value, trend, icon, onClick }: SummaryCardProps) => {
   return (
     <div 
-      className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+      className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-center justify-between">

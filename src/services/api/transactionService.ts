@@ -316,23 +316,21 @@ class TransactionServiceImpl {
 
   async bulkCreateTransactions(
     userId: string,
-    transactions: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>[]
+    transactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>[]
   ): Promise<Transaction[]> {
     if (!this.isSupabaseReady()) {
       const stored = await this.readStoredTransactions();
-      const newTransactions = transactions.map(transaction => {
-        const timestamp = this.getCurrentDate().toISOString();
-        return {
-          ...transaction,
-          id: this.uuid(),
-          created_at: timestamp,
-          updatedAt: timestamp
-        };
-      });
+      const now = this.getCurrentDate(); // Returns Date object
+      const newTransactions: Transaction[] = transactions.map(transaction => ({
+        ...transaction,
+        id: this.uuid(),
+        createdAt: now,    // Date object, not string
+        updatedAt: now     // Date object, not string
+      } as Transaction));
 
-      stored.push(...(newTransactions as unknown as Transaction[]));
+      stored.push(...newTransactions);  // No cast needed
       await this.persistTransactions(stored);
-      return newTransactions as unknown as Transaction[];
+      return newTransactions;           // No cast needed
     }
 
     try {

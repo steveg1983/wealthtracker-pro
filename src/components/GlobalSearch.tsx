@@ -17,6 +17,7 @@ import {
 } from './icons';
 import { useGlobalSearch, type SearchResult } from '../hooks/useGlobalSearch';
 import { useDebounce } from '../hooks/useDebounce';
+import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
 export interface GlobalSearchHandle {
   focusInput: () => void;
@@ -140,7 +141,9 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
 
     const handleResultNavigate = useCallback((result: SearchResult) => {
       const searchParams = new URLSearchParams(window.location.search);
-      const isDemoMode = searchParams.get('demo') === 'true';
+      const isDemoMode =
+        isDemoModeRuntimeAllowed(import.meta.env) &&
+        searchParams.get('demo') === 'true';
 
       let route = getResultRoute(result);
       if (isDemoMode) {
@@ -249,7 +252,7 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
                           onClick={() => handleResultNavigate(result)}
                           className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${
                             isSelected
-                              ? 'bg-[#d4dce8] dark:bg-gray-700 text-gray-900 dark:text-white'
+                              ? 'bg-card-bg-light dark:bg-gray-700 text-gray-900 dark:text-white'
                               : 'hover:bg-[#c5cfdf] dark:hover:bg-gray-700/70 text-gray-800 dark:text-gray-200'
                           }`}
                         >

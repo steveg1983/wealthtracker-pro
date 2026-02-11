@@ -161,7 +161,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Miles</p>
@@ -173,7 +173,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Amount</p>
@@ -185,7 +185,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
           </div>
         </div>
 
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Average Rate</p>
@@ -199,7 +199,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
       </div>
 
       {/* Filters */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <FilterIcon size={20} className="text-gray-500" />
           <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>
@@ -243,7 +243,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
       </div>
 
       {/* Mileage Entries List */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm overflow-hidden">
         {filteredEntries.length === 0 ? (
           <div className="text-center py-12">
             <CarIcon size={48} className="mx-auto mb-4 text-gray-400" />
@@ -268,7 +268,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
             {/* Mobile card view */}
             <div className="sm:hidden">
               {filteredEntries.map((entry) => (
-                <div key={entry.id} className="bg-[#d4dce8] dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                <div key={entry.id} className="bg-card-bg-light dark:bg-card-bg-dark p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <div className="font-medium text-gray-900 dark:text-white">
@@ -360,7 +360,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredEntries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -476,7 +476,7 @@ function MileageEntryModal({ entry, onClose, onSave }: MileageEntryModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-lg">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-lg">
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

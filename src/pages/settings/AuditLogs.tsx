@@ -232,7 +232,7 @@ export default function AuditLogs() {
         </div>
 
         {/* Filters */}
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <FilterIcon size={20} className="text-gray-600 dark:text-gray-400" />
             <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>

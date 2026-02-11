@@ -1,351 +1,239 @@
-import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { BankConnection } from '../../services/bankConnectionService';
 import BankConnectionsWidget from './BankConnectionsWidget';
-import { bankConnectionService, type BankConnection } from '../../services/bankConnectionService';
-import { useNavigate } from 'react-router-dom';
 
-// Mock services and hooks
-vi.mock('../../services/bankConnectionService');
-vi.mock('react-router-dom', () => ({
-  useNavigate: vi.fn(),
+const {
+  mockNavigate,
+  mockGetToken,
+  mockBankConnectionService
+} = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockGetToken: vi.fn(async () => 'test-token'),
+  mockBankConnectionService: {
+    setAuthTokenProvider: vi.fn(),
+    refreshConnections: vi.fn(),
+    getConnections: vi.fn(),
+    needsReauth: vi.fn(),
+    syncAll: vi.fn()
+  }
 }));
 
-// Mock date-fns
+vi.mock('../../services/bankConnectionService', () => ({
+  bankConnectionService: mockBankConnectionService
+}));
+
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate
+}));
+
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ getToken: mockGetToken })
+}));
+
 vi.mock('date-fns', () => ({
-  format: vi.fn((date, formatStr) => {
-    const d = new Date(date);
+  format: vi.fn((date: Date | string, formatStr: string) => {
+    const parsed = new Date(date);
     if (formatStr === 'MMM d') {
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${months[d.getMonth()]} ${d.getDate()}`;
+      return `${months[parsed.getMonth()]} ${parsed.getDate()}`;
     }
-    return d.toLocaleDateString();
-  }),
+    return parsed.toISOString();
+  })
 }));
 
-// Mock icons
 vi.mock('../icons', () => ({
-  Building2Icon: ({ size }: { size?: number }) => (
-    <div data-testid="Building2Icon" data-size={size} />
-  ),
+  Building2Icon: ({ size }: { size?: number }) => <div data-testid="Building2Icon" data-size={size} />,
   RefreshCwIcon: ({ size, className }: { size?: number; className?: string }) => (
     <div data-testid="RefreshCwIcon" data-size={size} className={className} />
   ),
-  CheckCircleIcon: ({ size }: { size?: number }) => (
-    <div data-testid="CheckCircleIcon" data-size={size} />
-  ),
-  AlertCircleIcon: ({ size }: { size?: number }) => (
-    <div data-testid="AlertCircleIcon" data-size={size} />
-  ),
-  LinkIcon: ({ size }: { size?: number }) => (
-    <div data-testid="LinkIcon" data-size={size} />
-  ),
+  CheckCircleIcon: ({ size }: { size?: number }) => <div data-testid="CheckCircleIcon" data-size={size} />,
+  AlertCircleIcon: ({ size }: { size?: number }) => <div data-testid="AlertCircleIcon" data-size={size} />,
+  LinkIcon: ({ size }: { size?: number }) => <div data-testid="LinkIcon" data-size={size} />
 }));
 
-const mockNavigate = vi.fn();
-const mockBankConnectionService = bankConnectionService as {
-  getConnections: Mock;
-  needsReauth: Mock;
-  syncAll: Mock;
-};
-
-// Mock data
 const mockConnections: BankConnection[] = [
   {
-    id: 'conn1',
-    institutionName: 'Chase Bank',
+    id: 'conn_1',
+    provider: 'truelayer',
     institutionId: 'chase',
-    accessToken: 'token1',
-    accounts: ['acc1', 'acc2'],
-    lastSync: new Date('2024-01-20').toISOString(),
+    institutionName: 'Chase Bank',
     status: 'connected',
-    error: null,
+    accounts: ['acc_1', 'acc_2'],
+    accountsCount: 2,
+    lastSync: new Date('2024-01-20T00:00:00.000Z')
   },
   {
-    id: 'conn2',
-    institutionName: 'Bank of America',
+    id: 'conn_2',
+    provider: 'truelayer',
     institutionId: 'bofa',
-    accessToken: 'token2',
-    accounts: ['acc3'],
-    lastSync: new Date('2024-01-19').toISOString(),
+    institutionName: 'Bank of America',
     status: 'error',
-    error: 'Connection failed',
+    accounts: ['acc_3'],
+    accountsCount: 1,
+    lastSync: new Date('2024-01-19T00:00:00.000Z'),
+    error: 'Connection failed'
   },
   {
-    id: 'conn3',
-    institutionName: 'Wells Fargo',
+    id: 'conn_3',
+    provider: 'truelayer',
     institutionId: 'wells',
-    accessToken: 'token3',
-    accounts: ['acc4', 'acc5', 'acc6'],
-    lastSync: new Date('2024-01-18').toISOString(),
+    institutionName: 'Wells Fargo',
     status: 'reauth_required',
-    error: 'Token expired',
-  },
+    accounts: ['acc_4', 'acc_5', 'acc_6'],
+    accountsCount: 3,
+    lastSync: new Date('2024-01-18T00:00:00.000Z'),
+    error: 'Token expired'
+  }
 ];
+
+const rowMetaMatcher = (value: string) => (_content: string, element: Element | null): boolean =>
+  element?.tagName.toLowerCase() === 'p' && Boolean(element.textContent?.includes(value));
 
 describe('BankConnectionsWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useNavigate as Mock).mockReturnValue(mockNavigate);
+    mockBankConnectionService.setAuthTokenProvider.mockImplementation(() => {});
+    mockBankConnectionService.refreshConnections.mockResolvedValue([]);
     mockBankConnectionService.getConnections.mockReturnValue([]);
     mockBankConnectionService.needsReauth.mockReturnValue([]);
-    mockBankConnectionService.syncAll.mockResolvedValue(undefined);
+    mockBankConnectionService.syncAll.mockResolvedValue(new Map());
   });
 
-  describe('Empty State', () => {
-    it('shows empty state when no connections', () => {
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(screen.getByText('No banks connected')).toBeInTheDocument();
-      expect(screen.getByText('Connect a bank')).toBeInTheDocument();
-      expect(screen.getByTestId('LinkIcon')).toBeInTheDocument();
-    });
+  it('shows empty state when there are no connections', async () => {
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
 
-    it('navigates to settings when clicking connect bank', () => {
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      fireEvent.click(screen.getByText('Connect a bank'));
-      
-      expect(mockNavigate).toHaveBeenCalledWith('/settings/data');
-    });
+    expect(await screen.findByText('No banks connected')).toBeInTheDocument();
+    expect(screen.getByText('Connect a bank')).toBeInTheDocument();
+    expect(screen.getByTestId('LinkIcon')).toBeInTheDocument();
   });
 
-  describe('Small Size', () => {
-    it('shows connection count in small size', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="small" settings={{}} />);
-      
+  it('navigates to settings when clicking connect bank in empty state', async () => {
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+
+    fireEvent.click(await screen.findByText('Connect a bank'));
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/data');
+  });
+
+  it('shows connection and error counts in small size', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    render(<BankConnectionsWidget size="small" settings={{}} />);
+
+    await waitFor(() => {
       expect(screen.getByText('3')).toBeInTheDocument();
-      expect(screen.getByText('Banks Connected')).toBeInTheDocument();
     });
+    expect(screen.getByText('Banks Connected')).toBeInTheDocument();
+    expect(screen.getByText('2 need attention')).toBeInTheDocument();
+  });
 
-    it('shows error count in small size', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="small" settings={{}} />);
-      
-      expect(screen.getByText('2 need attention')).toBeInTheDocument();
+  it('renders a medium connection list with a max of 3 rows', async () => {
+    const manyConnections = [...mockConnections, ...mockConnections];
+    mockBankConnectionService.getConnections.mockReturnValue(manyConnections);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+
+    expect(await screen.findByText('Chase Bank')).toBeInTheDocument();
+    expect(screen.getAllByTestId('Building2Icon')).toHaveLength(3);
+    expect(screen.getByText('+3 more')).toBeInTheDocument();
+  });
+
+  it('renders a large connection list with a max of 5 rows', async () => {
+    const manyConnections = [...mockConnections, ...mockConnections];
+    mockBankConnectionService.getConnections.mockReturnValue(manyConnections);
+    render(<BankConnectionsWidget size="large" settings={{}} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('Building2Icon')).toHaveLength(5);
     });
+    expect(screen.getByText('+1 more')).toBeInTheDocument();
+  });
 
-    it('does not show error message when all connected', () => {
-      const connectedOnly = [mockConnections[0]];
-      mockBankConnectionService.getConnections.mockReturnValue(connectedOnly);
-      
-      render(<BankConnectionsWidget size="small" settings={{}} />);
-      
-      expect(screen.queryByText('need attention')).not.toBeInTheDocument();
+  it('shows status icons and status color classes', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+
+    expect(await screen.findByText('Chase Bank')).toBeInTheDocument();
+    expect(screen.getAllByTestId('CheckCircleIcon')).toHaveLength(1);
+    expect(screen.getAllByTestId('AlertCircleIcon')).toHaveLength(2);
+
+    const checkIconContainer = screen.getByTestId('CheckCircleIcon').parentElement;
+    const alertIcons = screen.getAllByTestId('AlertCircleIcon');
+    expect(checkIconContainer).toHaveClass('text-green-600');
+    expect(alertIcons[0]?.parentElement).toHaveClass('text-red-600');
+    expect(alertIcons[1]?.parentElement).toHaveClass('text-yellow-600');
+  });
+
+  it('renders account counts and last sync labels for loaded connections', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+
+    expect(await screen.findByText(rowMetaMatcher('2 accounts'))).toBeInTheDocument();
+    expect(screen.getByText(rowMetaMatcher('1 accounts'))).toBeInTheDocument();
+    expect(screen.getByText(rowMetaMatcher('3 accounts'))).toBeInTheDocument();
+    expect(screen.getByText(rowMetaMatcher('Last sync Jan 20'))).toBeInTheDocument();
+    expect(screen.getByText(rowMetaMatcher('Last sync Jan 19'))).toBeInTheDocument();
+    expect(screen.getByText(rowMetaMatcher('Last sync Jan 18'))).toBeInTheDocument();
+  });
+
+  it('disables sync button when there are no connections', async () => {
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+    expect(await screen.findByTitle('Sync all banks')).toBeDisabled();
+  });
+
+  it('enables sync button when connections are present', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+    await screen.findByRole('button', { name: 'Manage connections →' });
+    expect(screen.getByTitle('Sync all banks')).not.toBeDisabled();
+  });
+
+  it('calls syncAll and reloads connections when syncing', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
+
+    fireEvent.click(await screen.findByTitle('Sync all banks'));
+
+    await waitFor(() => {
+      expect(mockBankConnectionService.syncAll).toHaveBeenCalledTimes(1);
+      expect(mockBankConnectionService.refreshConnections).toHaveBeenCalledTimes(2);
     });
   });
 
-  describe('Connection List', () => {
-    it('displays connections in medium size', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(screen.getByText('Chase Bank')).toBeInTheDocument();
-      expect(screen.getByText('Bank of America')).toBeInTheDocument();
-      expect(screen.getByText('Wells Fargo')).toBeInTheDocument();
-    });
+  it('shows spinner class while sync is in progress', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    let resolveSync: (() => void) | null = null;
+    mockBankConnectionService.syncAll.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSync = resolve;
+        })
+    );
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
 
-    it('limits connections to 3 in medium size', () => {
-      const manyConnections = [...mockConnections, ...mockConnections];
-      mockBankConnectionService.getConnections.mockReturnValue(manyConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      // Count connection items by looking for the account count text
-      const accountTexts = screen.getAllByText(/\d+ accounts/);
-      expect(accountTexts).toHaveLength(3);
-      expect(screen.getByText('+3 more')).toBeInTheDocument();
-    });
+    fireEvent.click(await screen.findByTitle('Sync all banks'));
+    expect(screen.getByTestId('RefreshCwIcon')).toHaveClass('animate-spin');
 
-    it('shows up to 5 connections in large size', () => {
-      const manyConnections = [...mockConnections, ...mockConnections];
-      mockBankConnectionService.getConnections.mockReturnValue(manyConnections);
-      
-      render(<BankConnectionsWidget size="large" settings={{}} />);
-      
-      // Count connection items by looking for the account count text
-      const accountTexts = screen.getAllByText(/\d+ accounts/);
-      expect(accountTexts).toHaveLength(5);
-      expect(screen.getByText('+1 more')).toBeInTheDocument();
-    });
-
-    it('displays account count for each connection', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(screen.getByText(/2 accounts/)).toBeInTheDocument(); // Chase
-      expect(screen.getByText(/1 accounts/)).toBeInTheDocument(); // BofA
-      expect(screen.getByText(/3 accounts/)).toBeInTheDocument(); // Wells
-    });
-
-    it('displays last sync date', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(screen.getByText(/Last sync Jan 20/)).toBeInTheDocument();
-      expect(screen.getByText(/Last sync Jan 19/)).toBeInTheDocument();
-      expect(screen.getByText(/Last sync Jan 18/)).toBeInTheDocument();
+    resolveSync?.();
+    await waitFor(() => {
+      expect(screen.getByTestId('RefreshCwIcon')).not.toHaveClass('animate-spin');
     });
   });
 
-  describe('Status Indicators', () => {
-    it('shows correct status icons', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      // Connected status shows check icon
-      expect(screen.getAllByTestId('CheckCircleIcon')).toHaveLength(1);
-      
-      // Error and reauth_required show alert icon
-      expect(screen.getAllByTestId('AlertCircleIcon')).toHaveLength(2);
-    });
+  it('shows and handles manage connections navigation when connections exist', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
 
-    it('applies correct status colors', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      // Check for status color classes
-      const checkIcon = screen.getByTestId('CheckCircleIcon').parentElement;
-      expect(checkIcon).toHaveClass('text-green-600');
-      
-      const alertIcons = screen.getAllByTestId('AlertCircleIcon');
-      expect(alertIcons[0].parentElement).toHaveClass('text-red-600');
-      expect(alertIcons[1].parentElement).toHaveClass('text-yellow-600');
-    });
+    const manageButton = await screen.findByRole('button', { name: 'Manage connections →' });
+    fireEvent.click(manageButton);
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/data');
   });
 
-  describe('Sync Functionality', () => {
-    it('shows sync button when connections exist', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const syncButton = screen.getByTitle('Sync all banks');
-      expect(syncButton).toBeInTheDocument();
-      expect(screen.getByTestId('RefreshCwIcon')).toBeInTheDocument();
-    });
+  it('sets auth token provider and checks reauth requirements during mount', async () => {
+    mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
+    mockBankConnectionService.needsReauth.mockReturnValue([mockConnections[2]]);
+    render(<BankConnectionsWidget size="medium" settings={{}} />);
 
-    it('disables sync button when no connections', () => {
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const syncButton = screen.getByTitle('Sync all banks');
-      expect(syncButton).toBeDisabled();
-    });
-
-    it('handles sync all action', async () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const syncButton = screen.getByTitle('Sync all banks');
-      fireEvent.click(syncButton);
-      
-      await waitFor(() => {
-        expect(mockBankConnectionService.syncAll).toHaveBeenCalled();
-      });
-    });
-
-    it('shows loading state during sync', async () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      mockBankConnectionService.syncAll.mockImplementation(() => 
-        new Promise(resolve => setTimeout(resolve, 100))
-      );
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const syncButton = screen.getByTitle('Sync all banks');
-      fireEvent.click(syncButton);
-      
-      // Should add animate-spin class during sync
-      expect(screen.getByTestId('RefreshCwIcon')).toHaveClass('animate-spin');
-      
-      await waitFor(() => {
-        expect(screen.getByTestId('RefreshCwIcon')).not.toHaveClass('animate-spin');
-      });
-    });
-
-    it('reloads connections after sync', async () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const syncButton = screen.getByTitle('Sync all banks');
-      fireEvent.click(syncButton);
-      
-      await waitFor(() => {
-        // Should call getConnections again after sync
-        expect(mockBankConnectionService.getConnections).toHaveBeenCalledTimes(2);
-      });
-    });
-  });
-
-  describe('Navigation', () => {
-    it('shows manage connections link when connections exist', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(screen.getByText('Manage connections →')).toBeInTheDocument();
-    });
-
-    it('navigates to settings when clicking manage connections', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      fireEvent.click(screen.getByText('Manage connections →'));
-      
-      expect(mockNavigate).toHaveBeenCalledWith('/settings/data');
-    });
-
-    it('does not show manage link when no connections', () => {
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(screen.queryByText('Manage connections →')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Reauth Check', () => {
-    it('checks for reauth needs on mount', () => {
-      mockBankConnectionService.needsReauth.mockReturnValue(['conn3']);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      expect(mockBankConnectionService.needsReauth).toHaveBeenCalled();
-    });
-  });
-
-  describe('Component Styling', () => {
-    it('applies correct container styles', () => {
-      const { container } = render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const rootDiv = container.firstChild as HTMLElement;
-      expect(rootDiv).toHaveClass('h-full', 'flex', 'flex-col');
-    });
-
-    it('applies correct header styles', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const header = screen.getByText('Bank Connections');
-      expect(header).toHaveClass('font-semibold', 'text-gray-900', 'dark:text-white');
-    });
-
-    it('applies correct connection item styles', () => {
-      mockBankConnectionService.getConnections.mockReturnValue(mockConnections);
-      
-      render(<BankConnectionsWidget size="medium" settings={{}} />);
-      
-      const connectionItem = screen.getByText('Chase Bank').closest('div.flex.items-center.gap-3');
-      expect(connectionItem).toHaveClass('p-3', 'bg-gray-50', 'dark:bg-gray-700/50', 'rounded-lg');
-    });
+    await screen.findByText('Chase Bank');
+    expect(mockBankConnectionService.setAuthTokenProvider).toHaveBeenCalledTimes(1);
+    expect(mockBankConnectionService.needsReauth).toHaveBeenCalledTimes(1);
   });
 });

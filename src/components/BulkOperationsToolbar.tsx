@@ -46,7 +46,7 @@ export default function BulkOperationsToolbar<T>({
 
   return (
     <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-4">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-4">
         {confirmingOperation && confirmingOp ? (
           // Confirmation dialog
           <div className="flex items-center space-x-4">

@@ -77,7 +77,7 @@ export default function DataSyncManager(): React.JSX.Element {
       <div className="fixed top-4 right-4 z-40">
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#d4dce8] dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all"
+          className="flex items-center gap-2 px-4 py-2 bg-card-bg-light dark:bg-card-bg-dark rounded-full shadow-lg hover:shadow-xl transition-all"
         >
           {getSyncIcon()}
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -99,7 +99,7 @@ export default function DataSyncManager(): React.JSX.Element {
 
       {/* Sync Details Panel */}
       {showDetails && (
-        <div className="fixed top-16 right-4 z-40 w-80 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700">
+        <div className="fixed top-16 right-4 z-40 w-80 bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 dark:text-white">
@@ -213,7 +213,7 @@ export default function DataSyncManager(): React.JSX.Element {
       {/* Conflict Resolution Modal */}
       {showConflicts && conflicts.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-red-500 to-orange-500">
               <div className="flex items-center justify-between text-white">

@@ -526,7 +526,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         {/* Delete confirmation */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Delete Transaction?
               </h3>

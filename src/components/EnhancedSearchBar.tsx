@@ -129,7 +129,7 @@ export function EnhancedSearchBar({
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                 naturalLanguageMode 
                   ? 'border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
-                  : 'border-gray-300 dark:border-gray-600 bg-[#d4dce8] dark:bg-gray-800'
+                  : 'border-gray-300 dark:border-gray-600 bg-card-bg-light dark:bg-card-bg-dark'
               } text-gray-900 dark:text-white`}
             />
             {isSearching && (
@@ -177,7 +177,7 @@ export function EnhancedSearchBar({
 
         {/* Suggestions Dropdown */}
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-[#d4dce8] dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-card-bg-light dark:bg-card-bg-dark border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
@@ -240,14 +240,14 @@ export function EnhancedSearchBar({
                   type="date"
                   value={options.dateFrom ? new Date(options.dateFrom).toISOString().split('T')[0] : ''}
                   onChange={(e) => handleDateChange('dateFrom', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
                 />
                 <span className="text-gray-500">to</span>
                 <input
                   type="date"
                   value={options.dateTo ? new Date(options.dateTo).toISOString().split('T')[0] : ''}
                   onChange={(e) => handleDateChange('dateTo', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
                 />
               </div>
             </div>
@@ -264,7 +264,7 @@ export function EnhancedSearchBar({
                   placeholder="Min"
                   value={options.amountMin || ''}
                   onChange={(e) => handleAmountChange('amountMin', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
                 />
                 <span className="text-gray-500">to</span>
                 <input
@@ -273,7 +273,7 @@ export function EnhancedSearchBar({
                   placeholder="Max"
                   value={options.amountMax || ''}
                   onChange={(e) => handleAmountChange('amountMax', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
                 />
               </div>
             </div>
@@ -319,7 +319,7 @@ export function EnhancedSearchBar({
                     cleared: value === 'all' ? undefined : value === 'cleared'
                   });
                 }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
               >
                 <option value="all">All</option>
                 <option value="cleared">Cleared</option>
@@ -338,7 +338,7 @@ export function EnhancedSearchBar({
                   const value = e.target.value as SortOption;
                   onOptionsChange({ sortBy: value });
                 }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
               >
                 {SORT_OPTIONS.map(option => (
                   <option key={option} value={option}>
@@ -359,7 +359,7 @@ export function EnhancedSearchBar({
                   const value = e.target.value as SortOrderOption;
                   onOptionsChange({ sortOrder: value });
                 }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm"
               >
                 {SORT_ORDER_OPTIONS.map(option => (
                   <option key={option} value={option}>
@@ -390,7 +390,7 @@ export function EnhancedSearchBar({
                       dateTo: parsed.dateTo
                     });
                   }}
-                  className="px-3 py-1 text-sm bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="px-3 py-1 text-sm bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {preset.label}
                 </button>

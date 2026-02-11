@@ -129,7 +129,7 @@ export default function CustomReports(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -150,7 +150,7 @@ export default function CustomReports(): React.JSX.Element {
       </div>
 
       {/* Report Templates */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-sm p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Quick Start Templates
         </h2>
@@ -256,7 +256,7 @@ export default function CustomReports(): React.JSX.Element {
       </div>
 
       {/* Saved Reports */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-sm p-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Your Reports
         </h2>
@@ -338,7 +338,7 @@ export default function CustomReports(): React.JSX.Element {
       </div>
 
       {/* Scheduled Reports Section */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-sm p-6">
         <ScheduledCustomReports />
       </div>
     </div>

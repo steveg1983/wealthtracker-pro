@@ -1,3 +1,5 @@
+import { isDemoModeRuntimeAllowed } from './runtimeMode';
+
 /**
  * Utility functions for navigation and URL management
  */
@@ -9,6 +11,9 @@
  * @returns The path with demo parameter preserved if present
  */
 export function preserveDemoParam(path: string, currentSearch: string = ''): string {
+  if (!isDemoModeRuntimeAllowed(import.meta.env)) {
+    return path;
+  }
   const searchParams = new URLSearchParams(currentSearch);
   const isDemoMode = searchParams.get('demo') === 'true';
   

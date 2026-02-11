@@ -264,6 +264,19 @@ export const useRateLimiter = (limiterName: keyof typeof rateLimiters) => {
 };
 
 /**
+ * Type guard to check if context is ExpressLikeRequest
+ */
+const isExpressLikeRequest = (context: unknown): context is ExpressLikeRequest => {
+  return (
+    typeof context === 'object' &&
+    context !== null &&
+    'ip' in context &&
+    (typeof (context as Record<string, unknown>).ip === 'string' ||
+     (context as Record<string, unknown>).ip === undefined)
+  );
+};
+
+/**
  * Middleware for Express/Node.js
  */
 export const createRateLimitMiddleware = (
@@ -279,8 +292,18 @@ export const createRateLimitMiddleware = (
   const limiter = rateLimiter.createLimiter(limiterName, {
     ...config,
     keyGenerator: options?.keyGenerator
-      ? (context) => options.keyGenerator!(context as unknown as ExpressLikeRequest)
-      : ((context) => (context as ExpressLikeRequest | undefined)?.ip || 'unknown')
+      ? (context) => {
+          if (isExpressLikeRequest(context)) {
+            return options.keyGenerator!(context);
+          }
+          return 'unknown';
+        }
+      : (context) => {
+          if (isExpressLikeRequest(context)) {
+            return context.ip || 'unknown';
+          }
+          return 'unknown';
+        }
   });
 
   return (req: ExpressLikeRequest, res: ExpressLikeResponse, next: NextFunction) => {

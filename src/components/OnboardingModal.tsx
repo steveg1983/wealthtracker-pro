@@ -50,7 +50,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
       {/* Modal centered in viewport using fixed positioning */}
       <div 
         ref={modalRef}
-        className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 shadow-2xl"
+        className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 shadow-2xl"
         style={{
           position: 'fixed',
           top: '50%',

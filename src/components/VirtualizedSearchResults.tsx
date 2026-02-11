@@ -422,7 +422,7 @@ export function VirtualizedQuickSearch({
   };
 
   return (
-    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div style={{ maxHeight }}>
         {topResults.map((result, idx) => (
           <div key={result.id}>

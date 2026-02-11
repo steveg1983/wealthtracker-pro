@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Budget } from '../../types';
 import type { SerializedBudget } from '../../types/redux-types';
+import { serializeBudget, serializeBudgets } from '../../types/redux-types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchBudgetsFromSupabase,
@@ -31,26 +32,31 @@ const budgetsSlice = createSlice({
   initialState,
   reducers: {
     setBudgets: (state, action: PayloadAction<Budget[]>) => {
-      state.budgets = action.payload as unknown as SerializedBudget[];
+      state.budgets = serializeBudgets(action.payload);
       state.error = null;
     },
     addBudget: (state, action: PayloadAction<Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      const newBudget = {
+      const now = getCurrentISOString();
+      const newBudget: Budget = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
       };
-      state.budgets.push(newBudget as unknown as SerializedBudget);
+      state.budgets.push(serializeBudget(newBudget));
     },
     updateBudget: (state, action: PayloadAction<{ id: string; updates: Partial<Budget> }>) => {
       const index = state.budgets.findIndex(b => b.id === action.payload.id);
       if (index !== -1) {
+        // Extract date fields to handle separately
+        const { createdAt, updatedAt: _, ...nonDateUpdates } = action.payload.updates;
+
         state.budgets[index] = {
           ...state.budgets[index],
-          ...action.payload.updates,
+          ...nonDateUpdates,
           updatedAt: getCurrentISOString(),
-        } as unknown as SerializedBudget;
+          ...(createdAt !== undefined && { createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt }),
+        };
       }
     },
     deleteBudget: (state, action: PayloadAction<string>) => {
@@ -73,7 +79,7 @@ const budgetsSlice = createSlice({
       })
       .addCase(fetchBudgetsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.budgets = action.payload as unknown as SerializedBudget[];
+        state.budgets = serializeBudgets(action.payload);
       })
       .addCase(fetchBudgetsFromSupabase.rejected, (state, action) => {
         state.loading = false;
@@ -86,12 +92,13 @@ const budgetsSlice = createSlice({
       })
       .addCase(createBudgetInSupabase.fulfilled, (state, action) => {
         state.loading = false;
+        const serializedPayload = serializeBudget(action.payload);
         // Remove any temporary budget with the same category
-        state.budgets = state.budgets.filter(budget => 
-          !(budget.id.startsWith('temp-') && budget.categoryId === action.payload.category)
+        state.budgets = state.budgets.filter(budget =>
+          !(budget.id.startsWith('temp-') && budget.categoryId === serializedPayload.categoryId)
         );
         // Add the new budget from Supabase
-        state.budgets.push(action.payload);
+        state.budgets.push(serializedPayload);
       })
       .addCase(createBudgetInSupabase.rejected, (state, action) => {
         state.loading = false;

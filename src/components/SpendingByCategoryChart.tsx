@@ -43,7 +43,7 @@ const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
   }, [data, formatCurrency]);
 
   return (
-    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
+    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
       <h2 className="text-xl font-semibold mb-4 dark:text-white">Spending by Category</h2>
       {data.length === 0 ? (
         <p className="text-gray-500 dark:text-gray-400 text-center py-8">

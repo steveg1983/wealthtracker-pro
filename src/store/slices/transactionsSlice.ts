@@ -1,7 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { SerializedTransaction } from '../../types/redux-types';
+import { serializeTransaction, serializeTransactions } from '../../types/redux-types';
 import type { Transaction } from '../../types';
-import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
+import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchTransactionsFromSupabase,
   createTransactionInSupabase,
@@ -35,25 +36,34 @@ const transactionsSlice = createSlice({
   initialState,
   reducers: {
     setTransactions: (state, action: PayloadAction<Transaction[]>) => {
-      state.transactions = action.payload as unknown as SerializedTransaction[];
+      state.transactions = serializeTransactions(action.payload);
       state.error = null;
     },
     addTransaction: (state, action: PayloadAction<Omit<Transaction, 'id'>>) => {
-      const isoDate = toISOString(action.payload.date) ?? getCurrentISOString();
-      const newTransaction = {
+      const now = getCurrentISOString();
+      const newTransaction: Transaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        date: isoDate,
+        date: action.payload.date instanceof Date ? action.payload.date : new Date(action.payload.date),
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
       };
-      state.transactions.push(newTransaction as unknown as SerializedTransaction);
+      state.transactions.push(serializeTransaction(newTransaction));
     },
     updateTransaction: (state, action: PayloadAction<{ id: string; updates: Partial<Transaction> }>) => {
       const index = state.transactions.findIndex(t => t.id === action.payload.id);
       if (index !== -1) {
+        // Extract date fields to handle separately
+        const { date, reconciledDate, createdAt, updatedAt: _, ...nonDateUpdates } = action.payload.updates;
+
         state.transactions[index] = {
           ...state.transactions[index],
-          ...action.payload.updates,
-        } as unknown as SerializedTransaction;
+          ...nonDateUpdates,
+          updatedAt: getCurrentISOString(),
+          ...(date !== undefined && { date: date instanceof Date ? date.toISOString() : date }),
+          ...(reconciledDate !== undefined && { reconciledDate: reconciledDate instanceof Date ? reconciledDate.toISOString() : reconciledDate }),
+          ...(createdAt !== undefined && { createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt }),
+        };
       }
     },
     deleteTransaction: (state, action: PayloadAction<string>) => {
@@ -65,9 +75,19 @@ const transactionsSlice = createSlice({
     },
     bulkUpdateTransactions: (state, action: PayloadAction<{ ids: string[]; updates: Partial<Transaction> }>) => {
       const idsToUpdate = new Set(action.payload.ids);
+      const { date, reconciledDate, createdAt, updatedAt: _, ...nonDateUpdates } = action.payload.updates;
+      const now = getCurrentISOString();
+
       state.transactions = state.transactions.map(t =>
         idsToUpdate.has(t.id)
-          ? { ...t, ...action.payload.updates, updatedAt: getCurrentISOString() } as unknown as SerializedTransaction
+          ? {
+              ...t,
+              ...nonDateUpdates,
+              updatedAt: now,
+              ...(date !== undefined && { date: date instanceof Date ? date.toISOString() : date }),
+              ...(reconciledDate !== undefined && { reconciledDate: reconciledDate instanceof Date ? reconciledDate.toISOString() : reconciledDate }),
+              ...(createdAt !== undefined && { createdAt: createdAt instanceof Date ? createdAt.toISOString() : createdAt }),
+            }
           : t
       );
     },
@@ -81,7 +101,8 @@ const transactionsSlice = createSlice({
       })
       .addCase(fetchTransactionsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.transactions = action.payload as unknown as SerializedTransaction[];
+        // Data from Supabase has dates as ISO strings, use serializer to ensure proper typing
+        state.transactions = serializeTransactions(action.payload);
       })
       .addCase(fetchTransactionsFromSupabase.rejected, (state, action) => {
         state.loading = false;
@@ -94,15 +115,16 @@ const transactionsSlice = createSlice({
       })
       .addCase(createTransactionInSupabase.fulfilled, (state, action) => {
         state.loading = false;
+        const serializedPayload = serializeTransaction(action.payload);
         // Remove any temporary transaction with the same data
-        state.transactions = state.transactions.filter(txn => 
-          !(txn.id.startsWith('temp-') && 
-            txn.description === action.payload.description &&
-            txn.amount === action.payload.amount &&
-            txn.accountId === action.payload.accountId)
+        state.transactions = state.transactions.filter(txn =>
+          !(txn.id.startsWith('temp-') &&
+            txn.description === serializedPayload.description &&
+            txn.amount === serializedPayload.amount &&
+            txn.accountId === serializedPayload.accountId)
         );
         // Add the new transaction from Supabase
-        state.transactions.push(action.payload);
+        state.transactions.push(serializedPayload);
       })
       .addCase(createTransactionInSupabase.rejected, (state, action) => {
         state.loading = false;
@@ -115,9 +137,10 @@ const transactionsSlice = createSlice({
       })
       .addCase(updateTransactionInSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.transactions.findIndex(txn => txn.id === action.payload.id);
+        const serializedPayload = serializeTransaction(action.payload);
+        const index = state.transactions.findIndex(txn => txn.id === serializedPayload.id);
         if (index !== -1) {
-          state.transactions[index] = action.payload;
+          state.transactions[index] = serializedPayload;
         }
       })
       .addCase(updateTransactionInSupabase.rejected, (state, action) => {

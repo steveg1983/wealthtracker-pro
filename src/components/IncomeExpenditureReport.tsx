@@ -309,7 +309,7 @@ export default function IncomeExpenditureReport({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left py-3 px-2 font-medium text-gray-900 dark:text-white sticky left-0 bg-[#d4dce8] dark:bg-gray-800 min-w-[120px]">
+              <th className="text-left py-3 px-2 font-medium text-gray-900 dark:text-white sticky left-0 bg-card-bg-light dark:bg-card-bg-dark min-w-[120px]">
                 Category
               </th>
               {data.months.map(month => (
@@ -317,7 +317,7 @@ export default function IncomeExpenditureReport({
                   {month.label}
                 </th>
               ))}
-              <th className="text-right py-3 px-2 font-medium text-gray-900 dark:text-white sticky right-0 bg-[#d4dce8] dark:bg-gray-800 min-w-[100px]">
+              <th className="text-right py-3 px-2 font-medium text-gray-900 dark:text-white sticky right-0 bg-card-bg-light dark:bg-card-bg-dark min-w-[100px]">
                 Total
               </th>
             </tr>
@@ -347,7 +347,7 @@ export default function IncomeExpenditureReport({
                     ? 'bg-gray-100 dark:bg-gray-700/70 text-gray-800 dark:text-gray-200 font-semibold text-sm uppercase tracking-wider' 
                     : categoryData.category.isHeader && categoryData.isIndented
                     ? 'bg-gray-50 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300 font-medium text-sm'
-                    : 'bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm'
+                    : 'bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white text-sm'
                 } ${
                   categoryData.isIndented ? 'pl-8' : 
                   categoryData.isDoubleIndented ? 'pl-14' : 'pl-3'
@@ -425,7 +425,7 @@ export default function IncomeExpenditureReport({
                     ? 'bg-gray-100 dark:bg-gray-700/70' 
                     : categoryData.category.isHeader && categoryData.isIndented
                     ? 'bg-gray-50 dark:bg-gray-700/30'
-                    : 'bg-[#d4dce8] dark:bg-gray-800'
+                    : 'bg-card-bg-light dark:bg-card-bg-dark'
                 }`}>
                   {categoryData.category.isHeader && !categoryData.showSubtotal ? (
                     <div className="text-xs text-gray-400"></div>
@@ -515,7 +515,7 @@ export default function IncomeExpenditureReport({
       {/* Category Selection Modal */}
       {settings.showCategoryModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Select Categories for Report

@@ -88,7 +88,7 @@ export default function SmartCategorizationSettings() {
             
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-3">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <BarChart3Icon size={16} className="text-indigo-600 dark:text-indigo-400" />
                   <span className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -98,7 +98,7 @@ export default function SmartCategorizationSettings() {
                 <p className="text-xs text-gray-600 dark:text-gray-400">Patterns Learned</p>
               </div>
               
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-3">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-2xl font-bold text-gray-900 dark:text-white">
                     {stats.merchantsKnown}
@@ -107,7 +107,7 @@ export default function SmartCategorizationSettings() {
                 <p className="text-xs text-gray-600 dark:text-gray-400">Known Merchants</p>
               </div>
               
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-3">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-2xl font-bold text-gray-900 dark:text-white">
                     {stats.keywordsIdentified}
@@ -130,7 +130,7 @@ export default function SmartCategorizationSettings() {
       </div>
 
       {/* Auto-Categorization */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
         <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">
           Auto-Categorization
         </h4>

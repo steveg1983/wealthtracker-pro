@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { bankConnectionService, type BankConnection, type BankInstitution } from '../services/bankConnectionService';
 import { Modal } from './common/Modal';
+import BankingOpsAlertStatsCard from './BankingOpsAlertStatsCard';
+import type { BankingAuditDateRangePreset, BankingAuditScope } from '../utils/bankingOpsUrlState';
 import {
   Building2Icon,
   RefreshCwIcon,
@@ -18,9 +20,25 @@ import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface BankConnectionsProps {
   onAccountsLinked?: () => void;
+  defaultOpsOnlyAboveThreshold?: boolean;
+  defaultOpsEventType?: string;
+  defaultOpsEventTypePrefix?: string;
+  defaultOpenOpsAuditLog?: boolean;
+  defaultOpsAuditStatus?: 'pending' | 'completed' | 'failed';
+  defaultOpsAuditScope?: BankingAuditScope;
+  defaultOpsAuditDateRangePreset?: BankingAuditDateRangePreset;
 }
 
-export default function BankConnections({ onAccountsLinked }: BankConnectionsProps) {
+export default function BankConnections({
+  onAccountsLinked,
+  defaultOpsOnlyAboveThreshold = false,
+  defaultOpsEventType,
+  defaultOpsEventTypePrefix,
+  defaultOpenOpsAuditLog = false,
+  defaultOpsAuditStatus,
+  defaultOpsAuditScope,
+  defaultOpsAuditDateRangePreset
+}: BankConnectionsProps) {
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [institutions, setInstitutions] = useState<BankInstitution[]>([]);
   const [showAddBank, setShowAddBank] = useState(false);
@@ -40,6 +58,56 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
     void loadInstitutions();
     void checkConfig();
   }, []);
+
+  const startOAuthFlow = (authUrl: string) => {
+    const authWindow = window.open(
+      authUrl,
+      'bankAuth',
+      'width=500,height=700,left=200,top=100'
+    );
+
+    if (!authWindow) {
+      window.location.assign(authUrl);
+      return;
+    }
+
+    let settled = false;
+    const cleanup = () => {
+      window.removeEventListener('message', onMessage);
+      window.clearInterval(closeCheckInterval);
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+      const payload = event.data as { type?: string; status?: 'success' | 'error'; error?: string } | null;
+      if (!payload || payload.type !== 'wealthtracker:bank-oauth-complete') {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      void loadConnections();
+      if (payload.status === 'success') {
+        setShowAddBank(false);
+        onAccountsLinked?.();
+      } else if (payload.error) {
+        logger.error('OAuth callback returned error', new Error(payload.error));
+      }
+    };
+
+    const closeCheckInterval = window.setInterval(() => {
+      if (authWindow.closed) {
+        cleanup();
+        if (!settled) {
+          void loadConnections();
+        }
+      }
+    }, 1000);
+
+    window.addEventListener('message', onMessage);
+  };
 
   const loadConnections = async () => {
     await bankConnectionService.refreshConnections();
@@ -65,27 +133,27 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
       );
 
       if (result.url) {
-        // Open OAuth flow in new window
-        const authWindow = window.open(
-          result.url,
-          'bankAuth',
-          'width=500,height=700,left=200,top=100'
-        );
-
-        // Listen for OAuth callback
-        const checkAuth = setInterval(() => {
-          if (authWindow?.closed) {
-            clearInterval(checkAuth);
-            void loadConnections();
-            setShowAddBank(false);
-          }
-        }, 1000);
+        startOAuthFlow(result.url);
       } else if (result.linkToken) {
         // Handle Plaid Link flow
         alert('Plaid Link integration would open here with token: ' + result.linkToken);
       }
     } catch (error) {
       logger.error('Failed to connect bank', error as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReauthorize = async (connectionId: string) => {
+    setIsLoading(true);
+    try {
+      const result = await bankConnectionService.reauthorizeConnection(connectionId);
+      if (result.url) {
+        startOAuthFlow(result.url);
+      }
+    } catch (error) {
+      logger.error('Failed to reauthorize bank connection', error as Error);
     } finally {
       setIsLoading(false);
     }
@@ -163,6 +231,16 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         </div>
       )}
 
+      <BankingOpsAlertStatsCard
+        initialOnlyAboveThreshold={defaultOpsOnlyAboveThreshold}
+        initialEventType={defaultOpsEventType}
+        initialEventTypePrefix={defaultOpsEventTypePrefix}
+        initialShowAuditPanel={defaultOpenOpsAuditLog}
+        initialAuditStatus={defaultOpsAuditStatus}
+        initialAuditScope={defaultOpsAuditScope}
+        initialAuditDateRangePreset={defaultOpsAuditDateRangePreset}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -204,7 +282,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
           {connections.map(connection => (
             <div
               key={connection.id}
-              className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+              className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl p-4 border border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -237,7 +315,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleSync(connection.id)}
-                    disabled={syncingConnections.has(connection.id)}
+                    disabled={syncingConnections.has(connection.id) || connection.status === 'reauth_required'}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
                     title="Sync now"
                   >
@@ -246,6 +324,16 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
                       className={syncingConnections.has(connection.id) ? 'animate-spin' : ''}
                     />
                   </button>
+                  {connection.status === 'reauth_required' && (
+                    <button
+                      onClick={() => handleReauthorize(connection.id)}
+                      disabled={isLoading}
+                      className="px-3 py-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 rounded-md hover:bg-yellow-200 dark:hover:bg-yellow-900/50 disabled:opacity-50"
+                      title="Reauthorize bank connection"
+                    >
+                      Reauthorize
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDisconnect(connection.id)}
                     className="p-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
@@ -317,7 +405,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
                 disabled={isLoading}
                 className="w-full p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors text-left flex items-center gap-4"
               >
-                <div className="w-12 h-12 bg-[#d4dce8] dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-card-bg-light dark:bg-card-bg-dark rounded-lg flex items-center justify-center">
                   <Building2Icon size={24} className="text-gray-600 dark:text-gray-400" />
                 </div>
                 <div className="flex-1">

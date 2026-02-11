@@ -253,7 +253,7 @@ export function HapticCard({
   };
 
   const classes = [
-    'bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700',
+    'bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700',
     'transition-all duration-200',
     onClick && !disabled ? 'cursor-pointer hover:shadow-md active:scale-[0.98]' : '',
     disabled ? 'opacity-50' : '',

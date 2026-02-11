@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RecurringTransactionModal from '../RecurringTransactionModal';
 
@@ -239,22 +239,16 @@ describe('RecurringTransactionModal', () => {
       
       // Click the add button to show the form
       await userEvent.click(screen.getByRole('button', { name: /Add Recurring Transaction/i }));
-      
-      const descriptionLabel = screen.getByText('Description');
-      const descriptionContainer = descriptionLabel.parentElement;
-      expect(descriptionContainer).not.toBeNull();
 
-      if (descriptionContainer) {
-        const descriptionInput = descriptionContainer.querySelector('input');
-        expect(descriptionInput).not.toBeNull();
+      const textInputs = screen.getAllByRole('textbox');
+      expect(textInputs.length).toBeGreaterThan(0);
+      const descriptionInput = textInputs[0];
+      expect(descriptionInput).toBeInstanceOf(HTMLInputElement);
 
-        if (descriptionInput instanceof HTMLInputElement) {
-          await userEvent.type(descriptionInput, 'Test Description');
-          await waitFor(() => {
-            const refreshedInput = descriptionContainer.querySelector('input') as HTMLInputElement | null;
-            expect(refreshedInput?.value.length ?? 0).toBeGreaterThan(0);
-          });
-        }
+      if (descriptionInput instanceof HTMLInputElement) {
+        fireEvent.change(descriptionInput, { target: { value: 'Test Description' } });
+        expect(descriptionInput.value.length).toBeGreaterThan(0);
+        expect(descriptionInput.value).toContain('Test');
       }
     });
 

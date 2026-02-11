@@ -192,7 +192,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
   };
 
   return (
-    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Query Builder</h2>
         <div className="flex gap-2">
@@ -259,7 +259,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
           <select
             value={dateRange?.field || ''}
             onChange={(e) => setDateRange(e.target.value ? { ...dateRange!, field: e.target.value } : undefined)}
-            className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+            className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
           >
             <option value="">No date filter</option>
             {fields.filter(f => f.type === 'date').map(field => (
@@ -272,13 +272,13 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
               />
               <input
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
               />
             </>
           )}
@@ -306,7 +306,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
               <select
                 value={condition.field}
                 onChange={(e) => updateCondition(index, { field: e.target.value })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
                 {fields.map(field => (
                   <option key={field.value} value={field.value}>{field.label}</option>
@@ -315,7 +315,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
               <select
                 value={condition.operator}
                 onChange={(e) => updateCondition(index, { operator: e.target.value as QueryCondition['operator'] })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
                 {getValidOperators(condition.field).map(op => (
                   <option key={op.value} value={op.value}>{op.label}</option>
@@ -325,7 +325,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
                 type={getFieldType(condition.field) === 'number' ? 'number' : 'text'}
                 value={(condition.value as string | number) || ''}
                 onChange={(e) => updateCondition(index, { value: e.target.value })}
-                className="flex-1 px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="flex-1 px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
                 placeholder="Value"
               />
               {condition.operator === 'between' && (
@@ -333,7 +333,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
                   type={getFieldType(condition.field) === 'number' ? 'number' : 'text'}
                   value={(condition.value2 as string | number) || ''}
                   onChange={(e) => updateCondition(index, { value2: e.target.value })}
-                  className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                  className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
                   placeholder="To"
                 />
               )}
@@ -369,7 +369,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
               <select
                 value={agg.function}
                 onChange={(e) => updateAggregation(index, { function: e.target.value as QueryAggregation['function'] })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
                 {AGGREGATION_OPTIONS.map(op => (
                   <option key={op.value} value={op.value}>{op.label}</option>
@@ -378,7 +378,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
               <select
                 value={agg.field}
                 onChange={(e) => updateAggregation(index, { field: e.target.value })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
                 {fields.map(field => (
                   <option key={field.value} value={field.value}>{field.label}</option>
@@ -388,7 +388,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
                 type="text"
                 value={agg.alias || ''}
                 onChange={(e) => updateAggregation(index, { alias: e.target.value })}
-                className="flex-1 px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="flex-1 px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
                 placeholder="Alias (optional)"
               />
               <button
@@ -451,7 +451,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
               <select
                 value={sort.field}
                 onChange={(e) => updateSort(index, { field: e.target.value })}
-                className="flex-1 px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="flex-1 px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
                 {fields.map(field => (
                   <option key={field.value} value={field.value}>{field.label}</option>
@@ -460,7 +460,7 @@ export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBu
               <select
                 value={sort.direction}
                 onChange={(e) => updateSort(index, { direction: e.target.value as 'asc' | 'desc' })}
-                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                className="px-3 py-2 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded text-sm"
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>

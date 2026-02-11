@@ -693,7 +693,7 @@ const Transactions = React.memo(function Transactions() {
       ) : (
         <>
           {/* Mobile Swipeable List View with Infinite Scroll */}
-          <div className="lg:hidden bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-4">
+          <div className="lg:hidden bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm overflow-hidden mb-4">
             {isLoading ? (
               <SkeletonList items={5} className="p-4" />
             ) : (
@@ -756,7 +756,7 @@ const Transactions = React.memo(function Transactions() {
                     {columnOrder.map(renderHeaderCell)}
                   </tr>
                 </thead>
-                <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
                   {paginatedTransactions.map((transaction) => {
                     const account = accounts.find(a => a.id === transaction.accountId);
                     const categoryPath = getCategoryPath(transaction.category);

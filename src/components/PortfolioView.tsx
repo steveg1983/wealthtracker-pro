@@ -87,17 +87,17 @@ export default function PortfolioView({
       
       {/* Portfolio Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Holdings</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{holdings.length}</p>
         </div>
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(totalValue, currency)}
           </p>
         </div>
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Largest Position</p>
           <p className="text-lg font-semibold text-gray-900 dark:text-white">
             {sortedHoldings[0]?.name || 'N/A'}
@@ -109,7 +109,7 @@ export default function PortfolioView({
       </div>
       
       {/* Holdings Table */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Holdings</h2>
         </div>
@@ -188,7 +188,7 @@ export default function PortfolioView({
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
               {sortedHoldings.map((holding, index) => (
                 <tr key={`${holding.ticker}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">

@@ -54,7 +54,7 @@ export default function SafariWarning(): React.JSX.Element | null {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
           <div className="flex items-center justify-between text-white">

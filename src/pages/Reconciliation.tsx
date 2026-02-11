@@ -9,6 +9,7 @@ import CategorySelect from '../components/CategorySelect';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
 import type { Transaction } from '../types';
+import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
 // Bank transactions are now imported from shared utility
 
@@ -17,6 +18,9 @@ export default function Reconciliation() {
   const { formatCurrency } = useCurrencyDecimal();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  const isDemoModeRoutingEnabled =
+    isDemoModeRuntimeAllowed(import.meta.env) &&
+    new URLSearchParams(location.search).get('demo') === 'true';
   const [selectedAccount, setSelectedAccount] = useState<string | null>(
     searchParams.get('account') || null
   );
@@ -332,17 +336,15 @@ export default function Reconciliation() {
 
   const handleBackToAccounts = () => {
     setSelectedAccount(null);
-    // Preserve demo mode when clearing search params
-    const isDemoMode = new URLSearchParams(location.search).get('demo') === 'true';
-    setSearchParams(isDemoMode ? { demo: 'true' } : {});
+    // Preserve demo mode when clearing search params in non-production runtime
+    setSearchParams(isDemoModeRoutingEnabled ? { demo: 'true' } : {});
   };
 
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccount(accountId);
-    // Preserve demo mode when setting account
-    const isDemoMode = new URLSearchParams(location.search).get('demo') === 'true';
+    // Preserve demo mode when setting account in non-production runtime
     const params: Record<string, string> = { account: accountId };
-    if (isDemoMode) params.demo = 'true';
+    if (isDemoModeRoutingEnabled) params.demo = 'true';
     setSearchParams(params);
   };
 
@@ -370,7 +372,7 @@ export default function Reconciliation() {
         </div>
 
         {accountSummaries.length === 0 ? (
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-12 text-center">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-12 text-center">
             <CheckCircleIcon className="mx-auto text-green-500 mb-4" size={48} />
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
               All caught up!
@@ -402,7 +404,7 @@ export default function Reconciliation() {
               {accountSummaries.map(({ account, unreconciledCount, totalToReconcile, lastImportDate }) => (
                 <div
                   key={account.id}
-                  className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow hover:shadow-lg transition-shadow cursor-pointer"
+                  className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => handleSelectAccount(account.id)}
                 >
                   <div className="p-6">
@@ -481,7 +483,7 @@ export default function Reconciliation() {
       </div>
 
       {unclearedTransactions.length === 0 ? (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-12 text-center">
           <CheckCircleIcon className="mx-auto text-green-500 mb-4" size={48} />
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
             Account reconciled!
@@ -499,7 +501,7 @@ export default function Reconciliation() {
       ) : (
         <div>
           {/* Quick Filters Bar */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-4 mb-4">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-4 mb-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Filters</h3>
               <button
@@ -601,7 +603,7 @@ export default function Reconciliation() {
           </div>
 
           {/* Action Bar */}
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-4 mb-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-4 mb-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-4">
                 <button
@@ -655,7 +657,7 @@ export default function Reconciliation() {
               return (
                 <div
                   key={transaction.id}
-                  className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 hover:shadow-lg transition-shadow"
+                  className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
@@ -808,7 +810,7 @@ export default function Reconciliation() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-6 bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow px-6 py-4">
+            <div className="mt-6 bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow px-6 py-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Showing {startIndex + 1} to {Math.min(endIndex, unclearedTransactions.length)} of {unclearedTransactions.length} transactions
@@ -851,7 +853,7 @@ export default function Reconciliation() {
       {/* Split Transaction Modal */}
       {showSplitModal && splittingTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Split Transaction</h2>

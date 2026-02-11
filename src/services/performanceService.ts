@@ -30,9 +30,8 @@ interface DocumentRef extends Partial<Document> {
   scripts?: HTMLCollectionOf<HTMLScriptElement>;
 }
 
-interface NavigatorRef extends Partial<Navigator> {
-  connection?: unknown;
-}
+// NavigatorRef type alias - inherits connection from global Navigator declaration
+type NavigatorRef = Partial<Navigator>;
 
 export interface PerformanceServiceOptions {
   windowRef?: WindowRef | null;
@@ -79,7 +78,10 @@ export class PerformanceService {
         ? requestAnimationFrame
         : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16)) as typeof requestAnimationFrame);
     this.consoleRef = options.consoleRef ?? console;
-    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as unknown as typeof fetch);
+
+    // Create properly typed mock fetch for non-browser environments
+    const mockFetch: typeof fetch = async () => new Response();
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : mockFetch);
   }
 
   init(callback?: (report: PerformanceReport) => void): void {

@@ -252,7 +252,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Dividends</p>
@@ -262,7 +262,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
             </div>
           </div>
           
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Tax Withheld</p>
@@ -272,7 +272,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
             </div>
           </div>
           
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Projected Annual</p>
@@ -282,7 +282,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
             </div>
           </div>
           
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Unique Stocks</p>
@@ -296,7 +296,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
 
       {/* Upcoming Dividends */}
       {projections.length > 0 && (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <CalendarIcon size={20} />
             Projected Upcoming Dividends
@@ -331,7 +331,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
       )}
 
       {/* Dividend History */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Dividend History</h3>
         
         {dividends.length === 0 ? (

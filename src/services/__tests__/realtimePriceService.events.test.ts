@@ -87,7 +87,6 @@ describe('RealTimePriceService - events', () => {
     expect(eventListener).toHaveBeenCalledWith({
       symbol: 'AAPL',
       quote: expect.objectContaining({
-        symbol: 'AAPL',
         price: '150.5'
       }),
       timestamp: expect.any(String)

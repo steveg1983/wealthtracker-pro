@@ -4,6 +4,8 @@ import { Provider } from 'react-redux'
 import { ClerkProvider } from '@clerk/clerk-react'
 import { ClerkErrorBoundary } from './components/auth/ClerkErrorBoundary'
 import { store } from './store'
+import './styles/borders.css'
+import './styles/accessibility-colors.css'
 import './index.css'
 import App from './App.tsx'
 import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
@@ -12,8 +14,19 @@ import { pushNotificationService } from './services/pushNotificationService'
 import { checkEnvironmentVariables } from './utils/env-check'
 import { initSentry } from './lib/sentry'
 import { createScopedLogger } from './loggers/scopedLogger'
+import { sanitizeRuntimeControlSearch, sanitizeRuntimeControlStorage } from './utils/runtimeMode'
 
 const bootstrapLogger = createScopedLogger('AppBootstrap');
+const disableServiceWorker = import.meta.env.VITE_DISABLE_SERVICE_WORKER === 'true';
+
+if (typeof window !== 'undefined') {
+  const sanitizedSearch = sanitizeRuntimeControlSearch(window.location.search, import.meta.env);
+  if (sanitizedSearch !== window.location.search) {
+    const sanitizedUrl = `${window.location.pathname}${sanitizedSearch}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', sanitizedUrl);
+  }
+  sanitizeRuntimeControlStorage(import.meta.env, window.localStorage);
+}
 
 // Check environment variables in development
 if (import.meta.env.DEV) {
@@ -31,7 +44,7 @@ if (!PUBLISHABLE_KEY) {
 initializeSecurity();
 
 // Clean up old service workers (for migration)
-if ('serviceWorker' in navigator) {
+if (!disableServiceWorker && 'serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
     for (const registration of registrations) {
       // Only unregister if it's not our current service worker
@@ -52,11 +65,29 @@ try {
 
 // Add error logging
 window.addEventListener('error', (event): void => {
+  // Filter benign errors
+  if (event.message?.includes('ResizeObserver')) {
+    event.preventDefault();
+    return;
+  }
+
+  // bootstrapLogger.error() already suppresses console in production via LoggingService
+  // (src/services/loggingService.ts line 151: if (this.outputToConsole))
   bootstrapLogger.error('Global error captured', event.error);
+
+  // Prevent browser's default console logging in production
+  if (!import.meta.env.DEV) {
+    event.preventDefault();
+  }
 });
 
 window.addEventListener('unhandledrejection', (event): void => {
   bootstrapLogger.error('Unhandled promise rejection', event.reason);
+
+  // Prevent browser's default console logging in production
+  if (!import.meta.env.DEV) {
+    event.preventDefault();
+  }
 });
 
 // Remove any pre-existing dark class on app start
@@ -97,41 +128,45 @@ try {
 // Register service worker for offline support
 let _swRegistration: ServiceWorkerRegistration | null = null;
 
-serviceWorkerRegistration.register({
-  onSuccess: async (registration) => {
-    _swRegistration = registration;
-    bootstrapLogger.info('Service Worker registered successfully');
-    
-    // Store registration globally for React components to access
-    window.swRegistration = registration;
-    
-    // Initialize push notifications
-    try {
-      await pushNotificationService.initialize();
-      bootstrapLogger.info('Push notifications initialized');
-    } catch (error) {
-      bootstrapLogger.error('Failed to initialize push notifications', error);
+if (disableServiceWorker) {
+  bootstrapLogger.info('Service worker registration disabled by VITE_DISABLE_SERVICE_WORKER');
+} else {
+  serviceWorkerRegistration.register({
+    onSuccess: async (registration) => {
+      _swRegistration = registration;
+      bootstrapLogger.info('Service Worker registered successfully');
+
+      // Store registration globally for React components to access
+      window.swRegistration = registration;
+
+      // Initialize push notifications
+      try {
+        await pushNotificationService.initialize();
+        bootstrapLogger.info('Push notifications initialized');
+      } catch (error) {
+        bootstrapLogger.error('Failed to initialize push notifications', error);
+      }
+    },
+    onUpdate: (registration) => {
+      _swRegistration = registration;
+      bootstrapLogger.info('New app version available');
+
+      // Store registration globally for React components to access
+      window.swRegistration = registration;
+
+      // The ServiceWorkerUpdateNotification component will handle the UI
+      // Dispatch a custom event that React components can listen to
+      window.dispatchEvent(new CustomEvent('sw-update-available', {
+        detail: { registration }
+      }));
+    },
+    onOffline: () => {
+      // Dispatch offline event for React components
+      window.dispatchEvent(new Event('app-offline'));
+    },
+    onOnline: () => {
+      // Dispatch online event for React components
+      window.dispatchEvent(new Event('app-online'));
     }
-  },
-  onUpdate: (registration) => {
-    _swRegistration = registration;
-    bootstrapLogger.info('New app version available');
-    
-    // Store registration globally for React components to access
-    window.swRegistration = registration;
-    
-    // The ServiceWorkerUpdateNotification component will handle the UI
-    // Dispatch a custom event that React components can listen to
-    window.dispatchEvent(new CustomEvent('sw-update-available', { 
-      detail: { registration } 
-    }));
-  },
-  onOffline: () => {
-    // Dispatch offline event for React components
-    window.dispatchEvent(new Event('app-offline'));
-  },
-  onOnline: () => {
-    // Dispatch online event for React components
-    window.dispatchEvent(new Event('app-online'));
-  }
-});
+  });
+}

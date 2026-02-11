@@ -28,7 +28,7 @@ export default function OpenBanking() {
     <PageWrapper title="Open Banking">
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Connected Banks</p>
@@ -38,7 +38,7 @@ export default function OpenBanking() {
           </div>
         </div>
         
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Synced Accounts</p>
@@ -48,7 +48,7 @@ export default function OpenBanking() {
           </div>
         </div>
         
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Security Status</p>
@@ -63,7 +63,7 @@ export default function OpenBanking() {
       <PlaidLink />
 
       {/* Sync Settings */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mt-6">
         <h3 className="text-lg font-semibold mb-4">Sync Settings</h3>
         
         <div className="space-y-4">
@@ -109,7 +109,7 @@ export default function OpenBanking() {
       </div>
 
       {/* Security Information */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mt-6">
         <div className="flex items-center gap-3 mb-4">
           <ShieldIcon size={24} className="text-green-600" />
           <h3 className="text-lg font-semibold">Bank-Level Security</h3>
@@ -139,7 +139,7 @@ export default function OpenBanking() {
       </div>
 
       {/* Supported Banks */}
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mt-6">
         <h3 className="text-lg font-semibold mb-4">Supported Banks</h3>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Connect to over 12,000 financial institutions across the US, Canada, and Europe.

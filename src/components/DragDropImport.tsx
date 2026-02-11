@@ -473,7 +473,7 @@ export function DragDropImport({
         {/* Visual Drop Indicator */}
         {isDragging && (
           <div className="absolute inset-0 rounded-xl bg-primary/20 flex items-center justify-center pointer-events-none">
-            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-6 shadow-xl">
+            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-6 shadow-xl">
               <DownloadIcon size={32} className="text-primary mx-auto mb-2 animate-bounce" />
               <p className="text-primary font-semibold">Release to import</p>
             </div>
@@ -484,7 +484,7 @@ export function DragDropImport({
       {/* Preview and Mapping Modal */}
       {showMapping && previewData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Preview Import - {previewData.rows.length} Transactions

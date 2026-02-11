@@ -27,16 +27,8 @@ interface ImageElementLike {
   removeAttribute?: (name: string) => void;
 }
 
-interface LinkElementLike {
-  rel: string;
-  href: string;
-}
-
-interface DocumentLike {
-  querySelectorAll(selector: string): ArrayLike<ImageElementLike>;
-  createElement(tagName: string): LinkElementLike;
-  head?: { appendChild(node: LinkElementLike): void };
-}
+// Use Partial<Document> plus minimal interface for testability
+type DocumentLike = Partial<Pick<Document, 'querySelectorAll' | 'createElement' | 'head'>>;
 
 interface IntersectionObserverLike {
   observe(target: ImageElementLike): void;
@@ -95,7 +87,7 @@ export class PerformanceOptimizationService {
         return new window.IntersectionObserver(callback);
       });
 
-    this.documentRef = options.documentRef ?? (typeof document !== 'undefined' ? document as unknown as DocumentLike : null);
+    this.documentRef = options.documentRef ?? (typeof document !== 'undefined' ? document : null);
     this.performanceRef = options.performanceRef ?? (typeof performance !== 'undefined' ? performance : null);
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     this.logger = {
@@ -209,7 +201,7 @@ export class PerformanceOptimizationService {
         }
       });
     });
-    if (!observer) return;
+    if (!observer || !this.documentRef?.querySelectorAll) return;
     Array.from(this.documentRef.querySelectorAll('img[data-src]')).forEach((img) => {
       observer.observe(img);
     });
@@ -217,10 +209,10 @@ export class PerformanceOptimizationService {
 
   private prefetchCriticalResources(): void {
     const docRef = this.documentRef;
-    if (!docRef?.head) return;
+    if (!docRef?.head || !docRef.createElement) return;
     const criticalRoutes = ['/dashboard', '/transactions', '/accounts'];
     criticalRoutes.forEach((route) => {
-      const link = docRef.createElement('link');
+      const link = docRef.createElement!('link');
       link.rel = 'prefetch';
       link.href = route;
       docRef.head!.appendChild(link);

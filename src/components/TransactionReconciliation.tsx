@@ -282,12 +282,12 @@ export default function TransactionReconciliation({
           <>
             {/* Balance Summary */}
             <div className="grid grid-cols-4 gap-4 mb-6">
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Cleared Balance</div>
                 <div className="text-xl font-semibold mt-1">{formatCurrency(clearedBalance)}</div>
               </div>
               
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Statement Balance</div>
                 <div className="text-xl font-semibold mt-1">
                   {statementBalance ? formatCurrency(parseFloat(statementBalance)) : '-'}
@@ -309,7 +309,7 @@ export default function TransactionReconciliation({
                 </div>
               </div>
               
-              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Uncleared</div>
                 <div className="text-xl font-semibold mt-1">{unclearedTransactions.length}</div>
               </div>

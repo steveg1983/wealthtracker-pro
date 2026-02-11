@@ -492,13 +492,13 @@ export function VirtualizedDropdown<T>({
     <div ref={dropdownRef} className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500"
+        className="w-full px-4 py-2 text-left bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500"
       >
         {value ? renderOption(value) : <span className="text-gray-500">{placeholder}</span>}
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-card-bg-light dark:bg-card-bg-dark border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
           {searchable && (
             <input
               type="text"

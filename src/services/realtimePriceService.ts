@@ -190,11 +190,10 @@ export class RealTimePriceService {
           timestamp: new Date()
         };
         
-        // Emit event
+        // Emit event with fully serialized data (all strings, no Date objects)
         this.emit('priceUpdate', {
           symbol: update.symbol,
           quote: {
-            ...update.quote,
             price: update.quote.price.toString(),
             change: update.quote.change.toString(),
             changePercent: update.quote.changePercent.toString(),
@@ -203,10 +202,11 @@ export class RealTimePriceService {
             dayHigh: update.quote.dayHigh?.toString(),
             dayLow: update.quote.dayLow?.toString(),
             fiftyTwoWeekHigh: update.quote.fiftyTwoWeekHigh?.toString(),
-            fiftyTwoWeekLow: update.quote.fiftyTwoWeekLow?.toString()
+            fiftyTwoWeekLow: update.quote.fiftyTwoWeekLow?.toString(),
+            lastUpdated: update.quote.lastUpdated.toISOString()
           },
           timestamp: update.timestamp.toISOString()
-        } as unknown as JsonValue);
+        } as JsonValue);
         
         // Call all callbacks
         const callbacks = this.subscriptions.get(symbol);

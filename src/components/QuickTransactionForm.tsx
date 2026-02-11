@@ -167,7 +167,7 @@ export function QuickTransactionForm({
       
       {/* Quick Form */}
       <div 
-        className="relative bg-[#d4dce8] dark:bg-gray-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl transform transition-transform duration-300"
+        className="relative bg-card-bg-light dark:bg-card-bg-dark w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl transform transition-transform duration-300"
         onKeyDown={handleKeyDown}
       >
         {/* Header */}

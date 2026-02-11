@@ -108,7 +108,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
 
   const getActivityColor = (activity: ActivityItem): string => {
     if (!activity.read) return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
-    return 'bg-[#d4dce8] dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+    return 'bg-card-bg-light dark:bg-card-bg-dark border-gray-200 dark:border-gray-700';
   };
 
   const handleActivityClick = (activity: ActivityItem) => {
@@ -166,7 +166,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
           />
 
           {/* Panel */}
-          <div className="absolute right-0 top-12 z-50 w-96 max-h-[600px] bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="absolute right-0 top-12 z-50 w-96 max-h-[600px] bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">

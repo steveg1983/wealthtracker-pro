@@ -42,7 +42,7 @@ export default function AIFeatures() {
     >
       <div className="space-y-6">
         {/* Tab Navigation */}
-        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-1 flex">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-1 flex">
           <button
             onClick={() => setActiveTab('categorization')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${

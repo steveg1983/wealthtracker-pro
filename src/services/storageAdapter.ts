@@ -149,8 +149,11 @@ export class SecureStorageAdapter implements StorageAdapter {
         if (localData) {
           try {
             return JSON.parse(localData) as T;
-          } catch {
-            return localData as unknown as T;
+          } catch (error) {
+            // Data is corrupted - clean it up instead of returning unparseable data
+            this.logger.warn(`Removing corrupted data from localStorage key: ${key}`, error);
+            this.localStorageRef?.removeItem?.(key);
+            return null;
           }
         }
       }
@@ -163,8 +166,11 @@ export class SecureStorageAdapter implements StorageAdapter {
       if (localData) {
         try {
           return JSON.parse(localData) as T;
-        } catch {
-          return localData as unknown as T;
+        } catch (parseError) {
+          // Data is corrupted - clean it up instead of returning unparseable data
+          this.logger.warn(`Removing corrupted data from localStorage key: ${key}`, parseError);
+          this.localStorageRef?.removeItem?.(key);
+          return null;
         }
       }
       return null;

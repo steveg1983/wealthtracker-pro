@@ -114,7 +114,7 @@ export default function TreemapChart({ transactions }: TreemapChartProps): React
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-[#d4dce8] dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className="bg-card-bg-light dark:bg-card-bg-dark p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
           <p className="font-semibold text-gray-900 dark:text-white">{data.name}</p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {formatCurrency(data.value)}

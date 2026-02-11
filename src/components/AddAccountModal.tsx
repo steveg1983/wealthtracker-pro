@@ -161,7 +161,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                 type="text"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
-                className="w-full px-4 py-3 bg-[#d4dce8] dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                 placeholder="e.g., Main Checking Account"
                 required
                 autoFocus
@@ -228,7 +228,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                     step="0.01"
                     value={formData.balance}
                     onChange={(e) => updateField('balance', e.target.value)}
-                    className="w-full pl-8 pr-4 py-3 bg-[#d4dce8] dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    className="w-full pl-8 pr-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                     placeholder="0.00"
                     required
                     disabled={isSubmitting}
@@ -245,7 +245,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                   value={formData.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-[#d4dce8] dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200 appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                     backgroundPosition: 'right 0.5rem center',
@@ -275,7 +275,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                   type="text"
                   value={formData.institution}
                   onChange={(e) => updateField('institution', e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-[#d4dce8] dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                  className="w-full pl-11 pr-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                   placeholder="e.g., Barclays, HSBC, NatWest"
                   disabled={isSubmitting}
                 />

@@ -34,7 +34,7 @@ export default function MobileBottomNav(): React.JSX.Element {
           className="md:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setShowQuickActions(false)}
         >
-          <div className="absolute bottom-20 right-4 bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-2xl p-2 min-w-[200px]">
+          <div className="absolute bottom-20 right-4 bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl p-2 min-w-[200px]">
             <Link
               to="/transactions?action=add"
               className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -83,7 +83,7 @@ export default function MobileBottomNav(): React.JSX.Element {
       </button>
 
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-[#d4dce8] dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50"
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-card-bg-light dark:bg-card-bg-dark border-t border-gray-200 dark:border-gray-700 z-50"
         role="navigation"
         aria-label="Mobile navigation"
       >

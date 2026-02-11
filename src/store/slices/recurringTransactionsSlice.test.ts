@@ -16,6 +16,7 @@ import recurringTransactionsReducer, {
 } from './recurringTransactionsSlice';
 import type { RecurringTransaction } from '../../types';
 import { storageAdapter } from '../../services/storageAdapter';
+import { serializeRecurringTransactions } from '../../types/redux-types';
 
 // Mock storageAdapter
 vi.mock('../../services/storageAdapter', () => ({
@@ -99,7 +100,7 @@ describe('recurringTransactionsSlice', () => {
       store.dispatch(setRecurringTransactions(recurringTransactions));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions).toEqual(recurringTransactions);
+      expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(recurringTransactions));
       expect(state.error).toBeNull();
     });
 
@@ -114,7 +115,7 @@ describe('recurringTransactionsSlice', () => {
       store.dispatch(setRecurringTransactions(newTransactions));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions).toEqual(newTransactions);
+      expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(newTransactions));
       expect(state.recurringTransactions).toHaveLength(2);
     });
 
@@ -338,14 +339,14 @@ describe('recurringTransactionsSlice', () => {
     it('does nothing if recurring transaction not found', () => {
       const transactions = [createMockRecurringTransaction({ id: 'recurring-1' })];
       store.dispatch(setRecurringTransactions(transactions));
-      
+
       store.dispatch(updateRecurringTransaction({
         id: 'non-existent',
         updates: { amount: 999 },
       }));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions).toEqual(transactions);
+      expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(transactions));
     });
 
     it('can update multiple fields', () => {
@@ -380,7 +381,7 @@ describe('recurringTransactionsSlice', () => {
       const newNextDate = new Date('2025-03-01');
 
       store.dispatch(setRecurringTransactions([createMockRecurringTransaction({ id: 'recurring-1' })]));
-      
+
       store.dispatch(updateRecurringTransaction({
         id: 'recurring-1',
         updates: {
@@ -391,9 +392,9 @@ describe('recurringTransactionsSlice', () => {
       }));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions[0].startDate).toEqual(newStartDate);
-      expect(state.recurringTransactions[0].endDate).toEqual(newEndDate);
-      expect(state.recurringTransactions[0].nextDate).toEqual(newNextDate);
+      expect(state.recurringTransactions[0].startDate).toEqual(newStartDate.toISOString());
+      expect(state.recurringTransactions[0].endDate).toEqual(newEndDate.toISOString());
+      expect(state.recurringTransactions[0].nextDate).toEqual(newNextDate.toISOString());
     });
 
     it('preserves other properties', () => {
@@ -436,11 +437,11 @@ describe('recurringTransactionsSlice', () => {
     it('does nothing if recurring transaction not found', () => {
       const transactions = [createMockRecurringTransaction({ id: 'recurring-1' })];
       store.dispatch(setRecurringTransactions(transactions));
-      
+
       store.dispatch(deleteRecurringTransaction('non-existent'));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions).toEqual(transactions);
+      expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(transactions));
     });
 
     it('handles deleting the last recurring transaction', () => {
@@ -476,7 +477,7 @@ describe('recurringTransactionsSlice', () => {
         lastProcessed: lastProcessedDate.toISOString(),
         updatedAt: now.toISOString(),
       });
-      expect(state.recurringTransactions[1].lastProcessed).toEqual(mockRecurringTransaction.lastProcessed); // Unchanged
+      expect(state.recurringTransactions[1].lastProcessed).toEqual(mockRecurringTransaction.lastProcessed.toISOString()); // Unchanged
 
       vi.useRealTimers();
     });
@@ -484,14 +485,14 @@ describe('recurringTransactionsSlice', () => {
     it('does nothing if recurring transaction not found', () => {
       const transactions = [createMockRecurringTransaction({ id: 'recurring-1' })];
       store.dispatch(setRecurringTransactions(transactions));
-      
-      store.dispatch(updateLastProcessed({ 
-        id: 'non-existent', 
-        lastProcessed: new Date() 
+
+      store.dispatch(updateLastProcessed({
+        id: 'non-existent',
+        lastProcessed: new Date()
       }));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions[0].lastProcessed).toEqual(mockRecurringTransaction.lastProcessed);
+      expect(state.recurringTransactions[0].lastProcessed).toEqual(mockRecurringTransaction.lastProcessed.toISOString());
     });
 
     it('sets lastProcessed for transaction without previous date', () => {
@@ -540,7 +541,7 @@ describe('recurringTransactionsSlice', () => {
         const state = store.getState().recurringTransactions;
         expect(state.loading).toBe(false);
         expect(state.error).toBeNull();
-        expect(state.recurringTransactions).toEqual(mockTransactions);
+        expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(mockTransactions));
         expect(storageAdapter.get).toHaveBeenCalledWith('recurringTransactions');
       });
 
@@ -610,9 +611,9 @@ describe('recurringTransactionsSlice', () => {
         await store.dispatch(saveRecurringTransactions(transactions));
 
         expect(storageAdapter.set).toHaveBeenCalledWith('recurringTransactions', transactions);
-        
+
         const state = store.getState().recurringTransactions;
-        expect(state.recurringTransactions).toEqual(transactions);
+        expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(transactions));
       });
 
       it('updates state after saving', async () => {
@@ -623,12 +624,12 @@ describe('recurringTransactionsSlice', () => {
         ];
 
         store.dispatch(setRecurringTransactions(initialTransactions));
-        
+
         (storageAdapter.set as any).mockResolvedValue(undefined);
         await store.dispatch(saveRecurringTransactions(newTransactions));
 
         const state = store.getState().recurringTransactions;
-        expect(state.recurringTransactions).toEqual(newTransactions);
+        expect(state.recurringTransactions).toEqual(serializeRecurringTransactions(newTransactions));
       });
 
       it('handles save errors gracefully', async () => {

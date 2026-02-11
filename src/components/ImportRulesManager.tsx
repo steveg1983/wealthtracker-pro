@@ -289,7 +289,7 @@ export default function ImportRulesManager() {
       {/* Suggestions Modal */}
       {showSuggestions && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -423,7 +423,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
