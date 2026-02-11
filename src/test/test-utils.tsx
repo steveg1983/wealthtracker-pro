@@ -2,7 +2,7 @@
 import { render, type RenderOptions } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { AppProvider } from '../contexts/AppContextSupabase';
+import { AppProvider } from './mocks/AppContextSupabase';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { LayoutProvider } from '../contexts/LayoutContext';
 

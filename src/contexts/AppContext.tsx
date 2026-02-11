@@ -164,8 +164,10 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
   }, [logger]);
 
   // Load data from secure storage
-  useEffect((): void => {
+  useEffect(() => {
     if (!isStorageReady) return;
+
+    let isMounted = true;
 
     const loadData = async (): Promise<void> => {
       try {
@@ -241,11 +243,17 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         setTags([]);
         setDecimalRecurringTransactions([]);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isStorageReady, logger]);
 
   // Convert Decimal types to regular types for external use

@@ -11,7 +11,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { store } from '../store';
-import { AppProvider } from '../contexts/AppContextSupabase';
+import { AppProvider } from './mocks/AppContextSupabase';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { LayoutProvider } from '../contexts/LayoutContext';
