@@ -92,7 +92,7 @@ jobs:
         run: node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
 
       - name: Lint Supabase migrations
-        if: secrets.SUPABASE_DB_URL != ''
+        if: ${{ secrets.SUPABASE_DB_URL != '' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: npx supabase db lint --linked --fail-on error
