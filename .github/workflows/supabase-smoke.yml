@@ -32,7 +32,7 @@ jobs:
         run: npm run test:supabase-smoke
 
       - name: Upload Supabase smoke log
-        if: ${{ always() }}
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: supabase-smoke-log
