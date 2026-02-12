@@ -12,7 +12,10 @@ import Layout from '../Layout';
 vi.mock('@clerk/clerk-react', () => ({
   UserButton: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="user-button">{children}</div>
-  )
+  ),
+  useUser: () => ({ user: null, isLoaded: true }),
+  useAuth: () => ({ signOut: vi.fn(), getToken: vi.fn() }),
+  useSession: () => ({ session: null }),
 }));
 
 vi.mock('../GlobalSearch', () => {
