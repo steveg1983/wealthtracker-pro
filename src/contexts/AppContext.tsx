@@ -175,9 +175,11 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
         // Check if data was cleared
         const dataCleared = await storageAdapter.get<boolean>('wealthtracker_data_cleared');
+        if (!isMounted) return;
         
         // Load transactions
         const savedTransactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
+        if (!isMounted) return;
         if (savedTransactions) {
           setDecimalTransactions(savedTransactions.map(toDecimalTransaction));
         } else if (!dataCleared) {
@@ -186,6 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
         // Load accounts
         const savedAccounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS);
+        if (!isMounted) return;
         if (savedAccounts) {
           setDecimalAccounts(savedAccounts.map(toDecimalAccount));
         } else if (!dataCleared) {
@@ -197,6 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
         // Load budgets
         const savedBudgets = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS);
+        if (!isMounted) return;
         if (savedBudgets) {
           setDecimalBudgets(savedBudgets.map(toDecimalBudget));
         } else if (!dataCleared) {
@@ -205,6 +209,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
         // Load goals
         const savedGoals = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS);
+        if (!isMounted) return;
         if (savedGoals) {
           setDecimalGoals(savedGoals.map(toDecimalGoal));
         } else if (!dataCleared) {
@@ -213,6 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
         // Load categories
         const savedCategories = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES);
+        if (!isMounted) return;
         if (savedCategories) {
           setCategories(savedCategories);
         } else {
@@ -221,19 +227,22 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
         // Load tags
         const savedTags = await storageAdapter.get<Tag[]>(STORAGE_KEYS.TAGS);
+        if (!isMounted) return;
         if (savedTags) {
           setTags(savedTags);
         }
 
         // Load recurring transactions
         const savedRecurring = await storageAdapter.get<RecurringTransaction[]>(STORAGE_KEYS.RECURRING);
+        if (!isMounted) return;
         if (savedRecurring) {
           setDecimalRecurringTransactions(savedRecurring.map(toDecimalRecurringTransaction));
         }
 
       } catch (error) {
         logger.error?.('Error loading data', error);
-        
+        if (!isMounted) return;
+
         // Provide minimal working state without marking for clear
         setCategories(getMinimalSystemCategories());
         setDecimalAccounts([]);

@@ -244,11 +244,15 @@ describe('RecentTransactionsWidget', () => {
 
     it('shows formatted dates for transactions', () => {
       render(<RecentTransactionsWidget size="medium" settings={{}} />);
-      
-      // Should show dates in locale format
-      expect(screen.getByText('1/25/2024')).toBeInTheDocument();
-      expect(screen.getByText('1/24/2024')).toBeInTheDocument();
-      expect(screen.getByText('1/23/2024')).toBeInTheDocument();
+
+      // Assert using runtime locale formatting to avoid timezone/locale-specific flakiness.
+      const expectedDates = mockTransactions
+        .slice(0, 3)
+        .map((transaction) => transaction.date.toLocaleDateString());
+
+      expectedDates.forEach((formattedDate) => {
+        expect(screen.getByText(formattedDate)).toBeInTheDocument();
+      });
     });
 
     it('respects custom count setting', () => {
