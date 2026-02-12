@@ -12,20 +12,42 @@ import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
 import { initializeSecurity } from './security'
 import { pushNotificationService } from './services/pushNotificationService'
 import { checkEnvironmentVariables } from './utils/env-check'
-import { initSentry } from './lib/sentry'
+import { captureMessage, initSentry } from './lib/sentry'
 import { createScopedLogger } from './loggers/scopedLogger'
-import { sanitizeRuntimeControlSearch, sanitizeRuntimeControlStorage } from './utils/runtimeMode'
+import {
+  persistRuntimeControlSanitizationSignal,
+  sanitizeRuntimeControlSearchWithDetails,
+  sanitizeRuntimeControlStorageWithDetails
+} from './utils/runtimeMode'
 
 const bootstrapLogger = createScopedLogger('AppBootstrap');
 const disableServiceWorker = import.meta.env.VITE_DISABLE_SERVICE_WORKER === 'true';
+let runtimeControlSanitizationContext: {
+  removedQueryParams: ('demo' | 'testMode')[];
+  removedStorageKeys: ('isTestMode' | 'demoMode')[];
+  path: string;
+} | null = null;
 
 if (typeof window !== 'undefined') {
-  const sanitizedSearch = sanitizeRuntimeControlSearch(window.location.search, import.meta.env);
-  if (sanitizedSearch !== window.location.search) {
-    const sanitizedUrl = `${window.location.pathname}${sanitizedSearch}${window.location.hash}`;
+  const searchSanitization = sanitizeRuntimeControlSearchWithDetails(window.location.search, import.meta.env);
+  if (searchSanitization.sanitizedSearch !== window.location.search) {
+    const sanitizedUrl = `${window.location.pathname}${searchSanitization.sanitizedSearch}${window.location.hash}`;
     window.history.replaceState(window.history.state, '', sanitizedUrl);
   }
-  sanitizeRuntimeControlStorage(import.meta.env, window.localStorage);
+  const storageSanitization = sanitizeRuntimeControlStorageWithDetails(import.meta.env, window.localStorage);
+
+  if (searchSanitization.removedParams.length > 0 || storageSanitization.removedKeys.length > 0) {
+    runtimeControlSanitizationContext = {
+      removedQueryParams: searchSanitization.removedParams,
+      removedStorageKeys: storageSanitization.removedKeys,
+      path: window.location.pathname
+    };
+
+    persistRuntimeControlSanitizationSignal(
+      runtimeControlSanitizationContext,
+      window.sessionStorage
+    );
+  }
 }
 
 // Check environment variables in development
@@ -61,6 +83,15 @@ try {
   initSentry();
 } catch (error) {
   bootstrapLogger.error('Error initializing Sentry', error);
+}
+
+if (runtimeControlSanitizationContext) {
+  bootstrapLogger.warn('Sanitized runtime control inputs at bootstrap', runtimeControlSanitizationContext);
+  captureMessage(
+    'Sanitized runtime control inputs at bootstrap',
+    'warning',
+    runtimeControlSanitizationContext
+  );
 }
 
 // Add error logging
