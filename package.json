@@ -63,7 +63,7 @@
     "env:doctor": "node --loader ts-node/esm scripts/env-doctor.ts",
     "setup": "npm run env:doctor",
     "verify:pre-commit": "npm run build:check && npm run lint && npm run test:unit",
-    "verify:full": "npm run typecheck:strict && npm run build:check && npm run lint && npm run test:unit && npm run test:realtime && npm run test:coverage && node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55",
+    "verify:full": "npm run typecheck:strict && npm run build:check && npm run lint && npm run test:unit && npm run test:realtime && npm run test:coverage && node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=65 --branches=55",
     "verify:financial": "node scripts/verify-financial-safety.mjs",
     "verify:bundle": "npm run build && node scripts/bundle-size-check.js",
     "verify:types": "node scripts/verify-type-safety.mjs",

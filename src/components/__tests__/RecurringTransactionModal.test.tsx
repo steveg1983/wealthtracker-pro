@@ -309,20 +309,21 @@ describe('RecurringTransactionModal', () => {
       // Click to show form
       await userEvent.click(screen.getByRole('button', { name: /Add Recurring Transaction/i }));
       
-      // Fill form
-      const textInputs = screen.getAllByRole('textbox');
-      const numberInputs = screen.getAllByRole('spinbutton');
-      
-      if (textInputs.length > 0) {
-        await userEvent.type(textInputs[0], 'Test Transaction');
-      }
-      if (textInputs.length > 1) {
-        await userEvent.type(textInputs[1], 'Test Category');
-      }
-      if (numberInputs.length > 0) {
-        await userEvent.clear(numberInputs[0]);
-        await userEvent.type(numberInputs[0], '50');
-      }
+      // Fill required form fields using stable labels (avoids positional selector flakiness).
+      const descriptionInput = screen.getByText(/^Description$/i).closest('div')?.querySelector('input[type="text"]');
+      const categoryInput = screen.getByText(/^Category$/i).closest('div')?.querySelector('input[type="text"]');
+      const amountInput = screen.getByText(/^Amount$/i).closest('div')?.querySelector('input[type="number"]');
+
+      expect(descriptionInput).toBeTruthy();
+      expect(categoryInput).toBeTruthy();
+      expect(amountInput).toBeTruthy();
+
+      await userEvent.clear(descriptionInput as HTMLInputElement);
+      await userEvent.type(descriptionInput as HTMLInputElement, 'Test Transaction');
+      await userEvent.clear(categoryInput as HTMLInputElement);
+      await userEvent.type(categoryInput as HTMLInputElement, 'Test Category');
+      await userEvent.clear(amountInput as HTMLInputElement);
+      await userEvent.type(amountInput as HTMLInputElement, '50');
       
       // Submit form - use type=submit button
       const submitButton = screen.getByRole('button', { name: /Add Recurring Transaction/i });

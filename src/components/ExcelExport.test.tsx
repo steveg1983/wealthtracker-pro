@@ -356,12 +356,13 @@ describe('ExcelExport', () => {
 
   describe('Cancel Button', () => {
     it('calls onClose when clicked', () => {
-      render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
+      const onClose = vi.fn();
+      render(<ExcelExport isOpen={true} onClose={onClose} />);
       
       const cancelButton = screen.getByRole('button', { name: 'Cancel' });
       fireEvent.click(cancelButton);
       
-      expect(mockOnClose).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 

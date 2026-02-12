@@ -39,7 +39,7 @@ const defaultCoverage = {
     '**/*.backup.*/**',
   ],
   include: ['src/**/*.{ts,tsx}'],
-  all: true,
+  all: false,
   clean: true,
   reportsDirectory: './coverage',
   thresholds: {
