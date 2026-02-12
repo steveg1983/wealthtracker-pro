@@ -42,6 +42,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 500, 'Failed to load connections', 'internal_error', error);
     }
 
+    const connectionIds = (data ?? []).map((connection) => connection.id);
+    const linkedAccountCountByConnection = new Map<string, number>();
+    if (connectionIds.length > 0) {
+      const linkedResult = await supabase
+        .from('linked_accounts')
+        .select('connection_id')
+        .in('connection_id', connectionIds);
+
+      if (!linkedResult.error) {
+        (linkedResult.data ?? []).forEach((row) => {
+          const current = linkedAccountCountByConnection.get(row.connection_id) ?? 0;
+          linkedAccountCountByConnection.set(row.connection_id, current + 1);
+        });
+      }
+    }
+
     const response: ConnectionsResponse = (data ?? []).map((connection) => ({
       id: connection.id,
       provider: connection.provider,
@@ -50,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       institutionLogo: connection.institution_logo ?? undefined,
       status: connection.status as ConnectionsResponse[number]['status'],
       lastSync: connection.last_sync ?? undefined,
-      accountsCount: 0,
+      accountsCount: linkedAccountCountByConnection.get(connection.id) ?? 0,
       expiresAt: connection.expires_at ?? undefined
     }));
 

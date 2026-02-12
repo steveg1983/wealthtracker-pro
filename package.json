@@ -48,6 +48,8 @@
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit --strict",
     "test:supabase-smoke": "RUN_SUPABASE_REAL_TESTS=true node scripts/run-supabase-smoke.mjs",
+    "banking:smoke": "node scripts/run-banking-api-smoke.mjs",
+    "banking:rollout": "bash scripts/apply-banking-ops-rollout.sh",
     "db:migrate": "supabase db push --include-roles --include-policies --db-url \"$SUPABASE_DB_URL\"",
     "db:migration:new": "supabase migration new",
     "db:diff": "supabase db diff --schema public --file supabase/migrations/$(date +%Y%m%d%H%M)__schema-diff.sql",
