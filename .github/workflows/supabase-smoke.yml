@@ -8,7 +8,7 @@ on:
 jobs:
   supabase-smoke:
     runs-on: ubuntu-latest
-    if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' && secrets.VITE_SUPABASE_SERVICE_ROLE_KEY != '' }}
+    if: ${{ secrets.VITE_SUPABASE_URL && secrets.VITE_SUPABASE_ANON_KEY && secrets.VITE_SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
