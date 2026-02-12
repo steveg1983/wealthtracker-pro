@@ -60,7 +60,145 @@ const mapAccountType = (accountType: string | undefined): string => {
     case 'credit_card':
       return 'credit';
     default:
-      return normalized || 'checking';
+      return 'checking';
+  }
+};
+
+interface SyncedTrueLayerAccount {
+  externalAccountId: string;
+  name: string;
+  type: string;
+  balance: number;
+  currency: string;
+  mask?: string;
+}
+
+interface LinkedAccountRow {
+  account_id: string;
+  external_account_id: string;
+}
+
+const persistAccountsAndLinks = async (
+  userId: string,
+  connection: {
+    id: string;
+    institution_name: string;
+  },
+  accounts: SyncedTrueLayerAccount[]
+): Promise<void> => {
+  const linkedResult = await supabase
+    .from('linked_accounts')
+    .select('account_id, external_account_id')
+    .eq('connection_id', connection.id);
+
+  if (linkedResult.error) {
+    throw new Error(`Failed to load linked accounts: ${linkedResult.error.message}`);
+  }
+
+  const existingLinks = (linkedResult.data ?? []) as LinkedAccountRow[];
+  const linkByExternalAccountId = new Map<string, LinkedAccountRow>();
+  existingLinks.forEach((row) => {
+    if (row.external_account_id) {
+      linkByExternalAccountId.set(row.external_account_id, row);
+    }
+  });
+
+  const nowIso = new Date().toISOString();
+  const externalAccountIds = new Set<string>();
+
+  for (const account of accounts) {
+    externalAccountIds.add(account.externalAccountId);
+
+    const existingLink = linkByExternalAccountId.get(account.externalAccountId);
+    let accountId = existingLink?.account_id ?? null;
+
+    if (accountId) {
+      const updateResult = await supabase
+        .from('accounts')
+        .update({
+          name: account.name,
+          type: account.type,
+          balance: account.balance,
+          currency: account.currency,
+          institution: connection.institution_name,
+          is_active: true,
+          updated_at: nowIso
+        })
+        .eq('id', accountId)
+        .eq('user_id', userId)
+        .select('id')
+        .maybeSingle();
+
+      if (updateResult.error) {
+        throw new Error(`Failed to update mapped account: ${updateResult.error.message}`);
+      }
+
+      if (!updateResult.data?.id) {
+        accountId = null;
+      }
+    }
+
+    if (!accountId) {
+      const insertAccountResult = await supabase
+        .from('accounts')
+        .insert({
+          user_id: userId,
+          name: account.name,
+          type: account.type,
+          balance: account.balance,
+          initial_balance: account.balance,
+          currency: account.currency,
+          institution: connection.institution_name,
+          is_active: true,
+          created_at: nowIso,
+          updated_at: nowIso
+        })
+        .select('id')
+        .single();
+
+      if (insertAccountResult.error || !insertAccountResult.data?.id) {
+        throw new Error(`Failed to create account for bank link: ${insertAccountResult.error?.message ?? 'unknown error'}`);
+      }
+
+      accountId = insertAccountResult.data.id;
+    }
+
+    const upsertLinkResult = await supabase
+      .from('linked_accounts')
+      .upsert(
+        {
+          connection_id: connection.id,
+          account_id: accountId,
+          external_account_id: account.externalAccountId,
+          external_account_mask: account.mask ?? null,
+          external_account_name: account.name
+        },
+        {
+          onConflict: 'connection_id,external_account_id'
+        }
+      );
+
+    if (upsertLinkResult.error) {
+      throw new Error(`Failed to store linked account mapping: ${upsertLinkResult.error.message}`);
+    }
+  }
+
+  const staleExternalAccountIds = existingLinks
+    .filter((row) => !externalAccountIds.has(row.external_account_id))
+    .map((row) => row.external_account_id);
+
+  if (staleExternalAccountIds.length === 0) {
+    return;
+  }
+
+  const deleteStaleLinksResult = await supabase
+    .from('linked_accounts')
+    .delete()
+    .eq('connection_id', connection.id)
+    .in('external_account_id', staleExternalAccountIds);
+
+  if (deleteStaleLinksResult.error) {
+    throw new Error(`Failed to remove stale linked accounts: ${deleteStaleLinksResult.error.message}`);
   }
 };
 
@@ -103,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
 
           return {
-            id: account.account_id,
+            externalAccountId: account.account_id,
             name: account.display_name?.trim() || connection.institution_name,
             type: mapAccountType(account.account_type),
             balance,
@@ -113,6 +251,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })
       );
     });
+
+    await persistAccountsAndLinks(auth.userId, connection, accounts);
 
     await markConnectionSyncSuccess(supabase, connection.id);
     await supabase.from('sync_history').insert({
@@ -126,7 +266,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const response: SyncAccountsResponse = {
       success: true,
       accountsSynced: accounts.length,
-      accounts
+      accounts: accounts.map((account) => ({
+        id: account.externalAccountId,
+        name: account.name,
+        type: account.type,
+        balance: account.balance,
+        currency: account.currency,
+        mask: account.mask
+      }))
     };
     return res.status(200).json(response);
   } catch (error) {
