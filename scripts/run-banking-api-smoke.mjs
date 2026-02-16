@@ -77,6 +77,49 @@ const normalizeBaseUrl = (value) => {
   return trimmed.replace(/\/+$/, '');
 };
 
+const looksLikePlaceholder = (value) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.includes('<') ||
+    normalized.includes('>') ||
+    normalized.includes('your-api-host') ||
+    normalized.includes('your-preview.vercel.app') ||
+    normalized.includes('regular-user-clerk-token') ||
+    normalized.includes('admin-clerk-token') ||
+    normalized.includes('optional-connection-id') ||
+    normalized === 'changeme'
+  );
+};
+
+const validateBaseUrl = (value, sourceName) => {
+  if (looksLikePlaceholder(value)) {
+    throw new Error(
+      `${sourceName} contains a placeholder value (${value}). Set a real host like https://api.yourdomain.com`
+    );
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(value);
+  } catch {
+    throw new Error(`${sourceName} is not a valid URL (${value}). Expected format: https://api.yourdomain.com`);
+  }
+
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    throw new Error(`${sourceName} must start with http:// or https:// (${value})`);
+  }
+};
+
+const validateToken = (value, name) => {
+  if (looksLikePlaceholder(value)) {
+    throw new Error(`${name} contains a placeholder value. Use a real Clerk bearer token.`);
+  }
+};
+
 const loadEnvFile = (filePath) => {
   const contents = readFileSync(filePath, 'utf8');
   for (const line of contents.split(/\r?\n/)) {
@@ -254,15 +297,36 @@ const baseUrl = normalizeBaseUrl(
 );
 const userToken = (process.env.BANKING_API_BEARER_TOKEN ?? '').trim();
 const adminToken = (process.env.BANKING_ADMIN_BEARER_TOKEN ?? '').trim();
-const requestedConnectionId = (process.env.BANKING_SMOKE_CONNECTION_ID ?? '').trim();
+const rawConnectionId = (process.env.BANKING_SMOKE_CONNECTION_ID ?? '').trim();
+const requestedConnectionId = looksLikePlaceholder(rawConnectionId) ? '' : rawConnectionId;
 const runSync = parseBooleanEnv('BANKING_SMOKE_RUN_SYNC', requestedConnectionId.length > 0);
 const runAdmin = parseBooleanEnv('BANKING_SMOKE_RUN_ADMIN', adminToken.length > 0);
 const enableMutations = parseBooleanEnv('BANKING_SMOKE_ENABLE_MUTATIONS', false);
 const syncStartDate = (process.env.BANKING_SMOKE_SYNC_START_DATE ?? '').trim();
 const syncEndDate = (process.env.BANKING_SMOKE_SYNC_END_DATE ?? '').trim();
 
+try {
+  validateBaseUrl(
+    baseUrl,
+    process.env.BANKING_API_BASE_URL ? 'BANKING_API_BASE_URL' : 'VITE_BANKING_API_BASE_URL'
+  );
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[banking-api-smoke] ${message}`);
+  writeLog();
+  process.exit(1);
+}
+
 if (!userToken) {
   console.error('[banking-api-smoke] Missing BANKING_API_BEARER_TOKEN');
+  writeLog();
+  process.exit(1);
+}
+try {
+  validateToken(userToken, 'BANKING_API_BEARER_TOKEN');
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[banking-api-smoke] ${message}`);
   writeLog();
   process.exit(1);
 }
@@ -271,6 +335,17 @@ if (runAdmin && !adminToken) {
   console.error('[banking-api-smoke] BANKING_SMOKE_RUN_ADMIN=true requires BANKING_ADMIN_BEARER_TOKEN');
   writeLog();
   process.exit(1);
+}
+
+if (runAdmin) {
+  try {
+    validateToken(adminToken, 'BANKING_ADMIN_BEARER_TOKEN');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[banking-api-smoke] ${message}`);
+    writeLog();
+    process.exit(1);
+  }
 }
 
 console.log(`[banking-api-smoke] Base URL: ${baseUrl}`);

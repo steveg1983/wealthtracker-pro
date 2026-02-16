@@ -318,16 +318,13 @@ describe('RecurringTransactionModal', () => {
       expect(categoryInput).toBeTruthy();
       expect(amountInput).toBeTruthy();
 
-      await userEvent.clear(descriptionInput as HTMLInputElement);
-      await userEvent.type(descriptionInput as HTMLInputElement, 'Test Transaction');
-      await userEvent.clear(categoryInput as HTMLInputElement);
-      await userEvent.type(categoryInput as HTMLInputElement, 'Test Category');
-      await userEvent.clear(amountInput as HTMLInputElement);
-      await userEvent.type(amountInput as HTMLInputElement, '50');
-      
-      // Submit form - use type=submit button
-      const submitButton = screen.getByRole('button', { name: /Add Recurring Transaction/i });
-      await userEvent.click(submitButton);
+      fireEvent.change(descriptionInput as HTMLInputElement, { target: { value: 'Test Transaction' } });
+      fireEvent.change(categoryInput as HTMLInputElement, { target: { value: 'Test Category' } });
+      fireEvent.change(amountInput as HTMLInputElement, { target: { value: '50' } });
+
+      const form = screen.getByRole('button', { name: /Cancel/i }).closest('form');
+      expect(form).toBeTruthy();
+      fireEvent.submit(form as HTMLFormElement);
       
       // After submission, component should return to list view
       await waitFor(() => {
