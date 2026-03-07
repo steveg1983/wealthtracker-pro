@@ -47,6 +47,8 @@
     "test:generate:single": "node scripts/generate-test-templates.js single",
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit --strict",
+    "test:smoke": "vitest run",
+    "handoff:update": "echo 'No handoff snapshots configured'",
     "test:supabase-smoke": "RUN_SUPABASE_REAL_TESTS=true node scripts/run-supabase-smoke.mjs",
     "banking:smoke": "node scripts/run-banking-api-smoke.mjs",
     "banking:rollout": "bash scripts/apply-banking-ops-rollout.sh",
