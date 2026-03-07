@@ -149,18 +149,29 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
   const [decimalRecurringTransactions, setDecimalRecurringTransactions] = useState<DecimalRecurringTransaction[]>([]);
 
   // Initialize secure storage
-  useEffect((): void => {
+  useEffect(() => {
+    let isMounted = true;
+
     const initStorage = async (): Promise<void> => {
       try {
         await storageAdapter.init();
-        setIsStorageReady(true);
+        if (isMounted) {
+          setIsStorageReady(true);
+        }
       } catch (error) {
         logger.error?.('Failed to initialize storage', error);
         // Continue with localStorage fallback
-        setIsStorageReady(true);
+        if (isMounted) {
+          setIsStorageReady(true);
+        }
       }
     };
+
     initStorage();
+
+    return () => {
+      isMounted = false;
+    };
   }, [logger]);
 
   // Load data from secure storage

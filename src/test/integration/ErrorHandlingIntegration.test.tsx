@@ -366,6 +366,9 @@ describe('Error Handling Integration Tests', () => {
 
   describe('Component Error Boundaries', () => {
     it('handles component rendering errors gracefully', async () => {
+      // Suppress expected React error boundary console errors
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
       // Create a component that will throw an error
       const ErrorComponent = () => {
         throw new Error('Component rendering error');
@@ -401,6 +404,7 @@ describe('Error Handling Integration Tests', () => {
       );
 
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+      spy.mockRestore();
     });
 
     it('handles missing context providers', () => {

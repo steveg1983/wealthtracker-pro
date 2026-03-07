@@ -102,7 +102,7 @@ export default defineConfig({
       // Aggressive tree-shaking optimizations
       treeshake: {
         preset: 'recommended',
-        moduleSideEffects: false,
+        moduleSideEffects: 'no-external', // Internal modules (services) have side effects; only externals are safe
         propertyReadSideEffects: false,
         manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
       }
@@ -122,11 +122,11 @@ export default defineConfig({
         booleans: true,
         loops: true,
         unused: true,
-        hoist_funs: true,
+        hoist_funs: false, // Disabled: can cause TDZ errors with module-level singletons
         if_return: true,
         join_vars: true,
         reduce_vars: true,
-        collapse_vars: true,
+        collapse_vars: false, // Disabled: can cause TDZ errors by reordering const/let declarations
         side_effects: true,
         dead_code: true
       },

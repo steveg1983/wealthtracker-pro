@@ -45,18 +45,6 @@ export const supabase = supabaseUrl && supabaseAnonKey
     })
   : null
 
-export async function syncClerkUser(clerkUserId: string, email: string, name?: string) {
-  fallbackLogger?.warn?.('syncClerkUser is deprecated. Use userIdService.ensureUserExists() instead');
-  const { userIdService } = await import('../services/userIdService');
-  const databaseId = await userIdService.ensureUserExists(
-    clerkUserId,
-    email,
-    name?.split(' ')[0],
-    name?.split(' ')[1]
-  );
-  return databaseId !== null;
-}
-
 // Database types
 export interface DbAccount {
   id: string
