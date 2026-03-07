@@ -6,8 +6,8 @@ title = "WealthTracker gitleaks config"
 [allowlist]
 description = "Allow test placeholders and obvious fake values"
 regexes = [
-  "pk_test_[A-Za-z0-9_\-]{10,}",
-  "sk_test_[A-Za-z0-9_\-]{10,}",
+  'pk_test_[A-Za-z0-9_\-]{10,}',
+  'sk_test_[A-Za-z0-9_\-]{10,}',
   "your-.*-here",
   "example\.com",
   "localhost",
