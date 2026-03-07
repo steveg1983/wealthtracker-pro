@@ -21,12 +21,5 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: "detect --no-banner --redact --config=.gitleaks.toml --report-format sarif --report-path gitleaks.sarif"
-
-      - name: Upload SARIF report
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: gitleaks.sarif
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
 
