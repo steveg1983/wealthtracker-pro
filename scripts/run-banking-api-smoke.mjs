@@ -87,6 +87,8 @@ const looksLikePlaceholder = (value) => {
     normalized.includes('<') ||
     normalized.includes('>') ||
     normalized.includes('your-api-host') ||
+    normalized.includes('your_real_api_host') ||
+    normalized.includes('your-real-api-host') ||
     normalized.includes('your-preview.vercel.app') ||
     normalized.includes('regular-user-clerk-token') ||
     normalized.includes('admin-clerk-token') ||
@@ -238,14 +240,29 @@ const request = async ({
   expectedStatuses = [200],
   expectJson = true
 }) => {
-  const response = await fetch(`${baseUrl}${pathName}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body ? { 'Content-Type': 'application/json' } : {})
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
+  let response;
+  try {
+    response = await fetch(`${baseUrl}${pathName}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {})
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const causeMessage =
+      error instanceof Error &&
+      typeof error.cause === 'object' &&
+      error.cause !== null &&
+      'message' in error.cause &&
+      typeof error.cause.message === 'string'
+        ? error.cause.message
+        : '';
+    const detail = causeMessage && causeMessage !== message ? `${message}; cause=${causeMessage}` : message;
+    throw new Error(`${method} ${pathName} request failed: ${detail}`);
+  }
 
   const rawBody = await response.text();
   if (!expectedStatuses.includes(response.status)) {
