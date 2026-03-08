@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { UploadIcon } from './icons/UploadIcon';
 import { FileTextIcon } from './icons/FileTextIcon';
@@ -52,6 +52,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [rawMnyData, setRawMnyData] = useState<Array<Record<string, unknown>>>([]);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   // Parse OFX file format
   const parseOFX = (content: string): ParsedData => {
@@ -283,7 +290,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       setStatus('success');
       setMessage(`Successfully imported ${preview.accounts.length} accounts and ${preview.transactions.length} transactions`);
       
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
         onClose();
         setFile(null);
         setPreview(null);
