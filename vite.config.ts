@@ -107,38 +107,8 @@ export default defineConfig({
         manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
       }
     },
-    // Use terser for better minification
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: false, // Keep console for accessibility
-        drop_debugger: true,
-        pure_funcs: ['console.debug'],
-        passes: 2, // Balance between compression and build time
-        inline: 2, // Inline functions
-        // Safe optimizations only for financial app
-        conditionals: true,
-        comparisons: true,
-        booleans: true,
-        loops: true,
-        unused: true,
-        hoist_funs: false, // Disabled: can cause TDZ errors with module-level singletons
-        if_return: true,
-        join_vars: true,
-        reduce_vars: true,
-        collapse_vars: false, // Disabled: can cause TDZ errors by reordering const/let declarations
-        side_effects: true,
-        dead_code: true
-      },
-      mangle: {
-        safari10: true,
-        keep_fnames: false // Don't keep function names to save space
-      },
-      format: {
-        comments: false,
-        ascii_only: true // Ensure ASCII output
-      }
-    },
+    // Use esbuild (Vite default) - Terser causes TDZ crashes with circular deps
+    minify: 'esbuild',
     target: 'es2022', // Use more modern JavaScript for smaller bundles
     // Report compressed size
     reportCompressedSize: true,
