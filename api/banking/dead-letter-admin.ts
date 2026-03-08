@@ -13,8 +13,6 @@ import {
 } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
-
-const supabase = getServiceRoleSupabase();
 const RESET_ALL_CONFIRMATION = 'RESET_ALL_DEAD_LETTERED';
 const DEFAULT_PREVIEW_LIMIT = 25;
 const MAX_PREVIEW_LIMIT = 200;
@@ -117,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const supabase = getServiceRoleSupabase();
     const auth = await requireAuth(req);
     requireBankingOpsAdmin(auth);
 

@@ -5,8 +5,6 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { requireBankingOpsAdmin } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
-
-const supabase = getServiceRoleSupabase();
 const DEFAULT_LIMIT = 1000;
 const MAX_LIMIT = 5000;
 
@@ -151,6 +149,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const supabase = getServiceRoleSupabase();
     const auth = await requireAuth(req);
     requireBankingOpsAdmin(auth);
 

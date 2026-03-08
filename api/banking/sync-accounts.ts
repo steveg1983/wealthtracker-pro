@@ -15,8 +15,6 @@ import {
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts } from '../_lib/truelayer.js';
 
-const supabase = getServiceRoleSupabase();
-
 const createErrorResponse = (
   res: VercelResponse,
   status: number,
@@ -213,6 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const supabase = getServiceRoleSupabase();
     const auth = await requireAuth(req);
     const body = req.body as SyncAccountsRequest | undefined;
     if (!body || typeof body.connectionId !== 'string' || !body.connectionId.trim()) {

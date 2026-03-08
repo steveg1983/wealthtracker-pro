@@ -4,8 +4,6 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 
-const supabase = getServiceRoleSupabase();
-
 const createErrorResponse = (
   res: VercelResponse,
   status: number,
@@ -31,6 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const supabase = getServiceRoleSupabase();
     const auth = await requireAuth(req);
     const body = req.body as DisconnectRequest | undefined;
     if (!body || typeof body.connectionId !== 'string' || !body.connectionId.trim()) {

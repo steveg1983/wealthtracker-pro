@@ -9,8 +9,6 @@ import {
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 
-const supabase = getServiceRoleSupabase();
-
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
@@ -71,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const supabase = getServiceRoleSupabase();
     const auth = await requireAuth(req);
     requireBankingOpsAdmin(auth);
 
