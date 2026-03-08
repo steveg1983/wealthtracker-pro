@@ -55,48 +55,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 500, // Lowered from 1000 to enforce stricter bundle size limits
     rollupOptions: {
       output: {
-        // Optimized chunking - keep React together to avoid module errors
-        manualChunks: (id) => {
-          // Custom function to better control chunking
-          if (id.includes('node_modules')) {
-            // Excel/CSV libraries
-            if (id.includes('xlsx') || id.includes('sheetjs')) {
-              return 'xlsx';
-            }
-            // PDF libraries
-            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('autotable')) {
-              return 'pdf';
-            }
-            // Charts - Recharts and D3 (excluding Plotly)
-            if (id.includes('recharts') || id.includes('d3-') || id.includes('victory') || id.includes('chart')) {
-              return 'charts';
-            }
-            // Plotly - separate due to large size
-            if (id.includes('plotly')) {
-              return 'plotly';
-            }
-            // Core React ecosystem
-            if (id.includes('react') || id.includes('redux') || id.includes('react-dom')) {
-              return 'vendor';
-            }
-            // Authentication libraries
-            if (id.includes('@supabase') || id.includes('@clerk')) {
-              return 'auth';
-            }
-            // Date utilities
-            if (id.includes('date-fns') || id.includes('dayjs') || id.includes('moment')) {
-              return 'date-utils';
-            }
-            // All other node_modules
-            return 'vendor-misc';
-          }
-        },
-        // Use content hash for better caching
+        // Let Rollup handle chunking automatically to avoid circular chunk dependencies
+        // Manual chunking previously caused TDZ crashes ("Cannot access before initialization")
         entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop()?.split('.')[0] : 'chunk';
-          return `assets/${facadeModuleId}-[hash].js`;
-        },
+        chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
       },
       // Aggressive tree-shaking optimizations
