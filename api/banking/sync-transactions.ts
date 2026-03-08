@@ -346,8 +346,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     const body = req.body as SyncTransactionsRequest | undefined;
     if (body?.connectionId) {
-      await markConnectionSyncFailure(supabase, body.connectionId, message);
-      await supabase.from('sync_history').insert({
+      const sb = getServiceRoleSupabase();
+      await markConnectionSyncFailure(sb, body.connectionId, message);
+      await sb.from('sync_history').insert({
         connection_id: body.connectionId,
         sync_type: 'transactions',
         status: 'failed',
