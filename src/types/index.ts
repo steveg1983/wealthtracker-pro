@@ -37,6 +37,8 @@ export interface Account {
   tags?: string[];
   creditLimit?: number;
   subtype?: string;
+  bankBalance?: number | null;
+  lastReconciledDate?: Date | null;
 }
 
 export interface Transaction {
@@ -51,8 +53,11 @@ export interface Transaction {
   tags?: string[];
   notes?: string;
   cleared?: boolean;
+  /** @deprecated Will be removed in reconciliation cleanup */
   reconciledWith?: string;
+  /** @deprecated Will be removed in reconciliation cleanup */
   reconciledDate?: Date;
+  /** @deprecated Will be removed in reconciliation cleanup */
   reconciledNotes?: string;
   bankReference?: string;
   isRecurring?: boolean;

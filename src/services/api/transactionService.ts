@@ -19,6 +19,53 @@ export interface TransactionServiceOptions {
   uuid?: UuidGenerator;
 }
 
+/** Map camelCase Transaction fields to snake_case DB columns */
+const CAMEL_TO_DB: Record<string, string> = {
+  accountId: 'account_id',
+  cleared: 'is_cleared',
+  isRecurring: 'is_recurring',
+  categoryId: 'category_id',
+  transferAccountId: 'transfer_account_id',
+  bankReference: 'bank_reference',
+  isImported: 'is_imported',
+  isSplit: 'is_split',
+  goalId: 'goal_id',
+  accountName: 'account_name',
+  categoryName: 'category_name',
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  recurringTransactionId: 'recurring_transaction_id',
+  linkedTransferId: 'linked_transfer_id',
+  plaidTransactionId: 'plaid_transaction_id',
+  paymentChannel: 'payment_channel',
+  addedBy: 'added_by',
+};
+
+/** Reverse map: snake_case DB columns → camelCase Transaction fields */
+const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
+  Object.entries(CAMEL_TO_DB).map(([camel, db]) => [db, camel])
+);
+
+function mapFromDbFields(row: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    result[DB_TO_CAMEL[key] ?? key] = value;
+  }
+  return result;
+}
+
+function mapToDbFields(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    // Skip complex nested objects that don't map to DB columns
+    if (key === 'transferMetadata' || key === 'investmentData' || key === 'location' || key === 'tags') {
+      continue;
+    }
+    result[CAMEL_TO_DB[key] ?? key] = value;
+  }
+  return result;
+}
+
 class TransactionServiceImpl {
   private readonly supabaseClient: SupabaseClientLike;
   private readonly supabaseChecker: SupabaseConfiguredChecker;
@@ -81,7 +128,7 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data || [];
+      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
     } catch (error) {
       this.logger.error('TransactionService.getTransactions error:', error as Error);
       return this.readStoredTransactions();
@@ -110,12 +157,12 @@ class TransactionServiceImpl {
 
     try {
       const client = this.supabaseClient!;
+      const dbRow = mapToDbFields(transaction as unknown as Record<string, unknown>);
+      dbRow.user_id = userId;
+
       const { data, error } = await client
         .from('transactions')
-        .insert({
-          ...transaction,
-          user_id: userId
-        } as never)
+        .insert(dbRow as never)
         .select()
         .single();
 
@@ -125,7 +172,7 @@ class TransactionServiceImpl {
       }
 
       await this.updateAccountBalance(transaction.accountId, transaction.amount);
-      return data!;
+      return mapFromDbFields(data as Record<string, unknown>) as unknown as Transaction;
     } catch (error) {
       this.logger.error('TransactionService.createTransaction error:', error as Error);
       throw error;
@@ -166,9 +213,10 @@ class TransactionServiceImpl {
         .eq('id', id)
         .single();
 
+      const dbUpdates = mapToDbFields(updates as unknown as Record<string, unknown>);
       const { data, error } = await client
         .from('transactions')
-        .update(updates as never)
+        .update(dbUpdates as never)
         .eq('id', id)
         .select()
         .single();
@@ -186,7 +234,7 @@ class TransactionServiceImpl {
         }
       }
 
-      return data!;
+      return mapFromDbFields(data as Record<string, unknown>) as unknown as Transaction;
     } catch (error) {
       this.logger.error('TransactionService.updateTransaction error:', error as Error);
       throw error;
@@ -255,7 +303,7 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data || [];
+      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
     } catch (error) {
       this.logger.error('TransactionService.getTransactionsByDateRange error:', error as Error);
       throw error;
@@ -281,7 +329,7 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data || [];
+      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
     } catch (error) {
       this.logger.error('TransactionService.getTransactionsByAccount error:', error as Error);
       throw error;
@@ -307,7 +355,7 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data || [];
+      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
     } catch (error) {
       this.logger.error('TransactionService.getTransactionsByCategory error:', error as Error);
       throw error;
@@ -335,10 +383,11 @@ class TransactionServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const transactionsWithUser = transactions.map(t => ({
-        ...t,
-        user_id: userId
-      }));
+      const transactionsWithUser = transactions.map(t => {
+        const dbRow = mapToDbFields(t as unknown as Record<string, unknown>);
+        dbRow.user_id = userId;
+        return dbRow;
+      });
 
       const { data, error } = await client
         .from('transactions')
@@ -357,7 +406,7 @@ class TransactionServiceImpl {
         }
       }
 
-      return data || [];
+      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
     } catch (error) {
       this.logger.error('TransactionService.bulkCreateTransactions error:', error as Error);
       throw error;

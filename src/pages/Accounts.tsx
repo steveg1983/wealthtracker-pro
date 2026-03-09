@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
-import AccountReconciliationModal from '../components/AccountReconciliationModal';
 import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
@@ -24,7 +23,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
-  const [reconcileAccountId, setReconcileAccountId] = useState<string | null>(null);
+  // Reconciliation now handled by dedicated /reconciliation page
   const [balanceAdjustmentData, setBalanceAdjustmentData] = useState<{
     accountId: string;
     currentBalance: number;
@@ -363,7 +362,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                   </span>
                                 </div>
                                 <button
-                                  onClick={() => setReconcileAccountId(account.id)}
+                                  onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}`, location.search))}
                                   className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Reconcile transactions"
                                 >
@@ -426,15 +425,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
       />
-      
-      {/* Account Reconciliation Modal */}
-      {reconcileAccountId && (
-        <AccountReconciliationModal
-          isOpen={true}
-          onClose={() => setReconcileAccountId(null)}
-          accountId={reconcileAccountId}
-        />
-      )}
       
       {/* Balance Adjustment Modal */}
       {balanceAdjustmentData && (

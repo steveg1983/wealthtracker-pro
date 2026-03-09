@@ -148,11 +148,22 @@ export default function AccountTransactions() {
   // Calculate unreconciled total
   const unreconciledTotal = useMemo(() => {
     if (!account) return 0;
-    
+
     return accountTransactions
       .filter(t => !t.cleared)
       .reduce((sum, t) => sum + t.amount, 0);
   }, [account, accountTransactions]);
+
+  // Compute account balance from transactions (opening balance + sum of all txns)
+  const computedAccountBalance = useMemo(() => {
+    if (!account) return 0;
+    const openingBalance = account.openingBalance ?? 0;
+    const txnTotal = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
+    return openingBalance + txnTotal;
+  }, [account, accountTransactions]);
+
+  // Bank balance from TrueLayer sync (or null if not available)
+  const bankBalance = account?.bankBalance ?? null;
   
   // Keyboard event handler
   useEffect(() => {
@@ -465,19 +476,25 @@ export default function AccountTransactions() {
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Account Balance</span>
             <span className={`text-sm font-bold ${
-              account.balance >= 0 
-                ? 'text-green-600 dark:text-green-400' 
+              computedAccountBalance >= 0
+                ? 'text-green-600 dark:text-green-400'
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {formatCurrency(account.balance, account.currency)}
+              {formatCurrency(computedAccountBalance, account.currency)}
             </span>
           </div>
           
           {/* Imported Bank Balance Box - Top Right */}
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Bank Balance</span>
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-              {formatCurrency(0, account.currency)}
+            <span className={`text-sm font-bold ${
+              bankBalance != null
+                ? bankBalance >= 0
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+                : 'text-gray-400 dark:text-gray-500'
+            }`}>
+              {bankBalance != null ? formatCurrency(bankBalance, account.currency) : 'N/A'}
             </span>
           </div>
           
@@ -492,15 +509,20 @@ export default function AccountTransactions() {
           {/* Difference Box - Bottom Right */}
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Difference</span>
-            <span className={`text-sm font-bold ${
-              account.balance === 0 
-                ? 'text-gray-900 dark:text-white'
-                : account.balance > 0
-                ? 'text-green-600 dark:text-green-400' 
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              {formatCurrency(account.balance - 0, account.currency)}
-            </span>
+            {bankBalance != null ? (() => {
+              const difference = bankBalance - computedAccountBalance;
+              return (
+                <span className={`text-sm font-bold ${
+                  difference === 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatCurrency(difference, account.currency)}
+                </span>
+              );
+            })() : (
+              <span className="text-sm font-bold text-gray-400 dark:text-gray-500">N/A</span>
+            )}
           </div>
         </div>
       </div>

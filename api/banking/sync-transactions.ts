@@ -157,7 +157,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const linkedAccounts = linkedAccountsResult.data ?? [];
+    console.log('[sync-transactions] connection_id:', connection.id, 'linked_accounts:', linkedAccounts.length, linkedAccounts.map(la => ({ account_id: la.account_id, external: la.external_account_id })));
     if (linkedAccounts.length === 0) {
+      console.log('[sync-transactions] EXIT: no linked accounts found for connection', connection.id);
       await markConnectionSyncSuccess(supabase, connection.id);
       await supabase.from('sync_history').insert({
         connection_id: connection.id,
@@ -188,8 +190,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const validAccountIds = new Set((accountsResult.data ?? []).map((account) => account.id));
     const mappedLinkedAccounts = linkedAccounts.filter((item) => validAccountIds.has(item.account_id));
+    console.log('[sync-transactions] valid accounts:', validAccountIds.size, 'mapped linked accounts:', mappedLinkedAccounts.length);
 
     if (mappedLinkedAccounts.length === 0) {
+      console.log('[sync-transactions] EXIT: no valid mapped linked accounts');
       await markConnectionSyncSuccess(supabase, connection.id);
       const response: SyncTransactionsResponse = {
         success: true,
@@ -220,6 +224,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return allTransactions;
     });
+
+    console.log('[sync-transactions] TrueLayer returned', fetchedTransactions.length, 'raw transactions');
 
     const prepared = fetchedTransactions
       .map(({ accountId, transaction }) => {
@@ -296,6 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const insertCandidates = uniquePrepared.filter((row) => !existingIds.has(row.external_transaction_id));
+    console.log('[sync-transactions] prepared:', prepared.length, 'unique:', uniquePrepared.length, 'existing:', existingIds.size, 'to insert:', insertCandidates.length);
     let insertedCount = 0;
     for (const insertChunk of chunk(insertCandidates, 200)) {
       if (insertChunk.length === 0) {
