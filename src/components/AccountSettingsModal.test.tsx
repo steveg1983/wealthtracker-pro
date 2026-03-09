@@ -99,7 +99,7 @@ describe('AccountSettingsModal', () => {
       expect(typeSelect).toHaveValue('current');
       
       const balanceInput = screen.getByLabelText('Opening balance amount') as HTMLInputElement;
-      expect(balanceInput.value).toBe('500');
+      expect(balanceInput.value).toBe('500.00');
       
       const dateInput = screen.getByLabelText('Opening balance date') as HTMLInputElement;
       expect(dateInput.value).toBe('2023-12-01');

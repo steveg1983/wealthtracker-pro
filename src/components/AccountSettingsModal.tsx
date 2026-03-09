@@ -65,8 +65,8 @@ export default function AccountSettingsModal({
           accountNumber: data.accountNumber || undefined
         };
 
-        if (data.openingBalance) {
-          updates.openingBalance = parseFloat(data.openingBalance);
+        if (data.openingBalance !== '') {
+          updates.openingBalance = parseFloat(data.openingBalance) || 0;
           updates.openingBalanceDate = new Date(data.openingBalanceDate);
         }
 
@@ -80,7 +80,7 @@ export default function AccountSettingsModal({
     if (account) {
       setFormData({
         type: account.type || 'current',
-        openingBalance: account.openingBalance?.toString() || '',
+        openingBalance: account.openingBalance != null ? account.openingBalance.toFixed(2) : '',
         openingBalanceDate: account.openingBalanceDate 
           ? new Date(account.openingBalanceDate).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0],
