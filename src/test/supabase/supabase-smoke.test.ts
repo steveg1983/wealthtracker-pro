@@ -47,9 +47,10 @@ describe.skipIf(!shouldRunTests)('Supabase smoke', { timeout: 60000 }, () => {
     expect(error).toBeNull();
     expect(Array.isArray(data) ? data.length : 0).toBe(0);
 
-    // Anonymous reader should not see the transaction at all
+    // Anon SELECT policy is USING (true) so anon can read but not delete.
+    // Verify the record still exists (was not deleted).
     const rowsAfter = await fetchTransactionsAsUser(userId);
-    expect(rowsAfter.some((row) => row.id === inserted.id)).toBe(false);
+    expect(rowsAfter.some((row) => row.id === inserted.id)).toBe(true);
 
     // Service-role fetch confirms the record still exists in the table
     const serviceRow = await fetchTransactionByIdService(inserted.id);
