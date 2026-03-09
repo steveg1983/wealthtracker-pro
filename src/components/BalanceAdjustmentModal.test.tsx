@@ -339,8 +339,8 @@ describe('BalanceAdjustmentModal', () => {
     it('calls onClose when close icon clicked', () => {
       const onClose = vi.fn();
       render(<BalanceAdjustmentModal {...defaultProps} onClose={onClose} />);
-      
-      fireEvent.click(screen.getByTestId('x-icon').parentElement!);
+
+      fireEvent.click(screen.getByLabelText('Close modal'));
       expect(onClose).toHaveBeenCalled();
     });
   });

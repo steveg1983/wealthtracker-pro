@@ -39,6 +39,13 @@ type DbAccount = {
   created_at?: Date;
   updated_at?: Date;
   last_updated?: Date;
+  bank_balance?: number | null;
+  last_reconciled_date?: string | null;
+  sort_code?: string | null;
+  account_number?: string | null;
+  credit_limit?: number | null;
+  notes?: string | null;
+  opening_balance_date?: string | null;
 };
 
 function transformAccountFromDb(dbAccount: DbAccount): Account {
@@ -53,8 +60,35 @@ function transformAccountFromDb(dbAccount: DbAccount): Account {
     openingBalance: dbAccount.initial_balance,
     createdAt: dbAccount.created_at,
     updatedAt: dbAccount.updated_at,
-    lastUpdated: dbAccount.updated_at || dbAccount.created_at
+    lastUpdated: dbAccount.updated_at || dbAccount.created_at,
+    bankBalance: dbAccount.bank_balance ?? null,
+    lastReconciledDate: dbAccount.last_reconciled_date ?? null,
+    sortCode: dbAccount.sort_code ?? '',
+    accountNumber: dbAccount.account_number ?? '',
+    creditLimit: dbAccount.credit_limit,
+    notes: dbAccount.notes ?? '',
+    openingBalanceDate: dbAccount.opening_balance_date ? new Date(dbAccount.opening_balance_date) : undefined,
   } as Account;
+}
+
+const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
+  openingBalance: 'initial_balance',
+  bankBalance: 'bank_balance',
+  lastReconciledDate: 'last_reconciled_date',
+  isActive: 'is_active',
+  sortCode: 'sort_code',
+  accountNumber: 'account_number',
+  creditLimit: 'credit_limit',
+  lastUpdated: 'updated_at',
+  openingBalanceDate: 'opening_balance_date',
+};
+
+function mapAccountUpdatesToDb(updates: Partial<Account>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    result[ACCOUNT_CAMEL_TO_DB[key] ?? key] = value;
+  }
+  return result;
 }
 
 class SimpleAccountServiceImpl {
@@ -206,9 +240,10 @@ class SimpleAccountServiceImpl {
         throw new Error('Supabase not configured');
       }
 
+      const dbUpdates = mapAccountUpdatesToDb(updates);
       const { data, error } = await client
         .from('accounts')
-        .update(updates as never)
+        .update(dbUpdates as never)
         .eq('id', accountId)
         .select()
         .single();
@@ -240,7 +275,7 @@ class SimpleAccountServiceImpl {
 
       const { error } = await client
         .from('accounts')
-        .delete()
+        .update({ is_active: false } as never)
         .eq('id', accountId);
 
       if (error) {

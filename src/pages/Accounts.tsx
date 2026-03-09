@@ -7,7 +7,7 @@ import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
+import { DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
@@ -22,8 +22,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const navigate = useNavigate();
   const location = useLocation();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editBalance, setEditBalance] = useState('');
   // Reconciliation now handled by dedicated /reconciliation page
   const [balanceAdjustmentData, setBalanceAdjustmentData] = useState<{
     accountId: string;
@@ -148,26 +146,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   ];
 
 
-  const handleEdit = (accountId: string, currentBalance: number) => {
-    setEditingId(accountId);
-    setEditBalance(currentBalance.toString());
-  };
-
-  const handleSaveEdit = (accountId: string) => {
-    const account = accounts.find(a => a.id === accountId);
-    if (account) {
-      setBalanceAdjustmentData({
-        accountId,
-        currentBalance: account.balance,
-        newBalance: editBalance
-      });
-    }
-    setEditingId(null);
-    setEditBalance('');
-  };
-
   const handleDelete = (accountId: string) => {
-    if (window.confirm('Are you sure you want to delete this account? All related transactions will also be deleted.')) {
+    if (window.confirm('Are you sure you want to archive this account? It will be hidden from your accounts list but all transaction history will be preserved.')) {
       deleteAccount(accountId);
     }
   };
@@ -302,31 +282,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       </div>
                       
                       <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
-                        {editingId === account.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editBalance}
-                              onChange={(e) => setEditBalance(e.target.value)}
-                              className="w-24 sm:w-32 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded"
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => handleSaveEdit(account.id)}
-                              className="text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => setEditingId(null)}
-                              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <>
                             <div className="flex items-center gap-4">
                               {/* Balance info columns */}
                               <div className="text-right">
@@ -394,19 +349,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 <div className="relative group">
                                   <IconButton
-                                    onClick={() => handleEdit(account.id, account.balance)}
-                                    icon={<EditIcon size={20} />}
-                                    variant="ghost"
-                                    size="md"
-                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
-                                    title="Adjust balance"
-                                  />
-                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Adjust
-                                  </span>
-                                </div>
-                                <div className="relative group">
-                                  <IconButton
                                     onClick={() => handleDelete(account.id)}
                                     icon={<DeleteIcon size={20} />}
                                     variant="ghost"
@@ -420,8 +362,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </div>
                               </div>
                             </div>
-                          </>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -495,9 +435,16 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         isOpen={!!settingsAccountId}
         onClose={() => setSettingsAccountId(null)}
         account={accounts.find(a => a.id === settingsAccountId) || null}
-        onSave={(accountId, updates) => {
-          updateAccount(accountId, updates);
+        onSave={async (accountId, updates) => {
+          await updateAccount(accountId, updates);
+        }}
+        onBalanceAdjust={(accountId, currentBalance, newBalance) => {
           setSettingsAccountId(null);
+          setBalanceAdjustmentData({
+            accountId,
+            currentBalance,
+            newBalance: newBalance.toString()
+          });
         }}
       />
       

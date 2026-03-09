@@ -112,6 +112,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Refs to prevent duplicate updates and manage debouncing
   const lastUpdateRef = useRef<{ type: string; timestamp: number } | null>(null);
   const updateDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  // Suppress real-time reloads shortly after a local write to prevent overwriting optimistic updates
+  const recentLocalUpdateRef = useRef<number>(0);
 
   // Initialize data service and load data
   useEffect(() => {
@@ -216,6 +218,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 appLogger.debug('Real-time account marked inactive');
               }
               
+              // Skip real-time reload if we just made a local update (prevents overwriting optimistic state)
+              if (Date.now() - recentLocalUpdateRef.current < 2000) {
+                appLogger.debug('Skipping real-time account reload (recent local update)');
+                return;
+              }
+
               debouncedUpdate('account', async () => {
                 appLogger.debug('Reloading accounts after real-time update');
                 // Reload accounts when any change happens
@@ -334,6 +342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateAccount = useCallback(async (id: string, updates: Partial<Account>) => {
     try {
+      recentLocalUpdateRef.current = Date.now();
       const updatedAccount = await DataService.updateAccount(id, updates);
       setAccounts(prev => prev.map(a => a.id === id ? updatedAccount : a));
     } catch (error) {

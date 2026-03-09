@@ -141,6 +141,13 @@ const persistAccountsAndLinks = async (
     }
 
     if (!accountId) {
+      // If linked_accounts already exist for this connection, skip auto-creating
+      // new accounts for unlinked external accounts. The user should use the
+      // Link Accounts modal to manually link them first.
+      if (existingLinks.length > 0) {
+        continue;
+      }
+
       const insertAccountResult = await supabase
         .from('accounts')
         .insert({
