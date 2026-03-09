@@ -21,7 +21,7 @@ export default function BankingCallback() {
   const error = params.get('error');
   const errorDescription = params.get('error_description');
 
-  const notifyOpener = useCallback((payload: { status: 'success' | 'error'; error?: string }) => {
+  const notifyOpener = useCallback((payload: { status: 'success' | 'error'; error?: string; connectionId?: string }) => {
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage(
         {
@@ -60,10 +60,10 @@ export default function BankingCallback() {
       setMessage('Finalizing your bank connection...');
       try {
         bankConnectionService.setAuthTokenProvider(() => getToken());
-        await bankConnectionService.handleOAuthCallback(code, state);
+        const connection = await bankConnectionService.handleOAuthCallback(code, state);
         setStatus('success');
-        setMessage('Bank connection successful. You can now sync your data.');
-        notifyOpener({ status: 'success' });
+        setMessage('Bank connection successful. You can now link your accounts.');
+        notifyOpener({ status: 'success', connectionId: connection?.id });
         if (window.opener && !window.opener.closed) {
           window.setTimeout(() => window.close(), 800);
         }

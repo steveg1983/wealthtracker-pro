@@ -25,9 +25,50 @@ export interface ExchangeTokenResponse {
   accountsCount: number;
 }
 
+// POST /api/banking/discover-accounts
+export interface DiscoverAccountsRequest {
+  connectionId: string;
+}
+
+export interface DiscoveredBankAccount {
+  externalAccountId: string;
+  name: string;
+  type: string;
+  balance: number;
+  currency: string;
+  sortCode?: string;
+  accountNumber?: string;
+  mask?: string;
+}
+
+export interface DiscoverAccountsResponse {
+  success: boolean;
+  accounts: DiscoveredBankAccount[];
+  error?: string;
+}
+
+// POST /api/banking/link-accounts
+export interface LinkAccountsRequest {
+  connectionId: string;
+  links: Array<{
+    externalAccountId: string;
+    accountId: string;
+    externalAccountName: string;
+    externalAccountMask?: string;
+    balance: number;
+  }>;
+}
+
+export interface LinkAccountsResponse {
+  success: boolean;
+  linked: number;
+  error?: string;
+}
+
 // POST /api/banking/sync-accounts
 export interface SyncAccountsRequest {
   connectionId: string;
+  createUnlinked?: boolean;
 }
 
 export interface SyncAccountsResponse {
@@ -264,3 +305,8 @@ export type { DeadLetterAdminAuditRow as BankingAPIDeadLetterAdminAuditRow };
 export type { DeadLetterAdminAuditSummary as BankingAPIDeadLetterAdminAuditSummary };
 export type { DeadLetterAdminAuditResponse as BankingAPIDeadLetterAdminAuditResponse };
 export type { ErrorResponse as BankingAPIErrorResponse };
+export type { DiscoverAccountsRequest as BankingAPIDiscoverAccountsRequest };
+export type { DiscoverAccountsResponse as BankingAPIDiscoverAccountsResponse };
+export type { DiscoveredBankAccount as BankingAPIDiscoveredBankAccount };
+export type { LinkAccountsRequest as BankingAPILinkAccountsRequest };
+export type { LinkAccountsResponse as BankingAPILinkAccountsResponse };

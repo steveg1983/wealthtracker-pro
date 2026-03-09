@@ -14,7 +14,8 @@ interface AccountSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   account: Account | null;
-  onSave: (accountId: string, updates: Partial<Account>) => void;
+  onSave: (accountId: string, updates: Partial<Account>) => void | Promise<void>;
+  onBalanceAdjust?: (accountId: string, currentBalance: number, newBalance: number) => void;
 }
 
 interface FormData {
@@ -41,7 +42,8 @@ export default function AccountSettingsModal({
   isOpen,
   onClose,
   account,
-  onSave
+  onSave,
+  onBalanceAdjust
 }: AccountSettingsModalProps) {
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
@@ -54,7 +56,7 @@ export default function AccountSettingsModal({
       notes: ''
     },
     {
-      onSubmit: (data) => {
+      onSubmit: async (data) => {
         if (!account) return;
 
         const updates: Partial<Account> = {
@@ -65,12 +67,28 @@ export default function AccountSettingsModal({
           accountNumber: data.accountNumber || undefined
         };
 
+        // Only process opening balance if the field has a value
         if (data.openingBalance !== '') {
-          updates.openingBalance = parseFloat(data.openingBalance) || 0;
-          updates.openingBalanceDate = new Date(data.openingBalanceDate);
-        }
+          const newOpeningBalance = parseFloat(data.openingBalance) || 0;
+          const currentOpeningBalance = account.openingBalance ?? 0;
+          const balanceChanged = Math.abs(newOpeningBalance - currentOpeningBalance) >= 0.01;
 
-        onSave(account.id, updates);
+          if (data.openingBalanceDate) {
+            updates.openingBalanceDate = new Date(data.openingBalanceDate);
+          }
+
+          if (balanceChanged && onBalanceAdjust) {
+            // Save non-balance fields, then trigger adjustment flow
+            await onSave(account.id, updates);
+            onBalanceAdjust(account.id, account.balance, newOpeningBalance);
+          } else {
+            // No change or no adjustment handler — save everything including balance
+            updates.openingBalance = newOpeningBalance;
+            await onSave(account.id, updates);
+          }
+        } else {
+          await onSave(account.id, updates);
+        }
       },
       onClose
     }

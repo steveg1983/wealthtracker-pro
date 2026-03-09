@@ -4,6 +4,7 @@ import PageWrapper from '../components/PageWrapper';
 import { bankConnectionService } from '../services/bankConnectionService';
 import type { BankConnection } from '../services/bankConnectionService';
 import { BankIcon, ShieldIcon, CheckCircleIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, LinkIcon } from '../components/icons';
+import LinkBankAccountsModal from '../components/banking/LinkBankAccountsModal';
 
 type ConnectStatus = 'idle' | 'connecting' | 'error';
 
@@ -15,6 +16,7 @@ export default function OpenBanking() {
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -39,6 +41,10 @@ export default function OpenBanking() {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === 'wealthtracker:bank-oauth-complete') {
         void loadConnections();
+        // Open linking modal if we have a connectionId from a successful OAuth flow
+        if (event.data.status === 'success' && event.data.connectionId) {
+          setLinkingConnectionId(event.data.connectionId);
+        }
       }
     };
     window.addEventListener('message', handleMessage);
@@ -96,6 +102,25 @@ export default function OpenBanking() {
       });
     }
   }, [getToken]);
+
+  const handleLinkComplete = useCallback(async (connectionId: string) => {
+    setLinkingConnectionId(null);
+    // After linking, sync transactions for the newly linked accounts
+    setSyncingIds(prev => new Set(prev).add(connectionId));
+    try {
+      bankConnectionService.setAuthTokenProvider(() => getToken());
+      await bankConnectionService.syncTransactionsOnly(connectionId);
+      await loadConnections();
+    } catch {
+      // Sync errors shown via connection status
+    } finally {
+      setSyncingIds(prev => {
+        const next = new Set(prev);
+        next.delete(connectionId);
+        return next;
+      });
+    }
+  }, [getToken, loadConnections]);
 
   const connectedCount = connections.filter(c => c.status === 'connected').length;
   const totalAccounts = connections.reduce((sum, c) => sum + (c.accountsCount ?? 0), 0);
@@ -205,6 +230,14 @@ export default function OpenBanking() {
                   )}
                   <button
                     type="button"
+                    onClick={() => setLinkingConnectionId(connection.id)}
+                    className="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    title="Link bank accounts to your app accounts"
+                  >
+                    <LinkIcon size={18} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleSync(connection.id)}
                     disabled={syncingIds.has(connection.id)}
                     className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg disabled:opacity-50 transition-colors"
@@ -289,6 +322,15 @@ export default function OpenBanking() {
           </div>
         </div>
       </div>
+      {/* Link Bank Accounts Modal */}
+      {linkingConnectionId && (
+        <LinkBankAccountsModal
+          isOpen={true}
+          onClose={() => setLinkingConnectionId(null)}
+          connectionId={linkingConnectionId}
+          onLinkComplete={handleLinkComplete}
+        />
+      )}
     </PageWrapper>
   );
 }

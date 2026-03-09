@@ -5,9 +5,13 @@ import type {
   ConnectionsResponse,
   CreateLinkTokenRequest,
   CreateLinkTokenResponse,
+  DiscoverAccountsResponse,
+  DiscoveredBankAccount,
   DisconnectResponse,
   ErrorResponse,
   ExchangeTokenResponse,
+  LinkAccountsRequest,
+  LinkAccountsResponse,
   OpsAlertStatsResponse,
   OpsAlertTestResponse,
   SyncAccountsResponse,
@@ -691,6 +695,47 @@ export class BankConnectionService {
 
     this.connections = this.connections.filter((connection) => connection.id !== connectionId);
     return true;
+  }
+
+  async discoverAccounts(connectionId: string): Promise<DiscoveredBankAccount[]> {
+    const response = await this.request<DiscoverAccountsResponse>('/api/banking/discover-accounts', {
+      method: 'POST',
+      body: JSON.stringify({ connectionId })
+    });
+    return response.accounts;
+  }
+
+  async linkAccounts(connectionId: string, links: LinkAccountsRequest['links']): Promise<LinkAccountsResponse> {
+    return this.request<LinkAccountsResponse>('/api/banking/link-accounts', {
+      method: 'POST',
+      body: JSON.stringify({ connectionId, links })
+    });
+  }
+
+  async syncTransactionsOnly(connectionId: string): Promise<SyncResult> {
+    try {
+      const transactionsResponse = await this.request<SyncTransactionsResponse>('/api/banking/sync-transactions', {
+        method: 'POST',
+        body: JSON.stringify({ connectionId })
+      });
+
+      await this.refreshConnections();
+
+      return {
+        success: transactionsResponse.success,
+        accountsUpdated: 0,
+        transactionsImported: transactionsResponse.transactionsImported,
+        errors: transactionsResponse.error ? [transactionsResponse.error] : []
+      };
+    } catch (error) {
+      this.logger.error('Failed to sync transactions', error as Error);
+      return {
+        success: false,
+        accountsUpdated: 0,
+        transactionsImported: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown sync error']
+      };
+    }
   }
 
   needsReauth(): BankConnection[] {
