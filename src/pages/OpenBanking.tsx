@@ -1,28 +1,104 @@
-import React, { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import PageWrapper from '../components/PageWrapper';
-import PlaidLink from '../components/PlaidLink';
-import { plaidService } from '../services/plaidService';
-import { useApp } from '../contexts/AppContextSupabase';
-import { BankIcon, ShieldIcon, CheckCircleIcon } from '../components/icons';
+import { bankConnectionService } from '../services/bankConnectionService';
+import type { BankConnection } from '../services/bankConnectionService';
+import { BankIcon, ShieldIcon, CheckCircleIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, LinkIcon } from '../components/icons';
+
+type ConnectStatus = 'idle' | 'connecting' | 'error';
 
 export default function OpenBanking() {
-  const [isAutoSyncEnabled, setIsAutoSyncEnabled] = useState(true);
-  const [syncInterval, setSyncInterval] = useState('24'); // hours
-  const { accounts } = useApp();
-  
-  // Count connected accounts
-  const connectedAccountsCount = accounts.filter(acc => acc.plaidConnectionId).length;
-  const totalConnections = plaidService.getConnections().length;
+  const { getToken, isLoaded } = useClerkAuth();
+  const [connections, setConnections] = useState<BankConnection[]>([]);
+  const [connectStatus, setConnectStatus] = useState<ConnectStatus>('idle');
+  const [connectError, setConnectError] = useState('');
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAutoSyncToggle = () => {
-    setIsAutoSyncEnabled(!isAutoSyncEnabled);
-    // In production, this would update user preferences
-  };
+  const loadConnections = useCallback(async () => {
+    try {
+      bankConnectionService.setAuthTokenProvider(() => getToken());
+      const result = await bankConnectionService.refreshConnections();
+      setConnections(result);
+    } catch {
+      // Silent fail - connections list will be empty
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getToken]);
 
-  const handleSyncIntervalChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSyncInterval(e.target.value);
-    // In production, this would update sync settings
-  };
+  useEffect(() => {
+    if (!isLoaded) return;
+    void loadConnections();
+  }, [isLoaded, loadConnections]);
+
+  // Listen for OAuth callback completion from popup window
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'wealthtracker:bank-oauth-complete') {
+        void loadConnections();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [loadConnections]);
+
+  const handleConnectBank = useCallback(async () => {
+    setConnectStatus('connecting');
+    setConnectError('');
+    try {
+      bankConnectionService.setAuthTokenProvider(() => getToken());
+      const result = await bankConnectionService.connectBank('', 'truelayer');
+      if (result.url) {
+        window.location.href = result.url;
+      } else {
+        setConnectStatus('error');
+        setConnectError('No authorization URL returned from server.');
+      }
+    } catch (err) {
+      setConnectStatus('error');
+      setConnectError(err instanceof Error ? err.message : 'Failed to start bank connection.');
+    }
+  }, [getToken]);
+
+  const handleSync = useCallback(async (connectionId: string) => {
+    setSyncingIds(prev => new Set(prev).add(connectionId));
+    try {
+      bankConnectionService.setAuthTokenProvider(() => getToken());
+      await bankConnectionService.syncConnection(connectionId);
+      await loadConnections();
+    } catch {
+      // Sync errors are shown via connection status
+    } finally {
+      setSyncingIds(prev => {
+        const next = new Set(prev);
+        next.delete(connectionId);
+        return next;
+      });
+    }
+  }, [getToken, loadConnections]);
+
+  const handleDisconnect = useCallback(async (connectionId: string) => {
+    setDeletingIds(prev => new Set(prev).add(connectionId));
+    try {
+      bankConnectionService.setAuthTokenProvider(() => getToken());
+      await bankConnectionService.disconnect(connectionId);
+      setConnections(prev => prev.filter(c => c.id !== connectionId));
+    } catch {
+      // Show error via alert or toast in future
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(connectionId);
+        return next;
+      });
+    }
+  }, [getToken]);
+
+  const connectedCount = connections.filter(c => c.status === 'connected').length;
+  const totalAccounts = connections.reduce((sum, c) => sum + (c.accountsCount ?? 0), 0);
 
   return (
     <PageWrapper title="Open Banking">
@@ -32,22 +108,20 @@ export default function OpenBanking() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Connected Banks</p>
-              <p className="text-2xl font-bold">{totalConnections}</p>
+              <p className="text-2xl font-bold">{connectedCount}</p>
             </div>
             <BankIcon size={32} className="text-blue-600" />
           </div>
         </div>
-        
         <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Synced Accounts</p>
-              <p className="text-2xl font-bold">{connectedAccountsCount}</p>
+              <p className="text-2xl font-bold">{totalAccounts}</p>
             </div>
             <CheckCircleIcon size={32} className="text-green-600" />
           </div>
         </div>
-        
         <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -59,62 +133,141 @@ export default function OpenBanking() {
         </div>
       </div>
 
-      {/* Plaid Link Component */}
-      <PlaidLink />
-
-      {/* Sync Settings */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mt-6">
-        <h3 className="text-lg font-semibold mb-4">Sync Settings</h3>
-        
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="font-medium">Automatic Sync</label>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Automatically sync transactions from connected banks
-              </p>
-            </div>
-            <button
-              onClick={handleAutoSyncToggle}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                isAutoSyncEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isAutoSyncEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+      {/* Connect Bank */}
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-2">Connect Your Bank</h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Securely connect your bank accounts to automatically import transactions and keep your balances up to date.
+        </p>
+        <button
+          type="button"
+          onClick={handleConnectBank}
+          disabled={connectStatus === 'connecting'}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <LinkIcon size={18} />
+          {connectStatus === 'connecting' ? 'Redirecting to bank...' : 'Connect Bank Account'}
+        </button>
+        {connectStatus === 'error' && connectError && (
+          <div className="mt-3 flex items-center gap-2 text-red-600 text-sm">
+            <AlertCircleIcon size={16} />
+            <span>{connectError}</span>
           </div>
-          
-          {isAutoSyncEnabled && (
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Sync Frequency
-              </label>
-              <select
-                value={syncInterval}
-                onChange={handleSyncIntervalChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+        )}
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+          Bank connections are secured with 256-bit encryption
+        </p>
+      </div>
+
+      {/* Connected Banks */}
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-4">Connected Banks</h3>
+        {isLoading ? (
+          <p className="text-gray-500">Loading connections...</p>
+        ) : connections.length === 0 ? (
+          <p className="text-gray-500">No bank connections yet. Click &ldquo;Connect Bank Account&rdquo; to get started.</p>
+        ) : (
+          <div className="space-y-3">
+            {connections.map(connection => (
+              <div
+                key={connection.id}
+                className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
               >
-                <option value="6">Every 6 hours</option>
-                <option value="12">Every 12 hours</option>
-                <option value="24">Daily</option>
-                <option value="168">Weekly</option>
-              </select>
+                <div className="flex items-center gap-3">
+                  <BankIcon size={24} className="text-blue-600" />
+                  <div>
+                    <p className="font-medium">{connection.institutionName}</p>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span>
+                        {connection.accountsCount ?? 0} account{(connection.accountsCount ?? 0) !== 1 ? 's' : ''}
+                      </span>
+                      {connection.lastSync && (
+                        <>
+                          <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+                          <span>Last synced: {new Date(connection.lastSync).toLocaleString()}</span>
+                        </>
+                      )}
+                    </div>
+                    {connection.status === 'error' && (
+                      <p className="text-xs text-red-500 mt-1">{connection.error ?? 'Connection error'}</p>
+                    )}
+                    {connection.status === 'reauth_required' && (
+                      <p className="text-xs text-amber-500 mt-1">Re-authorization required</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {connection.status === 'connected' && (
+                    <CheckCircleIcon size={18} className="text-green-500" />
+                  )}
+                  {connection.status === 'error' && (
+                    <AlertCircleIcon size={18} className="text-red-500" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleSync(connection.id)}
+                    disabled={syncingIds.has(connection.id)}
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg disabled:opacity-50 transition-colors"
+                    title="Sync accounts & transactions"
+                  >
+                    <RefreshCwIcon size={18} className={syncingIds.has(connection.id) ? 'animate-spin' : ''} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDisconnect(connection.id)}
+                    disabled={deletingIds.has(connection.id)}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg disabled:opacity-50 transition-colors"
+                    title="Disconnect bank"
+                  >
+                    <TrashIcon size={18} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* How It Works */}
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-4">How It Works</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="text-blue-600 font-bold">1</span>
             </div>
-          )}
+            <h4 className="font-medium mb-1">Connect</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Select your bank and authorize read-only access via Open Banking
+            </p>
+          </div>
+          <div className="text-center">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="text-blue-600 font-bold">2</span>
+            </div>
+            <h4 className="font-medium mb-1">Sync</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Your accounts and transactions are securely imported
+            </p>
+          </div>
+          <div className="text-center">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+              <span className="text-blue-600 font-bold">3</span>
+            </div>
+            <h4 className="font-medium mb-1">Track</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              View all your finances in one place with automatic updates
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Security Information */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mt-6">
+      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
         <div className="flex items-center gap-3 mb-4">
           <ShieldIcon size={24} className="text-green-600" />
           <h3 className="text-lg font-semibold">Bank-Level Security</h3>
         </div>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h4 className="font-medium mb-2">Data Protection</h4>
@@ -125,46 +278,15 @@ export default function OpenBanking() {
               <li>• Credentials never stored locally</li>
             </ul>
           </div>
-          
           <div>
             <h4 className="font-medium mb-2">Privacy First</h4>
             <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-              <li>• Your data stays on your device</li>
+              <li>• FCA-regulated Open Banking provider</li>
               <li>• No third-party data sharing</li>
               <li>• Delete connections anytime</li>
               <li>• Full control over your information</li>
             </ul>
           </div>
-        </div>
-      </div>
-
-      {/* Supported Banks */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mt-6">
-        <h3 className="text-lg font-semibold mb-4">Supported Banks</h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Connect to over 12,000 financial institutions across the US, Canada, and Europe.
-        </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="font-medium">Major Banks</div>
-          <div className="font-medium">Credit Unions</div>
-          <div className="font-medium">Investment Firms</div>
-          <div className="font-medium">Credit Cards</div>
-          <div className="text-gray-600 dark:text-gray-400">Chase</div>
-          <div className="text-gray-600 dark:text-gray-400">Navy Federal</div>
-          <div className="text-gray-600 dark:text-gray-400">Vanguard</div>
-          <div className="text-gray-600 dark:text-gray-400">American Express</div>
-          <div className="text-gray-600 dark:text-gray-400">Bank of America</div>
-          <div className="text-gray-600 dark:text-gray-400">Alliant</div>
-          <div className="text-gray-600 dark:text-gray-400">Fidelity</div>
-          <div className="text-gray-600 dark:text-gray-400">Capital One</div>
-          <div className="text-gray-600 dark:text-gray-400">Wells Fargo</div>
-          <div className="text-gray-600 dark:text-gray-400">PenFed</div>
-          <div className="text-gray-600 dark:text-gray-400">Charles Schwab</div>
-          <div className="text-gray-600 dark:text-gray-400">Discover</div>
-          <div className="text-gray-600 dark:text-gray-400">Citi</div>
-          <div className="text-gray-600 dark:text-gray-400">BECU</div>
-          <div className="text-gray-600 dark:text-gray-400">E*TRADE</div>
-          <div className="text-gray-600 dark:text-gray-400">And 12,000+ more...</div>
         </div>
       </div>
     </PageWrapper>
