@@ -151,16 +151,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : 0;
     const maxSuppressedCount = rows.reduce((max, row) => Math.max(max, row.suppressed_count), 0);
     const totalSuppressed = rows.reduce((sum, row) => sum + row.suppressed_count, 0);
-    const mostRecentLastSentAt = rows
+    const sortedLastSentAt = rows
       .map((row) => row.last_sent_at)
       .filter((value): value is string => typeof value === 'string')
-      .sort()
-      .at(-1) ?? null;
-    const mostRecentUpdatedAt = rows
+      .sort();
+    const mostRecentLastSentAt = sortedLastSentAt.length > 0
+      ? sortedLastSentAt[sortedLastSentAt.length - 1]!
+      : null;
+    const sortedUpdatedAt = rows
       .map((row) => row.updated_at)
       .filter((value): value is string => typeof value === 'string')
-      .sort()
-      .at(-1) ?? null;
+      .sort();
+    const mostRecentUpdatedAt = sortedUpdatedAt.length > 0
+      ? sortedUpdatedAt[sortedUpdatedAt.length - 1]!
+      : null;
 
     const response: OpsAlertStatsResponse = {
       success: true,

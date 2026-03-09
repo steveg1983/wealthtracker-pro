@@ -56,7 +56,10 @@ const parseBoundedLimit = (
   return Math.min(max, Math.max(1, Math.floor(parsed)));
 };
 
-const loadCandidateRows = async (limit: number) => {
+const loadCandidateRows = async (
+  supabase: ReturnType<typeof getServiceRoleSupabase>,
+  limit: number
+) => {
   const { data, error } = await supabase
     .from('bank_connections')
     .select(
@@ -68,7 +71,10 @@ const loadCandidateRows = async (limit: number) => {
   return { data: data ?? [], error };
 };
 
-const applyResetUpdate = async (connectionIds: string[]) => {
+const applyResetUpdate = async (
+  supabase: ReturnType<typeof getServiceRoleSupabase>,
+  connectionIds: string[]
+) => {
   if (connectionIds.length === 0) {
     return null;
   }
@@ -128,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         DEFAULT_PREVIEW_LIMIT,
         MAX_PREVIEW_LIMIT
       );
-      const candidateLoad = await loadCandidateRows(Math.max(limit * 3, limit));
+      const candidateLoad = await loadCandidateRows(supabase, Math.max(limit * 3, limit));
       if (candidateLoad.error) {
         return createErrorResponse(res, 500, 'Failed to load dead-letter rows', 'internal_error', candidateLoad.error);
       }
@@ -196,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }> = [];
 
     if (resetAllDeadLettered) {
-      const candidateLoad = await loadCandidateRows(Math.max(resetLimit * 3, resetLimit));
+      const candidateLoad = await loadCandidateRows(supabase, Math.max(resetLimit * 3, resetLimit));
       if (candidateLoad.error) {
         return createErrorResponse(res, 500, 'Failed to load dead-letter rows', 'internal_error', candidateLoad.error);
       }
@@ -257,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const auditId = auditInsert.data.id;
-    const updateError = await applyResetUpdate(resetConnectionIds);
+    const updateError = await applyResetUpdate(supabase, resetConnectionIds);
     if (updateError) {
       await supabase
         .from('banking_dead_letter_admin_audit')
