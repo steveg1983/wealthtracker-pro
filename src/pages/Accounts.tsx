@@ -10,13 +10,14 @@ import PortfolioView from '../components/PortfolioView';
 import { EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { useReconciliation } from '../hooks/useReconciliation';
 import PageWrapper from '../components/PageWrapper';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, updateAccount, deleteAccount } = useApp();
+  const { accounts, transactions, updateAccount, deleteAccount } = useApp();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,6 +33,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const { getUnreconciledCount, computeAccountBalance } = useReconciliation(accounts, transactions);
 
   // Convert accounts to decimal for calculations
   const decimalAccounts = useMemo(() => accounts.map(a => ({
@@ -324,14 +327,32 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-center gap-3">
-                              <p className={`text-lg md:text-xl font-semibold tabular-nums whitespace-nowrap ${
-                                account.balance >= 0 
-                                  ? 'text-gray-900 dark:text-white' 
-                                  : 'text-gray-900 dark:text-white'
-                              }`}>
-                                {formatDisplayCurrency(account.balance, account.currency)}
-                              </p>
+                            <div className="flex items-center gap-4">
+                              {/* Balance info columns */}
+                              <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Bal</p>
+                                <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                                  {account.bankBalance != null
+                                    ? formatDisplayCurrency(account.bankBalance, account.currency)
+                                    : 'N/A'}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Bal</p>
+                                <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                                  {formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Unreconciled</p>
+                                <p className={`text-sm font-semibold tabular-nums ${
+                                  getUnreconciledCount(account.id) > 0
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-green-600 dark:text-green-400'
+                                }`}>
+                                  {getUnreconciledCount(account.id)}
+                                </p>
+                              </div>
                               <div className="flex items-center gap-1">
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button

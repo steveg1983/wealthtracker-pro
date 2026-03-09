@@ -5,7 +5,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 
 interface ReconciliationFinalizationModalProps {
   isOpen: boolean;
-  bankBalance: number;
+  bankBalance: number | null;
   clearedBalance: number;
   currency?: string;
   onClose: () => void;
@@ -29,8 +29,10 @@ export default function ReconciliationFinalizationModal({
   onCreateAdjustment,
 }: ReconciliationFinalizationModalProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
-  const difference = bankBalance - clearedBalance;
-  const isBalanced = Math.abs(difference) < 0.005;
+
+  const hasBankBalance = bankBalance != null;
+  const difference = hasBankBalance ? bankBalance - clearedBalance : null;
+  const isBalanced = difference != null && Math.abs(difference) < 0.005;
 
   const [adjustmentCategory, setAdjustmentCategory] = useState('');
   const [adjustmentDate, setAdjustmentDate] = useState(
@@ -40,10 +42,10 @@ export default function ReconciliationFinalizationModal({
   if (!isOpen) return null;
 
   const handleCreateAdjustment = () => {
-    if (!adjustmentCategory) return;
+    if (!adjustmentCategory || difference == null) return;
 
     onCreateAdjustment({
-      amount: difference, // positive = income, negative = expense
+      amount: difference,
       type: difference > 0 ? 'income' : 'expense',
       description: 'Account Reconciliation Adjustment',
       category: adjustmentCategory,
@@ -67,7 +69,33 @@ export default function ReconciliationFinalizationModal({
           </button>
         </div>
 
-        {isBalanced ? (
+        {!hasBankBalance ? (
+          /* No bank balance — allow finalize anyway */
+          <div className="text-center py-6">
+            <CheckCircleIcon size={48} className="mx-auto text-blue-500 mb-3" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+              No Bank Balance Set
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Enter a bank balance on the balance bar above to compare against cleared transactions,
+              or finalize without comparison.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={onFinalize}
+                className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                Finalize Anyway
+              </button>
+            </div>
+          </div>
+        ) : isBalanced ? (
           /* Balanced — success */
           <div className="text-center py-6">
             <CheckCircleIcon size={48} className="mx-auto text-green-500 mb-3" />
@@ -92,7 +120,7 @@ export default function ReconciliationFinalizationModal({
                 There is a difference between your bank balance and cleared balance:
               </p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {formatCurrency(difference, currency)}
+                {formatCurrency(difference!, currency)}
               </p>
               <div className="mt-2 text-xs text-red-500 dark:text-red-400 space-y-1">
                 <p>Bank Balance: {formatCurrency(bankBalance, currency)}</p>
@@ -109,9 +137,9 @@ export default function ReconciliationFinalizationModal({
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400">Amount</label>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {formatCurrency(Math.abs(difference), currency)}
+                  {formatCurrency(Math.abs(difference!), currency)}
                   {' '}
-                  ({difference > 0 ? 'Income' : 'Expense'})
+                  ({difference! > 0 ? 'Income' : 'Expense'})
                 </p>
               </div>
 
@@ -123,7 +151,7 @@ export default function ReconciliationFinalizationModal({
                 <CategorySelector
                   selectedCategory={adjustmentCategory}
                   onCategoryChange={setAdjustmentCategory}
-                  transactionType={difference > 0 ? 'income' : 'expense'}
+                  transactionType={difference! > 0 ? 'income' : 'expense'}
                   placeholder="Select category..."
                   allowCreate={false}
                 />

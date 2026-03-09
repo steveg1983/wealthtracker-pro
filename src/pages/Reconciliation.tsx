@@ -152,7 +152,7 @@ export default function Reconciliation() {
         <button
           type="button"
           onClick={() => setShowFinalizationModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50"
         >
           <CheckCircleIcon size={18} />
           Finalize Reconciliation
@@ -179,17 +179,15 @@ export default function Reconciliation() {
       />
 
       {/* Finalization Modal */}
-      {bankBalance != null && (
-        <ReconciliationFinalizationModal
-          isOpen={showFinalizationModal}
-          bankBalance={bankBalance}
-          clearedBalance={clearedBalance}
-          currency={selectedAccount?.currency}
-          onClose={() => setShowFinalizationModal(false)}
-          onFinalize={handleFinalize}
-          onCreateAdjustment={handleCreateAdjustment}
-        />
-      )}
+      <ReconciliationFinalizationModal
+        isOpen={showFinalizationModal}
+        bankBalance={bankBalance}
+        clearedBalance={clearedBalance}
+        currency={selectedAccount?.currency}
+        onClose={() => setShowFinalizationModal(false)}
+        onFinalize={handleFinalize}
+        onCreateAdjustment={handleCreateAdjustment}
+      />
     </div>
   );
 }
