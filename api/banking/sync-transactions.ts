@@ -86,7 +86,7 @@ const normalizeAmount = (value: number): number => {
   if (!Number.isFinite(value)) {
     return 0;
   }
-  return Math.round(Math.abs(value) * 100) / 100;
+  return Math.round(value * 100) / 100;
 };
 
 const toDateOnly = (timestamp?: string): string => {
