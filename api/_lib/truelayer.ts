@@ -255,5 +255,10 @@ export const fetchTransactions = async (
   }
 
   const payload = (await response.json()) as TransactionsResponse;
-  return Array.isArray(payload.results) ? payload.results : [];
+  const results = Array.isArray(payload.results) ? payload.results : [];
+  console.log('[truelayer] fetchTransactions accountId:', accountId, 'returned:', results.length, 'transactions, status:', response.status);
+  if (results.length > 0) {
+    console.log('[truelayer] first transaction sample:', JSON.stringify(results[0]).slice(0, 300));
+  }
+  return results;
 };
