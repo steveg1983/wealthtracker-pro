@@ -19,6 +19,44 @@ export interface AccountServiceOptions {
   uuid?: UuidGenerator;
 }
 
+/** Map camelCase Account fields to snake_case DB columns for writes */
+const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
+  openingBalance: 'initial_balance',
+  openingBalanceDate: 'opening_balance_date',
+  isActive: 'is_active',
+  plaidConnectionId: 'plaid_connection_id',
+  plaidAccountId: 'plaid_account_id',
+  lastUpdated: 'last_updated',
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  sortCode: 'sort_code',
+  accountNumber: 'account_number',
+  creditLimit: 'credit_limit',
+  bankBalance: 'bank_balance',
+  lastReconciledDate: 'last_reconciled_date',
+};
+
+function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (key === 'holdings' || key === 'tags') continue;
+    result[ACCOUNT_CAMEL_TO_DB[key] ?? key] = value;
+  }
+  return result;
+}
+
+/** Map snake_case DB row to camelCase Account fields for reads */
+function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...row,
+    bankBalance: row.bank_balance ?? null,
+    lastReconciledDate: row.last_reconciled_date ?? null,
+    openingBalance: row.initial_balance ?? row.opening_balance,
+    isActive: row.is_active,
+    lastUpdated: row.last_updated ?? row.updated_at,
+  };
+}
+
 class AccountServiceImpl {
   private readonly supabaseClient: SupabaseClientLike;
   private readonly supabaseChecker: SupabaseConfiguredChecker;
@@ -83,7 +121,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data || [];
+      return (data || []).map(row => mapAccountFromDb(row as Record<string, unknown>)) as unknown as Account[];
     } catch (error) {
       this.logger.error('AccountService.getAccounts error:', error as Error);
       return this.readAccounts();
@@ -171,9 +209,10 @@ class AccountServiceImpl {
 
     try {
       const client = this.supabaseClient!;
+      const dbUpdates = mapAccountToDb(updates as unknown as Record<string, unknown>);
       const { data, error } = await client
         .from('accounts')
-        .update(updates as never)
+        .update(dbUpdates as never)
         .eq('id', id)
         .select()
         .single();
@@ -183,7 +222,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data as Account;
+      return mapAccountFromDb(data as Record<string, unknown>) as unknown as Account;
     } catch (error) {
       this.logger.error('AccountService.updateAccount error:', error as Error);
       throw error;
@@ -237,7 +276,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return data as Account;
+      return mapAccountFromDb(data as Record<string, unknown>) as unknown as Account;
     } catch (error) {
       this.logger.error('AccountService.getAccountById error:', error as Error);
       throw error;
