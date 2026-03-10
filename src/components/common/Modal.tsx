@@ -210,10 +210,8 @@ export function Modal({
             )}
           </div>
           
-          {/* Content with scrollbar - scrolls if content exceeds available height */}
-          <div className="flex-1 overflow-y-auto overscroll-contain">
-            {children}
-          </div>
+          {/* Children rendered as direct flex children so ModalFooter stays pinned */}
+          {children}
         </div>
       </div>
     </>
@@ -227,7 +225,7 @@ interface ModalBodyProps {
 
 export function ModalBody({ children, className = '' }: ModalBodyProps): React.JSX.Element {
   return (
-    <div className={`px-6 py-5 ${className}`}>
+    <div className={`px-6 py-5 flex-1 overflow-y-auto overscroll-contain ${className}`}>
       {children}
     </div>
   );

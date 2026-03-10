@@ -245,31 +245,22 @@ export default function AccountSettingsModal({
           </div>
 
           {/* Account Status */}
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <label htmlFor="account-active" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Account Status
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {formData.isActive ? 'Active — visible in accounts list' : 'Closed — moved to Archived'}
-              </p>
-            </div>
-            <button
+          <div>
+            <label htmlFor="account-active" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Account Status
+            </label>
+            <select
               id="account-active"
-              type="button"
-              role="switch"
-              aria-checked={formData.isActive ? "true" : "false"}
-              onClick={() => updateField('isActive', !formData.isActive)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                formData.isActive ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
+              value={formData.isActive ? 'active' : 'closed'}
+              onChange={(e) => updateField('isActive', e.target.value === 'active')}
+              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  formData.isActive ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+              <option value="active">Active</option>
+              <option value="closed">Closed (Archived)</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Closed accounts are moved to the Archived section
+            </p>
           </div>
 
           {/* Notes */}
