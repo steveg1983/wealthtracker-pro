@@ -415,12 +415,14 @@ export default function AccountTransactions() {
     {
       key: 'description',
       header: 'Description',
+      width: undefined, // flex column — uses flex:1 via className
       accessor: (transaction) => (
         <span className="text-sm text-gray-900 dark:text-white truncate block">
           {transaction.description}
         </span>
       ),
       className: 'flex-1 min-w-0',
+      headerClassName: 'flex-1 min-w-0',
       sortable: true
     },
     {
@@ -506,39 +508,37 @@ export default function AccountTransactions() {
       {/* Back button */}
       <button
         onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-        className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-4"
+        className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-3 self-start"
       >
-        <ArrowLeftIcon size={20} />
-        Back to Accounts
+        <ArrowLeftIcon size={16} />
+        <span className="text-sm">Back to Accounts</span>
       </button>
 
-      {/* Full-width header with overlaid stat boxes */}
-      <div className="relative mb-6">
-        <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">
-            {account.name}
-          </h1>
-          <div className="mt-2 flex items-center gap-4">
-            <div className="text-sm text-white/80">
-              <span>00-00-00</span>
-              <span className="ml-4">00000000</span>
+      {/* Compact header with inline stat boxes */}
+      <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div>
+            <h1 className="text-xl font-bold text-white leading-tight">
+              {account.name}
+            </h1>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="text-xs text-white/70">00-00-00</span>
+              <span className="text-xs text-white/70">00000000</span>
+              <button
+                onClick={() => navigate('/settings')}
+                className="p-1 text-white/50 hover:text-white transition-colors"
+                title="Account Settings"
+              >
+                <SettingsIcon size={16} />
+              </button>
             </div>
-            <button
-              onClick={() => navigate('/settings')}
-              className="p-2 text-white/60 hover:text-white transition-colors"
-              title="Account Settings"
-            >
-              <SettingsIcon size={20} />
-            </button>
           </div>
         </div>
-        
-        {/* Right side boxes - positioned absolutely over the header */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 grid grid-cols-2 gap-2">
-          {/* Account Balance Box - Top Left */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Account Balance</span>
-            <span className={`text-sm font-bold ${
+
+        <div className="flex items-center gap-2">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Account Balance</span>
+            <span className={`text-sm font-bold whitespace-nowrap ${
               computedAccountBalance >= 0
                 ? 'text-green-600 dark:text-green-400'
                 : 'text-red-600 dark:text-red-400'
@@ -546,11 +546,10 @@ export default function AccountTransactions() {
               {formatCurrency(computedAccountBalance, account.currency)}
             </span>
           </div>
-          
-          {/* Imported Bank Balance Box - Top Right */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Bank Balance</span>
-            <span className={`text-sm font-bold ${
+
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Bank Balance</span>
+            <span className={`text-sm font-bold whitespace-nowrap ${
               bankBalance != null
                 ? bankBalance >= 0
                   ? 'text-green-600 dark:text-green-400'
@@ -560,22 +559,20 @@ export default function AccountTransactions() {
               {bankBalance != null ? formatCurrency(bankBalance, account.currency) : 'N/A'}
             </span>
           </div>
-          
-          {/* Unreconciled Box - Bottom Left */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Unreconciled</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">
+
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Unreconciled</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
               {formatCurrency(unreconciledTotal, account.currency)}
             </span>
           </div>
-          
-          {/* Difference Box - Bottom Right */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
-            <span className="text-xs text-gray-600 dark:text-gray-400">Difference</span>
+
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Difference</span>
             {bankBalance != null ? (() => {
               const difference = bankBalance - computedAccountBalance;
               return (
-                <span className={`text-sm font-bold ${
+                <span className={`text-sm font-bold whitespace-nowrap ${
                   difference === 0
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-red-600 dark:text-red-400'
@@ -584,7 +581,7 @@ export default function AccountTransactions() {
                 </span>
               );
             })() : (
-              <span className="text-sm font-bold text-gray-400 dark:text-gray-500">N/A</span>
+              <span className="text-sm font-bold text-gray-400 dark:text-gray-500 whitespace-nowrap">N/A</span>
             )}
           </div>
         </div>
