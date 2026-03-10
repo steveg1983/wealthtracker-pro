@@ -194,18 +194,8 @@ class SimpleAccountServiceImpl {
 
       return transformAccountFromDb(data);
     } catch (error) {
-      this.logger.error('[SimpleAccountService] Error creating account, falling back:', error as Error);
-      const now = this.now();
-      const localAccount: Account = {
-        ...account,
-        id: this.uuid(),
-        createdAt: now,
-        updatedAt: now
-      } as Account;
-      const accounts = await this.localAccounts();
-      accounts.push(localAccount);
-      await this.persistAccounts(accounts);
-      return localAccount;
+      this.logger.error('[SimpleAccountService] Error creating account:', error as Error);
+      throw error;
     }
   }
 
@@ -265,15 +255,9 @@ class SimpleAccountServiceImpl {
       }
 
       return transformAccountFromDb(data);
-    } catch {
-      const accounts = await this.localAccounts();
-      const index = accounts.findIndex(account => account.id === accountId);
-      if (index === -1) {
-        throw new Error('Account not found');
-      }
-      accounts[index] = { ...accounts[index], ...updates } as Account;
-      await this.persistAccounts(accounts);
-      return accounts[index];
+    } catch (error) {
+      this.logger.error('[SimpleAccountService] Error updating account:', error as Error);
+      throw error;
     }
   }
 

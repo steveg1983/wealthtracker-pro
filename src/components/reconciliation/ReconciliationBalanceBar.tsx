@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 
 interface ReconciliationBalanceBarProps {
@@ -19,13 +19,23 @@ export default function ReconciliationBalanceBar({
   const { formatCurrency } = useCurrencyDecimal();
   const [isEditingBankBalance, setIsEditingBankBalance] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [optimisticBankBalance, setOptimisticBankBalance] = useState<number | null>(null);
 
-  const difference = bankBalance != null ? bankBalance - clearedBalance : null;
+  const displayBankBalance = bankBalance ?? optimisticBankBalance;
+  const difference = displayBankBalance != null ? displayBankBalance - clearedBalance : null;
 
-  const handleBankBalanceSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Clear optimistic value once the real prop arrives
+  useEffect(() => {
+    if (bankBalance != null) {
+      setOptimisticBankBalance(null);
+    }
+  }, [bankBalance]);
+
+  const handleBankBalanceSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const parsed = parseFloat(editValue);
     if (!Number.isNaN(parsed) && onBankBalanceChange) {
+      setOptimisticBankBalance(parsed);
       onBankBalanceChange(parsed);
     }
     setIsEditingBankBalance(false);
@@ -38,10 +48,18 @@ export default function ReconciliationBalanceBar({
         {/* Bank Balance */}
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Bank Balance</p>
-          {bankBalance != null ? (
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {formatCurrency(bankBalance, currency)}
-            </p>
+          {displayBankBalance != null && !isEditingBankBalance ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditValue(String(displayBankBalance));
+                setIsEditingBankBalance(true);
+              }}
+              className="text-lg font-bold text-gray-900 dark:text-white hover:text-primary transition-colors cursor-pointer"
+              title="Click to edit"
+            >
+              {formatCurrency(displayBankBalance, currency)}
+            </button>
           ) : isEditingBankBalance ? (
             <form onSubmit={handleBankBalanceSubmit} className="flex gap-1">
               <input
@@ -51,7 +69,14 @@ export default function ReconciliationBalanceBar({
                 onChange={(e) => setEditValue(e.target.value)}
                 className="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 autoFocus
-                onBlur={() => { setIsEditingBankBalance(false); setEditValue(''); }}
+                onBlur={() => {
+                  if (editValue.trim()) {
+                    handleBankBalanceSubmit();
+                  } else {
+                    setIsEditingBankBalance(false);
+                    setEditValue('');
+                  }
+                }}
               />
             </form>
           ) : (
