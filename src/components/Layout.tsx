@@ -747,7 +747,7 @@ export default function Layout(): React.JSX.Element {
         <NavigationProgress />
         
         {/* Desktop Search Bar - Always Visible */}
-        <div className="hidden md:block sticky top-0 z-30 px-6 py-3">
+        <div className="hidden md:block sticky top-0 z-30 px-6 py-3 bg-[#f0f7ff] dark:bg-gray-900">
           <div className="max-w-7xl mx-auto flex items-center justify-center relative">
             <div className="flex-1 max-w-2xl mx-auto">
               <div className="w-full bg-white rounded-2xl shadow-sm border-2 border-[#d4dce8] focus-within:border-[#d4dce8]" style={{ outline: 'none !important', boxShadow: 'none !important' }}>

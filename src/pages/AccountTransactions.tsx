@@ -392,9 +392,9 @@ export default function AccountTransactions() {
     {
       key: 'date',
       header: 'Date',
-      width: '120px',
+      width: '100px',
       accessor: (transaction) => (
-        <span className="text-gray-900 dark:text-white">
+        <span className="text-sm text-gray-900 dark:text-white">
           {new Date(transaction.date).toLocaleDateString('en-GB')}
         </span>
       ),
@@ -403,7 +403,7 @@ export default function AccountTransactions() {
     {
       key: 'reconciled',
       header: 'R',
-      width: '40px',
+      width: '35px',
       accessor: (transaction) => (
         transaction.cleared ? (
           <span className="text-green-600 dark:text-green-400">✓</span>
@@ -415,20 +415,20 @@ export default function AccountTransactions() {
     {
       key: 'description',
       header: 'Description',
-      width: '300px',
       accessor: (transaction) => (
-        <span className="text-gray-900 dark:text-white">
+        <span className="text-sm text-gray-900 dark:text-white truncate block">
           {transaction.description}
         </span>
       ),
+      className: 'flex-1 min-w-0',
       sortable: true
     },
     {
       key: 'category',
       header: 'Category',
-      width: '200px',
+      width: '150px',
       accessor: (transaction) => (
-        <span className="text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-gray-600 dark:text-gray-400 truncate block">
           {getCategoryName(transaction.category)}
         </span>
       )
@@ -436,13 +436,13 @@ export default function AccountTransactions() {
     {
       key: 'tags',
       header: 'Tags',
-      width: '200px',
+      width: '150px',
       accessor: (transaction) => (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 overflow-hidden max-h-[1.5rem]">
           {transaction.tags?.map((tag: string, idx: number) => (
             <span
               key={idx}
-              className={`inline-flex items-center px-2 ${compactView ? 'py-0' : 'py-0.5'} rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300`}
+              className="inline-flex items-center px-1.5 py-0 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
             >
               {tag}
             </span>
@@ -453,11 +453,11 @@ export default function AccountTransactions() {
     {
       key: 'amount',
       header: 'Amount',
-      width: '150px',
+      width: '120px',
       accessor: (transaction) => (
-        <span className={`font-medium ${
+        <span className={`text-sm font-medium ${
           transaction.amount > 0
-            ? 'text-green-600 dark:text-green-400' 
+            ? 'text-green-600 dark:text-green-400'
             : transaction.amount < 0
             ? 'text-red-600 dark:text-red-400'
             : 'text-gray-900 dark:text-gray-100'
@@ -472,11 +472,11 @@ export default function AccountTransactions() {
     {
       key: 'balance',
       header: 'Balance',
-      width: '150px',
+      width: '120px',
       accessor: (transaction) => (
-        <span className={`font-medium ${
-          transaction.balance < 0 
-            ? 'text-red-600 dark:text-red-400' 
+        <span className={`text-sm font-medium ${
+          transaction.balance < 0
+            ? 'text-red-600 dark:text-red-400'
             : 'text-gray-900 dark:text-gray-100'
         }`}>
           {formatCurrency(transaction.balance, account?.currency)}
@@ -485,7 +485,7 @@ export default function AccountTransactions() {
       className: 'text-right',
       headerClassName: 'text-right'
     }
-  ], [compactView, formatCurrency, account?.currency, getCategoryName]);
+  ], [formatCurrency, account?.currency, getCategoryName]);
   
   if (!account) {
     return (
@@ -706,14 +706,14 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Updated Layout */}
       <div 
-        className="h-[850px] overflow-hidden"
+        className="h-[calc(100vh-22rem)] min-h-[400px] overflow-hidden"
       >
         <VirtualizedTable
           items={displayRows}
           columns={columns}
           getItemKey={(row: DisplayRow) => row.id}
           onRowClick={(item) => handleTransactionClick(item)}
-          rowHeight={compactView ? 48 : 64}
+          rowHeight={compactView ? 36 : 44}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
             if (column === 'date' || column === 'description' || column === 'amount') {
