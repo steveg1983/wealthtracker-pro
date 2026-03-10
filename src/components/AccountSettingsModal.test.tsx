@@ -299,6 +299,7 @@ describe('AccountSettingsModal', () => {
           notes: 'Test notes',
           sortCode: '123456',
           accountNumber: '12345678',
+          isActive: true,
           openingBalance: 750,
           openingBalanceDate: expect.any(Date)
         });
@@ -328,7 +329,8 @@ describe('AccountSettingsModal', () => {
           institution: undefined,
           notes: undefined,
           sortCode: undefined,
-          accountNumber: undefined
+          accountNumber: undefined,
+          isActive: true
         });
       });
     });

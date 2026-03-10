@@ -26,6 +26,7 @@ interface FormData {
   accountNumber: string;
   institution: string;
   notes: string;
+  isActive: boolean;
 }
 
 const accountTypeOptions = [
@@ -53,7 +54,8 @@ export default function AccountSettingsModal({
       sortCode: '',
       accountNumber: '',
       institution: '',
-      notes: ''
+      notes: '',
+      isActive: true
     },
     {
       onSubmit: async (data) => {
@@ -64,7 +66,8 @@ export default function AccountSettingsModal({
           institution: data.institution || undefined,
           notes: data.notes || undefined,
           sortCode: data.sortCode || undefined,
-          accountNumber: data.accountNumber || undefined
+          accountNumber: data.accountNumber || undefined,
+          isActive: data.isActive
         };
 
         // Only process opening balance if the field has a value
@@ -80,17 +83,23 @@ export default function AccountSettingsModal({
           if (balanceChanged && onBalanceAdjust) {
             // Save non-balance fields, then trigger adjustment flow
             await onSave(account.id, updates);
+            // Don't close — onBalanceAdjust handler closes settings and opens adjustment modal
             onBalanceAdjust(account.id, account.balance, newOpeningBalance);
-          } else {
-            // No change or no adjustment handler — save everything including balance
-            updates.openingBalance = newOpeningBalance;
-            await onSave(account.id, updates);
+            return;
           }
+
+          // No change or no adjustment handler — save everything including balance
+          updates.openingBalance = newOpeningBalance;
+          await onSave(account.id, updates);
         } else {
           await onSave(account.id, updates);
         }
+
+        // Close modal for normal (non-adjustment) saves
+        onClose();
       },
-      onClose
+      // No-op: we handle closing manually above to avoid race condition with onBalanceAdjust
+      onClose: () => {}
     }
   );
 
@@ -105,7 +114,8 @@ export default function AccountSettingsModal({
         sortCode: account.sortCode || '',
         accountNumber: account.accountNumber || '',
         institution: account.institution || '',
-        notes: account.notes || ''
+        notes: account.notes || '',
+        isActive: account.isActive !== false
       });
     }
   }, [account, setFormData]);
@@ -232,6 +242,34 @@ export default function AccountSettingsModal({
               placeholder="Bank or financial institution name"
               className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             />
+          </div>
+
+          {/* Account Status */}
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <label htmlFor="account-active" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Account Status
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formData.isActive ? 'Active — visible in accounts list' : 'Closed — moved to Archived'}
+              </p>
+            </div>
+            <button
+              id="account-active"
+              type="button"
+              role="switch"
+              aria-checked={formData.isActive ? "true" : "false"}
+              onClick={() => updateField('isActive', !formData.isActive)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                formData.isActive ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  formData.isActive ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Notes */}
