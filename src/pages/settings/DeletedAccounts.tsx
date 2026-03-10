@@ -21,7 +21,7 @@ export default function DeletedAccounts() {
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
-  // Fetch deleted accounts
+  // Fetch archived accounts
   useEffect(() => {
     const fetchDeletedAccounts = async () => {
       // Wait for database ID to be available
@@ -30,10 +30,10 @@ export default function DeletedAccounts() {
         return;
       }
       
-      deletedAccountsLogger.info('Fetching deleted accounts', { databaseId });
+      deletedAccountsLogger.info('Fetching archived accounts', { databaseId });
       setLoading(true);
       try {
-        // Now fetch deleted accounts using the database user ID directly
+        // Now fetch archived accounts using the database user ID directly
         const { data, error } = await supabase!
           .from('accounts')
           .select('*')
@@ -42,7 +42,7 @@ export default function DeletedAccounts() {
           .order('updated_at', { ascending: false });
 
         if (error) {
-          deletedAccountsLogger.error('Error fetching deleted accounts', error);
+          deletedAccountsLogger.error('Error fetching archived accounts', error);
         } else {
           deletedAccountsLogger.info('Deleted accounts fetched', { count: data?.length || 0 });
           if (data && data.length > 0) {
@@ -56,7 +56,7 @@ export default function DeletedAccounts() {
           setDeletedAccounts(transformedAccounts);
         }
       } catch (error) {
-        deletedAccountsLogger.error('Failed to fetch deleted accounts', error);
+        deletedAccountsLogger.error('Failed to fetch archived accounts', error);
       } finally {
         setLoading(false);
       }
@@ -85,7 +85,7 @@ export default function DeletedAccounts() {
       
       // Show success message
       const account = deletedAccounts.find(acc => acc.id === accountId);
-      setSuccessMessage(`Account "${account?.name}" has been restored successfully!`);
+      setSuccessMessage(`Account "${account?.name}" has been re-opened successfully!`);
       setTimeout(() => setSuccessMessage(''), 3000);
 
       // The realtime subscription should automatically update the main accounts list
@@ -99,14 +99,14 @@ export default function DeletedAccounts() {
   };
 
   return (
-    <PageWrapper title="Deleted Accounts">
+    <PageWrapper title="Archived Accounts">
       <div className="mb-6">
         <button
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate('/accounts')}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeftIcon size={20} />
-          Back to Settings
+          Back to Accounts
         </button>
       </div>
 
@@ -125,35 +125,34 @@ export default function DeletedAccounts() {
         <div className="flex items-start gap-3">
           <ArchiveIcon size={24} className="text-blue-600 dark:text-blue-400 mt-1" />
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">About Deleted Accounts</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">About Archived Accounts</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Deleted accounts are hidden from your main accounts list but their transaction history 
-              and transfer links are preserved. You can restore any deleted account at any time by 
-              clicking the restore button next to it.
+              Archived accounts are hidden from your main accounts list but their transaction history
+              and transfer links are preserved. You can re-open any archived account at any time.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Deleted Accounts List */}
+      {/* Archived Accounts List */}
       <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Deleted Accounts ({deletedAccounts.length})
+            Archived Accounts ({deletedAccounts.length})
           </h2>
         </div>
 
         <div className="p-6">
           {loading || userIdLoading ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              Loading deleted accounts...
+              Loading archived accounts...
             </div>
           ) : deletedAccounts.length === 0 ? (
             <div className="text-center py-12">
               <ArchiveIcon size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No deleted accounts</p>
+              <p className="text-gray-500 dark:text-gray-400">No archived accounts</p>
               <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                When you delete an account, it will appear here for recovery
+                When you close an account, it will appear here
               </p>
             </div>
           ) : (
@@ -161,7 +160,7 @@ export default function DeletedAccounts() {
               {deletedAccounts.map((account) => (
                 <div
                   key={account.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors opacity-60"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
@@ -198,7 +197,7 @@ export default function DeletedAccounts() {
                     `}
                   >
                     <RefreshCwIcon size={16} className={restoringId === account.id ? 'animate-spin' : ''} />
-                    {restoringId === account.id ? 'Restoring...' : 'Restore'}
+                    {restoringId === account.id ? 'Re-opening...' : 'Re-open'}
                   </button>
                 </div>
               ))}
@@ -214,7 +213,7 @@ export default function DeletedAccounts() {
             <XCircleIcon size={20} className="text-yellow-600 dark:text-yellow-400 mt-1" />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                <strong>Note:</strong> Deleted accounts and their transactions are preserved indefinitely. 
+                <strong>Note:</strong> Archived accounts and their transactions are preserved indefinitely.
                 If you need to permanently remove an account and all its data, please contact support.
               </p>
             </div>

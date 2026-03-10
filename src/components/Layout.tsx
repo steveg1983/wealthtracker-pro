@@ -344,6 +344,7 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-0.5">
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
+                      <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Archived" isCollapsed={false} isSubItem={true} />
                     </div>
                   )}
                 </div>
@@ -636,10 +637,11 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Archived" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>
-                
+
                 {/* Investments with Sub-navigation */}
                 {(showInvestments || showEnhancedInvestments) && (
                   <div>

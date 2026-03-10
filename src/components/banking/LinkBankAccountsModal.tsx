@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Modal, ModalBody, ModalFooter } from '../common/Modal';
 import { bankConnectionService } from '../../services/bankConnectionService';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { DiscoveredBankAccount } from '../../types/banking-api';
 import type { Account } from '../../types';
