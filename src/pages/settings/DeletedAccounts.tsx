@@ -162,34 +162,37 @@ export default function DeletedAccounts() {
                   key={account.id}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors opacity-60"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">
-                          {account.name}
-                        </h4>
-                        <div className="flex items-center gap-4 mt-1">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {account.type}
-                          </span>
-                          {account.institution && (
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {account.institution}
-                            </span>
-                          )}
-                          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                            Last Balance: {formatCurrency(account.balance)}
-                          </span>
-                        </div>
-                      </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/accounts/${account.id}`)}
+                    className="flex-1 text-left"
+                  >
+                    <h4 className="font-medium text-gray-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
+                      {account.name}
+                    </h4>
+                    <div className="flex items-center gap-4 mt-1">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {account.type}
+                      </span>
+                      {account.institution && (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {account.institution}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Last Balance: {formatCurrency(account.balance)}
+                      </span>
                     </div>
-                  </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      Click to view transactions
+                    </p>
+                  </button>
 
                   <button
                     onClick={() => handleRestore(account.id)}
                     disabled={restoringId === account.id}
                     className={`
-                      flex items-center gap-2 px-4 py-2 rounded-lg transition-colors
+                      flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ml-4
                       ${restoringId === account.id
                         ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
                         : 'bg-green-600 hover:bg-green-700 text-white'
