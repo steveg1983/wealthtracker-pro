@@ -87,7 +87,7 @@ class SupabaseServiceImpl {
       .insert({
         user_id: userId,
         name: account.name,
-        type: account.type,
+        type: account.type === 'current' ? 'checking' : account.type,
         balance: account.balance || 0,
         currency: account.currency || 'USD',
         institution: account.institution,
@@ -108,9 +108,14 @@ class SupabaseServiceImpl {
     const client = this.ensureClient();
     if (!client) return null;
 
+    const dbUpdates = { ...updates } as Record<string, unknown>;
+    if ('type' in dbUpdates && dbUpdates.type === 'current') {
+      dbUpdates.type = 'checking';
+    }
+
     const { data, error } = await client
       .from('accounts')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', accountId)
       .select()
       .single();
