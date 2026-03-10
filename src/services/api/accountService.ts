@@ -41,7 +41,9 @@ function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
   for (const [key, value] of Object.entries(obj)) {
     if (key === 'holdings' || key === 'tags') continue;
     if (value === undefined) continue;
-    result[ACCOUNT_CAMEL_TO_DB[key] ?? key] = value;
+    const dbKey = ACCOUNT_CAMEL_TO_DB[key] ?? key;
+    // DB constraint expects 'checking', frontend uses 'current'
+    result[dbKey] = key === 'type' && value === 'current' ? 'checking' : value;
   }
   return result;
 }
@@ -50,6 +52,7 @@ function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
 function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown> {
   return {
     ...row,
+    type: row.type === 'checking' ? 'current' : row.type,
     bankBalance: row.bank_balance ?? null,
     lastReconciledDate: row.last_reconciled_date ?? null,
     openingBalance: row.initial_balance ?? row.opening_balance,
