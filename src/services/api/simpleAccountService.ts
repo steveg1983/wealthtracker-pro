@@ -159,7 +159,7 @@ class SimpleAccountServiceImpl {
         this.logger.log('[SimpleAccountService] Using existing user:', userId);
       }
 
-      const accountData = {
+      const accountData: Record<string, unknown> = {
         user_id: userId,
         name: account.name,
         type: account.type === 'current' ? 'checking' : account.type,
@@ -167,12 +167,23 @@ class SimpleAccountServiceImpl {
         balance: account.balance || 0,
         initial_balance: account.openingBalance || account.balance || 0,
         is_active: account.isActive !== false,
-        institution: account.institution || null
+        institution: account.institution || null,
+        sort_code: account.sortCode || null,
+        account_number: account.accountNumber || null,
+        opening_balance_date: account.openingBalanceDate instanceof Date
+          ? account.openingBalanceDate.toISOString()
+          : account.openingBalanceDate || null,
+        notes: account.notes || null
       };
+
+      // Remove null values to let DB defaults apply
+      const cleanData = Object.fromEntries(
+        Object.entries(accountData).filter(([, v]) => v !== null)
+      );
 
       const { data, error } = await client
         .from('accounts')
-        .insert(accountData as never)
+        .insert(cleanData as never)
         .select()
         .single();
 
@@ -183,18 +194,8 @@ class SimpleAccountServiceImpl {
 
       return transformAccountFromDb(data);
     } catch (error) {
-      this.logger.error('[SimpleAccountService] Error creating account, falling back:', error as Error);
-      const now = this.now();
-      const localAccount: Account = {
-        ...account,
-        id: this.uuid(),
-        createdAt: now,
-        updatedAt: now
-      } as Account;
-      const accounts = await this.localAccounts();
-      accounts.push(localAccount);
-      await this.persistAccounts(accounts);
-      return localAccount;
+      this.logger.error('[SimpleAccountService] Error creating account:', error as Error);
+      throw error;
     }
   }
 
@@ -254,15 +255,9 @@ class SimpleAccountServiceImpl {
       }
 
       return transformAccountFromDb(data);
-    } catch {
-      const accounts = await this.localAccounts();
-      const index = accounts.findIndex(account => account.id === accountId);
-      if (index === -1) {
-        throw new Error('Account not found');
-      }
-      accounts[index] = { ...accounts[index], ...updates } as Account;
-      await this.persistAccounts(accounts);
-      return accounts[index];
+    } catch (error) {
+      this.logger.error('[SimpleAccountService] Error updating account:', error as Error);
+      throw error;
     }
   }
 

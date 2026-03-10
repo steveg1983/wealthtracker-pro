@@ -44,7 +44,7 @@ describe('simpleAccountService (fallback)', () => {
     userId.ensureUserExists.mockClear();
   });
 
-  it('falls back to storage when Supabase client is missing', async () => {
+  it('throws when Supabase client is missing', async () => {
     const storage = createStorage([]);
     const service = createSimpleAccountService({
       supabaseClient: null,
@@ -55,11 +55,9 @@ describe('simpleAccountService (fallback)', () => {
       now
     });
 
-    const created = await service.createAccount('user_123', baseAccount());
-    expect(created.id).toBe('generated-id');
-    expect(storage.set).toHaveBeenCalled();
-    expect(storage.snapshot()).toHaveLength(1);
-    expect(userId.ensureUserExists).not.toHaveBeenCalled();
+    await expect(service.createAccount('user_123', baseAccount()))
+      .rejects.toThrow('Supabase not configured');
+    expect(storage.set).not.toHaveBeenCalled();
   });
 
   it('returns stored accounts when falling back locally', async () => {
