@@ -86,7 +86,9 @@ const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
 function mapAccountUpdatesToDb(updates: Partial<Account>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(updates)) {
-    result[ACCOUNT_CAMEL_TO_DB[key] ?? key] = value;
+    const dbKey = ACCOUNT_CAMEL_TO_DB[key] ?? key;
+    // DB constraint expects 'checking', frontend uses 'current'
+    result[dbKey] = key === 'type' && value === 'current' ? 'checking' : value;
   }
   return result;
 }
