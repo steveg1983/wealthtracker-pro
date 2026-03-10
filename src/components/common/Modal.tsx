@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -22,56 +22,30 @@ export function Modal({
 }: ModalProps): React.JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
-  const [modalPosition, setModalPosition] = useState({ top: 0, maxHeight: '90vh' });
-  
+
   useEffect(() => {
     if (isOpen) {
       // Store the currently focused element
       previousActiveElement.current = document.activeElement as HTMLElement;
-      
-      // Calculate safe position for modal
-      const calculatePosition = () => {
-        const viewportHeight = window.innerHeight;
-        const scrollTop = window.scrollY;
-        const safeMargin = 40; // 40px margin from edges
-        
-        // Calculate available space
-        const availableHeight = viewportHeight - (safeMargin * 2);
-        
-        // Always center the modal in the viewport, accounting for scroll
-        const top = scrollTop + safeMargin;
-        
-        setModalPosition({
-          top,
-          maxHeight: `${availableHeight}px`
-        });
-      };
-      
-      calculatePosition();
-      
-      // Recalculate on scroll or resize
-      const handleScrollOrResize = () => calculatePosition();
-      window.addEventListener('scroll', handleScrollOrResize);
-      window.addEventListener('resize', handleScrollOrResize);
-      
+
       // Focus the modal after a short delay
       setTimeout(() => {
         modalRef.current?.focus();
       }, 50);
-      
+
       // Trap focus within modal
       const handleTabKey = (e: KeyboardEvent) => {
         if (e.key !== 'Tab') return;
-        
+
         const focusableElements = modalRef.current?.querySelectorAll(
           'a[href], button, textarea, input[type="text"], input[type="number"], input[type="radio"], input[type="checkbox"], select, [tabindex]:not([tabindex="-1"])'
         );
-        
+
         if (!focusableElements || focusableElements.length === 0) return;
-        
+
         const firstFocusable = focusableElements[0] as HTMLElement;
         const lastFocusable = focusableElements[focusableElements.length - 1] as HTMLElement;
-        
+
         if (e.shiftKey && document.activeElement === firstFocusable) {
           lastFocusable.focus();
           e.preventDefault();
@@ -80,48 +54,46 @@ export function Modal({
           e.preventDefault();
         }
       };
-      
+
       // Handle escape key
       const handleEscapeKey = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
           onClose();
         }
       };
-      
+
       document.addEventListener('keydown', handleTabKey);
       document.addEventListener('keydown', handleEscapeKey);
-      
+
       // Prevent body scroll when modal is open
       const originalOverflow = document.body.style.overflow;
       const originalPosition = document.body.style.position;
       const originalTop = document.body.style.top;
       const originalWidth = document.body.style.width;
-      
+
       // Store current scroll position
       const scrollY = window.scrollY;
-      
+
       // Lock body scroll while preserving scroll position
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
-      
+
       return () => {
         // Cleanup event listeners
         document.removeEventListener('keydown', handleTabKey);
         document.removeEventListener('keydown', handleEscapeKey);
-        window.removeEventListener('scroll', handleScrollOrResize);
-        window.removeEventListener('resize', handleScrollOrResize);
-        
+
         // Restore body scroll
         document.body.style.position = originalPosition;
         document.body.style.top = originalTop;
         document.body.style.width = originalWidth;
         document.body.style.overflow = originalOverflow;
-        
+
         // Restore scroll position
         window.scrollTo(0, scrollY);
-        
+
         // Restore focus to the previously focused element
         previousActiveElement.current?.focus();
       };
@@ -147,30 +119,23 @@ export function Modal({
         aria-hidden="true"
       />
       
-      {/* Modal Container - Positioned absolutely to ensure visibility */}
-      <div 
-        className="fixed inset-x-0 z-50 flex justify-center px-4"
-        style={{
-          top: `${modalPosition.top}px`,
-        }}
-      >
-        <div 
+      {/* Modal Container - Centered with flexbox */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-10">
+        <div
           ref={modalRef}
           className={`
-            bg-white dark:bg-gray-900 
-            rounded-2xl 
-            shadow-2xl 
-            w-full 
-            ${sizeClasses[size]} 
-            overflow-hidden 
-            flex 
+            bg-white dark:bg-gray-900
+            rounded-2xl
+            shadow-2xl
+            w-full
+            max-h-[calc(100vh-5rem)]
+            ${sizeClasses[size]}
+            overflow-hidden
+            flex
             flex-col
             animate-in zoom-in-95 slide-in-from-bottom-4 duration-200
             border border-gray-200/50 dark:border-gray-700/50
           `}
-          style={{
-            maxHeight: modalPosition.maxHeight,
-          }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"

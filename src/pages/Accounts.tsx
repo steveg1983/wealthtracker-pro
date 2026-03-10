@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
-import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
@@ -22,12 +21,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const navigate = useNavigate();
   const location = useLocation();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  // Reconciliation now handled by dedicated /reconciliation page
-  const [balanceAdjustmentData, setBalanceAdjustmentData] = useState<{
-    accountId: string;
-    currentBalance: number;
-    newBalance: string;
-  } | null>(null);
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -388,26 +381,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       />
       
       {/* Balance Adjustment Modal */}
-      {balanceAdjustmentData && (
-        <BalanceAdjustmentModal
-          isOpen={true}
-          onClose={() => {
-            setBalanceAdjustmentData(null);
-            // Update the account balance after transaction is created
-            if (balanceAdjustmentData.accountId) {
-              const newBalance = parseFloat(balanceAdjustmentData.newBalance) || 0;
-              updateAccount(balanceAdjustmentData.accountId, {
-                balance: newBalance,
-                lastUpdated: new Date()
-              });
-            }
-          }}
-          accountId={balanceAdjustmentData.accountId}
-          currentBalance={balanceAdjustmentData.currentBalance}
-          newBalance={balanceAdjustmentData.newBalance}
-        />
-      )}
-      
       {/* Portfolio View Modal */}
       {portfolioAccountId && (() => {
         const account = accounts.find(a => a.id === portfolioAccountId);
@@ -437,14 +410,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         account={accounts.find(a => a.id === settingsAccountId) || null}
         onSave={async (accountId, updates) => {
           await updateAccount(accountId, updates);
-        }}
-        onBalanceAdjust={(accountId, currentBalance, newBalance) => {
-          setSettingsAccountId(null);
-          setBalanceAdjustmentData({
-            accountId,
-            currentBalance,
-            newBalance: newBalance.toString()
-          });
         }}
       />
       

@@ -12,6 +12,26 @@ import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
 
+interface OpeningBalanceRow {
+  id: 'opening-balance';
+  isOpeningBalance: true;
+  date: Date;
+  description: string;
+  amount: number;
+  balance: number;
+  type: 'income';
+  category: string;
+  accountId: string;
+  tags: string[];
+  cleared: true;
+}
+
+type DisplayRow = TransactionWithBalance | OpeningBalanceRow;
+
+function isOpeningBalanceRow(row: DisplayRow): row is OpeningBalanceRow {
+  return 'isOpeningBalance' in row && row.isOpeningBalance === true;
+}
+
 export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
@@ -144,7 +164,49 @@ export default function AccountTransactions() {
     
     return result;
   }, [account, accountTransactions]);
-  
+
+  // Build display rows with virtual Opening Balance as first entry
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    if (!account) return [];
+
+    const openingBalance = account.openingBalance ?? 0;
+
+    // Date: use openingBalanceDate, or 1 day before oldest transaction, or today
+    let obDate: Date;
+    if (account.openingBalanceDate) {
+      obDate = new Date(account.openingBalanceDate);
+    } else if (transactionsWithBalance.length > 0) {
+      const oldest = transactionsWithBalance.reduce((min, t) => {
+        const d = new Date(t.date).getTime();
+        return d < min ? d : min;
+      }, Infinity);
+      obDate = new Date(oldest);
+      obDate.setDate(obDate.getDate() - 1);
+    } else {
+      obDate = new Date();
+    }
+
+    const openingBalanceRow: OpeningBalanceRow = {
+      id: 'opening-balance',
+      isOpeningBalance: true,
+      date: obDate,
+      description: 'Opening Balance',
+      amount: openingBalance,
+      balance: openingBalance,
+      type: 'income',
+      category: '',
+      accountId: account.id,
+      tags: [],
+      cleared: true,
+    };
+
+    // Respect sort direction — opening balance is always chronologically first
+    if (sortField === 'date' && sortDirection === 'desc') {
+      return [...transactionsWithBalance, openingBalanceRow];
+    }
+    return [openingBalanceRow, ...transactionsWithBalance];
+  }, [account, transactionsWithBalance, sortField, sortDirection]);
+
   // Calculate unreconciled total
   const unreconciledTotal = useMemo(() => {
     if (!account) return 0;
@@ -228,15 +290,16 @@ export default function AccountTransactions() {
   }, []);
   
   // Handle transaction row click
-  const handleTransactionClick = useCallback((transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    
-    if (selectedTransactionId === transaction.id) {
+  const handleTransactionClick = useCallback((item: DisplayRow) => {
+    if (isOpeningBalanceRow(item)) return;
+    setSelectedTransaction(item);
+
+    if (selectedTransactionId === item.id) {
       // Second click on already selected transaction - open edit modal
       setIsEditModalOpen(true);
     } else {
       // First click - just select the transaction
-      setSelectedTransactionId(transaction.id);
+      setSelectedTransactionId(item.id);
     }
   }, [selectedTransactionId]);
   
@@ -325,7 +388,7 @@ export default function AccountTransactions() {
   }, [categories]);
 
   // Define table columns for VirtualizedTable
-  const columns: Column<TransactionWithBalance>[] = useMemo(() => [
+  const columns: Column<DisplayRow>[] = useMemo(() => [
     {
       key: 'date',
       header: 'Date',
@@ -646,9 +709,9 @@ export default function AccountTransactions() {
         className="h-[850px] overflow-hidden"
       >
         <VirtualizedTable
-          items={transactionsWithBalance}
+          items={displayRows}
           columns={columns}
-          getItemKey={(transaction: TransactionWithBalance) => transaction.id}
+          getItemKey={(row: DisplayRow) => row.id}
           onRowClick={(item) => handleTransactionClick(item)}
           rowHeight={compactView ? 48 : 64}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
@@ -664,8 +727,11 @@ export default function AccountTransactions() {
           threshold={50}
           className="virtualized-table bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
-          rowClassName={(transaction: TransactionWithBalance) => {
-            const isSelected = selectedTransactionId === transaction.id;
+          rowClassName={(row: DisplayRow) => {
+            if (isOpeningBalanceRow(row)) {
+              return 'bg-blue-50/60 dark:bg-blue-900/20 italic';
+            }
+            const isSelected = selectedTransactionId === row.id;
             return isSelected ? 'selected-transaction-row' : '';
           }}
         />
