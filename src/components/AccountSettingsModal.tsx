@@ -15,7 +15,6 @@ interface AccountSettingsModalProps {
   onClose: () => void;
   account: Account | null;
   onSave: (accountId: string, updates: Partial<Account>) => void | Promise<void>;
-  onBalanceAdjust?: (accountId: string, currentBalance: number, newBalance: number) => void;
 }
 
 interface FormData {
@@ -43,10 +42,9 @@ export default function AccountSettingsModal({
   isOpen,
   onClose,
   account,
-  onSave,
-  onBalanceAdjust
+  onSave
 }: AccountSettingsModalProps) {
-  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+  const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     {
       type: 'current',
       openingBalance: '',
@@ -70,36 +68,16 @@ export default function AccountSettingsModal({
           isActive: data.isActive
         };
 
-        // Only process opening balance if the field has a value
         if (data.openingBalance !== '') {
-          const newOpeningBalance = parseFloat(data.openingBalance) || 0;
-          const currentOpeningBalance = account.openingBalance ?? 0;
-          const balanceChanged = Math.abs(newOpeningBalance - currentOpeningBalance) >= 0.01;
-
-          if (data.openingBalanceDate) {
-            updates.openingBalanceDate = new Date(data.openingBalanceDate);
-          }
-
-          if (balanceChanged && onBalanceAdjust) {
-            // Save non-balance fields, then trigger adjustment flow
-            await onSave(account.id, updates);
-            // Don't close — onBalanceAdjust handler closes settings and opens adjustment modal
-            onBalanceAdjust(account.id, account.balance, newOpeningBalance);
-            return;
-          }
-
-          // No change or no adjustment handler — save everything including balance
-          updates.openingBalance = newOpeningBalance;
-          await onSave(account.id, updates);
-        } else {
-          await onSave(account.id, updates);
+          updates.openingBalance = parseFloat(data.openingBalance) || 0;
+        }
+        if (data.openingBalanceDate) {
+          updates.openingBalanceDate = new Date(data.openingBalanceDate);
         }
 
-        // Close modal for normal (non-adjustment) saves
-        onClose();
+        await onSave(account.id, updates);
       },
-      // No-op: we handle closing manually above to avoid race condition with onBalanceAdjust
-      onClose: () => {}
+      onClose
     }
   );
 
@@ -279,17 +257,24 @@ export default function AccountSettingsModal({
 
         </ModalBody>
         <ModalFooter>
+          {errors?.submit && (
+            <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-700 dark:text-red-300">{errors.submit}</p>
+            </div>
+          )}
           <div className="flex gap-3 w-full">
             <button
               type="submit"
-              className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

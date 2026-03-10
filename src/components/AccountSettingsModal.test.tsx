@@ -324,14 +324,14 @@ describe('AccountSettingsModal', () => {
       fireEvent.click(screen.getByText('Save Changes'));
       
       await waitFor(() => {
-        expect(onSave).toHaveBeenCalledWith('acc1', {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
           type: 'current',
           institution: undefined,
           notes: undefined,
           sortCode: undefined,
           accountNumber: undefined,
           isActive: true
-        });
+        }));
       });
     });
 
