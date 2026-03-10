@@ -6,9 +6,21 @@ import { Building2, Wallet, CreditCard, TrendingUp, PiggyBank, Banknote, Package
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
+interface AccountPrefill {
+  name?: string;
+  type?: AccountFormData['type'];
+  balance?: string;
+  currency?: string;
+  institution?: string;
+  sortCode?: string;
+  accountNumber?: string;
+}
+
 interface AddAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
+  prefill?: AccountPrefill;
+  onAccountCreated?: (accountId: string) => void;
 }
 
 interface AccountFormData {
@@ -17,6 +29,8 @@ interface AccountFormData {
   balance: string;
   currency: string;
   institution: string;
+  sortCode: string;
+  accountNumber: string;
 }
 
 const accountTypes = [
@@ -34,7 +48,14 @@ const currencies = [
   { value: 'EUR', label: 'Euro', symbol: '€' },
 ];
 
-export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps): React.JSX.Element {
+const formatSortCode = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
+};
+
+export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCreated }: AddAccountModalProps): React.JSX.Element {
   const { addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
   const logger = useMemo(() => createScopedLogger('AddAccountModal'), []);
@@ -45,23 +66,27 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
     type: 'current',
     balance: '',
     currency: defaultCurrency,
-    institution: ''
+    institution: '',
+    sortCode: '',
+    accountNumber: ''
   });
 
-  // Reset form when modal opens
+  // Reset form when modal opens (seed from prefill if provided)
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        name: '',
-        type: 'current',
-        balance: '',
-        currency: defaultCurrency,
-        institution: ''
+        name: prefill?.name ?? '',
+        type: prefill?.type ?? 'current',
+        balance: prefill?.balance ?? '',
+        currency: prefill?.currency ?? defaultCurrency,
+        institution: prefill?.institution ?? '',
+        sortCode: prefill?.sortCode ? formatSortCode(prefill.sortCode) : '',
+        accountNumber: prefill?.accountNumber ?? '',
       });
       setError(null);
       setIsSubmitting(false);
     }
-  }, [isOpen, defaultCurrency]);
+  }, [isOpen, defaultCurrency, prefill]);
 
   const updateField = <K extends keyof AccountFormData>(field: K, value: AccountFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -92,6 +117,9 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
         throw new Error('Please enter a valid balance');
       }
       
+      // Strip formatting from sort code for storage (XX-XX-XX → XXXXXX)
+      const rawSortCode = formData.sortCode.replace(/\D/g, '');
+
       const newAccountPayload: Omit<Account, 'id'> & { initialBalance?: number } = {
         name: formData.name.trim(),
         type: formData.type === 'checking' ? 'current' : formData.type,
@@ -103,23 +131,32 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
         openingBalance: balance,
         openingBalanceDate: new Date(),
         isActive: true,
+        sortCode: rawSortCode || undefined,
+        accountNumber: formData.accountNumber.trim() || undefined,
       };
 
       // Create the account
       const result = await addAccount(newAccountPayload);
-      
+
       logger.info?.('[AddAccountModal] Account added successfully:', result);
-      
+
       // Reset form and close modal only after successful creation
       setFormData({
         name: '',
         type: 'current',
         balance: '',
         currency: formData.currency, // Keep the same currency
-        institution: ''
+        institution: '',
+        sortCode: '',
+        accountNumber: '',
       });
       setIsSubmitting(false);
-      
+
+      // Notify parent of newly created account (for linking flow)
+      if (onAccountCreated && result?.id) {
+        onAccountCreated(result.id);
+      }
+
       // Small delay to ensure state updates are processed
       setTimeout(() => {
         onClose();
@@ -281,6 +318,45 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                 />
               </div>
             </div>
+
+            {/* Sort Code & Account Number (UK bank accounts) */}
+            {(formData.type === 'current' || formData.type === 'savings') && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                    Sort Code
+                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.sortCode}
+                    onChange={(e) => updateField('sortCode', formatSortCode(e.target.value))}
+                    className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    placeholder="XX-XX-XX"
+                    maxLength={8}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                    Account Number
+                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.accountNumber}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      updateField('accountNumber', digits.slice(0, 8));
+                    }}
+                    className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    placeholder="12345678"
+                    maxLength={8}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Account Type Info Banner */}
             {selectedType && (

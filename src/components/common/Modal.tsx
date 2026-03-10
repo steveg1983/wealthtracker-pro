@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -110,17 +111,17 @@ export function Modal({
     full: 'max-w-full mx-4'
   };
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop with blur and fade animation */}
-      <div 
+      <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
         onClick={onClose}
         aria-hidden="true"
       />
-      
-      {/* Modal Container - Centered with flexbox */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-10">
+
+      {/* Modal Container - Top-aligned below search bar */}
+      <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-6 overflow-y-auto">
         <div
           ref={modalRef}
           className={`
@@ -128,13 +129,14 @@ export function Modal({
             rounded-2xl
             shadow-2xl
             w-full
-            max-h-[calc(100vh-5rem)]
+            max-h-[calc(100vh-5.5rem)]
             ${sizeClasses[size]}
             overflow-hidden
             flex
             flex-col
             animate-in zoom-in-95 slide-in-from-bottom-4 duration-200
             border border-gray-200/50 dark:border-gray-700/50
+            [&>form]:flex [&>form]:flex-col [&>form]:flex-1 [&>form]:overflow-hidden [&>form]:min-h-0
           `}
           role="dialog"
           aria-modal="true"
@@ -144,8 +146,8 @@ export function Modal({
         >
           {/* Header - Always visible */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 flex-shrink-0">
-            <h2 
-              id="modal-title" 
+            <h2
+              id="modal-title"
               className="text-xl font-bold text-gray-900 dark:text-white"
             >
               {title}
@@ -154,18 +156,18 @@ export function Modal({
               <button
                 onClick={onClose}
                 className="
-                  p-2 
-                  rounded-lg 
-                  text-gray-400 
-                  hover:text-gray-600 
-                  dark:text-gray-500 
-                  dark:hover:text-gray-300 
-                  hover:bg-gray-100 
-                  dark:hover:bg-gray-800 
-                  transition-all 
+                  p-2
+                  rounded-lg
+                  text-gray-400
+                  hover:text-gray-600
+                  dark:text-gray-500
+                  dark:hover:text-gray-300
+                  hover:bg-gray-100
+                  dark:hover:bg-gray-800
+                  transition-all
                   duration-200
-                  focus:outline-none 
-                  focus:ring-2 
+                  focus:outline-none
+                  focus:ring-2
                   focus:ring-primary/50
                 "
                 aria-label="Close modal"
@@ -174,12 +176,13 @@ export function Modal({
               </button>
             )}
           </div>
-          
+
           {/* Children rendered as direct flex children so ModalFooter stays pinned */}
           {children}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

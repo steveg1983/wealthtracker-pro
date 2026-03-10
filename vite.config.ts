@@ -42,7 +42,14 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: false,
-    open: false
+    open: false,
+    proxy: {
+      '/api': {
+        target: 'https://wealthtracker-web.vercel.app',
+        changeOrigin: true,
+        secure: true
+      }
+    }
   },
   preview: {
     host: true,

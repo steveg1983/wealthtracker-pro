@@ -1,10 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { Modal, ModalBody, ModalFooter } from '../common/Modal';
 import { bankConnectionService } from '../../services/bankConnectionService';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { DiscoveredBankAccount } from '../../types/banking-api';
 import type { Account } from '../../types';
+
+const AddAccountModal = lazy(() => import('../AddAccountModal'));
 
 interface LinkBankAccountsModalProps {
   isOpen: boolean;
@@ -61,6 +63,33 @@ const formatSortCode = (raw: string | undefined): string => {
   return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
 };
 
+const getMatchReason = (
+  discovered: DiscoveredBankAccount,
+  existingAccounts: Account[]
+): string | null => {
+  const dSortCode = normalizeSortCode(discovered.sortCode);
+  const dAccountNumber = normalizeAccountNumber(discovered.accountNumber);
+
+  if (!dSortCode && !dAccountNumber) return null;
+
+  for (const account of existingAccounts) {
+    const aSortCode = normalizeSortCode(account.sortCode);
+    const aAccountNumber = normalizeAccountNumber(account.accountNumber);
+
+    if (dSortCode && dAccountNumber && aSortCode === dSortCode && aAccountNumber === dAccountNumber) {
+      return `Sort code ${formatSortCode(discovered.sortCode)} and account ****${dAccountNumber.slice(-4)} match`;
+    }
+
+    if (!dSortCode && dAccountNumber && aAccountNumber === dAccountNumber) {
+      return `Account number ****${dAccountNumber.slice(-4)} matches`;
+    }
+  }
+
+  return null;
+};
+
+const CREATE_NEW_VALUE = '__create_new__';
+
 export default function LinkBankAccountsModal({
   isOpen,
   onClose,
@@ -74,6 +103,7 @@ export default function LinkBankAccountsModal({
   const [isLoading, setIsLoading] = useState(true);
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createAccountFor, setCreateAccountFor] = useState<string | null>(null);
 
   const loadDiscoveredAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -105,6 +135,10 @@ export default function LinkBankAccountsModal({
   }, [isOpen, connectionId, loadDiscoveredAccounts]);
 
   const updateLink = (externalAccountId: string, selectedAccountId: string) => {
+    if (selectedAccountId === CREATE_NEW_VALUE) {
+      setCreateAccountFor(externalAccountId);
+      return;
+    }
     setLinks((prev) =>
       prev.map((link) =>
         link.externalAccountId === externalAccountId
@@ -115,7 +149,7 @@ export default function LinkBankAccountsModal({
   };
 
   const handleLink = async () => {
-    const selectedLinks = links.filter((l) => l.selectedAccountId !== '');
+    const selectedLinks = links.filter((l) => l.selectedAccountId !== '' && l.selectedAccountId !== CREATE_NEW_VALUE);
     if (selectedLinks.length === 0) {
       setError('Please select at least one account to link');
       return;
@@ -146,17 +180,18 @@ export default function LinkBankAccountsModal({
     }
   };
 
-  const linkedCount = links.filter((l) => l.selectedAccountId !== '').length;
+  const linkedCount = links.filter((l) => l.selectedAccountId !== '' && l.selectedAccountId !== CREATE_NEW_VALUE).length;
 
   // Check for duplicate account selections
   const selectedIds = links
-    .filter((l) => l.selectedAccountId !== '')
+    .filter((l) => l.selectedAccountId !== '' && l.selectedAccountId !== CREATE_NEW_VALUE)
     .map((l) => l.selectedAccountId);
   const hasDuplicates = new Set(selectedIds).size !== selectedIds.length;
 
   if (!isOpen) return null;
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} title="Link Your Bank Accounts" size="lg">
       <ModalBody className="space-y-4">
         {isLoading ? (
@@ -238,6 +273,7 @@ export default function LinkBankAccountsModal({
                         onChange={(e) =>
                           updateLink(da.externalAccountId, e.target.value)
                         }
+                        aria-label={`Link ${da.name} to account`}
                         className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                       >
                         <option value="">-- Skip (don&apos;t link) --</option>
@@ -250,7 +286,18 @@ export default function LinkBankAccountsModal({
                               {a.sortCode ? ` - ${a.sortCode}` : ''}
                             </option>
                           ))}
+                        <option value={CREATE_NEW_VALUE}>+ Create New Account</option>
                       </select>
+
+                      {/* Match reason */}
+                      {isMatched && selectedId && (() => {
+                        const reason = getMatchReason(da, accounts);
+                        return reason ? (
+                          <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                            Matched: {reason}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 );
@@ -296,5 +343,43 @@ export default function LinkBankAccountsModal({
         </div>
       </ModalFooter>
     </Modal>
+
+    {/* Create New Account sub-modal */}
+    {createAccountFor && (() => {
+      const da = discoveredAccounts.find(d => d.externalAccountId === createAccountFor);
+      return (
+        <Suspense fallback={null}>
+          <AddAccountModal
+            isOpen={true}
+            onClose={() => {
+              // Reset dropdown to skip since they cancelled
+              setLinks(prev => prev.map(link =>
+                link.externalAccountId === createAccountFor
+                  ? { ...link, selectedAccountId: '' }
+                  : link
+              ));
+              setCreateAccountFor(null);
+            }}
+            prefill={{
+              name: da?.name,
+              type: da?.type === 'checking' ? 'current' : da?.type as 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other' | undefined,
+              balance: da?.balance?.toString(),
+              currency: da?.currency,
+              sortCode: da?.sortCode,
+              accountNumber: da?.accountNumber,
+            }}
+            onAccountCreated={(newAccountId) => {
+              setLinks(prev => prev.map(link =>
+                link.externalAccountId === createAccountFor
+                  ? { ...link, selectedAccountId: newAccountId }
+                  : link
+              ));
+              setCreateAccountFor(null);
+            }}
+          />
+        </Suspense>
+      );
+    })()}
+    </>
   );
 }
