@@ -101,7 +101,7 @@ const TableHeader = memo(function TableHeader<T>({
       {columns.map((column) => (
         <div
           key={column.key}
-          className={`px-4 py-3 font-medium text-sm ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''}`}
+          className={`px-3 py-2 font-medium text-sm ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''}`}
           style={{ width: column.width }}
         >
           {column.sortable && onSort ? (
@@ -204,7 +204,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         {columns.map((column) => (
           <div
             key={column.key}
-            className={`px-4 py-3 ${column.className || ''}`}
+            className={`px-3 py-2 overflow-hidden ${column.className || ''}`}
             style={{ width: column.width }}
           >
             {column.accessor(item)}
