@@ -58,7 +58,7 @@ function mapToDbFields(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     // Skip complex nested objects that don't map to DB columns
-    if (key === 'transferMetadata' || key === 'investmentData' || key === 'location' || key === 'tags') {
+    if (key === 'transferMetadata' || key === 'investmentData' || key === 'location') {
       continue;
     }
     result[CAMEL_TO_DB[key] ?? key] = value;

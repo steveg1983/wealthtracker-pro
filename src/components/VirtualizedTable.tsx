@@ -247,7 +247,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden flex flex-col ${className}`}>
       <TableHeader
         columns={columns as Column<unknown>[]}
         headerClassName={headerClassName}

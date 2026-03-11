@@ -37,7 +37,7 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
+  const { accounts, categories, updateTransaction, deleteTransaction } = useApp();
   const { addTransaction } = useTransactionNotifications();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
   
@@ -78,25 +78,30 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     {
       onSubmit: (data) => {
         try {
-          // Validate the transaction data
+          const isTransferToAccount = data.category.startsWith('transfer:');
+          const targetAccountId = isTransferToAccount ? data.category.slice('transfer:'.length) : undefined;
+          const resolvedCategory = isTransferToAccount ? 'transfer-out' : data.category;
+          const resolvedType = isTransferToAccount ? 'transfer' : data.type;
+
           const validatedData = ValidationService.validateTransaction({
             id: transaction?.id,
             description: data.description,
             amount: data.amount,
-            type: data.type === 'transfer' ? 'expense' : data.type,
-            category: data.category,
+            type: resolvedType === 'transfer' ? 'expense' : resolvedType,
+            category: resolvedCategory,
             accountId: data.accountId,
             date: data.date,
             tags: data.tags.length > 0 ? data.tags : undefined,
             notes: data.notes.trim() || undefined,
           });
-          
+
+          const parsedAmount = parseFloat(validatedData.amount);
           const transactionData = {
             date: new Date(validatedData.date),
             description: validatedData.description,
-            amount: parseFloat(validatedData.amount),
-            type: data.type,
-            category: validatedData.category,
+            amount: isTransferToAccount ? -Math.abs(parsedAmount) : parsedAmount,
+            type: resolvedType,
+            category: resolvedCategory,
             accountId: validatedData.accountId,
             tags: validatedData.tags,
             notes: validatedData.notes,
@@ -109,7 +114,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           } else {
             addTransaction(transactionData);
           }
-          
+
+          // Create paired transaction in target account for transfers
+          if (isTransferToAccount && targetAccountId) {
+            addTransaction({
+              date: new Date(validatedData.date),
+              description: validatedData.description,
+              amount: Math.abs(parsedAmount),
+              type: 'transfer',
+              category: 'transfer-in',
+              accountId: targetAccountId,
+              tags: validatedData.tags,
+              notes: validatedData.notes,
+              cleared: false
+            });
+          }
+
           onClose();
         } catch (error) {
           if (error instanceof z.ZodError) {
@@ -125,8 +145,34 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     }
   );
 
-  // Get available sub-categories based on transaction type
-  const availableSubCategories = getSubCategories(`type-${formData.type}`);
+  // Build unified flat category list grouped by parent sub-category
+  const groupedCategories = useMemo(() => {
+    const detailCats = categories.filter(c => c.level === 'detail' && c.id !== 'transfer-in' && c.id !== 'transfer-out');
+    const subCats = categories.filter(c => c.level === 'sub');
+
+    // Group detail categories by their parent sub-category
+    const groups: { label: string; type: 'income' | 'expense' | 'both'; items: { id: string; name: string; parentName: string }[] }[] = [];
+    for (const sub of subCats) {
+      const children = detailCats.filter(d => d.parentId === sub.id);
+      if (children.length > 0) {
+        groups.push({
+          label: sub.name,
+          type: sub.type as 'income' | 'expense' | 'both',
+          items: children.map(c => ({ id: c.id, name: c.name, parentName: sub.name }))
+        });
+      }
+    }
+
+    const incomeGroups = groups.filter(g => g.type === 'income');
+    const expenseGroups = groups.filter(g => g.type === 'expense' || g.type === 'both');
+
+    // Transfer accounts: all accounts except the current transaction's account
+    const transferAccounts = accounts
+      .filter(a => a.isActive !== false && a.id !== formData.accountId)
+      .map(a => ({ id: `transfer:${a.id}`, name: a.name }));
+
+    return { incomeGroups, expenseGroups, transferAccounts };
+  }, [categories, accounts, formData.accountId]);
 
   // Helper function to format number with commas
   const formatWithCommas = (value: string | number): string => {
@@ -153,9 +199,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   // Initialize form when transaction changes
   useEffect(() => {
     if (transaction) {
-      const categoryObj = categories.find(c => c.id === transaction.category);
-      const subCategoryId = categoryObj?.parentId || '';
-      const categoryId = categoryObj?.parentId ? transaction.category : '';
+      const categoryId = transaction.category || '';
       
       // For transfers, preserve the sign to show transfer direction
       // For income/expense, always use absolute value since type determines sign
@@ -169,7 +213,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         amount: amountValue,
         type: transaction.type,
         category: categoryId,
-        subCategory: subCategoryId,
+        subCategory: '',
         accountId: transaction.accountId,
         tags: transaction.tags || [],
         notes: transaction.notes || '',
@@ -353,60 +397,60 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               />
             </div>
 
-            {/* Category Selection */}
-            <div className="md:col-span-12 space-y-3">
-              {/* Sub-category */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <TagIcon size={16} />
-                    Category
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowCategoryModal(true)}
-                    className="text-sm text-primary hover:text-secondary flex items-center gap-1"
-                  >
-                    <PlusIcon size={14} />
-                    Create new category
-                  </button>
-                </div>
-                <select
-                  value={formData.subCategory}
-                  onChange={(e) => {
-                    updateField('subCategory', e.target.value);
-                    updateField('category', ''); // Reset detail category
-                  }}
-                  className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
-                  required
+            {/* Category Selection - Unified Flat List */}
+            <div className="md:col-span-12">
+              <div className="flex justify-between items-center mb-1">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <TagIcon size={16} />
+                  Category
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(true)}
+                  className="text-sm text-primary hover:text-secondary flex items-center gap-1"
                 >
-                  <option value="">Select category</option>
-                  {availableSubCategories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
+                  <PlusIcon size={14} />
+                  Create new category
+                </button>
               </div>
-
-              {/* Detail category */}
-              {formData.subCategory && (
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    <div className="w-4 h-4"></div>
-                    Sub-category
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => updateField('category', e.target.value)}
-                    className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
-                    required
-                  >
-                    <option value="">Select sub-category</option>
-                    {getDetailCategories(formData.subCategory).map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+              <select
+                value={formData.category}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  updateField('category', val);
+                  if (val.startsWith('transfer:')) {
+                    updateField('type', 'transfer');
+                  } else if (formData.type === 'transfer' && !val.startsWith('transfer:')) {
+                    updateField('type', 'expense');
+                  }
+                }}
+                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                required
+                aria-label="Transaction category"
+              >
+                <option value="">Select category</option>
+                {groupedCategories.incomeGroups.map(group => (
+                  <optgroup key={group.label} label={`Income: ${group.label}`}>
+                    {group.items.map(item => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
                     ))}
-                  </select>
-                </div>
-              )}
+                  </optgroup>
+                ))}
+                {groupedCategories.expenseGroups.map(group => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.items.map(item => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+                {groupedCategories.transferAccounts.length > 0 && (
+                  <optgroup label="Transfer To Account">
+                    {groupedCategories.transferAccounts.map(acct => (
+                      <option key={acct.id} value={acct.id}>{acct.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
             </div>
 
             {/* Tags */}
