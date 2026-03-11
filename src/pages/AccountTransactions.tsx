@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, BanknoteIcon, FileTextIcon, TagIcon, ArrowRightLeftIcon, XIcon, SettingsIcon } from '../components/icons';
+import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon } from '../components/icons';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -67,7 +67,8 @@ export default function AccountTransactions() {
     tags: [] as string[],
     notes: ''
   });
-  
+  const [quickAddError, setQuickAddError] = useState('');
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Get account-specific transactions
@@ -307,11 +308,24 @@ export default function AccountTransactions() {
   // Handle quick add
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!account || !quickAddForm.description || !quickAddForm.amount) return;
-    
-    // For transfers, category is the target account ID
-    // For income/expense, category is required
-    if (quickAddForm.type !== 'transfer' && !quickAddForm.category) return;
+    setQuickAddError('');
+    if (!account) return;
+    if (!quickAddForm.description.trim()) {
+      setQuickAddError('Description is required');
+      return;
+    }
+    if (!quickAddForm.amount) {
+      setQuickAddError('Amount is required');
+      return;
+    }
+    if (quickAddForm.type !== 'transfer' && !quickAddForm.category) {
+      setQuickAddError('Please select a category');
+      return;
+    }
+    if (quickAddForm.type === 'transfer' && !quickAddForm.category) {
+      setQuickAddError('Please select a target account');
+      return;
+    }
     
     // Calculate the correct amount based on transaction type
     let amount = parseFloat(quickAddForm.amount);
@@ -354,7 +368,8 @@ export default function AccountTransactions() {
       });
     }
     
-    // Reset form
+    // Reset form and error
+    setQuickAddError('');
     setQuickAddForm({
       date: new Date().toISOString().split('T')[0],
       description: '',
@@ -734,97 +749,68 @@ export default function AccountTransactions() {
         />
       </div>
       
-      {/* Quick Add Transaction Form - Compact - Bottom Aligned */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-8">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Quick Add Transaction</h3>
-        <form onSubmit={handleQuickAdd} className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Date and Type */}
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <CalendarIcon size={16} />
-                Date
-              </label>
+      {/* Quick Add Transaction - Compact Row */}
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-gray-700/50 px-3 py-2 mt-4">
+        <form onSubmit={handleQuickAdd}>
+          <div className="flex items-end gap-2">
+            {/* Date */}
+            <div className="w-[130px] shrink-0">
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
               <input
                 type="date"
                 value={quickAddForm.date}
-                onChange={(e) => setQuickAddForm({ ...quickAddForm, date: e.target.value })}
-                className="w-full px-3 py-1.5 h-[36px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, date: e.target.value }); }}
+                className="w-full px-2 py-1 h-[30px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 required
               />
             </div>
-            
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <ArrowRightLeftIcon size={16} />
-                Type
-              </label>
-              <div className="flex gap-2 items-center h-[36px]">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="expense"
-                    checked={quickAddForm.type === 'expense'}
-                    onChange={(e) => setQuickAddForm({ ...quickAddForm, type: e.target.value as 'expense' })}
-                    className="mr-1"
-                  />
-                  <span className="text-red-600 dark:text-red-400 text-sm">Expense</span>
+
+            {/* Type */}
+            <div className="shrink-0">
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Type</label>
+              <div className="flex gap-1.5 items-center h-[30px]">
+                <label className="flex items-center cursor-pointer">
+                  <input type="radio" value="expense" checked={quickAddForm.type === 'expense'} onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: e.target.value as 'expense' }); }} className="mr-0.5 w-3 h-3" />
+                  <span className="text-red-600 dark:text-red-400 text-xs">Exp</span>
                 </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="income"
-                    checked={quickAddForm.type === 'income'}
-                    onChange={(e) => setQuickAddForm({ ...quickAddForm, type: e.target.value as 'income' })}
-                    className="mr-1"
-                  />
-                  <span className="text-green-600 dark:text-green-400 text-sm">Income</span>
+                <label className="flex items-center cursor-pointer">
+                  <input type="radio" value="income" checked={quickAddForm.type === 'income'} onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: e.target.value as 'income' }); }} className="mr-0.5 w-3 h-3" />
+                  <span className="text-green-600 dark:text-green-400 text-xs">Inc</span>
                 </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="transfer"
-                    checked={quickAddForm.type === 'transfer'}
-                    onChange={(e) => setQuickAddForm({ ...quickAddForm, type: e.target.value as 'transfer' })}
-                    className="mr-1"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300 text-sm">Transfer</span>
+                <label className="flex items-center cursor-pointer">
+                  <input type="radio" value="transfer" checked={quickAddForm.type === 'transfer'} onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: e.target.value as 'transfer' }); }} className="mr-0.5 w-3 h-3" />
+                  <span className="text-gray-600 dark:text-gray-300 text-xs">Txfr</span>
                 </label>
               </div>
             </div>
-          </div>
-          
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              <FileTextIcon size={16} />
-              Description
-            </label>
-            <input
-              type="text"
-              placeholder="Enter transaction description"
-              value={quickAddForm.description}
-              onChange={(e) => setQuickAddForm({ ...quickAddForm, description: e.target.value })}
-              className="w-full px-3 py-1.5 h-[36px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
-              required
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <TagIcon size={16} />
+
+            {/* Description */}
+            <div className="flex-1 min-w-[120px]">
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
+              <input
+                type="text"
+                placeholder="Description"
+                value={quickAddForm.description}
+                onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, description: e.target.value }); }}
+                className="w-full px-2 py-1 h-[30px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                required
+              />
+            </div>
+
+            {/* Category / To Account */}
+            <div className="w-[180px] shrink-0">
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
               {quickAddForm.type === 'transfer' ? (
                 <select
                   value={quickAddForm.category}
-                  onChange={(e) => setQuickAddForm({ ...quickAddForm, category: e.target.value })}
-                  className="w-full px-3 py-1.5 h-[36px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
-                  required
+                  onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: e.target.value }); }}
+                  className="w-full px-2 py-1 h-[30px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 >
                   <option value="">Select account...</option>
                   {accounts
-                    .filter(acc => acc.id !== account?.id) // Don't show current account
+                    .filter(acc => acc.id !== account?.id)
                     .map(acc => (
                       <option key={acc.id} value={acc.id}>
                         {acc.name} ({formatCurrency(acc.balance)})
@@ -834,40 +820,41 @@ export default function AccountTransactions() {
               ) : (
                 <CategorySelector
                   selectedCategory={quickAddForm.category}
-                  onCategoryChange={(categoryId) => setQuickAddForm({ ...quickAddForm, category: categoryId })}
+                  onCategoryChange={(categoryId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: categoryId }); }}
                   transactionType={quickAddForm.type}
-                  placeholder="Select category..."
+                  placeholder="Category..."
                   allowCreate={false}
                 />
               )}
             </div>
-            
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <BanknoteIcon size={16} />
-                Amount
-              </label>
+
+            {/* Amount */}
+            <div className="w-[100px] shrink-0">
+              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
               <input
                 type="number"
                 step="0.01"
                 placeholder="0.00"
                 value={quickAddForm.amount}
-                onChange={(e) => setQuickAddForm({ ...quickAddForm, amount: e.target.value })}
-                className="w-full px-3 py-1.5 h-[36px] text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: e.target.value }); }}
+                className="w-full px-2 py-1 h-[30px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 required
               />
             </div>
-          </div>
-          
-          <div className="flex justify-end">
+
+            {/* Submit */}
             <button
               type="submit"
-              className="px-4 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+              className="shrink-0 px-3 py-1 h-[30px] text-xs bg-primary text-white rounded hover:bg-secondary transition-colors flex items-center gap-1"
+              title="Add Transaction"
             >
-              <PlusIcon size={16} />
-              Add Transaction
+              <PlusIcon size={14} />
+              Add
             </button>
           </div>
+          {quickAddError && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">{quickAddError}</p>
+          )}
         </form>
       </div>
       </div>

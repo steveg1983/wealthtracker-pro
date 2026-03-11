@@ -130,7 +130,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   }
   
   return (
-    <div className={`flex-1 w-full h-full overflow-hidden ${className}`}>
+    <div className={`flex-1 w-full min-h-0 overflow-hidden ${className}`}>
       <AutoSizer>
         {({ height, width }) => (
           <InfiniteLoader

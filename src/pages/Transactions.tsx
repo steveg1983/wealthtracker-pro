@@ -17,7 +17,6 @@ import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types
 import PageWrapper from '../components/PageWrapper';
 import { TransactionRow } from '../components/TransactionRow';
 // Lazy load list components that are conditionally rendered
-const VirtualizedTransactionList = lazy(() => import('../components/VirtualizedTransactionList').then(m => ({ default: m.VirtualizedTransactionList })));
 const InfiniteScrollTransactionList = lazy(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
 import { useDebounce } from '../hooks/useDebounce';
@@ -734,18 +733,6 @@ const Transactions = React.memo(function Transactions() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            ) : (transactionsPerPage > 20 || showAllTransactions) && filteredAndSortedTransactions.length > 20 ? (
-              <div className="relative" style={{ height: '600px' }}>
-                <Suspense fallback={<div className="p-4">Loading transactions...</div>}>
-                  <VirtualizedTransactionList
-                    transactions={filteredAndSortedTransactions}
-                    formatCurrency={formatCurrency}
-                    onTransactionClick={handleView}
-                    onTransactionEdit={handleEdit}
-                    onTransactionDelete={handleDelete}
-                  />
-                </Suspense>
               </div>
             ) : (
               <div className={isWideView ? '' : 'overflow-x-auto'} role="region" aria-label="Transactions table">
