@@ -4,6 +4,8 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon } from '../components/icons';
+import LocalMerchantLogo from '../components/LocalMerchantLogo';
+import DatePicker from '../components/common/DatePicker';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -339,46 +341,55 @@ export default function AccountTransactions() {
     }
     
     // Create the transaction
+    const isTransfer = quickAddForm.type === 'transfer';
+    const targetAccountId = isTransfer ? quickAddForm.category : undefined;
+
     const transactionData: Omit<Transaction, 'id'> = {
       date: new Date(quickAddForm.date),
       description: quickAddForm.description,
       amount: amount,
       type: quickAddForm.type,
       accountId: account.id,
+      transferAccountId: targetAccountId,
       tags: quickAddForm.tags,
       notes: quickAddForm.notes,
       cleared: false,
-      category: quickAddForm.category
+      category: isTransfer ? 'transfer-out' : quickAddForm.category
     };
 
-    const newTransaction = await addTransaction(transactionData);
-    
-    // For transfers, create the opposite transaction in the target account
-    if (quickAddForm.type === 'transfer' && quickAddForm.category && newTransaction) {
-      await addTransaction({
-        date: new Date(quickAddForm.date),
-        description: quickAddForm.description,
-        amount: Math.abs(amount), // Positive amount for receiving account
-        type: 'transfer',
-        category: 'Transfer', // Required category field for transfers
-        accountId: quickAddForm.category, // Target account receives the transfer
-        tags: quickAddForm.tags,
-        notes: quickAddForm.notes,
-        cleared: false
+    try {
+      const newTransaction = await addTransaction(transactionData);
+
+      // For transfers, create the paired transaction in the target account
+      if (isTransfer && targetAccountId && newTransaction) {
+        await addTransaction({
+          date: new Date(quickAddForm.date),
+          description: quickAddForm.description,
+          amount: Math.abs(amount),
+          type: 'transfer',
+          category: 'transfer-in',
+          accountId: targetAccountId,
+          transferAccountId: account.id,
+          tags: quickAddForm.tags,
+          notes: quickAddForm.notes,
+          cleared: false
+        });
+      }
+
+      // Reset form and error
+      setQuickAddError('');
+      setQuickAddForm({
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+        amount: '',
+        type: 'expense',
+        category: '',
+        tags: [],
+        notes: ''
       });
+    } catch (error) {
+      setQuickAddError(error instanceof Error ? error.message : 'Failed to add transaction. Please try again.');
     }
-    
-    // Reset form and error
-    setQuickAddError('');
-    setQuickAddForm({
-      date: new Date().toISOString().split('T')[0],
-      description: '',
-      amount: '',
-      type: 'expense',
-      category: '',
-      tags: [],
-      notes: ''
-    });
   };
   
   
@@ -390,17 +401,31 @@ export default function AccountTransactions() {
   };
   
   // Get category display name
-  const getCategoryName = useCallback((categoryId: string) => {
+  const getCategoryName = useCallback((categoryId: string, transaction?: TransactionWithBalance) => {
+    if (!categoryId) return '';
+
+    // For transfers, show target/source account name
+    if (transaction?.type === 'transfer' && transaction.transferAccountId) {
+      const targetAccount = accounts.find(a => a.id === transaction.transferAccountId);
+      const accountName = targetAccount?.name ?? 'Unknown';
+      if (categoryId === 'transfer-out' || categoryId === 'transfer-in') return `Transfer > ${accountName}`;
+    }
+
     const category = categories.find(c => c.id === categoryId);
-    if (!category) return '';
-    
+    if (!category) {
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
+        return '';
+      }
+      return '';
+    }
+
     if (category.parentId) {
       const parent = categories.find(c => c.id === category.parentId);
       return parent ? `${parent.name} > ${category.name}` : category.name;
     }
-    
+
     return category.name;
-  }, [categories]);
+  }, [categories, accounts]);
 
   // Define table columns for VirtualizedTable
   const columns: Column<DisplayRow>[] = useMemo(() => [
@@ -413,6 +438,8 @@ export default function AccountTransactions() {
           {new Date(transaction.date).toLocaleDateString('en-GB')}
         </span>
       ),
+      className: 'text-center',
+      headerClassName: 'text-center',
       sortable: true
     },
     {
@@ -432,9 +459,12 @@ export default function AccountTransactions() {
       header: 'Description',
       width: undefined, // flex column — uses flex:1 via className
       accessor: (transaction) => (
-        <span className="text-sm text-gray-900 dark:text-white truncate block">
-          {transaction.description}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <LocalMerchantLogo description={transaction.description} size="sm" />
+          <span className="text-sm text-gray-900 dark:text-white truncate">
+            {transaction.description}
+          </span>
+        </div>
       ),
       className: 'flex-1 min-w-0',
       headerClassName: 'flex-1 min-w-0',
@@ -443,19 +473,21 @@ export default function AccountTransactions() {
     {
       key: 'category',
       header: 'Category',
-      width: '150px',
+      width: '280px',
       accessor: (transaction) => (
         <span className="text-sm text-gray-600 dark:text-gray-400 truncate block">
-          {getCategoryName(transaction.category)}
+          {getCategoryName(transaction.category, transaction)}
         </span>
-      )
+      ),
+      className: 'text-left',
+      headerClassName: 'text-left'
     },
     {
       key: 'tags',
       header: 'Tags',
-      width: '150px',
+      width: '120px',
       accessor: (transaction) => (
-        <div className="flex flex-wrap gap-1 overflow-hidden max-h-[1.5rem]">
+        <div className="flex flex-wrap gap-1 overflow-hidden max-h-[1.5rem] justify-center">
           {transaction.tags?.map((tag: string, idx: number) => (
             <span
               key={idx}
@@ -465,7 +497,9 @@ export default function AccountTransactions() {
             </span>
           ))}
         </div>
-      )
+      ),
+      className: 'text-center',
+      headerClassName: 'text-center'
     },
     {
       key: 'amount',
@@ -533,20 +567,29 @@ export default function AccountTransactions() {
       <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <div>
-            <h1 className="text-xl font-bold text-white leading-tight">
-              {account.name}
-            </h1>
-            <div className="flex items-center gap-3 mt-0.5">
-              <span className="text-xs text-white/70">00-00-00</span>
-              <span className="text-xs text-white/70">00000000</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white leading-tight">
+                {account.name}
+              </h1>
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
                 className="p-1 text-white/50 hover:text-white transition-colors"
                 title="Account Settings"
+                type="button"
               >
                 <SettingsIcon size={16} />
               </button>
             </div>
+            {(account.sortCode && account.sortCode !== '000000') || (account.accountNumber && account.accountNumber !== '00000000') ? (
+              <div className="flex items-center gap-3 mt-0.5">
+                {account.sortCode && account.sortCode !== '000000' && (
+                  <span className="text-xs text-white/70">{account.sortCode}</span>
+                )}
+                {account.accountNumber && account.accountNumber !== '00000000' && (
+                  <span className="text-xs text-white/70">{account.accountNumber}</span>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -673,21 +716,23 @@ export default function AccountTransactions() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-36 px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
-                placeholder="From"
-              />
+              <div className="w-40">
+                <DatePicker
+                  value={dateFrom}
+                  onChange={(val) => setDateFrom(val)}
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white text-sm"
+                  aria-label="Filter from date"
+                />
+              </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-36 px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
-                placeholder="To"
-              />
+              <div className="w-40">
+                <DatePicker
+                  value={dateTo}
+                  onChange={(val) => setDateTo(val)}
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white text-sm"
+                  aria-label="Filter to date"
+                />
+              </div>
               {(dateFrom || dateTo) && (
                 <button
                   onClick={() => {
@@ -749,56 +794,61 @@ export default function AccountTransactions() {
         />
       </div>
       
-      {/* Quick Add Transaction - Compact Row */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-gray-700/50 px-3 py-2 mt-4">
+      {/* Quick Add Transaction */}
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-gray-700/50 px-4 py-3 mt-4">
         <form onSubmit={handleQuickAdd}>
-          <div className="flex items-end gap-2">
-            {/* Date */}
-            <div className="w-[130px] shrink-0">
+          {/* Row 1: Date | Type | Description */}
+          <div className="flex items-end gap-3">
+            <div className="w-[160px] shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
-              <input
-                type="date"
+              <DatePicker
                 value={quickAddForm.date}
-                onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, date: e.target.value }); }}
-                className="w-full px-2 py-1 h-[30px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
-                required
+                onChange={(val) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, date: val }); }}
+                className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white text-xs"
+                aria-label="Transaction date"
               />
             </div>
 
-            {/* Type */}
             <div className="shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Type</label>
-              <div className="flex gap-1.5 items-center h-[30px]">
-                <label className="flex items-center cursor-pointer">
-                  <input type="radio" value="expense" checked={quickAddForm.type === 'expense'} onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: e.target.value as 'expense' }); }} className="mr-0.5 w-3 h-3" />
-                  <span className="text-red-600 dark:text-red-400 text-xs">Exp</span>
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input type="radio" value="income" checked={quickAddForm.type === 'income'} onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: e.target.value as 'income' }); }} className="mr-0.5 w-3 h-3" />
-                  <span className="text-green-600 dark:text-green-400 text-xs">Inc</span>
-                </label>
-                <label className="flex items-center cursor-pointer">
-                  <input type="radio" value="transfer" checked={quickAddForm.type === 'transfer'} onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: e.target.value as 'transfer' }); }} className="mr-0.5 w-3 h-3" />
-                  <span className="text-gray-600 dark:text-gray-300 text-xs">Txfr</span>
-                </label>
+              <div className="flex gap-0.5 items-center h-[32px] bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                {([
+                  { value: 'expense', label: 'Exp', activeColor: 'text-red-600 dark:text-red-400' },
+                  { value: 'income', label: 'Inc', activeColor: 'text-green-600 dark:text-green-400' },
+                  { value: 'transfer', label: 'Txfr', activeColor: 'text-blue-600 dark:text-blue-400' },
+                ] as const).map(({ value, label, activeColor }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: value }); }}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                      quickAddForm.type === value
+                        ? `bg-white dark:bg-gray-600 shadow-sm ${activeColor}`
+                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Description */}
-            <div className="flex-1 min-w-[120px]">
+            <div className="flex-1 min-w-[150px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
               <input
                 type="text"
                 placeholder="Description"
                 value={quickAddForm.description}
                 onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, description: e.target.value }); }}
-                className="w-full px-2 py-1 h-[30px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                className="w-full px-2.5 py-1.5 h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 required
               />
             </div>
+          </div>
 
-            {/* Category / To Account */}
-            <div className="w-[180px] shrink-0">
+          {/* Row 2: Category | Amount | Add */}
+          <div className="flex items-end gap-3 mt-2">
+            <div className="flex-1 min-w-[180px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
@@ -806,7 +856,7 @@ export default function AccountTransactions() {
                 <select
                   value={quickAddForm.category}
                   onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: e.target.value }); }}
-                  className="w-full px-2 py-1 h-[30px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                  className="w-full px-2.5 py-1.5 h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 >
                   <option value="">Select account...</option>
                   {accounts
@@ -828,8 +878,7 @@ export default function AccountTransactions() {
               )}
             </div>
 
-            {/* Amount */}
-            <div className="w-[100px] shrink-0">
+            <div className="w-[120px] shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
               <input
                 type="number"
@@ -837,21 +886,21 @@ export default function AccountTransactions() {
                 placeholder="0.00"
                 value={quickAddForm.amount}
                 onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: e.target.value }); }}
-                className="w-full px-2 py-1 h-[30px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                className="w-full px-2.5 py-1.5 h-[32px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 required
               />
             </div>
 
-            {/* Submit */}
             <button
               type="submit"
-              className="shrink-0 px-3 py-1 h-[30px] text-xs bg-primary text-white rounded hover:bg-secondary transition-colors flex items-center gap-1"
+              className="shrink-0 px-4 py-1.5 h-[32px] text-xs bg-primary text-white rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
               title="Add Transaction"
             >
               <PlusIcon size={14} />
               Add
             </button>
           </div>
+
           {quickAddError && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-1">{quickAddError}</p>
           )}

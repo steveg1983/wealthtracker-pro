@@ -97,6 +97,7 @@ describe('NetWorthWidget', () => {
       name: 'Checking Account',
       type: 'current',
       balance: 5000.00,
+      openingBalance: 800.00,
       currency: 'GBP',
       institution: 'HSBC',
       lastUpdated: new Date('2024-01-20')
@@ -106,6 +107,7 @@ describe('NetWorthWidget', () => {
       name: 'Savings Account',
       type: 'savings',
       balance: 15000.00,
+      openingBalance: 13000.00,
       currency: 'GBP',
       institution: 'HSBC',
       lastUpdated: new Date('2024-01-19')
@@ -115,6 +117,7 @@ describe('NetWorthWidget', () => {
       name: 'Credit Card',
       type: 'credit',
       balance: -2000.00,
+      openingBalance: -2000.00,
       currency: 'GBP',
       institution: 'Mastercard',
       lastUpdated: new Date('2024-01-18')
@@ -439,20 +442,20 @@ describe('NetWorthWidget', () => {
       });
 
       render(<NetWorthWidget {...defaultProps} />);
-      
-      // Should still calculate based on account balances
-      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
+
+      // With no transactions, net worth = sum of opening balances: 800 + 13000 + (-2000) = 11800
+      expect(screen.getByText(formatGBP(11800))).toBeInTheDocument();
     });
 
     it('handles accounts with negative balances', () => {
       const negativeAccounts = [
         {
           ...mockDecimalAccounts[0],
-          balance: toDecimal(-1000)
+          openingBalance: toDecimal(-1000)
         },
         {
           ...mockDecimalAccounts[1],
-          balance: toDecimal(-2000)
+          openingBalance: toDecimal(-2000)
         }
       ];
 
@@ -462,7 +465,7 @@ describe('NetWorthWidget', () => {
       });
 
       render(<NetWorthWidget {...defaultProps} />);
-      
+
       expect(screen.getByText(formatGBP(-3000))).toBeInTheDocument();
     });
 
@@ -470,7 +473,7 @@ describe('NetWorthWidget', () => {
       const largeAmountAccounts = [
         {
           ...mockDecimalAccounts[0],
-          balance: toDecimal(1000000)
+          openingBalance: toDecimal(1000000)
         }
       ];
 
@@ -480,7 +483,7 @@ describe('NetWorthWidget', () => {
       });
 
       render(<NetWorthWidget {...defaultProps} />);
-      
+
       expect(screen.getByText(formatGBP(1000000))).toBeInTheDocument();
     });
   });
@@ -493,10 +496,9 @@ describe('NetWorthWidget', () => {
       });
 
       render(<NetWorthWidget size="medium" settings={{}} />);
-      
-      // With no transactions, change should be based on historical calculation
-      // which would likely show some change due to the algorithm
-      const container = screen.getByText(formatGBP(18000)).parentElement;
+
+      // With no transactions, net worth = sum of opening balances = 11800
+      const container = screen.getByText(formatGBP(11800)).parentElement;
       expect(container).toBeInTheDocument();
     });
 
@@ -530,9 +532,9 @@ describe('NetWorthWidget', () => {
       });
 
       render(<NetWorthWidget size="medium" settings={{}} />);
-      
-      // Should show plus sign for positive change
-      const container = screen.getByText(formatGBP(18000)).parentElement;
+
+      // Net worth with extra 5000 bonus = 18000 + 5000 = 23000
+      const container = screen.getByText(formatGBP(23000)).parentElement;
       const hasPositiveChange = container?.textContent?.includes('+');
       expect(hasPositiveChange).toBe(true);
     });
@@ -599,8 +601,8 @@ describe('NetWorthWidget', () => {
         render(<NetWorthWidget {...defaultProps} />);
       }).not.toThrow();
       
-      // Should still show account balances
-      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
+      // Should still show opening balances (800 + 13000 + (-2000) = 11800)
+      expect(screen.getByText(formatGBP(11800))).toBeInTheDocument();
     });
   });
 

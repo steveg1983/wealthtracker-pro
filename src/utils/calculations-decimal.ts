@@ -52,17 +52,27 @@ export function calculateAccountBalance(
 
 /**
  * Calculate total balance across all accounts
+ * Uses openingBalance + sum(transactions) for accuracy
  */
-export function calculateTotalBalance(accounts: DecimalAccount[]): DecimalInstance {
-  return sumDecimals(accounts.map(a => a.balance));
+export function calculateTotalBalance(accounts: DecimalAccount[], transactions?: DecimalTransaction[]): DecimalInstance {
+  return sumDecimals(accounts.map(a => {
+    const opening = a.openingBalance ?? new Decimal(0);
+    if (transactions) {
+      const txnTotal = sumDecimals(
+        transactions.filter(t => t.accountId === a.id).map(t => t.amount)
+      );
+      return opening.plus(txnTotal);
+    }
+    return opening.plus(a.balance);
+  }));
 }
 
 /**
  * Calculate net worth (assets - liabilities)
+ * Uses openingBalance + sum(transactions) for accuracy
  */
-export function calculateNetWorth(accounts: DecimalAccount[]): DecimalInstance {
-  // Simply sum all balances - liabilities should have negative balances
-  return sumDecimals(accounts.map(a => a.balance));
+export function calculateNetWorth(accounts: DecimalAccount[], transactions?: DecimalTransaction[]): DecimalInstance {
+  return calculateTotalBalance(accounts, transactions);
 }
 
 /**

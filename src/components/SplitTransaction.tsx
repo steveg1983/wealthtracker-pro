@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Scissors, 
-  Plus, 
-  Trash2, 
-  Check,
-  AlertCircle
-} from 'lucide-react';
+import { ScissorsIcon, PlusIcon, DeleteIcon, CheckIcon, AlertCircleIcon } from './icons';
 import { Transaction } from '../types';
 import { useApp } from '../contexts/AppContextSupabase';
 import { formatCurrency } from '../utils/formatters';
@@ -203,7 +197,7 @@ export default function SplitTransaction({
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-white">
-              <Scissors size={24} />
+              <ScissorsIcon size={24} />
               <div>
                 <h2 className="text-xl font-bold">Split Transaction</h2>
                 <p className="text-sm opacity-90">
@@ -268,7 +262,7 @@ export default function SplitTransaction({
                 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                 : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
             }`}>
-              {isBalanced ? <Check size={16} /> : <AlertCircle size={16} />}
+              {isBalanced ? <CheckIcon size={16} /> : <AlertCircleIcon size={16} />}
               <span className="text-sm font-medium">
                 {isBalanced 
                   ? 'Balanced' 
@@ -358,7 +352,7 @@ export default function SplitTransaction({
                         : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
                     }`}
                   >
-                    <Trash2 size={18} />
+                    <DeleteIcon size={18} />
                   </button>
                 </div>
 
@@ -382,7 +376,7 @@ export default function SplitTransaction({
             onClick={addSplit}
             className="w-full mt-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors flex items-center justify-center gap-2"
           >
-            <Plus size={20} />
+            <PlusIcon size={20} />
             Add Another Split
           </button>
 
@@ -450,7 +444,7 @@ export default function SplitTransaction({
                 onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
-                <Check size={20} />
+                <CheckIcon size={20} />
                 Save Split
               </button>
             </div>

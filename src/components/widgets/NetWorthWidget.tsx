@@ -17,8 +17,14 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
     const accounts = getDecimalAccounts();
     const transactions = getDecimalTransactions();
     
-    // Calculate current net worth
-    const currentNetWorth = accounts.reduce((sum: DecimalInstance, acc: DecimalAccount) => sum.plus(acc.balance), toDecimal(0));
+    // Calculate current net worth (openingBalance + sum of transactions per account)
+    const currentNetWorth = accounts.reduce((sum: DecimalInstance, acc: DecimalAccount) => {
+      const openingBal = acc.openingBalance ?? toDecimal(0);
+      const txnTotal = transactions
+        .filter((t: DecimalTransaction) => t.accountId === acc.id)
+        .reduce((s: DecimalInstance, t: DecimalTransaction) => s.plus(t.amount), toDecimal(0));
+      return sum.plus(openingBal).plus(txnTotal);
+    }, toDecimal(0));
     
     // Calculate historical net worth for the last 12 months
     const monthlyData = [];
@@ -29,26 +35,18 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
       // Calculate net worth at end of this month
-      // Start with initial balances and apply transactions
+      // Start with opening balances and sum transactions up to end of month
       let monthNetWorth = toDecimal(0);
       accounts.forEach((account: DecimalAccount) => {
-        let balance = account.balance;
-        
-        // Subtract transactions that happened after this month
-        const futureTransactions = transactions.filter((t: DecimalTransaction) => {
-          const tDate = new Date(t.date);
-          return tDate > endOfMonth && t.accountId === account.id;
-        });
-        
-        futureTransactions.forEach((t: DecimalTransaction) => {
-          if (t.type === 'income') {
-            balance = balance.minus(t.amount);
-          } else {
-            balance = balance.plus(t.amount);
-          }
-        });
-        
-        monthNetWorth = monthNetWorth.plus(balance);
+        const openingBal = account.openingBalance ?? toDecimal(0);
+        const txnsUpToMonth = transactions
+          .filter((t: DecimalTransaction) => {
+            const tDate = new Date(t.date);
+            return tDate <= endOfMonth && t.accountId === account.id;
+          })
+          .reduce((s: DecimalInstance, t: DecimalTransaction) => s.plus(t.amount), toDecimal(0));
+
+        monthNetWorth = monthNetWorth.plus(openingBal).plus(txnsUpToMonth);
       });
       
       monthlyData.push({

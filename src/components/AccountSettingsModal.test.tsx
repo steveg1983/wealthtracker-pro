@@ -102,7 +102,7 @@ describe('AccountSettingsModal', () => {
       expect(balanceInput.value).toBe('500.00');
       
       const dateInput = screen.getByLabelText('Opening balance date') as HTMLInputElement;
-      expect(dateInput.value).toBe('2023-12-01');
+      expect(dateInput.value).toBe('01/12/2023');
       
       const sortCodeInput = screen.getByLabelText('Bank sort code') as HTMLInputElement;
       // Sort code is stored as '123456' but not formatted initially
@@ -275,7 +275,10 @@ describe('AccountSettingsModal', () => {
       render(<AccountSettingsModal {...defaultProps} account={accountWithoutDate} />);
       
       const dateInput = screen.getByLabelText('Opening balance date') as HTMLInputElement;
-      expect(dateInput.value).toBe(new Date().toISOString().split('T')[0]);
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      expect(dateInput.value).toBe(`${dd}/${mm}/${now.getFullYear()}`);
     });
   });
 
@@ -301,7 +304,9 @@ describe('AccountSettingsModal', () => {
           accountNumber: '12345678',
           isActive: true,
           openingBalance: 750,
-          openingBalanceDate: expect.any(Date)
+          openingBalanceDate: expect.any(Date),
+          lowBalanceAlertEnabled: false,
+          lowBalanceThreshold: undefined
         });
       });
     });

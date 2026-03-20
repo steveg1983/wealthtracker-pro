@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import type { Account as BaseAccount } from '../types';
 
@@ -26,6 +27,8 @@ interface FormData {
   institution: string;
   notes: string;
   isActive: boolean;
+  lowBalanceAlertEnabled: boolean;
+  lowBalanceThreshold: string;
 }
 
 const accountTypeOptions = [
@@ -53,7 +56,9 @@ export default function AccountSettingsModal({
       accountNumber: '',
       institution: '',
       notes: '',
-      isActive: true
+      isActive: true,
+      lowBalanceAlertEnabled: false,
+      lowBalanceThreshold: ''
     },
     {
       onSubmit: async (data) => {
@@ -65,7 +70,9 @@ export default function AccountSettingsModal({
           notes: data.notes || undefined,
           sortCode: data.sortCode || undefined,
           accountNumber: data.accountNumber || undefined,
-          isActive: data.isActive
+          isActive: data.isActive,
+          lowBalanceAlertEnabled: data.lowBalanceAlertEnabled,
+          lowBalanceThreshold: data.lowBalanceThreshold ? parseFloat(data.lowBalanceThreshold) : undefined
         };
 
         if (data.openingBalance !== '') {
@@ -86,14 +93,16 @@ export default function AccountSettingsModal({
       setFormData({
         type: account.type || 'current',
         openingBalance: account.openingBalance != null ? account.openingBalance.toFixed(2) : '',
-        openingBalanceDate: account.openingBalanceDate 
+        openingBalanceDate: account.openingBalanceDate
           ? new Date(account.openingBalanceDate).toISOString().split('T')[0]
           : new Date().toISOString().split('T')[0],
         sortCode: account.sortCode || '',
         accountNumber: account.accountNumber || '',
         institution: account.institution || '',
         notes: account.notes || '',
-        isActive: account.isActive !== false
+        isActive: account.isActive !== false,
+        lowBalanceAlertEnabled: account.lowBalanceAlertEnabled ?? false,
+        lowBalanceThreshold: account.lowBalanceThreshold != null ? account.lowBalanceThreshold.toString() : ''
       });
     }
   }, [account, setFormData]);
@@ -160,12 +169,11 @@ export default function AccountSettingsModal({
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 aria-label="Opening balance amount"
               />
-              <input
+              <DatePicker
                 id="opening-balance-date"
-                type="date"
                 value={formData.openingBalanceDate}
-                onChange={(e) => updateField('openingBalanceDate', e.target.value)}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                onChange={(val) => updateField('openingBalanceDate', val)}
+                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 aria-label="Opening balance date"
               />
             </div>
@@ -239,6 +247,47 @@ export default function AccountSettingsModal({
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Closed accounts are moved to the Archived section
             </p>
+          </div>
+
+          {/* Low Balance Alert */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Low Balance Alert
+              </label>
+              <button
+                type="button"
+                onClick={() => updateField('lowBalanceAlertEnabled', !formData.lowBalanceAlertEnabled)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  formData.lowBalanceAlertEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+                role="switch"
+                aria-checked={formData.lowBalanceAlertEnabled ? 'true' : 'false'}
+                aria-label="Toggle low balance alert"
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                  formData.lowBalanceAlertEnabled ? 'translate-x-4.5' : 'translate-x-0.5'
+                }`} />
+              </button>
+            </div>
+            {formData.lowBalanceAlertEnabled && (
+              <div className="mt-1">
+                <label htmlFor="low-balance-threshold" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Alert when balance falls below
+                </label>
+                <input
+                  id="low-balance-threshold"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.lowBalanceThreshold}
+                  onChange={(e) => updateField('lowBalanceThreshold', e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  aria-label="Low balance threshold amount"
+                />
+              </div>
+            )}
           </div>
 
           {/* Notes */}

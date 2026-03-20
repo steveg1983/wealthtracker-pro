@@ -1,19 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  ArrowRight, 
-  ArrowLeft,
-  Database,
-  Shield,
-  Zap,
-  CreditCard,
-  TrendingUp,
-  Users,
-  X
-} from 'lucide-react';
+import { UploadIcon, FileTextIcon, CheckCircleIcon, AlertCircleIcon, ArrowRightIcon, ArrowLeftIcon, DatabaseIcon, ShieldIcon, ZapIcon, CreditCardIcon, TrendingUpIcon, UsersIcon, XIcon } from './icons';
 import { useDropzone } from 'react-dropzone';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -32,31 +18,31 @@ const MIGRATION_STEPS: MigrationStep[] = [
     id: 1,
     title: 'Select Source',
     description: 'Choose where you\'re migrating from',
-    icon: Database
+    icon: DatabaseIcon
   },
   {
     id: 2,
     title: 'Upload Data',
     description: 'Upload your exported data files',
-    icon: Upload
+    icon: UploadIcon
   },
   {
     id: 3,
     title: 'Map Fields',
     description: 'Review and map data fields',
-    icon: ArrowRight
+    icon: ArrowRightIcon
   },
   {
     id: 4,
     title: 'Review',
     description: 'Preview your imported data',
-    icon: CheckCircle
+    icon: CheckCircleIcon
   },
   {
     id: 5,
     title: 'Import',
     description: 'Complete the migration',
-    icon: Zap
+    icon: ZapIcon
   }
 ];
 
@@ -65,7 +51,7 @@ const MIGRATION_SOURCES = [
     id: 'mint' as MigrationSource,
     name: 'Mint',
     description: 'Import from Intuit Mint',
-    icon: CreditCard,
+    icon: CreditCardIcon,
     color: 'bg-green-500',
     fileTypes: ['.csv'],
     instructions: 'Export your data from Mint as CSV files before it shuts down.'
@@ -74,7 +60,7 @@ const MIGRATION_SOURCES = [
     id: 'quicken' as MigrationSource,
     name: 'Quicken',
     description: 'Import from Quicken',
-    icon: TrendingUp,
+    icon: TrendingUpIcon,
     color: 'bg-blue-500',
     fileTypes: ['.qif', '.qfx'],
     instructions: 'Export your Quicken data as QIF or QFX files.'
@@ -83,7 +69,7 @@ const MIGRATION_SOURCES = [
     id: 'ynab' as MigrationSource,
     name: 'YNAB',
     description: 'You Need A Budget',
-    icon: Users,
+    icon: UsersIcon,
     color: 'bg-purple-500',
     fileTypes: ['.csv'],
     instructions: 'Export your YNAB data from Account Settings > Export.'
@@ -92,7 +78,7 @@ const MIGRATION_SOURCES = [
     id: 'personalcapital' as MigrationSource,
     name: 'Personal Capital',
     description: 'Import from Personal Capital',
-    icon: Shield,
+    icon: ShieldIcon,
     color: 'bg-indigo-500',
     fileTypes: ['.csv'],
     instructions: 'Download your transaction history as CSV from Personal Capital.'
@@ -101,7 +87,7 @@ const MIGRATION_SOURCES = [
     id: 'excel' as MigrationSource,
     name: 'Excel',
     description: 'Import from Excel spreadsheet',
-    icon: FileText,
+    icon: FileTextIcon,
     color: 'bg-orange-500',
     fileTypes: ['.xlsx', '.xls'],
     instructions: 'Upload your Excel file with transaction data.'
@@ -110,7 +96,7 @@ const MIGRATION_SOURCES = [
     id: 'csv' as MigrationSource,
     name: 'CSV',
     description: 'Generic CSV import',
-    icon: Database,
+    icon: DatabaseIcon,
     color: 'bg-gray-500',
     fileTypes: ['.csv'],
     instructions: 'Upload any CSV file with financial data.'
@@ -248,7 +234,7 @@ export default function DataMigrationWizard({
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               aria-label="Close wizard"
             >
-              <X size={20} />
+              <XIcon size={20} />
             </button>
           </div>
 
@@ -270,7 +256,7 @@ export default function DataMigrationWizard({
                     }`}
                   >
                     {currentStep > step.id ? (
-                      <CheckCircle size={20} />
+                      <CheckCircleIcon size={20} />
                     ) : (
                       <span className="text-sm font-medium">{step.id}</span>
                     )}
@@ -298,7 +284,7 @@ export default function DataMigrationWizard({
           {error && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertCircle size={20} className="text-red-600 dark:text-red-400 mt-0.5" />
+                <AlertCircleIcon size={20} className="text-red-600 dark:text-red-400 mt-0.5" />
                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             </div>
@@ -362,7 +348,7 @@ export default function DataMigrationWizard({
                 }`}
               >
                 <input {...getInputProps()} />
-                <Upload size={48} className="mx-auto mb-4 text-gray-400" />
+                <UploadIcon size={48} className="mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   {isDragActive
                     ? 'Drop the files here...'
@@ -384,7 +370,7 @@ export default function DataMigrationWizard({
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        <FileText size={20} className="text-gray-500" />
+                        <FileTextIcon size={20} className="text-gray-500" />
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {file.name}
@@ -399,7 +385,7 @@ export default function DataMigrationWizard({
                         className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                         aria-label="Remove file"
                       >
-                        <X size={16} />
+                        <XIcon size={16} />
                       </button>
                     </div>
                   ))}
@@ -437,7 +423,7 @@ export default function DataMigrationWizard({
 
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <Zap size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <ZapIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
                       Smart Mapping Active
@@ -490,7 +476,7 @@ export default function DataMigrationWizard({
 
               <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle size={20} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                  <AlertCircleIcon size={20} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-1">
                       Important Note
@@ -520,7 +506,7 @@ export default function DataMigrationWizard({
                 </>
               ) : (
                 <>
-                  <CheckCircle size={64} className="text-green-500 mx-auto mb-4" />
+                  <CheckCircleIcon size={64} className="text-green-500 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                     Ready to Import
                   </h3>
@@ -544,7 +530,7 @@ export default function DataMigrationWizard({
                 : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeftIcon size={16} />
             Previous
           </button>
 
@@ -564,7 +550,7 @@ export default function DataMigrationWizard({
             }`}
           >
             {currentStep === 5 ? 'Complete Import' : 'Next'}
-            {currentStep < 5 && <ArrowRight size={16} />}
+            {currentStep < 5 && <ArrowRightIcon size={16} />}
           </button>
         </div>
       </div>

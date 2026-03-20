@@ -189,7 +189,7 @@ describe('AccountSettingsModal', () => {
       expect(balanceInput).toHaveAttribute('step', '0.01');
       
       const dateInput = screen.getByLabelText('Opening balance date');
-      expect(dateInput).toHaveAttribute('type', 'date');
+      expect(dateInput).toHaveAttribute('type', 'text');
     });
 
     it('handles empty optional fields correctly', async () => {

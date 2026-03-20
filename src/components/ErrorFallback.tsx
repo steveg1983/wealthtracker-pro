@@ -1,4 +1,4 @@
-import { AlertCircle } from 'lucide-react';
+import { AlertCircleIcon } from './icons';
 
 interface ErrorFallbackProps {
   error: Error;
@@ -10,7 +10,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps): React.
     <div className="min-h-[400px] flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
-          <AlertCircle className="w-6 h-6 text-red-600" />
+          <AlertCircleIcon className="w-6 h-6 text-red-600" />
         </div>
         <h3 className="mt-4 text-lg font-semibold text-center text-gray-900">
           Something went wrong

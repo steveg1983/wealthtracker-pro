@@ -154,7 +154,7 @@ vi.mock('../icons', () => ({
     <div data-testid="x-circle-icon" className={className}>XCircle</div>
   ),
   EyeIcon: () => <div data-testid="eye-icon">Eye</div>,
-  X: ({ className }: { className?: string }) => (
+  XIcon: ({ className }: { className?: string }) => (
     <div data-testid="x-icon" className={className}>X</div>
   )
 }));

@@ -185,37 +185,25 @@ export function RealtimeStatusDot(): React.JSX.Element {
   const connectionState = useRealtimeConnectionStatus();
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const getStatusColor = () => {
-    if (connectionState.isConnected) {
-      return 'bg-green-500';
-    } else if (connectionState.isReconnecting) {
-      return 'bg-yellow-500 animate-pulse';
-    } else {
-      return 'bg-red-500';
-    }
-  };
+  // Only show when connected or reconnecting — no red dot for disconnected state
+  if (!connectionState.isConnected && !connectionState.isReconnecting) {
+    return <></>;
+  }
 
-  const getStatusText = () => {
-    if (connectionState.isConnected) {
-      return 'Real-time sync active';
-    } else if (connectionState.isReconnecting) {
-      return 'Reconnecting to real-time sync...';
-    } else {
-      return 'Real-time sync disconnected';
-    }
-  };
+  const statusColor = connectionState.isConnected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse';
+  const statusText = connectionState.isConnected ? 'Real-time sync active' : 'Reconnecting to real-time sync...';
 
   return (
-    <div 
+    <div
       className="relative"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      <div className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
+      <div className={`w-2 h-2 rounded-full ${statusColor}`} />
       
       {showTooltip && (
         <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
-          {getStatusText()}
+          {statusText}
           <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-900" />
         </div>
       )}

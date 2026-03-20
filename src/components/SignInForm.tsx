@@ -10,7 +10,7 @@
 
 import React, { useState } from 'react';
 import { SignIn } from '@clerk/clerk-react';
-import { FingerPrintIcon, EnvelopeIcon, KeyIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { FingerprintIcon, MailIcon, KeyIcon, ShieldIcon } from './icons';
 
 export default function SignInForm() {
   const [authMethod, setAuthMethod] = useState<'passkey' | 'magic' | 'standard'>('passkey');
@@ -21,7 +21,7 @@ export default function SignInForm() {
         {/* Logo and Welcome */}
         <div className="text-center">
           <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <ShieldCheckIcon className="h-10 w-10 text-white" />
+            <ShieldIcon className="h-10 w-10 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
             Welcome to WealthTracker
@@ -41,7 +41,7 @@ export default function SignInForm() {
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            <FingerPrintIcon className="h-4 w-4" />
+            <FingerprintIcon className="h-4 w-4" />
             Passkey
           </button>
           <button
@@ -52,7 +52,7 @@ export default function SignInForm() {
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            <EnvelopeIcon className="h-4 w-4" />
+            <MailIcon className="h-4 w-4" />
             Magic Link
           </button>
           <button
@@ -74,7 +74,7 @@ export default function SignInForm() {
             <div className="space-y-6">
               <div className="text-center">
                 <div className="mx-auto h-20 w-20 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center mb-4">
-                  <FingerPrintIcon className="h-12 w-12 text-white" />
+                  <FingerprintIcon className="h-12 w-12 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Sign in with Passkey
@@ -113,7 +113,7 @@ export default function SignInForm() {
             <div className="space-y-6">
               <div className="text-center">
                 <div className="mx-auto h-20 w-20 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center mb-4">
-                  <EnvelopeIcon className="h-12 w-12 text-white" />
+                  <MailIcon className="h-12 w-12 text-white" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Sign in with Magic Link
@@ -162,7 +162,7 @@ export default function SignInForm() {
 
         {/* Security Badge */}
         <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <ShieldCheckIcon className="h-4 w-4" />
+          <ShieldIcon className="h-4 w-4" />
           <span>Bank-level encryption • SOC 2 Type II compliant</span>
         </div>
       </div>

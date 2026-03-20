@@ -447,50 +447,58 @@ export default function ThemeSettings() {
             <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
               <h4 className="font-medium text-gray-900 dark:text-white mb-4">System Integration</h4>
               <div className="space-y-4">
-                <label className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                   <div>
                     <span className="text-gray-700 dark:text-gray-300">Follow system theme</span>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Automatically use your operating system's theme preference
                     </p>
                   </div>
-                  <input type="checkbox" className="ml-4" />
-                </label>
-                
-                <label className="flex items-center justify-between">
+                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-gray-300 dark:bg-gray-600 transition-colors" role="switch" aria-checked="false" aria-label="Follow system theme">
+                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
                   <div>
                     <span className="text-gray-700 dark:text-gray-300">Override system preferences</span>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Allow scheduled themes to override system settings
                     </p>
                   </div>
-                  <input type="checkbox" defaultChecked className="ml-4" />
-                </label>
+                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-primary transition-colors" role="switch" aria-checked="true" aria-label="Override system preferences">
+                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-4.5 transition-transform" />
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
               <h4 className="font-medium text-gray-900 dark:text-white mb-4">Performance</h4>
               <div className="space-y-4">
-                <label className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                   <div>
                     <span className="text-gray-700 dark:text-gray-300">Smooth transitions</span>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Enable animated transitions when switching themes
                     </p>
                   </div>
-                  <input type="checkbox" defaultChecked className="ml-4" />
-                </label>
-                
-                <label className="flex items-center justify-between">
+                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-primary transition-colors" role="switch" aria-checked="true" aria-label="Smooth transitions">
+                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-4.5 transition-transform" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
                   <div>
                     <span className="text-gray-700 dark:text-gray-300">Reduce motion</span>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Minimize animations for better performance
                     </p>
                   </div>
-                  <input type="checkbox" className="ml-4" />
-                </label>
+                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-gray-300 dark:bg-gray-600 transition-colors" role="switch" aria-checked="false" aria-label="Reduce motion">
+                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -109,7 +109,7 @@ describe('Layout', () => {
   it('focuses desktop search input when Ctrl+K is pressed', async () => {
     renderWithProviders(<Layout />);
 
-    const searchInput = await screen.findByPlaceholderText('Search transactions, accounts, budgets...');
+    const searchInput = await screen.findByPlaceholderText('Search...');
     expect(document.activeElement).not.toBe(searchInput);
 
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });

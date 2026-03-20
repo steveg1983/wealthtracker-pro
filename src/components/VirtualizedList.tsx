@@ -119,7 +119,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   // Render non-virtualized list for small datasets
   if (!shouldVirtualize) {
     return (
-      <div className={className}>
+      <div className={`flex-1 min-h-0 overflow-y-auto ${className}`}>
         {items.map((item, index) => (
           <div key={getItemKey(item, index)}>
             {renderItem(item, index, {})}

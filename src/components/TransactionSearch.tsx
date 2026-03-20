@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, X, Filter, Calendar, DollarSign, Tag, FileText } from 'lucide-react';
+import { SearchIcon, XIcon, FilterIcon, CalendarIcon, DollarSignIcon, TagIcon, FileTextIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
 // Simple debounce implementation to avoid lodash type issues
@@ -140,7 +140,7 @@ export default function TransactionSearch({
     <div className={`space-y-3 ${className}`}>
       {/* Main Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+        <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
         <input
           type="text"
           value={searchTerm}
@@ -153,7 +153,7 @@ export default function TransactionSearch({
             onClick={handleClearSearch}
             className="absolute right-12 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
-            <X size={18} />
+            <XIcon size={18} />
           </button>
         )}
         {showAdvanced && (
@@ -163,7 +163,7 @@ export default function TransactionSearch({
               isAdvancedOpen ? 'text-blue-500' : 'text-gray-400'
             } hover:text-blue-600`}
           >
-            <Filter size={18} />
+            <FilterIcon size={18} />
           </button>
         )}
       </div>
@@ -179,7 +179,7 @@ export default function TransactionSearch({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                <Calendar size={14} className="inline mr-1" />
+                <CalendarIcon size={14} className="inline mr-1" />
                 From Date
               </label>
               <input
@@ -191,7 +191,7 @@ export default function TransactionSearch({
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                <Calendar size={14} className="inline mr-1" />
+                <CalendarIcon size={14} className="inline mr-1" />
                 To Date
               </label>
               <input
@@ -207,7 +207,7 @@ export default function TransactionSearch({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                <DollarSign size={14} className="inline mr-1" />
+                <DollarSignIcon size={14} className="inline mr-1" />
                 Min Amount
               </label>
               <input
@@ -222,7 +222,7 @@ export default function TransactionSearch({
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                <DollarSign size={14} className="inline mr-1" />
+                <DollarSignIcon size={14} className="inline mr-1" />
                 Max Amount
               </label>
               <input
@@ -241,7 +241,7 @@ export default function TransactionSearch({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                <Tag size={14} className="inline mr-1" />
+                <TagIcon size={14} className="inline mr-1" />
                 Category
               </label>
               <select
@@ -257,7 +257,7 @@ export default function TransactionSearch({
             </div>
             <div>
               <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                <FileText size={14} className="inline mr-1" />
+                <FileTextIcon size={14} className="inline mr-1" />
                 Account
               </label>
               <select

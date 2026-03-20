@@ -60,17 +60,35 @@ export function useTransactionFilters(
   }, [categories]);
 
   // Memoized category path getter
-  const getCategoryPath = useCallback((categoryId: string): string => {
+  const getCategoryPath = useCallback((categoryId: string, transaction?: Transaction): string => {
+    if (!categoryId) return '';
+
+    // For transfer transactions, show the target/source account name
+    if (transaction?.type === 'transfer' && transaction.transferAccountId) {
+      const targetAccount = accountLookup.get(transaction.transferAccountId);
+      const accountName = targetAccount?.name ?? 'Unknown';
+      if (categoryId === 'transfer-out' || categoryId === 'transfer-in') return `Transfer > ${accountName}`;
+    }
+
     const category = categoryLookup.get(categoryId);
-    if (!category) return categoryId;
-    
+    if (!category) {
+      // If it looks like a UUID, don't display it raw
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
+        return '';
+      }
+      // Format slug-style IDs: "online-shopping" → "Online Shopping"
+      return categoryId
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
     if (category.level === 'detail' && category.parentId) {
       const parent = categoryLookup.get(category.parentId);
       return parent ? `${parent.name} > ${category.name}` : category.name;
     }
-    
+
     return category.name;
-  }, [categoryLookup]);
+  }, [categoryLookup, accountLookup]);
 
   // Memoized date range checks
   const dateRange = useMemo(() => {

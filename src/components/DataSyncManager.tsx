@@ -1,15 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { 
-  Cloud, 
-  CloudOff, 
-  RefreshCw, 
-  AlertTriangle, 
-  X,
-  Loader2,
-  GitBranch,
-  Clock,
-  Zap
-} from 'lucide-react';
+import { CloudIcon, CloudOffIcon, RefreshCwIcon, AlertTriangleIcon, XIcon, Loader2Icon, GitBranchIcon, ClockIcon, ZapIcon } from './icons';
 import { useDataSync } from '../hooks/useDataSync';
 import { formatDistanceToNow } from 'date-fns';
 import { SyncConflict } from '../services/syncService';
@@ -38,18 +28,18 @@ export default function DataSyncManager(): React.JSX.Element {
 
   const getSyncIcon = () => {
     if (syncStatus.isSyncing) {
-      return <Loader2 size={20} className="animate-spin text-blue-500" />;
+      return <Loader2Icon size={20} className="animate-spin text-blue-500" />;
     }
     if (!syncStatus.isConnected) {
-      return <CloudOff size={20} className="text-gray-400" />;
+      return <CloudOffIcon size={20} className="text-gray-400" />;
     }
     if (syncStatus.pendingOperations > 0) {
-      return <RefreshCw size={20} className="text-orange-500" />;
+      return <RefreshCwIcon size={20} className="text-orange-500" />;
     }
     if (conflicts.length > 0) {
-      return <AlertTriangle size={20} className="text-red-500" />;
+      return <AlertTriangleIcon size={20} className="text-red-500" />;
     }
-    return <Cloud size={20} className="text-green-500" />;
+    return <CloudIcon size={20} className="text-green-500" />;
   };
 
   const getSyncMessage = () => {
@@ -92,7 +82,7 @@ export default function DataSyncManager(): React.JSX.Element {
             className="absolute -bottom-2 -right-2 p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
             title="Sync now"
           >
-            <RefreshCw size={14} />
+            <RefreshCwIcon size={14} />
           </button>
         )}
       </div>
@@ -109,7 +99,7 @@ export default function DataSyncManager(): React.JSX.Element {
                 onClick={() => setShowDetails(false)}
                 className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
               >
-                <X size={18} />
+                <XIcon size={18} />
               </button>
             </div>
           </div>
@@ -194,7 +184,7 @@ export default function DataSyncManager(): React.JSX.Element {
                 disabled={syncStatus.isSyncing || !syncStatus.isConnected}
                 className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
-                <RefreshCw size={16} className={syncStatus.isSyncing ? 'animate-spin' : ''} />
+                <RefreshCwIcon size={16} className={syncStatus.isSyncing ? 'animate-spin' : ''} />
                 Sync Now
               </button>
               {syncStatus.pendingOperations > 0 && (
@@ -218,7 +208,7 @@ export default function DataSyncManager(): React.JSX.Element {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-red-500 to-orange-500">
               <div className="flex items-center justify-between text-white">
                 <div className="flex items-center gap-3">
-                  <GitBranch size={24} />
+                  <GitBranchIcon size={24} />
                   <div>
                     <h2 className="text-xl font-bold">Resolve Sync Conflicts</h2>
                     <p className="text-sm opacity-90">
@@ -230,7 +220,7 @@ export default function DataSyncManager(): React.JSX.Element {
                   onClick={() => setShowConflicts(false)}
                   className="p-2 hover:bg-white/20 rounded-lg"
                 >
-                  <X size={20} />
+                  <XIcon size={20} />
                 </button>
               </div>
             </div>
@@ -304,7 +294,7 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
           {/* Local Version */}
           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Clock size={16} className="text-blue-600 dark:text-blue-400" />
+              <ClockIcon size={16} className="text-blue-600 dark:text-blue-400" />
               <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
                 Your Changes (Local)
               </span>
@@ -319,7 +309,7 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
           {/* Remote Version */}
           <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Cloud size={16} className="text-green-600 dark:text-green-400" />
+              <CloudIcon size={16} className="text-green-600 dark:text-green-400" />
               <span className="text-sm font-medium text-green-900 dark:text-green-300">
                 Server Changes (Remote)
               </span>
@@ -341,9 +331,9 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
           className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
           {isResolving ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2Icon size={16} className="animate-spin" />
           ) : (
-            <Zap size={16} />
+            <ZapIcon size={16} />
           )}
           Keep Mine
         </button>
@@ -353,9 +343,9 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
           className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
           {isResolving ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2Icon size={16} className="animate-spin" />
           ) : (
-            <Cloud size={16} />
+            <CloudIcon size={16} />
           )}
           Use Theirs
         </button>

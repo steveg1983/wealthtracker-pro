@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, X, ExternalLink, Chrome, Globe } from 'lucide-react';
+import { AlertTriangleIcon, XIcon, ExternalLinkIcon, ChromeIcon, GlobeIcon } from './icons';
 import { shouldShowSafariWarning, dismissSafariWarning, initClerkSafariCompat } from '../utils/clerkSafarifix';
 
 type SafariCompatInfo = {
@@ -59,14 +59,14 @@ export default function SafariWarning(): React.JSX.Element | null {
         <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
           <div className="flex items-center justify-between text-white">
             <div className="flex items-center gap-3">
-              <AlertTriangle size={24} />
+              <AlertTriangleIcon size={24} />
               <h2 className="text-xl font-bold">Safari Compatibility Issue</h2>
             </div>
             <button
               onClick={handleDismiss}
               className="p-1 hover:bg-white/20 rounded-lg transition-colors"
             >
-              <X size={20} />
+              <XIcon size={20} />
             </button>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function SafariWarning(): React.JSX.Element | null {
             
             {hasPrivateMode && (
               <div className="flex items-start gap-2 text-sm">
-                <AlertTriangle size={16} className="text-orange-600 mt-0.5" />
+                <AlertTriangleIcon size={16} className="text-orange-600 mt-0.5" />
                 <div>
                   <span className="font-medium text-orange-900 dark:text-orange-300">
                     Private Browsing Mode
@@ -99,7 +99,7 @@ export default function SafariWarning(): React.JSX.Element | null {
 
             {hasCookieIssues && (
               <div className="flex items-start gap-2 text-sm">
-                <AlertTriangle size={16} className="text-orange-600 mt-0.5" />
+                <AlertTriangleIcon size={16} className="text-orange-600 mt-0.5" />
                 <div>
                   <span className="font-medium text-orange-900 dark:text-orange-300">
                     Cross-Site Tracking Prevention
@@ -149,9 +149,9 @@ export default function SafariWarning(): React.JSX.Element | null {
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors"
                 >
-                  <Chrome size={18} />
+                  <ChromeIcon size={18} />
                   Chrome
-                  <ExternalLink size={14} />
+                  <ExternalLinkIcon size={14} />
                 </a>
                 <a
                   href="https://www.microsoft.com/edge"
@@ -159,9 +159,9 @@ export default function SafariWarning(): React.JSX.Element | null {
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/40 transition-colors"
                 >
-                  <Globe size={18} />
+                  <GlobeIcon size={18} />
                   Edge
-                  <ExternalLink size={14} />
+                  <ExternalLinkIcon size={14} />
                 </a>
                 <a
                   href="https://www.mozilla.org/firefox/"
@@ -169,9 +169,9 @@ export default function SafariWarning(): React.JSX.Element | null {
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/40 transition-colors"
                 >
-                  <Globe size={18} />
+                  <GlobeIcon size={18} />
                   Firefox
-                  <ExternalLink size={14} />
+                  <ExternalLinkIcon size={14} />
                 </a>
               </div>
             </div>

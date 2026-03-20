@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRightIcon, HomeIcon } from '../icons';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../../utils/navigation';
 
 interface BreadcrumbItem {
@@ -41,10 +42,12 @@ const routeLabels: Record<string, string> = {
 
 export function Breadcrumbs() {
   const location = useLocation();
+  const { accounts } = useApp();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
-  // Don't show breadcrumbs on home page
-  if (pathSegments.length === 0) {
+  // Don't show breadcrumbs on home page or top-level pages (e.g. /dashboard, /accounts)
+  // Only show when there's depth (e.g. /accounts/uuid, /settings/categories)
+  if (pathSegments.length <= 1) {
     return null;
   }
 
@@ -55,7 +58,11 @@ export function Breadcrumbs() {
   let currentPath = '';
   pathSegments.forEach((segment) => {
     currentPath += `/${segment}`;
-    const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+    // Check if segment is a UUID matching an account
+    const matchedAccount = accounts.find(a => a.id === segment);
+    const label = matchedAccount
+      ? matchedAccount.name
+      : routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
     breadcrumbs.push({ label, path: preserveDemoParam(currentPath, location.search) });
   });
 
@@ -99,6 +106,7 @@ export function Breadcrumbs() {
 // Mobile breadcrumb with back button
 export function MobileBreadcrumb() {
   const location = useLocation();
+  const { accounts } = useApp();
   const pathSegments = location.pathname.split('/').filter(Boolean);
 
   // Don't show on home page
@@ -107,7 +115,10 @@ export function MobileBreadcrumb() {
   }
 
   const currentPage = pathSegments[pathSegments.length - 1];
-  const label = routeLabels[currentPage] || currentPage.charAt(0).toUpperCase() + currentPage.slice(1);
+  const matchedAccount = accounts.find(a => a.id === currentPage);
+  const label = matchedAccount
+    ? matchedAccount.name
+    : routeLabels[currentPage] || currentPage.charAt(0).toUpperCase() + currentPage.slice(1);
 
   // Determine parent path
   const parentPath = pathSegments.length > 1 

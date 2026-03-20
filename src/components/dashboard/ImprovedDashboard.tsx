@@ -14,12 +14,14 @@ import {
   PieChartIcon,
   SettingsIcon,
   XIcon,
-  BarChart3Icon
+  BarChart3Icon,
+  CheckIcon
 } from '../icons';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
+import { Modal, ModalBody } from '../common/Modal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
 import { formatDecimal } from '../../utils/decimal-format';
 
@@ -39,6 +41,7 @@ export function ImprovedDashboard() {
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
+  const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
   
   // Load saved preferences from localStorage
   useEffect(() => {
@@ -53,14 +56,23 @@ export function ImprovedDashboard() {
 
   // Calculate key metrics
   const metrics = useMemo(() => {
+    // Compute real balance from openingBalance + sum of transactions per account
+    const effectiveBalance = (acc: typeof accounts[0]) => {
+      const opening = acc.openingBalance ?? 0;
+      const txnTotal = transactions
+        .filter(t => t.accountId === acc.id)
+        .reduce((sum, t) => sum + t.amount, 0);
+      return opening + txnTotal;
+    };
+
     const totalAssets = accounts
-      .filter(acc => acc.balance > 0)
-      .reduce((sum, acc) => sum + acc.balance, 0);
-    
+      .filter(acc => effectiveBalance(acc) > 0)
+      .reduce((sum, acc) => sum + effectiveBalance(acc), 0);
+
     const totalLiabilities = accounts
-      .filter(acc => acc.balance < 0)
-      .reduce((sum, acc) => sum + Math.abs(acc.balance), 0);
-    
+      .filter(acc => effectiveBalance(acc) < 0)
+      .reduce((sum, acc) => sum + Math.abs(effectiveBalance(acc)), 0);
+
     const netWorth = totalAssets - totalLiabilities;
     
     // Calculate monthly change (last 30 days)
@@ -87,15 +99,16 @@ export function ImprovedDashboard() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
     
-    // Identify accounts needing attention
+    // Identify accounts needing attention (only when user has enabled alerts)
     const accountsNeedingAttention = accounts.filter(acc => {
-      // Check for low balances in checking/current accounts
-      if ((acc.type === 'current' || acc.type === 'checking') && acc.balance < 500) {
+      const bal = effectiveBalance(acc);
+      // Per-account low balance alert
+      if (acc.lowBalanceAlertEnabled && acc.lowBalanceThreshold != null && bal < acc.lowBalanceThreshold) {
         return true;
       }
       // Check for high credit utilization
       if (acc.type === 'credit' && acc.creditLimit) {
-        const utilization = Math.abs(acc.balance) / acc.creditLimit;
+        const utilization = Math.abs(bal) / acc.creditLimit;
         return utilization > 0.7;
       }
       return false;
@@ -159,6 +172,21 @@ export function ImprovedDashboard() {
     }];
   }, [metrics.netWorth]);
   
+  // Pre-compute real balances per account (openingBalance + sum of transactions)
+  const accountBalanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    accounts.forEach(acc => {
+      const opening = acc.openingBalance ?? 0;
+      const txnTotal = transactions
+        .filter(t => t.accountId === acc.id)
+        .reduce((sum, t) => sum + t.amount, 0);
+      map.set(acc.id, opening + txnTotal);
+    });
+    return map;
+  }, [accounts, transactions]);
+
+  const getAccountBalance = (acc: typeof accounts[0]) => accountBalanceMap.get(acc.id) ?? 0;
+
   // Generate pie chart data for account distribution
   interface AccountDistributionDatum {
     id: string;
@@ -168,15 +196,15 @@ export function ImprovedDashboard() {
 
   const pieData = useMemo<AccountDistributionDatum[]>(() => {
     return accounts
-      .filter(acc => acc.balance > 0)
+      .filter(acc => getAccountBalance(acc) > 0)
       .map(acc => ({
         id: acc.id,
         name: acc.name,
-        value: acc.balance
+        value: getAccountBalance(acc)
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5); // Top 5 accounts
-  }, [accounts]);
+  }, [accounts, getAccountBalance]);
   
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
   const isDarkMode = document.documentElement.classList.contains('dark');
@@ -211,7 +239,7 @@ export function ImprovedDashboard() {
   const displayedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
+    <div className="space-y-4 max-w-[1400px] mx-auto">
       {/* Primary Focus: Net Worth Hero Card */}
       <section 
         aria-labelledby="net-worth-heading"
@@ -279,8 +307,12 @@ export function ImprovedDashboard() {
           This Month's Performance
         </h3>
         
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setBreakdownType('income')}
+            className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors cursor-pointer text-left"
+          >
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
               <p className="text-xl font-bold text-green-600 dark:text-green-400">
@@ -288,9 +320,13 @@ export function ImprovedDashboard() {
               </p>
             </div>
             <TrendingUpIcon size={24} className="text-green-500" />
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setBreakdownType('expense')}
+            className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors cursor-pointer text-left"
+          >
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
               <p className="text-xl font-bold text-red-600 dark:text-red-400">
@@ -298,22 +334,68 @@ export function ImprovedDashboard() {
               </p>
             </div>
             <TrendingDownIcon size={24} className="text-red-500" />
-          </div>
-          
-          <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Saved</p>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {formatCurrencyWithSymbol(metrics.monthlySavings)}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {formatDecimal(metrics.savingsRate, 1)}% rate
-              </p>
-            </div>
-            <TargetIcon size={24} className="text-blue-500" />
-          </div>
+          </button>
         </div>
       </section>
+
+      {/* Income/Expense Breakdown Modal */}
+      <Modal
+        isOpen={breakdownType !== null}
+        onClose={() => setBreakdownType(null)}
+        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} This Month`}
+        size="md"
+      >
+        <ModalBody>
+          <table className="w-full">
+            <thead>
+              <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left pb-2 font-medium">Date</th>
+                <th className="text-left pb-2 font-medium">Description</th>
+                <th className="text-right pb-2 font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                const monthlyTxns = transactions
+                  .filter(t => new Date(t.date) >= thirtyDaysAgo && t.type === breakdownType)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                if (monthlyTxns.length === 0) {
+                  return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No {breakdownType} transactions this month</td></tr>;
+                }
+
+                return monthlyTxns.map(t => (
+                  <tr key={t.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                    <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                    </td>
+                    <td className="py-2 text-sm text-gray-900 dark:text-white">
+                      {t.description}
+                    </td>
+                    <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
+                      breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {formatCurrencyWithSymbol(Math.abs(t.amount))}
+                    </td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 dark:border-gray-600">
+                <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
+                <td className={`pt-3 text-sm font-bold text-right ${
+                  breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatCurrencyWithSymbol(breakdownType === 'income' ? metrics.monthlyIncome : metrics.monthlyExpenses)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </ModalBody>
+      </Modal>
 
       {/* Budget Status Section - Shows current budget progress */}
       {metrics.budgetStatus.length > 0 && (
@@ -416,26 +498,37 @@ export function ImprovedDashboard() {
                 <XIcon size={16} className="text-gray-500" />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {accounts.map(account => (
-                <label
-                  key={account.id}
-                  className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedAccountIds.includes(account.id)}
-                    onChange={() => toggleAccountSelection(account.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                    {account.name}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
-                    {formatCurrencyWithSymbol(account.balance)}
-                  </span>
-                </label>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {accounts.map(account => {
+                const isSelected = selectedAccountIds.includes(account.id);
+                return (
+                  <button
+                    key={account.id}
+                    type="button"
+                    onClick={() => toggleAccountSelection(account.id)}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                      isSelected
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                        : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-550'
+                    }`}
+                    aria-pressed={isSelected ? 'true' : 'false'}
+                  >
+                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                      isSelected
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 dark:border-gray-400'
+                    }`}>
+                      {isSelected && <CheckIcon size={12} />}
+                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {account.name}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto whitespace-nowrap">
+                      {formatCurrencyWithSymbol(getAccountBalance(account))}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
               Tip: Select your most important accounts for quick access
@@ -459,7 +552,7 @@ export function ImprovedDashboard() {
                     navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
                   }
                 }}
-                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(account.balance)}`}
+                aria-label={`View ${account.name} account details. Balance: ${formatCurrencyWithSymbol(getAccountBalance(account))}`}
               >
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -471,11 +564,11 @@ export function ImprovedDashboard() {
                 </div>
                 <div className="text-right">
                   <p className={`text-lg font-bold ${
-                    account.balance < 0
-                      ? 'text-red-600 dark:text-red-400' 
+                    (getAccountBalance(account)) < 0
+                      ? 'text-red-600 dark:text-red-400'
                       : 'text-green-600 dark:text-green-400'
                   }`}>
-                    {formatCurrencyWithSymbol(account.balance)}
+                    {formatCurrencyWithSymbol(getAccountBalance(account))}
                   </p>
                   {account.creditLimit && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -552,37 +645,22 @@ export function ImprovedDashboard() {
         </section>
       )}
 
-      {/* Net Worth Chart */}
-      <section 
-        aria-labelledby="net-worth-chart-heading"
-        className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
-      >
-        <h3 id="net-worth-chart-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <BarChart3Icon size={24} className="text-gray-500" aria-hidden="true" />
-          Net Worth Over Time
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          {netWorthData.length === 1 
-            ? "Current month's net worth (historical data will build up over time)"
-            : "Your wealth progression over time"
-          }
-        </p>
-        <div className="h-64">
-          {netWorthData.length === 1 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
-              <BarChart3Icon size={48} className="opacity-20 mb-3" />
-              <p className="text-lg font-medium mb-2">Current Net Worth</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {formatCurrencyWithSymbol(metrics.netWorth, displayCurrency)}
-              </p>
-              <p className="text-sm mt-3 text-center max-w-md">
-                As you continue using WealthTracker, we'll track your net worth over time 
-                to show you trends and progress towards your financial goals.
-              </p>
-            </div>
-          ) : (
+      {/* Net Worth Chart - only show when there's historical data */}
+      {netWorthData.length > 1 && (
+        <section
+          aria-labelledby="net-worth-chart-heading"
+          className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
+        >
+          <h3 id="net-worth-chart-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <BarChart3Icon size={24} className="text-gray-500" aria-hidden="true" />
+            Net Worth Over Time
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Your wealth progression over time
+          </p>
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
+              <BarChart
                 data={netWorthData}
                 dataKey="netWorth"
                 fill="#8B5CF6"
@@ -597,9 +675,9 @@ export function ImprovedDashboard() {
                 aria-label="Bar chart showing net worth over time"
               />
             </ResponsiveContainer>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {/* Account Distribution Chart */}
       {pieData.length > 0 && (
@@ -650,11 +728,8 @@ export function ImprovedDashboard() {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-0 sm:gap-3 flex-1">
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                       {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
-                      {transaction.cleared ? 'R' : 'N'}
                     </span>
                   </div>
                   <p className="text-xs sm:text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>
