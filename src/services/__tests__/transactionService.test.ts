@@ -117,4 +117,37 @@ describe('TransactionService (deterministic fallback)', () => {
     const transactions = await TransactionService.getTransactions('user-1');
     expect(transactions[0].id).toBe('static-1');
   });
+
+  it('uses the authenticated API delete path when a Clerk token is available', async () => {
+    const storage = createStorage([]);
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200
+    })) as unknown as typeof fetch;
+    const authTokenProvider = vi.fn(async () => 'clerk-token');
+    const service = createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: storage,
+      logger,
+      now,
+      uuid,
+      fetchImpl: fetchMock,
+      authTokenProvider,
+      supabaseClient: {
+        from: vi.fn()
+      } as unknown as never
+    });
+
+    await service.deleteTransaction('txn-secure');
+
+    expect(authTokenProvider).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/data/delete-transaction', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer clerk-token'
+      },
+      body: JSON.stringify({ transactionId: 'txn-secure' })
+    });
+  });
 });
