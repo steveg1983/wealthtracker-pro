@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Webhook, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  RefreshCw,
-  Clock,
-  Activity,
-  Zap
-} from 'lucide-react';
+import { WebhookIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, RefreshCwIcon, ClockIcon, ActivityIcon, ZapIcon } from './icons';
 import { formatDistanceToNow } from 'date-fns';
 import { formatDecimal } from '../utils/decimal-format';
 
@@ -114,13 +105,13 @@ export default function WebhookManager(): React.JSX.Element {
   const getStatusIcon = (status: WebhookEvent['status']) => {
     switch (status) {
       case 'success':
-        return <CheckCircle size={16} className="text-green-600" />;
+        return <CheckCircleIcon size={16} className="text-green-600" />;
       case 'failed':
-        return <XCircle size={16} className="text-red-600" />;
+        return <XCircleIcon size={16} className="text-red-600" />;
       case 'processing':
-        return <RefreshCw size={16} className="text-blue-600 animate-spin" />;
+        return <RefreshCwIcon size={16} className="text-blue-600 animate-spin" />;
       default:
-        return <Clock size={16} className="text-yellow-600" />;
+        return <ClockIcon size={16} className="text-yellow-600" />;
     }
   };
 
@@ -161,7 +152,7 @@ export default function WebhookManager(): React.JSX.Element {
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             title="Refresh"
           >
-            <RefreshCw size={16} />
+            <RefreshCwIcon size={16} />
           </button>
         </div>
 
@@ -170,7 +161,7 @@ export default function WebhookManager(): React.JSX.Element {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <Webhook size={16} className="text-gray-500" />
+                  <WebhookIcon size={16} className="text-gray-500" />
                   <code className="text-sm text-gray-900 dark:text-white font-mono">
                     {endpoint.url}
                   </code>
@@ -187,11 +178,11 @@ export default function WebhookManager(): React.JSX.Element {
                 
                 <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                   <span className="flex items-center gap-1">
-                    <Activity size={12} />
+                    <ActivityIcon size={12} />
                     Last ping: {endpoint.lastPing ? formatDistanceToNow(endpoint.lastPing, { addSuffix: true }) : 'Never'}
                   </span>
                   <span className="flex items-center gap-1">
-                    <AlertCircle size={12} />
+                    <AlertCircleIcon size={12} />
                     Failure rate: {formatDecimal(endpoint.failureRate * 100, 1)}%
                   </span>
                 </div>
@@ -204,7 +195,7 @@ export default function WebhookManager(): React.JSX.Element {
               </div>
 
               <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <Zap size={16} className="text-gray-500" />
+                <ZapIcon size={16} className="text-gray-500" />
               </button>
             </div>
           </div>
@@ -286,7 +277,7 @@ export default function WebhookManager(): React.JSX.Element {
                   onClick={() => setSelectedEvent(null)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  <XCircle size={20} />
+                  <XCircleIcon size={20} />
                 </button>
               </div>
             </div>

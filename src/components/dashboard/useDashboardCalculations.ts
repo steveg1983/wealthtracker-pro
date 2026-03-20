@@ -5,6 +5,7 @@ interface DashboardTransaction {
   date: Date;
   amount: number;
   type?: string;
+  accountId?: string;
 }
 
 export function useDashboardCalculations(
@@ -12,13 +13,21 @@ export function useDashboardCalculations(
   transactions: DashboardTransaction[]
 ) {
   return React.useMemo(() => {
+    const effectiveBalance = (acc: Account) => {
+      const opening = acc.openingBalance ?? 0;
+      const txnTotal = transactions
+        .filter(t => t.accountId === acc.id)
+        .reduce((sum, t) => sum + t.amount, 0);
+      return opening + txnTotal;
+    };
+
     const totalAssets = accounts
       .filter(acc => acc.isActive && acc.type !== 'credit' && acc.type !== 'loan')
-      .reduce((sum, acc) => sum + acc.balance, 0);
+      .reduce((sum, acc) => sum + effectiveBalance(acc), 0);
 
     const totalLiabilities = accounts
       .filter(acc => acc.isActive && (acc.type === 'credit' || acc.type === 'loan'))
-      .reduce((sum, acc) => sum + acc.balance, 0);
+      .reduce((sum, acc) => sum + effectiveBalance(acc), 0);
 
     const netWorth = totalAssets - totalLiabilities;
 

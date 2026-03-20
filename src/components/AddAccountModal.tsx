@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
-import { Building2, Wallet, CreditCard, TrendingUp, PiggyBank, Banknote, Package, AlertCircle } from 'lucide-react';
+import { Building2Icon, WalletIcon, CreditCardIcon, TrendingUpIcon, PiggyBankIcon, BanknoteIcon, PackageIcon, AlertCircleIcon } from './icons';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -34,12 +34,12 @@ interface AccountFormData {
 }
 
 const accountTypes = [
-  { value: 'current', label: 'Current Account', icon: Wallet, description: 'Everyday spending account' },
-  { value: 'savings', label: 'Savings Account', icon: PiggyBank, description: 'Long-term savings' },
-  { value: 'credit', label: 'Credit Card', icon: CreditCard, description: 'Credit line account' },
-  { value: 'loan', label: 'Loan', icon: Banknote, description: 'Mortgages, personal loans' },
-  { value: 'investment', label: 'Investment', icon: TrendingUp, description: 'Stocks, bonds, funds' },
-  { value: 'assets', label: 'Other Assets', icon: Package, description: 'Property, valuables' },
+  { value: 'current', label: 'Current Account', icon: WalletIcon, description: 'Everyday spending account' },
+  { value: 'savings', label: 'Savings Account', icon: PiggyBankIcon, description: 'Long-term savings' },
+  { value: 'credit', label: 'Credit Card', icon: CreditCardIcon, description: 'Credit line account' },
+  { value: 'loan', label: 'Loan', icon: BanknoteIcon, description: 'Mortgages, personal loans' },
+  { value: 'investment', label: 'Investment', icon: TrendingUpIcon, description: 'Stocks, bonds, funds' },
+  { value: 'assets', label: 'Other Assets', icon: PackageIcon, description: 'Property, valuables' },
 ];
 
 const currencies = [
@@ -122,7 +122,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
       const newAccountPayload: Omit<Account, 'id'> & { initialBalance?: number } = {
         name: formData.name.trim(),
-        type: formData.type === 'checking' ? 'current' : formData.type,
+        type: formData.type,
         balance,
         initialBalance: balance,
         currency: formData.currency,
@@ -181,7 +181,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
             {error && (
               <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
                 <div className="flex gap-3">
-                  <AlertCircle size={20} className="text-red-600 dark:text-red-400 mt-0.5" />
+                  <AlertCircleIcon size={20} className="text-red-600 dark:text-red-400 mt-0.5" />
                   <div className="text-sm text-red-700 dark:text-red-300">
                     {error}
                   </div>
@@ -307,7 +307,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                 <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
               </label>
               <div className="relative">
-                <Building2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Building2Icon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   value={formData.institution}

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { XIcon } from '../icons';
 
 interface ModalProps {
   isOpen: boolean;
@@ -172,7 +172,7 @@ export function Modal({
                 "
                 aria-label="Close modal"
               >
-                <X size={20} />
+                <XIcon size={20} />
               </button>
             )}
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { usePerformanceMonitoring } from '../hooks/usePerformanceMonitoring';
 import { Card } from './common/Card';
 import ActivityIcon from './icons/ActivityIcon';
-import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircleIcon, CheckCircleIcon, XCircleIcon } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -101,11 +101,11 @@ export const PerformanceDashboard: React.FC = () => {
   const getRatingIcon = (rating: WebVitalScore['rating']) => {
     switch (rating) {
       case 'good':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
       case 'needs-improvement':
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+        return <AlertCircleIcon className="w-5 h-5 text-yellow-500" />;
       case 'poor':
-        return <XCircle className="w-5 h-5 text-red-500" />;
+        return <XCircleIcon className="w-5 h-5 text-red-500" />;
       default:
         return null;
     }
@@ -241,25 +241,25 @@ export const PerformanceDashboard: React.FC = () => {
         <ul className="space-y-2">
           {bundleSize && bundleSize.totalSize > 1000000 && (
             <li className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <AlertCircleIcon className="w-5 h-5 text-yellow-500 mt-0.5" />
               <span className="text-sm">Consider code splitting - total bundle size exceeds 1MB</span>
             </li>
           )}
           {resourceMetrics && resourceMetrics.jsCount > 20 && (
             <li className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <AlertCircleIcon className="w-5 h-5 text-yellow-500 mt-0.5" />
               <span className="text-sm">High number of JavaScript files ({resourceMetrics.jsCount}) - consider bundling</span>
             </li>
           )}
           {memoryUsage && memoryUsage.percentUsed > 70 && (
             <li className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <AlertCircleIcon className="w-5 h-5 text-yellow-500 mt-0.5" />
               <span className="text-sm">High memory usage detected - check for memory leaks</span>
             </li>
           )}
           {navigationTiming && navigationTiming.loadTime > 3000 && (
             <li className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <AlertCircleIcon className="w-5 h-5 text-yellow-500 mt-0.5" />
               <span className="text-sm">Page load time exceeds 3 seconds - optimize critical rendering path</span>
             </li>
           )}

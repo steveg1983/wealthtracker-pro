@@ -4,8 +4,6 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 
-const supabase = getServiceRoleSupabase();
-
 const createErrorResponse = (
   res: VercelResponse,
   status: number,
@@ -32,6 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const auth = await requireAuth(req);
+    const supabase = getServiceRoleSupabase();
     const { data, error } = await supabase
       .from('bank_connections')
       .select('id, provider, institution_id, institution_name, institution_logo, status, last_sync, expires_at')

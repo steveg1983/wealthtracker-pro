@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, Chrome } from 'lucide-react';
+import { AlertTriangleIcon, RefreshCwIcon, HomeIcon, ChromeIcon } from '../icons';
 import { handleClerkSafariError } from '../../utils/clerkSafarifix';
 import { isSafari } from '../../utils/safariCompat';
 
@@ -126,7 +126,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
                 : 'bg-gradient-to-r from-red-500 to-pink-500'
             }`}>
               <div className="flex items-center gap-3 text-white">
-                <AlertTriangle size={24} />
+                <AlertTriangleIcon size={24} />
                 <h1 className="text-xl font-bold">
                   {this.state.isSafariIssue ? 'Safari Authentication Issue' : 'Authentication Error'}
                 </h1>
@@ -159,7 +159,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors text-sm"
                       >
-                        <Chrome size={16} />
+                        <ChromeIcon size={16} />
                         Chrome
                       </a>
                       <a
@@ -199,7 +199,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
                   onClick={this.handleReload}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <RefreshCw size={18} />
+                  <RefreshCwIcon size={18} />
                   Try Again
                 </button>
                 
@@ -214,7 +214,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
                   onClick={this.handleGoHome}
                   className="w-full px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
-                  <Home size={16} />
+                  <HomeIcon size={16} />
                   Go to Homepage
                 </button>
               </div>

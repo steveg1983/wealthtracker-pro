@@ -9,7 +9,6 @@ import { requireBankingOpsAdmin } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 
-const supabase = getServiceRoleSupabase();
 const TEST_EVENT_TYPE = 'banking.ops_alert_test';
 
 const createErrorResponse = (
@@ -46,6 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const auth = await requireAuth(req);
+    const supabase = getServiceRoleSupabase();
     requireBankingOpsAdmin(auth);
 
     const body = (req.body ?? {}) as OpsAlertTestRequest;

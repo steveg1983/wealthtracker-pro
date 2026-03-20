@@ -16,8 +16,6 @@ import {
 import type { TrueLayerTransaction } from '../_lib/truelayer.js';
 import { fetchTransactions } from '../_lib/truelayer.js';
 
-const supabase = getServiceRoleSupabase();
-
 const createErrorResponse = (
   res: VercelResponse,
   status: number,
@@ -134,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const auth = await requireAuth(req);
+    const supabase = getServiceRoleSupabase();
     const body = req.body as SyncTransactionsRequest | undefined;
     if (!body || typeof body.connectionId !== 'string' || !body.connectionId.trim()) {
       return createErrorResponse(res, 400, 'connectionId is required', 'invalid_request');

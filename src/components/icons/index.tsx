@@ -139,6 +139,9 @@ import {
   IconPill,
   IconPlayerPause,
   IconScissors,
+  IconFilePlus,
+  IconFileSpreadsheet,
+  IconWebhook,
 } from '@tabler/icons-react';
 
 // Common props interface
@@ -169,7 +172,7 @@ const createIconComponent = (
     onClick,
     title,
     style,
-    strokeWidth = 2,
+    strokeWidth = 1.5,
     'data-testid': dataTestId,
   }) => {
     return (
@@ -263,6 +266,9 @@ export const HashIcon = createIconComponent(IconHash, 'HashIcon');
 export const FolderIcon = createIconComponent(IconFolder, 'FolderIcon');
 export const ArchiveIcon = createIconComponent(IconArchive, 'ArchiveIcon');
 export const FileTextIcon = createIconComponent(IconFileText, 'FileTextIcon');
+export const FilePlusIcon = createIconComponent(IconFilePlus, 'FilePlusIcon');
+export const FileSpreadsheetIcon = createIconComponent(IconFileSpreadsheet, 'FileSpreadsheetIcon');
+export const WebhookIcon = createIconComponent(IconWebhook, 'WebhookIcon');
 
 // Goal & Target Icons
 export const TargetIcon = createIconComponent(IconTarget, 'TargetIcon');

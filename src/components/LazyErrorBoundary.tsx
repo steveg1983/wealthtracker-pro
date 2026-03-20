@@ -1,5 +1,5 @@
 import React, { Component, ReactNode } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircleIcon, RefreshCwIcon } from './icons';
 
 interface Props {
   children: ReactNode;
@@ -55,7 +55,7 @@ export class LazyErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="flex flex-col items-center justify-center p-8 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md">
-          <AlertCircle className="w-12 h-12 text-red-500 mb-4" aria-hidden="true" />
+          <AlertCircleIcon className="w-12 h-12 text-red-500 mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Something went wrong
           </h3>
@@ -69,7 +69,7 @@ export class LazyErrorBoundary extends Component<Props, State> {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             aria-label="Retry loading component"
           >
-            <RefreshCw className="w-4 h-4" aria-hidden="true" />
+            <RefreshCwIcon className="w-4 h-4" aria-hidden="true" />
             Try Again
           </button>
           {process.env.NODE_ENV === 'development' && this.state.error && (

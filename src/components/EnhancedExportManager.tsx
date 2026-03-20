@@ -1,16 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Calendar,
-  FileSpreadsheet,
-  FilePlus,
-  X,
-  TrendingUp,
-  DollarSign,
-  PieChart,
-  Receipt
-} from 'lucide-react';
+import { FileTextIcon, DownloadIcon, CalendarIcon, FileSpreadsheetIcon, FilePlusIcon, XIcon, TrendingUpIcon, DollarSignIcon, PieChartIcon, ReceiptIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -66,7 +55,7 @@ const REPORT_TEMPLATES = [
   {
     id: 'monthly-statement',
     name: 'Monthly Statement',
-    icon: Calendar,
+    icon: CalendarIcon,
     description: 'Professional bank-style monthly statement',
     reportType: 'transactions' as ReportType,
     defaults: {
@@ -78,7 +67,7 @@ const REPORT_TEMPLATES = [
   {
     id: 'tax-summary',
     name: 'Tax Summary',
-    icon: Receipt,
+    icon: ReceiptIcon,
     description: 'Annual tax-deductible expenses report',
     reportType: 'tax' as ReportType,
     defaults: {
@@ -90,7 +79,7 @@ const REPORT_TEMPLATES = [
   {
     id: 'investment-performance',
     name: 'Investment Performance',
-    icon: TrendingUp,
+    icon: TrendingUpIcon,
     description: 'Portfolio performance and holdings report',
     reportType: 'investment' as ReportType,
     defaults: {
@@ -101,7 +90,7 @@ const REPORT_TEMPLATES = [
   {
     id: 'budget-analysis',
     name: 'Budget Analysis',
-    icon: PieChart,
+    icon: PieChartIcon,
     description: 'Budget vs actual spending analysis',
     reportType: 'budget' as ReportType,
     defaults: {
@@ -113,7 +102,7 @@ const REPORT_TEMPLATES = [
   {
     id: 'net-worth',
     name: 'Net Worth Statement',
-    icon: DollarSign,
+    icon: DollarSignIcon,
     description: 'Complete assets and liabilities statement',
     reportType: 'networth' as ReportType,
     defaults: {
@@ -499,7 +488,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         onClick={() => setIsOpen(true)}
         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
       >
-        <Download size={20} />
+        <DownloadIcon size={20} />
         Advanced Export
       </button>
 
@@ -516,7 +505,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                   onClick={() => setIsOpen(false)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  <X size={20} />
+                  <XIcon size={20} />
                 </button>
               </div>
             </div>
@@ -574,7 +563,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
-                    <FileText size={24} className="mx-auto mb-2 text-red-500" />
+                    <FileTextIcon size={24} className="mx-auto mb-2 text-red-500" />
                     <p className="text-sm font-medium">PDF</p>
                     <p className="text-xs text-gray-500 mt-1">Professional reports</p>
                   </button>
@@ -587,7 +576,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
-                    <FileSpreadsheet size={24} className="mx-auto mb-2 text-green-500" />
+                    <FileSpreadsheetIcon size={24} className="mx-auto mb-2 text-green-500" />
                     <p className="text-sm font-medium">Excel</p>
                     <p className="text-xs text-gray-500 mt-1">Advanced analysis</p>
                   </button>
@@ -600,7 +589,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
-                    <FilePlus size={24} className="mx-auto mb-2 text-blue-500" />
+                    <FilePlusIcon size={24} className="mx-auto mb-2 text-blue-500" />
                     <p className="text-sm font-medium">CSV</p>
                     <p className="text-xs text-gray-500 mt-1">Universal format</p>
                   </button>
@@ -753,7 +742,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     </>
                   ) : (
                     <>
-                      <Download size={16} />
+                      <DownloadIcon size={16} />
                       Export
                     </>
                   )}

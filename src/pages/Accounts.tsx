@@ -65,8 +65,14 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }
   }, [accounts]);
   
+  // Convert transactions to decimal for balance calculations
+  const decimalTransactions = useMemo(() => transactions.map(t => ({
+    ...t,
+    amount: toDecimal(t.amount),
+  })), [transactions]);
+
   // Group decimal accounts by type for calculations
-  const decimalAccountsByType = useMemo(() => 
+  const decimalAccountsByType = useMemo(() =>
     decimalAccounts.reduce((groups, account) => {
       const type = account.type;
       if (!groups[type]) {
@@ -202,7 +208,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             if (typeAccounts.length === 0) return null;
 
             const decimalTypeAccounts = decimalAccountsByType[type] || [];
-            const typeTotal = calculateTotalBalance(decimalTypeAccounts);
+            const typeTotal = calculateTotalBalance(decimalTypeAccounts, decimalTransactions);
 
             return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
@@ -241,9 +247,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                           {account.name}
                         </h3>
-                        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                          {account.institution || 'Unknown Institution'}
-                        </p>
+                        {account.institution && (
+                          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                            {account.institution}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-500 dark:text-gray-300">
                           Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
                         </p>

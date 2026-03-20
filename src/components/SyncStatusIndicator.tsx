@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cloud, CloudOff, RefreshCw, Check, AlertCircle } from 'lucide-react';
+import { CloudIcon, CloudOffIcon, RefreshCwIcon, CheckIcon, AlertCircleIcon } from './icons';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { formatDistanceToNow } from 'date-fns';
@@ -34,20 +34,20 @@ export default function SyncStatusIndicator({
 
   const getStatusIcon = (): React.JSX.Element => {
     if (!isOnline) {
-      return <CloudOff size={16} className="text-gray-500" />;
+      return <CloudOffIcon size={16} className="text-gray-500" />;
     }
 
     switch (status) {
       case 'synced':
-        return <Check size={16} className="text-green-600" />;
+        return <CheckIcon size={16} className="text-green-600" />;
       case 'syncing':
-        return <RefreshCw size={16} className="text-blue-600 animate-spin" />;
+        return <RefreshCwIcon size={16} className="text-blue-600 animate-spin" />;
       case 'pending':
-        return <Cloud size={16} className="text-yellow-600" />;
+        return <CloudIcon size={16} className="text-yellow-600" />;
       case 'error':
-        return <AlertCircle size={16} className="text-red-600" />;
+        return <AlertCircleIcon size={16} className="text-red-600" />;
       default:
-        return <Cloud size={16} className="text-gray-500" />;
+        return <CloudIcon size={16} className="text-gray-500" />;
     }
   };
 
@@ -115,7 +115,7 @@ export default function SyncStatusIndicator({
           title="Sync now"
           aria-label="Trigger manual sync"
         >
-          <RefreshCw 
+          <RefreshCwIcon 
             size={16} 
             className={status === 'syncing' || isManualSyncing ? 'animate-spin' : ''} 
           />

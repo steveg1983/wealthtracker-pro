@@ -12,6 +12,8 @@ const EditTransactionModal = lazy(() => import('../components/EditTransactionMod
 const TransactionDetailsView = lazy(() => import('../components/TransactionDetailsView'));
 const QuickDateFilters = lazy(() => import('../components/QuickDateFilters'));
 import { CalendarIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
+import DatePicker from '../components/common/DatePicker';
+import { Modal, ModalBody } from '../components/common/Modal';
 import type { Transaction } from '../types';
 import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types';
 import PageWrapper from '../components/PageWrapper';
@@ -25,13 +27,14 @@ import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 const Transactions = React.memo(function Transactions() {
   const { transactions, accounts, deleteTransaction, categories, getDecimalTransactions } = useApp();
   const { compactView, setCompactView: _setCompactView, currency: displayCurrency } = usePreferences();
-  const { isWideView, setIsWideView } = useLayout();
+  const { isWideView } = useLayout();
   const { formatCurrency } = useCurrencyDecimal();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
   const [isDetailsViewOpen, setIsDetailsViewOpen] = useState(false);
+  const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | 'net' | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -335,10 +338,10 @@ const Transactions = React.memo(function Transactions() {
           acc.expense = acc.expense.plus(t.amount);
         }
         return acc;
-      }, { 
-        income: toDecimal(0), 
+      }, {
+        income: toDecimal(0),
         expense: toDecimal(0),
-        get net() { return this.income.minus(this.expense); }
+        get net() { return this.income.plus(this.expense); } // expenses are already negative
       });
   }, [filteredAndSortedTransactions, getDecimalTransactions]);
 
@@ -461,87 +464,7 @@ const Transactions = React.memo(function Transactions() {
             </svg>
           </div> */}
           
-          {/* Wide View Toggle */}
-          <div 
-            onClick={() => setIsWideView(!isWideView)}
-            className="cursor-pointer"
-            title={isWideView ? "Switch to standard width" : "Switch to wide view"}
-          >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 48 48"
-              xmlns="http://www.w3.org/2000/svg"
-              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
-            >
-              <circle
-                cx="24"
-                cy="24"
-                r="24"
-                fill="#D9E1F2"
-                className="transition-all duration-200"
-                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
-                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
-              />
-              {isWideView ? (
-                <g transform="translate(12, 12)">
-                  <path 
-                    d="M5 12h14m-7-7v14" 
-                    stroke="#1F2937" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                </g>
-              ) : (
-                <g transform="translate(12, 12)">
-                  <path 
-                    d="M3 12h18m-9-9v18" 
-                    stroke="#1F2937" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                  />
-                </g>
-              )}
-            </svg>
-          </div>
-          
-          {/* Add Transaction Button */}
-          <div 
-            onClick={() => setIsModalOpen(true)}
-            className="cursor-pointer"
-            title="Add Transaction"
-          >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 48 48"
-              xmlns="http://www.w3.org/2000/svg"
-              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
-            >
-              <circle
-                cx="24"
-                cy="24"
-                r="24"
-                fill="#D9E1F2"
-                className="transition-all duration-200"
-                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
-                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
-              />
-              <g transform="translate(12, 12)">
-                <path 
-                  d="M12 5v14M5 12h14" 
-                  stroke="#1F2937" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </g>
-            </svg>
-          </div>
+          {/* Wide View Toggle and Add Transaction buttons removed */}
         </div>
       }
     >
@@ -550,7 +473,11 @@ const Transactions = React.memo(function Transactions() {
         <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+        <button
+          type="button"
+          onClick={() => setBreakdownType('income')}
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-left cursor-pointer"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Income</p>
@@ -558,8 +485,12 @@ const Transactions = React.memo(function Transactions() {
             </div>
             <TrendingUpIcon className="text-green-500" size={20} />
           </div>
-        </div>
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+        </button>
+        <button
+          type="button"
+          onClick={() => setBreakdownType('expense')}
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Expenses</p>
@@ -567,18 +498,22 @@ const Transactions = React.memo(function Transactions() {
             </div>
             <TrendingDownIcon className="text-red-500" size={20} />
           </div>
-        </div>
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+        </button>
+        <button
+          type="button"
+          onClick={() => setBreakdownType('net')}
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors text-left cursor-pointer"
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net</p>
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net Cash Flow</p>
               <p className={`text-lg md:text-xl font-bold ${totals.net.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {formatCurrency(totals.net, displayCurrency)}
               </p>
             </div>
             <CalendarIcon className="text-primary" size={20} />
           </div>
-        </div>
+        </button>
         </div>
 
         {/* Filters and Search */}
@@ -652,27 +587,25 @@ const Transactions = React.memo(function Transactions() {
           <div className="flex flex-wrap items-center gap-2">
             <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Range:</span>
-            <label htmlFor="date-from" className="sr-only">From date</label>
-            <input
-              id="date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => handleFilterChange(setDateFrom)(e.target.value)}
-              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              placeholder="From"
-              aria-label="Filter from date"
-            />
+            <div className="flex-1 min-w-[150px]">
+              <DatePicker
+                id="date-from"
+                value={dateFrom}
+                onChange={(val) => handleFilterChange(setDateFrom)(val)}
+                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                aria-label="Filter from date"
+              />
+            </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
-            <label htmlFor="date-to" className="sr-only">To date</label>
-            <input
-              id="date-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => handleFilterChange(setDateTo)(e.target.value)}
-              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              placeholder="To"
-              aria-label="Filter to date"
-            />
+            <div className="flex-1 min-w-[150px]">
+              <DatePicker
+                id="date-to"
+                value={dateTo}
+                onChange={(val) => handleFilterChange(setDateTo)(val)}
+                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                aria-label="Filter to date"
+              />
+            </div>
           </div>
         </div>
         </div>
@@ -683,7 +616,7 @@ const Transactions = React.memo(function Transactions() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-white/20 dark:border-gray-700/50">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
             {transactions.length === 0 
-              ? "No transactions yet. Click 'Add Transaction' to record your first one!"
+              ? "No transactions yet. Add transactions from within an account."
               : searchQuery 
                 ? `No transactions found for "${searchQuery}"`
                 : "No transactions match your filters."}
@@ -746,7 +679,7 @@ const Transactions = React.memo(function Transactions() {
                 <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
                   {paginatedTransactions.map((transaction) => {
                     const account = accounts.find(a => a.id === transaction.accountId);
-                    const categoryPath = getCategoryPath(transaction.category);
+                    const categoryPath = getCategoryPath(transaction.category, transaction);
                     
                     return (
                       <TransactionRow
@@ -958,6 +891,76 @@ const Transactions = React.memo(function Transactions() {
       
       </div>
       </div>
+      {/* Income/Expense/Net Breakdown Modal */}
+      <Modal
+        isOpen={breakdownType !== null}
+        onClose={() => setBreakdownType(null)}
+        title={breakdownType === 'income' ? 'Income Breakdown' : breakdownType === 'expense' ? 'Expense Breakdown' : 'Net Cash Flow Breakdown'}
+        size="md"
+      >
+        <ModalBody>
+          <table className="w-full">
+            <thead>
+              <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left pb-2 font-medium">Date</th>
+                <th className="text-left pb-2 font-medium">Description</th>
+                <th className="text-left pb-2 font-medium">Account</th>
+                <th className="text-right pb-2 font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const txns = filteredAndSortedTransactions
+                  .filter(t => {
+                    if (breakdownType === 'income') return t.type === 'income';
+                    if (breakdownType === 'expense') return t.type === 'expense';
+                    return t.type === 'income' || t.type === 'expense';
+                  })
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                if (txns.length === 0) {
+                  return <tr><td colSpan={4} className="text-center py-8 text-gray-400">No transactions</td></tr>;
+                }
+
+                return txns.map(t => {
+                  const acc = accounts.find(a => a.id === t.accountId);
+                  return (
+                    <tr key={t.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                      </td>
+                      <td className="py-2 text-sm text-gray-900 dark:text-white">{t.description}</td>
+                      <td className="py-2 text-xs text-gray-500 dark:text-gray-400">{acc?.name}</td>
+                      <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
+                        t.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {formatCurrency(Math.abs(t.amount), displayCurrency)}
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 dark:border-gray-600">
+                <td colSpan={3} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
+                <td className={`pt-3 text-sm font-bold text-right ${
+                  breakdownType === 'income' ? 'text-green-600 dark:text-green-400'
+                    : breakdownType === 'expense' ? 'text-red-600 dark:text-red-400'
+                    : totals.net.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatCurrency(
+                    breakdownType === 'income' ? totals.income.toNumber()
+                      : breakdownType === 'expense' ? Math.abs(totals.expense.toNumber())
+                      : totals.net.toNumber(),
+                    displayCurrency
+                  )}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </ModalBody>
+      </Modal>
     </PageWrapper>
   );
 });

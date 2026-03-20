@@ -39,6 +39,8 @@ export interface Account {
   subtype?: string;
   bankBalance?: number | null;
   lastReconciledDate?: Date | null;
+  lowBalanceThreshold?: number;
+  lowBalanceAlertEnabled?: boolean;
 }
 
 export interface Transaction {
@@ -79,7 +81,8 @@ export interface Transaction {
   recurringTransactionId?: string;
   addedBy?: string; // Member ID who added this transaction
   linkedTransferId?: string; // ID of the corresponding transfer transaction in the other account
-  
+  transferAccountId?: string; // Account ID of the other side of a transfer
+
   // Transfer-specific metadata for wealth management
   transferMetadata?: {
     // Core transfer info

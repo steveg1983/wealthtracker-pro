@@ -11,7 +11,8 @@ import {
   TrashIcon,
   PlayIcon,
   StopIcon,
-  RefreshCwIcon
+  RefreshCwIcon,
+  CheckIcon
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import type { Investment } from '../types';
@@ -344,68 +345,38 @@ export default function ExportManager() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     Include in Export
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={exportOptions.includeTransactions}
-                        onChange={(e) => setExportOptions({
-                          ...exportOptions,
-                          includeTransactions: e.target.checked
-                        })}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Transactions</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={exportOptions.includeAccounts}
-                        onChange={(e) => setExportOptions({
-                          ...exportOptions,
-                          includeAccounts: e.target.checked
-                        })}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Accounts</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={exportOptions.includeInvestments}
-                        onChange={(e) => setExportOptions({
-                          ...exportOptions,
-                          includeInvestments: e.target.checked
-                        })}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Investments</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={exportOptions.includeBudgets}
-                        onChange={(e) => setExportOptions({
-                          ...exportOptions,
-                          includeBudgets: e.target.checked
-                        })}
-                        className="mr-2"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Budgets</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={exportOptions.includeCharts}
-                        onChange={(e) => setExportOptions({
-                          ...exportOptions,
-                          includeCharts: e.target.checked
-                        })}
-                        className="mr-2"
-                        disabled={exportOptions.format !== 'pdf'}
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Charts</span>
-                    </label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {([
+                      { key: 'includeTransactions' as const, label: 'Transactions' },
+                      { key: 'includeAccounts' as const, label: 'Accounts' },
+                      { key: 'includeInvestments' as const, label: 'Investments' },
+                      { key: 'includeBudgets' as const, label: 'Budgets' },
+                      { key: 'includeCharts' as const, label: 'Charts', disabled: exportOptions.format !== 'pdf' },
+                    ]).map(({ key, label, disabled }) => {
+                      const checked = exportOptions[key];
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => !disabled && setExportOptions({ ...exportOptions, [key]: !checked })}
+                          disabled={disabled}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                            disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                          } ${
+                            checked
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                              : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-650'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                            checked ? 'bg-blue-600 text-white' : 'border border-gray-300 dark:border-gray-500'
+                          }`}>
+                            {checked && <CheckIcon size={12} />}
+                          </div>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

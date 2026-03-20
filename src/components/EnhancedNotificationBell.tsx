@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Bell, 
-  TrendingUp, 
-  CreditCard, 
-  Target, 
-  PiggyBank,
-  CheckCircle,
-  Info,
-  X
-} from 'lucide-react';
+import { BellIcon, TrendingUpIcon, CreditCardIcon, TargetIcon, PiggyBankIcon, CheckCircleIcon, InfoIcon, XIcon } from './icons';
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -90,19 +81,19 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   const getActivityIcon = (activity: ActivityItem): React.JSX.Element => {
     switch (activity.type) {
       case 'transaction':
-        return <CreditCard size={16} className="text-blue-500" />;
+        return <CreditCardIcon size={16} className="text-blue-500" />;
       case 'account':
-        return <PiggyBank size={16} className="text-green-500" />;
+        return <PiggyBankIcon size={16} className="text-green-500" />;
       case 'budget':
-        return <Target size={16} className="text-purple-500" />;
+        return <TargetIcon size={16} className="text-purple-500" />;
       case 'goal':
-        return <TrendingUp size={16} className="text-orange-500" />;
+        return <TrendingUpIcon size={16} className="text-orange-500" />;
       case 'sync':
-        return <CheckCircle size={16} className="text-teal-500" />;
+        return <CheckCircleIcon size={16} className="text-teal-500" />;
       case 'system':
-        return <Info size={16} className="text-gray-500" />;
+        return <InfoIcon size={16} className="text-gray-500" />;
       default:
-        return <Bell size={16} className="text-gray-500" />;
+        return <BellIcon size={16} className="text-gray-500" />;
     }
   };
 
@@ -141,7 +132,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
         className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center"
         aria-label={`Notifications${counts.unread > 0 ? ` (${counts.unread} unread)` : ''}`}
       >
-        <Bell size={20} className="text-gray-700 dark:text-gray-200" />
+        <BellIcon size={20} className="text-gray-700 dark:text-gray-200" />
         
         {/* Unread Badge */}
         {counts.unread > 0 && (
@@ -186,7 +177,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                     onClick={() => setIsOpen(false)}
                     className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                   >
-                    <X size={16} />
+                    <XIcon size={16} />
                   </button>
                 </div>
               </div>
@@ -216,7 +207,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
             <div className="overflow-y-auto" style={{ maxHeight: '450px' }}>
               {getFilteredActivities().length === 0 ? (
                 <div className="p-8 text-center">
-                  <Bell size={48} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                  <BellIcon size={48} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                   <p className="text-gray-500 dark:text-gray-400">
                     No notifications
                   </p>

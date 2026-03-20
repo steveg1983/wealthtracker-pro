@@ -73,12 +73,19 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     reconciledWith: ''
   };
   
-  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+  const { formData, updateField, handleSubmit, setFormData, errors } = useModalForm<FormData>(
     initialFormData,
     {
       onSubmit: (data) => {
         try {
+          const isTransfer = data.type === 'transfer';
           const isTransferToAccount = data.category.startsWith('transfer:');
+
+          // CRITICAL: Transfers MUST have a target account selected
+          if (isTransfer && !isTransferToAccount) {
+            throw new Error('Please select an account to transfer to.');
+          }
+
           const targetAccountId = isTransferToAccount ? data.category.slice('transfer:'.length) : undefined;
           const resolvedCategory = isTransferToAccount ? 'transfer-out' : data.category;
           const resolvedType = isTransferToAccount ? 'transfer' : data.type;
@@ -103,6 +110,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             type: resolvedType,
             category: resolvedCategory,
             accountId: validatedData.accountId,
+            transferAccountId: targetAccountId,
             tags: validatedData.tags,
             notes: validatedData.notes,
             cleared: data.cleared,
@@ -115,8 +123,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             addTransaction(transactionData);
           }
 
-          // Create paired transaction in target account for transfers
-          if (isTransferToAccount && targetAccountId) {
+          // Create paired transaction in target account for NEW transfers only
+          if (isTransferToAccount && targetAccountId && !transaction) {
             addTransaction({
               date: new Date(validatedData.date),
               description: validatedData.description,
@@ -124,6 +132,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               type: 'transfer',
               category: 'transfer-in',
               accountId: targetAccountId,
+              transferAccountId: validatedData.accountId,
               tags: validatedData.tags,
               notes: validatedData.notes,
               cleared: false
@@ -135,8 +144,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           if (error instanceof z.ZodError) {
             logger.error('Validation failed', error);
           } else {
-            logger.error('Failed to update transaction', error as Error);
+            logger.error('Failed to save transaction', error as Error);
           }
+          throw error; // Re-throw so useModalForm displays the error
         }
       },
       onClose: () => {
@@ -314,37 +324,25 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 <ArrowRightLeftIcon size={16} />
                 Type
               </label>
-              <div className="flex gap-4 items-center h-[42px]">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="income"
-                    checked={formData.type === 'income'}
-                    onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
-                    className="mr-2"
-                  />
-                  <span className="text-green-600 dark:text-green-400">Income</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="expense"
-                    checked={formData.type === 'expense'}
-                    onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
-                    className="mr-2"
-                  />
-                  <span className="text-red-600 dark:text-red-400">Expense</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="transfer"
-                    checked={formData.type === 'transfer'}
-                    onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
-                    className="mr-2"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">Transfer</span>
-                </label>
+              <div className="flex gap-1 items-center h-[42px] bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                {(['income', 'expense', 'transfer'] as const).map((t) => {
+                  const isActive = formData.type === t;
+                  const colors = {
+                    income: isActive ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-green-600',
+                    expense: isActive ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-red-600',
+                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600',
+                  };
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => { updateField('type', t); updateField('category', ''); }}
+                      className={`flex-1 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${colors[t]}`}
+                    >
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -402,53 +400,73 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               <div className="flex justify-between items-center mb-1">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <TagIcon size={16} />
-                  Category
+                  {formData.type === 'transfer' ? 'Transfer To' : 'Category'}
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowCategoryModal(true)}
-                  className="text-sm text-primary hover:text-secondary flex items-center gap-1"
-                >
-                  <PlusIcon size={14} />
-                  Create new category
-                </button>
+                {formData.type !== 'transfer' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryModal(true)}
+                    className="text-sm text-primary hover:text-secondary flex items-center gap-1"
+                  >
+                    <PlusIcon size={14} />
+                    Create new category
+                  </button>
+                )}
               </div>
               <select
                 value={formData.category}
                 onChange={(e) => {
                   const val = e.target.value;
                   updateField('category', val);
-                  if (val.startsWith('transfer:')) {
-                    updateField('type', 'transfer');
-                  } else if (formData.type === 'transfer' && !val.startsWith('transfer:')) {
-                    updateField('type', 'expense');
-                  }
                 }}
                 className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
                 required
                 aria-label="Transaction category"
               >
-                <option value="">Select category</option>
-                {groupedCategories.incomeGroups.map(group => (
-                  <optgroup key={group.label} label={`Income: ${group.label}`}>
-                    {group.items.map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-                {groupedCategories.expenseGroups.map(group => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.items.map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-                {groupedCategories.transferAccounts.length > 0 && (
-                  <optgroup label="Transfer To Account">
+                {formData.type === 'transfer' ? (
+                  <>
+                    <option value="">Select account to transfer to</option>
                     {groupedCategories.transferAccounts.map(acct => (
                       <option key={acct.id} value={acct.id}>{acct.name}</option>
                     ))}
-                  </optgroup>
+                  </>
+                ) : (
+                  <>
+                    <option value="">Select category</option>
+                    {formData.type === 'income' && groupedCategories.incomeGroups.map(group => (
+                      <optgroup key={group.label} label={`Income: ${group.label}`}>
+                        {group.items.map(item => (
+                          <option key={item.id} value={item.id}>{item.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {formData.type === 'expense' && groupedCategories.expenseGroups.map(group => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.items.map(item => (
+                          <option key={item.id} value={item.id}>{item.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {/* Show all categories when type not yet explicitly chosen */}
+                    {formData.type !== 'income' && formData.type !== 'expense' && (
+                      <>
+                        {groupedCategories.incomeGroups.map(group => (
+                          <optgroup key={group.label} label={`Income: ${group.label}`}>
+                            {group.items.map(item => (
+                              <option key={item.id} value={item.id}>{item.name}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        {groupedCategories.expenseGroups.map(group => (
+                          <optgroup key={group.label} label={group.label}>
+                            {group.items.map(item => (
+                              <option key={item.id} value={item.id}>{item.name}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </>
+                    )}
+                  </>
                 )}
               </select>
             </div>
@@ -536,6 +554,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           </div>
           </ModalBody>
           <ModalFooter>
+            {errors?.submit && (
+              <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-300">{errors.submit}</p>
+              </div>
+            )}
             <div className="flex justify-between gap-3 w-full">
               {transaction && (
                 <button

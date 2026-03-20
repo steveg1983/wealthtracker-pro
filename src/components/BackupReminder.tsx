@@ -1,14 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Shield, 
-  Download, 
-  AlertTriangle, 
-  CheckCircle,
-  X,
-  Clock,
-  Cloud,
-  Settings
-} from 'lucide-react';
+import { ShieldIcon, DownloadIcon, AlertTriangleIcon, CheckCircleIcon, XIcon, ClockIcon, CloudIcon, SettingsIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { exportService } from '../services/exportService';
 import { format, differenceInDays, addDays } from 'date-fns';
@@ -208,7 +199,7 @@ export default function BackupReminder(): React.JSX.Element {
                 : 'bg-green-500 text-white'
             }`}
           >
-            <Shield size={20} />
+            <ShieldIcon size={20} />
             <span className="text-sm font-medium">
               {daysSinceBackup === null
                 ? 'No backup yet'
@@ -228,9 +219,9 @@ export default function BackupReminder(): React.JSX.Element {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 {isOverdue ? (
-                  <AlertTriangle className="text-red-500" size={24} />
+                  <AlertTriangleIcon className="text-red-500" size={24} />
                 ) : (
-                  <Shield className="text-blue-500" size={24} />
+                  <ShieldIcon className="text-blue-500" size={24} />
                 )}
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   {isOverdue ? 'Backup Overdue!' : 'Time to Backup'}
@@ -240,7 +231,7 @@ export default function BackupReminder(): React.JSX.Element {
                 onClick={() => setShowReminder(false)}
                 className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
-                <X size={20} />
+                <XIcon size={20} />
               </button>
             </div>
 
@@ -259,7 +250,7 @@ export default function BackupReminder(): React.JSX.Element {
                   {settings.lastBackup && (
                     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <Clock size={16} />
+                        <ClockIcon size={16} />
                         <span>Last backup: {format(new Date(settings.lastBackup), 'MMM d, yyyy h:mm a')}</span>
                       </div>
                     </div>
@@ -271,19 +262,19 @@ export default function BackupReminder(): React.JSX.Element {
                     </p>
                     <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                       <li className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-green-500" />
+                        <CheckCircleIcon size={14} className="text-green-500" />
                         {transactions.length} transactions
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-green-500" />
+                        <CheckCircleIcon size={14} className="text-green-500" />
                         {accounts.length} accounts
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-green-500" />
+                        <CheckCircleIcon size={14} className="text-green-500" />
                         {budgets.length} budgets
                       </li>
                       <li className="flex items-center gap-2">
-                        <CheckCircle size={14} className="text-green-500" />
+                        <CheckCircleIcon size={14} className="text-green-500" />
                         {goals.length} goals
                       </li>
                     </ul>
@@ -296,7 +287,7 @@ export default function BackupReminder(): React.JSX.Element {
                     onClick={performBackup}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    <Download size={20} />
+                    <DownloadIcon size={20} />
                     Backup Now
                   </button>
                   <button
@@ -309,7 +300,7 @@ export default function BackupReminder(): React.JSX.Element {
                     onClick={() => setShowSettings(true)}
                     className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   >
-                    <Settings size={20} />
+                    <SettingsIcon size={20} />
                   </button>
                 </div>
               </>
@@ -318,7 +309,7 @@ export default function BackupReminder(): React.JSX.Element {
                 {/* Backup Progress */}
                 <div className="py-8">
                   <div className="flex flex-col items-center">
-                    <Cloud size={48} className="text-blue-500 mb-4 animate-pulse" />
+                    <CloudIcon size={48} className="text-blue-500 mb-4 animate-pulse" />
                     <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                       Creating Backup...
                     </p>

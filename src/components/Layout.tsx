@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, ChevronDownIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -45,7 +45,7 @@ interface SidebarLinkProps {
 function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onNavigate }: SidebarLinkProps): React.JSX.Element {
   const location = useLocation();
   const { isWideView } = useLayout();
-  const isActive = !isWideView && (location.pathname === to || 
+  const isActive = !isWideView && (location.pathname === to ||
     (hasSubItems && location.pathname.startsWith(to)) ||
     (to === '/accounts' && (location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation'))) ||
     (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals'))));
@@ -103,14 +103,133 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
   );
 }
 
+// --- Top Navigation Bar Components (Desktop) ---
+
+interface DropdownItem {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+}
+
+function TopNavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }): React.JSX.Element {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+  const searchParams = new URLSearchParams(location.search);
+  const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
+  const linkTo = isDemoMode ? `${to}?demo=true` : to;
+
+  return (
+    <Link
+      to={linkTo}
+      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+        isActive
+          ? 'bg-white/20 text-white font-medium'
+          : 'text-white/70 hover:text-white hover:bg-white/10'
+      }`}
+      aria-current={isActive ? 'page' : undefined}
+    >
+      <Icon size={16} />
+      <span>{label}</span>
+    </Link>
+  );
+}
+
+function TopNavDropdown({
+  label,
+  icon: Icon,
+  items,
+  activePaths,
+  openDropdown,
+  setOpenDropdown
+}: {
+  label: string;
+  icon: React.ElementType;
+  items: DropdownItem[];
+  activePaths?: string[];
+  openDropdown: string | null;
+  setOpenDropdown: (name: string | null) => void;
+}): React.JSX.Element {
+  const location = useLocation();
+  const ref = useRef<HTMLDivElement>(null);
+  const searchParams = new URLSearchParams(location.search);
+  const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
+  const isOpen = openDropdown === label;
+
+  const isActive = activePaths
+    ? activePaths.some(p => location.pathname === p || location.pathname.startsWith(p))
+    : false;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, setOpenDropdown]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpenDropdown(isOpen ? null : label)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+          isActive || isOpen
+            ? 'bg-white/20 text-white font-medium'
+            : 'text-white/70 hover:text-white hover:bg-white/10'
+        }`}
+        aria-expanded={isOpen ? 'true' : 'false'}
+        aria-haspopup="true"
+      >
+        <Icon size={16} />
+        <span>{label}</span>
+        <ChevronDownIcon size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[200px] z-50">
+          {items.map(item => {
+            const itemTo = isDemoMode ? `${item.to}?demo=true` : item.to;
+            const itemActive = location.pathname === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={itemTo}
+                className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                  itemActive
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                onClick={() => setOpenDropdown(null)}
+                aria-current={itemActive ? 'page' : undefined}
+              >
+                <item.icon size={16} className="shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Layout(): React.JSX.Element {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
-  const [advancedExpanded, setAdvancedExpanded] = useState(false);
+  // advancedExpanded removed — Advanced section now uses TopNavDropdown on desktop and direct links on mobile
   const [investmentsExpanded, setInvestmentsExpanded] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
   const desktopSearchRef = useRef<GlobalSearchHandle | null>(null);
   const mobileSearchRef = useRef<GlobalSearchHandle | null>(null);
@@ -133,7 +252,6 @@ export default function Layout(): React.JSX.Element {
     showDataIntelligence,
     showSummaries
   } = usePreferences();
-  const { isWideView } = useLayout();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
 
   const openMobileSearch = useCallback(() => {
@@ -194,16 +312,10 @@ export default function Layout(): React.JSX.Element {
     }
   });
 
-  const toggleSidebar = useCallback(() => {
-    setIsSidebarCollapsed((prev) => !prev);
-  }, []);
-  
-  // Auto-collapse sidebar when wide view is active
+  // Close dropdown on route change
   useEffect(() => {
-    if (isWideView) {
-      setIsSidebarCollapsed(true);
-    }
-  }, [isWideView]);
+    setOpenDropdown(null);
+  }, [location.pathname]);
 
   useEffect(() => {
     setIsMobileSearchVisible(false);
@@ -234,11 +346,7 @@ export default function Layout(): React.JSX.Element {
         toggleMobileMenu();
       }
       
-      // Alt + S to toggle sidebar (desktop)
-      if (e.altKey && e.key === 's') {
-        e.preventDefault();
-        toggleSidebar();
-      }
+      // Alt + S — reserved (sidebar removed)
       
       // Escape to close mobile menu
       if (e.key === 'Escape' && isMobileMenuOpen) {
@@ -249,7 +357,7 @@ export default function Layout(): React.JSX.Element {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobileMenuOpen, focusSearch, openHelp, toggleMobileMenu, toggleSidebar]);
+  }, [isMobileMenuOpen, focusSearch, openHelp, toggleMobileMenu]);
 
   // Removed auto-expand logic - users control collapsible sections manually
 
@@ -287,228 +395,139 @@ export default function Layout(): React.JSX.Element {
           Skip to navigation
         </a>
       </div>
-      {/* Desktop Sidebar Navigation */}
-      <aside
-        className={`${
-          isSidebarCollapsed ? 'w-20' : 'w-52'
-        } bg-sidebar dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)] fixed`}
-        aria-label="Main navigation sidebar"
+      {/* Desktop Top Navigation Bar */}
+      <nav
+        id="main-navigation"
+        className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-sidebar dark:bg-gray-800 shadow-md"
+        role="navigation"
+        aria-label="Main navigation"
       >
-        <div className="p-3 h-full flex flex-col">
-          <header className="flex items-center justify-between mb-6" role="banner">
-            {!isSidebarCollapsed && (
-              <h1 className="text-lg font-bold text-white dark:text-white">Wealth Tracker</h1>
-            )}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={toggleSidebar}
-                className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
-                aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                title={isSidebarCollapsed ? 'Expand sidebar (Alt+S)' : 'Collapse sidebar (Alt+S)'}
-              >
-                <MenuIcon size={18} className="text-white dark:text-gray-400" />
-              </button>
-            </div>
-          </header>
-          <nav 
-            id="main-navigation"
-            className="space-y-1.5 flex-1 overflow-y-auto pr-2" 
-            role="navigation" 
-            aria-label="Main navigation menu"
+        <div className="px-4 flex items-center h-12">
+          {/* Brand */}
+          <Link
+            to={isDemoModeRoutingEnabled ? '/dashboard?demo=true' : '/dashboard'}
+            className="text-white font-bold text-base mr-6 shrink-0 hover:text-white/90 transition-colors flex items-center h-full"
           >
-            <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
-            
-            {/* Accounts with Sub-navigation (but no "All Accounts" redundancy) */}
-            <div>
-              {!isSidebarCollapsed ? (
-                <div>
-                  <Link
-                    to={isDemoModeRoutingEnabled ? '/accounts?demo=true' : '/accounts'}
-                    onClick={() => setAccountsExpanded(!accountsExpanded)}
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
-                      location.pathname === '/accounts' || location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation')
-                        ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
-                        : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
-                    }`}
-                    aria-expanded={accountsExpanded}
-                    aria-label="Accounts"
-                  >
-                    <WalletIcon size={18} />
-                    <span className="flex-1 text-sm text-left">Accounts</span>
-                    <ChevronRightIcon 
-                      size={14} 
-                      className={`text-gray-400 transition-transform duration-200 ${accountsExpanded ? 'rotate-90' : ''}`} 
-                    />
-                  </Link>
-                  {accountsExpanded && (
-                    <div className="mt-1 space-y-0.5">
-                      <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
-                      <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
-                      <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Archived" isCollapsed={false} isSubItem={true} />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <SidebarLink to="/accounts" icon={WalletIcon} label="Accounts" isCollapsed={true} />
-              )}
-            </div>
-            
-            {/* Investments with Sub-navigation */}
+            Wealth Tracker
+          </Link>
+
+          {/* Nav Items */}
+          <div className="flex items-center gap-0.5 flex-1 min-w-0">
+            <TopNavItem to="/dashboard" icon={BarChart3Icon} label="Dashboard" />
+
+            <TopNavDropdown
+              label="Accounts"
+              icon={WalletIcon}
+              items={[
+                { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
+                { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
+                { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
+                { to: '/settings/deleted-accounts', icon: ArchiveIcon, label: 'Archived' },
+              ]}
+              activePaths={['/accounts', '/transactions', '/reconciliation']}
+              openDropdown={openDropdown}
+              setOpenDropdown={setOpenDropdown}
+            />
+
             {(showInvestments || showEnhancedInvestments) && (
-              <div>
-                {!isSidebarCollapsed ? (
-                  <div>
-                    <Link
-                      to={isDemoModeRoutingEnabled ? '/investments?demo=true' : '/investments'}
-                      onClick={() => setInvestmentsExpanded(!investmentsExpanded)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
-                        location.pathname === '/investments' || location.pathname.startsWith('/enhanced-investments')
-                          ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
-                          : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
-                      }`}
-                      aria-expanded={investmentsExpanded}
-                      aria-label="Investments"
-                    >
-                      <TrendingUpIcon size={18} />
-                      <span className="flex-1 text-sm text-left">Investments</span>
-                      <ChevronRightIcon 
-                        size={14} 
-                        className={`text-gray-400 transition-transform duration-200 ${investmentsExpanded ? 'rotate-90' : ''}`} 
-                      />
-                    </Link>
-                    {investmentsExpanded && (
-                      <div className="mt-1 space-y-0.5">
-                        {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} isSubItem={true} />}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={true} />
-                )}
-              </div>
+              <TopNavDropdown
+                label="Investments"
+                icon={TrendingUpIcon}
+                items={[
+                  { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
+                  ...(showEnhancedInvestments ? [{ to: '/enhanced-investments', icon: BarChart3Icon, label: 'Investment Analytics' }] : []),
+                ]}
+                activePaths={['/investments', '/enhanced-investments']}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+              />
             )}
-            
-            {/* Forecasting with Sub-navigation */}
+
             {showGoals && (
-              <div>
-                {!isSidebarCollapsed ? (
-                  <div>
-                    <Link
-                      to={isDemoModeRoutingEnabled ? '/forecasting?demo=true' : '/forecasting'}
-                      onClick={() => setForecastingExpanded(!forecastingExpanded)}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
-                        location.pathname === '/forecasting' || location.pathname === '/budget' || location.pathname === '/goals'
-                          ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
-                          : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
-                      }`}
-                      aria-expanded={forecastingExpanded}
-                      aria-label="Forecasting & Budget"
-                    >
-                      <LineChartIcon size={18} />
-                      <span className="flex-1 text-sm text-left">Forecasting</span>
-                      <ChevronRightIcon 
-                        size={14} 
-                        className={`text-gray-400 transition-transform duration-200 ${forecastingExpanded ? 'rotate-90' : ''}`} 
-                      />
-                    </Link>
-                    {forecastingExpanded && (
-                      <div className="mt-1 space-y-0.5">
-                        <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <SidebarLink to="/forecasting" icon={LineChartIcon} label="Forecasting" isCollapsed={true} />
-                )}
-              </div>
+              <TopNavDropdown
+                label="Forecasting"
+                icon={LineChartIcon}
+                items={[
+                  { to: '/forecasting', icon: LineChartIcon, label: 'Forecasting' },
+                  { to: '/goals', icon: GoalIcon, label: 'Goals' },
+                ]}
+                activePaths={['/forecasting', '/budget', '/goals']}
+                openDropdown={openDropdown}
+                setOpenDropdown={setOpenDropdown}
+              />
             )}
-            
-            {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={isSidebarCollapsed} />}
-            
-            {/* Advanced Features with Sub-navigation */}
-            <div>
-              {!isSidebarCollapsed ? (
-                <Link
-                  to={isDemoModeRoutingEnabled ? '/advanced?demo=true' : '/advanced'}
-                  onClick={() => setAdvancedExpanded(!advancedExpanded)}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
-                    location.pathname === '/advanced' || location.pathname.startsWith('/ai-') || location.pathname === '/custom-reports' || 
-                    location.pathname === '/tax-planning' || location.pathname === '/household' || location.pathname === '/business-features' ||
-                    location.pathname === '/financial-planning' || location.pathname === '/data-intelligence' || location.pathname === '/summaries'
-                      ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
-                      : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
-                  }`}
-                  aria-expanded={advancedExpanded}
-                  aria-label="Advanced"
-                >
-                  <MagicWandIcon size={18} />
-                  <span className="flex-1 text-sm text-left">Advanced</span>
-                  <ChevronRightIcon 
-                    size={14} 
-                    className={`text-gray-400 transition-transform duration-200 ${advancedExpanded ? 'rotate-90' : ''}`} 
-                  />
-                </Link>
-              ) : (
-                <SidebarLink to="/advanced" icon={MagicWandIcon} label="Advanced" isCollapsed={true} />
-              )}
-              {advancedExpanded && !isSidebarCollapsed && (
-                <div className="mt-1 space-y-0.5">
-                  {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={false} isSubItem={true} />}
-                  <SidebarLink to="/ai-features" icon={LightbulbIcon} label="AI Features" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/custom-reports" icon={FileTextIcon} label="Custom Reports" isCollapsed={false} isSubItem={true} />
-                  {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={false} isSubItem={true} />}
-                  {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={false} isSubItem={true} />}
-                  {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={false} isSubItem={true} />}
-                  {showFinancialPlanning && <SidebarLink to="/financial-planning" icon={CalculatorIcon} label="Financial Planning" isCollapsed={false} isSubItem={true} />}
-                  {showDataIntelligence && <SidebarLink to="/data-intelligence" icon={DatabaseIcon} label="Data Intelligence" isCollapsed={false} isSubItem={true} />}
-                  {showSummaries && <SidebarLink to="/summaries" icon={PieChartIcon} label="Summaries" isCollapsed={false} isSubItem={true} />}
-                </div>
-              )}
+
+            {showAnalytics && (
+              <TopNavItem to="/analytics" icon={BarChart3Icon} label="Analytics" />
+            )}
+
+            <TopNavDropdown
+              label="Advanced"
+              icon={MagicWandIcon}
+              items={[
+                { to: '/advanced', icon: MagicWandIcon, label: 'Advanced' },
+                ...(showAIAnalytics ? [{ to: '/ai-analytics', icon: MagicWandIcon, label: 'AI Analytics' }] : []),
+                { to: '/ai-features', icon: LightbulbIcon, label: 'AI Features' },
+                { to: '/custom-reports', icon: FileTextIcon, label: 'Custom Reports' },
+                ...(showTaxPlanning ? [{ to: '/tax-planning', icon: CalculatorIcon, label: 'Tax Planning' }] : []),
+                ...(showHousehold ? [{ to: '/household', icon: UsersIcon, label: 'Household' }] : []),
+                ...(showBusinessFeatures ? [{ to: '/business-features', icon: BriefcaseIcon, label: 'Business Features' }] : []),
+                ...(showFinancialPlanning ? [{ to: '/financial-planning', icon: CalculatorIcon, label: 'Financial Planning' }] : []),
+                ...(showDataIntelligence ? [{ to: '/data-intelligence', icon: DatabaseIcon, label: 'Data Intelligence' }] : []),
+                ...(showSummaries ? [{ to: '/summaries', icon: PieChartIcon, label: 'Summaries' }] : []),
+              ]}
+              activePaths={['/advanced', '/ai-analytics', '/ai-features', '/custom-reports', '/tax-planning', '/household', '/business-features', '/financial-planning', '/data-intelligence', '/summaries']}
+              openDropdown={openDropdown}
+              setOpenDropdown={setOpenDropdown}
+            />
+
+            <TopNavDropdown
+              label="Settings"
+              icon={SettingsIcon}
+              items={[
+                { to: '/settings', icon: SettingsIcon, label: 'Settings' },
+                { to: '/settings/app', icon: Settings2Icon, label: 'App Settings' },
+                { to: '/settings/data', icon: DatabaseIcon, label: 'Data Management' },
+                { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
+                { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
+                { to: '/settings/deleted-accounts', icon: ArchiveIcon, label: 'Deleted Accounts' },
+                { to: '/settings/security', icon: ShieldIcon, label: 'Security' },
+                { to: '/enhanced-import', icon: UploadIcon, label: 'Enhanced Import' },
+                { to: '/export-manager', icon: DownloadIcon, label: 'Export Manager' },
+                { to: '/documents', icon: FolderIcon, label: 'Documents' },
+                { to: '/open-banking', icon: BankIcon, label: 'Open Banking' },
+              ]}
+              activePaths={['/settings', '/enhanced-import', '/export-manager', '/documents', '/open-banking']}
+              openDropdown={openDropdown}
+              setOpenDropdown={setOpenDropdown}
+            />
+          </div>
+
+          {/* Right side: Search + Notifications + User */}
+          <div className="flex items-center gap-3 shrink-0 ml-4">
+            <div className="w-80 [&_input]:!py-0.5 [&_input]:!text-sm [&_input]:!h-7 [&_input]:!min-h-0 [&>div>div]:!border-0 [&>div>div]:!shadow-none [&>div>div]:!bg-transparent [&>div>div]:!rounded-none">
+              <div className="bg-white/10 rounded-lg border border-white/20 focus-within:bg-white/20 transition-colors overflow-hidden">
+                <GlobalSearch
+                  ref={desktopSearchRef}
+                  placeholder="Search..."
+                />
+              </div>
             </div>
-            
-            {/* Settings with Sub-navigation */}
-            <div>
-              {!isSidebarCollapsed ? (
-                <Link
-                  to={isDemoModeRoutingEnabled ? '/settings?demo=true' : '/settings'}
-                  onClick={() => setSettingsExpanded(!settingsExpanded)}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
-                    location.pathname.startsWith('/settings') || location.pathname === '/enhanced-import' || 
-                    location.pathname === '/export-manager' || location.pathname === '/documents' || location.pathname === '/open-banking'
-                      ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
-                      : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
-                  }`}
-                  aria-expanded={settingsExpanded}
-                  aria-label="Settings"
-                >
-                  <SettingsIcon size={18} />
-                  <span className="flex-1 text-sm text-left">Settings</span>
-                  <ChevronRightIcon 
-                    size={14} 
-                    className={`text-gray-400 transition-transform duration-200 ${settingsExpanded ? 'rotate-90' : ''}`} 
-                  />
-                </Link>
-              ) : (
-                <SidebarLink to="/settings" icon={SettingsIcon} label="Settings" isCollapsed={true} />
-              )}
-              {settingsExpanded && !isSidebarCollapsed && (
-                <div className="mt-1 space-y-0.5">
-                  <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Deleted Accounts" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/documents" icon={FolderIcon} label="Documents" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/open-banking" icon={BankIcon} label="Open Banking" isCollapsed={false} isSubItem={true} />
-                </div>
-              )}
-            </div>
-          </nav>
+            <EnhancedNotificationBell />
+            <RealtimeStatusDot />
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "w-8 h-8",
+                  userButtonPopoverCard: "shadow-xl",
+                  userButtonPopoverActions: "mt-2"
+                }
+              }}
+            />
+          </div>
         </div>
-      </aside>
+      </nav>
 
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card-bg-light dark:bg-card-bg-dark shadow-md" role="banner">
@@ -706,13 +725,18 @@ export default function Layout(): React.JSX.Element {
                 
                 {/* Settings with Sub-navigation */}
                 <div>
-                  <SidebarLink 
-                    to="/settings" 
-                    icon={SettingsIcon} 
-                    label="Settings" 
-                    isCollapsed={false}
-                    hasSubItems={true}
-                  />
+                  <Link
+                    to={isDemoModeRoutingEnabled ? '/settings?demo=true' : '/settings'}
+                    onClick={() => setSettingsExpanded(!settingsExpanded)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  >
+                    <SettingsIcon size={18} />
+                    <span className="flex-1 text-sm text-left">Settings</span>
+                    <ChevronRightIcon
+                      size={14}
+                      className={`text-gray-400 transition-transform duration-200 ${settingsExpanded ? 'rotate-90' : ''}`}
+                    />
+                  </Link>
                   {settingsExpanded && (
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
@@ -738,7 +762,7 @@ export default function Layout(): React.JSX.Element {
       <main
         ref={swipeRef.ref}
         id="main-content"
-        className={`flex-1 md:pl-0 mt-16 md:mt-0 ${isSidebarCollapsed ? 'md:ml-[5.5rem]' : 'md:ml-[14.5rem]'} transition-all duration-300`}
+        className="flex-1 mt-16 md:mt-12"
         style={{ WebkitOverflowScrolling: 'touch' }}
         role="main"
         aria-label="Main content"
@@ -746,37 +770,11 @@ export default function Layout(): React.JSX.Element {
       >
         <NavigationProgress />
         
-        {/* Desktop Search Bar - Always Visible */}
-        <div className="hidden md:block sticky top-0 z-30 px-6 py-3 bg-[#f0f7ff] dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto flex items-center justify-center relative">
-            <div className="flex-1 max-w-2xl mx-auto">
-              <div className="w-full bg-white rounded-2xl shadow-sm border-2 border-[#d4dce8] focus-within:border-[#d4dce8]" style={{ outline: 'none !important', boxShadow: 'none !important' }}>
-                <GlobalSearch
-                  ref={desktopSearchRef}
-                  placeholder="Search transactions, accounts, budgets..."
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-4 absolute right-0">
-              <EnhancedNotificationBell />
-              <RealtimeStatusDot />
-              <UserButton 
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8",
-                    userButtonPopoverCard: "shadow-xl",
-                    userButtonPopoverActions: "mt-2"
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        {/* Desktop search bar moved into top nav */}
         
         <MobileBreadcrumb />
         <MobilePullToRefreshWrapper>
-          <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-20 md:pb-8">
+          <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto pb-20 md:pb-8">
             <div className="hidden sm:block">
               <Breadcrumbs />
             </div>

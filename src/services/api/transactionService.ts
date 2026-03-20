@@ -9,6 +9,8 @@ type SupabaseConfiguredChecker = () => boolean;
 type Logger = Pick<Console, 'error'>;
 type UuidGenerator = () => string;
 type DateProvider = () => Date;
+type FetchLike = typeof fetch;
+type AuthTokenProvider = () => Promise<string | null>;
 
 export interface TransactionServiceOptions {
   supabaseClient?: SupabaseClientLike;
@@ -17,6 +19,8 @@ export interface TransactionServiceOptions {
   logger?: Logger;
   now?: DateProvider;
   uuid?: UuidGenerator;
+  fetchImpl?: FetchLike;
+  authTokenProvider?: AuthTokenProvider;
 }
 
 /** Map camelCase Transaction fields to snake_case DB columns */
@@ -73,6 +77,8 @@ class TransactionServiceImpl {
   private readonly logger: Logger;
   private readonly nowProvider: DateProvider;
   private readonly uuid: UuidGenerator;
+  private readonly fetchImpl: FetchLike | null;
+  private readonly authTokenProvider: AuthTokenProvider | null;
 
   constructor(options: TransactionServiceOptions = {}) {
     this.supabaseClient = options.supabaseClient ?? supabase;
@@ -89,6 +95,13 @@ class TransactionServiceImpl {
         return crypto.randomUUID();
       }
       return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    });
+    this.fetchImpl = options.fetchImpl ?? (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
+    this.authTokenProvider = options.authTokenProvider ?? (async () => {
+      if (typeof window === 'undefined' || !window.Clerk?.session?.getToken) {
+        return null;
+      }
+      return window.Clerk.session.getToken();
     });
   }
 
@@ -250,6 +263,11 @@ class TransactionServiceImpl {
     }
 
     try {
+      const deletedViaApi = await this.deleteTransactionViaApi(id);
+      if (deletedViaApi) {
+        return;
+      }
+
       const client = this.supabaseClient!;
       const { data: transaction } = await client
         .from('transactions')
@@ -277,6 +295,42 @@ class TransactionServiceImpl {
       this.logger.error('TransactionService.deleteTransaction error:', error as Error);
       throw error;
     }
+  }
+
+  private async deleteTransactionViaApi(id: string): Promise<boolean> {
+    if (!this.fetchImpl || !this.authTokenProvider) {
+      return false;
+    }
+
+    const token = await this.authTokenProvider();
+    if (!token) {
+      return false;
+    }
+
+    const response = await this.fetchImpl('/api/data/delete-transaction', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ transactionId: id })
+    });
+
+    if (response.ok) {
+      return true;
+    }
+
+    let message = `Delete transaction failed: ${response.status}`;
+    try {
+      const payload = await response.json() as { error?: unknown };
+      if (typeof payload.error === 'string' && payload.error.trim()) {
+        message = payload.error;
+      }
+    } catch {
+      // Ignore body parse errors and keep the status-based message.
+    }
+
+    throw new Error(message);
   }
 
   async getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {

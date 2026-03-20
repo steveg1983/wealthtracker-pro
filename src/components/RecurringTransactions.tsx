@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Repeat,
-  Plus,
-  Edit2,
-  Trash2,
-  Play,
-  Pause
-} from 'lucide-react';
+import { RepeatIcon, PlusIcon, Edit2Icon, DeleteIcon, PlayIcon, PauseIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
 import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
@@ -205,7 +198,7 @@ export default function RecurringTransactions(): React.JSX.Element {
           onClick={() => setShowAddModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          <Plus size={20} />
+          <PlusIcon size={20} />
           Add Recurring
         </button>
       </div>
@@ -213,7 +206,7 @@ export default function RecurringTransactions(): React.JSX.Element {
       {/* Templates List */}
       {templates.length === 0 ? (
         <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-8 text-center">
-          <Repeat size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <RepeatIcon size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             No Recurring Transactions
           </h3>
@@ -237,7 +230,7 @@ export default function RecurringTransactions(): React.JSX.Element {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <Repeat size={20} className={getStatusColor(template)} />
+                    <RepeatIcon size={20} className={getStatusColor(template)} />
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {template.name}
                     </h3>
@@ -298,21 +291,21 @@ export default function RecurringTransactions(): React.JSX.Element {
                     }`}
                     title={template.isActive ? 'Pause' : 'Resume'}
                   >
-                    {template.isActive ? <Pause size={18} /> : <Play size={18} />}
+                    {template.isActive ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
                   </button>
                   <button
                     onClick={() => setEditingTemplate(template)}
                     className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     title="Edit"
                   >
-                    <Edit2 size={18} />
+                    <Edit2Icon size={18} />
                   </button>
                   <button
                     onClick={() => handleDeleteTemplate(template.id)}
                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Delete"
                   >
-                    <Trash2 size={18} />
+                    <DeleteIcon size={18} />
                   </button>
                 </div>
               </div>

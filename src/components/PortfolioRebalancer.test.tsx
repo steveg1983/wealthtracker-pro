@@ -24,7 +24,7 @@ vi.mock('./icons', () => ({
   EditIcon: () => <div data-testid="edit-icon" />,
   DeleteIcon: () => <div data-testid="delete-icon" />,
   PlusIcon: () => <div data-testid="plus-icon" />,
-  X: () => <div data-testid="x-icon" />,
+  XIcon: () => <div data-testid="x-icon" />,
 }));
 
 // Mock recharts to avoid complex chart rendering

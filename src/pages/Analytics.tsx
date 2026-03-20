@@ -13,6 +13,7 @@ import {
 } from '../components/icons';
 import { analyticsEngine } from '../services/analyticsEngine';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { Modal, ModalBody } from '../components/common/Modal';
 import PageWrapper from '../components/PageWrapper';
 import { Decimal, toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
@@ -103,6 +104,7 @@ export default function Analytics(): React.JSX.Element {
   
   type AnalyticsTab = 'dashboards' | 'explorer' | 'insights' | 'reports';
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('dashboards');
+  const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [activeDashboard, setActiveDashboard] = useState<Dashboard | null>(null);
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
@@ -315,7 +317,7 @@ export default function Analytics(): React.JSX.Element {
       .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
     
     const savingsRate = income.greaterThan(0)
-      ? income.minus(expenses).dividedBy(income).times(100)
+      ? income.plus(expenses).dividedBy(income).times(100) // expenses are already negative
       : toDecimal(0);
     
     return {
@@ -392,7 +394,11 @@ export default function Analytics(): React.JSX.Element {
         {/* Key Metrics */}
         <div className="px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+            <button
+              type="button"
+              onClick={() => setBreakdownType('income')}
+              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-left cursor-pointer"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Income</p>
@@ -402,9 +408,13 @@ export default function Analytics(): React.JSX.Element {
                 </div>
                 <ArrowUpRightIcon className="text-green-500" size={24} />
               </div>
-            </div>
-            
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBreakdownType('expense')}
+              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
@@ -414,8 +424,8 @@ export default function Analytics(): React.JSX.Element {
                 </div>
                 <ArrowDownRightIcon className="text-red-500" size={24} />
               </div>
-            </div>
-            
+            </button>
+
             <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -427,7 +437,7 @@ export default function Analytics(): React.JSX.Element {
                 <TrendingUpIcon className="text-blue-500" size={24} />
               </div>
             </div>
-            
+
             <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -692,6 +702,61 @@ export default function Analytics(): React.JSX.Element {
           </div>
         )}
       </div>
+
+      {/* Income/Expense Breakdown Modal */}
+      <Modal
+        isOpen={breakdownType !== null}
+        onClose={() => setBreakdownType(null)}
+        title={breakdownType === 'income' ? 'Income Breakdown' : 'Expense Breakdown'}
+        size="md"
+      >
+        <ModalBody>
+          <table className="w-full">
+            <thead>
+              <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left pb-2 font-medium">Date</th>
+                <th className="text-left pb-2 font-medium">Description</th>
+                <th className="text-right pb-2 font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const txns = transactions
+                  .filter(t => t.type === breakdownType)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                if (txns.length === 0) {
+                  return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No transactions</td></tr>;
+                }
+
+                return txns.map(t => (
+                  <tr key={t.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                    <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                    </td>
+                    <td className="py-2 text-sm text-gray-900 dark:text-white">{t.description}</td>
+                    <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
+                      breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {formatCurrency(Math.abs(t.amount))}
+                    </td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 dark:border-gray-600">
+                <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
+                <td className={`pt-3 text-sm font-bold text-right ${
+                  breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatCurrency(breakdownType === 'income' ? keyMetrics.totalIncome : keyMetrics.totalExpenses)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </ModalBody>
+      </Modal>
     </PageWrapper>
   );
 }

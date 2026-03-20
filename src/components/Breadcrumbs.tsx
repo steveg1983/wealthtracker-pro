@@ -82,6 +82,17 @@ export default function Breadcrumbs() {
         case 'settings':
           breadcrumbs.push({ label: 'Settings', path: preserveDemoParam('/settings', location.search) });
           break;
+        default: {
+          // Check if segment is a UUID (account ID) and resolve to account name
+          const matchedAccount = accounts.find(a => a.id === segment);
+          if (matchedAccount) {
+            breadcrumbs.push({
+              label: matchedAccount.name,
+              path: preserveDemoParam(`${location.pathname}`, location.search)
+            });
+          }
+          break;
+        }
       }
     });
 

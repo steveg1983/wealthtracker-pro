@@ -107,7 +107,7 @@ const TableHeader = memo(function TableHeader<T>({
           {column.sortable && onSort ? (
             <button
               onClick={() => handleSort(column.key)}
-              className={`flex items-center gap-1 ${headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100'}`}
+              className={`inline-flex items-center gap-1 ${headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100'}`}
             >
               {column.header}
               {sortColumn === column.key && (

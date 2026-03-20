@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, X, Info } from 'lucide-react';
+import { AlertTriangleIcon, CheckIcon, XIcon, InfoIcon } from './icons';
 import { Transaction } from '../types';
 import { DuplicateMatch } from '../services/duplicateDetectionService';
 import { formatCurrency } from '../utils/formatters';
@@ -55,7 +55,7 @@ export default function DuplicateDetectionModal({
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="text-yellow-600" size={24} />
+              <AlertTriangleIcon className="text-yellow-600" size={24} />
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   Potential Duplicates Detected
@@ -69,7 +69,7 @@ export default function DuplicateDetectionModal({
               onClick={onClose}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <X size={20} />
+              <XIcon size={20} />
             </button>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function DuplicateDetectionModal({
         <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
           {unresolvedDuplicates.length === 0 ? (
             <div className="text-center py-8">
-              <Check size={48} className="mx-auto text-green-500 mb-3" />
+              <CheckIcon size={48} className="mx-auto text-green-500 mb-3" />
               <p className="text-gray-600 dark:text-gray-400">
                 All duplicates have been resolved!
               </p>
@@ -149,7 +149,7 @@ export default function DuplicateDetectionModal({
                   {/* Match Reasons */}
                   <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <Info size={16} className="text-gray-500 mt-0.5" />
+                      <InfoIcon size={16} className="text-gray-500 mt-0.5" />
                       <div className="text-xs text-gray-600 dark:text-gray-400">
                         <span className="font-medium">Match reasons:</span>{' '}
                         {duplicate.matchReasons.join(', ')}
