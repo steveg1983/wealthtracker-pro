@@ -9,8 +9,6 @@ import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getUserTrueLayerConnection } from '../_lib/banking-sync.js';
 
-const supabase = getServiceRoleSupabase();
-
 const createErrorResponse = (
   res: VercelResponse,
   status: number,
@@ -37,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const auth = await requireAuth(req);
+    const supabase = getServiceRoleSupabase();
     const body = req.body as LinkAccountsRequest | undefined;
 
     if (!body || typeof body.connectionId !== 'string' || !body.connectionId.trim()) {

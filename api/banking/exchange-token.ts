@@ -17,8 +17,6 @@ interface ProviderMetadata {
   logo?: string;
 }
 
-const supabase = getServiceRoleSupabase();
-
 const createErrorResponse = (
   res: VercelResponse,
   status: number,
@@ -68,6 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const auth = await requireAuth(req);
+    const supabase = getServiceRoleSupabase();
     const body = req.body as ExchangeTokenRequest | undefined;
     if (!body || typeof body.code !== 'string' || typeof body.state !== 'string') {
       return createErrorResponse(res, 400, 'code and state are required', 'invalid_request');
