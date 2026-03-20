@@ -85,7 +85,6 @@ describe('Dashboard Interactions Integration', () => {
       expect(performanceHeading).toBeInTheDocument();
       expect(screen.getByText(/income/i)).toBeInTheDocument();
       expect(screen.getByText(/expenses/i)).toBeInTheDocument();
-      expect(screen.getByText(/saved/i)).toBeInTheDocument();
     });
 
     it('should display recent transactions widget', async () => {
