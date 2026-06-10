@@ -90,6 +90,8 @@ Applies:
 1. `20260610120000_fix_subscription_constraint_contradictions.sql`
 2. `20260610130000_restore_rls_data_isolation.sql`
 3. `20260610140000_atomic_transaction_rpcs.sql`
+4. `20260610150000_financial_audit_log.sql` (audit trail — re-creates the
+   RPCs with in-transaction audit writes; depends on helpers from 2)
 
 ⚠️ ORDERING: migration 3 (the atomic RPCs) must be live BEFORE the frontend
 from this branch deploys — the app now calls
@@ -99,7 +101,28 @@ Applying it is safe at any time (it only adds functions); the constraint is
 This flips the Step 4/5 order for the RPC migration only — the RLS migration
 (2) still requires Steps 3–4 to be complete first. Safe sequence overall:
   migrate 1 + 3 → deploy frontend (Step 4) → configure Clerk/Supabase
-  (Step 3) → migrate 2 → verify (Step 6).
+  (Step 3) → migrate 2 + 4 → verify (Step 6).
+
+### Step 5b — Stripe backend env vars + webhook (P2)
+Add to Vercel (server-side, NO VITE_ prefix):
+
+| Variable | Where to get it |
+|---|---|
+| `STRIPE_SECRET_KEY` | Stripe dashboard → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | From the webhook endpoint created below |
+| `STRIPE_PRICE_PREMIUM_MONTHLY` | Stripe → Products → Premium → price ID |
+| `STRIPE_PRICE_PRO_MONTHLY` | Stripe → Products → Pro → price ID |
+| `CRON_SECRET` | Generate a long random string (protects /api/stripe/reconcile) |
+
+Then Stripe dashboard → Developers → Webhooks → Add endpoint:
+- URL: `https://<your-domain>/api/stripe/webhook`
+- Events: `checkout.session.completed`, `customer.subscription.created`,
+  `customer.subscription.updated`, `customer.subscription.deleted`,
+  `invoice.payment_failed`
+- Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+The daily reconcile cron (03:15 UTC, vercel.json) corrects any drift from
+missed webhooks and is protected by `CRON_SECRET`.
 
 ### Step 6 — Verify isolation
 - Sign in as user A → data loads normally
