@@ -19,6 +19,7 @@ import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import TransactionContextMenu from '../components/TransactionContextMenu';
+import { useToast } from '../contexts/ToastContext';
 import { TransactionRow } from '../components/TransactionRow';
 // Lazy load list components that are conditionally rendered
 const InfiniteScrollTransactionList = lazy(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
@@ -31,6 +32,7 @@ const Transactions = React.memo(function Transactions() {
   const { compactView, setCompactView: _setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView } = useLayout();
   const { formatCurrency } = useCurrencyDecimal();
+  const { showSuccess, showError } = useToast();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -385,21 +387,25 @@ const Transactions = React.memo(function Transactions() {
     return categories.map(c => ({ id: c.id, name: c.name }));
   }, [categories]);
 
-  // Handle inline category update
+  // Handle inline category update — failures must be visible, never silent.
   const handleUpdateCategory = useCallback((transactionId: string, categoryId: string) => {
     const transaction = transactions.find(t => t.id === transactionId);
     if (transaction) {
-      updateTransaction(transactionId, { ...transaction, category: categoryId });
+      void updateTransaction(transactionId, { ...transaction, category: categoryId })
+        .then(() => showSuccess('Category updated'))
+        .catch((error: unknown) => showError(error));
     }
-  }, [transactions, updateTransaction]);
+  }, [transactions, updateTransaction, showSuccess, showError]);
 
-  // Handle inline amount update
+  // Handle inline amount update — failures must be visible, never silent.
   const handleUpdateAmount = useCallback((transactionId: string, amount: number) => {
     const transaction = transactions.find(t => t.id === transactionId);
     if (transaction) {
-      updateTransaction(transactionId, { ...transaction, amount });
+      void updateTransaction(transactionId, { ...transaction, amount })
+        .then(() => showSuccess('Amount updated'))
+        .catch((error: unknown) => showError(error));
     }
-  }, [transactions, updateTransaction]);
+  }, [transactions, updateTransaction, showSuccess, showError]);
 
   // Get filtered account name for display
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;

@@ -48,7 +48,8 @@ type DbAccount = {
   opening_balance_date?: string | null;
 };
 
-function transformAccountFromDb(dbAccount: DbAccount): Account {
+function transformAccountFromDb(row: Record<string, unknown>): Account {
+  const dbAccount = row as DbAccount;
   return {
     id: dbAccount.id,
     name: dbAccount.name,

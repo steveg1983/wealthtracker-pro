@@ -24,6 +24,7 @@ import AddTransactionModal from '../AddTransactionModal';
 import { Modal, ModalBody } from '../common/Modal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
 import { formatDecimal } from '../../utils/decimal-format';
+import { toDecimal } from '../../utils/decimal';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -59,45 +60,51 @@ export function ImprovedDashboard() {
     setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
   }, [accounts]);
 
-  // Calculate key metrics
+  // Calculate key metrics — all money sums use Decimal arithmetic (float math
+  // is banned on currency values; IEEE-754 drifts on long sums).
   const metrics = useMemo(() => {
     // Compute real balance from openingBalance + sum of transactions per account
-    const effectiveBalance = (acc: typeof accounts[0]) => {
-      const opening = acc.openingBalance ?? 0;
+    const effectiveBalance = (acc: typeof accounts[0]): number => {
       const txnTotal = transactions
         .filter(t => t.accountId === acc.id)
-        .reduce((sum, t) => sum + t.amount, 0);
-      return opening + txnTotal;
+        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+      return toDecimal(acc.openingBalance ?? 0).plus(txnTotal).toNumber();
     };
 
     const totalAssets = accounts
       .filter(acc => effectiveBalance(acc) > 0)
-      .reduce((sum, acc) => sum + effectiveBalance(acc), 0);
+      .reduce((sum, acc) => sum.plus(toDecimal(effectiveBalance(acc))), toDecimal(0))
+      .toNumber();
 
     const totalLiabilities = accounts
       .filter(acc => effectiveBalance(acc) < 0)
-      .reduce((sum, acc) => sum + Math.abs(effectiveBalance(acc)), 0);
+      .reduce((sum, acc) => sum.plus(toDecimal(effectiveBalance(acc)).abs()), toDecimal(0))
+      .toNumber();
 
-    const netWorth = totalAssets - totalLiabilities;
-    
+    const netWorth = toDecimal(totalAssets).minus(toDecimal(totalLiabilities)).toNumber();
+
     // Calculate monthly change (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentTransactions = transactions.filter(t => 
+
+    const recentTransactions = transactions.filter(t =>
       new Date(t.date) >= thirtyDaysAgo
     );
-    
+
     const monthlyIncome = recentTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0))
+      .toNumber();
+
     const monthlyExpenses = recentTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    
-    const monthlySavings = monthlyIncome - monthlyExpenses;
-    const savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome) * 100 : 0;
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0))
+      .toNumber();
+
+    const monthlySavings = toDecimal(monthlyIncome).minus(toDecimal(monthlyExpenses)).toNumber();
+    const savingsRate = monthlyIncome > 0
+      ? toDecimal(monthlySavings).dividedBy(toDecimal(monthlyIncome)).times(100).toNumber()
+      : 0;
     
     // Get recent activity (copy before sort — never mutate the shared context array)
     const recentActivity = [...transactions]

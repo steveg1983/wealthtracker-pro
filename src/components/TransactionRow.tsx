@@ -214,11 +214,22 @@ export const TransactionRow = memo(function TransactionRow({
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+            ) : onUpdateCategory ? (
+              // Real button so keyboard and screen-reader users can edit too
+              // (WCAG 2.1.1 — a span with onClick is invisible to AT).
+              <button
+                type="button"
+                className={`${compactView ? 'text-sm' : ''} truncate block w-full text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+                title={`${categoryPath} (click to change)`}
+                aria-label={`Change category, currently ${categoryPath || 'uncategorized'}`}
+                onClick={() => setIsEditingCategory(true)}
+              >
+                {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
+              </button>
             ) : (
               <span
-                className={`${compactView ? 'text-sm' : ''} truncate block ${onUpdateCategory ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1' : ''}`}
-                title={onUpdateCategory ? `${categoryPath} (click to change)` : categoryPath}
-                onClick={onUpdateCategory ? () => setIsEditingCategory(true) : undefined}
+                className={`${compactView ? 'text-sm' : ''} truncate block`}
+                title={categoryPath}
               >
                 {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
               </span>
@@ -238,12 +249,18 @@ export const TransactionRow = memo(function TransactionRow({
                 step="0.01"
                 className="w-full text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 value={editAmount}
+                aria-label="Edit transaction amount"
                 onChange={(e) => setEditAmount(e.target.value)}
                 onBlur={() => {
-                  const parsed = parseFloat(editAmount);
-                  if (!isNaN(parsed) && parsed !== Math.abs(transaction.amount)) {
+                  const parsed = Number(editAmount);
+                  if (Number.isFinite(parsed) && parsed > 0 && parsed !== Math.abs(transaction.amount)) {
                     const newAmount = transaction.type === 'expense' ? -Math.abs(parsed) : Math.abs(parsed);
-                    onUpdateAmount(transaction.id, newAmount);
+                    try {
+                      onUpdateAmount(transaction.id, newAmount);
+                    } catch {
+                      // The caller surfaces failures (toast/log). Never let an
+                      // edit-save error crash the row render path.
+                    }
                   }
                   setIsEditingAmount(false);
                 }}
@@ -256,15 +273,22 @@ export const TransactionRow = memo(function TransactionRow({
                 }}
                 autoFocus
               />
-            ) : (
-              <span
-                className={`${amountColorClass} ${compactView ? 'text-sm' : ''} ${onUpdateAmount ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1' : ''}`}
-                onClick={onUpdateAmount ? () => {
+            ) : onUpdateAmount ? (
+              // Real button so keyboard and screen-reader users can edit too.
+              <button
+                type="button"
+                className={`${amountColorClass} ${compactView ? 'text-sm' : ''} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full text-right`}
+                onClick={() => {
                   setEditAmount(String(Math.abs(transaction.amount)));
                   setIsEditingAmount(true);
-                } : undefined}
-                title={onUpdateAmount ? 'Click to edit amount' : undefined}
+                }}
+                title="Click to edit amount"
+                aria-label={`Edit amount, currently ${formattedAmount}`}
               >
+                {formattedAmount}
+              </button>
+            ) : (
+              <span className={`${amountColorClass} ${compactView ? 'text-sm' : ''}`}>
                 {formattedAmount}
               </span>
             )}

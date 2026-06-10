@@ -2,8 +2,37 @@ import { createClient } from '@supabase/supabase-js';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { getSupabaseAccessToken } from '../../lib/supabaseToken';
 
-// Database type is not properly exported, using unknown for now
-type Database = unknown;
+// Minimal schema typing. Tables stay loosely typed (full generated types are a
+// future improvement) but the atomic RPCs are declared so calls type-check.
+type LooseTable = {
+  Row: Record<string, unknown>;
+  Insert: Record<string, unknown>;
+  Update: Record<string, unknown>;
+  Relationships: [];
+};
+
+type Database = {
+  public: {
+    Tables: Record<string, LooseTable>;
+    Views: Record<string, never>;
+    Functions: {
+      create_transaction_atomic: {
+        Args: { p: Record<string, unknown> };
+        Returns: Record<string, unknown>;
+      };
+      update_transaction_atomic: {
+        Args: { p_id: string; p: Record<string, unknown> };
+        Returns: Record<string, unknown>;
+      };
+      delete_transaction_atomic: {
+        Args: { p_id: string; p_user_id?: string };
+        Returns: Record<string, unknown>;
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
 
 // Get environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;

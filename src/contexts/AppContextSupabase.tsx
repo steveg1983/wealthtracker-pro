@@ -12,11 +12,12 @@ import AutoSyncService from '../services/autoSyncService';
 import { userIdService } from '../services/userIdService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
-import { 
-  toDecimalTransaction, 
-  toDecimalAccount, 
-  toDecimalGoal 
+import {
+  toDecimalTransaction,
+  toDecimalAccount,
+  toDecimalGoal
 } from '../utils/decimal-converters';
+import { toDecimal } from '../utils/decimal';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
 import type { 
   Account, 
@@ -41,13 +42,13 @@ export interface Tag {
 export interface AppContextType extends AppState {
   // Account operations
   addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
-  updateAccount: (id: string, updates: Partial<Account>) => void;
-  deleteAccount: (id: string) => void;
-  
-  // Transaction operations
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
+
+  // Transaction operations — async so callers can surface save failures.
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   
   // Budget operations
   addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => void;
@@ -369,12 +370,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newTransaction = await DataService.createTransaction(transaction);
       setTransactions(prev => [...prev, newTransaction]);
       
-      // Update account balance locally for immediate UI feedback
+      // Update account balance locally for immediate UI feedback.
+      // Decimal arithmetic — float math is banned on money values. The DB
+      // balance is adjusted atomically inside create_transaction_atomic.
       setAccounts(prev => prev.map(acc => {
         if (acc.id === transaction.accountId) {
           return {
             ...acc,
-            balance: (acc.balance || 0) + transaction.amount
+            balance: toDecimal(acc.balance || 0).plus(toDecimal(transaction.amount)).toNumber()
           };
         }
         return acc;
@@ -391,14 +394,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updatedTransaction = await DataService.updateTransaction(id, updates);
       setTransactions(prev => prev.map(t => t.id === id ? updatedTransaction : t));
       
-      // Update account balance if amount changed
+      // Update account balance if amount changed (Decimal arithmetic; the DB
+      // balance is adjusted atomically inside update_transaction_atomic).
       if (oldTransaction && updates.amount !== undefined && updates.amount !== oldTransaction.amount) {
-        const difference = updates.amount - oldTransaction.amount;
+        const difference = toDecimal(updates.amount).minus(toDecimal(oldTransaction.amount));
         setAccounts(prev => prev.map(acc => {
           if (acc.id === oldTransaction.accountId) {
             return {
               ...acc,
-              balance: (acc.balance || 0) + difference
+              balance: toDecimal(acc.balance || 0).plus(difference).toNumber()
             };
           }
           return acc;
@@ -416,13 +420,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await DataService.deleteTransaction(id);
       setTransactions(prev => prev.filter(t => t.id !== id));
       
-      // Update account balance
+      // Update account balance (Decimal arithmetic; the DB balance is reversed
+      // atomically inside delete_transaction_atomic).
       if (transaction) {
         setAccounts(prev => prev.map(acc => {
           if (acc.id === transaction.accountId) {
             return {
               ...acc,
-              balance: (acc.balance || 0) - transaction.amount
+              balance: toDecimal(acc.balance || 0).minus(toDecimal(transaction.amount)).toNumber()
             };
           }
           return acc;

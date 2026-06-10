@@ -55,14 +55,18 @@ const FINANCIAL_MERGE_RULES: Record<string, MergeRule[]> = {
   ],
   budget: [
     { field: 'amount', strategy: 'min' }, // Conservative budget limit
-    { field: 'spent', strategy: 'sum' }, // Add spent amounts
+    // NEVER 'sum' accumulated money fields: both replicas usually hold the
+    // same running total, so summing double-counts. The server value wins;
+    // 'spent' should be recomputed from transactions, not merged.
+    { field: 'spent', strategy: 'serverWins' },
     { field: 'category', strategy: 'newer' },
     { field: 'period', strategy: 'newer' },
     { field: 'rollover', strategy: 'newer' },
   ],
   goal: [
     { field: 'targetAmount', strategy: 'newer' },
-    { field: 'currentAmount', strategy: 'sum' }, // Sum contributions
+    // Same double-counting hazard as budget.spent — server wins.
+    { field: 'currentAmount', strategy: 'serverWins' },
     { field: 'deadline', strategy: 'newer' },
     { field: 'name', strategy: 'newer' },
     { field: 'achieved', strategy: 'max' }, // Once achieved, stays achieved
@@ -441,16 +445,19 @@ export class ConflictResolutionService {
       return true;
     }
     
-    // Critical fields always require user review
-    const criticalFields = ['amount', 'balance', 'targetAmount'];
-    const hasCriticalConflict = analysis.conflictingFields.some(f => 
+    // Conflicting money fields ALWAYS require user review — no confidence
+    // score justifies silently picking a side on an amount. (The previous
+    // `confidence < 90` guard let single-field amount conflicts auto-resolve
+    // at exactly 90.)
+    const criticalFields = ['amount', 'balance', 'targetAmount', 'currentAmount', 'spent'];
+    const hasCriticalConflict = analysis.conflictingFields.some(f =>
       criticalFields.includes(f)
     );
-    
-    if (hasCriticalConflict && analysis.confidence < 90) {
+
+    if (hasCriticalConflict) {
       return true;
     }
-    
+
     return !analysis.canAutoResolve;
   }
 }
