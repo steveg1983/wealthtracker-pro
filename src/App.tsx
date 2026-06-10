@@ -16,9 +16,10 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
-import { merchantLogoService } from './services/merchantLogoService';
-import { performanceService } from './services/performanceService';
-import { automaticBackupService } from './services/automaticBackupService';
+// NOTE: merchantLogoService / performanceService / automaticBackupService are
+// dynamically imported in the startup effect below — static imports would pull
+// them (and their dependency graphs) into the main chunk for code that only
+// runs after first paint.
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
@@ -88,23 +89,27 @@ function App(): React.JSX.Element {
     // Simplified storage check - don't auto-clear
     // App starting with clean storage
 
-    // Preload common merchant logos in the background
-    merchantLogoService.preloadCommonLogos();
-    
-    // Initialize performance monitoring
-    performanceService.init();
-    
-    // Initialize automatic backups
-    automaticBackupService.initializeBackups();
-    
-    // Handle service worker messages
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data.type === 'perform-backup') {
-          automaticBackupService.performBackup();
-        }
-      });
-    }
+    // Background services load lazily — none are needed for first paint.
+    void import('./services/merchantLogoService').then(({ merchantLogoService }) => {
+      merchantLogoService.preloadCommonLogos();
+    });
+
+    void import('./services/performanceService').then(({ performanceService }) => {
+      performanceService.init();
+    });
+
+    void import('./services/automaticBackupService').then(({ automaticBackupService }) => {
+      automaticBackupService.initializeBackups();
+
+      // Handle service worker messages
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'perform-backup') {
+            automaticBackupService.performBackup();
+          }
+        });
+      }
+    });
     
     // Preload commonly accessed routes when browser is idle
     preloadWhenIdle(Dashboard);
