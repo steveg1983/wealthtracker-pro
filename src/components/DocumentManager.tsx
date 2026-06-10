@@ -250,7 +250,7 @@ export default function DocumentManager({
         </div>
         <button
           onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
         >
           <UploadIcon size={16} />
           Upload Documents
@@ -258,7 +258,7 @@ export default function DocumentManager({
       </div>
 
       {/* Filters */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search */}
           <div className="relative flex-1">
@@ -268,7 +268,7 @@ export default function DocumentManager({
               placeholder="Search documents..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
           </div>
 
@@ -283,7 +283,7 @@ export default function DocumentManager({
                 setFilterType(value);
               }
             }}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white"
           >
             <option value="all">All Types</option>
             <option value="receipt">Receipts</option>
@@ -302,7 +302,7 @@ export default function DocumentManager({
                   setFilterTags([...filterTags, e.target.value]);
                 }
               }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white"
             >
               <option value="">Filter by tag...</option>
               {getAllTags().map(tag => (
@@ -361,7 +361,7 @@ export default function DocumentManager({
           {documents.length === 0 && (
             <button
               onClick={() => setShowUpload(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
             >
               Upload Your First Document
             </button>
@@ -372,7 +372,7 @@ export default function DocumentManager({
           {filteredDocuments.map(doc => (
             <div
               key={doc.id}
-              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow"
             >
               {/* Document Preview */}
               <div
@@ -662,7 +662,7 @@ export default function DocumentManager({
                   setShowViewer(false);
                   setSelectedDocument(null);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
               >
                 Close
               </button>
@@ -730,7 +730,7 @@ export default function DocumentManager({
                 type: editingDocument.type,
                 notes: editingDocument.notes
               })}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
             >
               Save Changes
             </button>

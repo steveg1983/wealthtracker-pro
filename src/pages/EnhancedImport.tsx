@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { importRulesService } from '../services/importRulesService';
 import PageWrapper from '../components/PageWrapper';
+import PageTip from '../components/PageTip';
 import EnhancedImportWizard from '../components/EnhancedImportWizard';
 import BatchImportModal from '../components/BatchImportModal';
 import ImportRulesManager from '../components/ImportRulesManager';
@@ -53,9 +54,9 @@ export default function EnhancedImport() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <GlobeIcon size={20} className="text-blue-600 dark:text-blue-400" />
+              <GlobeIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Supported Banks</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
@@ -65,7 +66,7 @@ export default function EnhancedImport() {
             </div>
           </div>
 
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <FileTextIcon size={20} className="text-green-600 dark:text-green-400" />
               <div>
@@ -77,7 +78,7 @@ export default function EnhancedImport() {
             </div>
           </div>
 
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <WrenchIcon size={20} className="text-purple-600 dark:text-purple-400" />
               <div>
@@ -89,7 +90,7 @@ export default function EnhancedImport() {
             </div>
           </div>
 
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <RefreshCwIcon size={20} className="text-orange-600 dark:text-orange-400" />
               <div>
@@ -105,10 +106,10 @@ export default function EnhancedImport() {
         {/* Import Options */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Enhanced Import Wizard */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <UploadIcon size={24} className="text-blue-600 dark:text-blue-400" />
+                <UploadIcon size={24} className="text-emerald-700 dark:text-emerald-400" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -137,7 +138,7 @@ export default function EnhancedImport() {
                 </ul>
                 <button
                   onClick={() => setShowEnhancedWizard(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
                 >
                   <PlayIcon size={16} />
                   Start Enhanced Import
@@ -147,7 +148,7 @@ export default function EnhancedImport() {
           </div>
 
           {/* Batch Import */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                 <FolderIcon size={24} className="text-green-600 dark:text-green-400" />
@@ -190,7 +191,7 @@ export default function EnhancedImport() {
         </div>
 
         {/* Import Rules Management */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -249,7 +250,7 @@ export default function EnhancedImport() {
         </div>
 
         {/* Supported Bank Formats */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Supported Bank Formats ({bankFormats.length}+)
           </h3>
@@ -259,7 +260,7 @@ export default function EnhancedImport() {
                 key={index}
                 className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
-                <GlobeIcon size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <GlobeIcon size={14} className="text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
                 <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
                   {bank}
                 </span>
@@ -268,7 +269,7 @@ export default function EnhancedImport() {
           </div>
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertCircleIcon size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <AlertCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
                 <p className="text-blue-900 dark:text-blue-100 font-medium mb-1">
                   Don't see your bank?
@@ -296,7 +297,7 @@ export default function EnhancedImport() {
       
       {showRulesManager && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -316,6 +317,7 @@ export default function EnhancedImport() {
           </div>
         </div>
       )}
+    <PageTip id="import-intro" title="Import your data" description="Upload CSV, OFX, or QIF files from your bank. WealthTracker will auto-detect columns and match your existing categories." />
     </PageWrapper>
   );
 }

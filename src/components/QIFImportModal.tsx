@@ -173,7 +173,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               />
               <label
                 htmlFor="qif-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
               >
                 <FileTextIcon size={20} />
                 Select QIF File
@@ -183,7 +183,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
             {/* Info Box */}
             <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <InfoIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                <InfoIcon className="text-emerald-700 dark:text-emerald-400 mt-0.5" size={20} />
                 <div className="text-sm">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">
                     About QIF Files
@@ -293,7 +293,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                 isLoading={isProcessing}
                 onClick={processImport}
                 disabled={!selectedAccountId}
-                className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
               >
                 <UploadIcon size={20} />
                 Import Transactions
@@ -347,7 +347,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               </button>
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
               >
                 Done
               </button>

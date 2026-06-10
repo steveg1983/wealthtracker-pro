@@ -7,6 +7,7 @@ import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
 import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/decimal-types";
 import PageWrapper from "../components/PageWrapper";
+import PageTip from "../components/PageTip";
 import { calculateGoalProgress } from "../utils/calculations-decimal";
 import { toDecimal } from "../utils/decimal";
 import { formatDecimal } from "../utils/decimal-format";
@@ -167,7 +168,7 @@ export default function Goals() {
             viewBox="0 0 48 48"
             xmlns="http://www.w3.org/2000/svg"
             className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            
           >
             <circle
               cx="24"
@@ -196,7 +197,7 @@ export default function Goals() {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Active Goals</p>
@@ -206,7 +207,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Total Target</p>
@@ -218,7 +219,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Total Saved</p>
@@ -243,7 +244,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Completed</p>
@@ -269,7 +270,7 @@ export default function Goals() {
               const linkedBalance = getLinkedAccountsBalance(goal.linkedAccountIds);
 
               return (
-                <div key={goal.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+                <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl">{getGoalIcon(goal.type)}</span>
@@ -309,7 +310,7 @@ export default function Goals() {
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            progressValue >= 100 ? "bg-green-600" : progressValue >= 75 ? "bg-blue-600" : progressValue >= 50 ? "bg-yellow-600" : "bg-gray-400"
+                            progressValue >= 100 ? "bg-green-600" : progressValue >= 75 ? "bg-[#1a2332]" : progressValue >= 50 ? "bg-yellow-600" : "bg-gray-400"
                           }`}
                           style={{ width: `${Math.min(progressValue, 100)}%` }}
                         />
@@ -352,7 +353,7 @@ export default function Goals() {
         </div>
       ) : goals.length === 0 ? (
         /* Empty state when no goals at all */
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12" data-testid="empty-state">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12" data-testid="empty-state">
           <div className="text-center">
             <TargetIcon className="h-24 w-24 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -363,7 +364,7 @@ export default function Goals() {
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-[#1a2332] text-white px-6 py-3 rounded-lg hover:bg-[#2d3a4d] transition-colors"
             >
               <PlusIcon size={20} />
               <span>Create Your First Goal</span>
@@ -396,7 +397,7 @@ export default function Goals() {
         </div>
       ) : (
         /* Empty state when all goals are completed */
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12" data-testid="empty-state">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12" data-testid="empty-state">
           <div className="text-center">
             <div className="text-5xl mb-4">🎉</div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -407,7 +408,7 @@ export default function Goals() {
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-[#1a2332] text-white px-6 py-3 rounded-lg hover:bg-[#2d3a4d] transition-colors"
             >
               <PlusIcon size={20} />
               <span>Set a New Goal</span>
@@ -420,7 +421,7 @@ export default function Goals() {
       {completedGoals.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Completed Goals</h2>
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {completedGoals.map((goal) => (
                 <div key={goal.id} className="p-4 flex items-center justify-between">
@@ -461,7 +462,7 @@ export default function Goals() {
           <div className="mt-6">
             <button
               onClick={() => setShowAchievements(!showAchievements)}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-2"
+              className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-2"
             >
               <span>🏆</span>
               {showAchievements ? 'Hide' : 'View'} Achievement History
@@ -501,6 +502,7 @@ export default function Goals() {
         />
       )}
       
+    <PageTip id="goals-intro" title="Track your financial goals" description="Set savings targets, debt payoff goals, and investment milestones. Link accounts for automatic progress tracking and set up auto-contributions." />
     </PageWrapper>
   );
 }

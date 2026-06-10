@@ -185,11 +185,11 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
             <option value="symbol">By Symbol</option>
           </select>
           
-          <div className="flex items-center gap-2 bg-card-bg-light dark:bg-card-bg-dark rounded-lg border border-gray-300 dark:border-gray-600">
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
             <button
               onClick={() => setViewMode('pie')}
               className={`px-3 py-1.5 rounded-l-lg transition-colors ${
-                viewMode === 'pie' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400'
+                viewMode === 'pie' ? 'bg-[#1a2332] text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
               title="Pie Chart"
             >
@@ -198,7 +198,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
             <button
               onClick={() => setViewMode('bar')}
               className={`px-3 py-1.5 transition-colors ${
-                viewMode === 'bar' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400'
+                viewMode === 'bar' ? 'bg-[#1a2332] text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
               title="Bar Chart"
             >
@@ -207,7 +207,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
             <button
               onClick={() => setViewMode('treemap')}
               className={`px-3 py-1.5 rounded-r-lg transition-colors ${
-                viewMode === 'treemap' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400'
+                viewMode === 'treemap' ? 'bg-[#1a2332] text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
               title="Treemap"
             >
@@ -239,7 +239,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Value</p>
@@ -249,7 +249,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
           </div>
         </div>
         
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Categories</p>
@@ -259,7 +259,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
           </div>
         </div>
         
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Largest Holding</p>
@@ -273,7 +273,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
           </div>
         </div>
         
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Concentration</p>
@@ -289,7 +289,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
       </div>
 
       {/* Charts */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Allocation Visualization</h3>
         
         {viewMode === 'pie' && (
@@ -348,7 +348,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                   if (active && payload && payload[0]) {
                     const data = payload[0].payload;
                     return (
-                      <div className="bg-card-bg-light dark:bg-card-bg-dark p-2 border border-gray-300 dark:border-gray-600 rounded shadow">
+                      <div className="bg-white dark:bg-gray-800 p-2 border border-gray-300 dark:border-gray-600 rounded shadow">
                         <p className="font-medium">{data.name}</p>
                         <p className="text-sm">{formatCurrency(data.value)}</p>
                         <p className="text-sm">{data.percent !== undefined ? formatDecimal(data.percent, 1) : '0.0'}%</p>
@@ -364,7 +364,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
       </div>
 
       {/* Detailed Table */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Allocation Details</h3>
         
         <div className="overflow-x-auto">
@@ -424,7 +424,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
       {/* Insights */}
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">
         <div className="flex items-start gap-3">
-          <InfoIcon size={24} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+          <InfoIcon size={24} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
           <div>
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
               Allocation Insights

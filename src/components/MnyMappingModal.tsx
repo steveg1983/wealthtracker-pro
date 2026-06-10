@@ -129,7 +129,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold dark:text-white">Map Your Data Fields</h2>
           <button
@@ -143,7 +143,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
         <div className="mb-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-start gap-2">
-              <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+              <AlertCircleIcon className="text-emerald-700 dark:text-emerald-400 mt-0.5" size={20} />
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-semibold mb-1">Help us understand your data</p>
                 <p>We've extracted data from your Money file. Please tell us what each column represents by selecting from the dropdown menus.</p>
@@ -163,7 +163,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
                 {columns.map((_, colIndex) => (
                   <th key={colIndex} className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700">
                     <select
-                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       value={mapping[colIndex] || 'ignore'}
                       onChange={(e) => handleFieldChange(colIndex, e.target.value)}
                     >
@@ -216,7 +216,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
           </button>
           <button
             onClick={handleSaveMapping}
-            className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary flex items-center justify-center gap-2"
           >
             <CheckCircleIcon size={20} />
             Continue with Import

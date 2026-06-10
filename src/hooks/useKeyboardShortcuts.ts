@@ -73,8 +73,9 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
         case 't': navigate('/transactions'); break;
         case 'i': navigate('/investments'); break;
         case 'b': navigate('/budget'); break;
+        case 'c': navigate('/calendar'); break;
         case 'g': navigate('/goals'); break;
-        case 'r': navigate('/analytics'); break;
+        case 'r': navigate('/reports'); break;
         case 's': navigate('/settings'); break;
       }
     } else if (firstKey === 'n') {
@@ -285,8 +286,9 @@ export function getAllShortcuts(): KeyboardShortcut[] {
     { key: 'g t', description: 'Go to Transactions', category: 'Navigation', action: () => {} },
     { key: 'g i', description: 'Go to Investments', category: 'Navigation', action: () => {} },
     { key: 'g b', description: 'Go to Budget', category: 'Navigation', action: () => {} },
+    { key: 'g c', description: 'Go to Calendar', category: 'Navigation', action: () => {} },
     { key: 'g g', description: 'Go to Goals', category: 'Navigation', action: () => {} },
-    { key: 'g r', description: 'Go to Analytics', category: 'Navigation', action: () => {} },
+    { key: 'g r', description: 'Go to Reports', category: 'Navigation', action: () => {} },
     { key: 'g s', description: 'Go to Settings', category: 'Navigation', action: () => {} },
     
     // Quick Actions (n + key)
@@ -296,6 +298,7 @@ export function getAllShortcuts(): KeyboardShortcut[] {
     { key: 'n b', description: 'New Budget', category: 'Quick Actions', action: () => {} },
     
     // Global shortcuts
+    { key: 'Alt+N', description: 'Add new transaction (from any page)', category: 'Global', action: () => {}, altKey: true },
     { key: 'Ctrl+K', description: 'Open global search', category: 'Global', action: () => {}, ctrlKey: true },
     { key: '/', description: 'Focus search input', category: 'Global', action: () => {} },
     { key: '?', description: 'Show keyboard shortcuts', category: 'Global', action: () => {} },

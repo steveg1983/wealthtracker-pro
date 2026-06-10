@@ -285,7 +285,7 @@ export default function SpendingAlerts() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Spending Alerts</h3>
@@ -395,7 +395,7 @@ export default function SpendingAlerts() {
         {filteredAlerts.map((alert) => (
           <div
             key={alert.id}
-            className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-lg shadow border border-white/20 dark:border-gray-700/50 p-4 transition-all ${
+            className={`bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-100 dark:border-gray-700 p-4 transition-all ${
               !alert.isRead ? 'border-l-4 border-l-blue-500' : ''
             }`}
             onClick={() => markAsRead(alert.id)}
@@ -443,7 +443,7 @@ export default function SpendingAlerts() {
         ))}
         
         {filteredAlerts.length === 0 && (
-          <div className="text-center py-12 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
             <BellIcon className="mx-auto text-gray-400 mb-4" size={48} />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               No alerts to show
@@ -488,7 +488,7 @@ export default function SpendingAlerts() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-3xl p-6 max-h-[80vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl p-6 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Alert Configuration
             </h3>

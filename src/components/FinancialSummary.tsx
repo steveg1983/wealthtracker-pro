@@ -43,7 +43,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
   };
 
   return (
-    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -57,7 +57,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
         </div>
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          className="text-sm text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           {showDetails ? 'Hide' : 'Show'} Details
         </button>
@@ -148,7 +148,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
                       </span>
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-[#1a2332] h-2 rounded-full"
                           style={{ width: `${category.percentage}%` }}
                         />
                       </div>
@@ -257,7 +257,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
             financialSummaryService.saveSummary(summary);
             // Could add a toast notification here
           }}
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors text-sm"
         >
           Save to History
         </button>

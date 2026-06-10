@@ -88,7 +88,7 @@ export function RealtimeStatusIndicator({
         <div className={`w-3 h-3 rounded-full ${getStatusColor()} border-2 border-white shadow-lg`} />
         
         {showTooltip && showDetails && (
-          <div className="absolute top-full mt-2 right-0 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
+          <div className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
             <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
               Real-time Sync
             </div>
@@ -101,7 +101,7 @@ export function RealtimeStatusIndicator({
               {!connectionState.isConnected && (
                 <button
                   onClick={handleReconnect}
-                  className="mt-2 text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+                  className="mt-2 text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-[#1a2332] transition-colors"
                 >
                   Reconnect
                 </button>
@@ -115,7 +115,7 @@ export function RealtimeStatusIndicator({
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50`}>
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3">
         <div 
           className="flex items-center space-x-2 cursor-pointer"
           onClick={() => showDetails && setIsExpanded(!isExpanded)}
@@ -166,7 +166,7 @@ export function RealtimeStatusIndicator({
               <button
                 onClick={handleReconnect}
                 disabled={connectionState.isReconnecting}
-                className="w-full mt-2 text-xs bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full mt-2 text-xs bg-blue-500 text-white px-3 py-2 rounded hover:bg-[#1a2332] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {connectionState.isReconnecting ? 'Reconnecting...' : 'Reconnect'}
               </button>

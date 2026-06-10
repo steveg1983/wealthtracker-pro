@@ -17,6 +17,8 @@ import { Modal, ModalBody } from '../components/common/Modal';
 import type { Transaction } from '../types';
 import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types';
 import PageWrapper from '../components/PageWrapper';
+import PageTip from '../components/PageTip';
+import TransactionContextMenu from '../components/TransactionContextMenu';
 import { TransactionRow } from '../components/TransactionRow';
 // Lazy load list components that are conditionally rendered
 const InfiniteScrollTransactionList = lazy(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
@@ -25,7 +27,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 
 const Transactions = React.memo(function Transactions() {
-  const { transactions, accounts, deleteTransaction, categories, getDecimalTransactions } = useApp();
+  const { transactions, accounts, deleteTransaction, updateTransaction, categories, getDecimalTransactions } = useApp();
   const { compactView, setCompactView: _setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView } = useLayout();
   const { formatCurrency } = useCurrencyDecimal();
@@ -48,21 +50,23 @@ const Transactions = React.memo(function Transactions() {
   const [bulkSelectMode, _setBulkSelectMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState({
-    date: 120,
+    date: 110,
     reconciled: 40,
-    account: 150,
-    description: 300,
-    category: 180,
-    amount: 120,
-    actions: 100
+    account: 140,
+    description: 260,
+    category: 160,
+    amount: 110,
+    balance: 110,
+    actions: 80
   });
   const [isResizing, setIsResizing] = useState<string | null>(null);
   const [startX, setStartX] = useState(0);
   const [startWidth, setStartWidth] = useState(0);
-  const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'account', 'description', 'category', 'amount', 'actions']);
+  const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'account', 'description', 'category', 'amount', 'balance', 'actions']);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; transaction: Transaction } | null>(null);
 
   // Use optimized transaction filters hook
   const filterOptions = useMemo(() => ({
@@ -168,6 +172,13 @@ const Transactions = React.memo(function Transactions() {
       className: 'text-right',
       cellClassName: 'px-6',
       hidden: ''
+    },
+    balance: {
+      label: 'Balance',
+      sortable: false,
+      className: 'text-right',
+      cellClassName: 'px-6',
+      hidden: 'hidden xl:table-cell'
     },
     actions: {
       label: 'Actions',
@@ -345,6 +356,51 @@ const Transactions = React.memo(function Transactions() {
       });
   }, [filteredAndSortedTransactions, getDecimalTransactions]);
 
+  // Compute running balances per account
+  const runningBalances = useMemo(() => {
+    const balanceMap = new Map<string, number>();
+    // Sort all transactions by date ascending for balance calculation
+    const allSorted = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Build opening balances
+    const openingBalances = new Map<string, number>();
+    accounts.forEach(acc => openingBalances.set(acc.id, acc.openingBalance ?? 0));
+
+    // Track running balance per account
+    const accountBalances = new Map<string, number>();
+    accounts.forEach(acc => accountBalances.set(acc.id, acc.openingBalance ?? 0));
+
+    allSorted.forEach(t => {
+      const current = accountBalances.get(t.accountId) ?? 0;
+      const newBalance = current + t.amount;
+      accountBalances.set(t.accountId, newBalance);
+      balanceMap.set(t.id, newBalance);
+    });
+
+    return balanceMap;
+  }, [transactions, accounts]);
+
+  // Flat category list for inline editing
+  const flatCategories = useMemo(() => {
+    return categories.map(c => ({ id: c.id, name: c.name }));
+  }, [categories]);
+
+  // Handle inline category update
+  const handleUpdateCategory = useCallback((transactionId: string, categoryId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (transaction) {
+      updateTransaction(transactionId, { ...transaction, category: categoryId });
+    }
+  }, [transactions, updateTransaction]);
+
+  // Handle inline amount update
+  const handleUpdateAmount = useCallback((transactionId: string, amount: number) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (transaction) {
+      updateTransaction(transactionId, { ...transaction, amount });
+    }
+  }, [transactions, updateTransaction]);
+
   // Get filtered account name for display
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;
 
@@ -427,7 +483,7 @@ const Transactions = React.memo(function Transactions() {
               viewBox="0 0 48 48"
               xmlns="http://www.w3.org/2000/svg"
               className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+              
             >
               <circle
                 cx="24"
@@ -476,7 +532,7 @@ const Transactions = React.memo(function Transactions() {
         <button
           type="button"
           onClick={() => setBreakdownType('income')}
-          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-left cursor-pointer"
+          className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-left cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -489,7 +545,7 @@ const Transactions = React.memo(function Transactions() {
         <button
           type="button"
           onClick={() => setBreakdownType('expense')}
-          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
+          className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -502,7 +558,7 @@ const Transactions = React.memo(function Transactions() {
         <button
           type="button"
           onClick={() => setBreakdownType('net')}
-          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors text-left cursor-pointer"
+          className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors text-left cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -518,7 +574,7 @@ const Transactions = React.memo(function Transactions() {
 
         {/* Filters and Search */}
         <div className="pt-4">
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+          <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
         <div className="space-y-3">
           {/* Search Input */}
           <div className="w-full">
@@ -529,7 +585,7 @@ const Transactions = React.memo(function Transactions() {
                 placeholder="Search transactions..."
                 value={searchQuery}
                 onChange={(e) => handleFilterChange(setSearchQuery)(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full pl-9 pr-3 py-2 text-sm md:text-base bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
           </div>
@@ -541,7 +597,7 @@ const Transactions = React.memo(function Transactions() {
               <label htmlFor="type-filter" className="sr-only">Transaction type filter</label>
               <select
                 id="type-filter"
-                className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 text-sm md:text-base bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterType}
                 onChange={(e) => handleFilterChange(setFilterType)(e.target.value as 'all' | 'income' | 'expense')}
                 aria-label="Filter transactions by type"
@@ -557,7 +613,7 @@ const Transactions = React.memo(function Transactions() {
               <label htmlFor="account-filter" className="sr-only">Account filter</label>
               <select
                 id="account-filter"
-                className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 text-sm md:text-base bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterAccountId}
                 onChange={(e) => handleFilterChange(setFilterAccountId)(e.target.value)}
                 aria-label="Filter transactions by account"
@@ -592,7 +648,7 @@ const Transactions = React.memo(function Transactions() {
                 id="date-from"
                 value={dateFrom}
                 onChange={(val) => handleFilterChange(setDateFrom)(val)}
-                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                 aria-label="Filter from date"
               />
             </div>
@@ -602,7 +658,7 @@ const Transactions = React.memo(function Transactions() {
                 id="date-to"
                 value={dateTo}
                 onChange={(val) => handleFilterChange(setDateTo)(val)}
-                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                 aria-label="Filter to date"
               />
             </div>
@@ -613,7 +669,7 @@ const Transactions = React.memo(function Transactions() {
 
         {/* Transactions List */}
         {filteredAndSortedTransactions.length === 0 ? (
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-white/20 dark:border-gray-700/50">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
             {transactions.length === 0 
               ? "No transactions yet. Add transactions from within an account."
@@ -625,7 +681,7 @@ const Transactions = React.memo(function Transactions() {
       ) : (
         <>
           {/* Mobile Swipeable List View with Infinite Scroll */}
-          <div className="lg:hidden bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm overflow-hidden mb-4">
+          <div className="lg:hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-4">
             {isLoading ? (
               <SkeletonList items={5} className="p-4" />
             ) : (
@@ -646,17 +702,18 @@ const Transactions = React.memo(function Transactions() {
           </div>
           
           {/* Desktop Table View */}
-          <div className={`hidden lg:block bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
+          <div className={`hidden lg:block bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
             {isLoading ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
+                  <thead className="bg-[#1a2332] dark:bg-gray-700 border-b border-[#2d3a4d] dark:border-gray-600 sticky top-0 z-10">
                     <tr>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Date</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Account</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Description</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200 hidden sm:table-cell">Category</th>
                       <th className="px-6 py-3 text-right text-sm font-semibold text-white dark:text-gray-200">Amount</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-white dark:text-gray-200 hidden xl:table-cell">Balance</th>
                       <th className="px-6 py-3 text-right text-sm font-semibold text-white dark:text-gray-200">Actions</th>
                     </tr>
                   </thead>
@@ -671,12 +728,12 @@ const Transactions = React.memo(function Transactions() {
               <div className={isWideView ? '' : 'overflow-x-auto'} role="region" aria-label="Transactions table">
                 <table className="w-full" style={{ tableLayout: 'fixed' }} role="table" aria-label="Financial transactions">
                 <caption className="sr-only">List of financial transactions with sortable columns. Use arrow keys to navigate and Enter to sort.</caption>
-                <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
+                <thead className="bg-[#1a2332] dark:bg-gray-700 border-b border-[#2d3a4d] dark:border-gray-600 sticky top-0 z-10">
                   <tr role="row">
                     {columnOrder.map(renderHeaderCell)}
                   </tr>
                 </thead>
-                <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {paginatedTransactions.map((transaction) => {
                     const account = accounts.find(a => a.id === transaction.accountId);
                     const categoryPath = getCategoryPath(transaction.category, transaction);
@@ -694,6 +751,11 @@ const Transactions = React.memo(function Transactions() {
                         onView={handleView}
                         columnOrder={columnOrder}
                         columnWidths={columnWidths}
+                        runningBalance={runningBalances.get(transaction.id)}
+                        onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, transaction: t })}
+                        categories={flatCategories}
+                        onUpdateCategory={handleUpdateCategory}
+                        onUpdateAmount={handleUpdateAmount}
                       />
                     );
                   })}
@@ -724,7 +786,7 @@ const Transactions = React.memo(function Transactions() {
                       setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
-                    className="px-2 py-1 text-sm bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                    className="px-2 py-1 text-sm bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                     aria-label="Select number of transactions per page"
                   >
                     <option value={5}>5 per page</option>
@@ -772,7 +834,7 @@ const Transactions = React.memo(function Transactions() {
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1 text-sm rounded ${
                             currentPage === pageNum
-                              ? 'bg-primary text-white'
+                              ? 'bg-[#1a2332] text-white'
                               : 'hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
                           }`}
                         >
@@ -808,7 +870,7 @@ const Transactions = React.memo(function Transactions() {
             </div>
             
             {/* Mobile Pagination Controls - Hidden: Using Infinite Scroll Instead */}
-            <div className="hidden lg:hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg px-4 py-3 border border-white/20 dark:border-gray-700/50">
+            <div className="hidden lg:hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg px-4 py-3 border border-gray-100 dark:border-gray-700">
               <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
@@ -826,7 +888,7 @@ const Transactions = React.memo(function Transactions() {
                       setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
-                    className="px-2 py-1 text-xs bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                    className="px-2 py-1 text-xs bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                     aria-label="Select number of transactions per page"
                   >
                     <option value={5}>5/page</option>
@@ -961,6 +1023,25 @@ const Transactions = React.memo(function Transactions() {
           </table>
         </ModalBody>
       </Modal>
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <TransactionContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          transaction={contextMenu.transaction}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onView={handleView}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      <PageTip
+        id="transactions-intro"
+        title="Your transactions"
+        description="Filter by account, date range, or search by description. Right-click any transaction for quick actions. The Balance column shows your running account balance."
+      />
     </PageWrapper>
   );
 });

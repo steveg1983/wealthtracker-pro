@@ -189,7 +189,7 @@ export default function BalanceReconciliationModal({
             }
           }}
           disabled={!selectedOption}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark 
+          className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] 
                    disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Apply Selected Fix

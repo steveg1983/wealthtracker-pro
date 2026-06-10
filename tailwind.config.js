@@ -8,35 +8,55 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: 'var(--color-primary, #0078d4)',
-        secondary: 'var(--color-secondary, #005a9e)',
-        accent: '#FFF2CC',
+        // Wealth/finance brand palette
+        primary: 'var(--color-primary, #1a2332)',
+        secondary: 'var(--color-secondary, #2d4a3e)',
+        accent: '#d4a843',
+
+        // Surface colors
+        surface: {
+          DEFAULT: '#ffffff',
+          secondary: '#f8f9fb',
+          tertiary: '#f1f3f7',
+        },
 
         // WCAG AA compliant card backgrounds
         'card-bg': {
-          light: '#e5eaf2',  // Lighter than #d4dce8, better contrast
-          DEFAULT: '#d4dce8', // Backward compatible
-          dark: '#1f2937',    // Dark mode (gray-800)
+          light: '#f1f3f7',
+          DEFAULT: '#ffffff',
+          dark: '#1f2937',
         },
 
-        // Accessible text colors for card backgrounds
+        // Accessible text colors
         'card-text': {
-          light: '#374151',   // gray-700: 7.8:1 contrast on #e5eaf2 (WCAG AAA!)
-          DEFAULT: '#1f2937', // gray-800: 10.5:1 contrast (WCAG AAA!)
+          light: '#64748b',
+          DEFAULT: '#1a2332',
         },
 
-        success: '#34c759',
-        danger: '#ff3b30',
-        warning: '#ff9500',
-        // New UI control colors from screenshot
-        'ui-bg': '#6B7AB8',
-        'ui-control': '#5A6AA8',
-        'ui-control-hover': '#4D5C9B',
-        'ui-add': '#FF5A5F',
-        'ui-add-hover': '#FF4146',
+        // Financial semantic colors
+        income: '#0d9f6f',
+        expense: '#d94052',
+        success: '#0d9f6f',
+        danger: '#d94052',
+        warning: '#e5a00d',
+
+        // Navigation
+        nav: {
+          bg: '#1a2332',
+          text: '#94a3b8',
+          active: '#ffffff',
+          hover: '#2d3a4d',
+        },
+
+        // UI control colors
+        'ui-bg': '#2d4a3e',
+        'ui-control': '#1a2332',
+        'ui-control-hover': '#2d3a4d',
+        'ui-add': '#0d9f6f',
+        'ui-add-hover': '#0b8a5f',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       keyframes: {
         'fade-in': {

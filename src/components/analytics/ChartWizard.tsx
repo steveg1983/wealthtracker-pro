@@ -587,7 +587,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Chart Wizard</h2>
@@ -601,7 +601,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
               {selectedChart && (
                 <button
                   onClick={handleSave}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
                 >
                   Add Chart
                 </button>
@@ -629,7 +629,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
                   onClick={() => setSelectedChart(chart.type)}
                   className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-colors ${
                     selectedChart === chart.type
-                      ? 'bg-primary text-white'
+                      ? 'bg-[#1a2332] text-white'
                       : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                 >

@@ -143,7 +143,7 @@ export default function Tags() {
 
       {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
           <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">
             {editingTag ? 'Edit Tag' : 'Add New Tag'}
           </h2>
@@ -157,7 +157,7 @@ export default function Tags() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white ${
+                className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white ${
                   errors.name ? 'border-red-500/50' : 'border-gray-300/50 dark:border-gray-600/50'
                 }`}
                 placeholder="Enter tag name"
@@ -201,7 +201,7 @@ export default function Tags() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 rows={3}
                 placeholder="Enter tag description"
               />
@@ -210,7 +210,7 @@ export default function Tags() {
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-2xl hover:bg-[#2d3a4d] transition-colors"
               >
                 <CheckIcon size={16} color="white" />
                 {editingTag ? 'Update Tag' : 'Add Tag'}
@@ -229,7 +229,7 @@ export default function Tags() {
       )}
 
       {/* Tags List */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-blue-800 dark:text-white">
             All Tags ({tags.length})
@@ -301,14 +301,14 @@ export default function Tags() {
 
       {/* Usage Statistics */}
       {tags.length > 0 && (
-        <div className="mt-6 bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <AlertCircleIcon size={20} />
             Tag Usage Statistics
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                 {tags.length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">

@@ -28,7 +28,7 @@ export default function TransactionDetailsView({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -119,7 +119,7 @@ export default function TransactionDetailsView({
                     {transaction.tags.map(tag => (
                       <span 
                         key={tag} 
-                        className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                        className="px-3 py-1 bg-[#1a2332]/10 text-primary rounded-full text-sm"
                       >
                         {tag}
                       </span>
@@ -164,7 +164,7 @@ export default function TransactionDetailsView({
 
               {transaction.reconciledWith && transaction.reconciledWith !== 'manual' && (
                 <div className="flex items-center gap-3">
-                  <LinkIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                  <LinkIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     Linked to bank statement (ID: {transaction.reconciledWith})
                   </span>

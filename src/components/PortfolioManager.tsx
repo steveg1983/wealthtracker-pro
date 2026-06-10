@@ -154,7 +154,7 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
         </h3>
         <button
           onClick={handleAddHolding}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
         >
           <PlusIcon size={20} />
           Add Holding
@@ -169,7 +169,7 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
           </p>
           <button
             onClick={handleAddHolding}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
           >
             <PlusIcon size={20} />
             Add Your First Stock
@@ -180,7 +180,7 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
           {holdings.map((holding) => (
             <div
               key={holding.id}
-              className="flex items-center justify-between p-4 bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -327,7 +327,7 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
             <LoadingButton
               isLoading={isValidating}
               onClick={validateAndSaveHolding}
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               loadingText="Validating..."
             >
               <CheckIcon size={16} className="mr-2" />

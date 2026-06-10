@@ -12,7 +12,7 @@ export default function BudgetAlertSettings() {
   } = useNotifications();
 
   return (
-    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
       <div className="flex items-center gap-3 mb-6">
         <BellIcon size={24} className="text-primary" />
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Budget Alerts</h2>

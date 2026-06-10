@@ -287,7 +287,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
             <h4 className="font-medium">Resolution Strategy</h4>
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
             >
               {showAdvanced ? 'Hide' : 'Show'} Advanced Options
             </button>
@@ -369,7 +369,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
           <button
             onClick={handleResolve}
             disabled={isResolving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-[#1a2332] hover:bg-[#2d3a4d] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isResolving ? (
               <>Resolving...</>

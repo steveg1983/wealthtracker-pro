@@ -18,7 +18,7 @@ interface ExternalLinkProps {
 export function ExternalLink({ 
   href, 
   children, 
-  className = 'text-blue-600 dark:text-blue-400 hover:underline',
+  className = 'text-emerald-700 dark:text-emerald-400 hover:underline',
   showIcon = true 
 }: ExternalLinkProps): React.JSX.Element {
   return (

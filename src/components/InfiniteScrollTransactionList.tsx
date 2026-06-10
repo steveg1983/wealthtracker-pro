@@ -108,7 +108,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
     return (
       <div className="space-y-3 p-4">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 animate-pulse">
+          <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 animate-pulse">
             <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2" />
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2" />
             <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
@@ -179,7 +179,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
           ) : (
             <button
               onClick={loadMoreItems}
-              className="px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
             >
               Load More
             </button>
@@ -200,7 +200,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       {visibleTransactions.length > 10 && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-20 right-4 z-20 p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-full shadow-lg hover:shadow-xl transition-shadow"
+          className="fixed bottom-20 right-4 z-20 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
           aria-label="Scroll to top"
         >
           <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

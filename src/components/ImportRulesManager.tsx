@@ -127,7 +127,7 @@ export default function ImportRulesManager() {
   };
 
   return (
-    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Import Rules</h2>
         <div className="flex gap-2">
@@ -140,7 +140,7 @@ export default function ImportRulesManager() {
           </button>
           <button
             onClick={() => setShowAddRule(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
           >
             <PlusIcon size={16} />
             Add Rule
@@ -289,7 +289,7 @@ export default function ImportRulesManager() {
       {/* Suggestions Modal */}
       {showSuggestions && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -324,7 +324,7 @@ export default function ImportRulesManager() {
                         </div>
                         <button
                           onClick={() => applySuggestion(suggestion)}
-                          className="px-3 py-1 bg-primary text-white rounded hover:bg-secondary text-sm"
+                          className="px-3 py-1 bg-[#1a2332] text-white rounded hover:bg-secondary text-sm"
                         >
                           Apply
                         </button>
@@ -423,7 +423,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -442,7 +442,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   required
                 />
               </div>
@@ -455,7 +455,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                   type="text"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
 
@@ -469,7 +469,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                     min="1"
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
 
@@ -734,7 +734,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
             >
               {rule ? 'Save Changes' : 'Create Rule'}
             </button>

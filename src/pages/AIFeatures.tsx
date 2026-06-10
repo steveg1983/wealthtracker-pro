@@ -19,7 +19,7 @@ export default function AIFeatures() {
             viewBox="0 0 48 48"
             xmlns="http://www.w3.org/2000/svg"
             className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            
           >
             <defs>
               <linearGradient id="ai-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -42,12 +42,12 @@ export default function AIFeatures() {
     >
       <div className="space-y-6">
         {/* Tab Navigation */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-1 flex">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-1 flex">
           <button
             onClick={() => setActiveTab('categorization')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
               activeTab === 'categorization'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-[#1a2332] text-white'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >

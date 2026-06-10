@@ -100,7 +100,7 @@ export default function ReconciliationBalanceBar({
         {/* Cleared Balance */}
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Cleared Balance</p>
-          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
             {formatCurrency(clearedBalance, currency)}
           </p>
         </div>

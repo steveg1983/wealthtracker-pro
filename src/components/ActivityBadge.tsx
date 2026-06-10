@@ -120,7 +120,7 @@ export function InlineBadge({
   if (count === 0) return null;
 
   return (
-    <span className={`text-xs font-medium text-blue-600 dark:text-blue-400 ${className}`}>
+    <span className={`text-xs font-medium text-emerald-700 dark:text-emerald-400 ${className}`}>
       {prefix}{count}
     </span>
   );

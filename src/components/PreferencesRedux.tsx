@@ -34,7 +34,7 @@ export function PreferencesRedux() {
       </div>
 
       {/* User Profile */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <UserIcon size={20} />
           User Profile
@@ -74,7 +74,7 @@ export function PreferencesRedux() {
       </div>
 
       {/* Currency Settings */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <GlobeIcon size={20} />
           Currency
@@ -87,7 +87,7 @@ export function PreferencesRedux() {
               onClick={() => handleUpdatePreference('currency', currency)}
               className={`px-4 py-2 rounded-lg border-2 transition-colors ${
                 preferences.currency === currency
-                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-emerald-700 dark:text-emerald-400'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
             >
@@ -103,7 +103,7 @@ export function PreferencesRedux() {
       </div>
 
       {/* Theme Settings */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <SunIcon size={20} />
           Theme
@@ -116,7 +116,7 @@ export function PreferencesRedux() {
               onClick={() => handleUpdatePreference('theme', theme)}
               className={`px-4 py-3 rounded-lg border-2 transition-colors ${
                 preferences.theme === theme
-                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-emerald-700 dark:text-emerald-400'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
             >
@@ -141,7 +141,7 @@ export function PreferencesRedux() {
 
       {/* Notification Settings - These fields are not available in Redux state yet */}
       {/* 
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">
           Notification Preferences
         </h3>
@@ -153,7 +153,7 @@ export function PreferencesRedux() {
               type="checkbox"
               checked={preferences.emailNotifications || false}
               onChange={(e) => handleUpdatePreference('emailNotifications', e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-blue-600 rounded focus:ring-emerald-600"
             />
           </label>
           
@@ -163,7 +163,7 @@ export function PreferencesRedux() {
               type="checkbox"
               checked={preferences.budgetAlerts || false}
               onChange={(e) => handleUpdatePreference('budgetAlerts', e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-blue-600 rounded focus:ring-emerald-600"
             />
           </label>
           
@@ -173,7 +173,7 @@ export function PreferencesRedux() {
               type="checkbox"
               checked={preferences.transactionReminders || false}
               onChange={(e) => handleUpdatePreference('transactionReminders', e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-blue-600 rounded focus:ring-emerald-600"
             />
           </label>
         </div>
@@ -181,7 +181,7 @@ export function PreferencesRedux() {
       */}
 
       {/* Goal Celebration Settings */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">
           Goal Settings
         </h3>
@@ -193,7 +193,7 @@ export function PreferencesRedux() {
               type="checkbox"
               checked={preferences.goalCelebration || false}
               onChange={(e) => handleUpdatePreference('goalCelebration', e.target.checked)}
-              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-blue-600 rounded focus:ring-emerald-600"
             />
           </label>
         </div>

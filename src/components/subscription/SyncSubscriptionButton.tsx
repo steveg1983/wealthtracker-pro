@@ -53,7 +53,7 @@ export default function SyncSubscriptionButton({ onSync }: { onSync?: () => void
       <button
         onClick={handleSync}
         disabled={syncing}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <RefreshCwIcon size={16} className={syncing ? 'animate-spin' : ''} />
         {syncing ? 'Syncing...' : 'Sync Subscription'}

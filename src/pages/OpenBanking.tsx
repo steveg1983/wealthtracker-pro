@@ -129,7 +129,7 @@ export default function OpenBanking() {
     <PageWrapper title="Open Banking">
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Connected Banks</p>
@@ -138,7 +138,7 @@ export default function OpenBanking() {
             <BankIcon size={32} className="text-blue-600" />
           </div>
         </div>
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Synced Accounts</p>
@@ -147,7 +147,7 @@ export default function OpenBanking() {
             <CheckCircleIcon size={32} className="text-green-600" />
           </div>
         </div>
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Security Status</p>
@@ -159,7 +159,7 @@ export default function OpenBanking() {
       </div>
 
       {/* Connect Bank */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold mb-2">Connect Your Bank</h3>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Securely connect your bank accounts to automatically import transactions and keep your balances up to date.
@@ -168,7 +168,7 @@ export default function OpenBanking() {
           type="button"
           onClick={handleConnectBank}
           disabled={connectStatus === 'connecting'}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <LinkIcon size={18} />
           {connectStatus === 'connecting' ? 'Redirecting to bank...' : 'Connect Bank Account'}
@@ -185,7 +185,7 @@ export default function OpenBanking() {
       </div>
 
       {/* Connected Banks */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">Connected Banks</h3>
         {isLoading ? (
           <p className="text-gray-500">Loading connections...</p>
@@ -231,7 +231,7 @@ export default function OpenBanking() {
                   <button
                     type="button"
                     onClick={() => setLinkingConnectionId(connection.id)}
-                    className="p-2 text-gray-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    className="p-2 text-gray-500 hover:text-primary hover:bg-[#1a2332]/10 rounded-lg transition-colors"
                     title="Link bank accounts to your app accounts"
                   >
                     <LinkIcon size={18} />
@@ -240,7 +240,7 @@ export default function OpenBanking() {
                     type="button"
                     onClick={() => handleSync(connection.id)}
                     disabled={syncingIds.has(connection.id)}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg disabled:opacity-50 transition-colors"
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg disabled:opacity-50 transition-colors"
                     title="Sync accounts & transactions"
                   >
                     <RefreshCwIcon size={18} className={syncingIds.has(connection.id) ? 'animate-spin' : ''} />
@@ -262,7 +262,7 @@ export default function OpenBanking() {
       </div>
 
       {/* How It Works */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">How It Works</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
@@ -296,7 +296,7 @@ export default function OpenBanking() {
       </div>
 
       {/* Security Information */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <div className="flex items-center gap-3 mb-4">
           <ShieldIcon size={24} className="text-green-600" />
           <h3 className="text-lg font-semibold">Bank-Level Security</h3>

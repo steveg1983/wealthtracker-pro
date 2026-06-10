@@ -23,9 +23,7 @@ import { automaticBackupService } from './services/automaticBackupService';
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
-import DiagnosticReport from './DiagnosticReport';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
-import RealtimeSyncTest from './components/RealtimeSyncTest';
 import SafariWarning from './components/SafariWarning';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
@@ -38,16 +36,14 @@ const Welcome = lazyWithPreload(() => import(/* webpackChunkName: "welcome" */ '
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard", webpackPreload: true */ './pages/Dashboard'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
 const Transactions = lazyWithPreload(() => import(/* webpackChunkName: "transactions", webpackPreload: true */ './pages/Transactions'));
-const TransactionsComparison = lazyWithPreload(() => import(/* webpackChunkName: "transactions-comparison" */ './pages/TransactionsComparison'));
 const Reconciliation = lazyWithPreload(() => import(/* webpackChunkName: "reconciliation" */ './pages/Reconciliation'));
 const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ './pages/Investments'));
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpackPreload: true */ './pages/Budget'));
+const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ './pages/Calendar'));
+const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ './pages/ReportsHub'));
 const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ './pages/Goals'));
 const Analytics = lazyWithPreload(() => import(/* webpackChunkName: "analytics" */ './pages/Analytics'));
-const AdvancedAnalytics = lazyWithPreload(() => import(/* webpackChunkName: "advanced-analytics" */ './pages/AdvancedAnalytics'));
-const AIFeatures = lazyWithPreload(() => import(/* webpackChunkName: "ai-features" */ './pages/AIFeatures'));
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
-const TaxPlanning = lazyWithPreload(() => import(/* webpackChunkName: "tax-planning" */ './pages/TaxPlanning'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
 const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
@@ -62,18 +58,10 @@ const AccessibilityDashboard = lazyWithPreload(() => import(/* webpackChunkName:
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
-const HouseholdManagement = lazyWithPreload(() => import(/* webpackChunkName: "household" */ './pages/HouseholdManagement'));
-const MobileFeatures = lazyWithPreload(() => import(/* webpackChunkName: "mobile-features" */ './pages/MobileFeatures'));
-const BusinessFeatures = lazyWithPreload(() => import(/* webpackChunkName: "business-features" */ './pages/BusinessFeatures'));
-const FinancialPlanning = lazyWithPreload(() => import(/* webpackChunkName: "financial-planning" */ './pages/FinancialPlanning'));
-const DataIntelligence = lazyWithPreload(() => import(/* webpackChunkName: "data-intelligence" */ './pages/DataIntelligence'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ './pages/ExportManager'));
-const Advanced = lazyWithPreload(() => import(/* webpackChunkName: "advanced" */ './pages/Advanced'));
 const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ './pages/EnhancedImport'));
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
-const OCRTest = lazyWithPreload(() => import(/* webpackChunkName: "ocr-test" */ './components/OCRTest'));
 const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-banking" */ './pages/OpenBanking'));
-const Performance = lazyWithPreload(() => import(/* webpackChunkName: "performance" */ './pages/Performance'));
 const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
 
 function App(): React.JSX.Element {
@@ -185,11 +173,7 @@ function App(): React.JSX.Element {
                               <Transactions />
                             </ProtectedSuspense>
                           } />
-                          <Route path="transactions-comparison" element={
-                            <ProtectedSuspense>
-                              <TransactionsComparison />
-                            </ProtectedSuspense>
-                          } />
+                          <Route path="transactions-comparison" element={<Navigate to="/transactions" replace />} />
                           <Route path="reconciliation" element={
                             <ProtectedSuspense>
                               <Reconciliation />
@@ -210,6 +194,16 @@ function App(): React.JSX.Element {
                               <Budget />
                             </ProtectedSuspense>
                           } />
+                          <Route path="calendar" element={
+                            <ProtectedSuspense>
+                              <Calendar />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="reports" element={
+                            <ProtectedSuspense>
+                              <ReportsHub />
+                            </ProtectedSuspense>
+                          } />
                           <Route path="goals" element={
                             <ProtectedSuspense>
                               <Goals />
@@ -221,25 +215,10 @@ function App(): React.JSX.Element {
                             </ProtectedSuspense>
                           } />
                           
-                          {/* Premium features */}
-                          <Route path="ai-analytics" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <AdvancedAnalytics />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="ai-features" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <AIFeatures />
-                            </ProtectedSuspense>
-                          } />
+                          {/* Reports sub-pages (loaded by ReportsHub) */}
                           <Route path="custom-reports" element={
                             <ProtectedSuspense requirePremium={true}>
                               <CustomReports />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="tax-planning" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <TaxPlanning />
                             </ProtectedSuspense>
                           } />
                           <Route path="summaries" element={
@@ -247,31 +226,15 @@ function App(): React.JSX.Element {
                               <FinancialSummaries />
                             </ProtectedSuspense>
                           } />
-                          <Route path="household" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <HouseholdManagement />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="mobile-features" element={
-                            <ProtectedSuspense>
-                              <MobileFeatures />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="business-features" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <BusinessFeatures />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="financial-planning" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <FinancialPlanning />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="data-intelligence" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <DataIntelligence />
-                            </ProtectedSuspense>
-                          } />
+                          {/* Redirects for consolidated/removed pages */}
+                          <Route path="ai-analytics" element={<Navigate to="/reports" replace />} />
+                          <Route path="ai-features" element={<Navigate to="/reports" replace />} />
+                          <Route path="tax-planning" element={<Navigate to="/reports" replace />} />
+                          <Route path="household" element={<Navigate to="/settings" replace />} />
+                          <Route path="mobile-features" element={<Navigate to="/dashboard" replace />} />
+                          <Route path="business-features" element={<Navigate to="/dashboard" replace />} />
+                          <Route path="financial-planning" element={<Navigate to="/reports" replace />} />
+                          <Route path="data-intelligence" element={<Navigate to="/reports" replace />} />
                           <Route path="export-manager" element={
                             <ProtectedSuspense>
                               <ExportManager />
@@ -287,31 +250,18 @@ function App(): React.JSX.Element {
                               <Documents />
                             </ProtectedSuspense>
                           } />
-                  <Route path="ocr-test" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <OCRTest />
-                    </Suspense>
-                  } />
                   <Route path="open-banking" element={
                     <Suspense fallback={<PageLoader />}>
                       <OpenBanking />
                     </Suspense>
                   } />
-                  <Route path="performance" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Performance />
-                    </Suspense>
-                  } />
+                  <Route path="performance" element={<Navigate to="/dashboard" replace />} />
                   <Route path="subscription" element={
                     <Suspense fallback={<PageLoader />}>
                       <Subscription />
                     </Suspense>
                   } />
-                  <Route path="advanced" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Advanced />
-                    </Suspense>
-                  } />
+                  <Route path="advanced" element={<Navigate to="/dashboard" replace />} />
                   <Route path="settings">
                     <Route index element={
                       <Suspense fallback={<PageLoader />}>
@@ -374,16 +324,6 @@ function App(): React.JSX.Element {
                       </Suspense>
                     } />
                   </Route>
-                  <Route path="diagnostics" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <DiagnosticReport />
-                    </Suspense>
-                  } />
-                  <Route path="realtime-test" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <RealtimeSyncTest />
-                    </Suspense>
-                  } />
                         <Route path="forecasting" element={<Navigate to="/budget" replace />} />
                       </Route>
                         </Routes>

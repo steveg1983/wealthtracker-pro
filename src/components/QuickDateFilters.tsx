@@ -98,7 +98,7 @@ export default function QuickDateFilters({ onDateRangeSelect, currentFrom, curre
   };
 
   return (
-    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center gap-2 mb-3">
         <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400" />
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Date Filters</span>
@@ -118,7 +118,7 @@ export default function QuickDateFilters({ onDateRangeSelect, currentFrom, curre
               }}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                 active
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-[#1a2332] text-white shadow-sm'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
               aria-pressed={active}
@@ -145,7 +145,7 @@ export default function QuickDateFilters({ onDateRangeSelect, currentFrom, curre
             {(currentFrom || currentTo) && (
               <button
                 onClick={() => onDateRangeSelect('', '')}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-xs text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
                 aria-label="Clear date filter"
               >
                 Clear

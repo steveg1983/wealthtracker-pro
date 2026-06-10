@@ -73,7 +73,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
               required
               value={formData.category}
               onChange={(e) => updateField('category', e.target.value)}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="">Select category</option>
               {categories
@@ -103,7 +103,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
               step="0.01"
               value={formData.amount}
               onChange={(e) => updateField('amount', e.target.value)}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="0.00"
             />
           </div>
@@ -115,7 +115,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             <select
               value={formData.period}
               onChange={(e) => updateField('period', e.target.value as 'monthly' | 'yearly')}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="monthly">Monthly</option>
               <option value="yearly">Yearly</option>
@@ -146,7 +146,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
             >
               {budget ? 'Save Changes' : 'Add Budget'}
             </button>

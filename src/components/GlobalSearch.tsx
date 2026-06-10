@@ -252,7 +252,7 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
                           onClick={() => handleResultNavigate(result)}
                           className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors ${
                             isSelected
-                              ? 'bg-card-bg-light dark:bg-gray-700 text-gray-900 dark:text-white'
+                              ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                               : 'hover:bg-[#c5cfdf] dark:hover:bg-gray-700/70 text-gray-800 dark:text-gray-200'
                           }`}
                         >

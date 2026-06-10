@@ -163,13 +163,13 @@ export default function EnvelopeBudgeting() {
   return (
     <div className="space-y-6">
       {/* Header with summary */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Envelope Budgeting</h2>
           <div className="flex gap-2">
             <button
               onClick={() => setShowTransferModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
             >
               <ArrowRightIcon size={16} />
               Transfer
@@ -235,7 +235,7 @@ export default function EnvelopeBudgeting() {
         {envelopes.map((envelope) => (
           <div
             key={envelope.id}
-            className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 cursor-pointer transition-all hover:shadow-xl ${
+            className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 cursor-pointer transition-all hover:shadow-xl ${
               selectedEnvelope === envelope.id ? 'ring-2 ring-[var(--color-primary)]' : ''
             }`}
             onClick={() => setSelectedEnvelope(envelope.id)}
@@ -322,7 +322,7 @@ export default function EnvelopeBudgeting() {
       {/* Add Envelope Modal */}
       {showAddEnvelope && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add New Envelope</h3>
             
             <div className="space-y-4">
@@ -432,7 +432,7 @@ export default function EnvelopeBudgeting() {
       {/* Transfer Modal */}
       {showTransferModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Transfer Funds</h3>
             
             <div className="space-y-4">
@@ -508,7 +508,7 @@ export default function EnvelopeBudgeting() {
               </button>
               <button
                 onClick={handleTransferFunds}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
               >
                 Transfer
               </button>

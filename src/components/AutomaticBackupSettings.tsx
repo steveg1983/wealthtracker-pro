@@ -138,7 +138,7 @@ export default function AutomaticBackupSettings() {
   return (
     <div className="space-y-6">
       {/* Backup Configuration */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-6">
           <ShieldIcon size={24} className="text-primary" />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">
@@ -179,7 +179,7 @@ export default function AutomaticBackupSettings() {
                 <select
                   value={config.frequency}
                   onChange={(e) => handleConfigChange({ frequency: e.target.value as 'daily' | 'weekly' | 'monthly' })}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -195,7 +195,7 @@ export default function AutomaticBackupSettings() {
                   type="time"
                   value={config.time}
                   onChange={(e) => handleConfigChange({ time: e.target.value })}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
             </div>
@@ -208,7 +208,7 @@ export default function AutomaticBackupSettings() {
               <select
                 value={config.format}
                 onChange={(e) => handleConfigChange({ format: e.target.value as 'json' | 'csv' | 'all' })}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="json">JSON (Recommended)</option>
                 <option value="csv">CSV (Excel compatible)</option>
@@ -249,7 +249,7 @@ export default function AutomaticBackupSettings() {
                 <select
                   value={config.retentionDays}
                   onChange={(e) => handleConfigChange({ retentionDays: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="7">7 days</option>
                   <option value="30">30 days</option>
@@ -263,7 +263,7 @@ export default function AutomaticBackupSettings() {
             {/* Cloud Storage (Coming Soon) */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
               <div className="flex items-start gap-3">
-                <CloudIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                <CloudIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">
                     Cloud Storage Integration Coming Soon
@@ -282,7 +282,7 @@ export default function AutomaticBackupSettings() {
           <button
             onClick={handleTestBackup}
             disabled={testingBackup}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {testingBackup ? (
               <>
@@ -300,7 +300,7 @@ export default function AutomaticBackupSettings() {
       </div>
 
       {/* Backup History */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-6">
           <ClockIcon size={24} className="text-primary" />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">
@@ -346,7 +346,7 @@ export default function AutomaticBackupSettings() {
       </div>
 
       {/* Stored Backups */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-6">
           <HardDriveIcon size={24} className="text-primary" />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">
@@ -432,7 +432,7 @@ export default function AutomaticBackupSettings() {
       {/* Information Panel */}
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
         <div className="flex items-start gap-3">
-          <AlertCircleIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+          <AlertCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
           <div>
             <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
               About Automatic Backups

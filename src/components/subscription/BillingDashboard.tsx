@@ -227,7 +227,7 @@ export default function BillingDashboard({
       </div>
 
       {/* Current Subscription */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
           <CreditCardIcon size={20} />
           Current Subscription
@@ -277,7 +277,7 @@ export default function BillingDashboard({
             {subscription.status === 'trialing' && subscription.trialEnd && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircleIcon size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <CheckCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-blue-900 dark:text-blue-300 font-medium">
                       Free Trial Active
@@ -315,7 +315,7 @@ export default function BillingDashboard({
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleManageBilling}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
               >
                 Change Plan
               </button>
@@ -342,7 +342,7 @@ export default function BillingDashboard({
             ) : null}
             <button
               onClick={handleManageBilling}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
             >
               Upgrade to Premium
             </button>
@@ -352,7 +352,7 @@ export default function BillingDashboard({
 
       {/* Payment Methods */}
       {billingHistory?.paymentMethods && billingHistory.paymentMethods.length > 0 && (
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Payment Methods
           </h3>
@@ -393,7 +393,7 @@ export default function BillingDashboard({
 
       {/* Billing History */}
       {billingHistory?.invoices && billingHistory.invoices.length > 0 && (
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Billing History
           </h3>
@@ -446,7 +446,7 @@ export default function BillingDashboard({
                           href={invoice.invoicePdf}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                          className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
                         >
                           <DownloadIcon size={16} />
                         </a>
@@ -463,7 +463,7 @@ export default function BillingDashboard({
       {/* Cancel Subscription Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Cancel Subscription
             </h3>

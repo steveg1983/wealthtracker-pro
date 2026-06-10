@@ -284,12 +284,12 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <BellIcon size={24} className="text-blue-600 dark:text-blue-400" />
+              <BellIcon size={24} className="text-emerald-700 dark:text-emerald-400" />
               Notification Center
               {unreadCount > 0 && (
                 <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
@@ -361,7 +361,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                     placeholder="Search notifications..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         setFilter(nextFilter);
                       }
                     }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white text-sm"
                   >
                     <option value="all">All</option>
                     <option value="unread">Unread</option>
@@ -445,7 +445,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                 </div>
                 <button
                   onClick={handleCreateRule}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
                 >
                   <PlusIcon size={16} />
                   Add Rule
@@ -464,7 +464,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                   </p>
                   <button
                     onClick={handleCreateRule}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
                   >
                     Create Your First Rule
                   </button>
@@ -569,7 +569,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         }}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getTransactionConfig().duplicateDetectionEnabled
-                            ? 'bg-blue-600'
+                            ? 'bg-[#1a2332]'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
@@ -603,7 +603,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         }}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getGoalConfig().enableMilestoneNotifications
-                            ? 'bg-blue-600'
+                            ? 'bg-[#1a2332]'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
@@ -629,7 +629,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         }}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getGoalConfig().enableCompletionCelebration
-                            ? 'bg-blue-600'
+                            ? 'bg-[#1a2332]'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
@@ -658,7 +658,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
             >
               Done
             </button>
@@ -668,7 +668,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
 
       {showRuleEditor && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -727,7 +727,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
               </button>
               <button
                 onClick={closeRuleEditor}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 text-sm bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
               >
                 Acknowledge
               </button>

@@ -1,6 +1,7 @@
 import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon, ArchiveIcon } from '../components/icons';
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
+import PageTip from '../components/PageTip';
 import SyncStatusIndicator from '../components/SyncStatusIndicator';
 import SubscriptionStatus from '../components/SubscriptionStatus';
 
@@ -67,13 +68,13 @@ export default function Settings() {
       </div>
 
       {/* Main About Section */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-8 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 mb-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center">
             <span className="text-2xl font-bold text-white">WT</span>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-blue-900 dark:text-white">Wealth Tracker</h2>
+            <h2 className="text-2xl font-bold text-blue-900 dark:text-white">WealthTracker</h2>
             <p className="text-gray-600 dark:text-gray-400">Version 1.0</p>
           </div>
         </div>
@@ -120,7 +121,7 @@ export default function Settings() {
       </div>
 
       {/* Quick Settings Links */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Settings</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {settingsOptions.map((option) => (
@@ -144,6 +145,7 @@ export default function Settings() {
           ))}
         </div>
       </div>
+    <PageTip id="settings-intro" title="App settings" description="Customise your WealthTracker experience — themes, currency, notifications, data management, and security settings." />
     </PageWrapper>
   );
 }

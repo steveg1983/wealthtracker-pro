@@ -13,6 +13,7 @@ import {
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
 import { Modal } from './common/Modal';
+import CSVBankTemplates from './CSVBankTemplates';
 
 interface CSVImportWizardProps {
   isOpen: boolean;
@@ -249,7 +250,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                 />
                 <label
                   htmlFor="csv-upload"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
                 >
                   <FileTextIcon size={20} />
                   Select File
@@ -257,203 +258,12 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
               </div>
 
               {/* Bank Templates */}
-              <div className="mt-8 w-full max-w-4xl">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Quick Start with Bank Templates
-                </h4>
-                
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Select your bank to auto-configure column mappings. Supports 40+ bank formats worldwide.
-                </p>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* UK & European Banks */}
-                  <div>
-                    {/* Major UK Banks */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">UK Major Banks</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Barclays', 'HSBC', 'Lloyds', 'NatWest', 'Santander', 'Halifax', 'RBS', 'TSB'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase());
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Building Societies */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">UK Building Societies</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Nationwide', 'Yorkshire', 'Coventry', 'Skipton'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase());
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Digital Banks */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Digital Banks</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Monzo', 'Starling', 'Revolut', 'Metro'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase());
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Other UK Banks */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Other UK Banks</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['First Direct', 'Co-op', 'Virgin', 'Tesco'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase().replace(' ', '-'));
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* European Banks */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">European Banks</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Deutsche Bank', 'BNP Paribas', 'ING'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase().replace(' ', '-'));
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* International & Online */}
-                  <div>
-                    {/* US Banks */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">US Banks</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Chase', 'Bank of America', 'Wells Fargo', 'Citibank', 'TD Bank'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase().replace(' ', '-'));
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Australian Banks */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Australian Banks</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['ANZ', 'Commonwealth', 'Westpac', 'NAB'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase());
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Online Payment Services */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Online Payment Services</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['PayPal', 'Wise', 'Stripe'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase());
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Accounting Software */}
-                    <div className="mb-4">
-                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Accounting Software</h5>
-                      <div className="grid grid-cols-2 gap-2">
-                        {['QuickBooks', 'Mint', 'Wave'].map(bank => (
-                          <button
-                            key={bank}
-                            className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left"
-                            onClick={() => {
-                              const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase());
-                              setMappings(bankMappings);
-                              setCurrentStep('mapping');
-                            }}
-                          >
-                            {bank}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <CSVBankTemplates
+                onSelectBank={(bankMappings) => {
+                  setMappings(bankMappings);
+                  setCurrentStep('mapping');
+                }}
+              />
             </div>
           )}
 
@@ -606,7 +416,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                         ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-card-bg-light dark:bg-card-bg-dark divide-y divide-gray-200 dark:divide-gray-600">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                     {data.slice(0, 5).map((row, rowIndex) => (
                       <tr key={rowIndex}>
                         {targetFields
@@ -725,7 +535,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                 </button>
                 <button
                   onClick={onClose}
-                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                  className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
                 >
                   Done
                 </button>
@@ -740,7 +550,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                     processImport();
                   }
                 }}
-                className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
                 disabled={
                   (currentStep === 'mapping' && mappings.length === 0) ||
                   isProcessing

@@ -139,7 +139,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               <select
                 value={formData.selectedAccountId}
                 onChange={(e) => updateField('selectedAccountId', e.target.value)}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               >
                 <option value="">Select an investment account</option>
@@ -175,7 +175,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                   onClick={() => updateField('investmentType', type.value as FormData['investmentType'])}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     formData.investmentType === type.value
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#1a2332] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -197,7 +197,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 value={formData.stockCode}
                 onChange={(e) => updateField('stockCode', e.target.value.toUpperCase())}
                 placeholder={formData.investmentType === 'share' ? 'AAPL' : formData.investmentType === 'fund' ? 'ISIN/SEDOL' : 'Optional'}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 disabled={formData.investmentType === 'cash'}
               />
             </div>
@@ -212,7 +212,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder={formData.investmentType === 'share' ? 'Apple Inc.' : formData.investmentType === 'fund' ? 'Fund Name' : 'Description'}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
@@ -228,7 +228,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 value={formData.units}
                 onChange={(e) => updateField('units', e.target.value)}
                 placeholder={formData.investmentType === 'cash' ? '1000.00' : '100'}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
@@ -244,7 +244,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 value={formData.pricePerUnit}
                 onChange={(e) => updateField('pricePerUnit', e.target.value)}
                 placeholder={formData.investmentType === 'cash' ? '1.00' : '150.00'}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
@@ -260,7 +260,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 value={formData.fees}
                 onChange={(e) => updateField('fees', e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
             
@@ -275,7 +275,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 value={formData.stampDuty}
                 onChange={(e) => updateField('stampDuty', e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
             
@@ -288,7 +288,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateField('date', e.target.value)}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
@@ -339,7 +339,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               onChange={(e) => updateField('notes', e.target.value)}
               rows={3}
               placeholder="Additional information about this investment..."
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             />
           </div>
           
@@ -355,7 +355,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center gap-2"
             >
               <PlusIcon size={20} />
               Add Investment

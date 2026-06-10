@@ -1,12 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
-import { bankConnectionService, type BankingApiError } from '../services/bankConnectionService';
+import { bankConnectionService } from '../services/bankConnectionService';
 import type { DeadLetterAdminAuditResponse, DeadLetterAdminListResponse, OpsAlertStatsResponse } from '../types/banking-api';
-import type { BankingAuditDateRangePreset, BankingAuditScope } from '../utils/bankingOpsUrlState';
 import { replaceBrowserSearch, withBankingOpsUrlState } from '../utils/bankingOpsUrlState';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
-import { AlertCircleIcon, BarChart3Icon, CheckCircleIcon, DownloadIcon, FileTextIcon, LinkIcon, RefreshCwIcon, SendIcon } from './icons';
+import { AlertCircleIcon, BarChart3Icon, CheckCircleIcon, FileTextIcon, RefreshCwIcon, SendIcon } from './icons';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import BankingOpsAuditPanel from './BankingOpsAuditPanel';
+import {
+  isBankingApiError,
+  formatTimestamp,
+  buildAuditDateRange,
+  type AuditDateRangePreset,
+  type AuditScopeValue
+} from './bankingOpsUtils';
 
 const DEFAULT_LIMIT = 10;
 const DEFAULT_MIN_SUPPRESSED = 1;
@@ -18,13 +24,6 @@ const BULK_SELECTED_CONFIRM_THRESHOLD = 10;
 const BULK_SELECTED_CONFIRMATION = 'RESET_SELECTED_BULK';
 const AUDIT_PAGE_LIMIT = 25;
 const AUDIT_EXPORT_LIMIT = 1000;
-const AUDIT_DATE_RANGE_PRESET_TO_MS = {
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000
-} as const;
-type AuditDateRangePreset = BankingAuditDateRangePreset | '';
-type AuditScopeValue = BankingAuditScope | '';
 
 interface BankingOpsAlertStatsCardProps {
   initialOnlyAboveThreshold?: boolean;
@@ -32,8 +31,8 @@ interface BankingOpsAlertStatsCardProps {
   initialEventTypePrefix?: string;
   initialShowAuditPanel?: boolean;
   initialAuditStatus?: 'pending' | 'completed' | 'failed';
-  initialAuditScope?: BankingAuditScope;
-  initialAuditDateRangePreset?: BankingAuditDateRangePreset;
+  initialAuditScope?: AuditScopeValue;
+  initialAuditDateRangePreset?: AuditDateRangePreset;
 }
 
 interface ActionFeedback {
@@ -41,80 +40,6 @@ interface ActionFeedback {
   message: string;
 }
 
-const copyToClipboard = async (value: string): Promise<void> => {
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  if (typeof document === 'undefined') {
-    throw new Error('Clipboard API is unavailable');
-  }
-
-  const input = document.createElement('textarea');
-  input.value = value;
-  input.setAttribute('readonly', '');
-  input.style.position = 'fixed';
-  input.style.opacity = '0';
-  document.body.appendChild(input);
-  input.focus();
-  input.select();
-  const copied = document.execCommand('copy');
-  document.body.removeChild(input);
-  if (!copied) {
-    throw new Error('Copy failed');
-  }
-};
-
-const isBankingApiError = (value: unknown): value is BankingApiError =>
-  typeof value === 'object' &&
-  value !== null &&
-  'status' in value &&
-  typeof (value as { status?: unknown }).status === 'number';
-
-const formatTimestamp = (value: string | null): string => {
-  if (!value) {
-    return 'n/a';
-  }
-
-  const timestamp = new Date(value);
-  if (Number.isNaN(timestamp.getTime())) {
-    return value;
-  }
-
-  return format(timestamp, 'MMM d, yyyy HH:mm');
-};
-
-const parseAuditDateRangePreset = (value: string): AuditDateRangePreset => (
-  value === '24h' || value === '7d' || value === '30d'
-    ? value
-    : ''
-);
-
-const parseAuditStatusValue = (value: string): 'pending' | 'completed' | 'failed' | '' => (
-  value === 'pending' || value === 'completed' || value === 'failed'
-    ? value
-    : ''
-);
-
-const parseAuditScope = (value: string): AuditScopeValue => (
-  value === 'single' || value === 'bulk' || value === 'all_dead_lettered'
-    ? value
-    : ''
-);
-
-const buildAuditDateRange = (preset: AuditDateRangePreset): { since: string; until: string } | null => {
-  if (!preset) {
-    return null;
-  }
-  const windowMs = AUDIT_DATE_RANGE_PRESET_TO_MS[preset];
-  const until = new Date();
-  const since = new Date(until.getTime() - windowMs);
-  return {
-    since: since.toISOString(),
-    until: until.toISOString()
-  };
-};
 
 export default function BankingOpsAlertStatsCard({
   initialOnlyAboveThreshold = false,
@@ -429,40 +354,6 @@ export default function BankingOpsAlertStatsCard({
     }
   }, [auditDateRangePreset, auditScope, auditStatus, logger]);
 
-  const handleCopyIncidentLink = useCallback(async () => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    setIsCopyingIncidentLink(true);
-    setActionFeedback(null);
-
-    try {
-      const search = withBankingOpsUrlState(window.location.search, {
-        modalOpen: true,
-        onlyAboveThreshold,
-        eventType: eventType.trim() || null,
-        eventTypePrefix: eventType.trim() ? null : eventTypePrefix.trim() || null,
-        auditOpen: true,
-        auditStatus: auditStatus || null,
-        auditScope: auditScope || null,
-        auditDateRangePreset: auditDateRangePreset || null
-      });
-      const link = `${window.location.origin}${window.location.pathname}${search}${window.location.hash}`;
-      await copyToClipboard(link);
-      setActionFeedback({
-        kind: 'success',
-        message: 'Incident link copied to clipboard.'
-      });
-    } catch (copyError) {
-      const message = copyError instanceof Error ? copyError.message : 'Failed to copy incident link';
-      setActionFeedback({ kind: 'error', message });
-      logger.warn('Failed to copy incident link', copyError as Error);
-    } finally {
-      setIsCopyingIncidentLink(false);
-    }
-  }, [auditDateRangePreset, auditScope, auditStatus, eventType, eventTypePrefix, logger, onlyAboveThreshold]);
-
   useEffect(() => {
     void loadStats();
   }, [loadStats]);
@@ -542,7 +433,7 @@ export default function BankingOpsAlertStatsCard({
   const hasMoreAuditRows = Boolean(auditData?.page.hasMore && auditData.page.nextCursor);
 
   return (
-    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -658,7 +549,7 @@ export default function BankingOpsAlertStatsCard({
             </button>
           </div>
 
-          <div className="rounded-md border border-red-200 dark:border-red-800 bg-white/70 dark:bg-gray-900/40 p-2 max-h-36 overflow-y-auto">
+          <div className="rounded-md border border-red-200 dark:border-red-800 bg-white dark:bg-gray-900/40 p-2 max-h-36 overflow-y-auto">
             {isLoadingDeadLetterPreview ? (
               <p className="text-xs text-gray-600 dark:text-gray-300">Loading dead-letter preview...</p>
             ) : previewRows.length > 0 ? (
@@ -767,199 +658,6 @@ export default function BankingOpsAlertStatsCard({
             >
               Cancel
             </button>
-          </div>
-        </div>
-      )}
-
-      {showAuditPanel && (
-        <div className="mt-4 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/30 p-3 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Dead-Letter Reset Audit</p>
-              <p className="text-xs text-gray-600 dark:text-gray-300">
-                Review admin reset actions, outcomes, and reason trail.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  void handleCopyIncidentLink();
-                }}
-                disabled={isCopyingIncidentLink}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-              >
-                <LinkIcon size={12} className={isCopyingIncidentLink ? 'animate-pulse' : ''} />
-                <span>Copy Incident Link</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void handleExportAuditCsv();
-                }}
-                disabled={isExportingAudit}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-              >
-                <DownloadIcon size={12} className={isExportingAudit ? 'animate-pulse' : ''} />
-                <span>Export Audit CSV</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void loadAudit();
-                }}
-                disabled={isLoadingAudit}
-                className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-              >
-                {isLoadingAudit ? 'Loading...' : 'Refresh Audit'}
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <label className="text-xs text-gray-600 dark:text-gray-300">
-              Audit Status
-              <select
-                value={auditStatus}
-                onChange={(event) => setAuditStatus(parseAuditStatusValue(event.target.value))}
-                className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
-              >
-                <option value="">All</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-              </select>
-            </label>
-            <label className="text-xs text-gray-600 dark:text-gray-300">
-              Audit Scope
-              <select
-                value={auditScope}
-                onChange={(event) => setAuditScope(parseAuditScope(event.target.value))}
-                className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
-              >
-                <option value="">All</option>
-                <option value="single">Single</option>
-                <option value="bulk">Bulk</option>
-                <option value="all_dead_lettered">All Dead-Lettered</option>
-              </select>
-            </label>
-            <label className="text-xs text-gray-600 dark:text-gray-300">
-              Date Range
-              <select
-                value={auditDateRangePreset}
-                onChange={(event) => setAuditDateRangePreset(parseAuditDateRangePreset(event.target.value))}
-                className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100"
-              >
-                <option value="">All Time</option>
-                <option value="24h">Last 24 Hours</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                void loadAudit();
-              }}
-              disabled={isLoadingAudit || isLoadingMoreAudit}
-              className="self-end px-3 py-2 rounded-md bg-gray-800 text-white text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
-            >
-              Apply Audit Filters
-            </button>
-          </div>
-
-          {auditData && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="rounded-md bg-white/80 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 p-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Requested Total</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{auditData.summary.requestedTotal}</p>
-              </div>
-              <div className="rounded-md bg-white/80 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 p-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Reset Total</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{auditData.summary.resetTotal}</p>
-              </div>
-              <div className="rounded-md bg-white/80 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 p-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Pending</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{auditData.summary.pendingCount}</p>
-              </div>
-              <div className="rounded-md bg-white/80 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 p-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Completed</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{auditData.summary.completedCount}</p>
-              </div>
-              <div className="rounded-md bg-white/80 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 p-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Failed</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{auditData.summary.failedCount}</p>
-              </div>
-            </div>
-          )}
-
-          {auditError && (
-            <div className="rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-2 text-xs text-red-700 dark:text-red-300">
-              {auditError}
-            </div>
-          )}
-
-          <div className="rounded-md border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/40 p-2 max-h-56 overflow-y-auto space-y-2">
-            {isLoadingAudit ? (
-              <p className="text-xs text-gray-600 dark:text-gray-300">Loading dead-letter audit rows...</p>
-            ) : auditData && auditData.rows.length > 0 ? (
-              auditData.rows.map((row) => (
-                <div
-                  key={row.id}
-                  className={`rounded-md border p-2 ${
-                    row.status === 'failed'
-                      ? 'border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-900/20'
-                      : row.status === 'pending'
-                        ? 'border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-900/20'
-                        : 'border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/60'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">{row.reason ?? 'No reason provided'}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                        {row.scope} | {row.status} | {row.adminClerkId}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                        Requested {row.requestedCount} | Reset {row.resetCount}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Created {formatTimestamp(row.createdAt)} | Completed {formatTimestamp(row.completedAt)}
-                      </p>
-                      {row.connectionIds.length > 0 && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate" title={row.connectionIds.join(', ')}>
-                          Connections: {row.connectionIds.join(', ')}
-                        </p>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 font-mono">{row.id}</p>
-                  </div>
-                  {row.error && (
-                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">{row.error}</p>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-gray-500 dark:text-gray-400">No audit rows match the current filter.</p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Showing {auditData?.rows.length ?? 0} rows (page size {AUDIT_PAGE_LIMIT}).
-            </p>
-            {hasMoreAuditRows && auditData?.page.nextCursor && (
-              <button
-                type="button"
-                onClick={() => {
-                  void loadAudit({ cursor: auditData.page.nextCursor ?? undefined, append: true });
-                }}
-                disabled={isLoadingMoreAudit}
-                className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-              >
-                {isLoadingMoreAudit ? 'Loading...' : 'Load More Audit Rows'}
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -1147,6 +845,34 @@ export default function BankingOpsAlertStatsCard({
             )}
           </div>
         </>
+      )}
+
+      {showAuditPanel && (
+        <BankingOpsAuditPanel
+          auditStatus={auditStatus}
+          setAuditStatus={setAuditStatus}
+          auditScope={auditScope}
+          setAuditScope={setAuditScope}
+          auditDateRangePreset={auditDateRangePreset}
+          setAuditDateRangePreset={setAuditDateRangePreset}
+          auditData={auditData}
+          isLoadingAudit={isLoadingAudit}
+          isLoadingMoreAudit={isLoadingMoreAudit}
+          isExportingAudit={isExportingAudit}
+          auditError={auditError}
+          hasMoreAuditRows={hasMoreAuditRows}
+          loadAudit={loadAudit}
+          loadMoreAudit={() => {
+            if (auditData?.page.nextCursor) {
+              loadAudit({ cursor: auditData.page.nextCursor, append: true });
+            }
+          }}
+          exportAuditCSV={handleExportAuditCsv}
+          isCopyingIncidentLink={isCopyingIncidentLink}
+          setIsCopyingIncidentLink={setIsCopyingIncidentLink}
+          actionFeedback={actionFeedback}
+          setActionFeedback={setActionFeedback}
+        />
       )}
     </div>
   );

@@ -105,7 +105,7 @@ export default function AuditLogs() {
   const getActionColor = (action: string) => {
     switch (action) {
       case 'create': return 'text-green-600 dark:text-green-400';
-      case 'update': return 'text-blue-600 dark:text-blue-400';
+      case 'update': return 'text-emerald-700 dark:text-emerald-400';
       case 'delete': return 'text-red-600 dark:text-red-400';
       case 'login': return 'text-purple-600 dark:text-purple-400';
       case 'logout': return 'text-gray-600 dark:text-gray-400';
@@ -232,7 +232,7 @@ export default function AuditLogs() {
         </div>
 
         {/* Filters */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <FilterIcon size={20} className="text-gray-600 dark:text-gray-400" />
             <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>

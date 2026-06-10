@@ -123,7 +123,7 @@ export default function ValidationTransactionModal({
                               [transaction.id]: { ...values, description: e.target.value }
                             })}
                             className="w-full px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg
-                                     bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white"
+                                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                           />
                         </div>
 
@@ -139,7 +139,7 @@ export default function ValidationTransactionModal({
                                 [transaction.id]: { ...values, amount: e.target.value }
                               })}
                               className={`w-full px-3 py-1 border rounded-lg
-                                       bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white
+                                       bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                                        ${parseFloat(values.amount) <= 0 
                                          ? 'border-red-500' 
                                          : 'border-gray-300 dark:border-gray-600'}`}
@@ -155,7 +155,7 @@ export default function ValidationTransactionModal({
                                 [transaction.id]: { ...values, category: e.target.value }
                               })}
                               className={`w-full px-3 py-1 border rounded-lg
-                                       bg-card-bg-light dark:bg-card-bg-dark text-gray-900 dark:text-white
+                                       bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                                        ${!validCategories.includes(values.category) && values.category !== ''
                                          ? 'border-red-500' 
                                          : 'border-gray-300 dark:border-gray-600'}`}
@@ -201,7 +201,7 @@ export default function ValidationTransactionModal({
                           </div>
                         )}
                         {issueType === 'large-transactions' && (
-                          <div className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                          <div className="text-sm text-emerald-700 dark:text-emerald-400 mt-2">
                             ℹ️ Unusually large transaction (&gt;10x average)
                           </div>
                         )}
@@ -231,7 +231,7 @@ export default function ValidationTransactionModal({
                       <>
                         <button
                           onClick={() => handleEdit(transaction)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                          className="p-2 text-blue-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
                           title="Edit transaction"
                         >
                           <EditIcon size={20} />

@@ -140,7 +140,7 @@ export default function AccountSettingsModal({
             <select
               value={formData.type}
               onChange={(e) => updateField('type', e.target.value as Account['type'])}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               {accountTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -166,14 +166,14 @@ export default function AccountSettingsModal({
                 value={formData.openingBalance}
                 onChange={(e) => updateField('openingBalance', e.target.value)}
                 placeholder="0.00"
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 aria-label="Opening balance amount"
               />
               <DatePicker
                 id="opening-balance-date"
                 value={formData.openingBalanceDate}
                 onChange={(val) => updateField('openingBalanceDate', val)}
-                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 aria-label="Opening balance date"
               />
             </div>
@@ -193,7 +193,7 @@ export default function AccountSettingsModal({
                   onChange={handleSortCodeChange}
                   placeholder="XX-XX-XX"
                   maxLength={8}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   aria-label="Bank sort code"
                 />
               </div>
@@ -210,7 +210,7 @@ export default function AccountSettingsModal({
                   placeholder="12345678"
                   aria-label="Bank account number"
                   maxLength={8}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 />
               </div>
             </>
@@ -226,7 +226,7 @@ export default function AccountSettingsModal({
               value={formData.institution}
               onChange={(e) => updateField('institution', e.target.value)}
               placeholder="Bank or financial institution name"
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             />
           </div>
 
@@ -239,7 +239,7 @@ export default function AccountSettingsModal({
               id="account-active"
               value={formData.isActive ? 'active' : 'closed'}
               onChange={(e) => updateField('isActive', e.target.value === 'active')}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="active">Active</option>
               <option value="closed">Closed (Archived)</option>
@@ -283,7 +283,7 @@ export default function AccountSettingsModal({
                   value={formData.lowBalanceThreshold}
                   onChange={(e) => updateField('lowBalanceThreshold', e.target.value)}
                   placeholder="e.g. 500"
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   aria-label="Low balance threshold amount"
                 />
               </div>
@@ -300,7 +300,7 @@ export default function AccountSettingsModal({
               onChange={(e) => updateField('notes', e.target.value)}
               rows={3}
               placeholder="Additional information about this account"
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white resize-none"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white resize-none"
             />
           </div>
 
@@ -315,7 +315,7 @@ export default function AccountSettingsModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>

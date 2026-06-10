@@ -196,7 +196,7 @@ export default function BudgetRollover() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Budget Rollover</h3>
@@ -238,7 +238,7 @@ export default function BudgetRollover() {
           {rolloverSettings.autoApply && (
             <div className="flex items-center gap-2">
               <RepeatIcon size={14} className="text-blue-500" />
-              <span className="text-sm text-blue-600 dark:text-blue-400">Auto-apply</span>
+              <span className="text-sm text-emerald-700 dark:text-emerald-400">Auto-apply</span>
             </div>
           )}
         </div>
@@ -291,7 +291,7 @@ export default function BudgetRollover() {
             .map(data => (
               <div
                 key={data.budgetId}
-                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-lg shadow border border-white/20 dark:border-gray-700/50 p-4"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-100 dark:border-gray-700 p-4"
               >
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 dark:text-white">{data.categoryName}</h4>
@@ -322,7 +322,7 @@ export default function BudgetRollover() {
                   {data.willRollover && (
                     <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                       <span className="text-gray-600 dark:text-gray-400">Will Rollover:</span>
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
+                      <span className="font-medium text-emerald-700 dark:text-emerald-400">
                         {formatCurrency(data.rolloverAmount)}
                       </span>
                     </div>
@@ -335,7 +335,7 @@ export default function BudgetRollover() {
 
       {/* History */}
       {rolloverHistory.length > 0 && (
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rollover History</h3>
           
           <div className="space-y-3">
@@ -368,7 +368,7 @@ export default function BudgetRollover() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rollover Settings</h3>
             
             <div className="space-y-4">
@@ -524,7 +524,7 @@ export default function BudgetRollover() {
       {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Rollover Preview
             </h3>

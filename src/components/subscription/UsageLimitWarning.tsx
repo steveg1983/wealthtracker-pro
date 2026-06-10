@@ -137,7 +137,7 @@ export default function UsageLimitWarning({
           <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => window.location.href = '/subscription'}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors text-sm"
             >
               <ArrowUpIcon size={14} />
               Upgrade to Premium
@@ -145,7 +145,7 @@ export default function UsageLimitWarning({
             
             <button
               onClick={() => window.location.href = '/subscription'}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm underline"
+              className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm underline"
             >
               View Plans
             </button>
@@ -219,7 +219,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
         
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="px-6 py-3 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+          className="px-6 py-3 text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
         >
           Compare Plans
         </button>

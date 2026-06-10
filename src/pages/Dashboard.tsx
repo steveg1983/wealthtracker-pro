@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
 import LazyErrorBoundary from '../components/LazyErrorBoundary';
+import PageTip from '../components/PageTip';
 
 // Lazy load only modals and heavy features for better performance
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
@@ -95,6 +96,12 @@ export default function Dashboard() {
           <ImprovedDashboard />
         </Suspense>
       </LazyErrorBoundary>
+
+      <PageTip
+        id="dashboard-welcome"
+        title="Welcome to your financial dashboard"
+        description="Your dashboard shows your net worth, monthly performance, account balances, and recent activity. Click any section to drill down into the details."
+      />
 
       {/* Test Data Warning Modal */}
       <LazyErrorBoundary componentName="Test Data Warning">

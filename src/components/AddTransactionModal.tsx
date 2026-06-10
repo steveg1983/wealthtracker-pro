@@ -358,7 +358,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <LoadingButton
                 isLoading={isSubmitting}
                 loadingText="Adding..."
-                className="flex-1 px-4 py-2 min-h-[44px] text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
+                className="flex-1 px-4 py-2 min-h-[44px] text-sm sm:text-base bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
               >
                 Add Transaction
               </LoadingButton>

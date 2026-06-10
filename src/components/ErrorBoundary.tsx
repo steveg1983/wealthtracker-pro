@@ -114,7 +114,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
     if (this.state.hasError) {
       return this.props.fallback || (
         <div className="min-h-[400px] flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-xl p-8 text-center">
+          <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
             <div className="flex justify-center mb-6">
               <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
                 <AlertTriangleIcon size={40} className="text-red-600 dark:text-red-400" />
@@ -150,7 +150,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => this.setState({ hasError: false, error: undefined, errorInfo: undefined })}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
               >
                 <RefreshCwIcon size={18} />
                 Try Again

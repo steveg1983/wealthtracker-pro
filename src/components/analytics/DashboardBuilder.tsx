@@ -246,7 +246,7 @@ export default function DashboardBuilder({
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <GridIcon size={24} className="text-primary" />
@@ -275,7 +275,7 @@ export default function DashboardBuilder({
                   onClick={() => setIsEditMode(!isEditMode)}
                   className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors ${
                     isEditMode 
-                      ? 'bg-primary text-white' 
+                      ? 'bg-[#1a2332] text-white' 
                       : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -295,7 +295,7 @@ export default function DashboardBuilder({
                     
                     <button
                       onClick={handleSaveDashboard}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                      className="px-3 py-1.5 bg-[#1a2332] text-white rounded-lg flex items-center gap-2 hover:bg-[#2d3a4d] transition-colors"
                     >
                       <SaveIcon size={16} />
                       Save
@@ -349,7 +349,7 @@ export default function DashboardBuilder({
           {widgets.map(widget => (
             <div
               key={widget.id}
-              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
               data-grid={{
                 x: widget.layout.x,
                 y: widget.layout.y,
@@ -415,7 +415,7 @@ export default function DashboardBuilder({
             {!readOnly && (
               <button
                 onClick={() => setIsAddingWidget(true)}
-                className="px-4 py-2 bg-primary text-white rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors"
+                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg flex items-center gap-2 hover:bg-[#2d3a4d] transition-colors"
               >
                 <PlusIcon size={20} />
                 Add Your First Widget
@@ -428,7 +428,7 @@ export default function DashboardBuilder({
       {/* Add Widget Modal */}
       {isAddingWidget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">Add Widget</h2>
@@ -448,7 +448,7 @@ export default function DashboardBuilder({
                     onClick={() => setSelectedCategory(category)}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                       selectedCategory === category
-                        ? 'bg-primary text-white'
+                        ? 'bg-[#1a2332] text-white'
                         : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >

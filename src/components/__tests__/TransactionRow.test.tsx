@@ -52,7 +52,7 @@ describe('TransactionRow', () => {
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
     expect(screen.getByText('Grocery Shopping')).toBeInTheDocument();
-    expect(screen.getByText('-£75.50')).toBeInTheDocument();
+    expect(screen.getByText('(£75.50)')).toBeInTheDocument();
     expect(screen.getByText('🛒 groceries')).toBeInTheDocument();
     // Date format: '15 Jan 2024'
     const dateText = new Date('2024-01-15').toLocaleDateString('en-GB', {
@@ -71,7 +71,7 @@ describe('TransactionRow', () => {
 
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
-    const amountElement = screen.getByText('+£2,000.00');
+    const amountElement = screen.getByText('£2,000.00');
     expect(amountElement).toBeInTheDocument();
     expect(amountElement).toHaveClass('text-green-600');
   });
@@ -84,7 +84,7 @@ describe('TransactionRow', () => {
 
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
-    const amountElement = screen.getByText('-£500.00');
+    const amountElement = screen.getByText('(£500.00)');
     expect(amountElement).toBeInTheDocument();
     expect(amountElement).toHaveClass('text-red-600');
   });
@@ -98,7 +98,7 @@ describe('TransactionRow', () => {
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
     // Transfer with positive amount shows as income (green with + sign)
-    const amountElement = screen.getByText('+£1,000.00');
+    const amountElement = screen.getByText('£1,000.00');
     expect(amountElement).toBeInTheDocument();
     expect(amountElement).toHaveClass('text-green-600');
   });
@@ -179,7 +179,7 @@ describe('TransactionRow', () => {
     accounts.forEach(({ account, expectedFormat }) => {
       const { unmount } = renderInTable(<TransactionRow {...defaultProps} transaction={transaction} account={account} />);
       
-      expect(screen.getByText(`-${expectedFormat}`)).toBeInTheDocument();
+      expect(screen.getByText(`(${expectedFormat})`)).toBeInTheDocument();
       
       unmount();
     });

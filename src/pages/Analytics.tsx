@@ -332,7 +332,7 @@ export default function Analytics(): React.JSX.Element {
     <PageWrapper title="Analytics">
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -358,7 +358,7 @@ export default function Analytics(): React.JSX.Element {
                 </button>
                 <button
                   onClick={() => setShowDashboardBuilder(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
                 >
                   <PlusIcon size={16} />
                   New Dashboard
@@ -397,7 +397,7 @@ export default function Analytics(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setBreakdownType('income')}
-              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-left cursor-pointer"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors text-left cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -413,7 +413,7 @@ export default function Analytics(): React.JSX.Element {
             <button
               type="button"
               onClick={() => setBreakdownType('expense')}
-              className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors text-left cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -426,11 +426,11 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </button>
 
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Savings Rate</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                     {`${formatPercentage(keyMetrics.savingsRate, 1)}%`}
                   </p>
                 </div>
@@ -438,7 +438,7 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </div>
 
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
@@ -485,7 +485,7 @@ export default function Analytics(): React.JSX.Element {
                     <div
                       key={dashboard.id}
                       onClick={() => setActiveDashboard(dashboard)}
-                      className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md cursor-pointer transition-shadow"
+                      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md cursor-pointer transition-shadow"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <GridIcon size={24} className="text-primary" />
@@ -517,7 +517,7 @@ export default function Analytics(): React.JSX.Element {
                       </p>
                       <button
                         onClick={() => setShowDashboardBuilder(true)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
                       >
                         <PlusIcon size={16} />
                         Create Dashboard
@@ -531,14 +531,14 @@ export default function Analytics(): React.JSX.Element {
           
           {activeTab === 'explorer' && (
             <div>
-              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Saved Queries
                   </h2>
                   <button
                     onClick={() => setShowQueryBuilder(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90 text-sm"
                   >
                     <PlusIcon size={14} />
                     New Query
@@ -617,7 +617,7 @@ export default function Analytics(): React.JSX.Element {
               {insights.map((insight, index) => (
                 <div
                   key={index}
-                  className={`bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border-l-4 p-6 ${
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 p-6 ${
                     insight.severity === 'warning' ? 'border-l-amber-500' :
                     insight.severity === 'success' ? 'border-l-green-500' :
                     'border-l-blue-500'
@@ -653,7 +653,7 @@ export default function Analytics(): React.JSX.Element {
           )}
           
           {activeTab === 'reports' && (
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
               <div className="text-center">
                 <DownloadIcon size={48} className="mx-auto text-gray-400 dark:text-gray-600 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -689,7 +689,7 @@ export default function Analytics(): React.JSX.Element {
         
         {showDashboardBuilder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <Suspense fallback={<div className="flex items-center justify-center h-full p-8">Loading...</div>}>
                 <DashboardBuilder
                   onSave={(dashboard: DashboardBuilderDashboard) => {

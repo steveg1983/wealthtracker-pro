@@ -117,7 +117,7 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
       </div>
 
       {/* Chart */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -125,11 +125,11 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
               <XAxis 
                 dataKey="month" 
                 stroke="#666"
-                style={{ fontSize: '12px' }}
+                className="text-xs"
               />
               <YAxis 
                 stroke="#666"
-                style={{ fontSize: '12px' }}
+                className="text-xs"
                 tickFormatter={(value) => formatCurrency(toDecimal(value))}
               />
               <Tooltip 

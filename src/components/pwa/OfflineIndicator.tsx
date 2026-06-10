@@ -42,7 +42,7 @@ export const OfflineIndicator: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 min-w-[280px]">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-4 min-w-[280px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ export const OfflineIndicator: React.FC = () => {
           <>
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="mt-3 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="mt-3 text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
             >
               {showDetails ? 'Hide' : 'Show'} details
             </button>
@@ -135,7 +135,7 @@ export const OfflineIndicator: React.FC = () => {
                         >
                           <span>{conflict.entity} conflict</span>
                           <button
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                            className="text-emerald-700 dark:text-emerald-400 hover:underline"
                             onClick={() => {
                               // Open conflict resolution modal
                               window.dispatchEvent(

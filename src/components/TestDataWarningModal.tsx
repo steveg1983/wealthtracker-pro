@@ -41,7 +41,7 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-xl max-w-md w-full animate-fadeIn">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full animate-fadeIn">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -103,7 +103,7 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleClose}
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
             >
               Continue with Test Data
             </button>

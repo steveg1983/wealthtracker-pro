@@ -99,7 +99,7 @@ export default function ReconciliationTransactionList({
               onClick={() => setFilterMode(mode)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 filterMode === mode
-                  ? 'bg-primary text-white'
+                  ? 'bg-[#1a2332] text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
@@ -111,7 +111,7 @@ export default function ReconciliationTransactionList({
         {/* Add transaction */}
         <button
           onClick={onAddTransaction}
-          className="flex items-center gap-1 px-3 py-2 text-sm bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+          className="flex items-center gap-1 px-3 py-2 text-sm bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
         >
           <PlusIcon size={16} />
           Add

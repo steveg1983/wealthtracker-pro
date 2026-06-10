@@ -110,7 +110,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Projected End Balance</p>
@@ -125,7 +125,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Avg Monthly Income</p>
@@ -137,7 +137,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Avg Monthly Expenses</p>
@@ -149,7 +149,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Avg Monthly Savings</p>
@@ -194,7 +194,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
       )}
 
       {/* Projection Chart */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Balance Projection
         </h3>
@@ -211,11 +211,11 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
               <XAxis 
                 dataKey="date" 
                 stroke="#666"
-                style={{ fontSize: '12px' }}
+                className="text-xs"
               />
               <YAxis 
                 stroke="#666"
-                style={{ fontSize: '12px' }}
+                className="text-xs"
                 tickFormatter={(value) => formatCurrency(toDecimal(value))}
               />
               <Tooltip 
@@ -241,7 +241,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
       </div>
 
       {/* Recurring Patterns */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Detected Patterns ({forecast.recurringPatterns.length})

@@ -156,7 +156,7 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
         onClick={handleBackdropClick}
       >
         <div
-          className={`bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-xl ${maxWidth} w-full max-h-[90vh] overflow-hidden flex flex-col`}
+          className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full max-h-[90vh] overflow-hidden flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -168,7 +168,7 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
               <button
                 ref={closeButtonRef}
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 aria-label="Close dialog"
               >
                 <XIcon className="h-5 w-5" />

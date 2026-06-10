@@ -50,7 +50,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
       {/* Modal centered in viewport using fixed positioning */}
       <div 
         ref={modalRef}
-        className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 shadow-2xl"
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl"
         style={{
           position: 'fixed',
           top: '50%',
@@ -116,7 +116,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
           <div className="flex gap-3 mt-6">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
             >
               Get Started
             </button>

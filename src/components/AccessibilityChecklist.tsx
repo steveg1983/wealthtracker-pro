@@ -228,7 +228,7 @@ export default function AccessibilityChecklist(): React.JSX.Element {
   const stats = getStats();
 
   return (
-    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           Accessibility Checklist
@@ -236,7 +236,7 @@ export default function AccessibilityChecklist(): React.JSX.Element {
         <button
           onClick={runChecklist}
           disabled={isChecking}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors disabled:opacity-50"
         >
           {isChecking ? 'Checking...' : 'Run Checklist'}
         </button>

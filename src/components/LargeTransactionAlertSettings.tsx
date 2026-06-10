@@ -13,7 +13,7 @@ export default function LargeTransactionAlertSettings() {
   const { formatCurrency } = useCurrencyDecimal();
 
   return (
-    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
       <div className="flex items-center gap-3 mb-6">
         <AlertCircleIcon size={24} className="text-yellow-600" />
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Large Transaction Warnings</h2>
@@ -57,7 +57,7 @@ export default function LargeTransactionAlertSettings() {
                 value={largeTransactionThreshold}
                 onChange={(e) => setLargeTransactionThreshold(parseInt(e.target.value) || 500)}
                 disabled={!largeTransactionAlertsEnabled}
-                className="flex-1 px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <span className="text-lg font-semibold text-primary min-w-[100px] text-right">
                 {formatCurrency(largeTransactionThreshold)}
@@ -74,7 +74,7 @@ export default function LargeTransactionAlertSettings() {
                   disabled={!largeTransactionAlertsEnabled}
                   className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                     largeTransactionThreshold === amount
-                      ? 'bg-primary text-white'
+                      ? 'bg-[#1a2332] text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >

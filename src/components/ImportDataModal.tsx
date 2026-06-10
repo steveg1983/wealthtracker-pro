@@ -328,7 +328,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-2">
-                <InfoIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                <InfoIcon className="text-emerald-700 dark:text-emerald-400 mt-0.5" size={20} />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-semibold mb-1">Money File Import:</p>
                   <p>For Money .mny or .mbf files, we'll show you the data and let you tell us what each column represents.</p>
@@ -346,7 +346,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                 <>
                   <UploadIcon className="mx-auto text-gray-400 mb-4" size={48} />
                   <label className="cursor-pointer">
-                    <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
+                    <span className="bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
                       Choose File
                     </span>
                     <input
@@ -442,7 +442,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               disabled={!preview || importing || parsing || preview.accounts.length === 0}
               className={`flex-1 px-4 py-2 rounded-lg ${
                 preview && !importing && !parsing && preview.accounts.length > 0
-                  ? 'bg-primary text-white hover:bg-secondary'
+                  ? 'bg-[#1a2332] text-white hover:bg-secondary'
                   : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
               }`}
             >
@@ -462,7 +462,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       {/* Test Data Warning Dialog */}
       {showTestDataWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangleIcon className="text-orange-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Test Data Detected</h3>
@@ -502,7 +502,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               </button>
               <button
                 onClick={handleClearAndImport}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
               >
                 Clear & Import
               </button>

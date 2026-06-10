@@ -172,7 +172,7 @@ export function AccessibleIconButton({
   variant = 'secondary'
 }: AccessibleIconButtonProps) {
   const variantClasses = {
-    primary: 'bg-primary text-white hover:bg-primary-dark',
+    primary: 'bg-[#1a2332] text-white hover:bg-[#2d3a4d]',
     secondary: 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600',
     danger: 'bg-red-600 text-white hover:bg-red-700'
   };

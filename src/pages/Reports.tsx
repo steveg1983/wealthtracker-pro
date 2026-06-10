@@ -246,7 +246,7 @@ export default function Reports() {
         <div className="flex gap-2">
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-2xl hover:bg-secondary transition-colors"
           >
             <DownloadIcon size={20} />
             Export CSV
@@ -263,14 +263,14 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
             <CalendarIcon className="text-gray-500" size={20} />
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all' | 'custom')}
-              className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="month">Last Month</option>
               <option value="quarter">Last Quarter</option>
@@ -285,7 +285,7 @@ export default function Reports() {
             <select
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
-              className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="all">All Accounts</option>
               {accounts.map(account => (
@@ -301,14 +301,14 @@ export default function Reports() {
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
               <label className="text-sm text-gray-600 dark:text-gray-400">To:</label>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
           )}
@@ -319,21 +319,21 @@ export default function Reports() {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
           </p>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.expenses)}
           </p>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Net Income</p>
           <p className={`text-2xl font-bold ${
             summary.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -342,7 +342,7 @@ export default function Reports() {
           </p>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
           <p className={`text-2xl font-bold ${
             savingsRateValue >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
@@ -356,7 +356,7 @@ export default function Reports() {
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Trend */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-theme-heading dark:text-white">
             <TrendingUpIcon size={20} />
             Income vs Expenses Trend
@@ -374,7 +374,7 @@ export default function Reports() {
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-theme-heading dark:text-white">
             <PieChartIcon size={20} />
             Expense Categories
@@ -402,7 +402,7 @@ export default function Reports() {
         </div>
 
         {/* Top Transactions */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Top Transactions</h2>
         </div>

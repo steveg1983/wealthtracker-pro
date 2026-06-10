@@ -172,7 +172,7 @@ export default function CategorySelector({
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div className="relative">
         <div
-          className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-text flex items-center"
+          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-text flex items-center"
           onClick={handleInputClick}
         >
           <div className="flex items-center justify-between">
@@ -254,7 +254,7 @@ export default function CategorySelector({
                         onClick={() => setSelectedParentId(sub.id)}
                         className={`w-full text-left px-2.5 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-2 ${
                           selectedParentId === sub.id
-                            ? 'bg-primary/10 text-primary border border-primary/30'
+                            ? 'bg-[#1a2332]/10 text-primary border border-primary/30'
                             : 'hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
                         }`}
                       >
@@ -270,7 +270,7 @@ export default function CategorySelector({
                   type="button"
                   onClick={handleCreateCategory}
                   disabled={!newCategoryName.trim() || !selectedParentId}
-                  className="w-full px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  className="w-full px-3 py-1.5 text-sm bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
                   <PlusIcon size={14} />
                   Add Category
