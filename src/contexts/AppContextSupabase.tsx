@@ -10,6 +10,7 @@ import { DataService } from '../services/api/dataService';
 import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
 import { userIdService } from '../services/userIdService';
+import { PlanningService } from '../services/api/planningService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
 import {
@@ -50,16 +51,16 @@ export interface AppContextType extends AppState {
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   
-  // Budget operations
-  addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => void;
-  updateBudget: (id: string, updates: Partial<Budget>) => void;
-  deleteBudget: (id: string) => void;
-  
-  // Goal operations
-  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => void;
-  updateGoal: (id: string, updates: Partial<Goal>) => void;
-  deleteGoal: (id: string) => void;
-  contributeToGoal: (id: string, amount: number) => void;
+  // Budget operations — async so callers can surface persistence failures
+  addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => Promise<void>;
+  updateBudget: (id: string, updates: Partial<Budget>) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
+
+  // Goal operations — async so callers can surface persistence failures
+  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => Promise<void>;
+  updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+  contributeToGoal: (id: string, amount: number) => Promise<void>;
   
   // Category operations
   addCategory: (category: Omit<Category, 'id'>) => void;
@@ -168,12 +169,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Load other data through DataService for now
         const data = await DataService.loadAppData();
         setTransactions(data.transactions);
-        setBudgets(data.budgets);
-        setGoals(data.goals);
-        
-        // Use default categories if none exist
+
+        // Budgets and goals load via PlanningService (Supabase when
+        // configured, encrypted localStorage otherwise).
+        const planningUserId = userIdService.getCurrentDatabaseUserId();
+        const [loadedBudgets, loadedGoals] = await Promise.all([
+          PlanningService.getBudgets(planningUserId),
+          PlanningService.getGoals(planningUserId)
+        ]);
+        setBudgets(loadedBudgets);
+        setGoals(loadedGoals);
+
+        // Use default categories if none exist — and persist the seed so the
+        // set survives refresh.
         if (data.categories.length === 0) {
-          setCategories(getDefaultCategories());
+          const defaults = getDefaultCategories();
+          setCategories(defaults);
+          await PlanningService.saveCategories(defaults);
         } else {
           setCategories(data.categories);
         }
@@ -439,68 +451,127 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [transactions]);
 
-  // Budget operations (still using localStorage for now)
-  const addBudget = useCallback((budget: Omit<Budget, 'id' | 'spent'>) => {
-    const newBudget: Budget = {
-      ...budget,
-      id: crypto.randomUUID(),
-      spent: 0
-    };
-    setBudgets(prev => [...prev, newBudget]);
+  // Budget operations — persisted via PlanningService (Supabase or local)
+  const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'spent'>) => {
+    try {
+      const created = await PlanningService.createBudget(
+        userIdService.getCurrentDatabaseUserId(),
+        budget
+      );
+      setBudgets(prev => [...prev, created]);
+    } catch (error) {
+      appLogger.error('Failed to add budget', error);
+      throw error;
+    }
   }, []);
 
-  const updateBudget = useCallback((id: string, updates: Partial<Budget>) => {
-    setBudgets(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  const updateBudget = useCallback(async (id: string, updates: Partial<Budget>) => {
+    try {
+      const updated = await PlanningService.updateBudget(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        updates
+      );
+      setBudgets(prev => prev.map(b => b.id === id ? updated : b));
+    } catch (error) {
+      appLogger.error('Failed to update budget', error);
+      throw error;
+    }
   }, []);
 
-  const deleteBudget = useCallback((id: string) => {
-    setBudgets(prev => prev.filter(b => b.id !== id));
+  const deleteBudget = useCallback(async (id: string) => {
+    try {
+      await PlanningService.deleteBudget(userIdService.getCurrentDatabaseUserId(), id);
+      setBudgets(prev => prev.filter(b => b.id !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete budget', error);
+      throw error;
+    }
   }, []);
 
-  // Goal operations (still using localStorage for now)
-  const addGoal = useCallback((goal: Omit<Goal, 'id' | 'progress'>) => {
-    const newGoal: Goal = {
-      ...goal,
-      id: crypto.randomUUID(),
-      progress: 0
-    };
-    setGoals(prev => [...prev, newGoal]);
+  // Goal operations — persisted via PlanningService (Supabase or local)
+  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'progress'>) => {
+    try {
+      const created = await PlanningService.createGoal(
+        userIdService.getCurrentDatabaseUserId(),
+        goal
+      );
+      setGoals(prev => [...prev, created]);
+    } catch (error) {
+      appLogger.error('Failed to add goal', error);
+      throw error;
+    }
   }, []);
 
-  const updateGoal = useCallback((id: string, updates: Partial<Goal>) => {
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+  const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
+    try {
+      const updated = await PlanningService.updateGoal(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        updates
+      );
+      setGoals(prev => prev.map(g => g.id === id ? updated : g));
+    } catch (error) {
+      appLogger.error('Failed to update goal', error);
+      throw error;
+    }
   }, []);
 
-  const deleteGoal = useCallback((id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
+  const deleteGoal = useCallback(async (id: string) => {
+    try {
+      await PlanningService.deleteGoal(userIdService.getCurrentDatabaseUserId(), id);
+      setGoals(prev => prev.filter(g => g.id !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete goal', error);
+      throw error;
+    }
   }, []);
 
-  const contributeToGoal = useCallback((id: string, amount: number) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        const newProgress = Math.min((g.progress || 0) + amount, g.targetAmount);
-        return { ...g, progress: newProgress };
-      }
-      return g;
-    }));
+  const contributeToGoal = useCallback(async (id: string, amount: number) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+    const newProgress = toDecimal(goal.progress || 0)
+      .plus(toDecimal(amount))
+      .toNumber();
+    const cappedProgress = Math.min(newProgress, goal.targetAmount);
+    try {
+      const updated = await PlanningService.updateGoal(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        { progress: cappedProgress, currentAmount: cappedProgress }
+      );
+      setGoals(prev => prev.map(g => g.id === id ? updated : g));
+    } catch (error) {
+      appLogger.error('Failed to contribute to goal', error);
+      throw error;
+    }
+  }, [goals]);
+
+  // Category operations — persisted to encrypted localStorage on every
+  // mutation (cloud sync for categories is tracked as P3; the default
+  // category ids are not UUIDs so the cloud table cannot hold them yet).
+  const persistCategories = useCallback((next: Category[]) => {
+    void PlanningService.saveCategories(next).catch((error: unknown) => {
+      appLogger.error('Failed to persist categories', error);
+    });
+    return next;
   }, []);
 
-  // Category operations (still using localStorage for now)
   const addCategory = useCallback((category: Omit<Category, 'id'>) => {
     const newCategory: Category = {
       ...category,
       id: crypto.randomUUID()
     };
-    setCategories(prev => [...prev, newCategory]);
-  }, []);
+    setCategories(prev => persistCategories([...prev, newCategory]));
+  }, [persistCategories]);
 
   const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-  }, []);
+    setCategories(prev => persistCategories(prev.map(c => c.id === id ? { ...c, ...updates } : c)));
+  }, [persistCategories]);
 
   const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
-  }, []);
+    setCategories(prev => persistCategories(prev.filter(c => c.id !== id && c.parentId !== id)));
+  }, [persistCategories]);
 
   const getSubCategories = useCallback((parentId: string) => {
     return categories.filter(c => c.parentId === parentId);
