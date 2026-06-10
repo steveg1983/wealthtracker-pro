@@ -6,6 +6,7 @@ import type {
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { applyRateLimit } from '../_lib/rate-limit.js';
 import { createStateToken } from '../_lib/state.js';
 import { buildAuthUrl, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
 
@@ -27,6 +28,10 @@ const createErrorResponse = (
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, { name: 'link-token', limit: 10, windowMs: 60_000 })) {
     return;
   }
 

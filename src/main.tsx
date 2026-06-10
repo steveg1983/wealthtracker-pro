@@ -21,6 +21,12 @@ import {
 } from './utils/runtimeMode'
 
 const bootstrapLogger = createScopedLogger('AppBootstrap');
+
+// Reduced-motion preference (moved out of index.html so the CSP needs no
+// 'unsafe-inline' for scripts).
+if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  document.documentElement.classList.add('reduce-motion');
+}
 const disableServiceWorker = import.meta.env.VITE_DISABLE_SERVICE_WORKER === 'true';
 let runtimeControlSanitizationContext: {
   removedQueryParams: ('demo' | 'testMode')[];

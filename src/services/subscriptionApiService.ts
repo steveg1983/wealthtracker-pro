@@ -17,7 +17,6 @@ import type {
   UserSubscription,
   BillingHistory,
   BillingInvoice,
-  SubscriptionPlan
 } from '../types/subscription';
 import { toDecimal, toStorageNumber } from '../utils/decimal';
 
@@ -156,21 +155,11 @@ export class SubscriptionApiService {
   }
 
   /**
-   * Create customer portal session (simulates backend endpoint)
+   * @deprecated Use StripeService.createPortalSession(clerkToken) — the real
+   * POST /api/billing/portal endpoint now exists (api/billing/portal.ts).
    */
   static async createPortalSession(): Promise<string> {
-    try {
-      throw new Error(
-        'Customer portal requires a backend API endpoint.\n' +
-        'Implement POST /api/billing/portal that:\n' +
-        '1. Gets user from session\n' +
-        '2. Creates Stripe portal session\n' +
-        '3. Returns portal URL'
-      );
-    } catch (error) {
-      this.logger.error('Error creating portal session:', error as Error);
-      throw error;
-    }
+    throw new Error('Use StripeService.createPortalSession(clerkToken) instead.');
   }
 
   /**
@@ -189,7 +178,7 @@ export class SubscriptionApiService {
       // Create a demo subscription in the database
       const demoSubscription: Partial<UserSubscription> = {
         userId: userProfile.id,
-        tier: tier === 'pro' ? 'enterprise' : tier as SubscriptionPlan,
+        tier: tier,
         status: 'trialing',
         stripeCustomerId: `cus_demo_${Date.now()}`,
         stripeSubscriptionId: `sub_demo_${Date.now()}`,

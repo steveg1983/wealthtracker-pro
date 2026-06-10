@@ -33,6 +33,19 @@ const isOriginAllowed = (origin: string, allowed: Set<string>): boolean => {
   return allowed.has(origin);
 };
 
+/**
+ * Validate that a client-supplied redirect URL points at one of our own
+ * origins. Used by checkout/portal endpoints to prevent open redirects.
+ */
+export const isRedirectUrlAllowed = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parseAllowedOrigins().has(parsed.origin);
+  } catch {
+    return false;
+  }
+};
+
 export const setCorsHeaders = (req: VercelRequest, res: VercelResponse): boolean => {
   const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin ?? '';
   const allowedOrigins = parseAllowedOrigins();

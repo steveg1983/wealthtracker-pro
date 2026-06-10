@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import type {
   UserSubscription,
@@ -37,6 +38,7 @@ interface BillingDashboardProps {
 export default function BillingDashboard({
   className = ''
 }: BillingDashboardProps): React.JSX.Element {
+  const { getToken } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [billingHistory, setBillingHistory] = useState<BillingHistory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,7 +94,12 @@ export default function BillingDashboard({
 
   const handleManageBilling = async () => {
     try {
-      const portalUrl = await StripeService.createPortalSession();
+      const token = await getToken();
+      if (!token) {
+        setError('Please sign in again to manage billing');
+        return;
+      }
+      const portalUrl = await StripeService.createPortalSession(token);
       window.open(portalUrl, '_blank');
     } catch (err) {
       console.error('Error creating portal session:', err);

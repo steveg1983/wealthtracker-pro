@@ -58,13 +58,7 @@
     </style>
     
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Defer non-critical scripts -->
-    <script>
-      // Check if user prefers reduced motion
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        document.documentElement.classList.add('reduce-motion');
-      }
-    </script>
+    <!-- No inline scripts: CSP script-src has no 'unsafe-inline'.
+         The reduced-motion check lives in src/main.tsx. -->
   </body>
 </html>

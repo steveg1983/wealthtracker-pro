@@ -120,7 +120,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
   const currentPlan = PLAN_DETAILS[resolvedPlanKey];
   const Icon = currentPlan.icon;
 
-  const handleUpgrade = async (_newTier: 'basic' | 'premium' | 'enterprise'): Promise<void> => {
+  const handleUpgrade = async (_newTier: 'premium' | 'pro'): Promise<void> => {
     try {
       await updateSubscription();
     } catch (error) {
@@ -241,27 +241,27 @@ export default function SubscriptionStatus(): React.JSX.Element {
           {tier === 'free' && (
             <>
               <button
-                onClick={() => handleUpgrade('basic')}
+                onClick={() => handleUpgrade('premium')}
                 className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
+              >
+                Upgrade to Premium
+              </button>
+              <button
+                onClick={() => handleUpgrade('pro')}
+                className="flex-1 px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
               >
                 Upgrade to Pro
               </button>
-              <button
-                onClick={() => handleUpgrade('premium')}
-                className="flex-1 px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-              >
-                Upgrade to Business
-              </button>
             </>
           )}
-          
-          {tier === 'basic' && (
+
+          {tier === 'premium' && (
             <>
               <button
-                onClick={() => handleUpgrade('premium')}
+                onClick={() => handleUpgrade('pro')}
                 className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
-                Upgrade to Business
+                Upgrade to Pro
               </button>
               {!cancelAtPeriodEnd && (
                 <button
@@ -274,7 +274,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             </>
           )}
 
-          {tier === 'premium' && !cancelAtPeriodEnd && (
+          {tier === 'pro' && !cancelAtPeriodEnd && (
             <button
               onClick={handleCancel}
               className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

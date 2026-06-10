@@ -193,9 +193,9 @@ export class StripeService {
         prioritySupport: false
       },
       {
-        id: 'premium',
-        name: 'Premium',
-        tier: 'premium',
+        id: 'pro',
+        name: 'Pro',
+        tier: 'pro',
         description: 'Professional-grade tools for power users and businesses',
         price: 15.99,
         currency: 'gbp',
@@ -522,11 +522,18 @@ export class StripeService {
   /**
    * Create a customer portal session for self-service billing
    */
-  static async createPortalSession(): Promise<string> {
+  static async createPortalSession(clerkToken: string): Promise<string> {
     try {
       const fetchFn = this.ensureFetch();
       const response = await fetchFn(this.resolveUrl('/api/billing/portal'), {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${clerkToken}`
+        },
+        body: JSON.stringify({
+          returnUrl: `${this.dependencies.locationOrigin}/subscription`
+        })
       });
 
       if (!response.ok) {
@@ -559,7 +566,7 @@ export class StripeService {
    * Check if tier is higher than current tier
    */
   static isUpgrade(currentTier: SubscriptionPlan, newTier: SubscriptionPlan): boolean {
-    const tierOrder: SubscriptionPlan[] = ['free', 'basic', 'premium', 'enterprise'];
+    const tierOrder: SubscriptionPlan[] = ['free', 'premium', 'pro'];
     const currentIndex = tierOrder.indexOf(currentTier);
     const newIndex = tierOrder.indexOf(newTier);
     return newIndex > currentIndex;
@@ -569,7 +576,7 @@ export class StripeService {
    * Check if tier is lower than current tier
    */
   static isDowngrade(currentTier: SubscriptionPlan, newTier: SubscriptionPlan): boolean {
-    const tierOrder: SubscriptionPlan[] = ['free', 'basic', 'premium', 'enterprise'];
+    const tierOrder: SubscriptionPlan[] = ['free', 'premium', 'pro'];
     const currentIndex = tierOrder.indexOf(currentTier);
     const newIndex = tierOrder.indexOf(newTier);
     return newIndex < currentIndex;
