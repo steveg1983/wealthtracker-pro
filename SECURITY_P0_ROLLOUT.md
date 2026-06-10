@@ -92,6 +92,11 @@ Applies:
 3. `20260610140000_atomic_transaction_rpcs.sql`
 4. `20260610150000_financial_audit_log.sql` (audit trail — re-creates the
    RPCs with in-transaction audit writes; depends on helpers from 2)
+5. `20260611100000_categories_cloud_sync.sql` (categories migration RPC +
+   per-user-only SELECT policy; depends on helpers from 2. The app runs the
+   per-user category migration automatically on each user's first signed-in
+   load after deploy — uuid ids generated and every transaction/budget
+   category reference remapped in one DB transaction)
 
 ⚠️ ORDERING: migration 3 (the atomic RPCs) must be live BEFORE the frontend
 from this branch deploys — the app now calls

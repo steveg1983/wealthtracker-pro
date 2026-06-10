@@ -141,5 +141,65 @@ describe('PlanningService (local mode, userId=null)', () => {
       const fetched = await PlanningService.getCategories();
       expect(fetched).toEqual([]);
     });
+
+    it('ensureCategories falls back to defaults when local is empty (signed out)', async () => {
+      const categories = await PlanningService.ensureCategories(null);
+      // The default set includes the core type-level categories
+      expect(categories.length).toBeGreaterThan(10);
+      expect(categories.some(c => c.id === 'type-income')).toBe(true);
+      expect(categories.some(c => c.id === 'type-expense')).toBe(true);
+    });
+
+    it('ensureCategories returns the stored local set when present (signed out)', async () => {
+      const stored: Category[] = [
+        { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true }
+      ];
+      await PlanningService.saveCategories(stored);
+
+      const categories = await PlanningService.ensureCategories(null);
+      expect(categories).toHaveLength(1);
+      expect(categories[0].id).toBe('type-income');
+    });
+
+    it('creates a category locally', async () => {
+      const created = await PlanningService.createCategory(null, {
+        name: 'Pets', type: 'expense', level: 'detail', parentId: 'sub-other-expense'
+      });
+
+      expect(created.id).toBeTruthy();
+      const fetched = await PlanningService.getCategories();
+      expect(fetched.map(c => c.name)).toContain('Pets');
+    });
+
+    it('updates a category locally', async () => {
+      const created = await PlanningService.createCategory(null, {
+        name: 'Pets', type: 'expense', level: 'detail'
+      });
+      const updated = await PlanningService.updateCategory(null, created.id, { name: 'Pet Care' });
+
+      expect(updated.name).toBe('Pet Care');
+      const fetched = await PlanningService.getCategories();
+      expect(fetched[0].name).toBe('Pet Care');
+    });
+
+    it('throws when updating a missing category', async () => {
+      await expect(
+        PlanningService.updateCategory(null, 'nope', { name: 'x' })
+      ).rejects.toThrow('Category not found');
+    });
+
+    it('deletes a category and its children locally (cascade)', async () => {
+      const parent = await PlanningService.createCategory(null, {
+        name: 'Parent', type: 'expense', level: 'sub'
+      });
+      await PlanningService.createCategory(null, {
+        name: 'Child', type: 'expense', level: 'detail', parentId: parent.id
+      });
+
+      await PlanningService.deleteCategory(null, parent.id);
+
+      const fetched = await PlanningService.getCategories();
+      expect(fetched).toHaveLength(0);
+    });
   });
 });

@@ -8,15 +8,19 @@
  * Budgets and goals: Supabase when configured (per-user, RLS-scoped), with
  * encrypted localStorage as the offline fallback.
  *
- * Categories: persisted to encrypted localStorage only for now. The default
+ * Categories: cloud-synced via the migrate_categories_atomic RPC. The default
  * category set uses non-UUID ids ('type-income', 'transfer-in', …) which the
- * uuid-keyed cloud table cannot store without an id-migration pass — tracked
- * as a P3 item in AUDIT_2026-06-10.md.
+ * uuid-keyed cloud table cannot store, AND transactions/budgets reference
+ * categories by those text ids — so on a user's first cloud load the RPC
+ * generates per-user uuids and remaps every reference in ONE database
+ * transaction (orphaning is structurally impossible). Signed-out users keep
+ * the encrypted-localStorage path with the original text ids.
  */
 
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { createScopedLogger } from '../../loggers/scopedLogger';
+import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Budget, Goal, Category } from '../../types';
 
 const logger = createScopedLogger('PlanningService');
@@ -316,13 +320,196 @@ export class PlanningService {
     await writeLocal(STORAGE_KEYS.GOALS, goals.filter(g => g.id !== id));
   }
 
-  // ----- Categories (local persistence only — see header note) -----
+  // ----- Categories -----
 
+  /** Local read (signed-out mode and cache). */
   static async getCategories(): Promise<Category[]> {
     return readLocal<Category>(STORAGE_KEYS.CATEGORIES);
   }
 
+  /** Local write (signed-out mode and cache). */
   static async saveCategories(categories: Category[]): Promise<void> {
     await writeLocal(STORAGE_KEYS.CATEGORIES, categories);
   }
+
+  /**
+   * Cloud-aware category load with first-run migration/seeding.
+   *
+   * - Cloud has rows → return them (and refresh the local cache).
+   * - Cloud empty → run migrate_categories_atomic with the user's
+   *   localStorage categories (or the default set for brand-new users).
+   *   The RPC inserts uuid-keyed copies AND remaps every transaction/budget
+   *   category reference in one database transaction.
+   * - userId null / Supabase unavailable → local mode.
+   */
+  static async ensureCategories(userId: string | null): Promise<Category[]> {
+    if (!this.cloudReady || !userId) {
+      const local = await this.getCategories();
+      return local.length > 0 ? local : getDefaultCategories();
+    }
+
+    const { data, error } = await supabase!
+      .from('categories')
+      .select('*')
+      .eq('user_id', userId)
+      .order('level', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) {
+      logger.error('ensureCategories cloud read failed, using local fallback', error);
+      const local = await this.getCategories();
+      return local.length > 0 ? local : getDefaultCategories();
+    }
+
+    const rows = (data ?? []) as Row[];
+    if (rows.length > 0) {
+      const categories = rows.map(categoryFromDb);
+      await this.saveCategories(categories); // refresh cache
+      return categories;
+    }
+
+    // First cloud load: migrate localStorage categories (or seed defaults).
+    const local = await this.getCategories();
+    const source = local.length > 0 ? local : getDefaultCategories();
+
+    const { data: migrated, error: rpcError } = await supabase!.rpc('migrate_categories_atomic', {
+      p_user_id: userId,
+      p_categories: source.map(categoryToRpcPayload)
+    });
+
+    if (rpcError) {
+      // 'categories_already_migrated' = a concurrent session won the race —
+      // re-read instead of failing.
+      if (rpcError.message?.includes('categories_already_migrated')) {
+        const retry = await supabase!
+          .from('categories')
+          .select('*')
+          .eq('user_id', userId);
+        const retryRows = ((retry.data ?? []) as Row[]).map(categoryFromDb);
+        if (retryRows.length > 0) {
+          await this.saveCategories(retryRows);
+          return retryRows;
+        }
+      }
+      logger.error('Category migration failed, staying on local set', rpcError);
+      return source;
+    }
+
+    const categories = ((migrated ?? []) as Row[]).map(categoryFromDb);
+    await this.saveCategories(categories);
+    logger.info(`Categories migrated to cloud: ${categories.length} (from ${local.length > 0 ? 'localStorage' : 'defaults'})`);
+    return categories;
+  }
+
+  static async createCategory(userId: string | null, category: Omit<Category, 'id'>): Promise<Category> {
+    if (this.cloudReady && userId) {
+      const row = categoryToDb(category, userId);
+      const { data, error } = await supabase!
+        .from('categories')
+        .insert(row as never)
+        .select()
+        .single();
+      if (error) throw new Error(handleSupabaseError(error));
+      const created = categoryFromDb(data as Row);
+      const cache = await this.getCategories();
+      await this.saveCategories([...cache, created]);
+      return created;
+    }
+
+    const newCategory: Category = { ...category, id: crypto.randomUUID() };
+    const categories = await this.getCategories();
+    categories.push(newCategory);
+    await this.saveCategories(categories);
+    return newCategory;
+  }
+
+  static async updateCategory(userId: string | null, id: string, updates: Partial<Category>): Promise<Category> {
+    if (this.cloudReady && userId) {
+      const { data, error } = await supabase!
+        .from('categories')
+        .update(categoryToDb(updates) as never)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+      if (error) throw new Error(handleSupabaseError(error));
+      const updated = categoryFromDb(data as Row);
+      const cache = await this.getCategories();
+      await this.saveCategories(cache.map(c => c.id === id ? updated : c));
+      return updated;
+    }
+
+    const categories = await this.getCategories();
+    const index = categories.findIndex(c => c.id === id);
+    if (index === -1) throw new Error('Category not found');
+    categories[index] = { ...categories[index], ...updates };
+    await this.saveCategories(categories);
+    return categories[index];
+  }
+
+  static async deleteCategory(userId: string | null, id: string): Promise<void> {
+    if (this.cloudReady && userId) {
+      // parent_id FK is ON DELETE CASCADE — children go with the parent,
+      // matching the client-side behaviour below.
+      const { error } = await supabase!
+        .from('categories')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
+      if (error) throw new Error(handleSupabaseError(error));
+      const cache = await this.getCategories();
+      await this.saveCategories(cache.filter(c => c.id !== id && c.parentId !== id));
+      return;
+    }
+
+    const categories = await this.getCategories();
+    await this.saveCategories(categories.filter(c => c.id !== id && c.parentId !== id));
+  }
 }
+
+// ── Category mapping ─────────────────────────────────────────────────────────
+
+const categoryFromDb = (row: Row): Category => ({
+  id: String(row.id),
+  name: str(row.name) ?? '',
+  type: (str(row.type) ?? 'expense') as Category['type'],
+  level: (str(row.level) ?? 'detail') as Category['level'],
+  parentId: str(row.parent_id) ?? null,
+  color: str(row.color),
+  icon: str(row.icon),
+  isSystem: row.is_system === true,
+  isTransferCategory: row.is_transfer_category === true,
+  accountId: str(row.account_id) ?? undefined,
+  isActive: row.is_active !== false
+});
+
+const categoryToDb = (c: Partial<Category>, userId?: string): Row => {
+  const row: Row = {};
+  if (userId) row.user_id = userId;
+  if (c.name !== undefined) row.name = c.name;
+  if (c.type !== undefined) row.type = c.type;
+  if (c.level !== undefined) row.level = c.level;
+  if (c.parentId !== undefined) row.parent_id = c.parentId || null;
+  if (c.color !== undefined) row.color = c.color;
+  if (c.icon !== undefined) row.icon = c.icon;
+  if (c.isSystem !== undefined) row.is_system = c.isSystem;
+  if (c.isTransferCategory !== undefined) row.is_transfer_category = c.isTransferCategory;
+  if (c.accountId !== undefined) row.account_id = c.accountId || null;
+  if (c.isActive !== undefined) row.is_active = c.isActive;
+  return row;
+};
+
+/** Shape the RPC expects: camelCase keys matching the frontend Category. */
+const categoryToRpcPayload = (c: Category): Record<string, unknown> => ({
+  id: c.id,
+  name: c.name,
+  type: c.type,
+  level: c.level,
+  parentId: c.parentId ?? null,
+  color: c.color ?? null,
+  icon: c.icon ?? null,
+  isSystem: c.isSystem ?? false,
+  isTransferCategory: c.isTransferCategory ?? false,
+  accountId: c.accountId ?? null,
+  isActive: c.isActive ?? true
+});

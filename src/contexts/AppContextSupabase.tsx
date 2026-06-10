@@ -62,10 +62,10 @@ export interface AppContextType extends AppState {
   deleteGoal: (id: string) => Promise<void>;
   contributeToGoal: (id: string, amount: number) => Promise<void>;
   
-  // Category operations
-  addCategory: (category: Omit<Category, 'id'>) => void;
-  updateCategory: (id: string, updates: Partial<Category>) => void;
-  deleteCategory: (id: string) => void;
+  // Category operations — async so callers can surface persistence failures
+  addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
+  updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
   getSubCategories: (parentId: string) => Category[];
   getDetailCategories: (parentId: string) => Category[];
   
@@ -166,29 +166,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setAccounts([]);
         }
         
-        // Load other data through DataService for now
+        // Categories MUST resolve before transactions/budgets are read:
+        // ensureCategories runs the one-time cloud migration on first
+        // signed-in load (per-user uuid ids + atomic remap of the category
+        // references on transactions and budgets) — reading those first
+        // would snapshot pre-remap ids into state.
+        const planningUserId = userIdService.getCurrentDatabaseUserId();
+        const loadedCategories = await PlanningService.ensureCategories(planningUserId);
+        setCategories(loadedCategories);
+
+        // Now load transactions, budgets, and goals (post-remap views).
         const data = await DataService.loadAppData();
         setTransactions(data.transactions);
 
-        // Budgets and goals load via PlanningService (Supabase when
-        // configured, encrypted localStorage otherwise).
-        const planningUserId = userIdService.getCurrentDatabaseUserId();
         const [loadedBudgets, loadedGoals] = await Promise.all([
           PlanningService.getBudgets(planningUserId),
           PlanningService.getGoals(planningUserId)
         ]);
         setBudgets(loadedBudgets);
         setGoals(loadedGoals);
-
-        // Use default categories if none exist — and persist the seed so the
-        // set survives refresh.
-        if (data.categories.length === 0) {
-          const defaults = getDefaultCategories();
-          setCategories(defaults);
-          await PlanningService.saveCategories(defaults);
-        } else {
-          setCategories(data.categories);
-        }
 
         setIsUsingSupabase(DataService.isUsingSupabase());
         setLastSyncTime(new Date());
@@ -547,31 +543,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [goals]);
 
-  // Category operations — persisted to encrypted localStorage on every
-  // mutation (cloud sync for categories is tracked as P3; the default
-  // category ids are not UUIDs so the cloud table cannot hold them yet).
-  const persistCategories = useCallback((next: Category[]) => {
-    void PlanningService.saveCategories(next).catch((error: unknown) => {
-      appLogger.error('Failed to persist categories', error);
-    });
-    return next;
+  // Category operations — persisted via PlanningService (Supabase when
+  // signed in, encrypted localStorage otherwise).
+  const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
+    try {
+      const created = await PlanningService.createCategory(
+        userIdService.getCurrentDatabaseUserId(),
+        category
+      );
+      setCategories(prev => [...prev, created]);
+    } catch (error) {
+      appLogger.error('Failed to add category', error);
+      throw error;
+    }
   }, []);
 
-  const addCategory = useCallback((category: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-      ...category,
-      id: crypto.randomUUID()
-    };
-    setCategories(prev => persistCategories([...prev, newCategory]));
-  }, [persistCategories]);
+  const updateCategory = useCallback(async (id: string, updates: Partial<Category>) => {
+    try {
+      const updated = await PlanningService.updateCategory(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        updates
+      );
+      setCategories(prev => prev.map(c => c.id === id ? updated : c));
+    } catch (error) {
+      appLogger.error('Failed to update category', error);
+      throw error;
+    }
+  }, []);
 
-  const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
-    setCategories(prev => persistCategories(prev.map(c => c.id === id ? { ...c, ...updates } : c)));
-  }, [persistCategories]);
-
-  const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => persistCategories(prev.filter(c => c.id !== id && c.parentId !== id)));
-  }, [persistCategories]);
+  const deleteCategory = useCallback(async (id: string) => {
+    try {
+      await PlanningService.deleteCategory(userIdService.getCurrentDatabaseUserId(), id);
+      // Children go with the parent (cloud FK is ON DELETE CASCADE; mirror it)
+      setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete category', error);
+      throw error;
+    }
+  }, []);
 
   const getSubCategories = useCallback((parentId: string) => {
     return categories.filter(c => c.parentId === parentId);
