@@ -58,6 +58,28 @@ export function decimalsEqual(a: DecimalInstance | number, b: DecimalInstance | 
 }
 
 /**
+ * Parse user-entered money text into a storage-safe number (2dp, HALF_UP).
+ *
+ * Strict where parseFloat is sloppy: parseFloat("12.34abc") silently returns
+ * 12.34; this returns null for anything that isn't a plain signed decimal
+ * after stripping currency symbols, thousands separators, and whitespace.
+ *
+ * Returns null for invalid input — callers decide how to surface that.
+ */
+export function parseMoneyInput(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw)
+      ? new Decimal(raw).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber()
+      : null;
+  }
+  const cleaned = raw.trim().replace(/[£$€,\s]/g, '');
+  // Accepts "12", "12.34", ".5", "-7", "-.5" — rejects everything else.
+  if (cleaned === '' || !/^-?(\d+(\.\d+)?|\.\d+)$/.test(cleaned)) return null;
+  return new Decimal(cleaned).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+}
+
+/**
  * Export Decimal class for direct use
  */
 export { Decimal };

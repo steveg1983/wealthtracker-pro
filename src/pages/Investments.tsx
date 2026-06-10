@@ -9,7 +9,7 @@ import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
@@ -50,7 +50,7 @@ export default function Investments() {
 
   // Create holdings data from investment accounts
   const holdings = investmentAccounts.map((acc) => {
-    const numericBalance = typeof acc.balance === 'string' ? parseFloat(acc.balance) : acc.balance;
+    const numericBalance = typeof acc.balance === 'string' ? parseMoneyInput(acc.balance) ?? 0 : acc.balance;
     return {
       name: acc.name,
       value: numericBalance,

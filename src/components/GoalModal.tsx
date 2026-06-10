@@ -3,6 +3,7 @@ import { useApp } from "../contexts/AppContextSupabase";
 import type { Goal } from "../types";
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import { parseMoneyInput } from '../utils/decimal';
 
 interface GoalModalProps {
   isOpen: boolean;
@@ -41,8 +42,8 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
         const goalData = {
           name: data.name,
           type: data.type,
-          targetAmount: parseFloat(data.targetAmount) || 0,
-          currentAmount: parseFloat(data.currentAmount) || 0,
+          targetAmount: parseMoneyInput(data.targetAmount) ?? 0,
+          currentAmount: parseMoneyInput(data.currentAmount) ?? 0,
           targetDate: new Date(data.targetDate),
           description: data.description || undefined,
           linkedAccountIds: data.linkedAccountIds.length > 0 ? data.linkedAccountIds : undefined,

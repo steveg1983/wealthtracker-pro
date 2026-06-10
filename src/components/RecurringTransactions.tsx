@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { RepeatIcon, PlusIcon, Edit2Icon, DeleteIcon, PlayIcon, PauseIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
+import { parseMoneyInput } from '../utils/decimal';
 import { Transaction } from '../types';
 import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
@@ -85,7 +86,7 @@ export default function RecurringTransactions(): React.JSX.Element {
     });
 
     try {
-      const amountValue = Number.parseFloat(template.amount);
+      const amountValue = parseMoneyInput(template.amount) ?? NaN;
       const signedAmount = Number.isNaN(amountValue) ? 0 : amountValue;
       const transactionPayload: Omit<Transaction, 'id'> = {
         date: new Date(template.nextDate),
@@ -254,9 +255,9 @@ export default function RecurringTransactions(): React.JSX.Element {
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Amount:</span>
                       <p className={`font-medium ${
-                        parseFloat(template.amount) > 0 ? 'text-green-600' : 'text-red-600'
+                        (parseMoneyInput(template.amount) ?? 0) > 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {formatCurrency(parseFloat(template.amount))}
+                        {formatCurrency(parseMoneyInput(template.amount) ?? 0)}
                       </p>
                     </div>
                     <div>

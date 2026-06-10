@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { parseMoneyInput } from '../utils/decimal';
 import { Modal } from './common/Modal';
 import { 
   AlertTriangleIcon,
@@ -337,7 +338,7 @@ export default function DuplicateDetection({
               <input
                 type="number"
                 value={amountThreshold}
-                onChange={(e) => setAmountThreshold(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setAmountThreshold(parseMoneyInput(e.target.value) ?? 0)}
                 min="0"
                 step="0.01"
                 className="w-full px-3 py-1 border border-gray-300 dark:border-gray-600 rounded

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importRulesService } from '../services/importRulesService';
+import { parseMoneyInput } from '../utils/decimal';
 import { 
   PlusIcon, 
   EditIcon, 
@@ -548,7 +549,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                     <input
                       type={condition.field === 'amount' ? 'number' : 'text'}
                       value={condition.value}
-                      onChange={(e) => updateCondition(index, { value: condition.field === 'amount' ? parseFloat(e.target.value) : e.target.value })}
+                      onChange={(e) => updateCondition(index, { value: condition.field === 'amount' ? parseMoneyInput(e.target.value) ?? 0 : e.target.value })}
                       placeholder="Value"
                       className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                     />
@@ -557,7 +558,7 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                       <input
                         type="number"
                         value={condition.value2}
-                        onChange={(e) => updateCondition(index, { value2: parseFloat(e.target.value) })}
+                        onChange={(e) => updateCondition(index, { value2: parseMoneyInput(e.target.value) ?? 0 })}
                         placeholder="Max value"
                         className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm w-24"
                       />

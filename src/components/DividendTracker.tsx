@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dividendService } from '../services/dividendService';
 import type { Dividend, DividendSummary, DividendProjection } from '../services/dividendService';
+import { parseMoneyInput } from '../utils/decimal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -544,7 +545,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
                 type="number"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, amount: parseMoneyInput(e.target.value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
               />
@@ -608,7 +609,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
                 type="number"
                 step="0.01"
                 value={formData.taxWithheld}
-                onChange={(e) => setFormData({ ...formData, taxWithheld: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, taxWithheld: parseMoneyInput(e.target.value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               />
             </div>

@@ -52,7 +52,7 @@ export const SanitizedInput: React.FC<SanitizedInputProps> = ({
 
       case 'decimal': {
         const decimal = sanitizeDecimal(value, decimals);
-        if (value && parseFloat(decimal) === 0 && value !== '0') {
+        if (value && Number(decimal) === 0 && value !== '0') {
           setError('Please enter a valid decimal number');
         }
         return decimal;

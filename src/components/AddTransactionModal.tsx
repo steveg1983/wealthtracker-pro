@@ -6,6 +6,7 @@ import { getCurrencySymbol } from '../utils/currency';
 // Import { Modal, ModalBody, ModalFooter } from './common/Modal'; // Unused imports
 import { ResponsiveModal } from './ResponsiveModal';
 import { useModalForm } from '../hooks/useModalForm';
+import { parseMoneyInput } from '../utils/decimal';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
@@ -67,7 +68,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
           
           // If validation passes, add the transaction
           // CRITICAL FIX: Ensure amount is negative for expenses
-          const amount = parseFloat(validatedData.amount);
+          const amount = parseMoneyInput(validatedData.amount) ?? 0;
           const finalAmount = data.type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
           
           addTransaction({

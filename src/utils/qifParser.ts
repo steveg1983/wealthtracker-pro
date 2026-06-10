@@ -1,5 +1,6 @@
 // QIF file parser optimized for Microsoft Money exports
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { parseMoneyInput } from './decimal';
 
 export interface ParsedAccount {
   name: string;
@@ -66,7 +67,7 @@ export function parseQIF(content: string): ParsedData {
         } else if (accountLine.startsWith('B')) {
           // Balance
           const balanceStr = accountLine.substring(1).replace(/[,£$]/g, '');
-          balance = parseFloat(balanceStr) || 0;
+          balance = parseMoneyInput(balanceStr) ?? 0;
         } else if (accountLine.startsWith('^')) {
           // End of account record
           break;
@@ -197,7 +198,9 @@ export function parseQIF(content: string): ParsedData {
     } else if (line.startsWith('T')) {
       // Amount
       const amountStr = line.substring(1).replace(/[,£$]/g, '').trim();
-      currentTransaction.amount = Math.round(parseFloat(amountStr) * 100) / 100;
+      // Decimal-safe parse — the old Math.round(parseFloat(x) * 100) / 100
+      // pattern is exactly the float-rounding hack banned on money values.
+      currentTransaction.amount = parseMoneyInput(amountStr) ?? 0;
     } else if (line.startsWith('P')) {
       // Payee
       currentTransaction.payee = line.substring(1).trim();

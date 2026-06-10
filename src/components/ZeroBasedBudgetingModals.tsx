@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import type { Category } from '../types';
+import { parseMoneyInput } from '../utils/decimal';
 
 // Types shared with ZeroBasedBudgeting
 export interface ZeroBudgetItem {
@@ -95,7 +96,7 @@ export function NewPeriodModal({ onSave, onClose }: NewPeriodModalProps) {
                 type="number"
                 step="0.01"
                 value={formData.totalIncome}
-                onChange={(e) => setFormData({ ...formData, totalIncome: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, totalIncome: parseMoneyInput(e.target.value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 placeholder="0.00"
                 required
@@ -192,7 +193,7 @@ export function BudgetItemModal({ item, categories, onSave, onClose }: BudgetIte
                   type="number"
                   step="0.01"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, amount: parseMoneyInput(e.target.value) ?? 0 })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   placeholder="0.00"
                   required

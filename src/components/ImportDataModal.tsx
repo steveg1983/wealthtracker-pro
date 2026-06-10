@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { UploadIcon } from './icons/UploadIcon';
+import { parseMoneyInput } from '../utils/decimal';
 import { FileTextIcon } from './icons/FileTextIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
@@ -73,7 +74,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     
     const accountName = accountMatch ? `Account ${accountMatch[1]}` : 'Imported Account';
     const accountType = accountTypeMatch?.[1]?.toLowerCase() || 'checking';
-    const balance = balanceMatch ? parseFloat(balanceMatch[1]) : 0;
+    const balance = balanceMatch ? parseMoneyInput(balanceMatch[1]) ?? 0 : 0;
     
     accountsMap.set(accountName, {
       name: accountName,
@@ -99,7 +100,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         const month = parseInt(dateStr.substring(4, 6));
         const day = parseInt(dateStr.substring(6, 8));
         
-        const amount = parseFloat(amountMatch[1]);
+        const amount = parseMoneyInput(amountMatch[1]) ?? NaN;
         const description = nameMatch?.[1] || memoMatch?.[1] || 'Imported transaction';
         const type = amount < 0 ? 'expense' : 'income';
         

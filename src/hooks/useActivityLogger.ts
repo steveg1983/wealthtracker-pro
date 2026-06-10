@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { logActivity } from './useActivityTracking';
 import { formatDecimal } from '../utils/decimal-format';
+import { toDecimal } from '../utils/decimal';
 
 /**
  * Hook that automatically logs activities when app data changes
@@ -42,7 +43,7 @@ export function useActivityLogger() {
       const currentBalance = account.balance.toString();
       
       if (prevBalance && prevBalance !== currentBalance) {
-        const diff = parseFloat(currentBalance) - parseFloat(prevBalance);
+        const diff = toDecimal(currentBalance).minus(toDecimal(prevBalance)).toNumber();
         if (Math.abs(diff) > 0.01) {
           logActivity({
             type: 'account',

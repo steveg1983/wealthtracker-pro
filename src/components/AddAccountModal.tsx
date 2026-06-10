@@ -5,6 +5,7 @@ import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { Building2Icon, WalletIcon, CreditCardIcon, TrendingUpIcon, PiggyBankIcon, BanknoteIcon, PackageIcon, AlertCircleIcon } from './icons';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { parseMoneyInput } from '../utils/decimal';
 
 interface AccountPrefill {
   name?: string;
@@ -112,7 +113,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         throw new Error('Account name is required');
       }
       
-      const balance = parseFloat(formData.balance);
+      const balance = parseMoneyInput(formData.balance) ?? NaN;
       if (isNaN(balance)) {
         throw new Error('Please enter a valid balance');
       }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { validateSymbol } from '../services/stockPriceService';
 import { 
@@ -77,8 +77,8 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
       return;
     }
 
-    const sharesNum = parseFloat(shares);
-    const costNum = parseFloat(averageCost);
+    const sharesNum = Number(shares);
+    const costNum = parseMoneyInput(averageCost) ?? NaN;
 
     if (isNaN(sharesNum) || sharesNum <= 0) {
       setValidationError('Shares must be a positive number');
@@ -297,10 +297,10 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
           </div>
 
           {/* Cost Basis Preview */}
-          {shares && averageCost && !isNaN(parseFloat(shares)) && !isNaN(parseFloat(averageCost)) && (
+          {shares && averageCost && Number.isFinite(Number(shares)) && parseMoneyInput(averageCost) !== null && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Cost Basis: {formatCurrency(toDecimal(parseFloat(shares) * parseFloat(averageCost)))}
+                Cost Basis: {formatCurrency(toDecimal(Number(shares)).times(toDecimal(parseMoneyInput(averageCost) ?? 0)))}
               </p>
             </div>
           )}

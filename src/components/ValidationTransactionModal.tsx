@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
+import { parseMoneyInput } from '../utils/decimal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from './icons';
 import type { Transaction, Account } from '../types';
@@ -53,7 +54,7 @@ export default function ValidationTransactionModal({
     const values = editValues[transactionId];
     if (values) {
       updateTransaction(transactionId, {
-        amount: parseFloat(values.amount) || 0,
+        amount: parseMoneyInput(values.amount) ?? 0,
         category: values.category,
         description: values.description
       });
@@ -140,7 +141,7 @@ export default function ValidationTransactionModal({
                               })}
                               className={`w-full px-3 py-1 border rounded-lg
                                        bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                                       ${parseFloat(values.amount) <= 0 
+                                       ${(parseMoneyInput(values.amount) ?? 0) <= 0 
                                          ? 'border-red-500' 
                                          : 'border-gray-300 dark:border-gray-600'}`}
                             />

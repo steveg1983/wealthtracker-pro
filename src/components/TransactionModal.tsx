@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { parseMoneyInput } from '../utils/decimal';
 import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
@@ -207,7 +208,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     const transactionData = {
       ...formData,
       date: new Date(formData.date),
-      amount: parseFloat(formData.amount),
+      amount: parseMoneyInput(formData.amount) ?? 0,
     };
 
     if (transaction) {

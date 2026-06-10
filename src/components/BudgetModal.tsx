@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import { parseMoneyInput } from '../utils/decimal';
 import type { Budget } from '../types';
 
 interface BudgetModalProps {
@@ -32,7 +33,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
         const now = new Date();
         const budgetData = {
           categoryId: data.category,
-          amount: parseFloat(data.amount),
+          amount: parseMoneyInput(data.amount) ?? 0,
           period: data.period,
           isActive: data.isActive,
           createdAt: budget?.createdAt || now,

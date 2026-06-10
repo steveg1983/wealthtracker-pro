@@ -8,6 +8,7 @@ import { useOfflineOperations } from '../../pwa/offline-storage';
 import { useCategories } from '../../contexts/CategoryContext';
 import { useAccounts } from '../../contexts/AccountContext';
 import { formatCurrency } from '../../utils/formatters';
+import { toDecimal, parseMoneyInput } from '../../utils/decimal';
 import { 
   WifiOffIcon, 
   CheckCircleIcon, 
@@ -64,7 +65,9 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
       const transaction = {
         id: `offline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         description: formData.description,
-        amount: parseFloat(formData.amount) * (formData.type === 'expense' ? -1 : 1),
+        amount: toDecimal(parseMoneyInput(formData.amount) ?? 0)
+          .times(formData.type === 'expense' ? -1 : 1)
+          .toNumber(),
         category: formData.category,
         accountId: formData.accountId,
         date: formData.date,

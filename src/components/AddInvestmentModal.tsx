@@ -5,6 +5,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { getCurrencySymbol } from '../utils/currency-decimal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 
 interface AddInvestmentModalProps {
   isOpen: boolean;
@@ -49,15 +50,20 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           return;
         }
         
-        const unitsNum = parseFloat(data.units) || 0;
-        const priceNum = parseFloat(data.pricePerUnit) || 0;
-        const feesNum = parseFloat(data.fees) || 0;
-        const stampDutyNum = parseFloat(data.stampDuty) || 0;
-        const total = unitsNum * priceNum + feesNum + stampDutyNum;
+        const unitsNum = Number(data.units) || 0;
+        const priceNum = parseMoneyInput(data.pricePerUnit) ?? 0;
+        const feesNum = parseMoneyInput(data.fees) ?? 0;
+        const stampDutyNum = parseMoneyInput(data.stampDuty) ?? 0;
+        // Decimal arithmetic — float multiply/add is banned on money values.
+        const total = toDecimal(unitsNum)
+          .times(toDecimal(priceNum))
+          .plus(toDecimal(feesNum))
+          .plus(toDecimal(stampDutyNum))
+          .toNumber();
         const account = accounts.find(a => a.id === data.selectedAccountId);
         
         // Create the investment transaction
-        const description = `${data.investmentType === 'share' ? 'Buy' : 'Investment'}: ${data.name}${data.stockCode ? ` (${data.stockCode})` : ''} - ${data.units} units @ ${formatCurrency(parseFloat(data.pricePerUnit), account?.currency || 'GBP')}/unit`;
+        const description = `${data.investmentType === 'share' ? 'Buy' : 'Investment'}: ${data.name}${data.stockCode ? ` (${data.stockCode})` : ''} - ${data.units} units @ ${formatCurrency(parseMoneyInput(data.pricePerUnit) ?? 0, account?.currency || 'GBP')}/unit`;
         
         // Structure the notes in a parseable format
         const structuredNotes = [
@@ -115,11 +121,15 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
   
   // Calculate total cost
   const calculateTotal = () => {
-    const unitsNum = parseFloat(formData.units) || 0;
-    const priceNum = parseFloat(formData.pricePerUnit) || 0;
-    const feesNum = parseFloat(formData.fees) || 0;
-    const stampDutyNum = parseFloat(formData.stampDuty) || 0;
-    return unitsNum * priceNum + feesNum + stampDutyNum;
+    const unitsNum = Number(formData.units) || 0;
+    const priceNum = parseMoneyInput(formData.pricePerUnit) ?? 0;
+    const feesNum = parseMoneyInput(formData.fees) ?? 0;
+    const stampDutyNum = parseMoneyInput(formData.stampDuty) ?? 0;
+    return toDecimal(unitsNum)
+      .times(toDecimal(priceNum))
+      .plus(toDecimal(feesNum))
+      .plus(toDecimal(stampDutyNum))
+      .toNumber();
   };
   
   
@@ -308,18 +318,20 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                   <span>Shares: {formData.units} × {currencySymbol}{formData.pricePerUnit}</span>
                   <span>
                     {formatCurrency(
-                      (parseFloat(formData.units) || 0) * (parseFloat(formData.pricePerUnit) || 0),
+                      toDecimal(Number(formData.units) || 0)
+                        .times(toDecimal(parseMoneyInput(formData.pricePerUnit) ?? 0))
+                        .toNumber(),
                       selectedAccount?.currency || 'GBP'
                     )}
                   </span>
                 </div>
-                {parseFloat(formData.fees) > 0 && (
+                {(parseMoneyInput(formData.fees) ?? 0) > 0 && (
                   <div className="flex justify-between">
                     <span>Transaction Fee:</span>
                     <span>{currencySymbol}{formData.fees}</span>
                   </div>
                 )}
-                {parseFloat(formData.stampDuty) > 0 && (
+                {(parseMoneyInput(formData.stampDuty) ?? 0) > 0 && (
                   <div className="flex justify-between">
                     <span>Stamp Duty:</span>
                     <span>{currencySymbol}{formData.stampDuty}</span>

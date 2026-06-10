@@ -12,7 +12,7 @@ import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal, Decimal, parseMoneyInput } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -102,7 +102,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             notes: data.notes.trim() || undefined,
           });
 
-          const parsedAmount = parseFloat(validatedData.amount);
+          const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
           const transactionData = {
             date: new Date(validatedData.date),
             description: validatedData.description,
@@ -366,7 +366,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     setFormattedAmount(value);
                     // Update the underlying numeric value
                     const numericValue = parseFormattedAmount(value);
-                    if (numericValue === '' || numericValue === '-' || !isNaN(parseFloat(numericValue))) {
+                    if (numericValue === '' || numericValue === '-' || parseMoneyInput(numericValue) !== null) {
                       updateField('amount', numericValue);
                     }
                   }
@@ -385,9 +385,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 }}
                 placeholder="0.00"
                 className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  formData.amount && parseFloat(formData.amount) < 0
+                  formData.amount && (parseMoneyInput(formData.amount) ?? 0) < 0
                     ? 'text-red-600 dark:text-red-400'
-                    : formData.amount && parseFloat(formData.amount) > 0
+                    : formData.amount && (parseMoneyInput(formData.amount) ?? 0) > 0
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-gray-900 dark:text-white'
                 }`}

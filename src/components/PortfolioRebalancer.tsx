@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
+import { parseMoneyInput } from '../utils/decimal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
@@ -349,7 +350,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                 type="number"
                 step="100"
                 value={cashAvailable}
-                onChange={(e) => setCashAvailable(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setCashAvailable(parseMoneyInput(e.target.value) ?? 0)}
                 className="w-32 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                 placeholder="0"
               />

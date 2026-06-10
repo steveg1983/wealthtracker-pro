@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
+import { parseMoneyInput } from '../utils/decimal';
 import type { Account as BaseAccount } from '../types';
 
 // Extend the base Account type with additional fields needed for settings
@@ -72,11 +73,11 @@ export default function AccountSettingsModal({
           accountNumber: data.accountNumber || undefined,
           isActive: data.isActive,
           lowBalanceAlertEnabled: data.lowBalanceAlertEnabled,
-          lowBalanceThreshold: data.lowBalanceThreshold ? parseFloat(data.lowBalanceThreshold) : undefined
+          lowBalanceThreshold: data.lowBalanceThreshold ? parseMoneyInput(data.lowBalanceThreshold) ?? undefined : undefined
         };
 
         if (data.openingBalance !== '') {
-          updates.openingBalance = parseFloat(data.openingBalance) || 0;
+          updates.openingBalance = parseMoneyInput(data.openingBalance) ?? 0;
         }
         if (data.openingBalanceDate) {
           updates.openingBalanceDate = new Date(data.openingBalanceDate);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
+import { parseMoneyInput } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon } from '../components/icons';
@@ -330,7 +331,7 @@ export default function AccountTransactions() {
     }
     
     // Calculate the correct amount based on transaction type
-    let amount = parseFloat(quickAddForm.amount);
+    let amount = parseMoneyInput(quickAddForm.amount) ?? 0;
     if (quickAddForm.type === 'expense') {
       amount = -Math.abs(amount); // Expenses are always negative
     } else if (quickAddForm.type === 'income') {

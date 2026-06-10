@@ -1,5 +1,6 @@
 // Microsoft Money .mny file parser with manual mapping support
 import { formatDecimal } from './decimal-format';
+import { parseMoneyInput } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface ParsedAccount {
@@ -178,10 +179,9 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
       
       if (isNaN(date.getTime())) return;
       
-      // Get amount
-      const rawAmount = parseFloat(String(amountField));
-      if (isNaN(rawAmount)) return;
-      const amount = Math.round(rawAmount * 100) / 100;
+      // Get amount (Decimal-safe — no float rounding hacks on money)
+      const amount = parseMoneyInput(String(amountField));
+      if (amount === null) return;
       
       // Get optional fields
       const payee = mapping.payee !== undefined ? String(record[Object.keys(record)[mapping.payee]] || '') : undefined;

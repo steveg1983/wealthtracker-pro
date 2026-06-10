@@ -1,5 +1,6 @@
 import type { Transaction, Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { parseMoneyInput } from './decimal';
 
 const csvImportLogger = createScopedLogger('CSVImport');
 
@@ -84,7 +85,7 @@ export function importTransactionsFromCSV(
       const category = categoryIndex >= 0 ? row[categoryIndex] : 'Other';
       const type = typeIndex >= 0 ? row[typeIndex].toLowerCase() as 'income' | 'expense' : 'expense';
       const amountStr = amountIndex >= 0 ? row[amountIndex] : '0';
-      const amount = Math.abs(parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0);
+      const amount = Math.abs(parseMoneyInput(amountStr.replace(/[^0-9.-]/g, '')) ?? 0);
       
       // Find account ID
       const accountName = accountIndex >= 0 ? row[accountIndex] : '';
@@ -146,7 +147,7 @@ export function importAccountsFromCSV(content: string): Omit<Account, 'id' | 'la
       const type = (['current', 'savings', 'credit', 'loan', 'investment', 'assets'].includes(typeStr) ? typeStr : 'current') as Account['type'];
       
       const balanceStr = balanceIndex >= 0 ? row[balanceIndex] : '0';
-      const balance = parseFloat(balanceStr.replace(/[^0-9.-]/g, '')) || 0;
+      const balance = parseMoneyInput(balanceStr.replace(/[^0-9.-]/g, '')) ?? 0;
       
       const currency = currencyIndex >= 0 ? row[currencyIndex] || 'GBP' : 'GBP';
       const institution = institutionIndex >= 0 ? row[institutionIndex] : undefined;

@@ -3,7 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import {
   ArrowRightIcon,
@@ -433,7 +433,7 @@ export default function BudgetRollover() {
                   value={rolloverSettings.maxAmount || ''}
                   onChange={(e) => setRolloverSettings({
                     ...rolloverSettings,
-                    maxAmount: e.target.value ? parseFloat(e.target.value) : undefined
+                    maxAmount: e.target.value ? parseMoneyInput(e.target.value) ?? undefined : undefined
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="No limit"

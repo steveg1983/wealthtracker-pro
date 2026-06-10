@@ -4,6 +4,7 @@ import {
   getCurrencySymbol as getCurrencySymbolDecimal,
 } from './currency-decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { parseMoneyInput } from './decimal';
 
 // Currency conversion utilities
 interface ExchangeRates {
@@ -32,19 +33,18 @@ export function formatDisplayCurrency(amount: number, currency: string = 'GBP'):
   return formatCurrency(amount, currency);
 }
 
-// Parse currency string to number
+// Parse currency string to number (Decimal-safe, strict)
 export function parseCurrency(value: string): number {
   if (!value || typeof value !== 'string') return 0;
-  
+
   // Remove currency symbols and commas
   const cleanValue = value
     .replace(/[£$€¥₹]/g, '')
     .replace(/CHF/g, '')
     .replace(/,/g, '')
     .trim();
-  
-  const parsed = parseFloat(cleanValue);
-  return isNaN(parsed) ? 0 : parsed;
+
+  return parseMoneyInput(cleanValue) ?? 0;
 }
 
 // Static exchange rates for testing

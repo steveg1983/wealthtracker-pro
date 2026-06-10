@@ -3,7 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { useBudgets } from '../contexts/BudgetContext';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import type { DecimalTransaction } from '../types/decimal-types';
 import { 
@@ -103,7 +103,7 @@ export default function EnvelopeBudgeting() {
     const newBudget = {
       categoryId: newEnvelope.categoryIds[0], // Use first category
       category: newEnvelope.categoryIds[0], // Use first category
-      amount: parseFloat(newEnvelope.budgetedAmount),
+      amount: parseMoneyInput(newEnvelope.budgetedAmount) ?? 0,
       period: 'monthly' as const,
       isActive: true,
       spent: 0,
@@ -124,7 +124,7 @@ export default function EnvelopeBudgeting() {
   const handleTransferFunds = () => {
     if (!transferFrom || !transferTo || !transferAmount) return;
 
-    const amount = parseFloat(transferAmount);
+    const amount = parseMoneyInput(transferAmount) ?? NaN;
     if (amount <= 0) return;
 
     const fromBudget = budgets.find(b => b.id === transferFrom);
