@@ -9,7 +9,7 @@
  */
 
 import React, { useState } from 'react';
-import { useRealtimeConnectionStatus } from '../hooks/useRealtimeSync';
+import { useRealtimeConnectionStatus } from '../hooks/useRealtimeConnectionStatus';
 import realtimeService from '../services/realtimeService';
 
 interface RealtimeStatusIndicatorProps {

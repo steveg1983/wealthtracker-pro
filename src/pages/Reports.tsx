@@ -5,14 +5,30 @@ import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import LineChart from '../components/charts/LineChart';
-import DoughnutChart from '../components/charts/DoughnutChart';
+import {
+  ResponsiveContainer,
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 const reportsLogger = createScopedLogger('ReportsPage');
+
+const CATEGORY_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
+  '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
+];
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
@@ -120,16 +136,10 @@ export default function Reports() {
       .sort(([, a], [, b]) => b.minus(a).toNumber())
       .slice(0, 8);
 
-    return {
-      labels: sortedCategories.map(([cat]) => cat),
-      datasets: [{
-        data: sortedCategories.map(([, amount]) => amount.toNumber()),
-        backgroundColor: [
-          '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-          '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
-        ]
-      }]
-    };
+    return sortedCategories.map(([cat, amount]) => ({
+      name: cat,
+      value: amount.toNumber()
+    }));
   }, [filteredTransactions]);
 
   // Prepare data for monthly trend
@@ -151,28 +161,11 @@ export default function Reports() {
 
     const sortedMonths = Object.keys(monthlyData).sort();
 
-    return {
-      labels: sortedMonths.map(month => {
-        const date = new Date(month + '-01');
-        return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-      }),
-      datasets: [
-        {
-          label: 'Income',
-          data: sortedMonths.map(month => monthlyData[month].income.toNumber()),
-          borderColor: '#10B981',
-          backgroundColor: '#10B98120',
-          tension: 0.4
-        },
-        {
-          label: 'Expenses',
-          data: sortedMonths.map(month => monthlyData[month].expenses.toNumber()),
-          borderColor: '#EF4444',
-          backgroundColor: '#EF444420',
-          tension: 0.4
-        }
-      ]
-    };
+    return sortedMonths.map(month => ({
+      month: new Date(month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+      income: monthlyData[month].income.toNumber(),
+      expenses: monthlyData[month].expenses.toNumber()
+    }));
   }, [filteredTransactions]);
 
   const exportToCSV = () => {
@@ -365,10 +358,28 @@ export default function Reports() {
             {isLoading ? (
               <SkeletonCard className="h-full w-full" />
             ) : (
-            <LineChart
-              data={monthlyTrendData}
-              height={250}
-            />
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsLineChart data={monthlyTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(55, 65, 81, 0.3)" />
+                  <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                    tickFormatter={(value: number) => {
+                      if (value >= 1_000_000) return `${formatDecimal(value / 1_000_000, 1)}M`;
+                      if (value >= 1_000) return `${formatDecimal(value / 1_000, 0)}K`;
+                      return formatDecimal(value, 0);
+                    }}
+                  />
+                  <Tooltip
+                    formatter={(value: number | string | Array<number | string>) =>
+                      formatCurrency(typeof value === 'number' ? value : Number(value))
+                    }
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="income" name="Income" stroke="#10B981" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={2} dot={false} />
+                </RechartsLineChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>
@@ -383,18 +394,28 @@ export default function Reports() {
             {isLoading ? (
               <SkeletonCard className="h-full w-full" />
             ) : (
-            <DoughnutChart
-              data={categoryData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'right'
-                  }
-                }
-              }}
-            />
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="55%"
+                    outerRadius="85%"
+                    strokeWidth={0}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number | string | Array<number | string>) =>
+                      formatCurrency(typeof value === 'number' ? value : Number(value))
+                    }
+                  />
+                  <Legend layout="vertical" align="right" verticalAlign="middle" />
+                </RechartsPieChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>

@@ -1,9 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Provider } from 'react-redux'
 import { ClerkProvider } from '@clerk/clerk-react'
 import { ClerkErrorBoundary } from './components/auth/ClerkErrorBoundary'
-import { store } from './store'
 import './styles/borders.css'
 import './styles/accessibility-colors.css'
 import './index.css'
@@ -149,9 +147,7 @@ try {
             }}
             allowedRedirectOrigins={[window.location.origin]}
           >
-            <Provider store={store}>
-              <App />
-            </Provider>
+            <App />
           </ClerkProvider>
         </ClerkErrorBoundary>
       </StrictMode>,

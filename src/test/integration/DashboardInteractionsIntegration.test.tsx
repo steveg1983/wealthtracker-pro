@@ -69,7 +69,7 @@ describe('Dashboard Interactions Integration', () => {
 
       // Wait for dashboard to load
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' });
@@ -91,7 +91,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       // Should have recent transactions section - might be multiple
@@ -103,7 +103,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       // Should have account distribution - might be multiple
@@ -115,7 +115,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       const warning = screen.queryByText(/test data active/i);
@@ -134,7 +134,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       // Check for expand buttons on widgets
@@ -164,7 +164,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       const addTransactionButton = await screen.findByText(/add transaction/i);
@@ -185,7 +185,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       // Dashboard should have main content area
@@ -197,7 +197,7 @@ describe('Dashboard Interactions Integration', () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
       // Check for responsive classes or grid layout
@@ -210,7 +210,7 @@ describe('Dashboard Interactions Integration', () => {
 
       // Dashboard heading should appear
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
     });
   });

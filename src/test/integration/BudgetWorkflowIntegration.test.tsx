@@ -59,7 +59,7 @@ describe('Budget Workflow Integration', () => {
 
       // Wait for initial load
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /budget/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
       // Click the Add Budget icon
@@ -95,7 +95,7 @@ describe('Budget Workflow Integration', () => {
       renderWithProviders(<Budget />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /budget/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
       // Find tab buttons
@@ -106,7 +106,7 @@ describe('Budget Workflow Integration', () => {
       // Test envelope tab
       await user.click(envelopeTab);
       await waitFor(() => {
-        expect(screen.getByText(/envelope budgeting/i)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /envelope budgeting/i })).toBeInTheDocument();
       });
 
       // Test alerts tab
@@ -225,7 +225,7 @@ describe('Budget Workflow Integration', () => {
       renderWithProviders(<Budget />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /budget/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
       // Click Add Budget icon
@@ -265,7 +265,7 @@ describe('Budget Workflow Integration', () => {
       renderWithProviders(<Budget />);
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /budget/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
       });
 
       // Verify all tabs are present
@@ -282,7 +282,7 @@ describe('Budget Workflow Integration', () => {
       
       // The envelope tab should show envelope budgeting content
       await waitFor(() => {
-        expect(screen.getByText(/envelope budgeting/i)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /envelope budgeting/i })).toBeInTheDocument();
       });
     });
   });

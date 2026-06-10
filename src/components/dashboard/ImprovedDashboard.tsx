@@ -22,7 +22,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
 import { Modal, ModalBody } from '../common/Modal';
-import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
+import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
 

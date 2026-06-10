@@ -11,7 +11,6 @@ import { ThemeProvider } from './design-system';
 // ReduxMigrationWrapper removed - app now "just works" without migration prompts
 import { SupabaseDataLoader } from './components/SupabaseDataLoader';
 import { AuthProvider } from './contexts/AuthContext';
-// import { RealtimeSyncProvider } from './contexts/RealtimeSyncProvider'; // Temporarily disabled
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';

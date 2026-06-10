@@ -83,25 +83,10 @@ describe('Component Integration Tests', () => {
 
   describe('Dashboard Components Integration', () => {
     it('shows correct account summaries and recent transactions', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Savings', balance: 5000, type: 'savings' },
-        { ...testData.accounts[1], name: 'Checking', balance: 2000, type: 'current' },
-        { id: '3', name: 'Credit Card', balance: -500, type: 'credit', 
-          currency: 'GBP', institution: 'Bank', lastUpdated: new Date() },
-      ];
 
-      const transactions = [
-        { ...testData.transactions[0], description: 'Salary', amount: 3000, type: 'income' },
-        { ...testData.transactions[1], description: 'Groceries', amount: 150, type: 'expense' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          transactions: { transactions },
-        }
       });
 
       // Check account summaries - they are combined with amounts
@@ -122,16 +107,9 @@ describe('Component Integration Tests', () => {
     });
 
     it('updates dashboard when account balances change', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Savings', balance: 1000 },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       const { rerender: _rerender } = renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       await waitFor(() => {
@@ -146,23 +124,10 @@ describe('Component Integration Tests', () => {
 
   describe('Account-Transaction Integration', () => {
     it('shows transactions filtered by account', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Checking' },
-        { ...testData.accounts[1], name: 'Savings' },
-      ];
 
-      const transactions = [
-        { ...testData.transactions[0], description: 'Salary', accountId: '1', amount: 3000 },
-        { ...testData.transactions[1], description: 'Transfer', accountId: '2', amount: 500 },
-      ];
 
       const Transactions = (await import('../../pages/Transactions')).default;
       renderWithProviders(<Transactions />, {
-        preloadedState: {
-          accounts: { accounts },
-          transactions: { transactions },
-        }
       });
 
       // Both transactions should be visible initially
@@ -185,25 +150,10 @@ describe('Component Integration Tests', () => {
 
   describe('Budget-Transaction Integration', () => {
     it('shows budget progress based on transactions', async () => {
-      const testData = createTestData();
-      const transactions = [
-        { ...testData.transactions[0], description: 'Grocery Store', 
-          amount: 150, type: 'expense', category: 'cat1' },
-        { ...testData.transactions[1], description: 'Restaurant', 
-          amount: 50, type: 'expense', category: 'cat2' },
-      ];
 
-      const budgets = [
-        { ...testData.budgets[0], category: 'cat1', amount: 500 },
-        { ...testData.budgets[1], category: 'cat2', amount: 200 },
-      ];
 
       const Budget = (await import('../../pages/Budget')).default;
       renderWithProviders(<Budget />, {
-        preloadedState: {
-          transactions: { transactions },
-          budgets: { budgets },
-        }
       });
 
       // Check budget progress
@@ -224,16 +174,9 @@ describe('Component Integration Tests', () => {
         { ...testData.transactions[0], amount: 100, type: 'expense', category: 'cat1' },
       ];
 
-      const budgets = [
-        { ...testData.budgets[0], category: 'cat1', amount: 500 },
-      ];
 
       const Budget = (await import('../../pages/Budget')).default;
       renderWithProviders(<Budget />, { 
-        preloadedState: {
-          transactions: { transactions: initialTransactions }, 
-          budgets: { budgets },
-        }
       });
 
       // Initial state: 100/500 spent
@@ -268,16 +211,9 @@ describe('Component Integration Tests', () => {
     });
 
     it('validates transaction form with account relationship', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Checking' },
-      ];
 
       const Transactions = (await import('../../pages/Transactions')).default;
       renderWithProviders(<Transactions />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // Form elements should be present
@@ -292,10 +228,6 @@ describe('Component Integration Tests', () => {
 
   describe('State Synchronization', () => {
     it('maintains state consistency between components', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Checking', balance: 1000 },
-      ];
 
       // Render multiple components that depend on account data
       const Dashboard = (await import('../../pages/Dashboard')).default;
@@ -307,9 +239,6 @@ describe('Component Integration Tests', () => {
           <Accounts />
         </div>,
         {
-          preloadedState: {
-            accounts: { accounts },
-          }
         }
       );
 
@@ -323,32 +252,14 @@ describe('Component Integration Tests', () => {
 
   describe('Performance Integration', () => {
     it('handles large datasets without performance issues', async () => {
-      const testData = createTestData();
       
       // Create large dataset
-      const accounts = Array.from({ length: 50 }, (_, i) => ({
-        ...testData.accounts[0],
-        id: `${i + 1}`, 
-        name: `Account ${i + 1}`, 
-        balance: Math.random() * 10000 
-      }));
 
-      const transactions = Array.from({ length: 1000 }, (_, i) => ({
-        ...testData.transactions[0],
-        id: `${i + 1}`, 
-        description: `Transaction ${i + 1}`,
-        amount: Math.random() * 1000,
-        accountId: `${Math.floor(Math.random() * 50) + 1}`
-      }));
 
       const startTime = performance.now();
       
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          transactions: { transactions },
-        }
       });
 
       await waitFor(() => {
@@ -365,16 +276,9 @@ describe('Component Integration Tests', () => {
 
   describe('Navigation Integration', () => {
     it('maintains context when navigating between pages', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Test Account' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // Verify component loads
@@ -385,9 +289,6 @@ describe('Component Integration Tests', () => {
       // Navigate to accounts page (simulate)
       const Accounts = (await import('../../pages/Accounts')).default;
       renderWithProviders(<Accounts />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // Component should load
