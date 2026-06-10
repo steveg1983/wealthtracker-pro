@@ -54,7 +54,6 @@ const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "secu
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
 const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
 const AccessibilitySettings = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-settings" */ './pages/settings/AccessibilitySettings'));
-const AccessibilityDashboard = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-dashboard" */ './components/AccessibilityDashboard'));
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
@@ -251,77 +250,72 @@ function App(): React.JSX.Element {
                             </ProtectedSuspense>
                           } />
                   <Route path="open-banking" element={
-                    <Suspense fallback={<PageLoader />}>
+                    <ProtectedSuspense>
                       <OpenBanking />
-                    </Suspense>
+                    </ProtectedSuspense>
                   } />
                   <Route path="performance" element={<Navigate to="/dashboard" replace />} />
                   <Route path="subscription" element={
-                    <Suspense fallback={<PageLoader />}>
+                    <ProtectedSuspense>
                       <Subscription />
-                    </Suspense>
+                    </ProtectedSuspense>
                   } />
                   <Route path="advanced" element={<Navigate to="/dashboard" replace />} />
                   <Route path="settings">
                     <Route index element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <SettingsPage />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="app" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <AppSettings />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="data" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <DataManagement />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="categories" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Categories />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="tags" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Tags />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="notifications" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Notifications />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="accessibility" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <AccessibilitySettings />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="deleted-accounts" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <DeletedAccounts />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="security" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <SecuritySettings />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="subscription" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Subscription />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="security/audit-logs" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <AuditLogs />
-                      </Suspense>
-                    } />
-                    <Route path="accessibility" element={
-                      <Suspense fallback={<PageLoader />}>
-                        <AccessibilityDashboard />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                   </Route>
                         <Route path="forecasting" element={<Navigate to="/budget" replace />} />

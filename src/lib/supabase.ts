@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAccessToken } from './supabaseToken'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -25,13 +26,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   logMissingEnv()
 }
 
-export const supabase = supabaseUrl && supabaseAnonKey 
+// Clerk is the auth provider (Supabase third-party auth). Every request carries
+// the Clerk session JWT via accessToken so RLS policies can identify the user.
+// With accessToken set, supabase.auth.* methods must NOT be called.
+export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
+      accessToken: getSupabaseAccessToken,
       global: {
         headers: {
           'x-client-info': 'wealthtracker-web',

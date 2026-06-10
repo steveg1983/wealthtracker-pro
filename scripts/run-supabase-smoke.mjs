@@ -91,11 +91,15 @@ if (supabaseTests.length === 0) {
 
 const requiredKeys = [
   'VITE_SUPABASE_URL',
-  'VITE_SUPABASE_ANON_KEY',
-  'VITE_SUPABASE_SERVICE_ROLE_KEY'
+  'VITE_SUPABASE_ANON_KEY'
 ];
 
 const missingKeys = requiredKeys.filter((key) => !process.env[key]);
+// Service-role key is server-only and must NOT use a VITE_ prefix (would be
+// inlined into the browser bundle). Accept the legacy name during migration.
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+  missingKeys.push('SUPABASE_SERVICE_ROLE_KEY');
+}
 if (missingKeys.length > 0) {
   console.error('[supabase-smoke] Missing required env vars:', missingKeys.join(', '));
   console.error('[supabase-smoke] Provide them in your shell or .env.test.local before running.');

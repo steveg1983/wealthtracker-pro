@@ -10,3 +10,8 @@ coverage-final.json
 WealthTracker-Backups/
 src.backup.*
 src-backup-*
+
+# Environment files — never commit secrets
+.env
+.env.*
+!.env.example

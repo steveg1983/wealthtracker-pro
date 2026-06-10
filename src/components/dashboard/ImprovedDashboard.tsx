@@ -45,13 +45,18 @@ export function ImprovedDashboard() {
   
   // Load saved preferences from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('dashboardKeyAccounts');
-    if (saved) {
-      setSelectedAccountIds(JSON.parse(saved));
-    } else {
-      // Default to showing first 4 accounts
-      setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
+    try {
+      const saved = localStorage.getItem('dashboardKeyAccounts');
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed)) {
+        setSelectedAccountIds(parsed);
+        return;
+      }
+    } catch {
+      localStorage.removeItem('dashboardKeyAccounts');
     }
+    // Default to showing first 4 accounts
+    setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
   }, [accounts]);
 
   // Calculate key metrics
@@ -94,8 +99,8 @@ export function ImprovedDashboard() {
     const monthlySavings = monthlyIncome - monthlyExpenses;
     const savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome) * 100 : 0;
     
-    // Get recent activity
-    const recentActivity = transactions
+    // Get recent activity (copy before sort — never mutate the shared context array)
+    const recentActivity = [...transactions]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
     

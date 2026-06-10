@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createScopedLogger } from '../../loggers/scopedLogger';
+import { getSupabaseAccessToken } from '../../lib/supabaseToken';
 
 // Database type is not properly exported, using unknown for now
 type Database = unknown;
@@ -13,14 +14,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   supabaseLogger.warn?.('Supabase credentials not configured. Using localStorage fallback.');
 }
 
-// Create Supabase client
-export const supabase = supabaseUrl && supabaseAnonKey 
+// Clerk is the auth provider (Supabase third-party auth). Every request carries
+// the Clerk session JWT via accessToken so RLS policies can identify the user.
+// With accessToken set, supabase.auth.* methods must NOT be called.
+export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
+      accessToken: getSupabaseAccessToken,
       realtime: {
         params: {
           eventsPerSecond: 10,
@@ -32,14 +31,6 @@ export const supabase = supabaseUrl && supabaseAnonKey
 // Check if Supabase is configured
 export const isSupabaseConfigured = (): boolean => {
   return supabase !== null;
-};
-
-// Helper to get current user ID
-export const getCurrentUserId = async (): Promise<string | null> => {
-  if (!supabase) return null;
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id || null;
 };
 
 // Helper to handle Supabase errors
