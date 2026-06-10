@@ -72,8 +72,10 @@ describe('Dashboard Interactions Integration', () => {
         expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
-      const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' });
-      const liabilitiesLabel = await screen.findByText(/liabilities/i, { selector: 'p' });
+      // Generous timeout: the dashboard component is lazy-loaded and the
+      // chunk can resolve slowly when the full suite runs under load.
+      const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' }, { timeout: 5000 });
+      const liabilitiesLabel = await screen.findByText(/liabilities/i, { selector: 'p' }, { timeout: 5000 });
       expect(assetsLabel).toBeInTheDocument();
       expect(liabilitiesLabel).toBeInTheDocument();
     });
