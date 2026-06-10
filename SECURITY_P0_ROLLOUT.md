@@ -81,7 +81,7 @@ bundles. Rotate ALL of these:
 Deploy BEFORE applying the RLS migration. The token bridge is harmless under
 the current permissive policies, and it must be live before isolation turns on.
 
-### Step 5 — Apply the two migrations (in order)
+### Step 5 — Apply the three migrations (in order)
 ```bash
 # from the repo root, with SUPABASE_DB_URL set
 npm run db:migrate
@@ -89,6 +89,17 @@ npm run db:migrate
 Applies:
 1. `20260610120000_fix_subscription_constraint_contradictions.sql`
 2. `20260610130000_restore_rls_data_isolation.sql`
+3. `20260610140000_atomic_transaction_rpcs.sql`
+
+⚠️ ORDERING: migration 3 (the atomic RPCs) must be live BEFORE the frontend
+from this branch deploys — the app now calls
+create/update/delete_transaction_atomic for every transaction mutation.
+Applying it is safe at any time (it only adds functions); the constraint is
+"migration before frontend", so simplest is: migrate first, then deploy.
+This flips the Step 4/5 order for the RPC migration only — the RLS migration
+(2) still requires Steps 3–4 to be complete first. Safe sequence overall:
+  migrate 1 + 3 → deploy frontend (Step 4) → configure Clerk/Supabase
+  (Step 3) → migrate 2 → verify (Step 6).
 
 ### Step 6 — Verify isolation
 - Sign in as user A → data loads normally
