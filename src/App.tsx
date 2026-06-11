@@ -25,6 +25,7 @@ import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
 import SafariWarning from './components/SafariWarning';
+import ConsentBanner from './components/ConsentBanner';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 
@@ -62,6 +63,8 @@ const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanc
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
 const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-banking" */ './pages/OpenBanking'));
 const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
+const PrivacyPolicy = lazyWithPreload(() => import(/* webpackChunkName: "legal" */ './pages/legal/PrivacyPolicy'));
+const TermsOfService = lazyWithPreload(() => import(/* webpackChunkName: "legal" */ './pages/legal/TermsOfService'));
 
 function App(): React.JSX.Element {
   useEffect(() => {
@@ -133,6 +136,7 @@ function App(): React.JSX.Element {
                             <ActivityLoggerProvider>
                               <Router>
                                 <SafariWarning />
+                                <ConsentBanner />
                         <Routes>
                         {/* Login route outside of Layout */}
                         <Route path="/login" element={
@@ -143,6 +147,17 @@ function App(): React.JSX.Element {
                         <Route path="/auth/callback" element={
                           <Suspense fallback={<PageLoader />}>
                             <BankingCallback />
+                          </Suspense>
+                        } />
+                        {/* Public legal pages (no auth) */}
+                        <Route path="/privacy" element={
+                          <Suspense fallback={<PageLoader />}>
+                            <PrivacyPolicy />
+                          </Suspense>
+                        } />
+                        <Route path="/terms" element={
+                          <Suspense fallback={<PageLoader />}>
+                            <TermsOfService />
                           </Suspense>
                         } />
                         

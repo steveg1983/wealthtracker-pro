@@ -32,6 +32,14 @@ export default function SimpleSignIn() {
                 Create Account
               </button>
             </SignUpButton>
+
+            {/* Privacy notice at the point of collection (GDPR Art. 13) */}
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400 pt-2">
+              By creating an account you agree to our{' '}
+              <a href="/terms" className="underline hover:text-gray-700 dark:hover:text-gray-200">Terms</a>
+              {' '}and{' '}
+              <a href="/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-200">Privacy Policy</a>.
+            </p>
           </div>
         </SignedOut>
         

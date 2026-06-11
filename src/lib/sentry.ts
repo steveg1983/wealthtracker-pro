@@ -1,6 +1,29 @@
 import * as Sentry from '@sentry/react';
+import { hasAnalyticsConsent } from '../utils/consent';
 
 type SentryLogger = Pick<Console, 'info' | 'error'>;
+
+const buildReplayIntegration = () =>
+  Sentry.replayIntegration({
+    maskAllText: true,
+    maskAllInputs: true,
+    blockAllMedia: true,
+    stickySession: true,
+  });
+
+/**
+ * Called when the user accepts "all" on the consent banner mid-session —
+ * attaches session replay without requiring a reload. (Tracing starts on the
+ * next page load; sampling is decided at init.)
+ */
+export function enableAnalyticsConsent(): void {
+  if (!ENABLE_ERROR_TRACKING || !SENTRY_DSN) return;
+  try {
+    Sentry.addIntegration(buildReplayIntegration());
+  } catch (error) {
+    sentryLogger.error('Failed to enable replay after consent', error as Error);
+  }
+}
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
@@ -57,19 +80,18 @@ export function initSentry() {
     return;
   }
 
+  // PECR: session replay and performance tracing are non-essential
+  // diagnostics and require opt-in consent. Error capture itself runs with
+  // PII scrubbing under legitimate interest. enableAnalyticsConsent() adds
+  // replay at runtime when the user accepts.
+  const analyticsConsent = hasAnalyticsConsent();
+
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: APP_ENV,
     release: `wealthtracker@${APP_VERSION}`,
-    integrations: [
-      Sentry.replayIntegration({
-        maskAllText: true,
-        maskAllInputs: true,
-        blockAllMedia: true,
-        stickySession: true,
-      }),
-    ],
-    tracesSampleRate: APP_ENV === 'production' ? 0.1 : 1.0,
+    integrations: analyticsConsent ? [buildReplayIntegration()] : [],
+    tracesSampleRate: analyticsConsent ? (APP_ENV === 'production' ? 0.1 : 1.0) : 0,
     beforeSend: (event, _hint) => {
       // Data minimization (GDPR Art 5(1)(c)): strip PII before anything leaves
       // the browser. The old fixed denylist missed nested data and query

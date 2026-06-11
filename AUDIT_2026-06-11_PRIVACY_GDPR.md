@@ -123,13 +123,29 @@ polish.
 
 ---
 
-## Priority order for the human/legal track
-1. 🔴 Privacy policy + terms, surfaced at sign-up (legal/content task)
-2. 🔴 Self-service account deletion endpoint + UI (engineering — I can build this)
-3. 🔴 Cookie/tracking consent banner gating Sentry Replay (engineering — I can build this)
-4. 🟠 "Export everything" JSON for portability/SAR (engineering — small)
-5. 🟠 DPAs with all five processors + residency confirmation (legal/ops)
-6. 🟠 Documented retention + enforcement job (engineering + policy)
+## Priority order — STATUS AFTER REMEDIATION (2026-06-11, same day)
+1. 🟡 Privacy policy + terms — **pages built and routed** (/privacy, /terms,
+   linked at sign-up and from the consent banner) with technically-accurate
+   template content carrying a visible DRAFT banner. **Needs legal review +
+   contact details before the DRAFT notice can come off.**
+2. ✅ Self-service account deletion — POST /api/account/delete cancels Stripe
+   billing, erases all DB rows (users-row cascade + the out-of-cascade
+   tables), deletes the Clerk identity, and tolerates partial-failure
+   retries. UI: Settings → Security → Danger zone, type-to-confirm
+   ("DELETE MY ACCOUNT", enforced server-side too), local storage/IndexedDB
+   cleared, signed out.
+3. ✅ Consent banner — Essential only / Accept all (equal prominence);
+   Sentry session replay and tracing now initialise ONLY with 'all' consent
+   (PECR); error capture stays on with PII scrubbing under legitimate
+   interest. Accepting mid-session attaches replay without a reload.
+4. ✅ Export everything — one-click complete JSON bundle (accounts,
+   transactions, budgets, goals, categories, tags, recurring) in Export
+   Manager; serves both Art. 20 portability and the user-facing half of SARs.
+5. 🟠 DPAs with all five processors + residency confirmation — still legal/ops.
+6. ✅ Retention — migration 20260611150000 adds purge_expired_audit_log
+   (default 6 years, ≥1 year enforced in SQL); weekly Vercel cron
+   /api/cron/retention enforces it. Policy number configurable via
+   AUDIT_LOG_RETENTION_DAYS.
 
-Items 2, 3, and 4 are buildable now if you want them in this branch; 1 and 5
-need your input/legal sign-off; 6 needs a policy decision on the numbers.
+Remaining human items: legal sign-off on the policy/terms text (1) and the
+processor DPAs (5).

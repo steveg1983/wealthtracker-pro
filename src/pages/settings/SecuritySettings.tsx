@@ -13,6 +13,7 @@ import {
   FingerprintIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
+import DangerZone from '../../components/settings/DangerZone';
 import type { SecuritySettings as SecuritySettingsType } from '../../services/securityService';
 
 export default function SecuritySettings() {
@@ -341,6 +342,11 @@ export default function SecuritySettings() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Account deletion (GDPR right to erasure) */}
+        <div className="mt-6">
+          <DangerZone />
         </div>
 
         {/* Two-Factor Setup Modal */}

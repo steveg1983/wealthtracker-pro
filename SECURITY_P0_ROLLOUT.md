@@ -97,6 +97,9 @@ Applies:
    per-user category migration automatically on each user's first signed-in
    load after deploy — uuid ids generated and every transaction/budget
    category reference remapped in one DB transaction)
+6. `20260611150000_audit_log_retention.sql` (GDPR retention —
+   purge_expired_audit_log function; the weekly /api/cron/retention job
+   calls it. Optional env: AUDIT_LOG_RETENTION_DAYS, default 2190/6 years)
 
 ⚠️ ORDERING: migration 3 (the atomic RPCs) must be live BEFORE the frontend
 from this branch deploys — the app now calls

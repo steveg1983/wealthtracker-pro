@@ -24,7 +24,7 @@ const exportManagerLogger = createScopedLogger('ExportManagerPage');
 type ActiveTab = 'export' | 'templates' | 'scheduled' | 'history';
 
 export default function ExportManager() {
-  const { transactions, accounts } = useApp();
+  const { transactions, accounts, budgets, goals, categories, tags, recurringTransactions } = useApp();
   const investments: Investment[] = []; // TODO: Add investments to AppContext
   const [activeTab, setActiveTab] = useState<ActiveTab>('export');
   const [templates, setTemplates] = useState<ExportTemplate[]>([]);
@@ -92,6 +92,35 @@ export default function ExportManager() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // GDPR Art. 20 (portability) / Art. 15 (access): one click exports EVERY
+  // entity the app holds for the user as machine-readable JSON — unlike the
+  // configurable export above, nothing is filtered or optional.
+  const handleExportEverything = () => {
+    const bundle = {
+      exportedAt: new Date().toISOString(),
+      application: 'WealthTracker',
+      format: 'wealthtracker-complete-export-v1',
+      data: {
+        accounts,
+        transactions,
+        budgets,
+        goals,
+        categories,
+        tags,
+        recurringTransactions
+      }
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `wealthtracker-complete-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleUseTemplate = (template: ExportTemplate) => {
@@ -403,6 +432,15 @@ export default function ExportManager() {
                 >
                   <FileTextIcon size={16} />
                   Save as Template
+                </button>
+
+                <button
+                  onClick={handleExportEverything}
+                  title="Download every record we hold for you as machine-readable JSON (GDPR data portability)"
+                  className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <DownloadIcon size={16} />
+                  Export everything (JSON)
                 </button>
 
                 <button
