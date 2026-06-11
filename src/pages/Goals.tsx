@@ -276,7 +276,7 @@ export default function Goals() {
                       <span className="text-2xl">{getGoalIcon(goal.type)}</span>
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-white">{goal.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{goal.type.replace("-", " ")}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{(goal.type ?? "savings").replace("-", " ")}</p>
                       </div>
                     </div>
                     <div className="flex gap-2">

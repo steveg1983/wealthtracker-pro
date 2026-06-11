@@ -179,6 +179,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const data = await DataService.loadAppData();
         setTransactions(data.transactions);
 
+        // Without an authenticated user (demo / local-only mode) the
+        // SimpleAccountService path above returns nothing — it needs a
+        // database user id. Fall back to the storage-backed accounts that
+        // loadAppData already read, so demo mode shows accounts everywhere
+        // (accounts page, dashboard distribution, add-transaction modal).
+        if (!user && data.accounts.length > 0) {
+          setAccounts(data.accounts);
+        }
+
         const [loadedBudgets, loadedGoals] = await Promise.all([
           PlanningService.getBudgets(planningUserId),
           PlanningService.getGoals(planningUserId)

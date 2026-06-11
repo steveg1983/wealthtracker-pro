@@ -16,3 +16,5 @@ src-backup-*
 .env.*
 !.env.example
 backups/
+test-results/
+playwright-report/

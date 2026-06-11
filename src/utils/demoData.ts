@@ -271,6 +271,7 @@ export const demoGoals = [
     targetAmount: 10000.00,
     currentAmount: 6500.00,
     deadline: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    type: 'savings',
     category: 'savings',
     priority: 'high',
     isActive: true,
@@ -281,6 +282,7 @@ export const demoGoals = [
     targetAmount: 5000.00,
     currentAmount: 2100.00,
     deadline: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    type: 'savings',
     category: 'travel',
     priority: 'medium',
     isActive: true,
@@ -291,6 +293,7 @@ export const demoGoals = [
     targetAmount: 8000.00,
     currentAmount: 3200.00,
     deadline: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    type: 'savings',
     category: 'purchase',
     priority: 'low',
     isActive: true,
@@ -299,18 +302,42 @@ export const demoGoals = [
 
 // Demo categories with colors
 export const demoCategories = [
-  { id: 'cat-groceries', name: 'Groceries', color: '#10b981', icon: '🛒', type: 'expense' },
-  { id: 'cat-restaurants', name: 'Restaurants', color: '#f59e0b', icon: '🍽️', type: 'expense' },
-  { id: 'cat-transportation', name: 'Transportation', color: '#3b82f6', icon: '🚗', type: 'expense' },
-  { id: 'cat-entertainment', name: 'Entertainment', color: '#8b5cf6', icon: '🎬', type: 'expense' },
-  { id: 'cat-shopping', name: 'Shopping', color: '#ec4899', icon: '🛍️', type: 'expense' },
-  { id: 'cat-bills', name: 'Bills & Utilities', color: '#ef4444', icon: '📱', type: 'expense' },
-  { id: 'cat-healthcare', name: 'Healthcare', color: '#06b6d4', icon: '🏥', type: 'expense' },
-  { id: 'cat-education', name: 'Education', color: '#6366f1', icon: '📚', type: 'expense' },
-  { id: 'cat-travel', name: 'Travel', color: '#0ea5e9', icon: '✈️', type: 'expense' },
-  { id: 'cat-insurance', name: 'Insurance', color: '#84cc16', icon: '🛡️', type: 'expense' },
-  { id: 'cat-investments', name: 'Investments', color: '#14b8a6', icon: '📈', type: 'both' },
-  { id: 'cat-salary', name: 'Salary', color: '#22c55e', icon: '💰', type: 'income' },
+  // Type-level parents — the category selector builds its sub-category list
+  // from getSubCategories(`type-${type}`), so these parents must exist and the
+  // leaf categories must point at them via parentId/level (matching the real
+  // category hierarchy in getDefaultCategories).
+  { id: 'type-income', name: 'Income', color: '#22c55e', icon: '💰', type: 'income', level: 'type', isSystem: true },
+  { id: 'type-expense', name: 'Expense', color: '#ef4444', icon: '💸', type: 'expense', level: 'type', isSystem: true },
+  { id: 'type-transfer', name: 'Transfer', color: '#6b7280', icon: '🔄', type: 'both', level: 'type', isSystem: true },
+
+  { id: 'cat-groceries', name: 'Groceries', color: '#10b981', icon: '🛒', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-restaurants', name: 'Restaurants', color: '#f59e0b', icon: '🍽️', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-transportation', name: 'Transportation', color: '#3b82f6', icon: '🚗', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-entertainment', name: 'Entertainment', color: '#8b5cf6', icon: '🎬', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-shopping', name: 'Shopping', color: '#ec4899', icon: '🛍️', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-bills', name: 'Bills & Utilities', color: '#ef4444', icon: '📱', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-healthcare', name: 'Healthcare', color: '#06b6d4', icon: '🏥', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-education', name: 'Education', color: '#6366f1', icon: '📚', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-travel', name: 'Travel', color: '#0ea5e9', icon: '✈️', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-insurance', name: 'Insurance', color: '#84cc16', icon: '🛡️', type: 'expense', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-investments', name: 'Investments', color: '#14b8a6', icon: '📈', type: 'both', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-salary', name: 'Salary', color: '#22c55e', icon: '💰', type: 'income', level: 'sub', parentId: 'type-income' },
+
+  // Detail-level leaves — the transaction modal requires drilling
+  // type → sub → detail, so each sub needs at least one detail child for the
+  // add-transaction flow to complete.
+  { id: 'det-groceries-food', name: 'Food & Drink', type: 'expense', level: 'detail', parentId: 'cat-groceries' },
+  { id: 'det-restaurants-dining', name: 'Dining Out', type: 'expense', level: 'detail', parentId: 'cat-restaurants' },
+  { id: 'det-transport-fuel', name: 'Fuel', type: 'expense', level: 'detail', parentId: 'cat-transportation' },
+  { id: 'det-entertainment-streaming', name: 'Streaming', type: 'expense', level: 'detail', parentId: 'cat-entertainment' },
+  { id: 'det-shopping-clothing', name: 'Clothing', type: 'expense', level: 'detail', parentId: 'cat-shopping' },
+  { id: 'det-bills-utilities', name: 'Utilities', type: 'expense', level: 'detail', parentId: 'cat-bills' },
+  { id: 'det-healthcare-medical', name: 'Medical', type: 'expense', level: 'detail', parentId: 'cat-healthcare' },
+  { id: 'det-education-courses', name: 'Courses', type: 'expense', level: 'detail', parentId: 'cat-education' },
+  { id: 'det-travel-flights', name: 'Flights', type: 'expense', level: 'detail', parentId: 'cat-travel' },
+  { id: 'det-insurance-premiums', name: 'Premiums', type: 'expense', level: 'detail', parentId: 'cat-insurance' },
+  { id: 'det-investments-contributions', name: 'Contributions', type: 'both', level: 'detail', parentId: 'cat-investments' },
+  { id: 'det-salary-regular', name: 'Regular Salary', type: 'income', level: 'detail', parentId: 'cat-salary' },
 ];
 
 // Demo recurring transactions

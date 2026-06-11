@@ -27,6 +27,7 @@
     "test:integration": "vitest run src/test/integration",
     "test:realtime": "node scripts/run-realtime-suite.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:journeys": "playwright test e2e/journeys",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "cypress": "cypress open",
