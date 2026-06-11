@@ -70,6 +70,7 @@
     "backup:db": "node scripts/backup-database.mjs",
     "restore:db": "node scripts/restore-database.mjs",
     "dr:drill": "node scripts/dr-restore-drill.mjs",
+    "pentest": "node scripts/pentest.mjs",
     "audit:a11y": "node scripts/audit-accessibility.mjs",
     "audit:data:repair": "node scripts/repair-balance-drift.mjs",
     "verify:financial": "node scripts/verify-financial-safety.mjs",
