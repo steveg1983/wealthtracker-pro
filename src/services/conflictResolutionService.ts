@@ -4,7 +4,9 @@
  * for a "top tier" sync experience
  */
 
-import { isEqual } from 'lodash';
+// es-toolkit, not lodash: lodash was an UNDECLARED (phantom) dependency that
+// only resolved through hoisting and could break on any lockfile change.
+import { isEqual } from 'es-toolkit';
 
 export interface FieldChange {
   field: string;
