@@ -8,7 +8,6 @@
  * - Handles subscription lifecycle
  */
 
-import { loadStripe } from '@stripe/stripe-js';
 import SupabaseSubscriptionService from './supabaseSubscriptionService';
 import type {
   CreateSubscriptionRequest,
@@ -22,12 +21,10 @@ import { toDecimal, toStorageNumber } from '../utils/decimal';
 
 type SupabaseService = typeof SupabaseSubscriptionService;
 type Logger = Pick<Console, 'error' | 'warn'>;
-type StripeLoader = typeof loadStripe;
 
 export interface SubscriptionApiServiceConfig {
   supabaseService?: SupabaseService;
   logger?: Logger;
-  stripeLoader?: StripeLoader;
 }
 
 export class SubscriptionApiService {
@@ -35,9 +32,10 @@ export class SubscriptionApiService {
   private static logger: Logger = typeof console !== 'undefined'
     ? console
     : { error: () => {}, warn: () => {} };
-  private static stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-    ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-    : Promise.resolve(null);
+  // NOTE: no module-level loadStripe() here. The old eager static field
+  // injected the 234 KB js.stripe.com script on EVERY page load — and the
+  // promise was never even consumed. Stripe.js loads via StripeService on
+  // the billing pages that actually need it.
 
   static configure(options: SubscriptionApiServiceConfig = {}) {
     if (options.supabaseService) {
@@ -45,9 +43,6 @@ export class SubscriptionApiService {
     }
     if (options.logger) {
       this.logger = options.logger;
-    }
-    if (options.stripeLoader && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
-      this.stripePromise = options.stripeLoader(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
     }
   }
 

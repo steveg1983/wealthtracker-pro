@@ -9,7 +9,14 @@
  * - Billing management
  */
 
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+// '/pure' is deliberate: the default '@stripe/stripe-js' entry injects the
+// 234 KB js.stripe.com script as a SIDE EFFECT of the import — on every page
+// of the app, including the dashboard. The pure entry defers injection until
+// loadStripe() is actually called (checkout/billing flows). Trade-off: we
+// forgo Stripe's all-pages fraud telemetry in exchange for not taxing every
+// page view; fraud signals still collect on the payment pages themselves.
+import { loadStripe } from '@stripe/stripe-js/pure';
+import type { Stripe } from '@stripe/stripe-js';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import type {
   SubscriptionPlan,

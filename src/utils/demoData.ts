@@ -5,7 +5,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { toDecimal } from './decimal';
-import { formatDecimal } from './decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { isDemoModeRuntimeAllowed } from './runtimeMode';
 
@@ -38,7 +37,7 @@ export const demoAccounts = [
     id: uuidv4(),
     name: 'Main Checking',
     type: 'checking',
-    balance: '5234.56',
+    balance: 5234.56,
     currency: 'USD',
     institution: 'Demo Bank',
     accountNumber: '****1234',
@@ -50,7 +49,7 @@ export const demoAccounts = [
     id: uuidv4(),
     name: 'Savings Account',
     type: 'savings',
-    balance: '25000.00',
+    balance: 25000.00,
     currency: 'USD',
     institution: 'Demo Bank',
     accountNumber: '****5678',
@@ -62,7 +61,7 @@ export const demoAccounts = [
     id: uuidv4(),
     name: 'Investment Portfolio',
     type: 'investment',
-    balance: '45678.90',
+    balance: 45678.90,
     currency: 'USD',
     institution: 'Demo Investments',
     accountNumber: '****9012',
@@ -148,7 +147,7 @@ export const demoAccounts = [
     id: uuidv4(),
     name: 'Credit Card',
     type: 'credit',
-    balance: '-2345.67',
+    balance: -2345.67,
     currency: 'USD',
     institution: 'Demo Credit',
     accountNumber: '****3456',
@@ -179,8 +178,10 @@ export const generateDemoTransactions = (count: number = 50) => {
     const isExpense = Math.random() > 0.2; // 80% expenses, 20% income
     const randomAmount = Math.random() * (isExpense ? 500 : 3000) + (isExpense ? 10 : 1000);
     const signedAmount = isExpense ? -randomAmount : randomAmount;
-    const amountDecimal = toDecimal(signedAmount);
-    const amount = formatDecimal(amountDecimal, 2);
+    // amount MUST be a number (Transaction.amount: number). The old
+    // formatDecimal string here poisoned every `sum + t.amount` reduce in the
+    // app into string concatenation, crashing pages with DecimalError.
+    const amount = toDecimal(signedAmount).toDecimalPlaces(2).toNumber();
     
     // Get expense categories or income category
     const expenseCategories = demoCategories.filter(c => c.type === 'expense');
@@ -220,8 +221,8 @@ export const demoBudgets = [
     id: uuidv4(),
     name: 'Monthly Expenses',
     category: 'Groceries',
-    amount: '600.00',
-    spent: '423.50',
+    amount: 600.00,
+    spent: 423.50,
     period: 'monthly',
     startDate: new Date().toISOString().split('T')[0],
     endDate: null,
@@ -231,8 +232,8 @@ export const demoBudgets = [
     id: uuidv4(),
     name: 'Dining Out',
     category: 'Restaurants',
-    amount: '400.00',
-    spent: '312.75',
+    amount: 400.00,
+    spent: 312.75,
     period: 'monthly',
     startDate: new Date().toISOString().split('T')[0],
     endDate: null,
@@ -242,8 +243,8 @@ export const demoBudgets = [
     id: uuidv4(),
     name: 'Entertainment',
     category: 'Entertainment',
-    amount: '200.00',
-    spent: '145.00',
+    amount: 200.00,
+    spent: 145.00,
     period: 'monthly',
     startDate: new Date().toISOString().split('T')[0],
     endDate: null,
@@ -253,8 +254,8 @@ export const demoBudgets = [
     id: uuidv4(),
     name: 'Transportation',
     category: 'Transportation',
-    amount: '300.00',
-    spent: '389.00',
+    amount: 300.00,
+    spent: 389.00,
     period: 'monthly',
     startDate: new Date().toISOString().split('T')[0],
     endDate: null,
@@ -267,8 +268,8 @@ export const demoGoals = [
   {
     id: uuidv4(),
     name: 'Emergency Fund',
-    targetAmount: '10000.00',
-    currentAmount: '6500.00',
+    targetAmount: 10000.00,
+    currentAmount: 6500.00,
     deadline: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     category: 'savings',
     priority: 'high',
@@ -277,8 +278,8 @@ export const demoGoals = [
   {
     id: uuidv4(),
     name: 'Vacation Fund',
-    targetAmount: '5000.00',
-    currentAmount: '2100.00',
+    targetAmount: 5000.00,
+    currentAmount: 2100.00,
     deadline: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     category: 'travel',
     priority: 'medium',
@@ -287,8 +288,8 @@ export const demoGoals = [
   {
     id: uuidv4(),
     name: 'New Car Down Payment',
-    targetAmount: '8000.00',
-    currentAmount: '3200.00',
+    targetAmount: 8000.00,
+    currentAmount: 3200.00,
     deadline: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     category: 'purchase',
     priority: 'low',
@@ -317,7 +318,7 @@ export const demoRecurringTransactions = [
   {
     id: uuidv4(),
     name: 'Netflix Subscription',
-    amount: '-15.99',
+    amount: -15.99,
     category: 'Entertainment',
     frequency: 'monthly',
     nextDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -327,7 +328,7 @@ export const demoRecurringTransactions = [
   {
     id: uuidv4(),
     name: 'Spotify Premium',
-    amount: '-9.99',
+    amount: -9.99,
     category: 'Entertainment',
     frequency: 'monthly',
     nextDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -337,7 +338,7 @@ export const demoRecurringTransactions = [
   {
     id: uuidv4(),
     name: 'Gym Membership',
-    amount: '-49.99',
+    amount: -49.99,
     category: 'Healthcare',
     frequency: 'monthly',
     nextDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -347,7 +348,7 @@ export const demoRecurringTransactions = [
   {
     id: uuidv4(),
     name: 'Salary',
-    amount: '3500.00',
+    amount: 3500.00,
     category: 'Salary',
     frequency: 'monthly',
     nextDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -387,14 +388,22 @@ export const initializeDemoData = () => {
     recurringTransactions: demoRecurringTransactions,
   };
   
+  // Keys MUST be the wealthtracker_-prefixed STORAGE_KEYS names: the app
+  // reads through encryptedStorage (IndexedDB), and storageAdapter migrates
+  // only prefixed localStorage keys across on first init. The old unprefixed
+  // keys ('transactions', …) were read by nothing — demo mode had been
+  // seeding dead keys since the encrypted-storage migration.
   localStorage.setItem('demoMode', 'true');
-  localStorage.setItem('accounts', JSON.stringify(demoData.accounts));
-  localStorage.setItem('transactions', JSON.stringify(demoData.transactions));
-  localStorage.setItem('budgets', JSON.stringify(demoData.budgets));
-  localStorage.setItem('goals', JSON.stringify(demoData.goals));
-  localStorage.setItem('categories', JSON.stringify(demoData.categories));
-  localStorage.setItem('recurringTransactions', JSON.stringify(demoData.recurringTransactions));
-  
+  localStorage.setItem('wealthtracker_accounts', JSON.stringify(demoData.accounts));
+  localStorage.setItem('wealthtracker_transactions', JSON.stringify(demoData.transactions));
+  localStorage.setItem('wealthtracker_budgets', JSON.stringify(demoData.budgets));
+  localStorage.setItem('wealthtracker_goals', JSON.stringify(demoData.goals));
+  localStorage.setItem('wealthtracker_categories', JSON.stringify(demoData.categories));
+  localStorage.setItem('wealthtracker_recurring', JSON.stringify(demoData.recurringTransactions));
+  // Force the localStorage→IndexedDB migration for this session so freshly
+  // seeded demo data is picked up even when the flag was already set.
+  sessionStorage.removeItem('wt_migration_completed');
+
   demoLogger.info('📊 Demo mode initialized with sample data');
 };
 
