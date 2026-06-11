@@ -39,7 +39,36 @@ Report written to `logs/data-integrity/`.
 **Current code is clean**: both account-creation paths set `initial_balance`,
 and all balance mutations now run through the atomic SQL RPCs.
 
-### Remediation options (decision needed — nothing was changed)
+### ✅ RESOLVED 2026-06-11 — invariant now holds 4/4
+
+Cleanup executed on user instruction (scripts/cleanup-test-data.mjs,
+dry-run shown first): deleted **125 synthetic users** (complete-test@,
+test.*@test.com, faker smoke leftovers) with their 66 accounts, 48
+transactions, 575 categories, 20 budgets, 3 goals. Deletion boundary was
+"every user whose email ≠ s.green1983@outlook.com" — both real user rows
+untouched.
+
+Per-account repairs on the 3 remaining drifted accounts:
+- **GREEN S A** (real data, 227 txns): `trust-balance` — recorded the
+  £2,773.42 opening balance the import path never wrote to
+  initial_balance. Displayed balance unchanged (£15,462.82).
+- **TEST Savings**: `trust-balance` — recorded the £1,000 opening balance.
+  Displayed balance unchanged (£2,000).
+- **TEST** (the corrupted account): `trust-ledger` — the 22-transaction
+  history is the truth; stored balance corrected from −£2,000 to
+  **£14,397.18**. (Pre-repair values preserved in
+  logs/data-integrity/2026-06-11T07-47-27-850Z_audit.json if reversal is
+  ever needed.)
+
+Post-repair audit: **4/4 accounts clean, zero drift.**
+
+NOTE: a side-finding remains open — the user has TWO users rows for the
+same email under different Clerk ids (user_31Ng… from 2025-08 owning the
+real accounts; user_3524… from 2025-11 owning the TEST accounts). Data is
+split across identities depending on which Clerk instance issued the
+session. Worth consolidating when convenient.
+
+### Remediation options (as originally written — superseded by the above)
 
 `npm run audit:data:repair -- --strategy=<s> [--apply]` (dry-run by default):
 - `trust-ledger` — balance := initial + Σtxns (transaction history wins;

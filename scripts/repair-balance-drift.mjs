@@ -54,6 +54,10 @@ if (strategy !== 'trust-ledger' && strategy !== 'trust-balance') {
   console.error('Choose a strategy: --strategy=trust-ledger | --strategy=trust-balance');
   process.exit(1);
 }
+// Optional: restrict the repair to one account (different accounts can need
+// different strategies — e.g. a missing opening balance vs a corrupted total).
+const accountArg = args.find((a) => a.startsWith('--account='));
+const onlyAccountId = accountArg?.split('=')[1] ?? null;
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 const d = (v) => new Decimal(v ?? 0);
@@ -87,6 +91,7 @@ const main = async () => {
 
   let repaired = 0;
   for (const a of accounts) {
+    if (onlyAccountId && a.id !== onlyAccountId) continue;
     const txnSum = sums.get(a.id) ?? d(0);
     const expected = d(a.initial_balance).plus(txnSum);
     const stored = d(a.balance);
