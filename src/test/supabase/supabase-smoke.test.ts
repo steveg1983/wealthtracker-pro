@@ -39,20 +39,24 @@ describe.skipIf(!shouldRunTests)('Supabase smoke', { timeout: 60000 }, () => {
     expect(serviceRow.type).toBe('expense');
   });
 
-  it('enforces RLS by blocking anon deletion', async () => {
+  it('enforces RLS: anon cannot delete OR read another user\'s rows', async () => {
     const inserted = await recordTransaction(userId, accountId);
     const { error, data } = await tryDeleteTransactionAsAnon(inserted.id);
 
-    // RLS should silently block the delete – no error, no rows affected
+    // RLS silently blocks the delete — no error, zero rows affected (the row
+    // is invisible to the anon key, so the DELETE matches nothing).
     expect(error).toBeNull();
     expect(Array.isArray(data) ? data.length : 0).toBe(0);
 
-    // Anon SELECT policy is USING (true) so anon can read but not delete.
-    // Verify the record still exists (was not deleted).
-    const rowsAfter = await fetchTransactionsAsUser(userId);
-    expect(rowsAfter.some((row) => row.id === inserted.id)).toBe(true);
+    // Hardened RLS (2026-06-11): the anon key can no longer READ the row
+    // either. Per-user isolation means an unauthenticated request sees an
+    // empty set, not the row. (This assertion was inverted before the
+    // RLS-data-isolation migration, when anon SELECT was USING (true).)
+    const anonRows = await fetchTransactionsAsUser(userId);
+    expect(anonRows.some((row) => row.id === inserted.id)).toBe(false);
 
-    // Service-role fetch confirms the record still exists in the table
+    // The service role bypasses RLS and confirms the blocked delete did NOT
+    // actually remove the row — it still exists, it's just invisible to anon.
     const serviceRow = await fetchTransactionByIdService(inserted.id);
     expect(serviceRow.id).toBe(inserted.id);
   });
