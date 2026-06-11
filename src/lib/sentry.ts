@@ -17,6 +17,40 @@ export function configureSentryLogger(logger: SentryLogger) {
   sentryLogger = logger;
 }
 
+// Keys whose values are redacted anywhere they appear in an event payload.
+// Covers auth secrets, direct PII, and financial-data field names that show
+// up in request bodies / breadcrumbs / component state captured by Sentry.
+const PII_KEY_PATTERN =
+  /pass|secret|token|auth|cookie|ssn|creditcard|card_?number|cvv|bank_?account|sort_?code|account_?number|email|phone|first_?name|last_?name|full_?name|address|dob|date_?of_?birth/i;
+
+const REDACTED = '[redacted]';
+
+const scrubValue = (value: unknown, depth = 0): unknown => {
+  if (depth > 6 || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((v) => scrubValue(v, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = PII_KEY_PATTERN.test(k) ? REDACTED : scrubValue(v, depth + 1);
+  }
+  return out;
+};
+
+export const scrubEventPii = (event: Sentry.ErrorEvent): void => {
+  if (event.request) {
+    // Query strings can carry PII; drop them and scrub the body.
+    if (event.request.query_string) event.request.query_string = REDACTED;
+    if (event.request.data) event.request.data = scrubValue(event.request.data);
+    if (event.request.cookies) delete event.request.cookies;
+  }
+  if (event.extra) event.extra = scrubValue(event.extra) as Record<string, unknown>;
+  if (event.contexts) event.contexts = scrubValue(event.contexts) as typeof event.contexts;
+  if (Array.isArray(event.breadcrumbs)) {
+    for (const b of event.breadcrumbs) {
+      if (b.data) b.data = scrubValue(b.data) as Record<string, unknown>;
+    }
+  }
+};
+
 export function initSentry() {
   if (!ENABLE_ERROR_TRACKING || !SENTRY_DSN) {
     sentryLogger.info('Sentry error tracking is disabled');
@@ -37,22 +71,17 @@ export function initSentry() {
     ],
     tracesSampleRate: APP_ENV === 'production' ? 0.1 : 1.0,
     beforeSend: (event, _hint) => {
-      // Filter out sensitive data
-      if (event.request?.data && typeof event.request.data === 'object') {
-        const data = event.request.data as SentryContext;
-        // Remove sensitive fields
-        delete data.password;
-        delete data.creditCard;
-        delete data.ssn;
-        delete data.bankAccount;
-      }
-      
+      // Data minimization (GDPR Art 5(1)(c)): strip PII before anything leaves
+      // the browser. The old fixed denylist missed nested data and query
+      // strings; scrubEventPii recurses and redacts by key name.
+      scrubEventPii(event);
+
       // Don't send events in development unless explicitly enabled
       if (APP_ENV === 'development' && !import.meta.env.VITE_SENTRY_SEND_IN_DEV) {
         sentryLogger.info('Sentry event captured (not sent in dev)');
         return null;
       }
-      
+
       return event;
     },
     ignoreErrors: [
@@ -81,12 +110,12 @@ export function initSentry() {
 
 export function setSentryUser(user: { id: string; email?: string; username?: string }) {
   if (!ENABLE_ERROR_TRACKING) return;
-  
-  Sentry.setUser({
-    id: user.id,
-    email: user.email,
-    username: user.username,
-  });
+
+  // Data minimization: send ONLY the opaque user id. The id is sufficient to
+  // correlate errors to a user via our own DB; email/username are PII that
+  // need not be replicated into a third-party processor. (Caller signature
+  // keeps email/username so call sites need not change.)
+  Sentry.setUser({ id: user.id });
 }
 
 export function clearSentryUser() {
