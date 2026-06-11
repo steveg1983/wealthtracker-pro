@@ -567,6 +567,8 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                             duplicateDetectionEnabled: !config.duplicateDetectionEnabled
                           });
                         }}
+                        aria-label="Duplicate transaction detection"
+                        aria-pressed={notificationService.getTransactionConfig().duplicateDetectionEnabled}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getTransactionConfig().duplicateDetectionEnabled
                             ? 'bg-[#1a2332]'
@@ -601,6 +603,8 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                             enableMilestoneNotifications: !config.enableMilestoneNotifications
                           });
                         }}
+                        aria-label="Goal milestone notifications"
+                        aria-pressed={notificationService.getGoalConfig().enableMilestoneNotifications}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getGoalConfig().enableMilestoneNotifications
                             ? 'bg-[#1a2332]'
@@ -627,6 +631,8 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                             enableCompletionCelebration: !config.enableCompletionCelebration
                           });
                         }}
+                        aria-label="Goal completion celebrations"
+                        aria-pressed={notificationService.getGoalConfig().enableCompletionCelebration}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getGoalConfig().enableCompletionCelebration
                             ? 'bg-[#1a2332]'

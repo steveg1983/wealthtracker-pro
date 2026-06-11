@@ -136,6 +136,7 @@ function SortableCategory({
                 variant="ghost"
                 size="sm"
                 className="text-gray-500 hover:text-gray-700"
+                aria-label="Save category name"
               />
               <IconButton
                 onClick={onCancel}
@@ -143,6 +144,7 @@ function SortableCategory({
                 variant="ghost"
                 size="sm"
                 className="text-gray-500 hover:text-gray-700"
+                aria-label="Cancel editing"
               />
             </>
           ) : (
@@ -499,6 +501,7 @@ export default function CategoriesSettings() {
                             variant="ghost"
                             size="sm"
                             className="text-gray-500 hover:text-gray-700"
+                            aria-label={isExpanded ? `Collapse ${subCategory.name}` : `Expand ${subCategory.name}`}
                           />
                         )}
                         {!isEditMode && (

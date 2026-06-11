@@ -274,6 +274,7 @@ export default function DocumentManager({
 
           {/* Type Filter */}
           <select
+            aria-label="Filter by document type"
             value={filterType}
             onChange={(e) => {
               const value = e.target.value;
@@ -296,6 +297,7 @@ export default function DocumentManager({
           {/* Tag Filter */}
           {getAllTags().length > 0 && (
             <select
+              aria-label="Add tag filter"
               value=""
               onChange={(e) => {
                 if (e.target.value && !filterTags.includes(e.target.value)) {

@@ -207,9 +207,12 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, GlobalSearchProps>(
             placeholder={placeholder}
             className="w-full pl-10 pr-4 py-3 bg-transparent border-0 text-gray-900 dark:text-white placeholder-gray-500"
             autoComplete="off"
+            role="combobox"
+            aria-label="Search transactions, accounts and pages"
             aria-autocomplete="list"
             aria-expanded={shouldShowPanel}
             aria-controls="global-search-results"
+            aria-haspopup="listbox"
           />
         </div>
 

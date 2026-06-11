@@ -67,6 +67,7 @@
     "verify:pre-commit": "npm run build:check && npm run lint && npm run test:unit",
     "verify:full": "npm run typecheck:strict && npm run build:check && npm run lint && npm run test:unit && npm run test:realtime && npm run test:coverage && node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=63 --branches=55",
     "audit:data": "node scripts/audit-data-integrity.mjs",
+    "audit:a11y": "node scripts/audit-accessibility.mjs",
     "audit:data:repair": "node scripts/repair-balance-drift.mjs",
     "verify:financial": "node scripts/verify-financial-safety.mjs",
     "verify:bundle": "npm run build && node scripts/bundle-size-check.mjs",

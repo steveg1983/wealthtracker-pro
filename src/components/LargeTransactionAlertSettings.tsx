@@ -31,6 +31,7 @@ export default function LargeTransactionAlertSettings() {
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
+              aria-label="Large transaction alerts"
               checked={largeTransactionAlertsEnabled}
               onChange={(e) => setLargeTransactionAlertsEnabled(e.target.checked)}
               className="sr-only peer"
@@ -51,6 +52,7 @@ export default function LargeTransactionAlertSettings() {
               <DollarSignIcon size={20} className="text-gray-500" />
               <input
                 type="number"
+                aria-label="Large transaction alert threshold"
                 min="50"
                 max="10000"
                 step="50"

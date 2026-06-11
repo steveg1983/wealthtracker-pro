@@ -276,6 +276,7 @@ export default function ExportManager() {
                     </label>
                     <input
                       type="date"
+                      aria-label="Start date"
                       value={exportOptions.startDate.toISOString().split('T')[0]}
                       onChange={(e) => setExportOptions({
                         ...exportOptions,
@@ -290,6 +291,7 @@ export default function ExportManager() {
                     </label>
                     <input
                       type="date"
+                      aria-label="End date"
                       value={exportOptions.endDate.toISOString().split('T')[0]}
                       onChange={(e) => setExportOptions({
                         ...exportOptions,
@@ -307,6 +309,7 @@ export default function ExportManager() {
                       Format
                     </label>
                     <select
+                      aria-label="Export format"
                       value={exportOptions.format}
                       onChange={(e) => setExportOptions({
                         ...exportOptions,
@@ -326,6 +329,7 @@ export default function ExportManager() {
                       Group By
                     </label>
                     <select
+                      aria-label="Group by"
                       value={exportOptions.groupBy || 'none'}
                       onChange={(e) => setExportOptions({
                         ...exportOptions,

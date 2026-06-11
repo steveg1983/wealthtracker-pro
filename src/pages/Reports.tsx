@@ -261,6 +261,7 @@ export default function Reports() {
           <div className="flex items-center gap-2">
             <CalendarIcon className="text-gray-500" size={20} />
             <select
+              aria-label="Date range"
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all' | 'custom')}
               className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -276,6 +277,7 @@ export default function Reports() {
           <div className="flex items-center gap-2">
             <FilterIcon className="text-gray-500" size={20} />
             <select
+              aria-label="Account filter"
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
               className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -314,7 +316,7 @@ export default function Reports() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+          <p className="text-2xl font-bold text-green-700 dark:text-green-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
           </p>
         </div>
@@ -329,7 +331,7 @@ export default function Reports() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Net Income</p>
           <p className={`text-2xl font-bold ${
-            summary.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+            summary.netIncome >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.netIncome)}
           </p>
@@ -338,7 +340,7 @@ export default function Reports() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
           <p className={`text-2xl font-bold ${
-            savingsRateValue >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
+            savingsRateValue >= 20 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
           }`}>
             {isLoading ? <SkeletonText className="w-20 h-8" /> : `${savingsRateDisplay}%`}
           </p>
@@ -444,7 +446,7 @@ export default function Reports() {
                       </p>
                     </div>
                     <p className={`text-lg font-semibold ${
-                      transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                     </p>
@@ -481,7 +483,7 @@ export default function Reports() {
                       {transaction.category}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${
-                      transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                     </td>

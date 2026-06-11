@@ -27,7 +27,9 @@ export default function ReportsHub() {
           <div className="flex items-center justify-between py-4 px-4 md:px-0">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Reports</h1>
           </div>
-          <nav className="flex gap-1 px-4 md:px-0 -mb-px overflow-x-auto" aria-label="Report tabs">
+          {/* role="tab" requires a role="tablist" parent (WCAG 1.3.1 / axe
+              aria-required-parent) */}
+          <div role="tablist" aria-label="Report tabs" className="flex gap-1 px-4 md:px-0 -mb-px overflow-x-auto">
             {tabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -48,7 +50,7 @@ export default function ReportsHub() {
                 </button>
               );
             })}
-          </nav>
+          </div>
         </div>
       </div>
 

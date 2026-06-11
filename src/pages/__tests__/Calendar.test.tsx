@@ -94,12 +94,17 @@ describe('Calendar', () => {
     // Should not crash
   });
 
-  it('has accessible grid role', () => {
+  it('renders the calendar without ARIA grid semantics', () => {
+    // role="grid" was removed deliberately: ARIA grid demands a strict
+    // grid>row>gridcell tree plus arrow-key navigation, which this CSS-grid
+    // month view never implemented (axe flagged aria-required-children).
+    // Days with transactions are reachable buttons instead.
     render(
       <MemoryRouter>
         <Calendar />
       </MemoryRouter>
     );
-    expect(screen.getByRole('grid')).toBeInTheDocument();
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Financial calendar')).toBeInTheDocument();
   });
 });

@@ -180,7 +180,7 @@ export default function EnhancedImport() {
                 </ul>
                 <button
                   onClick={() => setShowBatchImport(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
                 >
                   <FolderIcon size={16} />
                   Start Batch Import

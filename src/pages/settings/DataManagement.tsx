@@ -217,7 +217,7 @@ export default function DataManagementSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={() => setShowBatchImport(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors flex items-center justify-center gap-2"
           >
             <FolderIcon size={20} />
             Batch Import Multiple Files
@@ -225,7 +225,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowCSVImportWizard(true)}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
           >
             <FileTextIcon size={20} />
             CSV Import (Bank Statements)
@@ -233,7 +233,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowOFXImportModal(true)}
-            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors flex items-center justify-center gap-2"
           >
             <CreditCardIcon size={20} />
             OFX Import (Auto Match)
@@ -241,7 +241,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowQIFImportModal(true)}
-            className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors flex items-center justify-center gap-2"
           >
             <DatabaseIcon size={20} />
             QIF Import (Quicken)
@@ -277,7 +277,7 @@ export default function DataManagementSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={handleExportData}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors flex items-center justify-center gap-2"
           >
             <DownloadIcon size={20} />
             Quick Export (JSON)
@@ -285,7 +285,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowExcelExport(true)}
-            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2"
           >
             <GridIcon size={20} />
             Legacy Excel Export
@@ -315,7 +315,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowDuplicateDetection(true)}
-            className="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 bg-yellow-700 text-white rounded-lg hover:bg-yellow-800 transition-colors flex items-center justify-center gap-2"
           >
             <SearchIcon size={20} />
             Find Duplicate Transactions
@@ -323,7 +323,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowBulkEdit(true)}
-            className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
           >
             <EditIcon size={20} />
             Bulk Edit Transactions
@@ -331,7 +331,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowReconciliation(true)}
-            className="w-full px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors flex items-center justify-center gap-2"
           >
             <LinkIcon size={20} />
             Reconcile Accounts
@@ -339,7 +339,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowDataValidation(true)}
-            className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 bg-orange-700 text-white rounded-lg hover:bg-orange-800 transition-colors flex items-center justify-center gap-2"
           >
             <WrenchIcon size={20} />
             Validate & Clean Data
@@ -347,7 +347,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowTestDataConfirm(true)}
-            className="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors flex items-center justify-center gap-2"
           >
             <DatabaseIcon size={20} />
             {hasTestData ? 'Reload Test Data' : 'Load Test Data'}
@@ -355,7 +355,7 @@ export default function DataManagementSettings() {
           
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+            className="w-full px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors flex items-center justify-center gap-2"
           >
             <DeleteIcon size={20} />
             Clear All Data
@@ -391,7 +391,7 @@ export default function DataManagementSettings() {
               </button>
               <button
                 onClick={handleClearData}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800"
               >
                 Delete All Data
               </button>
@@ -428,7 +428,7 @@ export default function DataManagementSettings() {
               </button>
               <button
                 onClick={handleLoadTestData}
-                className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                className="flex-1 px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
               >
                 Load Test Data
               </button>

@@ -228,6 +228,7 @@ export default function AppSettings() {
           Choose your preferred base currency for displaying your net worth and performing currency conversions
         </p>
         <select
+          aria-label="Default currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
           className="w-full px-4 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -386,6 +387,7 @@ export default function AppSettings() {
                   checked={toggle.value}
                   onChange={(e) => toggle.onChange(e.target.checked)}
                   className="sr-only peer"
+                  aria-label={toggle.title}
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
               </label>
@@ -423,6 +425,7 @@ export default function AppSettings() {
               checked={enableGoalCelebrations}
               onChange={(e) => setEnableGoalCelebrations(e.target.checked)}
               className="sr-only peer"
+              aria-label="Enable goal celebrations"
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
           </label>

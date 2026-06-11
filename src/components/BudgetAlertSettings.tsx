@@ -30,6 +30,7 @@ export default function BudgetAlertSettings() {
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
+              aria-label="Budget alerts"
               checked={budgetAlertsEnabled}
               onChange={(e) => setBudgetAlertsEnabled(e.target.checked)}
               className="sr-only peer"
@@ -53,6 +54,7 @@ export default function BudgetAlertSettings() {
             
             <input
               type="range"
+              aria-label="Budget alert threshold percentage"
               min="50"
               max="95"
               step="5"

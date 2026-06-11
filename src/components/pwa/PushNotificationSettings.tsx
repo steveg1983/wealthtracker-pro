@@ -137,6 +137,7 @@ export const PushNotificationSettings: React.FC = () => {
           <button
             onClick={handleToggleNotifications}
             disabled={isLoading || permission === 'denied'}
+            aria-label="Push notifications"
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               isSubscribed ? 'bg-[#1a2332]' : 'bg-gray-200 dark:bg-gray-700'
             } ${isLoading || permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -209,6 +210,8 @@ export const PushNotificationSettings: React.FC = () => {
                   
                   <button
                     onClick={() => handlePreferenceChange(key, !preferences[key])}
+                    aria-label={`Notification preference: ${key}`}
+                    aria-pressed={Boolean(preferences[key])}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       preferences[key] ? 'bg-[#1a2332]' : 'bg-gray-200 dark:bg-gray-700'
                     }`}

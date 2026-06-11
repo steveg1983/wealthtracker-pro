@@ -130,6 +130,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               <button
                 onClick={() => handleSettingChange('enabled', !settings.enabled)}
                 disabled={!hasPermission}
+                aria-label="Push notifications"
+                aria-pressed={settings.enabled}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.enabled && hasPermission
                     ? 'bg-[var(--color-primary)]'
@@ -159,6 +161,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               </div>
               <button
                 onClick={() => handleSettingChange('budgetAlerts', !settings.budgetAlerts)}
+                aria-label="Budget alert notifications"
+                aria-pressed={settings.budgetAlerts}
                 disabled={!settings.enabled}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.budgetAlerts && settings.enabled
@@ -189,6 +193,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               </div>
               <button
                 onClick={() => handleSettingChange('billReminders', !settings.billReminders)}
+                aria-label="Bill reminder notifications"
+                aria-pressed={settings.billReminders}
                 disabled={!settings.enabled}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.billReminders && settings.enabled
@@ -242,6 +248,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                 </div>
                 <button
                   onClick={() => handleQuietHoursChange('enabled', !settings.quietHours.enabled)}
+                  aria-label="Quiet hours"
+                  aria-pressed={settings.quietHours.enabled}
                   disabled={!settings.enabled}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     settings.quietHours.enabled && settings.enabled

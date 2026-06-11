@@ -177,7 +177,7 @@ export default function Calendar() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Income</span>
-          <p className="text-lg font-semibold text-emerald-600">{formatCurrency(monthSummary.totalIncome)}</p>
+          <p className="text-lg font-semibold text-emerald-700">{formatCurrency(monthSummary.totalIncome)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Expenses</span>
@@ -185,7 +185,7 @@ export default function Calendar() {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Net</span>
-          <p className={`text-lg font-semibold ${monthSummary.totalIncome - monthSummary.totalExpense >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          <p className={`text-lg font-semibold ${monthSummary.totalIncome - monthSummary.totalExpense >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
             {formatCurrency(monthSummary.totalIncome - monthSummary.totalExpense)}
           </p>
         </div>
@@ -226,7 +226,7 @@ export default function Calendar() {
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700" role="row">
+        <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700">
           {dayNames.map(day => (
             <div key={day} className="px-2 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               {day}
@@ -234,17 +234,31 @@ export default function Calendar() {
           ))}
         </div>
 
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7" role="grid" aria-label="Financial calendar">
+        {/* Calendar grid. Plain CSS grid — no ARIA grid role (that requires a
+            strict grid>row>gridcell tree and arrow-key navigation; days with
+            transactions are real buttons instead, so keyboard users can open
+            them with Tab + Enter). */}
+        <div className="grid grid-cols-7" aria-label="Financial calendar">
           {calendarData.map((day, i) => (
             <div
               key={i}
-              onClick={() => handleDayClick(day)}
+              onClick={day.transactionCount > 0 ? () => handleDayClick(day) : undefined}
+              role={day.transactionCount > 0 ? 'button' : undefined}
+              tabIndex={day.transactionCount > 0 ? 0 : undefined}
+              aria-label={day.transactionCount > 0
+                ? `Day ${day.day}, ${day.transactionCount} transaction${day.transactionCount === 1 ? '' : 's'}`
+                : undefined}
+              onKeyDown={day.transactionCount > 0 ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleDayClick(day);
+                }
+              } : undefined}
               className={`
                 min-h-[60px] sm:min-h-[100px] p-1 sm:p-2 border-b border-r border-gray-50 dark:border-gray-700/50
                 ${!day.isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50 opacity-40' : 'bg-white dark:bg-gray-800'}
                 ${day.isToday ? 'ring-2 ring-inset ring-emerald-500' : ''}
-                ${day.transactionCount > 0 ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50' : ''}
+                ${day.transactionCount > 0 ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500' : ''}
                 transition-colors
               `}
             >
@@ -252,7 +266,7 @@ export default function Calendar() {
               <div className="flex items-center justify-between mb-1">
                 <span className={`text-sm font-medium ${
                   day.isToday
-                    ? 'bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs'
+                    ? 'bg-emerald-700 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs'
                     : day.isCurrentMonth
                       ? 'text-gray-900 dark:text-gray-200'
                       : 'text-gray-400 dark:text-gray-600'
@@ -268,7 +282,7 @@ export default function Calendar() {
 
               {/* Transaction amounts */}
               {day.isCurrentMonth && day.income > 0 && (
-                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium truncate">
+                <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium truncate">
                   +{formatCurrency(day.income)}
                 </div>
               )}

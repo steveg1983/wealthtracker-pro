@@ -156,6 +156,8 @@ export default function AutomaticBackupSettings() {
           </div>
           <button
             onClick={() => handleConfigChange({ enabled: !config.enabled })}
+            aria-label="Automatic backups"
+            aria-pressed={config.enabled}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               config.enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
             }`}
@@ -230,6 +232,8 @@ export default function AutomaticBackupSettings() {
                 </div>
                 <button
                   onClick={() => handleConfigChange({ encryptionEnabled: !config.encryptionEnabled })}
+                  aria-label="Encrypt backups"
+                  aria-pressed={config.encryptionEnabled}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     config.encryptionEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
                   }`}
