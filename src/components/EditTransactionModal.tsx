@@ -13,6 +13,7 @@ import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
 import { toDecimal, Decimal, parseMoneyInput } from '../utils/decimal';
+import { signTransactionAmount } from '../utils/transactionAmount';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -103,10 +104,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           });
 
           const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
+          // The form seeds the amount as Math.abs (line ~53), so it is always
+          // positive and MUST be re-signed. Shared helper = same convention as
+          // AddTransactionModal (this copy previously omitted the expense sign).
+          const signedAmount = signTransactionAmount(
+            parsedAmount,
+            resolvedType as 'income' | 'expense' | 'transfer',
+            isTransferToAccount
+          );
           const transactionData = {
             date: new Date(validatedData.date),
             description: validatedData.description,
-            amount: isTransferToAccount ? -Math.abs(parsedAmount) : parsedAmount,
+            amount: signedAmount,
             type: resolvedType,
             category: resolvedCategory,
             accountId: validatedData.accountId,
