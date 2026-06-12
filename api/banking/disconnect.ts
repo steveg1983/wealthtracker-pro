@@ -1,22 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import type { DisconnectRequest, DisconnectResponse, ErrorResponse } from '../../src/types/banking-api.js';
+import type { DisconnectRequest, DisconnectResponse } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
-
-const createErrorResponse = (
-  res: VercelResponse,
-  status: number,
-  error: string,
-  code: string,
-  details?: unknown
-) => {
-  res.status(status).json({
-    error,
-    code,
-    details
-  } satisfies ErrorResponse);
-};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {

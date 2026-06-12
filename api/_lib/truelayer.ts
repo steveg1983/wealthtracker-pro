@@ -256,9 +256,9 @@ export const fetchTransactions = async (
 
   const payload = (await response.json()) as TransactionsResponse;
   const results = Array.isArray(payload.results) ? payload.results : [];
-  console.log('[truelayer] fetchTransactions accountId:', accountId, 'returned:', results.length, 'transactions, status:', response.status);
-  if (results.length > 0) {
-    console.log('[truelayer] first transaction sample:', JSON.stringify(results[0]).slice(0, 300));
-  }
+  // Intentionally NOT logging transaction contents or the account id: a raw
+  // transaction carries the user's merchant, amount and description (PII), and
+  // the external account id is sensitive. Sync counts are recorded in
+  // sync_history server-side for observability instead.
   return results;
 };

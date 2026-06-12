@@ -1,29 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type {
-  ErrorResponse,
   OpsAlertTestRequest,
   OpsAlertTestResponse
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { requireBankingOpsAdmin } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 
 const TEST_EVENT_TYPE = 'banking.ops_alert_test';
-
-const createErrorResponse = (
-  res: VercelResponse,
-  status: number,
-  error: string,
-  code: string,
-  details?: unknown
-) => {
-  const payload: ErrorResponse = { error, code };
-  if (details !== undefined) {
-    payload.details = details;
-  }
-  return res.status(status).json(payload);
-};
 
 const relationMissing = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') {
