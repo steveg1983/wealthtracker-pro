@@ -263,7 +263,7 @@ export function FeatureGate({ feature, fallback, children }: WithFeatureGateProp
           </p>
           <button
             onClick={() => window.location.href = '/subscription'}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors text-sm"
           >
             Upgrade Now
           </button>

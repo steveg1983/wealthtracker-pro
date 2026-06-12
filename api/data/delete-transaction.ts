@@ -6,7 +6,6 @@ import { getServiceRoleSupabase } from '../_lib/supabase.js';
 interface ErrorResponse {
   error: string;
   code: string;
-  details?: unknown;
 }
 
 interface DeleteTransactionRequest {
@@ -21,13 +20,9 @@ const createErrorResponse = (
   res: VercelResponse,
   status: number,
   error: string,
-  code: string,
-  details?: unknown
+  code: string
 ) => {
   const payload: ErrorResponse = { error, code };
-  if (details !== undefined) {
-    payload.details = details;
-  }
   return res.status(status).json(payload);
 };
 
@@ -50,85 +45,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 400, 'transactionId is required', 'invalid_request');
     }
 
-    const transactionResult = await supabase
-      .from('transactions')
-      .select('id, account_id, amount')
-      .eq('id', transactionId)
-      .eq('user_id', auth.userId)
-      .maybeSingle();
+    // Atomic RPC: deletes the transaction AND reverses the account balance in
+    // a single database transaction — no partial-failure states, SQL numeric
+    // math only. p_user_id scopes the delete to the Clerk-verified user
+    // (required because the service role bypasses RLS).
+    const { error } = await supabase.rpc('delete_transaction_atomic', {
+      p_id: transactionId,
+      p_user_id: auth.userId
+    });
 
-    if (transactionResult.error) {
-      return createErrorResponse(
-        res,
-        500,
-        'Failed to load transaction',
-        'internal_error',
-        transactionResult.error
-      );
-    }
-
-    const transaction = transactionResult.data;
-    if (!transaction) {
-      return createErrorResponse(res, 404, 'Transaction not found', 'not_found');
-    }
-
-    const deleteResult = await supabase
-      .from('transactions')
-      .delete()
-      .eq('id', transactionId)
-      .eq('user_id', auth.userId)
-      .select('id');
-
-    if (deleteResult.error) {
-      return createErrorResponse(
-        res,
-        500,
-        'Failed to delete transaction',
-        'internal_error',
-        deleteResult.error
-      );
-    }
-
-    if (!deleteResult.data || deleteResult.data.length === 0) {
-      return createErrorResponse(res, 404, 'Transaction not found', 'not_found');
-    }
-
-    if (transaction.account_id && typeof transaction.amount === 'number' && Number.isFinite(transaction.amount)) {
-      const accountResult = await supabase
-        .from('accounts')
-        .select('balance')
-        .eq('id', transaction.account_id)
-        .eq('user_id', auth.userId)
-        .maybeSingle();
-
-      if (accountResult.error) {
-        return createErrorResponse(
-          res,
-          500,
-          'Transaction deleted but failed to load account balance',
-          'partial_failure',
-          accountResult.error
-        );
+    if (error) {
+      if (error.message?.includes('transaction_not_found')) {
+        return createErrorResponse(res, 404, 'Transaction not found', 'not_found');
       }
-
-      if (accountResult.data) {
-        const currentBalance = typeof accountResult.data.balance === 'number' ? accountResult.data.balance : 0;
-        const updateResult = await supabase
-          .from('accounts')
-          .update({ balance: currentBalance - transaction.amount })
-          .eq('id', transaction.account_id)
-          .eq('user_id', auth.userId);
-
-        if (updateResult.error) {
-          return createErrorResponse(
-            res,
-            500,
-            'Transaction deleted but failed to update account balance',
-            'partial_failure',
-            updateResult.error
-          );
-        }
-      }
+      // Log internals server-side; never leak raw database errors to clients.
+      console.error('[delete-transaction] RPC failed', {
+        code: error.code,
+        message: error.message
+      });
+      return createErrorResponse(res, 500, 'Failed to delete transaction', 'internal_error');
     }
 
     const response: DeleteTransactionResponse = { success: true };
@@ -137,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (error instanceof AuthError) {
       return createErrorResponse(res, error.status, error.message, error.code);
     }
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return createErrorResponse(res, 500, message, 'internal_error');
+    console.error('[delete-transaction] Unexpected error', error);
+    return createErrorResponse(res, 500, 'Unexpected error', 'internal_error');
   }
 }

@@ -122,6 +122,10 @@ export class AutoSyncService {
     this.logger.log('[AutoSync] Initializing for user:', userId);
     this.userId = userId;
 
+    // Recover any operations queued in a previous session before doing
+    // anything else — a refresh must never lose pending financial writes.
+    this.restoreQueue();
+
     try {
       // Step 1: Load local data
       const localData = await this.loadLocalData();
@@ -422,6 +426,71 @@ export class AutoSyncService {
     }
   }
 
+  private static readonly QUEUE_STORAGE_KEY = 'wt_sync_queue_v1';
+
+  /**
+   * Persist the queue so a page refresh cannot discard pending financial
+   * operations. Failures to persist are logged, never thrown.
+   */
+  private persistQueue(): void {
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(AutoSyncService.QUEUE_STORAGE_KEY, JSON.stringify(this.syncQueue));
+    } catch (error) {
+      this.logger.error('[AutoSync] Failed to persist sync queue', error);
+    }
+  }
+
+  /**
+   * Restore any queue persisted by a previous session. Called on initialize.
+   */
+  private restoreQueue(): void {
+    if (!this.storage) return;
+    try {
+      const raw = this.storage.getItem(AutoSyncService.QUEUE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Anything mid-flight when the page closed goes back to pending.
+        this.syncQueue = parsed.map((item: SyncQueueItem) => ({
+          ...item,
+          status: item.status === 'syncing' ? 'pending' : item.status
+        }));
+        this.syncStatus.pendingChanges = this.syncQueue.filter(i => i.status === 'pending').length;
+        this.logger.log(`[AutoSync] Restored ${this.syncQueue.length} queued operation(s) from storage`);
+      }
+    } catch (error) {
+      this.logger.error('[AutoSync] Failed to restore sync queue', error);
+    }
+  }
+
+  /**
+   * Operations that exhausted retries. They are NEVER silently dropped —
+   * they stay dead-lettered and visible until explicitly retried or cleared.
+   */
+  getDeadLetteredOperations(): SyncQueueItem[] {
+    return this.syncQueue.filter(i => i.status === 'failed');
+  }
+
+  /** Re-queue all dead-lettered operations for another attempt. */
+  retryDeadLetteredOperations(): void {
+    let changed = false;
+    for (const item of this.syncQueue) {
+      if (item.status === 'failed') {
+        item.status = 'pending';
+        item.retries = 0;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.syncStatus.pendingChanges = this.syncQueue.filter(i => i.status === 'pending').length;
+      this.persistQueue();
+      if (this.syncStatus.isOnline) {
+        this.processSyncQueue();
+      }
+    }
+  }
+
   /**
    * Add an operation to the sync queue
    */
@@ -442,6 +511,7 @@ export class AutoSyncService {
 
     this.syncQueue.push(item);
     this.syncStatus.pendingChanges = this.syncQueue.filter(i => i.status === 'pending').length;
+    this.persistQueue();
 
     // Try to sync immediately if online
     if (this.syncStatus.isOnline) {
@@ -469,18 +539,21 @@ export class AutoSyncService {
         item.status = 'syncing';
         await this.syncItem(item);
         item.status = 'completed';
-        
+
         // Remove completed items from queue
         this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
       } catch (error) {
         this.logger.error('[AutoSync] Sync failed for item:', item, error);
-        item.status = 'pending';
         item.retries++;
 
-        // Remove item if too many retries
         if (item.retries > 3) {
+          // Dead-letter, do NOT drop: financial operations must never be
+          // silently discarded. The item stays visible via
+          // getDeadLetteredOperations() until retried or resolved.
+          item.status = 'failed';
           this.syncStatus.syncErrors.push(`Failed to sync ${item.entity}: ${error}`);
-          this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
+        } else {
+          item.status = 'pending';
         }
       }
     }
@@ -488,6 +561,7 @@ export class AutoSyncService {
     this.syncStatus.isSyncing = false;
     this.syncStatus.lastSyncTime = this.dateFactory();
     this.syncStatus.pendingChanges = this.syncQueue.filter(i => i.status === 'pending').length;
+    this.persistQueue();
   }
 
   /**
@@ -506,35 +580,50 @@ export class AutoSyncService {
     }
 
     const table = `${item.entity}s`; // e.g., 'accounts', 'transactions'
-    
+
+    // CRITICAL: supabase-js does NOT throw on failure — it returns { error }.
+    // Every branch must check it, otherwise failed offline writes are marked
+    // 'completed' and the user's data is silently lost.
     switch (item.type) {
-      case 'CREATE':
+      case 'CREATE': {
         // Don't create if it already has a database ID
         if (item.data.id && item.data.id.length === 36) {
           this.logger.log('[AutoSync] Skipping CREATE - item already has database ID:', item.data.id);
           return;
         }
-        await supabase.from(table).insert({
+        const { error } = await supabase.from(table).insert({
           ...item.data,
           user_id: databaseUserId
         });
+        if (error) {
+          throw new Error(`Sync CREATE failed for ${table}: ${error.message}`);
+        }
         break;
-      
-      case 'UPDATE':
-        await supabase
+      }
+
+      case 'UPDATE': {
+        const { error } = await supabase
           .from(table)
           .update(item.data)
           .eq('id', item.data.id)
           .eq('user_id', databaseUserId);
+        if (error) {
+          throw new Error(`Sync UPDATE failed for ${table}: ${error.message}`);
+        }
         break;
-      
-      case 'DELETE':
-        await supabase
+      }
+
+      case 'DELETE': {
+        const { error } = await supabase
           .from(table)
           .delete()
           .eq('id', item.data.id)
           .eq('user_id', databaseUserId);
+        if (error) {
+          throw new Error(`Sync DELETE failed for ${table}: ${error.message}`);
+        }
         break;
+      }
     }
   }
 

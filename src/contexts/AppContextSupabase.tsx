@@ -10,13 +10,15 @@ import { DataService } from '../services/api/dataService';
 import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
 import { userIdService } from '../services/userIdService';
+import { PlanningService } from '../services/api/planningService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
-import { 
-  toDecimalTransaction, 
-  toDecimalAccount, 
-  toDecimalGoal 
+import {
+  toDecimalTransaction,
+  toDecimalAccount,
+  toDecimalGoal
 } from '../utils/decimal-converters';
+import { toDecimal } from '../utils/decimal';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
 import type { 
   Account, 
@@ -41,29 +43,29 @@ export interface Tag {
 export interface AppContextType extends AppState {
   // Account operations
   addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
-  updateAccount: (id: string, updates: Partial<Account>) => void;
-  deleteAccount: (id: string) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => Promise<void>;
+  deleteAccount: (id: string) => Promise<void>;
+
+  // Transaction operations — async so callers can surface save failures.
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   
-  // Transaction operations
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
+  // Budget operations — async so callers can surface persistence failures
+  addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => Promise<void>;
+  updateBudget: (id: string, updates: Partial<Budget>) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
+
+  // Goal operations — async so callers can surface persistence failures
+  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => Promise<void>;
+  updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
+  contributeToGoal: (id: string, amount: number) => Promise<void>;
   
-  // Budget operations
-  addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => void;
-  updateBudget: (id: string, updates: Partial<Budget>) => void;
-  deleteBudget: (id: string) => void;
-  
-  // Goal operations
-  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => void;
-  updateGoal: (id: string, updates: Partial<Goal>) => void;
-  deleteGoal: (id: string) => void;
-  contributeToGoal: (id: string, amount: number) => void;
-  
-  // Category operations
-  addCategory: (category: Omit<Category, 'id'>) => void;
-  updateCategory: (id: string, updates: Partial<Category>) => void;
-  deleteCategory: (id: string) => void;
+  // Category operations — async so callers can surface persistence failures
+  addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
+  updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
   getSubCategories: (parentId: string) => Category[];
   getDetailCategories: (parentId: string) => Category[];
   
@@ -164,18 +166,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setAccounts([]);
         }
         
-        // Load other data through DataService for now
+        // Categories MUST resolve before transactions/budgets are read:
+        // ensureCategories runs the one-time cloud migration on first
+        // signed-in load (per-user uuid ids + atomic remap of the category
+        // references on transactions and budgets) — reading those first
+        // would snapshot pre-remap ids into state.
+        const planningUserId = userIdService.getCurrentDatabaseUserId();
+        const loadedCategories = await PlanningService.ensureCategories(planningUserId);
+        setCategories(loadedCategories);
+
+        // Now load transactions, budgets, and goals (post-remap views).
         const data = await DataService.loadAppData();
         setTransactions(data.transactions);
-        setBudgets(data.budgets);
-        setGoals(data.goals);
-        
-        // Use default categories if none exist
-        if (data.categories.length === 0) {
-          setCategories(getDefaultCategories());
-        } else {
-          setCategories(data.categories);
+
+        // Without an authenticated user (demo / local-only mode) the
+        // SimpleAccountService path above returns nothing — it needs a
+        // database user id. Fall back to the storage-backed accounts that
+        // loadAppData already read, so demo mode shows accounts everywhere
+        // (accounts page, dashboard distribution, add-transaction modal).
+        if (!user && data.accounts.length > 0) {
+          setAccounts(data.accounts);
         }
+
+        const [loadedBudgets, loadedGoals] = await Promise.all([
+          PlanningService.getBudgets(planningUserId),
+          PlanningService.getGoals(planningUserId)
+        ]);
+        setBudgets(loadedBudgets);
+        setGoals(loadedGoals);
 
         setIsUsingSupabase(DataService.isUsingSupabase());
         setLastSyncTime(new Date());
@@ -369,12 +387,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newTransaction = await DataService.createTransaction(transaction);
       setTransactions(prev => [...prev, newTransaction]);
       
-      // Update account balance locally for immediate UI feedback
+      // Update account balance locally for immediate UI feedback.
+      // Decimal arithmetic — float math is banned on money values. The DB
+      // balance is adjusted atomically inside create_transaction_atomic.
       setAccounts(prev => prev.map(acc => {
         if (acc.id === transaction.accountId) {
           return {
             ...acc,
-            balance: (acc.balance || 0) + transaction.amount
+            balance: toDecimal(acc.balance || 0).plus(toDecimal(transaction.amount)).toNumber()
           };
         }
         return acc;
@@ -391,14 +411,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updatedTransaction = await DataService.updateTransaction(id, updates);
       setTransactions(prev => prev.map(t => t.id === id ? updatedTransaction : t));
       
-      // Update account balance if amount changed
+      // Update account balance if amount changed (Decimal arithmetic; the DB
+      // balance is adjusted atomically inside update_transaction_atomic).
       if (oldTransaction && updates.amount !== undefined && updates.amount !== oldTransaction.amount) {
-        const difference = updates.amount - oldTransaction.amount;
+        const difference = toDecimal(updates.amount).minus(toDecimal(oldTransaction.amount));
         setAccounts(prev => prev.map(acc => {
           if (acc.id === oldTransaction.accountId) {
             return {
               ...acc,
-              balance: (acc.balance || 0) + difference
+              balance: toDecimal(acc.balance || 0).plus(difference).toNumber()
             };
           }
           return acc;
@@ -416,13 +437,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await DataService.deleteTransaction(id);
       setTransactions(prev => prev.filter(t => t.id !== id));
       
-      // Update account balance
+      // Update account balance (Decimal arithmetic; the DB balance is reversed
+      // atomically inside delete_transaction_atomic).
       if (transaction) {
         setAccounts(prev => prev.map(acc => {
           if (acc.id === transaction.accountId) {
             return {
               ...acc,
-              balance: (acc.balance || 0) - transaction.amount
+              balance: toDecimal(acc.balance || 0).minus(toDecimal(transaction.amount)).toNumber()
             };
           }
           return acc;
@@ -434,67 +456,140 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [transactions]);
 
-  // Budget operations (still using localStorage for now)
-  const addBudget = useCallback((budget: Omit<Budget, 'id' | 'spent'>) => {
-    const newBudget: Budget = {
-      ...budget,
-      id: crypto.randomUUID(),
-      spent: 0
-    };
-    setBudgets(prev => [...prev, newBudget]);
+  // Budget operations — persisted via PlanningService (Supabase or local)
+  const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'spent'>) => {
+    try {
+      const created = await PlanningService.createBudget(
+        userIdService.getCurrentDatabaseUserId(),
+        budget
+      );
+      setBudgets(prev => [...prev, created]);
+    } catch (error) {
+      appLogger.error('Failed to add budget', error);
+      throw error;
+    }
   }, []);
 
-  const updateBudget = useCallback((id: string, updates: Partial<Budget>) => {
-    setBudgets(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  const updateBudget = useCallback(async (id: string, updates: Partial<Budget>) => {
+    try {
+      const updated = await PlanningService.updateBudget(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        updates
+      );
+      setBudgets(prev => prev.map(b => b.id === id ? updated : b));
+    } catch (error) {
+      appLogger.error('Failed to update budget', error);
+      throw error;
+    }
   }, []);
 
-  const deleteBudget = useCallback((id: string) => {
-    setBudgets(prev => prev.filter(b => b.id !== id));
+  const deleteBudget = useCallback(async (id: string) => {
+    try {
+      await PlanningService.deleteBudget(userIdService.getCurrentDatabaseUserId(), id);
+      setBudgets(prev => prev.filter(b => b.id !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete budget', error);
+      throw error;
+    }
   }, []);
 
-  // Goal operations (still using localStorage for now)
-  const addGoal = useCallback((goal: Omit<Goal, 'id' | 'progress'>) => {
-    const newGoal: Goal = {
-      ...goal,
-      id: crypto.randomUUID(),
-      progress: 0
-    };
-    setGoals(prev => [...prev, newGoal]);
+  // Goal operations — persisted via PlanningService (Supabase or local)
+  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'progress'>) => {
+    try {
+      const created = await PlanningService.createGoal(
+        userIdService.getCurrentDatabaseUserId(),
+        goal
+      );
+      setGoals(prev => [...prev, created]);
+    } catch (error) {
+      appLogger.error('Failed to add goal', error);
+      throw error;
+    }
   }, []);
 
-  const updateGoal = useCallback((id: string, updates: Partial<Goal>) => {
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+  const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
+    try {
+      const updated = await PlanningService.updateGoal(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        updates
+      );
+      setGoals(prev => prev.map(g => g.id === id ? updated : g));
+    } catch (error) {
+      appLogger.error('Failed to update goal', error);
+      throw error;
+    }
   }, []);
 
-  const deleteGoal = useCallback((id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
+  const deleteGoal = useCallback(async (id: string) => {
+    try {
+      await PlanningService.deleteGoal(userIdService.getCurrentDatabaseUserId(), id);
+      setGoals(prev => prev.filter(g => g.id !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete goal', error);
+      throw error;
+    }
   }, []);
 
-  const contributeToGoal = useCallback((id: string, amount: number) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        const newProgress = Math.min((g.progress || 0) + amount, g.targetAmount);
-        return { ...g, progress: newProgress };
-      }
-      return g;
-    }));
+  const contributeToGoal = useCallback(async (id: string, amount: number) => {
+    const goal = goals.find(g => g.id === id);
+    if (!goal) return;
+    const newProgress = toDecimal(goal.progress || 0)
+      .plus(toDecimal(amount))
+      .toNumber();
+    const cappedProgress = Math.min(newProgress, goal.targetAmount);
+    try {
+      const updated = await PlanningService.updateGoal(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        { progress: cappedProgress, currentAmount: cappedProgress }
+      );
+      setGoals(prev => prev.map(g => g.id === id ? updated : g));
+    } catch (error) {
+      appLogger.error('Failed to contribute to goal', error);
+      throw error;
+    }
+  }, [goals]);
+
+  // Category operations — persisted via PlanningService (Supabase when
+  // signed in, encrypted localStorage otherwise).
+  const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
+    try {
+      const created = await PlanningService.createCategory(
+        userIdService.getCurrentDatabaseUserId(),
+        category
+      );
+      setCategories(prev => [...prev, created]);
+    } catch (error) {
+      appLogger.error('Failed to add category', error);
+      throw error;
+    }
   }, []);
 
-  // Category operations (still using localStorage for now)
-  const addCategory = useCallback((category: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-      ...category,
-      id: crypto.randomUUID()
-    };
-    setCategories(prev => [...prev, newCategory]);
+  const updateCategory = useCallback(async (id: string, updates: Partial<Category>) => {
+    try {
+      const updated = await PlanningService.updateCategory(
+        userIdService.getCurrentDatabaseUserId(),
+        id,
+        updates
+      );
+      setCategories(prev => prev.map(c => c.id === id ? updated : c));
+    } catch (error) {
+      appLogger.error('Failed to update category', error);
+      throw error;
+    }
   }, []);
 
-  const updateCategory = useCallback((id: string, updates: Partial<Category>) => {
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-  }, []);
-
-  const deleteCategory = useCallback((id: string) => {
-    setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+  const deleteCategory = useCallback(async (id: string) => {
+    try {
+      await PlanningService.deleteCategory(userIdService.getCurrentDatabaseUserId(), id);
+      // Children go with the parent (cloud FK is ON DELETE CASCADE; mirror it)
+      setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+    } catch (error) {
+      appLogger.error('Failed to delete category', error);
+      throw error;
+    }
   }, []);
 
   const getSubCategories = useCallback((parentId: string) => {

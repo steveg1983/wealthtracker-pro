@@ -104,7 +104,7 @@ export default function StockQuoteWidget({
   const formattedPercentChange = formatDecimal(quote.changePercent, 2);
 
   return (
-    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-lg shadow border border-white/20 dark:border-gray-700/50 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-100 dark:border-gray-700 p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-gray-900 dark:text-white">{quote.symbol}</h3>

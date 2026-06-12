@@ -208,7 +208,7 @@ export default function DocumentUpload({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
             <UploadIcon size={16} />
             Select Files
@@ -339,7 +339,7 @@ export default function DocumentUpload({
                   <div className="w-20">
                     <div className="h-1 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 transition-all duration-300"
+                        className="h-full bg-[#1a2332] transition-all duration-300"
                         style={{ width: `${uploadProgress[file.name]}%` }}
                       />
                     </div>
@@ -421,7 +421,7 @@ export default function DocumentUpload({
           <button
             onClick={uploadFiles}
             disabled={selectedFiles.length === 0 || uploading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {uploading ? (
               <>

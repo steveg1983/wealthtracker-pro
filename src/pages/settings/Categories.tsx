@@ -97,7 +97,7 @@ function SortableCategory({
                 if (e.key === 'Enter') onSave();
                 else if (e.key === 'Escape') onCancel();
               }}
-              className="px-2 py-1 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white flex-1"
+              className="px-2 py-1 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white flex-1"
               autoFocus
               onClick={(e) => e.stopPropagation()}
             />
@@ -136,6 +136,7 @@ function SortableCategory({
                 variant="ghost"
                 size="sm"
                 className="text-gray-500 hover:text-gray-700"
+                aria-label="Save category name"
               />
               <IconButton
                 onClick={onCancel}
@@ -143,6 +144,7 @@ function SortableCategory({
                 variant="ghost"
                 size="sm"
                 className="text-gray-500 hover:text-gray-700"
+                aria-label="Cancel editing"
               />
             </>
           ) : (
@@ -499,6 +501,7 @@ export default function CategoriesSettings() {
                             variant="ghost"
                             size="sm"
                             className="text-gray-500 hover:text-gray-700"
+                            aria-label={isExpanded ? `Collapse ${subCategory.name}` : `Expand ${subCategory.name}`}
                           />
                         )}
                         {!isEditMode && (
@@ -635,7 +638,7 @@ export default function CategoriesSettings() {
       )}
 
       {/* Categories Tree */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -684,7 +687,7 @@ export default function CategoriesSettings() {
           </div>
           <DragOverlay>
             {activeId ? (
-              <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-2 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 opacity-90">
+              <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-2 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 opacity-90">
                 {categories.find(c => c.id === activeId)?.name}
               </div>
             ) : null}
@@ -695,7 +698,7 @@ export default function CategoriesSettings() {
       {/* Category Delete Confirmation Dialog */}
       {deletingCategoryId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-orange-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Category</h3>
@@ -715,7 +718,7 @@ export default function CategoriesSettings() {
                   <select
                     value={reassignCategoryId}
                     onChange={(e) => setReassignCategoryId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white mb-6"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white mb-6"
                   >
                     <option value="">Select a category...</option>
                     {categories
@@ -778,7 +781,7 @@ export default function CategoriesSettings() {
       {/* View Transactions Confirmation */}
       {viewingCategoryId && !showTransactionsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               View Transactions
             </h3>
@@ -799,7 +802,7 @@ export default function CategoriesSettings() {
                 onClick={() => {
                   setShowTransactionsModal(true);
                 }}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
               >
                 View Transactions
               </button>

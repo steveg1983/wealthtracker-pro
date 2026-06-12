@@ -13,6 +13,7 @@ import {
   FingerprintIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
+import DangerZone from '../../components/settings/DangerZone';
 import type { SecuritySettings as SecuritySettingsType } from '../../services/securityService';
 
 export default function SecuritySettings() {
@@ -145,7 +146,7 @@ export default function SecuritySettings() {
         {/* Security Features */}
         <div className="space-y-6">
           {/* Two-Factor Authentication */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -179,7 +180,7 @@ export default function SecuritySettings() {
           </div>
 
           {/* Biometric Authentication */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -215,7 +216,7 @@ export default function SecuritySettings() {
           </div>
 
           {/* Data Encryption */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -249,11 +250,11 @@ export default function SecuritySettings() {
           </div>
 
           {/* Read-Only Mode */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <EyeIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                  <EyeIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
                   Read-Only Mode
                 </h3>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -283,7 +284,7 @@ export default function SecuritySettings() {
           </div>
 
           {/* Session Timeout */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
               <RefreshCwIcon size={20} className="text-orange-600 dark:text-orange-400" />
               Session Timeout
@@ -297,6 +298,7 @@ export default function SecuritySettings() {
                   Timeout after:
                 </label>
                 <select
+                  aria-label="Session timeout"
                   value={settings.sessionTimeout}
                   onChange={(e) => handleSessionTimeoutChange(Number(e.target.value))}
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -312,7 +314,7 @@ export default function SecuritySettings() {
           </div>
 
           {/* Audit Logs */}
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
               <FileTextIcon size={20} className="text-gray-600 dark:text-gray-400" />
               Security Information
@@ -342,10 +344,15 @@ export default function SecuritySettings() {
           </div>
         </div>
 
+        {/* Account deletion (GDPR right to erasure) */}
+        <div className="mt-6">
+          <DangerZone />
+        </div>
+
         {/* Two-Factor Setup Modal */}
         {showTwoFactorSetup && twoFactorSecret && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Set Up Two-Factor Authentication
               </h3>
@@ -356,7 +363,7 @@ export default function SecuritySettings() {
                     1. Scan this QR code with your authenticator app:
                   </p>
                   <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center">
-                    <div className="inline-block p-4 bg-card-bg-light dark:bg-card-bg-dark rounded">
+                    <div className="inline-block p-4 bg-white dark:bg-gray-800 rounded">
                       <KeyIcon size={48} className="text-gray-400" />
                       <p className="text-xs text-gray-500 mt-2">QR Code Placeholder</p>
                     </div>

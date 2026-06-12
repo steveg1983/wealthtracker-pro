@@ -6,6 +6,7 @@ import type {
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { applyRateLimit } from '../_lib/rate-limit.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import {
   getUserTrueLayerConnection,
@@ -122,6 +123,10 @@ const chunk = <T>(values: T[], size: number): T[][] => {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, { name: 'sync-transactions', limit: 6, windowMs: 60_000 })) {
     return;
   }
 

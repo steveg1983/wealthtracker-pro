@@ -8,7 +8,7 @@ import {
   type BudgetApproval,
   type SharedFinanceActivity
 } from '../services/sharedFinanceService';
-import { 
+import {
   TargetIcon,
   GoalIcon,
   PlusIcon,
@@ -18,6 +18,7 @@ import {
   AlertCircleIcon,
   ClockIcon
 } from './icons';
+import { CreateBudgetModal, CreateGoalModal } from './SharedBudgetsModals';
 import { useCurrency } from '../hooks/useCurrency';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
@@ -287,7 +288,7 @@ export default function SharedBudgetsGoals() {
           </h3>
           <div className="space-y-2">
             {pendingApprovals.map(approval => (
-              <div key={approval.id} className="flex items-center justify-between p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-lg">
+              <div key={approval.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <div>
                   <p className="font-medium">
                     {approval.requestedByName} requested to change budget to {formatCurrency(approval.amount)}
@@ -321,7 +322,7 @@ export default function SharedBudgetsGoals() {
       )}
 
       {/* Tabs */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-1 flex">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-1 flex">
         <button
           onClick={() => setActiveTab('budgets')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
@@ -370,7 +371,7 @@ export default function SharedBudgetsGoals() {
             const isExceeded = spending > budget.amount;
 
             return (
-              <div key={budget.id} className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-6">
+              <div key={budget.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold">{budget.name}</h3>
@@ -465,7 +466,7 @@ export default function SharedBudgetsGoals() {
             const myContribution = goal.contributors.find(c => c.memberId === currentMember?.id);
 
             return (
-              <div key={goal.id} className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-6">
+              <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold">{goal.name}</h3>
@@ -567,7 +568,7 @@ export default function SharedBudgetsGoals() {
       )}
 
       {/* Recent Activity */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
         <div className="space-y-3">
           {activities.slice(0, 5).map(activity => (
@@ -590,224 +591,26 @@ export default function SharedBudgetsGoals() {
 
       {/* Create Budget Modal */}
       {showCreateBudget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-4">Create Shared Budget</h3>
-            
-            <form onSubmit={handleCreateBudget} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Budget Name
-                </label>
-                <input
-                  type="text"
-                  value={budgetForm.name}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Category
-                </label>
-                <select
-                  value={budgetForm.categoryId}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                >
-                  <option value="">Select category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Amount
-                </label>
-                <input
-                  type="number"
-                  value={budgetForm.amount}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, amount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Period
-                </label>
-                <select
-                  value={budgetForm.period}
-                  onChange={(e) =>
-                    setBudgetForm({
-                      ...budgetForm,
-                      period: e.target.value as BudgetPeriod
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                >
-                  <option value="monthly">Monthly</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </div>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={budgetForm.approvalRequired}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, approvalRequired: e.target.checked })}
-                  className="rounded text-indigo-600"
-                />
-                <span className="text-sm">Require approval for changes</span>
-              </label>
-
-              {budgetForm.approvalRequired && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Approval Threshold
-                  </label>
-                  <input
-                    type="number"
-                    value={budgetForm.approvalThreshold}
-                    onChange={(e) => setBudgetForm({ ...budgetForm, approvalThreshold: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  />
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateBudget(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateBudgetModal
+          form={budgetForm}
+          setForm={setBudgetForm}
+          categories={categories}
+          onSubmit={handleCreateBudget}
+          onClose={() => setShowCreateBudget(false)}
+        />
       )}
 
       {/* Create Goal Modal */}
       {showCreateGoal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-4">Create Shared Goal</h3>
-            
-            <form onSubmit={handleCreateGoal} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Goal Name
-                </label>
-                <input
-                  type="text"
-                  value={goalForm.name}
-                  onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Target Amount
-                </label>
-                <input
-                  type="number"
-                  value={goalForm.targetAmount}
-                  onChange={(e) => setGoalForm({ ...goalForm, targetAmount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Target Date
-                </label>
-                <input
-                  type="date"
-                  value={goalForm.targetDate}
-                  onChange={(e) => setGoalForm({ ...goalForm, targetDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Category
-                </label>
-                <select
-                  value={goalForm.categoryId}
-                  onChange={(e) => setGoalForm({ ...goalForm, categoryId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  required
-                >
-                  <option value="">Select category</option>
-                  <option value="Savings">Savings</option>
-                  <option value="Vacation">Vacation</option>
-                  <option value="Emergency Fund">Emergency Fund</option>
-                  <option value="Home">Home</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={goalForm.description}
-                  onChange={(e) => setGoalForm({ ...goalForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  rows={3}
-                />
-              </div>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={goalForm.isHouseholdGoal}
-                  onChange={(e) => setGoalForm({ ...goalForm, isHouseholdGoal: e.target.checked })}
-                  className="rounded text-indigo-600"
-                />
-                <span className="text-sm">Shared equally among all members</span>
-              </label>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateGoal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CreateGoalModal
+          form={goalForm}
+          setForm={setGoalForm}
+          categories={categories}
+          onSubmit={handleCreateGoal}
+          onClose={() => setShowCreateGoal(false)}
+        />
       )}
     </div>
   );
 }
+

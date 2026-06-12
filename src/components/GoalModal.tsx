@@ -3,6 +3,7 @@ import { useApp } from "../contexts/AppContextSupabase";
 import type { Goal } from "../types";
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import { parseMoneyInput } from '../utils/decimal';
 
 interface GoalModalProps {
   isOpen: boolean;
@@ -41,8 +42,8 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
         const goalData = {
           name: data.name,
           type: data.type,
-          targetAmount: parseFloat(data.targetAmount) || 0,
-          currentAmount: parseFloat(data.currentAmount) || 0,
+          targetAmount: parseMoneyInput(data.targetAmount) ?? 0,
+          currentAmount: parseMoneyInput(data.currentAmount) ?? 0,
           targetDate: new Date(data.targetDate),
           description: data.description || undefined,
           linkedAccountIds: data.linkedAccountIds.length > 0 ? data.linkedAccountIds : undefined,
@@ -121,7 +122,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
               required
               value={formData.name}
               onChange={(e) => updateField('name', e.target.value)}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="e.g., Emergency Fund"
             />
           </div>
@@ -133,7 +134,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
             <select
               value={formData.type}
               onChange={(e) => updateField('type', e.target.value as Goal["type"])}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="savings">Savings Goal</option>
               <option value="debt-payoff">Debt Payoff</option>
@@ -153,7 +154,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
                 required
                 value={formData.currentAmount}
                 onChange={(e) => updateField('currentAmount', e.target.value)}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 placeholder="0.00"
               />
             </div>
@@ -168,7 +169,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
                 required
                 value={formData.targetAmount}
                 onChange={(e) => updateField('targetAmount', e.target.value)}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 placeholder="0.00"
               />
             </div>
@@ -183,7 +184,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
               required
               value={formData.targetDate}
               onChange={(e) => updateField('targetDate', e.target.value)}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             />
           </div>
 
@@ -194,7 +195,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
             <textarea
               value={formData.description}
               onChange={(e) => updateField('description', e.target.value)}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               rows={3}
               placeholder="What is this goal for?"
             />
@@ -211,7 +212,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
                     type="checkbox"
                     checked={formData.linkedAccountIds.includes(account.id)}
                     onChange={() => toggleLinkedAccount(account.id)}
-                    className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="mr-2 h-4 w-4 text-blue-600 focus:ring-emerald-600 border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {account.name} ({account.type})
@@ -227,7 +228,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
                 type="checkbox"
                 checked={formData.isActive}
                 onChange={(e) => updateField('isActive', e.target.checked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-emerald-600 border-gray-300 rounded"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 Active Goal
@@ -246,7 +247,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-2xl hover:bg-[#2d3a4d] focus:outline-none focus:ring-2 focus:ring-emerald-600"
             >
               {goal ? "Update Goal" : "Create Goal"}
             </button>

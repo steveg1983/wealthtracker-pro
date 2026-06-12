@@ -13,7 +13,6 @@ interface EnvValues {
   VITE_CLERK_PUBLISHABLE_KEY?: string;
   VITE_SUPABASE_URL?: string;
   VITE_SUPABASE_ANON_KEY?: string;
-  VITE_SUPABASE_SERVICE_ROLE_KEY?: string;
   VITE_STRIPE_PUBLISHABLE_KEY?: string;
   VITE_SENTRY_DSN?: string;
   VITE_ENABLE_ERROR_TRACKING?: string;
@@ -74,7 +73,6 @@ export function checkEnvironmentVariables(): EnvCheckResult {
     VITE_CLERK_PUBLISHABLE_KEY: readEnv('VITE_CLERK_PUBLISHABLE_KEY'),
     VITE_SUPABASE_URL: readEnv('VITE_SUPABASE_URL'),
     VITE_SUPABASE_ANON_KEY: readEnv('VITE_SUPABASE_ANON_KEY'),
-    VITE_SUPABASE_SERVICE_ROLE_KEY: readEnv('VITE_SUPABASE_SERVICE_ROLE_KEY'),
     VITE_STRIPE_PUBLISHABLE_KEY: readEnv('VITE_STRIPE_PUBLISHABLE_KEY'),
     VITE_SENTRY_DSN: readEnv('VITE_SENTRY_DSN'),
     VITE_ENABLE_ERROR_TRACKING: readEnv('VITE_ENABLE_ERROR_TRACKING'),
@@ -149,14 +147,9 @@ export function checkEnvironmentVariables(): EnvCheckResult {
     });
   }
 
-  if (!values.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-    addIssue(issues, {
-      key: 'VITE_SUPABASE_SERVICE_ROLE_KEY',
-      level: 'info',
-      message: 'Supabase service role key not detected – Supabase smoke tests will skip privileged flows.',
-      suggestion: 'Populate VITE_SUPABASE_SERVICE_ROLE_KEY if you plan to run npm run test:supabase-smoke.'
-    });
-  }
+  // NOTE: the Supabase service-role key must NEVER be referenced from client code.
+  // It is server-only (SUPABASE_SERVICE_ROLE_KEY, no VITE_ prefix) — a VITE_-prefixed
+  // name gets inlined into the public browser bundle by Vite.
 
   if (issues.length === 0) {
     logger.info('Environment check completed with no blocking issues.');

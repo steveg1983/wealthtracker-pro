@@ -222,7 +222,7 @@ export default function DataMigrationWizard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -423,7 +423,7 @@ export default function DataMigrationWizard({
 
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <ZapIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <ZapIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
                       Smart Mapping Active
@@ -546,7 +546,7 @@ export default function DataMigrationWizard({
                 (currentStep === 2 && uploadedFiles.length === 0) ||
                 isProcessing)
                 ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-[#1a2332] text-white hover:bg-[#2d3a4d]'
             }`}
           >
             {currentStep === 5 ? 'Complete Import' : 'Next'}

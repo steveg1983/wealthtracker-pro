@@ -130,18 +130,38 @@ class TransactionServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { data, error } = await client
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
 
-      if (error) {
-        this.logger.error('Error fetching transactions:', error);
-        throw new Error(handleSupabaseError(error));
+      // Supabase caps responses at 1000 rows by default — without explicit
+      // paging, users with more transactions silently lose data from view.
+      // Page through the full history with .range() until exhausted.
+      const PAGE_SIZE = 1000;
+      const rows: Record<string, unknown>[] = [];
+      let from = 0;
+
+      for (;;) {
+        const { data, error } = await client
+          .from('transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false })
+          .order('id', { ascending: false }) // stable tiebreak for paging
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error) {
+          this.logger.error('Error fetching transactions:', error);
+          throw new Error(handleSupabaseError(error));
+        }
+
+        const page = (data || []) as Record<string, unknown>[];
+        rows.push(...page);
+
+        if (page.length < PAGE_SIZE) {
+          break;
+        }
+        from += PAGE_SIZE;
       }
 
-      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
+      return rows.map(row => mapFromDbFields(row)) as unknown as Transaction[];
     } catch (error) {
       this.logger.error('TransactionService.getTransactions error:', error as Error);
       return this.readStoredTransactions();
@@ -173,18 +193,16 @@ class TransactionServiceImpl {
       const dbRow = mapToDbFields(transaction as unknown as Record<string, unknown>);
       dbRow.user_id = userId;
 
-      const { data, error } = await client
-        .from('transactions')
-        .insert(dbRow as never)
-        .select()
-        .single();
+      // Atomic RPC: inserts the transaction AND adjusts the account balance in
+      // one database transaction (SQL numeric math — no JS floats, no
+      // read-modify-write race, no partial-failure drift).
+      const { data, error } = await client.rpc('create_transaction_atomic', { p: dbRow });
 
       if (error) {
         this.logger.error('Error creating transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      await this.updateAccountBalance(transaction.accountId, transaction.amount);
       return mapFromDbFields(data as Record<string, unknown>) as unknown as Transaction;
     } catch (error) {
       this.logger.error('TransactionService.createTransaction error:', error as Error);
@@ -220,31 +238,18 @@ class TransactionServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { data: oldTransaction } = await client
-        .from('transactions')
-        .select('amount, account_id')
-        .eq('id', id)
-        .single();
-
       const dbUpdates = mapToDbFields(updates as unknown as Record<string, unknown>);
-      const { data, error } = await client
-        .from('transactions')
-        .update(dbUpdates as never)
-        .eq('id', id)
-        .select()
-        .single();
+
+      // Atomic RPC: updates the row and adjusts balances (including account
+      // moves) in one database transaction with SQL numeric math.
+      const { data, error } = await client.rpc('update_transaction_atomic', {
+        p_id: id,
+        p: dbUpdates
+      });
 
       if (error) {
         this.logger.error('Error updating transaction:', error);
         throw new Error(handleSupabaseError(error));
-      }
-
-      if (oldTransaction && updates.amount !== undefined && updates.amount !== (oldTransaction as { amount?: number }).amount) {
-        const difference = (updates.amount as number) - ((oldTransaction as { amount?: number }).amount ?? 0);
-        const accountId = (oldTransaction as { account_id?: string }).account_id;
-        if (accountId) {
-          await this.updateAccountBalance(accountId, difference);
-        }
       }
 
       return mapFromDbFields(data as Record<string, unknown>) as unknown as Transaction;
@@ -269,27 +274,14 @@ class TransactionServiceImpl {
       }
 
       const client = this.supabaseClient!;
-      const { data: transaction } = await client
-        .from('transactions')
-        .select('amount, account_id')
-        .eq('id', id)
-        .single();
 
-      const { error } = await client
-        .from('transactions')
-        .delete()
-        .eq('id', id);
+      // Atomic RPC: deletes the row and reverses the balance in one database
+      // transaction. RLS scopes the delete to the requesting user.
+      const { error } = await client.rpc('delete_transaction_atomic', { p_id: id });
 
       if (error) {
         this.logger.error('Error deleting transaction:', error);
         throw new Error(handleSupabaseError(error));
-      }
-
-      if (transaction) {
-        const { account_id: accountId, amount } = transaction as { account_id?: string; amount?: number };
-        if (accountId && typeof amount === 'number') {
-          await this.updateAccountBalance(accountId, -amount);
-        }
       }
     } catch (error) {
       this.logger.error('TransactionService.deleteTransaction error:', error as Error);
@@ -437,30 +429,33 @@ class TransactionServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const transactionsWithUser = transactions.map(t => {
+      const created: Transaction[] = [];
+      const failures: string[] = [];
+
+      // Each row goes through the atomic RPC so the insert and the balance
+      // adjustment commit together. Failures are collected, not silently
+      // swallowed — a partially imported batch is reported to the caller.
+      for (const t of transactions) {
         const dbRow = mapToDbFields(t as unknown as Record<string, unknown>);
         dbRow.user_id = userId;
-        return dbRow;
-      });
 
-      const { data, error } = await client
-        .from('transactions')
-        .insert(transactionsWithUser as never)
-        .select();
-
-      if (error) {
-        this.logger.error('Error bulk creating transactions:', error);
-        throw new Error(handleSupabaseError(error));
-      }
-
-      for (const transaction of data || []) {
-        const { account_id: accountId, amount } = transaction as { account_id?: string; amount?: number };
-        if (accountId && typeof amount === 'number') {
-          await this.updateAccountBalance(accountId, amount);
+        const { data, error } = await client.rpc('create_transaction_atomic', { p: dbRow });
+        if (error) {
+          this.logger.error('Error creating transaction in bulk import:', error);
+          failures.push(handleSupabaseError(error));
+          continue;
         }
+        created.push(mapFromDbFields(data as Record<string, unknown>) as unknown as Transaction);
       }
 
-      return (data || []).map(row => mapFromDbFields(row as Record<string, unknown>)) as unknown as Transaction[];
+      if (failures.length > 0) {
+        throw new Error(
+          `Imported ${created.length} of ${transactions.length} transactions; ` +
+          `${failures.length} failed. First error: ${failures[0]}`
+        );
+      }
+
+      return created;
     } catch (error) {
       this.logger.error('TransactionService.bulkCreateTransactions error:', error as Error);
       throw error;
@@ -492,31 +487,10 @@ class TransactionServiceImpl {
     };
   }
 
-  private async updateAccountBalance(accountId: string, amount: number): Promise<void> {
-    if (!this.isSupabaseReady()) {
-      return;
-    }
-
-    try {
-      const client = this.supabaseClient!;
-      const { data: account } = await client
-        .from('accounts')
-        .select('balance')
-        .eq('id', accountId)
-        .single();
-
-      if (account) {
-        const newBalance = ((account as { balance?: number } | null)?.balance || 0) + amount;
-
-        await client
-          .from('accounts')
-          .update({ balance: newBalance } as never)
-          .eq('id', accountId);
-      }
-    } catch (error) {
-      this.logger.error('Error updating account balance:', error as Error);
-    }
-  }
+  // NOTE: client-side balance mutation was removed deliberately. All balance
+  // adjustments happen inside the atomic Postgres RPCs
+  // (create/update/delete_transaction_atomic) using SQL numeric arithmetic —
+  // never JavaScript float math, never read-modify-write.
 }
 
 let defaultTransactionService = new TransactionServiceImpl();

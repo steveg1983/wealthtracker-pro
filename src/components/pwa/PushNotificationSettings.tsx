@@ -114,7 +114,7 @@ export const PushNotificationSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Main Toggle */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {isSubscribed ? (
@@ -137,8 +137,9 @@ export const PushNotificationSettings: React.FC = () => {
           <button
             onClick={handleToggleNotifications}
             disabled={isLoading || permission === 'denied'}
+            aria-label="Push notifications"
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              isSubscribed ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              isSubscribed ? 'bg-[#1a2332]' : 'bg-gray-200 dark:bg-gray-700'
             } ${isLoading || permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span
@@ -169,7 +170,7 @@ export const PushNotificationSettings: React.FC = () => {
         {isSubscribed && (
           <button
             onClick={handleTestNotification}
-            className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            className="mt-4 text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
           >
             {testSent ? (
               <span className="flex items-center gap-1">
@@ -185,7 +186,7 @@ export const PushNotificationSettings: React.FC = () => {
 
       {/* Notification Types */}
       {isSubscribed && (
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="p-6 border-b dark:border-gray-700">
             <h3 className="text-lg font-medium">Notification Preferences</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -209,8 +210,10 @@ export const PushNotificationSettings: React.FC = () => {
                   
                   <button
                     onClick={() => handlePreferenceChange(key, !preferences[key])}
+                    aria-label={`Notification preference: ${key}`}
+                    aria-pressed={Boolean(preferences[key])}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      preferences[key] ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+                      preferences[key] ? 'bg-[#1a2332]' : 'bg-gray-200 dark:bg-gray-700'
                     }`}
                   >
                     <span

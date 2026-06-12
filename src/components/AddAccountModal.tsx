@@ -5,6 +5,7 @@ import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { Building2Icon, WalletIcon, CreditCardIcon, TrendingUpIcon, PiggyBankIcon, BanknoteIcon, PackageIcon, AlertCircleIcon } from './icons';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { parseMoneyInput } from '../utils/decimal';
 
 interface AccountPrefill {
   name?: string;
@@ -112,7 +113,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         throw new Error('Account name is required');
       }
       
-      const balance = parseFloat(formData.balance);
+      const balance = parseMoneyInput(formData.balance) ?? NaN;
       if (isNaN(balance)) {
         throw new Error('Please enter a valid balance');
       }
@@ -198,7 +199,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                 type="text"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
-                className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                 placeholder="e.g., Main Checking Account"
                 required
                 autoFocus
@@ -223,7 +224,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                       disabled={isSubmitting}
                       className={`p-3 rounded-xl border-2 transition-all duration-200 ${
                         isSelected
-                          ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                          ? 'border-primary bg-[#1a2332]/10 dark:bg-primary/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
@@ -265,7 +266,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     step="0.01"
                     value={formData.balance}
                     onChange={(e) => updateField('balance', e.target.value)}
-                    className="w-full pl-8 pr-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                     placeholder="0.00"
                     required
                     disabled={isSubmitting}
@@ -282,7 +283,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                   value={formData.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200 appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                     backgroundPosition: 'right 0.5rem center',
@@ -312,7 +313,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                   type="text"
                   value={formData.institution}
                   onChange={(e) => updateField('institution', e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                  className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                   placeholder="e.g., Barclays, HSBC, NatWest"
                   disabled={isSubmitting}
                 />
@@ -331,7 +332,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     type="text"
                     value={formData.sortCode}
                     onChange={(e) => updateField('sortCode', formatSortCode(e.target.value))}
-                    className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                     placeholder="XX-XX-XX"
                     maxLength={8}
                     disabled={isSubmitting}
@@ -349,7 +350,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                       const digits = e.target.value.replace(/\D/g, '');
                       updateField('accountNumber', digits.slice(0, 8));
                     }}
-                    className="w-full px-4 py-3 bg-card-bg-light dark:bg-card-bg-dark border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                     placeholder="12345678"
                     maxLength={8}
                     disabled={isSubmitting}
@@ -360,7 +361,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
             {/* Account Type Info Banner */}
             {selectedType && (
-              <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20">
+              <div className="p-4 bg-primary/5 dark:bg-[#1a2332]/10 rounded-xl border border-primary/20">
                 <div className="flex gap-3">
                   <selectedType.icon size={20} className="text-primary mt-0.5" />
                   <div>

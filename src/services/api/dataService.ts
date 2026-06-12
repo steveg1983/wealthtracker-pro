@@ -11,6 +11,7 @@ import { TransactionService } from './transactionService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
+import { toDecimal } from '../../utils/decimal';
 import type { Account, Transaction, Budget, Goal, Category } from '../../types';
 
 export interface AppData {
@@ -280,13 +281,16 @@ class DataServiceImpl {
 
   private async updateAccountBalance(accountId: string, amount: number): Promise<void> {
     if (this.isSupabaseReady()) {
+      // Cloud mode: balances are adjusted atomically inside the Postgres RPCs
+      // (create/update/delete_transaction_atomic) — never in JS.
       return;
     }
 
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const account = accounts.find(a => a.id === accountId);
     if (account) {
-      account.balance = (account.balance || 0) + amount;
+      // Decimal arithmetic — IEEE-754 float math is banned on money values.
+      account.balance = toDecimal(account.balance || 0).plus(toDecimal(amount)).toNumber();
       await this.persistCollection(STORAGE_KEYS.ACCOUNTS, accounts);
     }
   }

@@ -109,7 +109,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6 animate-pulse">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 animate-pulse">
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
       </div>
@@ -120,7 +120,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
   const currentPlan = PLAN_DETAILS[resolvedPlanKey];
   const Icon = currentPlan.icon;
 
-  const handleUpgrade = async (_newTier: 'basic' | 'premium' | 'enterprise'): Promise<void> => {
+  const handleUpgrade = async (_newTier: 'premium' | 'pro'): Promise<void> => {
     try {
       await updateSubscription();
     } catch (error) {
@@ -149,7 +149,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Current Plan Card */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -172,7 +172,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 {currentPlan.name}
               </span>
               {currentPlan.badge && (
-                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
                   {currentPlan.badge}
                 </span>
               )}
@@ -241,27 +241,27 @@ export default function SubscriptionStatus(): React.JSX.Element {
           {tier === 'free' && (
             <>
               <button
-                onClick={() => handleUpgrade('basic')}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => handleUpgrade('premium')}
+                className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
+              >
+                Upgrade to Premium
+              </button>
+              <button
+                onClick={() => handleUpgrade('pro')}
+                className="flex-1 px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
               >
                 Upgrade to Pro
               </button>
-              <button
-                onClick={() => handleUpgrade('premium')}
-                className="flex-1 px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
-              >
-                Upgrade to Business
-              </button>
             </>
           )}
-          
-          {tier === 'basic' && (
+
+          {tier === 'premium' && (
             <>
               <button
-                onClick={() => handleUpgrade('premium')}
+                onClick={() => handleUpgrade('pro')}
                 className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
-                Upgrade to Business
+                Upgrade to Pro
               </button>
               {!cancelAtPeriodEnd && (
                 <button
@@ -274,7 +274,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             </>
           )}
 
-          {tier === 'premium' && !cancelAtPeriodEnd && (
+          {tier === 'pro' && !cancelAtPeriodEnd && (
             <button
               onClick={handleCancel}
               className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -303,7 +303,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             Upgrade to Pro or Business to access unlimited accounts, bank sync, advanced analytics, and more.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CrownIcon size={20} className="text-blue-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Pro</span>
@@ -313,7 +313,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 Perfect for individuals managing personal finances
               </p>
             </div>
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <UsersIcon size={20} className="text-purple-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Business</span>

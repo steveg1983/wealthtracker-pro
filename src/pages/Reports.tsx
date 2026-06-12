@@ -5,14 +5,30 @@ import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import LineChart from '../components/charts/LineChart';
-import DoughnutChart from '../components/charts/DoughnutChart';
+import {
+  ResponsiveContainer,
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell
+} from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 const reportsLogger = createScopedLogger('ReportsPage');
+
+const CATEGORY_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
+  '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
+];
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
@@ -120,16 +136,10 @@ export default function Reports() {
       .sort(([, a], [, b]) => b.minus(a).toNumber())
       .slice(0, 8);
 
-    return {
-      labels: sortedCategories.map(([cat]) => cat),
-      datasets: [{
-        data: sortedCategories.map(([, amount]) => amount.toNumber()),
-        backgroundColor: [
-          '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-          '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
-        ]
-      }]
-    };
+    return sortedCategories.map(([cat, amount]) => ({
+      name: cat,
+      value: amount.toNumber()
+    }));
   }, [filteredTransactions]);
 
   // Prepare data for monthly trend
@@ -151,28 +161,11 @@ export default function Reports() {
 
     const sortedMonths = Object.keys(monthlyData).sort();
 
-    return {
-      labels: sortedMonths.map(month => {
-        const date = new Date(month + '-01');
-        return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-      }),
-      datasets: [
-        {
-          label: 'Income',
-          data: sortedMonths.map(month => monthlyData[month].income.toNumber()),
-          borderColor: '#10B981',
-          backgroundColor: '#10B98120',
-          tension: 0.4
-        },
-        {
-          label: 'Expenses',
-          data: sortedMonths.map(month => monthlyData[month].expenses.toNumber()),
-          borderColor: '#EF4444',
-          backgroundColor: '#EF444420',
-          tension: 0.4
-        }
-      ]
-    };
+    return sortedMonths.map(month => ({
+      month: new Date(month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+      income: monthlyData[month].income.toNumber(),
+      expenses: monthlyData[month].expenses.toNumber()
+    }));
   }, [filteredTransactions]);
 
   const exportToCSV = () => {
@@ -246,7 +239,7 @@ export default function Reports() {
         <div className="flex gap-2">
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-2xl hover:bg-secondary transition-colors"
           >
             <DownloadIcon size={20} />
             Export CSV
@@ -263,14 +256,15 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
             <CalendarIcon className="text-gray-500" size={20} />
             <select
+              aria-label="Date range"
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all' | 'custom')}
-              className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="month">Last Month</option>
               <option value="quarter">Last Quarter</option>
@@ -283,9 +277,10 @@ export default function Reports() {
           <div className="flex items-center gap-2">
             <FilterIcon className="text-gray-500" size={20} />
             <select
+              aria-label="Account filter"
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
-              className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="all">All Accounts</option>
               {accounts.map(account => (
@@ -301,14 +296,14 @@ export default function Reports() {
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
               <label className="text-sm text-gray-600 dark:text-gray-400">To:</label>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
           )}
@@ -319,33 +314,33 @@ export default function Reports() {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+          <p className="text-2xl font-bold text-green-700 dark:text-green-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
           </p>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.expenses)}
           </p>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Net Income</p>
           <p className={`text-2xl font-bold ${
-            summary.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+            summary.netIncome >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.netIncome)}
           </p>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
           <p className={`text-2xl font-bold ${
-            savingsRateValue >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
+            savingsRateValue >= 20 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
           }`}>
             {isLoading ? <SkeletonText className="w-20 h-8" /> : `${savingsRateDisplay}%`}
           </p>
@@ -356,7 +351,7 @@ export default function Reports() {
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Trend */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-theme-heading dark:text-white">
             <TrendingUpIcon size={20} />
             Income vs Expenses Trend
@@ -365,16 +360,34 @@ export default function Reports() {
             {isLoading ? (
               <SkeletonCard className="h-full w-full" />
             ) : (
-            <LineChart
-              data={monthlyTrendData}
-              height={250}
-            />
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsLineChart data={monthlyTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(55, 65, 81, 0.3)" />
+                  <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                    tickFormatter={(value: number) => {
+                      if (value >= 1_000_000) return `${formatDecimal(value / 1_000_000, 1)}M`;
+                      if (value >= 1_000) return `${formatDecimal(value / 1_000, 0)}K`;
+                      return formatDecimal(value, 0);
+                    }}
+                  />
+                  <Tooltip
+                    formatter={(value: number | string | Array<number | string>) =>
+                      formatCurrency(typeof value === 'number' ? value : Number(value))
+                    }
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="income" name="Income" stroke="#10B981" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={2} dot={false} />
+                </RechartsLineChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-theme-heading dark:text-white">
             <PieChartIcon size={20} />
             Expense Categories
@@ -383,18 +396,28 @@ export default function Reports() {
             {isLoading ? (
               <SkeletonCard className="h-full w-full" />
             ) : (
-            <DoughnutChart
-              data={categoryData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'right'
-                  }
-                }
-              }}
-            />
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="55%"
+                    outerRadius="85%"
+                    strokeWidth={0}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number | string | Array<number | string>) =>
+                      formatCurrency(typeof value === 'number' ? value : Number(value))
+                    }
+                  />
+                  <Legend layout="vertical" align="right" verticalAlign="middle" />
+                </RechartsPieChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>
@@ -402,7 +425,7 @@ export default function Reports() {
         </div>
 
         {/* Top Transactions */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Top Transactions</h2>
         </div>
@@ -423,7 +446,7 @@ export default function Reports() {
                       </p>
                     </div>
                     <p className={`text-lg font-semibold ${
-                      transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                     </p>
@@ -460,7 +483,7 @@ export default function Reports() {
                       {transaction.category}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${
-                      transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                     </td>

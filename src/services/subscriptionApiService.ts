@@ -8,7 +8,6 @@
  * - Handles subscription lifecycle
  */
 
-import { loadStripe } from '@stripe/stripe-js';
 import SupabaseSubscriptionService from './supabaseSubscriptionService';
 import type {
   CreateSubscriptionRequest,
@@ -17,18 +16,15 @@ import type {
   UserSubscription,
   BillingHistory,
   BillingInvoice,
-  SubscriptionPlan
 } from '../types/subscription';
 import { toDecimal, toStorageNumber } from '../utils/decimal';
 
 type SupabaseService = typeof SupabaseSubscriptionService;
 type Logger = Pick<Console, 'error' | 'warn'>;
-type StripeLoader = typeof loadStripe;
 
 export interface SubscriptionApiServiceConfig {
   supabaseService?: SupabaseService;
   logger?: Logger;
-  stripeLoader?: StripeLoader;
 }
 
 export class SubscriptionApiService {
@@ -36,9 +32,10 @@ export class SubscriptionApiService {
   private static logger: Logger = typeof console !== 'undefined'
     ? console
     : { error: () => {}, warn: () => {} };
-  private static stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-    ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-    : Promise.resolve(null);
+  // NOTE: no module-level loadStripe() here. The old eager static field
+  // injected the 234 KB js.stripe.com script on EVERY page load — and the
+  // promise was never even consumed. Stripe.js loads via StripeService on
+  // the billing pages that actually need it.
 
   static configure(options: SubscriptionApiServiceConfig = {}) {
     if (options.supabaseService) {
@@ -46,9 +43,6 @@ export class SubscriptionApiService {
     }
     if (options.logger) {
       this.logger = options.logger;
-    }
-    if (options.stripeLoader && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
-      this.stripePromise = options.stripeLoader(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
     }
   }
 
@@ -156,21 +150,11 @@ export class SubscriptionApiService {
   }
 
   /**
-   * Create customer portal session (simulates backend endpoint)
+   * @deprecated Use StripeService.createPortalSession(clerkToken) — the real
+   * POST /api/billing/portal endpoint now exists (api/billing/portal.ts).
    */
   static async createPortalSession(): Promise<string> {
-    try {
-      throw new Error(
-        'Customer portal requires a backend API endpoint.\n' +
-        'Implement POST /api/billing/portal that:\n' +
-        '1. Gets user from session\n' +
-        '2. Creates Stripe portal session\n' +
-        '3. Returns portal URL'
-      );
-    } catch (error) {
-      this.logger.error('Error creating portal session:', error as Error);
-      throw error;
-    }
+    throw new Error('Use StripeService.createPortalSession(clerkToken) instead.');
   }
 
   /**
@@ -189,7 +173,7 @@ export class SubscriptionApiService {
       // Create a demo subscription in the database
       const demoSubscription: Partial<UserSubscription> = {
         userId: userProfile.id,
-        tier: tier === 'pro' ? 'enterprise' : tier as SubscriptionPlan,
+        tier: tier,
         status: 'trialing',
         stripeCustomerId: `cus_demo_${Date.now()}`,
         stripeSubscriptionId: `sub_demo_${Date.now()}`,

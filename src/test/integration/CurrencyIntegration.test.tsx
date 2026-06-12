@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { renderWithProviders, createTestData, mockLocalStorage } from './test-utils';
+import { renderWithProviders, mockLocalStorage } from './test-utils';
 import { formatCurrency, getCurrencySymbol } from '../../utils/currency';
 import { toDecimal } from '../../utils/decimal';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
@@ -106,18 +106,9 @@ describe('Currency Integration Tests', () => {
 
   describe('Multi-Currency Account Display', () => {
     it('displays accounts with different currencies correctly', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'UK Checking', currency: 'GBP' },
-        { ...testData.accounts[1], name: 'US Savings', currency: 'USD' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          preferences: { preferences: { currency: 'GBP', theme: 'light' } },
-        }
       });
 
       await waitFor(() => {
@@ -126,17 +117,9 @@ describe('Currency Integration Tests', () => {
     });
 
     it('shows original currency amounts alongside converted amounts', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'USD Account', balance: 1000, currency: 'USD' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          preferences: { preferences: { currency: 'GBP', theme: 'light' } },
-        }
       });
 
       await waitFor(() => {
@@ -179,17 +162,9 @@ describe('Currency Integration Tests', () => {
 
   describe('Currency Preference Changes', () => {
     it('updates all displayed amounts when currency preference changes', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Test Account', balance: 1000, currency: 'USD' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       const { rerender } = renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          preferences: { preferences: { currency: 'GBP', theme: 'light' } },
-        }
       });
 
       await waitFor(() => {
@@ -207,24 +182,10 @@ describe('Currency Integration Tests', () => {
 
   describe('Multi-Currency Transactions', () => {
     it('handles transactions in different currencies', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'GBP Account', currency: 'GBP' },
-        { ...testData.accounts[1], name: 'USD Account', currency: 'USD' },
-      ];
 
-      const transactions = [
-        { ...testData.transactions[0], description: 'GBP Transaction' },
-        { ...testData.transactions[1], description: 'USD Transaction' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          transactions: { transactions },
-          preferences: { preferences: { currency: 'GBP', theme: 'light' } },
-        }
       });
 
       await waitFor(() => {
@@ -330,17 +291,9 @@ describe('Currency Integration Tests', () => {
 
   describe('Currency Display in Different Contexts', () => {
     it('displays currency correctly in account summaries', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Multi-Currency Account', currency: 'USD' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          preferences: { preferences: { currency: 'GBP', theme: 'light' } },
-        }
       });
 
       await waitFor(() => {
@@ -349,22 +302,10 @@ describe('Currency Integration Tests', () => {
     });
 
     it('shows appropriate currency symbols in transaction lists', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Account', currency: 'EUR' },
-      ];
 
-      const transactions = [
-        { ...testData.transactions[0], description: 'EUR Transaction' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-          transactions: { transactions },
-          preferences: { preferences: { currency: 'EUR', theme: 'light' } },
-        }
       });
 
       await waitFor(() => {
@@ -389,9 +330,6 @@ describe('Currency Integration Tests', () => {
 
     it('provides correct currency information through hook', () => {
       renderWithProviders(<CurrencyTestComponent />, {
-        preloadedState: {
-          preferences: { preferences: { currency: 'USD', theme: 'light' } },
-        }
       });
 
       // Note: The default currency might be GBP from the preferences context
@@ -405,9 +343,6 @@ describe('Currency Integration Tests', () => {
       localStorageMock.setItem('wealthtracker_preferences', JSON.stringify({ currency: 'GBP', theme: 'light' }));
       
       const { rerender } = renderWithProviders(<CurrencyTestComponent />, {
-        preloadedState: {
-          preferences: { preferences: { currency: 'GBP', theme: 'light' } },
-        }
       });
 
       expect(screen.getByTestId('display-currency')).toHaveTextContent('GBP');

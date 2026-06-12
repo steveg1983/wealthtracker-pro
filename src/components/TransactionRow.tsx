@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import type { Transaction, Account } from '../types';
 import { TrendingUpIcon, TrendingDownIcon, CheckIcon, EditIcon, DeleteIcon } from './icons';
 import { IconButton } from './icons/IconButton';
@@ -20,6 +20,11 @@ interface TransactionRowProps {
   isSelected?: boolean;
   onToggleSelection?: (id: string) => void;
   enableBulkSelection?: boolean;
+  runningBalance?: number;
+  onContextMenu?: (e: React.MouseEvent, transaction: Transaction) => void;
+  categories?: Array<{ id: string; name: string }>;
+  onUpdateCategory?: (transactionId: string, categoryId: string) => void;
+  onUpdateAmount?: (transactionId: string, amount: number) => void;
 }
 
 // Memoized type icon component
@@ -55,22 +60,30 @@ export const TransactionRow = memo(function TransactionRow({
   columnWidths,
   isSelected = false,
   onToggleSelection,
-  enableBulkSelection = false
+  enableBulkSelection = false,
+  runningBalance,
+  onContextMenu,
+  categories: availableCategories,
+  onUpdateCategory,
+  onUpdateAmount
 }: TransactionRowProps): React.JSX.Element {
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
+  const [editAmount, setEditAmount] = useState('');
   // Memoize formatted date
   const formattedDate = useFormattedDate(transaction.date, 'en-GB');
   
-  // Memoize formatted amount
+  // Memoize formatted amount — accounting style: parentheses for expenses
   const formattedAmount = useMemo(() => {
-    // For expenses and outgoing transfers, amount should be negative
-    const displayAmount = transaction.type === 'expense' || (transaction.type === 'transfer' && transaction.amount < 0) 
-      ? -Math.abs(transaction.amount) 
-      : Math.abs(transaction.amount);
-    
-    // Add + prefix only for positive amounts (income and incoming transfers)
-    const formatted = formatCurrency(displayAmount, account?.currency);
-    const isPositive = transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0);
-    return isPositive && !formatted.startsWith('-') ? `+${formatted}` : formatted;
+    const isExpense = transaction.type === 'expense' || (transaction.type === 'transfer' && transaction.amount < 0);
+    const absAmount = Math.abs(transaction.amount);
+    const formatted = formatCurrency(absAmount, account?.currency);
+
+    if (isExpense) {
+      // Accounting notation: (£100.00) for expenses
+      return `(${formatted})`;
+    }
+    return formatted;
   }, [transaction.type, transaction.amount, formatCurrency, account?.currency]);
   
   // Memoize amount color class
@@ -181,34 +194,124 @@ export const TransactionRow = memo(function TransactionRow({
       
       case 'category':
         return (
-          <td 
+          <td
             className={`${compactView ? 'py-1.5' : 'py-3'} px-6 text-gray-900 dark:text-gray-100 text-left`}
             style={{ width: columnWidths.category }}
           >
-            <span 
-              className={`${compactView ? 'text-sm' : ''} truncate block`}
-              title={categoryPath}
-            >
-              {categoryPath}
-            </span>
+            {isEditingCategory && availableCategories && onUpdateCategory ? (
+              <select
+                className="w-full text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                value={transaction.category || ''}
+                onChange={(e) => {
+                  onUpdateCategory(transaction.id, e.target.value);
+                  setIsEditingCategory(false);
+                }}
+                onBlur={() => setIsEditingCategory(false)}
+                autoFocus
+              >
+                <option value="">Uncategorized</option>
+                {availableCategories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            ) : onUpdateCategory ? (
+              // Real button so keyboard and screen-reader users can edit too
+              // (WCAG 2.1.1 — a span with onClick is invisible to AT).
+              <button
+                type="button"
+                className={`${compactView ? 'text-sm' : ''} truncate block w-full text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+                title={`${categoryPath} (click to change)`}
+                aria-label={`Change category, currently ${categoryPath || 'uncategorized'}`}
+                onClick={() => setIsEditingCategory(true)}
+              >
+                {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
+              </button>
+            ) : (
+              <span
+                className={`${compactView ? 'text-sm' : ''} truncate block`}
+                title={categoryPath}
+              >
+                {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
+              </span>
+            )}
           </td>
         );
       
       case 'amount':
         return (
-          <td 
+          <td
             className={`${compactView ? 'py-1.5' : 'py-3'} px-6 font-medium text-right`}
             style={{ width: columnWidths.amount }}
           >
-            <span className={`${amountColorClass} ${compactView ? 'text-sm' : ''}`}>
-              {formattedAmount}
-            </span>
+            {isEditingAmount && onUpdateAmount ? (
+              <input
+                type="number"
+                step="0.01"
+                className="w-full text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                value={editAmount}
+                aria-label="Edit transaction amount"
+                onChange={(e) => setEditAmount(e.target.value)}
+                onBlur={() => {
+                  const parsed = Number(editAmount);
+                  if (Number.isFinite(parsed) && parsed > 0 && parsed !== Math.abs(transaction.amount)) {
+                    const newAmount = transaction.type === 'expense' ? -Math.abs(parsed) : Math.abs(parsed);
+                    try {
+                      onUpdateAmount(transaction.id, newAmount);
+                    } catch {
+                      // The caller surfaces failures (toast/log). Never let an
+                      // edit-save error crash the row render path.
+                    }
+                  }
+                  setIsEditingAmount(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === 'Escape') {
+                    setIsEditingAmount(false);
+                  }
+                }}
+                autoFocus
+              />
+            ) : onUpdateAmount ? (
+              // Real button so keyboard and screen-reader users can edit too.
+              <button
+                type="button"
+                className={`${amountColorClass} ${compactView ? 'text-sm' : ''} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full text-right`}
+                onClick={() => {
+                  setEditAmount(String(Math.abs(transaction.amount)));
+                  setIsEditingAmount(true);
+                }}
+                title="Click to edit amount"
+                aria-label={`Edit amount, currently ${formattedAmount}`}
+              >
+                {formattedAmount}
+              </button>
+            ) : (
+              <span className={`${amountColorClass} ${compactView ? 'text-sm' : ''}`}>
+                {formattedAmount}
+              </span>
+            )}
           </td>
         );
       
+      case 'balance':
+        return (
+          <td
+            className={`${compactView ? 'py-1.5' : 'py-3'} px-6 font-medium text-right hidden xl:table-cell`}
+            style={{ width: columnWidths.balance }}
+          >
+            {runningBalance !== undefined && (
+              <span className={`${compactView ? 'text-sm' : 'text-sm'} ${runningBalance < 0 ? 'text-red-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                {formatCurrency(runningBalance, account?.currency)}
+              </span>
+            )}
+          </td>
+        );
+
       case 'actions':
         return (
-          <td 
+          <td
             className={`${compactView ? 'py-1.5' : 'py-3'} px-6 text-right`}
             style={{ width: columnWidths.actions }}
           >
@@ -248,7 +351,15 @@ export const TransactionRow = memo(function TransactionRow({
     onView,
     handleView,
     handleEdit,
-    handleDelete
+    handleDelete,
+    runningBalance,
+    formatCurrency,
+    isEditingCategory,
+    availableCategories,
+    onUpdateCategory,
+    isEditingAmount,
+    editAmount,
+    onUpdateAmount
   ]);
 
   return (
@@ -259,6 +370,7 @@ export const TransactionRow = memo(function TransactionRow({
         transition-colors
       `}
       onClick={enableBulkSelection ? handleToggleSelection : undefined}
+      onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, transaction); } : undefined}
     >
       {enableBulkSelection && (
         <td className={`${compactView ? 'py-1.5' : 'py-3'} pl-4 pr-2`}>

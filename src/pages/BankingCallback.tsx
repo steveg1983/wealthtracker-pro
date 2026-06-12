@@ -81,7 +81,7 @@ export default function BankingCallback() {
 
   return (
     <PageWrapper title="Bank Connection">
-      <div className="max-w-xl mx-auto bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-8 text-center space-y-4">
+      <div className="max-w-xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow p-8 text-center space-y-4">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
           {status === 'success' ? 'Connected' : status === 'error' ? 'Connection Issue' : 'Connecting...'}
         </h2>
@@ -89,7 +89,7 @@ export default function BankingCallback() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => navigate('/settings/data')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
             Go to Bank Connections
           </button>

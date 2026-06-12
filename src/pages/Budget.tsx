@@ -13,6 +13,7 @@ import SpendingAlerts from '../components/SpendingAlerts';
 import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
+import PageTip from '../components/PageTip';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
@@ -204,34 +205,16 @@ export default function Budget() {
     <PageWrapper 
       title="Budget"
       rightContent={
-        <div 
+        <button
           onClick={() => setIsModalOpen(true)}
-          className="cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
           title="Add Budget"
         >
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 48 48"
-            xmlns="http://www.w3.org/2000/svg"
-            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
-          >
-            <circle
-              cx="24"
-              cy="24"
-              r="24"
-              fill="#D9E1F2"
-              className="transition-all duration-200"
-              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
-              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
-            />
-            <g transform="translate(12, 12)">
-              <circle cx="12" cy="12" r="10" stroke="#1F2937" strokeWidth="2" fill="none" />
-              <path d="M12 8v8M8 12h8" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
-            </g>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
           </svg>
-        </div>
+          Add Budget
+        </button>
       }
     >
 
@@ -312,7 +295,7 @@ export default function Budget() {
         <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Budgeted</p>
@@ -324,7 +307,7 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Spent</p>
@@ -336,7 +319,7 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Remaining</p>
@@ -364,7 +347,7 @@ export default function Budget() {
         ) : budgetsWithSpent.map(budget => budget && (
           <div
             key={budget.id}
-            className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 ${
+            className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 ${
               budget.isActive === false ? 'opacity-60' : ''
             }`}
           >
@@ -443,7 +426,7 @@ export default function Budget() {
           </div>
 
           {budgets.length === 0 && (
-          <div className="text-center py-12 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
             <p className="text-gray-500 dark:text-gray-400 mb-4">No budgets set up yet</p>
             <button
               onClick={() => setIsModalOpen(true)}
@@ -486,6 +469,12 @@ export default function Budget() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         budget={editingBudget || undefined}
+      />
+
+      <PageTip
+        id="budget-intro"
+        title="Track your spending with budgets"
+        description="Set monthly, weekly, or yearly budgets for each category. The progress bars show how much you've spent versus your limit. Try envelope budgeting or zero-based budgeting for different approaches."
       />
     </PageWrapper>
   );

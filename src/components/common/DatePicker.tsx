@@ -213,7 +213,7 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
                   className={`
                     w-9 h-9 text-sm rounded-lg flex items-center justify-center transition-colors
                     ${!cell.current ? 'text-gray-300 dark:text-gray-600 cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'}
-                    ${selected ? 'bg-primary text-white hover:bg-secondary' : ''}
+                    ${selected ? 'bg-[#1a2332] text-white hover:bg-secondary' : ''}
                     ${today && !selected ? 'border border-primary text-primary font-semibold' : ''}
                     ${cell.current && !selected && !today ? 'text-gray-700 dark:text-gray-200' : ''}
                   `}

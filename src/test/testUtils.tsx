@@ -7,10 +7,8 @@
 import React from 'react';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { render, RenderOptions } from '@testing-library/react';
-import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
-import { store } from '../store';
 import { AppProvider } from './mocks/AppContextSupabase';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
@@ -183,8 +181,7 @@ export const AllProviders: React.FC<AllProvidersProps> = ({
 }) => {
   return (
     <BrowserRouter>
-      <Provider store={store}>
-        <PreferencesProvider>
+      <PreferencesProvider>
           <ThemeProvider>
             <AppProvider initialData={initialState}>
               <NotificationProvider>
@@ -195,7 +192,6 @@ export const AllProviders: React.FC<AllProvidersProps> = ({
             </AppProvider>
           </ThemeProvider>
         </PreferencesProvider>
-      </Provider>
     </BrowserRouter>
   );
 };

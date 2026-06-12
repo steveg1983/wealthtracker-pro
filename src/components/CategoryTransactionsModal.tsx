@@ -163,7 +163,7 @@ export default function CategoryTransactionsModal({
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
@@ -192,7 +192,7 @@ export default function CategoryTransactionsModal({
               onClick={() => setTransactionFilter('all')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 transactionFilter === 'all'
-                  ? 'bg-primary text-white'
+                  ? 'bg-[#1a2332] text-white'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >

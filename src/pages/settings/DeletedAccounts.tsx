@@ -123,7 +123,7 @@ export default function DeletedAccounts() {
       {/* Info Section */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6">
         <div className="flex items-start gap-3">
-          <ArchiveIcon size={24} className="text-blue-600 dark:text-blue-400 mt-1" />
+          <ArchiveIcon size={24} className="text-emerald-700 dark:text-emerald-400 mt-1" />
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2">About Archived Accounts</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -135,7 +135,7 @@ export default function DeletedAccounts() {
       </div>
 
       {/* Archived Accounts List */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Archived Accounts ({deletedAccounts.length})

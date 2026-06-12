@@ -9,10 +9,11 @@ import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
+import PageTip from '../components/PageTip';
 
 export default function Investments() {
   const { accounts, transactions, updateAccount } = useApp();
@@ -49,7 +50,7 @@ export default function Investments() {
 
   // Create holdings data from investment accounts
   const holdings = investmentAccounts.map((acc) => {
-    const numericBalance = typeof acc.balance === 'string' ? parseFloat(acc.balance) : acc.balance;
+    const numericBalance = typeof acc.balance === 'string' ? parseMoneyInput(acc.balance) ?? 0 : acc.balance;
     return {
       name: acc.name,
       value: numericBalance,
@@ -135,7 +136,7 @@ export default function Investments() {
           <h1 className="text-3xl font-bold text-white">Investments</h1>
         </div>
         
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
           <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
             No Investment Accounts Yet
@@ -167,7 +168,7 @@ export default function Investments() {
               viewBox="0 0 48 48"
               xmlns="http://www.w3.org/2000/svg"
               className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+              
             >
               <circle
                 cx="24"
@@ -246,7 +247,7 @@ export default function Investments() {
         <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
@@ -258,11 +259,11 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Invested</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                 {formatCurrency(totalInvested)}
               </p>
             </div>
@@ -270,7 +271,7 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
@@ -282,7 +283,7 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Return %</p>
@@ -296,7 +297,7 @@ export default function Investments() {
         </div>
 
         {/* Performance Chart */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Portfolio Performance</h2>
           <div className="flex gap-2">
@@ -306,7 +307,7 @@ export default function Investments() {
                 onClick={() => setSelectedPeriod(period as '1M' | '3M' | '6M' | '1Y' | 'ALL')}
                 className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                   selectedPeriod === period
-                    ? 'bg-primary text-white'
+                    ? 'bg-[#1a2332] text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
@@ -357,7 +358,7 @@ export default function Investments() {
         {/* Holdings */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Holdings List */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold mb-4 text-theme-heading dark:text-white">Holdings</h2>
           {holdings.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
@@ -419,7 +420,7 @@ export default function Investments() {
         </div>
 
         {/* Allocation Chart */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-xl font-semibold mb-4 text-theme-heading dark:text-white">Asset Allocation</h2>
           {holdings.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
@@ -478,7 +479,7 @@ export default function Investments() {
         {/* Investment Tips */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
           <div className="flex items-start gap-3">
-            <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
+            <AlertCircleIcon className="text-emerald-700 dark:text-emerald-400 mt-1" size={20} />
             <div>
               <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
@@ -502,7 +503,7 @@ export default function Investments() {
       {activeTab === 'portfolio' && (
         <div className="space-y-6">
           {investmentAccounts.length === 0 ? (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
               <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
               <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
                 No Investment Accounts Yet
@@ -517,7 +518,7 @@ export default function Investments() {
           ) : (
             <div className="space-y-6">
               {/* Combined Portfolio View */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Combined Portfolio</h2>
                 <RealTimePortfolioEnhanced
                   holdings={investmentAccounts.flatMap(acc => 
@@ -534,7 +535,7 @@ export default function Investments() {
               
               {/* Individual Account Views */}
               {investmentAccounts.map((account) => (
-                <div key={account.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+                <div key={account.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{account.name}</h3>
                     <button
@@ -573,7 +574,7 @@ export default function Investments() {
       {activeTab === 'manage' && (
         <div className="space-y-6">
           {investmentAccounts.length === 0 ? (
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
               <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
               <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
                 No Investment Accounts Yet
@@ -585,7 +586,7 @@ export default function Investments() {
           ) : (
             <div className="space-y-6">
               {/* Account Selector */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Investment Account
                 </label>
@@ -607,7 +608,7 @@ export default function Investments() {
                 if (!account) return null;
                 
                 return (
-                  <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                     <PortfolioManager
                       accountId={account.id}
                       holdings={(account.holdings || []).map(h => ({
@@ -663,6 +664,7 @@ export default function Investments() {
         isOpen={showAddInvestmentModal}
         onClose={() => setShowAddInvestmentModal(false)}
       />
+    <PageTip id="investments-intro" title="Your investment portfolio" description="Track stocks, funds, and other investments. See holdings, performance, and allocation across your portfolio." />
     </PageWrapper>
   );
 }

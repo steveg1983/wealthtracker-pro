@@ -67,7 +67,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
   const sendTestNotification = async () => {
     await mobileService.sendNotification(
       'Test Notification',
-      'This is a test notification from Wealth Tracker',
+      'This is a test notification from WealthTracker',
       { type: 'test' }
     );
   };
@@ -76,12 +76,12 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <BellIcon size={20} className="text-blue-600 dark:text-blue-400" />
+              <BellIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
               Notification Settings
             </h2>
             <button
@@ -97,7 +97,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
             {!hasPermission && (
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircleIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <AlertCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
                   <div className="flex-1">
                     <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
                       Enable Notifications
@@ -108,7 +108,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                     <button
                       onClick={handleRequestPermission}
                       disabled={isRequestingPermission}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                      className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] disabled:opacity-50 text-sm"
                     >
                       {isRequestingPermission ? 'Requesting...' : 'Allow Notifications'}
                     </button>
@@ -130,6 +130,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               <button
                 onClick={() => handleSettingChange('enabled', !settings.enabled)}
                 disabled={!hasPermission}
+                aria-label="Push notifications"
+                aria-pressed={settings.enabled}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.enabled && hasPermission
                     ? 'bg-[var(--color-primary)]'
@@ -159,6 +161,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               </div>
               <button
                 onClick={() => handleSettingChange('budgetAlerts', !settings.budgetAlerts)}
+                aria-label="Budget alert notifications"
+                aria-pressed={settings.budgetAlerts}
                 disabled={!settings.enabled}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.budgetAlerts && settings.enabled
@@ -189,6 +193,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               </div>
               <button
                 onClick={() => handleSettingChange('billReminders', !settings.billReminders)}
+                aria-label="Bill reminder notifications"
+                aria-pressed={settings.billReminders}
                 disabled={!settings.enabled}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   settings.billReminders && settings.enabled
@@ -242,6 +248,8 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                 </div>
                 <button
                   onClick={() => handleQuietHoursChange('enabled', !settings.quietHours.enabled)}
+                  aria-label="Quiet hours"
+                  aria-pressed={settings.quietHours.enabled}
                   disabled={!settings.enabled}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     settings.quietHours.enabled && settings.enabled

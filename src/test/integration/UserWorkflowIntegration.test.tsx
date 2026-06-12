@@ -296,15 +296,9 @@ describe('User Workflow Integration Tests', () => {
     });
 
     it('persists user data after initial setup', async () => {
-      const testData = createTestData();
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
       const { store: _store } = renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-          transactions: { transactions: [] },
-          categories: { categories: testData.categories },
-        }
       });
 
       await waitFor(() => {
@@ -316,15 +310,9 @@ describe('User Workflow Integration Tests', () => {
 
   describe('Daily Money Management Workflow', () => {
     it('supports adding income transaction', async () => {
-      const testData = createTestData();
       const Transactions = (await import('../../pages/Transactions')).default;
       
       const { store: _store } = renderWithProviders(<Transactions />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-          transactions: { transactions: [] },
-          categories: { categories: testData.categories },
-        }
       });
 
       const addButton = screen.getByRole('button', { name: /add transaction/i });
@@ -336,15 +324,9 @@ describe('User Workflow Integration Tests', () => {
     });
 
     it('supports adding expense transaction', async () => {
-      const testData = createTestData();
       const Transactions = (await import('../../pages/Transactions')).default;
       
       renderWithProviders(<Transactions />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-          transactions: { transactions: [] },
-          categories: { categories: testData.categories },
-        }
       });
 
       const addButton = screen.getByRole('button', { name: /add transaction/i });
@@ -368,11 +350,6 @@ describe('User Workflow Integration Tests', () => {
           categories={testData.categories}
         />, 
         {
-          preloadedState: {
-            accounts: { accounts: testData.accounts },
-            categories: { categories: testData.categories },
-            budgets: { budgets: [] },
-          }
         }
       );
 
@@ -443,14 +420,9 @@ describe('User Workflow Integration Tests', () => {
 
   describe('Goal Tracking Workflow', () => {
     it('supports setting financial goals', async () => {
-      const testData = createTestData();
       const Goals = (await import('../../pages/Goals')).default;
       
       renderWithProviders(<Goals goals={[]} />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-          goals: { goals: [] },
-        }
       });
 
       const addButton = screen.getByRole('button', { name: /add goal/i });

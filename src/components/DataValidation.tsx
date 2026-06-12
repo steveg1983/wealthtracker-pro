@@ -738,8 +738,8 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
               <button
                 onClick={handleFixSelected}
                 disabled={selectedIssues.size === 0 || fixing}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg
-                         hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg
+                         hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {fixing ? (
                   <>
@@ -807,8 +807,8 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
                                     issueType
                                   });
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400
-                                         hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400
+                                         hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded"
                               >
                                 <EyeIcon size={14} />
                                 View Details

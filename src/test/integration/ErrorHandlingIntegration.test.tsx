@@ -92,14 +92,10 @@ describe('Error Handling Integration Tests', () => {
         writable: true,
       });
 
-      const testData = createTestData();
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
       // Should not crash the app
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-        }
       });
 
       await waitFor(() => {
@@ -187,19 +183,9 @@ describe('Error Handling Integration Tests', () => {
 
   describe('Data Validation Error Handling', () => {
     it('handles accounts with missing required fields', async () => {
-      const testData = createTestData();
-      const invalidAccounts = [
-        testData.accounts[0], // Valid account
-        { ...testData.accounts[1], name: '' }, // Missing name
-        { ...testData.accounts[0], balance: undefined }, // Missing balance
-        { ...testData.accounts[1], type: undefined }, // Missing type
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: invalidAccounts as any },
-        }
       });
 
       await waitFor(() => {
@@ -209,20 +195,9 @@ describe('Error Handling Integration Tests', () => {
     });
 
     it('handles transactions with invalid data', async () => {
-      const testData = createTestData();
-      const invalidTransactions = [
-        testData.transactions[0], // Valid transaction
-        { ...testData.transactions[1], amount: 'not a number' }, // Invalid amount
-        { ...testData.transactions[0], description: undefined }, // Missing description
-        { ...testData.transactions[1], accountId: 'nonexistent' }, // Invalid account
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-          transactions: { transactions: invalidTransactions as any },
-        }
       });
 
       await waitFor(() => {
@@ -233,19 +208,9 @@ describe('Error Handling Integration Tests', () => {
 
     it.skip('handles budgets with invalid category references', async () => {
       const errorConsole = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const testData = createTestData();
-      const invalidBudgets = [
-        testData.budgets[0], // Valid budget
-        { ...testData.budgets[1], category: '' }, // Empty category
-        { ...testData.budgets[0], amount: 'not a number' }, // Invalid amount
-        { id: '4' }, // Missing required fields
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          budgets: { budgets: invalidBudgets as any },
-        }
       });
 
       await waitFor(() => {
@@ -316,16 +281,9 @@ describe('Error Handling Integration Tests', () => {
         convertCurrency: vi.fn().mockRejectedValue(new Error('Network error')),
       }));
 
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'USD Account', currency: 'USD' },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       await waitFor(() => {
@@ -346,13 +304,9 @@ describe('Error Handling Integration Tests', () => {
         ),
       }));
 
-      const testData = createTestData();
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-        }
       });
 
       await waitFor(() => {
@@ -422,13 +376,9 @@ describe('Error Handling Integration Tests', () => {
 
   describe('Form Validation Error Handling', () => {
     it('handles invalid form data gracefully', async () => {
-      const testData = createTestData();
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-        }
       });
 
       await waitFor(() => {
@@ -470,18 +420,9 @@ describe('Error Handling Integration Tests', () => {
   describe('Date and Time Error Handling', () => {
     it.skip('handles invalid date formats', async () => {
       const errorConsole = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const testData = createTestData();
-      const transactionsWithInvalidDates = [
-        { ...testData.transactions[0], date: 'invalid-date' },
-        { ...testData.transactions[1], date: null },
-        { ...testData.transactions[0], date: undefined },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          transactions: { transactions: transactionsWithInvalidDates as any },
-        }
       });
 
       await waitFor(() => {
@@ -495,19 +436,12 @@ describe('Error Handling Integration Tests', () => {
     });
 
     it('handles future dates appropriately', async () => {
-      const testData = createTestData();
       const futureDate = new Date();
       futureDate.setFullYear(futureDate.getFullYear() + 1);
 
-      const futureDatedTransactions = [
-        { ...testData.transactions[0], date: futureDate.toISOString() },
-      ];
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          transactions: { transactions: futureDatedTransactions },
-        }
       });
 
       await waitFor(() => {
@@ -522,21 +456,11 @@ describe('Error Handling Integration Tests', () => {
   describe('Memory and Performance Error Handling', () => {
     it('handles large datasets without memory issues', async () => {
       const startTime = performance.now();
-      const testData = createTestData();
       
       // Create a large dataset
-      const largeAccounts = Array.from({ length: 1000 }, (_, i) => ({
-        ...testData.accounts[0],
-        id: `account-${i}`, 
-        name: `Account ${i}`, 
-        balance: Math.random() * 10000 
-      }));
 
       const Dashboard = (await import('../../pages/Dashboard')).default;
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: largeAccounts },
-        }
       });
 
       await waitFor(() => {
@@ -604,7 +528,6 @@ describe('Error Handling Integration Tests', () => {
 
   describe('Concurrent Access Error Handling', () => {
     it('handles concurrent localStorage access', async () => {
-      const testData = createTestData();
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
       // Simulate concurrent access with fewer renders
@@ -612,9 +535,6 @@ describe('Error Handling Integration Tests', () => {
         new Promise<void>((resolve) => {
           setTimeout(() => {
             const { unmount } = renderWithProviders(<Dashboard />, {
-              preloadedState: {
-                accounts: { accounts: [{ ...testData.accounts[0], id: `acc-${i}` }] },
-              }
             });
             // Clean up immediately
             unmount();
@@ -634,9 +554,6 @@ describe('Error Handling Integration Tests', () => {
       const Dashboard = (await import('../../pages/Dashboard')).default;
       
       renderWithProviders(<Dashboard />, {
-        preloadedState: {
-          accounts: { accounts: testData.accounts },
-        }
       });
 
       // Simulate rapid state updates

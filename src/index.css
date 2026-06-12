@@ -80,68 +80,72 @@
   }
 }
 
-/* Default color values - Blue Theme */
+/* WealthTracker Brand Colors */
 :root {
-  --color-primary: #7ba8d1;
-  --color-secondary: #5a729a;
-  --color-tertiary: #b8d4f1;
-  --color-light-bg: #f8fafc;
+  --color-primary: #1a2332;
+  --color-secondary: #2d4a3e;
+  --color-tertiary: #d4a843;
+  --color-light-bg: #f8f9fb;
   --color-light-card: #ffffff;
-  --color-light-border: #e5e7eb;
-  --color-light-accent: #f0f9ff;
-  --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
-  --color-sidebar-active: #b8d4f1;
-  --color-sidebar-border: #4a6fa5;
-  --focus-ring-color: #94a3b8;
-  --color-border-focus: #94a3b8;
+  --color-light-border: #e2e6ed;
+  --color-light-accent: #f1f3f7;
+  --color-sidebar: #1a2332;
+  --color-sidebar-active: #2d3a4d;
+  --color-sidebar-border: #2d3a4d;
+  --color-income: #0d9f6f;
+  --color-expense: #d94052;
+  --color-accent: #d4a843;
+  --focus-ring-color: #2d4a3e;
+  --color-border-focus: #2d4a3e;
 }
 
-/* Blue Theme (Default) */
-.theme-blue {
-  --color-primary: #7ba8d1;
-  --color-secondary: #5a729a;
-  --color-tertiary: #b8d4f1;
-  --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
-  --color-sidebar-active: #b8d4f1;
-  --color-sidebar-border: #4a6fa5;
-  --color-light-accent: #f0f9ff;
-  --color-dark-accent: #1e3a5f;
+/* Default Theme (Wealth) */
+.theme-blue,
+.theme-wealth {
+  --color-primary: #1a2332;
+  --color-secondary: #2d4a3e;
+  --color-tertiary: #d4a843;
+  --color-sidebar: #1a2332;
+  --color-sidebar-active: #2d3a4d;
+  --color-sidebar-border: #2d3a4d;
+  --color-light-accent: #f1f3f7;
+  --color-dark-accent: #0f1721;
 }
 
 /* Green Theme */
 .theme-green {
-  --color-primary: #a9d08e;
-  --color-secondary: #7fa86b;
-  --color-tertiary: #d4e6c4;
-  --color-sidebar: #bcdba5;
-  --color-sidebar-active: #d4e6c4;
-  --color-sidebar-border: #6b9555;
-  --color-light-accent: #f8fcf4;
-  --color-dark-accent: #2a3d22;
+  --color-primary: #166534;
+  --color-secondary: #14532d;
+  --color-tertiary: #86efac;
+  --color-sidebar: #166534;
+  --color-sidebar-active: #1a7a3d;
+  --color-sidebar-border: #14532d;
+  --color-light-accent: #f0fdf4;
+  --color-dark-accent: #052e16;
 }
 
 /* Red Theme */
 .theme-red {
-  --color-primary: #e2a8a8;
-  --color-secondary: #b88585;
-  --color-tertiary: #f1d4d4;
-  --color-sidebar: #e8b8b8;
-  --color-sidebar-active: #f1d4d4;
-  --color-sidebar-border: #c47a7a;
-  --color-light-accent: #fef8f8;
-  --color-dark-accent: #4a2a2a;
+  --color-primary: #991b1b;
+  --color-secondary: #7f1d1d;
+  --color-tertiary: #fca5a5;
+  --color-sidebar: #991b1b;
+  --color-sidebar-active: #b91c1c;
+  --color-sidebar-border: #7f1d1d;
+  --color-light-accent: #fef2f2;
+  --color-dark-accent: #450a0a;
 }
 
 /* Pink Theme */
 .theme-pink {
-  --color-primary: #e2a8d4;
-  --color-secondary: #b885a5;
-  --color-tertiary: #f1d4e8;
-  --color-sidebar: #e8b8dc;
-  --color-sidebar-active: #f1d4e8;
-  --color-sidebar-border: #c47aa5;
-  --color-light-accent: #fef8fc;
-  --color-dark-accent: #4a2a3c;
+  --color-primary: #9d174d;
+  --color-secondary: #831843;
+  --color-tertiary: #f9a8d4;
+  --color-sidebar: #9d174d;
+  --color-sidebar-active: #be185d;
+  --color-sidebar-border: #831843;
+  --color-light-accent: #fdf2f8;
+  --color-dark-accent: #500724;
 }
 
 /* Apply primary color to common elements */

@@ -5,6 +5,7 @@ import { Modal } from './common/Modal';
 import { CheckCircleIcon, LinkIcon, RefreshCwIcon, CalendarIcon } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
+import { toDecimal, parseMoneyInput } from '../utils/decimal';
 
 interface TransactionReconciliationProps {
   isOpen: boolean;
@@ -200,8 +201,9 @@ export default function TransactionReconciliation({
     }
   };
 
-  const statementDifference = statementBalance ? 
-    parseFloat(statementBalance) - clearedBalance : 0;
+  const statementDifference = statementBalance
+    ? toDecimal(parseMoneyInput(statementBalance) ?? 0).minus(toDecimal(clearedBalance)).toNumber()
+    : 0;
 
   return (
     <Modal
@@ -282,15 +284,15 @@ export default function TransactionReconciliation({
           <>
             {/* Balance Summary */}
             <div className="grid grid-cols-4 gap-4 mb-6">
-              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Cleared Balance</div>
                 <div className="text-xl font-semibold mt-1">{formatCurrency(clearedBalance)}</div>
               </div>
               
-              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Statement Balance</div>
                 <div className="text-xl font-semibold mt-1">
-                  {statementBalance ? formatCurrency(parseFloat(statementBalance)) : '-'}
+                  {statementBalance ? formatCurrency(parseMoneyInput(statementBalance) ?? 0) : '-'}
                 </div>
               </div>
               
@@ -309,7 +311,7 @@ export default function TransactionReconciliation({
                 </div>
               </div>
               
-              <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                 <div className="text-sm text-gray-600 dark:text-gray-400">Uncleared</div>
                 <div className="text-xl font-semibold mt-1">{unclearedTransactions.length}</div>
               </div>
@@ -320,8 +322,8 @@ export default function TransactionReconciliation({
               <button
                 onClick={autoReconcile}
                 disabled={reconciling || !selectedAccount}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg
-                         hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg
+                         hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {reconciling ? (
                   <>

@@ -6,6 +6,7 @@ import type {
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { applyRateLimit } from '../_lib/rate-limit.js';
 import { encryptSecret } from '../_lib/encryption.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { decodeStateToken } from '../_lib/state.js';
@@ -56,6 +57,10 @@ const getProviderFromAccounts = (
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
+    return;
+  }
+
+  if (applyRateLimit(req, res, { name: 'exchange-token', limit: 10, windowMs: 60_000 })) {
     return;
   }
 

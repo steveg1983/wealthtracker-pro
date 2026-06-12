@@ -170,7 +170,7 @@ export default function SubscriptionPage({
           </p>
           <button
             onClick={() => window.location.href = '/sign-in'}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
           >
             Sign In
           </button>
@@ -203,7 +203,7 @@ export default function SubscriptionPage({
         {(currentView === 'payment' || currentView === 'success') && (
           <button
             onClick={handleBackToPricing}
-            className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4"
+            className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4"
           >
             <ArrowLeftIcon size={16} />
             Back to Plans
@@ -229,7 +229,7 @@ export default function SubscriptionPage({
               }} />
               <button
                 onClick={() => setCurrentView('plans')}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 Change Plan
               </button>
@@ -294,7 +294,7 @@ export default function SubscriptionPage({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               <button
                 onClick={() => window.location.href = '/dashboard'}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
               >
                 Go to Dashboard
               </button>

@@ -32,23 +32,10 @@ describe('App Integration Tests', () => {
 
   describe('Dashboard Integration', () => {
     it('displays account balances and recent transactions', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Savings', balance: 5000 },
-        { ...testData.accounts[1], name: 'Checking', balance: 2000 },
-      ];
       
-      const transactions = [
-        { ...testData.transactions[0], description: 'Salary', amount: 3000, type: 'income' },
-        { ...testData.transactions[1], description: 'Groceries', amount: 150, type: 'expense' },
-      ];
 
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          accounts: { accounts },
-          transactions: { transactions },
-        }
       });
 
       // Check if app loads
@@ -59,17 +46,9 @@ describe('App Integration Tests', () => {
     });
 
     it('calculates and displays net worth correctly', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], balance: 5000 },
-        { ...testData.accounts[1], balance: 1000 },
-      ];
 
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // Check if app loads with navigation
@@ -102,16 +81,9 @@ describe('App Integration Tests', () => {
 
   describe('Transaction Management Flow', () => {
     it('allows creating and categorizing transactions', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], name: 'Checking', balance: 2000 },
-      ];
 
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // Look for transactions button
@@ -131,23 +103,9 @@ describe('App Integration Tests', () => {
 
   describe('Budget Management Flow', () => {
     it('creates budgets and tracks spending', async () => {
-      const testData = createTestData();
-      const transactions = [
-        { 
-          ...testData.transactions[0],
-          description: 'Grocery Store', 
-          amount: 150, 
-          type: 'expense',
-          category: 'cat1'
-        },
-      ];
 
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          transactions: { transactions },
-          budgets: { budgets: testData.budgets },
-        }
       });
 
       // Look for budget button
@@ -189,9 +147,6 @@ describe('App Integration Tests', () => {
       
       // First render with data
       const { unmount } = renderWithProviders(<App />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
       
       await waitFor(() => {
@@ -204,9 +159,6 @@ describe('App Integration Tests', () => {
       // Unmount and re-render to simulate app reload
       unmount();
       renderWithProviders(<App />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // App should load again
@@ -218,17 +170,9 @@ describe('App Integration Tests', () => {
 
   describe('Calculation Accuracy', () => {
     it('maintains decimal precision in financial calculations', async () => {
-      const testData = createTestData();
-      const accounts = [
-        { ...testData.accounts[0], balance: 999.99 },
-        { ...testData.accounts[1], balance: 0.01 },
-      ];
 
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          accounts: { accounts },
-        }
       });
 
       // Check app loads
@@ -238,32 +182,10 @@ describe('App Integration Tests', () => {
     });
 
     it('handles budget calculations with precision', async () => {
-      const testData = createTestData();
-      const transactions = [
-        { 
-          ...testData.transactions[0],
-          amount: 33.33, 
-          type: 'expense',
-          category: 'cat1' 
-        },
-        { 
-          ...testData.transactions[1],
-          amount: 66.67, 
-          type: 'expense',
-          category: 'cat1' 
-        },
-      ];
 
-      const budgets = [
-        { ...testData.budgets[0], category: 'cat1', amount: 100 },
-      ];
 
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          transactions: { transactions },
-          budgets: { budgets },
-        }
       });
 
       // Should show budget button
@@ -299,16 +221,10 @@ describe('App Integration Tests', () => {
     });
 
     it('handles invalid transaction data gracefully', async () => {
-      const invalidTransactions = [
-        { id: '1', description: 'Invalid', amount: 'not-a-number' as any },
-      ];
 
       // Should not crash the app
       const App = (await import('../../App')).default;
       renderWithProviders(<App />, {
-        preloadedState: {
-          transactions: { transactions: invalidTransactions },
-        }
       });
 
       await waitFor(() => {

@@ -196,7 +196,7 @@ export default function AppSettings() {
     >
 
       {/* Personal Information */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Personal Information</h2>
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -207,7 +207,7 @@ export default function AppSettings() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Enter your first name"
-            className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
           />
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             This will be used in the welcome message on your dashboard. Leave blank to use "User".
@@ -219,7 +219,7 @@ export default function AppSettings() {
       <LocaleSelector />
 
       {/* Base Currency */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6 mt-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6 mt-6">
         <div className="flex items-center gap-3 mb-4">
           <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Base Currency</h2>
@@ -228,9 +228,10 @@ export default function AppSettings() {
           Choose your preferred base currency for displaying your net worth and performing currency conversions
         </p>
         <select
+          aria-label="Default currency"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="w-full px-4 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+          className="w-full px-4 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
         >
           {currencies.map((curr) => (
             <option key={curr.code} value={curr.code}>
@@ -241,7 +242,7 @@ export default function AppSettings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Appearance</h2>
         
         {/* Theme Selection */}
@@ -256,7 +257,7 @@ export default function AppSettings() {
                 onClick={() => setTheme(value as 'light' | 'dark' | 'auto' | 'scheduled')}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
                   theme === value
-                    ? 'border-primary bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
+                    ? 'border-primary bg-[#1a2332]/10 text-primary dark:bg-primary/20 dark:text-primary'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -298,7 +299,7 @@ export default function AppSettings() {
                       type="time"
                       value={themeSchedule.lightStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, lightStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                     />
                   </div>
                   <div>
@@ -309,7 +310,7 @@ export default function AppSettings() {
                       type="time"
                       value={themeSchedule.darkStartTime}
                       onChange={(e) => setThemeSchedule({ ...themeSchedule, darkStartTime: e.target.value })}
-                      className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                     />
                   </div>
                 </div>
@@ -356,7 +357,7 @@ export default function AppSettings() {
       </div>
 
       {/* Page Visibility */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Page Visibility</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
           Choose which pages appear in the navigation sidebar
@@ -386,6 +387,7 @@ export default function AppSettings() {
                   checked={toggle.value}
                   onChange={(e) => toggle.onChange(e.target.checked)}
                   className="sr-only peer"
+                  aria-label={toggle.title}
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
               </label>
@@ -407,7 +409,7 @@ export default function AppSettings() {
       <LargeTransactionAlertSettings />
 
       {/* Goal Celebrations */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Goal Celebrations</h3>
         
         <div className="flex items-center justify-between">
@@ -423,6 +425,7 @@ export default function AppSettings() {
               checked={enableGoalCelebrations}
               onChange={(e) => setEnableGoalCelebrations(e.target.checked)}
               className="sr-only peer"
+              aria-label="Enable goal celebrations"
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
           </label>

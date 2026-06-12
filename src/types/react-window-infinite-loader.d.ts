@@ -1,7 +1,12 @@
 declare module 'react-window-infinite-loader' {
-  import { ReactNode, Ref, Component } from 'react';
+  import { ComponentType, Ref } from 'react';
 
-  export interface InfiniteLoaderProps {
+  interface InfiniteLoaderProps {
+    isItemLoaded: (index: number) => boolean;
+    itemCount: number;
+    loadMoreItems: (startIndex: number, stopIndex: number) => Promise<void> | void;
+    minimumBatchSize?: number;
+    threshold?: number;
     children: (props: {
       onItemsRendered: (props: {
         overscanStartIndex: number;
@@ -10,15 +15,9 @@ declare module 'react-window-infinite-loader' {
         visibleStopIndex: number;
       }) => void;
       ref: Ref<unknown>;
-    }) => ReactNode;
-    isItemLoaded: (index: number) => boolean;
-    itemCount: number;
-    loadMoreItems: (startIndex: number, stopIndex: number) => Promise<void> | void;
-    minimumBatchSize?: number;
-    threshold?: number;
+    }) => React.ReactNode;
   }
 
-  export default class InfiniteLoader extends Component<InfiniteLoaderProps> {
-    resetloadMoreItemsCache(autoReload?: boolean): void;
-  }
+  const InfiniteLoader: ComponentType<InfiniteLoaderProps>;
+  export default InfiniteLoader;
 }

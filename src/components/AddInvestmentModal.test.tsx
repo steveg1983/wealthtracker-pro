@@ -206,7 +206,7 @@ describe('AddInvestmentModal', () => {
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} />);
       
       const shareButton = screen.getByRole('button', { name: 'Share' });
-      expect(shareButton).toHaveClass('bg-blue-600');
+      expect(shareButton).toHaveClass('bg-[#1a2332]');
     });
 
     it('updates investment type on button click', () => {

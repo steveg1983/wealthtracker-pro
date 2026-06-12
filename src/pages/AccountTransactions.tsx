@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
+import { parseMoneyInput } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon } from '../components/icons';
@@ -330,7 +331,7 @@ export default function AccountTransactions() {
     }
     
     // Calculate the correct amount based on transaction type
-    let amount = parseFloat(quickAddForm.amount);
+    let amount = parseMoneyInput(quickAddForm.amount) ?? 0;
     if (quickAddForm.type === 'expense') {
       amount = -Math.abs(amount); // Expenses are always negative
     } else if (quickAddForm.type === 'income') {
@@ -594,7 +595,7 @@ export default function AccountTransactions() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Account Balance</span>
             <span className={`text-sm font-bold whitespace-nowrap ${
               computedAccountBalance >= 0
@@ -605,7 +606,7 @@ export default function AccountTransactions() {
             </span>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Bank Balance</span>
             <span className={`text-sm font-bold whitespace-nowrap ${
               bankBalance != null
@@ -618,14 +619,14 @@ export default function AccountTransactions() {
             </span>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Unreconciled</span>
             <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
               {formatCurrency(unreconciledTotal, account.currency)}
             </span>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-white/20 dark:border-gray-700/50 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Difference</span>
             {bankBalance != null ? (() => {
               const difference = bankBalance - computedAccountBalance;
@@ -648,7 +649,7 @@ export default function AccountTransactions() {
       {/* Main content */}
       <div className="grid gap-6">
       {/* Search and Filter Bar */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Input */}
@@ -672,7 +673,7 @@ export default function AccountTransactions() {
                   onClick={() => setTypeFilter('all')}
                   className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
                     typeFilter === 'all'
-                      ? 'bg-primary text-white'
+                      ? 'bg-[#1a2332] text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -702,7 +703,7 @@ export default function AccountTransactions() {
                   onClick={() => setTypeFilter('transfer')}
                   className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
                     typeFilter === 'transfer'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#1a2332] text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -782,7 +783,7 @@ export default function AccountTransactions() {
           sortDirection={sortDirection}
           emptyMessage="No transactions found"
           threshold={50}
-          className="virtualized-table bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
+          className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(row: DisplayRow) => {
             if (isOpeningBalanceRow(row)) {
@@ -795,7 +796,7 @@ export default function AccountTransactions() {
       </div>
       
       {/* Quick Add Transaction */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-md border border-white/20 dark:border-gray-700/50 px-4 py-3 mt-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3 mt-4">
         <form onSubmit={handleQuickAdd}>
           {/* Row 1: Date | Type | Description */}
           <div className="flex items-end gap-3">
@@ -815,7 +816,7 @@ export default function AccountTransactions() {
                 {([
                   { value: 'expense', label: 'Exp', activeColor: 'text-red-600 dark:text-red-400' },
                   { value: 'income', label: 'Inc', activeColor: 'text-green-600 dark:text-green-400' },
-                  { value: 'transfer', label: 'Txfr', activeColor: 'text-blue-600 dark:text-blue-400' },
+                  { value: 'transfer', label: 'Txfr', activeColor: 'text-emerald-700 dark:text-emerald-400' },
                 ] as const).map(({ value, label, activeColor }) => (
                   <button
                     key={value}
@@ -893,7 +894,7 @@ export default function AccountTransactions() {
 
             <button
               type="submit"
-              className="shrink-0 px-4 py-1.5 h-[32px] text-xs bg-primary text-white rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
+              className="shrink-0 px-4 py-1.5 h-[32px] text-xs bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
               title="Add Transaction"
             >
               <PlusIcon size={14} />
@@ -924,7 +925,7 @@ export default function AccountTransactions() {
       {/* Delete Confirmation */}
       {deleteConfirmTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4 dark:text-white">Delete Transaction</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Are you sure you want to delete "{deleteConfirmTransaction.description}"?

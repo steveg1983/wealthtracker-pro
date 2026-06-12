@@ -98,7 +98,7 @@ export default function FinancialSummaries() {
               {summaryHistory.map((summary, index) => (
                 <div
                   key={index}
-                  className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -149,7 +149,7 @@ export default function FinancialSummaries() {
 
         {/* Empty State */}
         {showHistory && summaryHistory.length === 0 && (
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12">
             <div className="text-center">
               <TrendingUpIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">

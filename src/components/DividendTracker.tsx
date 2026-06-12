@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dividendService } from '../services/dividendService';
 import type { Dividend, DividendSummary, DividendProjection } from '../services/dividendService';
+import { parseMoneyInput } from '../utils/decimal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -233,7 +234,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
             <PlusIcon size={20} />
             Add Dividend
@@ -252,7 +253,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Dividends</p>
@@ -262,7 +263,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
             </div>
           </div>
           
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Tax Withheld</p>
@@ -272,7 +273,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
             </div>
           </div>
           
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Projected Annual</p>
@@ -282,7 +283,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
             </div>
           </div>
           
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Unique Stocks</p>
@@ -296,7 +297,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
 
       {/* Upcoming Dividends */}
       {projections.length > 0 && (
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <CalendarIcon size={20} />
             Projected Upcoming Dividends
@@ -331,7 +332,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
       )}
 
       {/* Dividend History */}
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-md p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Dividend History</h3>
         
         {dividends.length === 0 ? (
@@ -544,7 +545,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
                 type="number"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, amount: parseMoneyInput(e.target.value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
               />
@@ -608,7 +609,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
                 type="number"
                 step="0.01"
                 value={formData.taxWithheld}
-                onChange={(e) => setFormData({ ...formData, taxWithheld: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, taxWithheld: parseMoneyInput(e.target.value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               />
             </div>
@@ -647,7 +648,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
             {dividend ? 'Update' : 'Add'} Dividend
           </button>

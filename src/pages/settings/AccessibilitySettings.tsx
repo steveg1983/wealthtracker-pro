@@ -37,7 +37,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
     <PageWrapper title="Accessibility Settings">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* System Preferences Status */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             System Preferences Detected
           </h2>
@@ -58,7 +58,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Accessibility Audit */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -73,7 +73,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
           
           <button
             onClick={() => setShowAuditPanel(true)}
-            className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center justify-center gap-2"
           >
             <EyeIcon size={20} />
             Run Accessibility Audit
@@ -81,7 +81,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Visual Settings */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Visual Settings
@@ -138,7 +138,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Keyboard Navigation */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Keyboard Navigation
@@ -180,7 +180,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Screen Reader */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Screen Reader Support
@@ -222,7 +222,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Motion Settings */}
-        <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Motion & Animation

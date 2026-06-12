@@ -310,7 +310,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
               </button>
               <button
                 onClick={startBatchImport}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
               >
                 Clear Test Data & Import
               </button>
@@ -357,7 +357,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
               >
                 Done
               </button>
@@ -379,7 +379,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Support for CSV, OFX, and QIF files
                 </p>
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 cursor-pointer">
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90 cursor-pointer">
                   <UploadIcon size={20} />
                   Select Files
                   <input
@@ -499,7 +499,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                     onClick={startBatchImport}
                     disabled={files.length === 0}
                     isLoading={isProcessing}
-                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
                   >
                     {isProcessing ? (
                       <>

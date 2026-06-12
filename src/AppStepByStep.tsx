@@ -19,7 +19,7 @@ export default function AppStepByStep() {
   
   if (step === 1) {
     return (
-      <div style={{ padding: '20px' }}>
+      <div>
         <h1>Step 1: Basic Router</h1>
         <Router>
           <div>Router works!</div>
@@ -31,7 +31,7 @@ export default function AppStepByStep() {
   
   if (step === 2) {
     return (
-      <div style={{ padding: '20px' }}>
+      <div>
         <h1>Step 2: With Providers</h1>
         <ErrorBoundary>
           <PreferencesProvider>
@@ -51,7 +51,7 @@ export default function AppStepByStep() {
   
   if (step === 3) {
     return (
-      <div style={{ padding: '20px' }}>
+      <div>
         <h1>Step 3: With Layout</h1>
         <ErrorBoundary>
           <PreferencesProvider>

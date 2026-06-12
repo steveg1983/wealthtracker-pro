@@ -1,78 +1,41 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import { render as rtlRender, RenderOptions } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { configureStore, type PreloadedState } from '@reduxjs/toolkit';
 import { MemoryRouter, Routes } from 'react-router-dom';
-import type { RootState } from '../../store';
-
-// Import all slices
-import accountsReducer from '../../store/slices/accountsSlice';
-import transactionsReducer from '../../store/slices/transactionsSlice';
-import budgetsReducer from '../../store/slices/budgetsSlice';
-import categoriesReducer from '../../store/slices/categoriesSlice';
-import goalsReducer from '../../store/slices/goalsSlice';
-import preferencesReducer from '../../store/slices/preferencesSlice';
-import recurringTransactionsReducer from '../../store/slices/recurringTransactionsSlice';
-import tagsReducer from '../../store/slices/tagsSlice';
-import notificationsReducer from '../../store/slices/notificationsSlice';
-import layoutReducer from '../../store/slices/layoutSlice';
 
 import { CombinedProvider } from '../../contexts/CombinedProvider';
 
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: PreloadedState<RootState>;
   route?: string;
   routes?: React.ReactElement;
 }
 
-// Create a custom render function that includes all providers
+// Custom render with the app's real provider tree. The Redux store this used
+// to construct was deleted (the app renders from contexts; the store had no
+// readers), so state seeding happens through component props or mocks.
 export function renderWithProviders(
   ui: React.ReactElement,
   {
-    preloadedState = {},
     route = '/',
     routes,
     ...renderOptions
   }: CustomRenderOptions = {}
 ) {
-  // Create a fresh store for each test
-  const store = configureStore({
-    reducer: {
-      accounts: accountsReducer,
-      transactions: transactionsReducer,
-      budgets: budgetsReducer,
-      categories: categoriesReducer,
-      goals: goalsReducer,
-      preferences: preferencesReducer,
-      recurringTransactions: recurringTransactionsReducer,
-      tags: tagsReducer,
-      notifications: notificationsReducer,
-      layout: layoutReducer,
-    },
-    preloadedState,
-  });
-
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
-      <Provider store={store}>
-        <MemoryRouter initialEntries={[route]}>
-          <CombinedProvider>
-            {routes ? (
-              <Routes>{routes}</Routes>
-            ) : (
-              children
-            )}
-          </CombinedProvider>
-        </MemoryRouter>
-      </Provider>
+      <MemoryRouter initialEntries={[route]}>
+        <CombinedProvider>
+          {routes ? (
+            <Routes>{routes}</Routes>
+          ) : (
+            children
+          )}
+        </CombinedProvider>
+      </MemoryRouter>
     );
   }
 
-  return {
-    ...rtlRender(ui, { wrapper: Wrapper, ...renderOptions }),
-    store,
-  };
+  return rtlRender(ui, { wrapper: Wrapper, ...renderOptions });
 }
 
 // Helper to wait for async operations

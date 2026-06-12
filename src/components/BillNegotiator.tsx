@@ -89,7 +89,7 @@ export default function BillNegotiator() {
             return (
               <div
                 key={suggestion.merchant}
-                className={`bg-card-bg-light dark:bg-card-bg-dark rounded-xl p-6 border ${
+                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border ${
                   isCompleted 
                     ? 'border-green-200 dark:border-green-800 opacity-75' 
                     : 'border-gray-200 dark:border-gray-700'
@@ -137,7 +137,7 @@ export default function BillNegotiator() {
                     {!isCompleted ? (
                       <button
                         onClick={() => handleNegotiationClick(suggestion)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center gap-2"
                       >
                         <PhoneIcon size={16} />
                         Negotiate

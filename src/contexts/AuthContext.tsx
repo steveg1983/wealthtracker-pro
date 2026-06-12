@@ -13,6 +13,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
 import { AuthService, AuthUser } from '../services/authService';
 import { setSentryUser, clearSentryUser } from '../lib/sentry';
+import { registerSupabaseTokenGetter } from '../lib/supabaseToken';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -34,6 +35,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [securityScore, setSecurityScore] = useState(0);
   const [securityRecommendations, setSecurityRecommendations] = useState<string[]>([]);
+
+  // Supply the Clerk session JWT to the Supabase clients so RLS policies can
+  // identify the requesting user (Supabase third-party auth integration).
+  useEffect(() => {
+    if (session) {
+      registerSupabaseTokenGetter(() => session.getToken());
+    } else {
+      registerSupabaseTokenGetter(null);
+    }
+    return () => registerSupabaseTokenGetter(null);
+  }, [session]);
 
   useEffect(() => {
     if (isLoaded && clerkUser) {

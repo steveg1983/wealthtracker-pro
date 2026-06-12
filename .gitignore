@@ -6,4 +6,15 @@ logs/
 dist/
 .DS_Store
 coverage-final.json
-WealthTracker-Backups/backups/wealthtracker-backup-2025111*.tar.gz
+# Backup directories
+WealthTracker-Backups/
+src.backup.*
+src-backup-*
+
+# Environment files — never commit secrets
+.env
+.env.*
+!.env.example
+backups/
+test-results/
+playwright-report/

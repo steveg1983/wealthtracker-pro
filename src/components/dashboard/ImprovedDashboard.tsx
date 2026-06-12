@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   TrendingUpIcon, 
@@ -22,8 +22,9 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
 import { Modal, ModalBody } from '../common/Modal';
-import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
+import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
+import { toDecimal } from '../../utils/decimal';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -45,57 +46,68 @@ export function ImprovedDashboard() {
   
   // Load saved preferences from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('dashboardKeyAccounts');
-    if (saved) {
-      setSelectedAccountIds(JSON.parse(saved));
-    } else {
-      // Default to showing first 4 accounts
-      setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
+    try {
+      const saved = localStorage.getItem('dashboardKeyAccounts');
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed)) {
+        setSelectedAccountIds(parsed);
+        return;
+      }
+    } catch {
+      localStorage.removeItem('dashboardKeyAccounts');
     }
+    // Default to showing first 4 accounts
+    setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
   }, [accounts]);
 
-  // Calculate key metrics
+  // Calculate key metrics — all money sums use Decimal arithmetic (float math
+  // is banned on currency values; IEEE-754 drifts on long sums).
   const metrics = useMemo(() => {
     // Compute real balance from openingBalance + sum of transactions per account
-    const effectiveBalance = (acc: typeof accounts[0]) => {
-      const opening = acc.openingBalance ?? 0;
+    const effectiveBalance = (acc: typeof accounts[0]): number => {
       const txnTotal = transactions
         .filter(t => t.accountId === acc.id)
-        .reduce((sum, t) => sum + t.amount, 0);
-      return opening + txnTotal;
+        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+      return toDecimal(acc.openingBalance ?? 0).plus(txnTotal).toNumber();
     };
 
     const totalAssets = accounts
       .filter(acc => effectiveBalance(acc) > 0)
-      .reduce((sum, acc) => sum + effectiveBalance(acc), 0);
+      .reduce((sum, acc) => sum.plus(toDecimal(effectiveBalance(acc))), toDecimal(0))
+      .toNumber();
 
     const totalLiabilities = accounts
       .filter(acc => effectiveBalance(acc) < 0)
-      .reduce((sum, acc) => sum + Math.abs(effectiveBalance(acc)), 0);
+      .reduce((sum, acc) => sum.plus(toDecimal(effectiveBalance(acc)).abs()), toDecimal(0))
+      .toNumber();
 
-    const netWorth = totalAssets - totalLiabilities;
-    
+    const netWorth = toDecimal(totalAssets).minus(toDecimal(totalLiabilities)).toNumber();
+
     // Calculate monthly change (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentTransactions = transactions.filter(t => 
+
+    const recentTransactions = transactions.filter(t =>
       new Date(t.date) >= thirtyDaysAgo
     );
-    
+
     const monthlyIncome = recentTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0))
+      .toNumber();
+
     const monthlyExpenses = recentTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0))
+      .toNumber();
+
+    const monthlySavings = toDecimal(monthlyIncome).minus(toDecimal(monthlyExpenses)).toNumber();
+    const savingsRate = monthlyIncome > 0
+      ? toDecimal(monthlySavings).dividedBy(toDecimal(monthlyIncome)).times(100).toNumber()
+      : 0;
     
-    const monthlySavings = monthlyIncome - monthlyExpenses;
-    const savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome) * 100 : 0;
-    
-    // Get recent activity
-    const recentActivity = transactions
+    // Get recent activity (copy before sort — never mutate the shared context array)
+    const recentActivity = [...transactions]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
     
@@ -185,7 +197,7 @@ export function ImprovedDashboard() {
     return map;
   }, [accounts, transactions]);
 
-  const getAccountBalance = (acc: typeof accounts[0]) => accountBalanceMap.get(acc.id) ?? 0;
+  const getAccountBalance = useCallback((acc: typeof accounts[0]) => accountBalanceMap.get(acc.id) ?? 0, [accountBalanceMap]);
 
   // Generate pie chart data for account distribution
   interface AccountDistributionDatum {
@@ -243,7 +255,7 @@ export function ImprovedDashboard() {
       {/* Primary Focus: Net Worth Hero Card */}
       <section 
         aria-labelledby="net-worth-heading"
-        className="bg-[#6b7d98] rounded-2xl p-6 sm:p-8 text-white shadow-xl"
+        className="bg-[#1a2332] rounded-2xl p-6 sm:p-8 text-white shadow-xl"
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -301,7 +313,7 @@ export function ImprovedDashboard() {
       {/* Secondary Focus: This Month's Performance */}
       <section 
         aria-labelledby="monthly-performance-heading"
-        className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
         <h3 id="monthly-performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           This Month's Performance
@@ -401,7 +413,7 @@ export function ImprovedDashboard() {
       {metrics.budgetStatus.length > 0 && (
         <section 
           aria-labelledby="budget-status-heading"
-          className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6" 
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6" 
           data-testid="budget-status"
         >
           <h3 id="budget-status-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -449,7 +461,7 @@ export function ImprovedDashboard() {
             {metrics.budgetStatus.length > 3 && (
               <button 
                 onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-                className="w-full mt-2 py-2 text-blue-600 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                className="w-full mt-2 py-2 text-emerald-700 dark:text-emerald-400 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
               >
                 View All Budgets ({metrics.budgetStatus.length}) →
               </button>
@@ -461,7 +473,7 @@ export function ImprovedDashboard() {
       {/* Account Balances Section - Customizable by user */}
       <section 
         aria-labelledby="key-accounts-heading"
-        className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 id="key-accounts-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -475,7 +487,7 @@ export function ImprovedDashboard() {
           </h3>
           <button
             onClick={() => setShowAccountSettings(!showAccountSettings)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
             aria-label="Customize displayed accounts"
             aria-expanded={showAccountSettings}
           >
@@ -492,7 +504,7 @@ export function ImprovedDashboard() {
               </p>
               <button
                 onClick={() => setShowAccountSettings(false)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 aria-label="Close account settings"
               >
                 <XIcon size={16} className="text-gray-500" />
@@ -508,14 +520,14 @@ export function ImprovedDashboard() {
                     onClick={() => toggleAccountSelection(account.id)}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
                       isSelected
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700'
                         : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-550'
                     }`}
                     aria-pressed={isSelected ? 'true' : 'false'}
                   >
                     <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
                       isSelected
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-[#1a2332] text-white'
                         : 'border border-gray-300 dark:border-gray-400'
                     }`}>
                       {isSelected && <CheckIcon size={12} />}
@@ -541,7 +553,7 @@ export function ImprovedDashboard() {
             displayedAccounts.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
                 data-testid="account-balance-card"
                 onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
                 role="button"
@@ -613,7 +625,7 @@ export function ImprovedDashboard() {
             {metrics.accountsNeedingAttention.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-3 bg-card-bg-light dark:bg-card-bg-dark rounded-lg cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
                 role="button"
                 tabIndex={0}
                 onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
@@ -649,7 +661,7 @@ export function ImprovedDashboard() {
       {netWorthData.length > 1 && (
         <section
           aria-labelledby="net-worth-chart-heading"
-          className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
         >
           <h3 id="net-worth-chart-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <BarChart3Icon size={24} className="text-gray-500" aria-hidden="true" />
@@ -683,7 +695,7 @@ export function ImprovedDashboard() {
       {pieData.length > 0 && (
         <section 
           aria-labelledby="account-distribution-heading"
-          className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
         >
           <h3 id="account-distribution-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" aria-hidden="true" />
@@ -713,7 +725,7 @@ export function ImprovedDashboard() {
       {/* Recent Transactions Table */}
       <section 
         aria-labelledby="recent-transactions-heading"
-        className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-lg p-6"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
         <h3 id="recent-transactions-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <CreditCardIcon size={24} className="text-gray-500" aria-hidden="true" />
@@ -753,7 +765,7 @@ export function ImprovedDashboard() {
           {metrics.recentActivity.length > 10 && (
             <button 
               onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
-              className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full mt-4 py-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
               aria-label="View all transactions"
             >
               View All Transactions →
@@ -767,10 +779,10 @@ export function ImprovedDashboard() {
       <nav aria-label="Quick actions" className="grid grid-cols-2 sm:grid-cols-4 gap-6">
         <button
           onClick={() => setShowAddTransactionModal(true)}
-          className="p-8 bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
           aria-label="Add a new transaction"
         >
-          <CreditCardIcon size={32} className="mx-auto mb-3 text-blue-600" aria-hidden="true" />
+          <CreditCardIcon size={32} className="mx-auto mb-3 text-[#1a2332] dark:text-gray-300" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Add Transaction
           </span>
@@ -778,10 +790,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-          className="p-8 bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
           aria-label="View all accounts"
         >
-          <WalletIcon size={32} className="mx-auto mb-3 text-green-600" aria-hidden="true" />
+          <WalletIcon size={32} className="mx-auto mb-3 text-emerald-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             View Accounts
           </span>
@@ -789,10 +801,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-          className="p-8 bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
           aria-label="Set up or view budgets"
         >
-          <TargetIcon size={32} className="mx-auto mb-3 text-purple-600" aria-hidden="true" />
+          <TargetIcon size={32} className="mx-auto mb-3 text-amber-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Set Budget
           </span>
@@ -800,10 +812,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/analytics', location.search))}
-          className="p-8 bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
           aria-label="View financial analytics"
         >
-          <TrendingUpIcon size={32} className="mx-auto mb-3 text-orange-600" aria-hidden="true" />
+          <TrendingUpIcon size={32} className="mx-auto mb-3 text-[#2d4a3e] dark:text-emerald-400" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Analytics
           </span>

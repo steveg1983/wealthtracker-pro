@@ -1,9 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Provider } from 'react-redux'
 import { ClerkProvider } from '@clerk/clerk-react'
 import { ClerkErrorBoundary } from './components/auth/ClerkErrorBoundary'
-import { store } from './store'
 import './styles/borders.css'
 import './styles/accessibility-colors.css'
 import './index.css'
@@ -21,6 +19,12 @@ import {
 } from './utils/runtimeMode'
 
 const bootstrapLogger = createScopedLogger('AppBootstrap');
+
+// Reduced-motion preference (moved out of index.html so the CSP needs no
+// 'unsafe-inline' for scripts).
+if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  document.documentElement.classList.add('reduce-motion');
+}
 const disableServiceWorker = import.meta.env.VITE_DISABLE_SERVICE_WORKER === 'true';
 let runtimeControlSanitizationContext: {
   removedQueryParams: ('demo' | 'testMode')[];
@@ -143,9 +147,7 @@ try {
             }}
             allowedRedirectOrigins={[window.location.origin]}
           >
-            <Provider store={store}>
-              <App />
-            </Provider>
+            <App />
           </ClerkProvider>
         </ClerkErrorBoundary>
       </StrictMode>,

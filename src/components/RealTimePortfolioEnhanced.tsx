@@ -123,7 +123,7 @@ export default function RealTimePortfolioEnhanced({
 
   if (holdings.length === 0) {
     return (
-      <div className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 ${className}`}>
+      <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 ${className}`}>
         <div className="text-center py-8">
           <AlertCircleIcon className="mx-auto text-gray-400 mb-4" size={48} />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Holdings</h3>
@@ -163,7 +163,7 @@ export default function RealTimePortfolioEnhanced({
         <button
           onClick={handleRefresh}
           disabled={isRefreshing || isLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCwIcon size={16} className={isRefreshing ? 'animate-spin' : ''} />
           Refresh
@@ -173,7 +173,7 @@ export default function RealTimePortfolioEnhanced({
       {/* Portfolio Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Value */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
@@ -190,7 +190,7 @@ export default function RealTimePortfolioEnhanced({
         </div>
 
         {/* Day Change */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-gray-500 dark:text-gray-400">Day Change</p>
@@ -228,7 +228,7 @@ export default function RealTimePortfolioEnhanced({
         </div>
 
         {/* Total Gain/Loss */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Gain/Loss</p>
@@ -266,7 +266,7 @@ export default function RealTimePortfolioEnhanced({
         </div>
 
         {/* Total Cost */}
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Invested</p>
@@ -284,7 +284,7 @@ export default function RealTimePortfolioEnhanced({
       </div>
 
       {/* Holdings List with Real-Time Prices */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Holdings</h3>
         
         {error && (
@@ -301,7 +301,7 @@ export default function RealTimePortfolioEnhanced({
             >
               {/* Price update animation */}
               {holding.quote && (
-                <div className="absolute inset-0 bg-primary/10 dark:bg-primary/20 animate-pulse pointer-events-none opacity-0 price-update" />
+                <div className="absolute inset-0 bg-[#1a2332]/10 dark:bg-primary/20 animate-pulse pointer-events-none opacity-0 price-update" />
               )}
               
               <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">

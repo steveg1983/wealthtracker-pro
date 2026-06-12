@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { parseMoneyInput } from '../utils/decimal';
 import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
@@ -207,7 +208,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     const transactionData = {
       ...formData,
       date: new Date(formData.date),
-      amount: parseFloat(formData.amount),
+      amount: parseMoneyInput(formData.amount) ?? 0,
     };
 
     if (transaction) {
@@ -231,7 +232,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     >
       <div 
         ref={modalRef}
-        className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-6 w-full max-w-md"
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
         role="document"
       >
         <div className="flex justify-between items-center mb-4">
@@ -263,7 +264,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               aria-required="true"
               aria-invalid={touched.date && !!errors.date}
               aria-describedby={touched.date && errors.date ? 'date-error' : undefined}
-              className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+              className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
                 touched.date && errors.date 
                   ? 'border-red-500 dark:border-red-500' 
                   : 'border-gray-300/50 dark:border-gray-600/50'
@@ -290,7 +291,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               aria-required="true"
               aria-invalid={touched.description && !!errors.description}
               aria-describedby={touched.description && errors.description ? 'description-error' : undefined}
-              className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+              className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
                 touched.description && errors.description 
                   ? 'border-red-500 dark:border-red-500' 
                   : 'border-gray-300/50 dark:border-gray-600/50'
@@ -314,7 +315,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' | 'transfer' })}
                 aria-required="true"
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               >
                 <option value="expense">Expense</option>
                 <option value="income">Income</option>
@@ -338,7 +339,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
                 aria-required="true"
                 aria-invalid={touched.amount && !!errors.amount}
                 aria-describedby={touched.amount && errors.amount ? 'amount-error' : undefined}
-                className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+                className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
                   touched.amount && errors.amount 
                     ? 'border-red-500 dark:border-red-500' 
                     : 'border-gray-300/50 dark:border-gray-600/50'
@@ -396,7 +397,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               aria-required="true"
               aria-invalid={touched.account && !!errors.account}
               aria-describedby={touched.account && errors.account ? 'account-error' : undefined}
-              className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+              className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
                 touched.account && errors.account 
                   ? 'border-red-500 dark:border-red-500' 
                   : 'border-gray-300/50 dark:border-gray-600/50'
@@ -424,7 +425,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={2}
               aria-describedby="notes-hint"
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="Add any additional details..."
             />
             <p id="notes-hint" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -483,7 +484,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-describedby="submit-hint"
             >
               {transaction ? 'Save Changes' : 'Add Transaction'}

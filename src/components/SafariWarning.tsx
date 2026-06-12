@@ -54,7 +54,7 @@ export default function SafariWarning(): React.JSX.Element | null {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
           <div className="flex items-center justify-between text-white">
@@ -187,7 +187,7 @@ export default function SafariWarning(): React.JSX.Element | null {
             </button>
             <button
               onClick={handleDismiss}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
             >
               I'll Use Another Browser
             </button>

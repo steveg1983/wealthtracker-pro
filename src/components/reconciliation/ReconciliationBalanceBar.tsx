@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseMoneyInput } from '../../utils/decimal';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 
 interface ReconciliationBalanceBarProps {
@@ -33,7 +34,7 @@ export default function ReconciliationBalanceBar({
 
   const handleBankBalanceSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const parsed = parseFloat(editValue);
+    const parsed = parseMoneyInput(editValue) ?? NaN;
     if (!Number.isNaN(parsed) && onBankBalanceChange) {
       setOptimisticBankBalance(parsed);
       onBankBalanceChange(parsed);
@@ -100,7 +101,7 @@ export default function ReconciliationBalanceBar({
         {/* Cleared Balance */}
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Cleared Balance</p>
-          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
             {formatCurrency(clearedBalance, currency)}
           </p>
         </div>

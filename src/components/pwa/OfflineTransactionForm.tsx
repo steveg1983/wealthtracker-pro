@@ -8,6 +8,7 @@ import { useOfflineOperations } from '../../pwa/offline-storage';
 import { useCategories } from '../../contexts/CategoryContext';
 import { useAccounts } from '../../contexts/AccountContext';
 import { formatCurrency } from '../../utils/formatters';
+import { toDecimal, parseMoneyInput } from '../../utils/decimal';
 import { 
   WifiOffIcon, 
   CheckCircleIcon, 
@@ -64,7 +65,9 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
       const transaction = {
         id: `offline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         description: formData.description,
-        amount: parseFloat(formData.amount) * (formData.type === 'expense' ? -1 : 1),
+        amount: toDecimal(parseMoneyInput(formData.amount) ?? 0)
+          .times(formData.type === 'expense' ? -1 : 1)
+          .toNumber(),
         category: formData.category,
         accountId: formData.accountId,
         date: formData.date,
@@ -112,9 +115,9 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-card-bg-light dark:bg-card-bg-dark border-b dark:border-gray-700 p-4">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Add Transaction (Offline)</h2>
             <button
@@ -288,7 +291,7 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-2 px-4 bg-[#1a2332] text-white rounded-lg font-medium hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Queuing...' : 'Add Transaction'}
               </button>

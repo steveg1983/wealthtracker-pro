@@ -496,7 +496,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                     }
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-card-bg-light dark:bg-card-bg-dark"
+                           bg-white dark:bg-gray-800"
                 />
               </div>
               <div>
@@ -513,7 +513,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                     }
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-card-bg-light dark:bg-card-bg-dark"
+                           bg-white dark:bg-gray-800"
                 />
               </div>
             </div>
@@ -532,7 +532,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                 groupBy: e.target.value as ExportOptions['groupBy']
               })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                       bg-card-bg-light dark:bg-card-bg-dark"
+                       bg-white dark:bg-gray-800"
             >
               <option value="none">No Grouping</option>
               <option value="month">Group by Month</option>
@@ -606,8 +606,8 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           <button
             onClick={handleExport}
             disabled={!Object.values(options).slice(0, 5).some(v => v === true) || isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg
-                     hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg
+                     hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <DownloadIcon size={20} />
             {isExporting ? 'Loading...' : 'Export to Excel'}

@@ -327,7 +327,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
               />
               <label
                 htmlFor="file-input"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] cursor-pointer"
               >
                 <FolderIcon size={16} />
                 Choose Files
@@ -347,7 +347,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        <FileTextIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                        <FileTextIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
                             {file.name}
@@ -434,7 +434,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                 {/* Summary */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                       {importResult.totalFiles}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Files Processed</p>
@@ -564,12 +564,12 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                 return (
                   <React.Fragment key={step}>
                     <div className={`flex items-center gap-2 ${
-                      isActive ? 'text-blue-600 dark:text-blue-400' : 
+                      isActive ? 'text-emerald-700 dark:text-emerald-400' : 
                       isPast ? 'text-green-600 dark:text-green-400' : 
                       'text-gray-400 dark:text-gray-600'
                     }`}>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        isActive ? 'bg-blue-600 text-white' :
+                        isActive ? 'bg-[#1a2332] text-white' :
                         isPast ? 'bg-green-600 text-white' :
                         'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                       }`}>
@@ -638,7 +638,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                     }
                   }}
                   disabled={!canProceedToNext()}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {currentStep === 'rules' ? (
                     <>

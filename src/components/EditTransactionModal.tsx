@@ -12,7 +12,7 @@ import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal, Decimal, parseMoneyInput } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -102,7 +102,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             notes: data.notes.trim() || undefined,
           });
 
-          const parsedAmount = parseFloat(validatedData.amount);
+          const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
           const transactionData = {
             date: new Date(validatedData.date),
             description: validatedData.description,
@@ -330,7 +330,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   const colors = {
                     income: isActive ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-green-600',
                     expense: isActive ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-red-600',
-                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600',
+                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600',
                   };
                   return (
                     <button
@@ -366,7 +366,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     setFormattedAmount(value);
                     // Update the underlying numeric value
                     const numericValue = parseFormattedAmount(value);
-                    if (numericValue === '' || numericValue === '-' || !isNaN(parseFloat(numericValue))) {
+                    if (numericValue === '' || numericValue === '-' || parseMoneyInput(numericValue) !== null) {
                       updateField('amount', numericValue);
                     }
                   }
@@ -384,10 +384,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   }
                 }}
                 placeholder="0.00"
-                className={`w-full px-3 py-2 h-[42px] text-right bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  formData.amount && parseFloat(formData.amount) < 0
+                className={`w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
+                  formData.amount && (parseMoneyInput(formData.amount) ?? 0) < 0
                     ? 'text-red-600 dark:text-red-400'
-                    : formData.amount && parseFloat(formData.amount) > 0
+                    : formData.amount && (parseMoneyInput(formData.amount) ?? 0) > 0
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-gray-900 dark:text-white'
                 }`}
@@ -538,14 +538,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   disabled
                   className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <LinkIcon size={16} className="text-blue-600 dark:text-blue-400" />
+                <LinkIcon size={16} className="text-emerald-700 dark:text-emerald-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Linked to bank statement
                 </span>
               </label>
 
               {transaction?.reconciledWith && transaction.reconciledWith !== 'manual' && (
-                <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
                   <LinkIcon size={16} />
                   <span>Reconciled with transaction ID: {transaction.reconciledWith}</span>
                 </div>
@@ -580,7 +580,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
                 >
                   {transaction ? 'Save Changes' : 'Add Transaction'}
                 </button>
@@ -593,7 +593,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         {/* Delete confirmation */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-            <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Delete Transaction?
               </h3>

@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+
+const AddTransactionModal = lazy(() => import('./AddTransactionModal'));
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, ChevronDownIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, ArchiveIcon, CalendarIcon } from '../components/icons';
+import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { useLayout } from '../contexts/LayoutContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
 import { Breadcrumbs, MobileBreadcrumb } from './layout/Breadcrumbs';
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
@@ -22,7 +24,6 @@ import GlobalSearch, { type GlobalSearchHandle } from './GlobalSearch';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useKeyboardShortcutsHelp } from '../hooks/useKeyboardShortcutsHelp';
 import EnhancedNotificationBell from './EnhancedNotificationBell';
-import { NavigationBadge } from './ActivityBadge';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import { RealtimeStatusDot } from './RealtimeStatusIndicator';
@@ -31,196 +32,6 @@ import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import DemoModeIndicator from './DemoModeIndicator';
 import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
-
-interface SidebarLinkProps {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  isCollapsed: boolean;
-  hasSubItems?: boolean;
-  isSubItem?: boolean;
-  onNavigate?: () => void;
-}
-
-function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onNavigate }: SidebarLinkProps): React.JSX.Element {
-  const location = useLocation();
-  const { isWideView } = useLayout();
-  const isActive = !isWideView && (location.pathname === to ||
-    (hasSubItems && location.pathname.startsWith(to)) ||
-    (to === '/accounts' && (location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation'))) ||
-    (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals'))));
-
-  // Preserve demo mode parameter in navigation
-  const searchParams = new URLSearchParams(location.search);
-  const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
-  const linkTo = isDemoMode ? `${to}?demo=true` : to;
-
-  const handleLinkClick = () => {
-    // For mobile menu, close it
-    if (onNavigate) {
-      onNavigate();
-    }
-  };
-
-  const content = (
-    <>
-      <Icon size={isCollapsed ? 24 : 18} />
-      {!isCollapsed && (
-        <>
-          <span className="flex-1 text-sm">{label}</span>
-          {hasSubItems && (
-            <ChevronRightIcon size={14} className="text-gray-400" />
-          )}
-        </>
-      )}
-    </>
-  );
-
-  const className = `flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
-    isSubItem ? 'ml-5 text-xs' : ''
-  } ${
-    isCollapsed ? 'sidebar-link-collapsed' : ''
-  } ${
-    isActive
-      ? isCollapsed
-        ? 'text-black dark:text-white'
-        : 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
-      : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
-  }`;
-
-  return (
-    <Link
-      to={linkTo}
-      className={className}
-      title={isCollapsed ? label : undefined}
-      onClick={handleLinkClick}
-      aria-label={label}
-      aria-current={isActive ? 'page' : undefined}
-    >
-      {content}
-      {!isCollapsed && hasSubItems && <NavigationBadge type={label === 'Accounts' ? 'account' : label === 'Budget' ? 'budget' : undefined} />}
-    </Link>
-  );
-}
-
-// --- Top Navigation Bar Components (Desktop) ---
-
-interface DropdownItem {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-}
-
-function TopNavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }): React.JSX.Element {
-  const location = useLocation();
-  const isActive = location.pathname === to;
-  const searchParams = new URLSearchParams(location.search);
-  const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
-  const linkTo = isDemoMode ? `${to}?demo=true` : to;
-
-  return (
-    <Link
-      to={linkTo}
-      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-        isActive
-          ? 'bg-white/20 text-white font-medium'
-          : 'text-white/70 hover:text-white hover:bg-white/10'
-      }`}
-      aria-current={isActive ? 'page' : undefined}
-    >
-      <Icon size={16} />
-      <span>{label}</span>
-    </Link>
-  );
-}
-
-function TopNavDropdown({
-  label,
-  icon: Icon,
-  items,
-  activePaths,
-  openDropdown,
-  setOpenDropdown
-}: {
-  label: string;
-  icon: React.ElementType;
-  items: DropdownItem[];
-  activePaths?: string[];
-  openDropdown: string | null;
-  setOpenDropdown: (name: string | null) => void;
-}): React.JSX.Element {
-  const location = useLocation();
-  const ref = useRef<HTMLDivElement>(null);
-  const searchParams = new URLSearchParams(location.search);
-  const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
-  const isOpen = openDropdown === label;
-
-  const isActive = activePaths
-    ? activePaths.some(p => location.pathname === p || location.pathname.startsWith(p))
-    : false;
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpenDropdown(null);
-      }
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenDropdown(null);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen, setOpenDropdown]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpenDropdown(isOpen ? null : label)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-          isActive || isOpen
-            ? 'bg-white/20 text-white font-medium'
-            : 'text-white/70 hover:text-white hover:bg-white/10'
-        }`}
-        aria-expanded={isOpen ? 'true' : 'false'}
-        aria-haspopup="true"
-      >
-        <Icon size={16} />
-        <span>{label}</span>
-        <ChevronDownIcon size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[200px] z-50">
-          {items.map(item => {
-            const itemTo = isDemoMode ? `${item.to}?demo=true` : item.to;
-            const itemActive = location.pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={itemTo}
-                className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                  itemActive
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                onClick={() => setOpenDropdown(null)}
-                aria-current={itemActive ? 'page' : undefined}
-              >
-                <item.icon size={16} className="shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -239,20 +50,14 @@ export default function Layout(): React.JSX.Element {
   const isDemoModeRoutingEnabled =
     isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const { registration } = useServiceWorker();
-  const { 
-    showGoals, 
+  const {
+    showGoals,
     showAnalytics,
     showInvestments,
     showEnhancedInvestments,
-    showAIAnalytics,
-    showTaxPlanning,
-    showHousehold,
-    showBusinessFeatures,
-    showFinancialPlanning,
-    showDataIntelligence,
-    showSummaries
   } = usePreferences();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
+  const [showGlobalAddTransaction, setShowGlobalAddTransaction] = useState(false);
 
   const openMobileSearch = useCallback(() => {
     setIsMobileSearchVisible(true);
@@ -340,6 +145,12 @@ export default function Layout(): React.JSX.Element {
         openHelp();
       }
       
+      // Alt + N to open Add Transaction (global shortcut)
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        setShowGlobalAddTransaction(true);
+      }
+
       // Alt + M to toggle mobile menu
       if (e.altKey && e.key === 'm') {
         e.preventDefault();
@@ -374,7 +185,7 @@ export default function Layout(): React.JSX.Element {
   // }, []);
 
   return (
-    <div className="flex min-h-screen bg-[#f0f7ff] dark:bg-gray-900">
+    <div className="flex min-h-screen bg-[#f8f9fb] dark:bg-gray-900">
       <DemoModeIndicator />
       <EnhancedSkipLinks />
       <FocusIndicator />
@@ -384,13 +195,13 @@ export default function Layout(): React.JSX.Element {
       <div className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50">
         <a 
           href="#main-content" 
-          className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="inline-block px-4 py-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
         >
           Skip to main content
         </a>
         <a 
           href="#main-navigation" 
-          className="inline-block px-4 py-2 ml-2 bg-blue-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="inline-block px-4 py-2 ml-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
         >
           Skip to navigation
         </a>
@@ -398,7 +209,7 @@ export default function Layout(): React.JSX.Element {
       {/* Desktop Top Navigation Bar */}
       <nav
         id="main-navigation"
-        className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-sidebar dark:bg-gray-800 shadow-md"
+        className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-[#1a2332] shadow-md"
         role="navigation"
         aria-label="Main navigation"
       >
@@ -406,98 +217,52 @@ export default function Layout(): React.JSX.Element {
           {/* Brand */}
           <Link
             to={isDemoModeRoutingEnabled ? '/dashboard?demo=true' : '/dashboard'}
-            className="text-white font-bold text-base mr-6 shrink-0 hover:text-white/90 transition-colors flex items-center h-full"
+            className="text-white font-semibold text-base mr-8 shrink-0 hover:text-white/90 transition-colors flex items-center h-full tracking-tight"
           >
-            Wealth Tracker
+            WealthTracker
           </Link>
 
-          {/* Nav Items */}
+          {/* Primary Nav — 5 core pages */}
           <div className="flex items-center gap-0.5 flex-1 min-w-0">
-            <TopNavItem to="/dashboard" icon={BarChart3Icon} label="Dashboard" />
+            <TopNavItem to="/dashboard" icon={HomeIcon} label="Dashboard" />
+            <TopNavItem to="/accounts" icon={WalletIcon} label="Accounts" />
+            <TopNavItem to="/transactions" icon={CreditCardIcon} label="Transactions" />
+            <TopNavItem to="/budget" icon={BarChart3Icon} label="Budget" />
+            <TopNavItem to="/calendar" icon={CalendarIcon} label="Calendar" />
+
+            <TopNavItem to="/reports" icon={PieChartIcon} label="Reports" />
 
             <TopNavDropdown
-              label="Accounts"
-              icon={WalletIcon}
+              label="Manage"
+              icon={SettingsIcon}
               items={[
-                { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
-                { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
+                { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
+                { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
+                { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
+                { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
                 { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
-                { to: '/settings/deleted-accounts', icon: ArchiveIcon, label: 'Archived' },
+                { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
+                { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
+                { to: '/goals', icon: GoalIcon, label: 'Goals' },
+                { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/accounts', '/transactions', '/reconciliation']}
-              openDropdown={openDropdown}
-              setOpenDropdown={setOpenDropdown}
-            />
-
-            {(showInvestments || showEnhancedInvestments) && (
-              <TopNavDropdown
-                label="Investments"
-                icon={TrendingUpIcon}
-                items={[
-                  { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
-                  ...(showEnhancedInvestments ? [{ to: '/enhanced-investments', icon: BarChart3Icon, label: 'Investment Analytics' }] : []),
-                ]}
-                activePaths={['/investments', '/enhanced-investments']}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-              />
-            )}
-
-            {showGoals && (
-              <TopNavDropdown
-                label="Forecasting"
-                icon={LineChartIcon}
-                items={[
-                  { to: '/forecasting', icon: LineChartIcon, label: 'Forecasting' },
-                  { to: '/goals', icon: GoalIcon, label: 'Goals' },
-                ]}
-                activePaths={['/forecasting', '/budget', '/goals']}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-              />
-            )}
-
-            {showAnalytics && (
-              <TopNavItem to="/analytics" icon={BarChart3Icon} label="Analytics" />
-            )}
-
-            <TopNavDropdown
-              label="Advanced"
-              icon={MagicWandIcon}
-              items={[
-                { to: '/advanced', icon: MagicWandIcon, label: 'Advanced' },
-                ...(showAIAnalytics ? [{ to: '/ai-analytics', icon: MagicWandIcon, label: 'AI Analytics' }] : []),
-                { to: '/ai-features', icon: LightbulbIcon, label: 'AI Features' },
-                { to: '/custom-reports', icon: FileTextIcon, label: 'Custom Reports' },
-                ...(showTaxPlanning ? [{ to: '/tax-planning', icon: CalculatorIcon, label: 'Tax Planning' }] : []),
-                ...(showHousehold ? [{ to: '/household', icon: UsersIcon, label: 'Household' }] : []),
-                ...(showBusinessFeatures ? [{ to: '/business-features', icon: BriefcaseIcon, label: 'Business Features' }] : []),
-                ...(showFinancialPlanning ? [{ to: '/financial-planning', icon: CalculatorIcon, label: 'Financial Planning' }] : []),
-                ...(showDataIntelligence ? [{ to: '/data-intelligence', icon: DatabaseIcon, label: 'Data Intelligence' }] : []),
-                ...(showSummaries ? [{ to: '/summaries', icon: PieChartIcon, label: 'Summaries' }] : []),
-              ]}
-              activePaths={['/advanced', '/ai-analytics', '/ai-features', '/custom-reports', '/tax-planning', '/household', '/business-features', '/financial-planning', '/data-intelligence', '/summaries']}
+              activePaths={['/settings/categories', '/settings/tags', '/enhanced-import', '/export-manager', '/reconciliation', '/open-banking', '/documents', '/investments', '/goals']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
 
             <TopNavDropdown
               label="Settings"
-              icon={SettingsIcon}
+              icon={Settings2Icon}
               items={[
-                { to: '/settings', icon: SettingsIcon, label: 'Settings' },
+                { to: '/settings', icon: SettingsIcon, label: 'General' },
                 { to: '/settings/app', icon: Settings2Icon, label: 'App Settings' },
                 { to: '/settings/data', icon: DatabaseIcon, label: 'Data Management' },
-                { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
-                { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
-                { to: '/settings/deleted-accounts', icon: ArchiveIcon, label: 'Deleted Accounts' },
                 { to: '/settings/security', icon: ShieldIcon, label: 'Security' },
-                { to: '/enhanced-import', icon: UploadIcon, label: 'Enhanced Import' },
-                { to: '/export-manager', icon: DownloadIcon, label: 'Export Manager' },
-                { to: '/documents', icon: FolderIcon, label: 'Documents' },
-                { to: '/open-banking', icon: BankIcon, label: 'Open Banking' },
+                { to: '/settings/deleted-accounts', icon: ArchiveIcon, label: 'Deleted Accounts' },
+                { to: '/subscription', icon: CreditCardIcon, label: 'Subscription' },
               ]}
-              activePaths={['/settings', '/enhanced-import', '/export-manager', '/documents', '/open-banking']}
+              activePaths={['/settings', '/subscription']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -505,7 +270,7 @@ export default function Layout(): React.JSX.Element {
 
           {/* Right side: Search + Notifications + User */}
           <div className="flex items-center gap-3 shrink-0 ml-4">
-            <div className="w-80 [&_input]:!py-0.5 [&_input]:!text-sm [&_input]:!h-7 [&_input]:!min-h-0 [&>div>div]:!border-0 [&>div>div]:!shadow-none [&>div>div]:!bg-transparent [&>div>div]:!rounded-none">
+            <div className="w-72 [&_input]:!py-0.5 [&_input]:!text-sm [&_input]:!h-7 [&_input]:!min-h-0 [&>div>div]:!border-0 [&>div>div]:!shadow-none [&>div>div]:!bg-transparent [&>div>div]:!rounded-none">
               <div className="bg-white/10 rounded-lg border border-white/20 focus-within:bg-white/20 transition-colors overflow-hidden">
                 <GlobalSearch
                   ref={desktopSearchRef}
@@ -515,6 +280,60 @@ export default function Layout(): React.JSX.Element {
             </div>
             <EnhancedNotificationBell />
             <RealtimeStatusDot />
+            <div className="relative">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'help' ? null : 'help')}
+                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                title="Help"
+                aria-label="Help menu"
+                aria-expanded={openDropdown === 'help'}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </button>
+              {openDropdown === 'help' && (() => {
+                const pageHelp: Record<string, string> = {
+                  '/dashboard': 'Your financial overview — net worth, monthly performance, account balances, and recent activity.',
+                  '/accounts': 'Manage bank accounts, credit cards, savings, and investments. Toggle between grouping by type or institution.',
+                  '/transactions': 'View, filter, and edit all transactions. Right-click for quick actions. Click categories or amounts to edit inline.',
+                  '/budget': 'Set and track budgets by category. Try envelope budgeting or zero-based budgeting.',
+                  '/calendar': 'See your income and expenses laid out by day on a monthly calendar.',
+                  '/reports': 'Income & expense analysis, net worth tracking, and custom report builder.',
+                  '/goals': 'Track savings targets, debt payoff goals, and investment milestones.',
+                  '/investments': 'Portfolio overview with holdings, performance, and allocation analysis.',
+                  '/settings': 'App preferences, data management, security, and account configuration.',
+                };
+                const currentHelp = Object.entries(pageHelp).find(([path]) => location.pathname.startsWith(path));
+
+                return (
+                  <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 w-72 z-50">
+                    {currentHelp && (
+                      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">About this page</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{currentHelp[1]}</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { openHelp(); setOpenDropdown(null); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
+                    >
+                      <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono">?</span>
+                      Keyboard Shortcuts
+                    </button>
+                    <button
+                      onClick={() => { setShowGlobalAddTransaction(true); setOpenDropdown(null); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
+                    >
+                      <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono">Alt+N</span>
+                      Quick Add Transaction
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
             <UserButton
               afterSignOutUrl="/"
               appearance={{
@@ -530,7 +349,7 @@ export default function Layout(): React.JSX.Element {
       </nav>
 
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-card-bg-light dark:bg-card-bg-dark shadow-md" role="banner">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md" role="banner">
         <div className="flex items-center justify-between p-4">
           <button
             onClick={toggleMobileMenu}
@@ -543,7 +362,7 @@ export default function Layout(): React.JSX.Element {
             {isMobileMenuOpen ? <XIcon size={24} className="text-gray-700 dark:text-gray-200" /> : <MenuIcon size={24} className="text-gray-700 dark:text-gray-200" />}
           </button>
           
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white" id="mobile-app-title">Wealth Tracker</h1>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white tracking-tight" id="mobile-app-title">WealthTracker</h1>
           
           <div className="flex items-center gap-2">
             <SyncStatusIndicator variant="compact" className="mr-1" />
@@ -578,7 +397,7 @@ export default function Layout(): React.JSX.Element {
       {isMobileSearchVisible && (
         <div
           data-testid="mobile-search-container"
-          className="md:hidden px-4 pb-3 bg-card-bg-light dark:bg-card-bg-dark shadow-sm"
+          className="md:hidden px-4 pb-3 bg-white dark:bg-gray-800 shadow-sm"
         >
           <GlobalSearch
             ref={mobileSearchRef}
@@ -602,7 +421,7 @@ export default function Layout(): React.JSX.Element {
         >
           <nav 
             id="mobile-menu"
-            className="w-full max-w-sm h-full bg-sidebar dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" 
+            className="w-full max-w-sm h-full bg-[#1a2332] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl"
             onClick={e => e.stopPropagation()}
             role="navigation"
             aria-label="Mobile navigation menu"
@@ -610,7 +429,7 @@ export default function Layout(): React.JSX.Element {
             <div className="p-4 pb-6">
               {/* Mobile header with close button */}
               <header className="flex justify-between items-center mb-8" role="banner">
-                <h2 id="mobile-menu-title" className="text-2xl font-bold text-white dark:text-white">Wealth Tracker</h2>
+                <h2 id="mobile-menu-title" className="text-2xl font-semibold text-white dark:text-white tracking-tight">WealthTracker</h2>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
@@ -713,15 +532,9 @@ export default function Layout(): React.JSX.Element {
                   </div>
                 )}
                 
+                <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/reports" icon={PieChartIcon} label="Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                <SidebarLink to="/custom-reports" icon={FileTextIcon} label="Custom Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showFinancialPlanning && <SidebarLink to="/financial-planning" icon={CalculatorIcon} label="Financial Planning" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showDataIntelligence && <SidebarLink to="/data-intelligence" icon={DatabaseIcon} label="Data Intelligence" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showSummaries && <SidebarLink to="/summaries" icon={PieChartIcon} label="Summaries" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 
                 {/* Settings with Sub-navigation */}
                 <div>
@@ -814,6 +627,16 @@ export default function Layout(): React.JSX.Element {
       
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
+
+      {/* Global Add Transaction Modal (Alt+N from any page) */}
+      {showGlobalAddTransaction && (
+        <Suspense fallback={null}>
+          <AddTransactionModal
+            isOpen={showGlobalAddTransaction}
+            onClose={() => setShowGlobalAddTransaction(false)}
+          />
+        </Suspense>
+      )}
       
       {/* Enhanced Conflict Resolution Modal */}
       {currentConflict && (

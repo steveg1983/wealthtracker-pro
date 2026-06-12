@@ -11,22 +11,21 @@ import { ThemeProvider } from './design-system';
 // ReduxMigrationWrapper removed - app now "just works" without migration prompts
 import { SupabaseDataLoader } from './components/SupabaseDataLoader';
 import { AuthProvider } from './contexts/AuthContext';
-// import { RealtimeSyncProvider } from './contexts/RealtimeSyncProvider'; // Temporarily disabled
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
-import { merchantLogoService } from './services/merchantLogoService';
-import { performanceService } from './services/performanceService';
-import { automaticBackupService } from './services/automaticBackupService';
+// NOTE: merchantLogoService / performanceService / automaticBackupService are
+// dynamically imported in the startup effect below — static imports would pull
+// them (and their dependency graphs) into the main chunk for code that only
+// runs after first paint.
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
-import DiagnosticReport from './DiagnosticReport';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
-import RealtimeSyncTest from './components/RealtimeSyncTest';
 import SafariWarning from './components/SafariWarning';
+import ConsentBanner from './components/ConsentBanner';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 
@@ -38,16 +37,14 @@ const Welcome = lazyWithPreload(() => import(/* webpackChunkName: "welcome" */ '
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard", webpackPreload: true */ './pages/Dashboard'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
 const Transactions = lazyWithPreload(() => import(/* webpackChunkName: "transactions", webpackPreload: true */ './pages/Transactions'));
-const TransactionsComparison = lazyWithPreload(() => import(/* webpackChunkName: "transactions-comparison" */ './pages/TransactionsComparison'));
 const Reconciliation = lazyWithPreload(() => import(/* webpackChunkName: "reconciliation" */ './pages/Reconciliation'));
 const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ './pages/Investments'));
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpackPreload: true */ './pages/Budget'));
+const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ './pages/Calendar'));
+const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ './pages/ReportsHub'));
 const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ './pages/Goals'));
 const Analytics = lazyWithPreload(() => import(/* webpackChunkName: "analytics" */ './pages/Analytics'));
-const AdvancedAnalytics = lazyWithPreload(() => import(/* webpackChunkName: "advanced-analytics" */ './pages/AdvancedAnalytics'));
-const AIFeatures = lazyWithPreload(() => import(/* webpackChunkName: "ai-features" */ './pages/AIFeatures'));
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
-const TaxPlanning = lazyWithPreload(() => import(/* webpackChunkName: "tax-planning" */ './pages/TaxPlanning'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
 const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
@@ -58,23 +55,16 @@ const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "secu
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
 const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
 const AccessibilitySettings = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-settings" */ './pages/settings/AccessibilitySettings'));
-const AccessibilityDashboard = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-dashboard" */ './components/AccessibilityDashboard'));
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
-const HouseholdManagement = lazyWithPreload(() => import(/* webpackChunkName: "household" */ './pages/HouseholdManagement'));
-const MobileFeatures = lazyWithPreload(() => import(/* webpackChunkName: "mobile-features" */ './pages/MobileFeatures'));
-const BusinessFeatures = lazyWithPreload(() => import(/* webpackChunkName: "business-features" */ './pages/BusinessFeatures'));
-const FinancialPlanning = lazyWithPreload(() => import(/* webpackChunkName: "financial-planning" */ './pages/FinancialPlanning'));
-const DataIntelligence = lazyWithPreload(() => import(/* webpackChunkName: "data-intelligence" */ './pages/DataIntelligence'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ './pages/ExportManager'));
-const Advanced = lazyWithPreload(() => import(/* webpackChunkName: "advanced" */ './pages/Advanced'));
 const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ './pages/EnhancedImport'));
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
-const OCRTest = lazyWithPreload(() => import(/* webpackChunkName: "ocr-test" */ './components/OCRTest'));
 const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-banking" */ './pages/OpenBanking'));
-const Performance = lazyWithPreload(() => import(/* webpackChunkName: "performance" */ './pages/Performance'));
 const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
+const PrivacyPolicy = lazyWithPreload(() => import(/* webpackChunkName: "legal" */ './pages/legal/PrivacyPolicy'));
+const TermsOfService = lazyWithPreload(() => import(/* webpackChunkName: "legal" */ './pages/legal/TermsOfService'));
 
 function App(): React.JSX.Element {
   useEffect(() => {
@@ -102,23 +92,27 @@ function App(): React.JSX.Element {
     // Simplified storage check - don't auto-clear
     // App starting with clean storage
 
-    // Preload common merchant logos in the background
-    merchantLogoService.preloadCommonLogos();
-    
-    // Initialize performance monitoring
-    performanceService.init();
-    
-    // Initialize automatic backups
-    automaticBackupService.initializeBackups();
-    
-    // Handle service worker messages
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data.type === 'perform-backup') {
-          automaticBackupService.performBackup();
-        }
-      });
-    }
+    // Background services load lazily — none are needed for first paint.
+    void import('./services/merchantLogoService').then(({ merchantLogoService }) => {
+      merchantLogoService.preloadCommonLogos();
+    });
+
+    void import('./services/performanceService').then(({ performanceService }) => {
+      performanceService.init();
+    });
+
+    void import('./services/automaticBackupService').then(({ automaticBackupService }) => {
+      automaticBackupService.initializeBackups();
+
+      // Handle service worker messages
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data.type === 'perform-backup') {
+            automaticBackupService.performBackup();
+          }
+        });
+      }
+    });
     
     // Preload commonly accessed routes when browser is idle
     preloadWhenIdle(Dashboard);
@@ -142,6 +136,7 @@ function App(): React.JSX.Element {
                             <ActivityLoggerProvider>
                               <Router>
                                 <SafariWarning />
+                                <ConsentBanner />
                         <Routes>
                         {/* Login route outside of Layout */}
                         <Route path="/login" element={
@@ -152,6 +147,17 @@ function App(): React.JSX.Element {
                         <Route path="/auth/callback" element={
                           <Suspense fallback={<PageLoader />}>
                             <BankingCallback />
+                          </Suspense>
+                        } />
+                        {/* Public legal pages (no auth) */}
+                        <Route path="/privacy" element={
+                          <Suspense fallback={<PageLoader />}>
+                            <PrivacyPolicy />
+                          </Suspense>
+                        } />
+                        <Route path="/terms" element={
+                          <Suspense fallback={<PageLoader />}>
+                            <TermsOfService />
                           </Suspense>
                         } />
                         
@@ -185,11 +191,7 @@ function App(): React.JSX.Element {
                               <Transactions />
                             </ProtectedSuspense>
                           } />
-                          <Route path="transactions-comparison" element={
-                            <ProtectedSuspense>
-                              <TransactionsComparison />
-                            </ProtectedSuspense>
-                          } />
+                          <Route path="transactions-comparison" element={<Navigate to="/transactions" replace />} />
                           <Route path="reconciliation" element={
                             <ProtectedSuspense>
                               <Reconciliation />
@@ -210,6 +212,16 @@ function App(): React.JSX.Element {
                               <Budget />
                             </ProtectedSuspense>
                           } />
+                          <Route path="calendar" element={
+                            <ProtectedSuspense>
+                              <Calendar />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="reports" element={
+                            <ProtectedSuspense>
+                              <ReportsHub />
+                            </ProtectedSuspense>
+                          } />
                           <Route path="goals" element={
                             <ProtectedSuspense>
                               <Goals />
@@ -221,25 +233,10 @@ function App(): React.JSX.Element {
                             </ProtectedSuspense>
                           } />
                           
-                          {/* Premium features */}
-                          <Route path="ai-analytics" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <AdvancedAnalytics />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="ai-features" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <AIFeatures />
-                            </ProtectedSuspense>
-                          } />
+                          {/* Reports sub-pages (loaded by ReportsHub) */}
                           <Route path="custom-reports" element={
                             <ProtectedSuspense requirePremium={true}>
                               <CustomReports />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="tax-planning" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <TaxPlanning />
                             </ProtectedSuspense>
                           } />
                           <Route path="summaries" element={
@@ -247,31 +244,15 @@ function App(): React.JSX.Element {
                               <FinancialSummaries />
                             </ProtectedSuspense>
                           } />
-                          <Route path="household" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <HouseholdManagement />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="mobile-features" element={
-                            <ProtectedSuspense>
-                              <MobileFeatures />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="business-features" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <BusinessFeatures />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="financial-planning" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <FinancialPlanning />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="data-intelligence" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <DataIntelligence />
-                            </ProtectedSuspense>
-                          } />
+                          {/* Redirects for consolidated/removed pages */}
+                          <Route path="ai-analytics" element={<Navigate to="/reports" replace />} />
+                          <Route path="ai-features" element={<Navigate to="/reports" replace />} />
+                          <Route path="tax-planning" element={<Navigate to="/reports" replace />} />
+                          <Route path="household" element={<Navigate to="/settings" replace />} />
+                          <Route path="mobile-features" element={<Navigate to="/dashboard" replace />} />
+                          <Route path="business-features" element={<Navigate to="/dashboard" replace />} />
+                          <Route path="financial-planning" element={<Navigate to="/reports" replace />} />
+                          <Route path="data-intelligence" element={<Navigate to="/reports" replace />} />
                           <Route path="export-manager" element={
                             <ProtectedSuspense>
                               <ExportManager />
@@ -287,103 +268,75 @@ function App(): React.JSX.Element {
                               <Documents />
                             </ProtectedSuspense>
                           } />
-                  <Route path="ocr-test" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <OCRTest />
-                    </Suspense>
-                  } />
                   <Route path="open-banking" element={
-                    <Suspense fallback={<PageLoader />}>
+                    <ProtectedSuspense>
                       <OpenBanking />
-                    </Suspense>
+                    </ProtectedSuspense>
                   } />
-                  <Route path="performance" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Performance />
-                    </Suspense>
-                  } />
+                  <Route path="performance" element={<Navigate to="/dashboard" replace />} />
                   <Route path="subscription" element={
-                    <Suspense fallback={<PageLoader />}>
+                    <ProtectedSuspense>
                       <Subscription />
-                    </Suspense>
+                    </ProtectedSuspense>
                   } />
-                  <Route path="advanced" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Advanced />
-                    </Suspense>
-                  } />
+                  <Route path="advanced" element={<Navigate to="/dashboard" replace />} />
                   <Route path="settings">
                     <Route index element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <SettingsPage />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="app" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <AppSettings />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="data" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <DataManagement />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="categories" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Categories />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="tags" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Tags />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="notifications" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Notifications />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="accessibility" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <AccessibilitySettings />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="deleted-accounts" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <DeletedAccounts />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="security" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <SecuritySettings />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="subscription" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <Subscription />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                     <Route path="security/audit-logs" element={
-                      <Suspense fallback={<PageLoader />}>
+                      <ProtectedSuspense>
                         <AuditLogs />
-                      </Suspense>
-                    } />
-                    <Route path="accessibility" element={
-                      <Suspense fallback={<PageLoader />}>
-                        <AccessibilityDashboard />
-                      </Suspense>
+                      </ProtectedSuspense>
                     } />
                   </Route>
-                  <Route path="diagnostics" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <DiagnosticReport />
-                    </Suspense>
-                  } />
-                  <Route path="realtime-test" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <RealtimeSyncTest />
-                    </Suspense>
-                  } />
                         <Route path="forecasting" element={<Navigate to="/budget" replace />} />
                       </Route>
                         </Routes>

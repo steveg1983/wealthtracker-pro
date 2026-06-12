@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { parseMoneyInput } from '../utils/decimal';
 import { Modal } from './common/Modal';
 import { 
   AlertTriangleIcon,
@@ -337,7 +338,7 @@ export default function DuplicateDetection({
               <input
                 type="number"
                 value={amountThreshold}
-                onChange={(e) => setAmountThreshold(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setAmountThreshold(parseMoneyInput(e.target.value) ?? 0)}
                 min="0"
                 step="0.01"
                 className="w-full px-3 py-1 border border-gray-300 dark:border-gray-600 rounded
@@ -533,8 +534,8 @@ export default function DuplicateDetection({
             <button
               onClick={handleConfirm}
               disabled={newTransactions && selectedDuplicates.size === newTransactions.length}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg
-                       hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg
+                       hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {newTransactions ? (
                 <>

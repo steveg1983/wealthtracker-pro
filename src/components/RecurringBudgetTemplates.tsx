@@ -262,7 +262,7 @@ export default function RecurringBudgetTemplates() {
         {templates.map((template) => (
           <div
             key={template.id}
-            className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900 dark:text-white">{template.name}</h3>
@@ -351,7 +351,7 @@ export default function RecurringBudgetTemplates() {
               </button>
               <button
                 onClick={() => duplicateTemplate(template)}
-                className="flex items-center justify-center p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex items-center justify-center p-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
               >
                 <CopyIcon size={16} />
               </button>
@@ -367,7 +367,7 @@ export default function RecurringBudgetTemplates() {
 
         {/* Empty State */}
         {templates.length === 0 && (
-          <div className="col-span-full bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
+          <div className="col-span-full bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
             <RepeatIcon className="mx-auto text-gray-400 mb-4" size={48} />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Templates Yet</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -387,7 +387,7 @@ export default function RecurringBudgetTemplates() {
       {/* Create Template Modal */}
       {showCreateTemplate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create Budget Template</h3>
             
             <div className="space-y-4">
@@ -468,7 +468,7 @@ export default function RecurringBudgetTemplates() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-2xl w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recurring Settings</h3>
             
             <div className="space-y-4">

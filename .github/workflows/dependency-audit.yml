@@ -1,0 +1,43 @@
+name: Dependency Audit
+
+# Fails the build when a HIGH or CRITICAL vulnerability exists in the
+# PRODUCTION dependency tree (--omit=dev). Dev tooling (Vercel CLI,
+# Lighthouse CI, …) is excluded — those advisories never ship to users and
+# routinely lag upstream; tracking them is hygiene, not a build gate.
+# Baseline at introduction (2026-06-11): 0 production vulnerabilities.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "**" ]
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: "0 4 * * 1" # 04:00 UTC Mondays — catch newly published advisories
+
+permissions:
+  contents: read
+
+jobs:
+  audit-production-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      # npm audit reads the lockfile; full install not required.
+      - name: Audit production dependencies (high+)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Informational only — full-tree view including dev tooling.
+      - name: Full-tree audit (report only)
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=high || true

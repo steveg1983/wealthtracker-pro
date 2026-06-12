@@ -39,9 +39,9 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
   const currentLocaleInfo = SUPPORTED_LOCALES.find(l => l.code === currentLocale) || SUPPORTED_LOCALES[0];
 
   return (
-    <div className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-center gap-3 mb-4">
-        <GlobeIcon size={24} className="text-blue-600 dark:text-blue-400" />
+        <GlobeIcon size={24} className="text-emerald-700 dark:text-emerald-400" />
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Locale & Date Format
@@ -61,7 +61,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
             id="locale-select"
             value={currentLocale}
             onChange={(e) => handleLocaleChange(e.target.value)}
-            className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
+            className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
           >
             {SUPPORTED_LOCALES.map((locale) => (
               <option key={locale.code} value={locale.code}>
@@ -82,13 +82,13 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Format Pattern</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white bg-card-bg-light dark:bg-card-bg-dark px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
                 {currentLocaleInfo.dateFormat}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Example</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white bg-card-bg-light dark:bg-card-bg-dark px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
                 {currentLocaleInfo.example}
               </p>
             </div>
@@ -98,7 +98,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
         <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+            className="text-sm text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
           >
             {showPreview ? 'Hide' : 'Show'} Live Preview
           </button>
@@ -138,7 +138,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex gap-2">
             <div className="flex-shrink-0 mt-0.5">
-              <svg className="h-4 w-4 text-blue-600 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-4 w-4 text-emerald-700 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
             </div>

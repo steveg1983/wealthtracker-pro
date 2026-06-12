@@ -167,7 +167,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
             placeholder="Search banks, payment services, or investment platforms..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
         
@@ -178,7 +178,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white text-sm"
             >
               <option value="all">All Regions</option>
               {Object.entries(REGION_GROUPS).map(([key, name]) => (
@@ -192,7 +192,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white text-sm"
             >
               <option value="all">All Types</option>
               {Object.entries(TYPE_GROUPS).map(([key, name]) => (

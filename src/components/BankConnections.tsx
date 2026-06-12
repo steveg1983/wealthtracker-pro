@@ -268,7 +268,7 @@ export default function BankConnections({
           )}
           <button
             onClick={() => setShowAddBank(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center gap-2"
           >
             <PlusIcon size={16} />
             Add Bank
@@ -282,7 +282,7 @@ export default function BankConnections({
           {connections.map(connection => (
             <div
               key={connection.id}
-              className="bg-card-bg-light dark:bg-card-bg-dark rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -357,7 +357,7 @@ export default function BankConnections({
           </p>
           <button
             onClick={() => setShowAddBank(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
             <PlusIcon size={20} />
             Connect Your First Bank
@@ -405,7 +405,7 @@ export default function BankConnections({
                 disabled={isLoading}
                 className="w-full p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors text-left flex items-center gap-4"
               >
-                <div className="w-12 h-12 bg-card-bg-light dark:bg-card-bg-dark rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-lg flex items-center justify-center">
                   <Building2Icon size={24} className="text-gray-600 dark:text-gray-400" />
                 </div>
                 <div className="flex-1">

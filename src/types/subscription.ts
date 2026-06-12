@@ -1,6 +1,8 @@
 // Subscription types
 
-export type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise';
+// Canonical tier vocabulary — must match the DB CHECK constraints
+// (subscriptions_tier_check: 'free' | 'premium' | 'pro').
+export type SubscriptionPlan = 'free' | 'premium' | 'pro';
 export type BillingPeriod = 'monthly' | 'yearly';
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'canceled';
 export type SubscriptionStatus = 'active' | 'inactive' | 'cancelled' | 'past_due' | 'trialing';

@@ -228,7 +228,7 @@ export default function LinkBankAccountsModal({
                     key={da.externalAccountId}
                     className={`rounded-xl border-2 p-4 transition-colors ${
                       selectedId
-                        ? 'border-primary/50 bg-primary/5 dark:bg-primary/10'
+                        ? 'border-primary/50 bg-primary/5 dark:bg-[#1a2332]/10'
                         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
                     }`}
                   >
@@ -274,7 +274,7 @@ export default function LinkBankAccountsModal({
                           updateLink(da.externalAccountId, e.target.value)
                         }
                         aria-label={`Link ${da.name} to account`}
-                        className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                       >
                         <option value="">-- Skip (don&apos;t link) --</option>
                         {accounts
@@ -327,7 +327,7 @@ export default function LinkBankAccountsModal({
             type="button"
             onClick={handleLink}
             disabled={isLoading || isLinking || linkedCount === 0 || hasDuplicates}
-            className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLinking
               ? 'Linking...'
