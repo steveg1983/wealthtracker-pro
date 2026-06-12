@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import Decimal from 'decimal.js';
 import type {
   ErrorResponse,
   SyncTransactionsRequest,
@@ -85,7 +86,10 @@ const normalizeAmount = (value: number): number => {
   if (!Number.isFinite(value)) {
     return 0;
   }
-  return Math.round(value * 100) / 100;
+  // Decimal, not float: `Math.round(value * 100) / 100` is the banned IEEE-754
+  // rounding pattern (CLAUDE.md Rule #4). Match the client parseMoneyInput
+  // contract: 2dp, HALF_UP.
+  return new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
 };
 
 const toDateOnly = (timestamp?: string): string => {
