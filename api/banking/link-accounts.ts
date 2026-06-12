@@ -1,27 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type {
-  ErrorResponse,
   LinkAccountsRequest,
   LinkAccountsResponse
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { createErrorResponse } from '../_lib/http-error.js';
 import { getUserTrueLayerConnection } from '../_lib/banking-sync.js';
-
-const createErrorResponse = (
-  res: VercelResponse,
-  status: number,
-  error: string,
-  code: string,
-  details?: unknown
-) => {
-  const payload: ErrorResponse = { error, code };
-  if (details !== undefined) {
-    payload.details = details;
-  }
-  return res.status(status).json(payload);
-};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {

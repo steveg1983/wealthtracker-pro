@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type {
   ExchangeTokenRequest,
-  ExchangeTokenResponse,
-  ErrorResponse
+  ExchangeTokenResponse
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { createErrorResponse } from '../_lib/http-error.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import { encryptSecret } from '../_lib/encryption.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
@@ -17,20 +17,6 @@ interface ProviderMetadata {
   name: string;
   logo?: string;
 }
-
-const createErrorResponse = (
-  res: VercelResponse,
-  status: number,
-  error: string,
-  code: string,
-  details?: unknown
-) => {
-  const payload: ErrorResponse = { error, code };
-  if (details) {
-    payload.details = details;
-  }
-  return res.status(status).json(payload);
-};
 
 const getProviderFromAccounts = (
   accounts: Array<{

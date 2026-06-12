@@ -2,31 +2,17 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type {
   DiscoverAccountsRequest,
   DiscoverAccountsResponse,
-  DiscoveredBankAccount,
-  ErrorResponse
+  DiscoveredBankAccount
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { createErrorResponse } from '../_lib/http-error.js';
 import {
   getUserTrueLayerConnection,
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts } from '../_lib/truelayer.js';
-
-const createErrorResponse = (
-  res: VercelResponse,
-  status: number,
-  error: string,
-  code: string,
-  details?: unknown
-) => {
-  const payload: ErrorResponse = { error, code };
-  if (details !== undefined) {
-    payload.details = details;
-  }
-  return res.status(status).json(payload);
-};
 
 const mapAccountType = (accountType: string | undefined): string => {
   const normalized = (accountType ?? '').toLowerCase();

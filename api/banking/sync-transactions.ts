@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Decimal from 'decimal.js';
 import type {
-  ErrorResponse,
   SyncTransactionsRequest,
   SyncTransactionsResponse
 } from '../../src/types/banking-api.js';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { createErrorResponse } from '../_lib/http-error.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import {
@@ -17,20 +17,6 @@ import {
 } from '../_lib/banking-sync.js';
 import type { TrueLayerTransaction } from '../_lib/truelayer.js';
 import { fetchTransactions } from '../_lib/truelayer.js';
-
-const createErrorResponse = (
-  res: VercelResponse,
-  status: number,
-  error: string,
-  code: string,
-  details?: unknown
-) => {
-  const payload: ErrorResponse = { error, code };
-  if (details !== undefined) {
-    payload.details = details;
-  }
-  return res.status(status).json(payload);
-};
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
   const trimmed = value.trim();
@@ -165,9 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const linkedAccounts = linkedAccountsResult.data ?? [];
-    console.log('[sync-transactions] connection_id:', connection.id, 'linked_accounts:', linkedAccounts.length, linkedAccounts.map(la => ({ account_id: la.account_id, external: la.external_account_id })));
     if (linkedAccounts.length === 0) {
-      console.log('[sync-transactions] EXIT: no linked accounts found for connection', connection.id);
       await markConnectionSyncSuccess(supabase, connection.id);
       await supabase.from('sync_history').insert({
         connection_id: connection.id,
@@ -198,10 +182,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const validAccountIds = new Set((accountsResult.data ?? []).map((account) => account.id));
     const mappedLinkedAccounts = linkedAccounts.filter((item) => validAccountIds.has(item.account_id));
-    console.log('[sync-transactions] valid accounts:', validAccountIds.size, 'mapped linked accounts:', mappedLinkedAccounts.length);
 
     if (mappedLinkedAccounts.length === 0) {
-      console.log('[sync-transactions] EXIT: no valid mapped linked accounts');
       await markConnectionSyncSuccess(supabase, connection.id);
       const response: SyncTransactionsResponse = {
         success: true,
@@ -232,8 +214,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return allTransactions;
     });
-
-    console.log('[sync-transactions] TrueLayer returned', fetchedTransactions.length, 'raw transactions');
 
     const prepared = fetchedTransactions
       .map(({ accountId, transaction }) => {
@@ -310,7 +290,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const insertCandidates = uniquePrepared.filter((row) => !existingIds.has(row.external_transaction_id));
-    console.log('[sync-transactions] prepared:', prepared.length, 'unique:', uniquePrepared.length, 'existing:', existingIds.size, 'to insert:', insertCandidates.length);
     let insertedCount = 0;
     for (const insertChunk of chunk(insertCandidates, 200)) {
       if (insertChunk.length === 0) {
@@ -323,12 +302,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (insertResult.error) {
         if (isSchemaMismatchError(insertResult.error)) {
+          // Log the raw driver error server-side for diagnosis; never return the
+          // Supabase error object to the client (it exposes internal schema).
+          console.error('[sync-transactions] schema mismatch on insert', {
+            code: insertResult.error.code,
+            message: insertResult.error.message
+          });
           return createErrorResponse(
             res,
             500,
             'Missing required transaction deduplication columns; apply open banking enhancement migration.',
-            'schema_mismatch',
-            insertResult.error
+            'schema_mismatch'
           );
         }
         throw new Error(`Failed to insert transactions: ${insertResult.error.message}`);
@@ -359,6 +343,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const message = error instanceof Error ? error.message : 'Unexpected error';
+    // The detailed message can carry DB/driver internals — keep it server-side
+    // (console + sync_history audit) and return a generic message to the client.
+    console.error('[sync-transactions] sync failed', { message });
     const body = req.body as SyncTransactionsRequest | undefined;
     if (body?.connectionId) {
       const sb = getServiceRoleSupabase();
@@ -373,6 +360,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    return createErrorResponse(res, 500, message, 'internal_error');
+    return createErrorResponse(res, 500, 'Transaction sync failed', 'internal_error');
   }
 }
