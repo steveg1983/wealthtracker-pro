@@ -43,6 +43,7 @@ export default function GoalCelebrationModal({ isOpen, onClose, goal, message }:
       isOpen={isOpen}
       onClose={onClose}
       title=""
+      ariaLabel="Goal achieved"
       size="sm"
     >
       <div className="text-center py-6">

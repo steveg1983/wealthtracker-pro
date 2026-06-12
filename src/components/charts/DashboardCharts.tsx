@@ -30,6 +30,27 @@ const defaultTickFormatter = (value: number): string => {
   return formatDecimal(value, value >= 10 ? 0 : 2);
 };
 
+/**
+ * Build a complete text alternative of a chart's data for screen readers.
+ *
+ * Recharts 3.x already provides keyboard navigation of data points
+ * (accessibilityLayer), but no static summary of the numbers. We render the
+ * chart as role="img" with this label so a screen reader announces every
+ * value, not just a vague title. (A sibling data <table> isn't possible here:
+ * each chart is the single child of a caller-side ResponsiveContainer.)
+ */
+const buildChartSummary = (
+  title: string | undefined,
+  points: Array<{ label: string; value: string }>
+): string => {
+  const prefix = title ? `${title}. ` : '';
+  if (points.length === 0) {
+    return `${prefix}No data`.trim();
+  }
+  const body = points.map((p) => `${p.label}: ${p.value}`).join('; ');
+  return `${prefix}${body}`;
+};
+
 interface BarChartProps {
   data: Array<Record<string, unknown>>;
   /** Key holding the bar value (e.g. 'netWorth'). */
@@ -57,8 +78,16 @@ export function BarChart({
   showGrid = true,
   'aria-label': ariaLabel
 }: BarChartProps): React.JSX.Element {
+  const formatValue = formatter ?? defaultTickFormatter;
+  const summary = buildChartSummary(
+    ariaLabel,
+    data.map((row) => ({
+      label: String(row[xKey] ?? ''),
+      value: formatValue(Number(row[dataKey] ?? 0))
+    }))
+  );
   return (
-    <RechartsBarChart data={data} aria-label={ariaLabel}>
+    <RechartsBarChart data={data} role="img" aria-label={summary}>
       {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="rgba(55, 65, 81, 0.3)" />}
       <XAxis dataKey={xKey} tick={{ fill: '#6B7280', fontSize: 12 }} />
       <YAxis
@@ -108,8 +137,14 @@ export function PieChart<T extends PieDatum>({
   // index so onClick hands back the caller's own object, not a copy.
   const chartData = data.map((d, index) => ({ name: d.name, value: d.value, index }));
 
+  const formatValue = formatter ?? ((value: number) => formatDecimal(value, 2));
+  const summary = buildChartSummary(
+    ariaLabel,
+    data.map((d) => ({ label: d.name, value: formatValue(d.value) }))
+  );
+
   return (
-    <RechartsPieChart aria-label={ariaLabel}>
+    <RechartsPieChart role="img" aria-label={summary}>
       <Pie
         data={chartData}
         dataKey="value"
