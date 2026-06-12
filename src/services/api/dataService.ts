@@ -175,7 +175,7 @@ class DataServiceImpl {
   async updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
-      return this.accountService.updateAccount(id, updates);
+      return this.accountService.updateAccount(id, updates, userId);
     }
 
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
@@ -192,7 +192,7 @@ class DataServiceImpl {
   async deleteAccount(id: string): Promise<void> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
-      return this.accountService.deleteAccount(id);
+      return this.accountService.deleteAccount(id, userId);
     }
 
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
@@ -230,7 +230,7 @@ class DataServiceImpl {
   async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
-      return this.transactionService.updateTransaction(id, updates);
+      return this.transactionService.updateTransaction(id, updates, userId);
     }
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
@@ -255,7 +255,7 @@ class DataServiceImpl {
   async deleteTransaction(id: string): Promise<void> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
-      return this.transactionService.deleteTransaction(id);
+      return this.transactionService.deleteTransaction(id, userId);
     }
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);

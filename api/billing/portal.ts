@@ -40,7 +40,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = (req.body ?? {}) as PortalRequest;
     const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
-    const fallbackReturn = origin ? `${origin}/subscription` : undefined;
+    // The Origin header is attacker-controllable, so the derived fallback must
+    // pass the same allowlist as a caller-supplied returnUrl — otherwise it is
+    // an open redirect into the Stripe portal return flow.
+    const candidateFallback = origin ? `${origin}/subscription` : undefined;
+    const fallbackReturn = candidateFallback && isRedirectUrlAllowed(candidateFallback)
+      ? candidateFallback
+      : undefined;
     const returnUrl = typeof body.returnUrl === 'string' && isRedirectUrlAllowed(body.returnUrl)
       ? body.returnUrl
       : fallbackReturn;

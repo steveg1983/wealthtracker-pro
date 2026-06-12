@@ -1,25 +1,36 @@
 title = "WealthTracker gitleaks config"
 
-# Use default rules; allow common placeholders to reduce false positives
-[rules]
+# CRITICAL: a custom config REPLACES gitleaks' built-in ruleset. Without this
+# extend block (and with no [[rules]] of our own) the scan would run with zero
+# rules and pass everything — a silent false green. useDefault keeps the full
+# upstream ruleset and treats the allowlist below as additive.
+[extend]
+useDefault = true
 
 [allowlist]
 description = "Allow test placeholders and obvious fake values"
 regexes = [
+  # Stripe TEST keys are non-sensitive by design.
   'pk_test_[A-Za-z0-9_-]{10,}',
   'sk_test_[A-Za-z0-9_-]{10,}',
   'your-.*-here',
   'example\.com',
   'localhost',
-  'dummy',
   'PLACEHOLDER',
 ]
 
+# Paths are matched relative to the repository root. The previous entries were
+# prefixed with `wealthtracker-web/`, which no longer exists (the app IS the
+# repo root), so they matched nothing — the env examples and test fixtures were
+# never actually allowlisted.
 paths = [
-  '^.github/workflows/.*$',
-  '^wealthtracker-web/\.env\.example$',
-  '^wealthtracker-web/\.env\.production\.example$',
-  '^wealthtracker-web/\.env\.test\.example$',
-  '^wealthtracker-web/src/test/.*$',
+  '^\.github/workflows/.*$',
+  '^\.env\.example$',
+  '^\.env\.production\.example$',
+  '^\.env\.test\.example$',
+  '^src/test/.*$',
+  # Historical backup tree — *.example files only (real secrets are NOT
+  # allowlisted). Tracked backups are slated for removal; until then this keeps
+  # their placeholder env files from being flagged without blinding the scan.
+  '^WealthTracker-Backups/.*\.example$',
 ]
-

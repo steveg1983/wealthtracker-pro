@@ -210,7 +210,7 @@ class TransactionServiceImpl {
     }
   }
 
-  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+  async updateTransaction(id: string, updates: Partial<Transaction>, userId?: string): Promise<Transaction> {
     if (!this.isSupabaseReady()) {
       const transactions = await this.readStoredTransactions();
       const index = transactions.findIndex(t => t.id === id);
@@ -244,7 +244,10 @@ class TransactionServiceImpl {
       // moves) in one database transaction with SQL numeric math.
       const { data, error } = await client.rpc('update_transaction_atomic', {
         p_id: id,
-        p: dbUpdates
+        p: dbUpdates,
+        // Defence-in-depth IDOR guard: RLS already scopes the row, and passing
+        // the owner makes the RPC fail closed on a mis-routed id.
+        ...(userId ? { p_user_id: userId } : {})
       });
 
       if (error) {
@@ -259,7 +262,7 @@ class TransactionServiceImpl {
     }
   }
 
-  async deleteTransaction(id: string): Promise<void> {
+  async deleteTransaction(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
       const transactions = await this.readStoredTransactions();
       const filtered = transactions.filter(t => t.id !== id);
@@ -276,8 +279,12 @@ class TransactionServiceImpl {
       const client = this.supabaseClient!;
 
       // Atomic RPC: deletes the row and reverses the balance in one database
-      // transaction. RLS scopes the delete to the requesting user.
-      const { error } = await client.rpc('delete_transaction_atomic', { p_id: id });
+      // transaction. RLS scopes the delete to the requesting user; passing the
+      // owner adds a defence-in-depth IDOR guard so a mis-routed id fails closed.
+      const { error } = await client.rpc('delete_transaction_atomic', {
+        p_id: id,
+        ...(userId ? { p_user_id: userId } : {})
+      });
 
       if (error) {
         this.logger.error('Error deleting transaction:', error);
@@ -515,12 +522,12 @@ export class TransactionService {
     return this.service.createTransaction(userId, transaction);
   }
 
-  static updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
-    return this.service.updateTransaction(id, updates);
+  static updateTransaction(id: string, updates: Partial<Transaction>, userId?: string): Promise<Transaction> {
+    return this.service.updateTransaction(id, updates, userId);
   }
 
-  static deleteTransaction(id: string): Promise<void> {
-    return this.service.deleteTransaction(id);
+  static deleteTransaction(id: string, userId?: string): Promise<void> {
+    return this.service.deleteTransaction(id, userId);
   }
 
   static getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {

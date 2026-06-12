@@ -122,6 +122,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('clerk_user_id', clerkUserId);
     if (profileErr) warnings.push(`user_profiles: ${profileErr.message}`);
 
+    // subscription_logs is deliberately NOT erased here: it stores only Stripe
+    // event identifiers and {type, created} (see api/stripe/webhook.ts) — no
+    // user_id, email, or other PII — and serves as the webhook idempotency
+    // ledger. Like Stripe's own retained invoices, it falls outside the GDPR
+    // erasure scope, so there is nothing user-identifiable to remove.
+
     if (userRow) {
       // The big one: ON DELETE CASCADE removes accounts, transactions,
       // budgets, goals, categories, investments, subscriptions, invoices,

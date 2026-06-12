@@ -21,7 +21,7 @@ type Database = {
         Returns: Record<string, unknown>;
       };
       update_transaction_atomic: {
-        Args: { p_id: string; p: Record<string, unknown> };
+        Args: { p_id: string; p: Record<string, unknown>; p_user_id?: string };
         Returns: Record<string, unknown>;
       };
       delete_transaction_atomic: {
