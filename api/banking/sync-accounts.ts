@@ -9,6 +9,8 @@ import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import {
   getUserTrueLayerConnection,
+  isReauthRequiredError,
+  markConnectionNeedsReauth,
   markConnectionSyncFailure,
   markConnectionSyncSuccess,
   withTrueLayerAccessToken
@@ -277,10 +279,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const message = error instanceof Error ? error.message : 'Unexpected error';
+    // Keep the detailed message server-side; return a generic one to the client.
+    console.error('[sync-accounts] sync failed', { message });
+    const needsReauth = isReauthRequiredError(error);
     const body = req.body as SyncAccountsRequest | undefined;
     if (body?.connectionId) {
       const sb = getServiceRoleSupabase();
-      await markConnectionSyncFailure(sb, body.connectionId, message);
+      if (needsReauth) {
+        await markConnectionNeedsReauth(sb, body.connectionId, message);
+      } else {
+        await markConnectionSyncFailure(sb, body.connectionId, message);
+      }
       await sb.from('sync_history').insert({
         connection_id: body.connectionId,
         sync_type: 'accounts',
@@ -291,6 +300,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    return createErrorResponse(res, 500, message, 'internal_error');
+    return needsReauth
+      ? createErrorResponse(res, 409, 'Bank reauthorization required', 'reauth_required')
+      : createErrorResponse(res, 500, 'Account sync failed', 'internal_error');
   }
 }

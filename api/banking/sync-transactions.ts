@@ -11,7 +11,10 @@ import { applyRateLimit } from '../_lib/rate-limit.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import {
   getUserTrueLayerConnection,
+  isReauthRequiredError,
+  markConnectionNeedsReauth,
   markConnectionSyncFailure,
+  markConnectionSyncNoAccounts,
   markConnectionSyncSuccess,
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
@@ -152,11 +155,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const linkedAccounts = linkedAccountsResult.data ?? [];
     if (linkedAccounts.length === 0) {
-      await markConnectionSyncSuccess(supabase, connection.id);
+      // No linked accounts: record the run but DON'T flip status to 'connected'
+      // (issue #23) — that would mask a broken/needs-reauth connection as healthy.
+      await markConnectionSyncNoAccounts(supabase, connection.id);
       await supabase.from('sync_history').insert({
         connection_id: connection.id,
         sync_type: 'transactions',
-        status: 'success',
+        status: 'partial',
         records_synced: 0,
         created_at: new Date().toISOString()
       });
@@ -184,7 +189,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const mappedLinkedAccounts = linkedAccounts.filter((item) => validAccountIds.has(item.account_id));
 
     if (mappedLinkedAccounts.length === 0) {
-      await markConnectionSyncSuccess(supabase, connection.id);
+      // Linked accounts exist but none map to the user's accounts: same masking
+      // risk as above (issue #23) — record the run without forcing 'connected'.
+      await markConnectionSyncNoAccounts(supabase, connection.id);
       const response: SyncTransactionsResponse = {
         success: true,
         transactionsImported: 0,
@@ -346,10 +353,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // The detailed message can carry DB/driver internals — keep it server-side
     // (console + sync_history audit) and return a generic message to the client.
     console.error('[sync-transactions] sync failed', { message });
+
+    // A needs-reauth failure (expired/invalid refresh token) is unrecoverable
+    // without the user re-linking: persist 'reauth_required' so the UI shows its
+    // Reauthorize CTA instead of a Sync button that will always fail (#21/#22).
+    const needsReauth = isReauthRequiredError(error);
     const body = req.body as SyncTransactionsRequest | undefined;
     if (body?.connectionId) {
       const sb = getServiceRoleSupabase();
-      await markConnectionSyncFailure(sb, body.connectionId, message);
+      if (needsReauth) {
+        await markConnectionNeedsReauth(sb, body.connectionId, message);
+      } else {
+        await markConnectionSyncFailure(sb, body.connectionId, message);
+      }
       await sb.from('sync_history').insert({
         connection_id: body.connectionId,
         sync_type: 'transactions',
@@ -360,6 +376,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    return createErrorResponse(res, 500, 'Transaction sync failed', 'internal_error');
+    return needsReauth
+      ? createErrorResponse(res, 409, 'Bank reauthorization required', 'reauth_required')
+      : createErrorResponse(res, 500, 'Transaction sync failed', 'internal_error');
   }
 }
