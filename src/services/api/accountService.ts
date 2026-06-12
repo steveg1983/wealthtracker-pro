@@ -191,7 +191,7 @@ class AccountServiceImpl {
     }
   }
 
-  async updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
+  async updateAccount(id: string, updates: Partial<Account>, userId?: string): Promise<Account> {
     if (!this.isSupabaseReady()) {
       const accounts = await this.readAccounts();
       const index = accounts.findIndex(account => account.id === id);
@@ -214,10 +214,17 @@ class AccountServiceImpl {
     try {
       const client = this.supabaseClient!;
       const dbUpdates = mapAccountToDb(updates as unknown as Record<string, unknown>);
-      const { data, error } = await client
+      // RLS already scopes writes to the authenticated user; the optional
+      // user_id filter is defence-in-depth so a caller that knows the owner
+      // can never touch a mis-routed row even if RLS were ever relaxed.
+      let query = client
         .from('accounts')
         .update(dbUpdates as never)
-        .eq('id', id)
+        .eq('id', id);
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      const { data, error } = await query
         .select()
         .single();
 
@@ -233,7 +240,7 @@ class AccountServiceImpl {
     }
   }
 
-  async deleteAccount(id: string): Promise<void> {
+  async deleteAccount(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
       const accounts = await this.readAccounts();
       const filtered = accounts.filter(account => account.id !== id);
@@ -243,10 +250,16 @@ class AccountServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const { error } = await client
+      // RLS scopes the soft-delete to the authenticated user; the optional
+      // user_id filter is belt-and-braces for callers that know the owner.
+      let query = client
         .from('accounts')
         .update({ is_active: false } as never)
         .eq('id', id);
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      const { error } = await query;
 
       if (error) {
         this.logger.error('Error deleting account:', error);
@@ -372,12 +385,12 @@ export class AccountService {
     return this.service.createAccount(userId, account);
   }
 
-  static updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
-    return this.service.updateAccount(id, updates);
+  static updateAccount(id: string, updates: Partial<Account>, userId?: string): Promise<Account> {
+    return this.service.updateAccount(id, updates, userId);
   }
 
-  static deleteAccount(id: string): Promise<void> {
-    return this.service.deleteAccount(id);
+  static deleteAccount(id: string, userId?: string): Promise<void> {
+    return this.service.deleteAccount(id, userId);
   }
 
   static getAccountById(id: string): Promise<Account | null> {
