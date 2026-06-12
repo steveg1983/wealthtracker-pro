@@ -112,5 +112,4 @@ jobs:
         run: npm run build:check
 
       - name: Run bundle check
-        continue-on-error: true
         run: npm run bundle:check
