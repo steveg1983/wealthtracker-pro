@@ -317,40 +317,12 @@ class AccountServiceImpl {
     }
   }
 
-  async recalculateBalance(accountId: string): Promise<number> {
-    if (!this.isSupabaseReady()) {
-      const transactions = await this.storage.get<{ account_id: string; amount: number }[]>(STORAGE_KEYS.TRANSACTIONS) || [];
-      const accountTransactions = transactions.filter(t => t.account_id === accountId);
-      const balance = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
-
-      await this.updateBalance(accountId, balance);
-      return balance;
-    }
-
-    try {
-      const client = this.supabaseClient!;
-      const { data: account } = await client
-        .from('accounts')
-        .select('initial_balance')
-        .eq('id', accountId)
-        .single();
-
-      const { data: transactions } = await client
-        .from('transactions')
-        .select('amount')
-        .eq('account_id', accountId);
-
-      const transactionTotal = transactions?.reduce((sum, t) => sum + (t as { amount: number }).amount, 0) || 0;
-      const initialBalance = (account as { initial_balance?: number } | null)?.initial_balance || 0;
-      const newBalance = initialBalance + transactionTotal;
-
-      await this.updateBalance(accountId, newBalance);
-      return newBalance;
-    } catch (error) {
-      this.logger.error('AccountService.recalculateBalance error:', error as Error);
-      throw error;
-    }
-  }
+  // recalculateBalance() removed (re-audit #27): it summed transactions with
+  // float `reduce((sum, t) => sum + t.amount, 0)`, wrote the result straight to
+  // accounts.balance with no audit entry, and had no caller (not in the
+  // DataService Pick type). The canonical, audited balance path is the atomic
+  // transaction RPCs. A SQL recompute (balance = initial + Σamount) should be
+  // an audited RPC if ever needed — not a float reduce in the service layer.
 
   subscribeToAccounts(userId: string, callback: (payload: unknown) => void): () => void {
     if (!this.isSupabaseReady()) {
@@ -414,10 +386,6 @@ export class AccountService {
 
   static updateBalance(id: string, newBalance: number): Promise<void> {
     return this.service.updateBalance(id, newBalance);
-  }
-
-  static recalculateBalance(accountId: string): Promise<number> {
-    return this.service.recalculateBalance(accountId);
   }
 
   static subscribeToAccounts(userId: string, callback: (payload: unknown) => void): () => void {
