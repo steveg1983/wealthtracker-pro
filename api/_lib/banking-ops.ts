@@ -7,11 +7,6 @@ const DEFAULT_MAX_RETRY_ATTEMPTS = 5;
 const DEFAULT_ALERT_SUPPRESSION_THRESHOLD = 10;
 const DEFAULT_ALERT_NOTIFY_EVERY = 10;
 
-const isProductionRuntime = (): boolean => {
-  const runtime = (getOptionalEnv('VERCEL_ENV') ?? getOptionalEnv('NODE_ENV') ?? '').toLowerCase();
-  return runtime === 'production';
-};
-
 const parsePositiveInteger = (
   rawValue: string | undefined,
   fallback: number,
@@ -83,8 +78,13 @@ export const getEffectiveOpsAlertNotifyEvery = (): number =>
 export const isBankingOpsAdmin = (auth: AuthContext): boolean => {
   const admins = parseAdminClerkIds();
 
+  // Fail CLOSED: with no allowlist configured, NOBODY is an ops admin — in any
+  // runtime. The previous `!isProductionRuntime()` made every signed-in user an
+  // admin on preview/dev deployments, which share the live Supabase project, so
+  // the dead-letter-admin endpoint (which can reset ALL users' bank
+  // connections) was exposed there. Set BANKING_OPS_ADMIN_CLERK_IDS to grant.
   if (admins.size === 0) {
-    return !isProductionRuntime();
+    return false;
   }
 
   return admins.has(auth.clerkUserId);
