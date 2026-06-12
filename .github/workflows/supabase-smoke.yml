@@ -22,19 +22,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # NOTE: deliberately NOT continue-on-error. A real smoke failure must turn
+      # this workflow RED — a nightly that can't go red is theatre. And missing
+      # credentials FAIL loudly (exit 1) rather than silently skipping to green:
+      # this is the live infra safety net; if it can't run, that is itself a
+      # problem worth surfacing. (Earlier this job silently skipped for months
+      # because the SUPABASE_SERVICE_ROLE_KEY secret was absent, reporting
+      # "success" the whole time.)
       - name: Run Supabase smoke tests
-        continue-on-error: true
         env:
           RUN_SUPABASE_REAL_TESTS: 'true'
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           # Server-only secret — intentionally NOT VITE_-prefixed so it can never
-          # be inlined into a client bundle. Rename the GitHub secret to match.
+          # be inlined into a client bundle.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "Supabase credentials not set, skipping smoke tests"
-            exit 0
+            echo "::error::Supabase credentials not set — the smoke test cannot run. Failing loudly instead of skipping to a false green."
+            exit 1
           fi
           npm run test:supabase-smoke
 
