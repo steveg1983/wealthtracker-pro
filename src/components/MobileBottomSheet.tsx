@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, ReactNode } from 'react';
 import { XIcon } from './icons';
+import { useFocusManager } from './common/useFocusManager';
 
 interface MobileBottomSheetProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export function MobileBottomSheet({
   const [startHeight, setStartHeight] = useState(0);
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const { saveFocus, restoreFocus, trapFocus, getFocusableElements, moveFocusToElement } = useFocusManager();
 
   useEffect(() => {
     if (isOpen) {
@@ -35,10 +37,10 @@ export function MobileBottomSheet({
       const windowHeight = window.innerHeight;
       const initialHeight = windowHeight * snapPoints[initialSnapPoint];
       setCurrentHeight(initialHeight);
-      
+
       // Prevent body scroll when bottom sheet is open
       document.body.style.overflow = 'hidden';
-      
+
       // Add escape key handler
       const handleEscape = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -46,13 +48,26 @@ export function MobileBottomSheet({
         }
       };
       document.addEventListener('keydown', handleEscape);
-      
+
+      // Trap focus inside the sheet so keyboard/switch users can't Tab out into
+      // the inert page behind it (the sheet is aria-modal). Restore focus to the
+      // previously-focused element on close.
+      saveFocus();
+      let releaseTrap: (() => void) | undefined;
+      if (sheetRef.current) {
+        releaseTrap = trapFocus(sheetRef.current);
+        const focusables = getFocusableElements(sheetRef.current);
+        moveFocusToElement(focusables[0] ?? sheetRef.current);
+      }
+
       return () => {
         document.body.style.overflow = '';
         document.removeEventListener('keydown', handleEscape);
+        releaseTrap?.();
+        restoreFocus();
       };
     }
-  }, [isOpen, snapPoints, initialSnapPoint, onClose]);
+  }, [isOpen, snapPoints, initialSnapPoint, onClose, saveFocus, restoreFocus, trapFocus, getFocusableElements, moveFocusToElement]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -128,6 +143,7 @@ export function MobileBottomSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'bottom-sheet-title' : undefined}
+        tabIndex={-1}
       >
         {/* Drag Handle */}
         {showHandle && (

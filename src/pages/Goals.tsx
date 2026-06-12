@@ -157,18 +157,20 @@ export default function Goals() {
     <PageWrapper 
       title="Goals"
       rightContent={
-        <div 
+        <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
-          className="cursor-pointer"
-          title="Add Goal"
+          className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          aria-label="Add goal"
         >
           <svg
             width="48"
             height="48"
             viewBox="0 0 48 48"
             xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+            focusable="false"
             className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-            
           >
             <circle
               cx="24"
@@ -189,7 +191,7 @@ export default function Goals() {
               />
             </g>
           </svg>
-        </div>
+        </button>
       }
     >
 

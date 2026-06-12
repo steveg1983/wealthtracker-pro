@@ -10,16 +10,23 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
   ariaDescribedBy?: string;
+  /**
+   * Accessible name for modals that intentionally render no visible title
+   * (e.g. GoalCelebrationModal). Without it a title-less dialog announces only
+   * "dialog" to screen readers.
+   */
+  ariaLabel?: string;
 }
 
-export function Modal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
   size = 'md',
   showCloseButton = true,
-  ariaDescribedBy
+  ariaDescribedBy,
+  ariaLabel
 }: ModalProps): React.JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -140,18 +147,26 @@ export function Modal({
           `}
           role="dialog"
           aria-modal="true"
-          aria-labelledby="modal-title"
+          // Only label by the heading when there is a real title; otherwise an
+          // empty <h2> would leave the dialog with no accessible name. Title-less
+          // callers supply ariaLabel instead.
+          aria-labelledby={title ? 'modal-title' : undefined}
+          aria-label={!title ? ariaLabel : undefined}
           aria-describedby={ariaDescribedBy}
           tabIndex={-1}
         >
           {/* Header - Always visible */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 flex-shrink-0">
-            <h2
-              id="modal-title"
-              className="text-xl font-bold text-gray-900 dark:text-white"
-            >
-              {title}
-            </h2>
+            {title ? (
+              <h2
+                id="modal-title"
+                className="text-xl font-bold text-gray-900 dark:text-white"
+              >
+                {title}
+              </h2>
+            ) : (
+              <span aria-hidden="true" />
+            )}
             {showCloseButton && (
               <button
                 onClick={onClose}
