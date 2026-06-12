@@ -170,6 +170,10 @@ export default function BankConnections({
         onAccountsLinked?.();
       } else {
         logger.error('Sync failed', result.errors);
+        // Reload so a status change from the failed sync (e.g. reauth_required)
+        // surfaces immediately — otherwise the Reauthorize CTA wouldn't appear
+        // until the next manual refresh.
+        void loadConnections();
       }
     } finally {
       setSyncingConnections(prev => {
