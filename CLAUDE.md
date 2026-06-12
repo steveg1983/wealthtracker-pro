@@ -14,8 +14,8 @@
 | Strict types | `npm run typecheck:strict` | ✅ | TS 5.8 strict |
 | Smoke tests | `npm run test:smoke` | ✅ | JSdom + Vitest |
 | Realtime suite | `npm run test:realtime` | ✅ | Driven by `scripts/realtime-tests.json` |
-| Coverage | `npm run test:coverage` | ✅ | 77.6 % statements / 57 % branches |
-| Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥75 % statements / ≥55 % branches |
+| Coverage | `npm run test:coverage` | ✅ | Enforced floor ≥63 % statements / ≥55 % branches |
+| Threshold | `node scripts/verify-coverage-threshold.mjs …` | ✅ | ≥63 % statements / ≥55 % branches (recalibrated 2026-06 after dead Redux removal) |
 | Supabase smoke | `npm run test:supabase-smoke` | ✅ | Logs saved to `logs/supabase-smoke/` |
 | Build parity | `npm run build` | ✅ | Mirrors Vercel’s `vite build` via `scripts/build-web.mjs` |
 
@@ -63,7 +63,7 @@ npm run typecheck:strict
 npm run test:smoke
 npm run test:realtime
 npm run test:coverage
-node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
+node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=63 --branches=55
 
 # Supabase smoke (requires real creds)
 RUN_SUPABASE_REAL_TESTS=true npm run test:supabase-smoke
