@@ -100,12 +100,16 @@ const persistAccountsAndLinks = async (
     let accountId = existingLink?.account_id ?? null;
 
     if (accountId) {
+      // The bank's reported figure goes to bank_balance (the reconciliation
+      // reference) ONLY. `balance` is ledger-authoritative — moved exclusively
+      // by the atomic transaction RPCs — so overwriting it here would silently
+      // discard manual entries and break balance = initial_balance + Σtxns
+      // (audit finding #12). See migration 20260613090000 for the invariant.
       const updateResult = await supabase
         .from('accounts')
         .update({
           name: account.name,
           type: account.type,
-          balance: account.balance,
           bank_balance: account.balance,
           currency: account.currency,
           institution: connection.institution_name,

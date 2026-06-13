@@ -302,18 +302,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (insertChunk.length === 0) {
         continue;
       }
-      const insertResult = await supabase
-        .from('transactions')
-        .insert(insertChunk)
-        .select('id');
+      // Atomic import RPC (audit finding #2/#13): each chunk's inserts, the
+      // account balance effect, and the financial_audit_log rows commit in ONE
+      // database transaction — bank imports can no longer create money without
+      // moving the ledger balance or leaving an audit trail. The RPC also
+      // handles the backfill-vs-incremental distinction (see the migration's
+      // invariant doc) and re-dedupes account-scoped as a race backstop.
+      const importResult = await supabase.rpc('import_bank_transactions_atomic', {
+        p_user_id: auth.userId,
+        p_rows: insertChunk
+      });
 
-      if (insertResult.error) {
-        if (isSchemaMismatchError(insertResult.error)) {
+      if (importResult.error) {
+        if (/could not find the function/i.test(importResult.error.message ?? '')) {
+          console.error('[sync-transactions] import RPC missing', {
+            message: importResult.error.message
+          });
+          return createErrorResponse(
+            res,
+            500,
+            'Atomic import RPC missing; apply the bank_sync_atomic_import migration.',
+            'schema_mismatch'
+          );
+        }
+        if (isSchemaMismatchError(importResult.error)) {
           // Log the raw driver error server-side for diagnosis; never return the
           // Supabase error object to the client (it exposes internal schema).
-          console.error('[sync-transactions] schema mismatch on insert', {
-            code: insertResult.error.code,
-            message: insertResult.error.message
+          console.error('[sync-transactions] schema mismatch on import', {
+            code: importResult.error.code,
+            message: importResult.error.message
           });
           return createErrorResponse(
             res,
@@ -322,9 +339,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'schema_mismatch'
           );
         }
-        throw new Error(`Failed to insert transactions: ${insertResult.error.message}`);
+        throw new Error(`Failed to import transactions: ${importResult.error.message}`);
       }
-      insertedCount += insertResult.data?.length ?? 0;
+
+      const summary = importResult.data as { inserted?: number } | null;
+      insertedCount += summary?.inserted ?? 0;
     }
 
     const duplicatesSkipped = prepared.length - insertedCount;
