@@ -55,8 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 400, `Invalid account IDs: ${invalidIds.join(', ')}`, 'invalid_account_ids');
     }
 
-    // Create linked_accounts entries and update bank_balance
-    const nowIso = new Date().toISOString();
+    // Create linked_accounts entries and snap balances to the bank's figures
     let linked = 0;
 
     for (const link of body.links) {
@@ -78,19 +77,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return createErrorResponse(res, 500, `Failed to link account: ${upsertError.message}`, 'internal_error');
       }
 
-      // Update bank_balance on the WealthTracker account
-      const { error: updateError } = await supabase
-        .from('accounts')
-        .update({
-          bank_balance: link.balance,
-          balance: link.balance,
-          updated_at: nowIso
-        })
-        .eq('id', link.accountId)
-        .eq('user_id', auth.userId);
+      // Snap the account to the bank's reported balance via the audited RPC:
+      // it shifts initial_balance by the same delta as balance, so the ledger
+      // invariant (balance = initial_balance + Σtxns) holds through the snap
+      // and the change lands in financial_audit_log. A raw `balance := bank`
+      // overwrite here was audit finding #12.
+      const snapResult = await supabase.rpc('link_bank_account_snap', {
+        p_account_id: link.accountId,
+        p_user_id: auth.userId,
+        p_bank_balance: link.balance
+      });
 
-      if (updateError) {
-        return createErrorResponse(res, 500, `Failed to update account balance: ${updateError.message}`, 'internal_error');
+      if (snapResult.error) {
+        console.error('[link-accounts] balance snap failed', {
+          code: snapResult.error.code,
+          message: snapResult.error.message
+        });
+        return createErrorResponse(res, 500, 'Failed to update account balance', 'internal_error');
       }
 
       linked++;
