@@ -63,8 +63,7 @@ export const TABLES = [
   'sync_history',
   'sync_metadata',
   'webhook_events',
-  'dashboard_layouts',
-  'plaid_connections'
+  'dashboard_layouts'
 ];
 
 const PAGE = 1000;

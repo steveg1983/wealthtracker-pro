@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "./scripts/dev.sh",
     "dev:vite": "vite",
-    "build": "vite build",
+    "build": "node scripts/verify-server-env.mjs && vite build",
     "build:check": "tsc -b && vite build",
     "build:bypass": "vite build --mode production",
     "build:lenient": "tsc -p tsconfig.lenient.json --noEmit && vite build",
