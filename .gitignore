@@ -6,10 +6,16 @@ logs/
 dist/
 .DS_Store
 coverage-final.json
-# Backup directories
+# Backup directories and files — never tracked (CLAUDE.md Rule #2).
+# NOTE: ignore rules don't untrack already-committed files; the 2026-06-13
+# hygiene sweep (audit finding #37) removed ~8.7k pre-ignore stragglers.
 WealthTracker-Backups/
 src.backup.*
 src-backup-*
+*.backup
+*.backup.*
+*.original
+*.bak
 
 # Environment files — never commit secrets
 .env

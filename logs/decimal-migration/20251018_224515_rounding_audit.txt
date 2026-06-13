@@ -1,3 +1,0 @@
-Command: rg "parseFloat|toFixed|Math\.round" apps/web/src | wc -l
-Output: 56
-Note: backups/tests contribute majority of remaining matches.
