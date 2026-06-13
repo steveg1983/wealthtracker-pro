@@ -50,7 +50,7 @@ const UUID_TABLES = [
   'investments', 'transactions', 'budgets', 'goals', 'categories', 'accounts',
   'subscriptions', 'invoices', 'payment_methods', 'subscription_usage',
   'subscription_logs', 'subscription_events', 'bank_connections',
-  'linked_accounts', 'sync_history', 'dashboard_layouts', 'plaid_connections'
+  'linked_accounts', 'sync_history', 'dashboard_layouts'
 ];
 const CLERK_TABLES = [['user_profiles', 'clerk_user_id'], ['recurring_transactions', 'user_id']];
 

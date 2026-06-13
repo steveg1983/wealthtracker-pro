@@ -145,7 +145,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabase = getServiceRoleSupabase();
 
   // Idempotency: subscription_logs.event_id is UNIQUE. A duplicate delivery
-  // hits the conflict and is acknowledged without reprocessing.
+  // hits the conflict — but a conflict alone does NOT mean the event was
+  // handled. The row is inserted processed:false BEFORE handling, so if a
+  // previous attempt threw (e.g. the Clerk-created users row didn't exist
+  // yet), the row sits at processed:false while Stripe retries. Acking those
+  // retries unconditionally permanently dropped the event — a paying
+  // customer's tier was never written (audit finding #6). Only short-circuit
+  // when the prior attempt actually finished (processed:true); otherwise fall
+  // through and reprocess.
   const logInsert = await supabase
     .from('subscription_logs')
     .insert({
@@ -157,14 +164,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (logInsert.error) {
     if (logInsert.error.code === '23505') {
-      // Already received this event — acknowledge so Stripe stops retrying.
-      return res.status(200).json({ received: true, duplicate: true });
+      const existingEvent = await supabase
+        .from('subscription_logs')
+        .select('processed')
+        .eq('event_id', event.id)
+        .maybeSingle();
+
+      if (existingEvent.error) {
+        console.error('[stripe-webhook] Failed to check duplicate event state', {
+          code: existingEvent.error.code,
+          message: existingEvent.error.message
+        });
+        // 500 → Stripe retries; better than guessing the processed state.
+        return res.status(500).json({ error: 'Failed to check event state', code: 'internal_error' });
+      }
+
+      if ((existingEvent.data as { processed: boolean | null } | null)?.processed) {
+        // Genuinely already handled — acknowledge so Stripe stops retrying.
+        return res.status(200).json({ received: true, duplicate: true });
+      }
+      // processed:false → the earlier attempt failed mid-handling. Fall
+      // through and reprocess this retry; the row already exists.
+    } else {
+      console.error('[stripe-webhook] Failed to record event', {
+        code: logInsert.error.code,
+        message: logInsert.error.message
+      });
+      return res.status(500).json({ error: 'Failed to record event', code: 'internal_error' });
     }
-    console.error('[stripe-webhook] Failed to record event', {
-      code: logInsert.error.code,
-      message: logInsert.error.message
-    });
-    return res.status(500).json({ error: 'Failed to record event', code: 'internal_error' });
   }
 
   try {
