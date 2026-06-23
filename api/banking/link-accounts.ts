@@ -77,6 +77,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return createErrorResponse(res, 500, `Failed to link account: ${upsertError.message}`, 'internal_error');
       }
 
+      // Persist the provider-stable bank identifiers on the account (when the
+      // client supplied them) so a future disconnect→reconnect can re-adopt
+      // this account instead of creating a duplicate (see sync-accounts
+      // findAdoptableAccountId). Link time is the primary account-binding path,
+      // so without this the re-adoption key would be missing for manually
+      // linked accounts.
+      const identifierFields: Record<string, string> = {};
+      if (link.sortCode) identifierFields.sort_code = link.sortCode;
+      if (link.accountNumber) identifierFields.account_number = link.accountNumber;
+      if (Object.keys(identifierFields).length > 0) {
+        const { error: idError } = await supabase
+          .from('accounts')
+          .update(identifierFields)
+          .eq('id', link.accountId)
+          .eq('user_id', auth.userId);
+        if (idError) {
+          console.error('[link-accounts] failed to store bank identifiers', {
+            code: idError.code,
+            message: idError.message
+          });
+          return createErrorResponse(res, 500, 'Failed to store account identifiers', 'internal_error');
+        }
+      }
+
       // Snap the account to the bank's reported balance via the audited RPC:
       // it shifts initial_balance by the same delta as balance, so the ledger
       // invariant (balance = initial_balance + Σtxns) holds through the snap

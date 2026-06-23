@@ -167,7 +167,9 @@ export default function LinkBankAccountsModal({
           accountId: sl.selectedAccountId,
           externalAccountName: discovered?.name ?? '',
           externalAccountMask: discovered?.mask,
-          balance: discovered?.balance ?? 0
+          balance: discovered?.balance ?? 0,
+          sortCode: discovered?.sortCode,
+          accountNumber: discovered?.accountNumber
         };
       });
 

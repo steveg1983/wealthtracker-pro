@@ -56,6 +56,10 @@ export interface LinkAccountsRequest {
     externalAccountName: string;
     externalAccountMask?: string;
     balance: number;
+    // Provider-stable bank identifiers, persisted on the account so a future
+    // disconnect→reconnect can re-adopt it instead of creating a duplicate.
+    sortCode?: string;
+    accountNumber?: string;
   }>;
 }
 
