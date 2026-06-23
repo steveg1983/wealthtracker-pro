@@ -16,6 +16,7 @@ import {
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts } from '../_lib/truelayer.js';
+import { selectAdoptableAccountId, type AdoptionCandidate } from '../../src/services/banking/accountMatching.js';
 
 const inferMask = (account: {
   account_number?: {
@@ -35,6 +36,17 @@ const inferMask = (account: {
 
   return undefined;
 };
+
+/** The provider-STABLE identifier (full sort code + account number) from the
+ *  TrueLayer payload. Unlike account_id, these survive a disconnect/reconnect,
+ *  so they are the key used to re-adopt an existing account (see
+ *  findAdoptableAccountId). */
+const extractBankIdentifiers = (account: {
+  account_number?: { number?: string; sort_code?: string };
+}): { accountNumber: string | null; sortCode: string | null } => ({
+  accountNumber: account.account_number?.number?.trim() || null,
+  sortCode: account.account_number?.sort_code?.trim() || null
+});
 
 const mapAccountType = (accountType: string | undefined): string => {
   const normalized = (accountType ?? '').toLowerCase();
@@ -57,12 +69,71 @@ interface SyncedTrueLayerAccount {
   balance: number;
   currency: string;
   mask?: string;
+  accountNumber?: string | null;
+  sortCode?: string | null;
 }
 
 interface LinkedAccountRow {
   account_id: string;
   external_account_id: string;
 }
+
+/**
+ * Reconnect-safe account recovery (audit: a disconnect→reconnect created a
+ * DUPLICATE account). On a fresh connection the linked_accounts mapping is gone
+ * (disconnect hard-deletes the connection, cascade-deleting its links) and
+ * TrueLayer reissues account_id, so neither the per-connection link nor the
+ * external id can locate the user's existing account — the sync then auto-creates
+ * a duplicate. Match instead on the provider-STABLE identifier (sort code +
+ * account number, normalised). Adopt ONLY a single, unambiguous, currently-
+ * UNLINKED candidate, so we never hijack an account managed by another live
+ * connection, never merge two real accounts that merely share a name, and never
+ * touch `balance` (the caller's update path sets bank_balance only).
+ */
+const findAdoptableAccountId = async (
+  supabase: ReturnType<typeof getServiceRoleSupabase>,
+  userId: string,
+  account: SyncedTrueLayerAccount
+): Promise<string | null> => {
+  if (!account.accountNumber || !account.sortCode) {
+    return null; // bank gave no stable identifier — skip the scan entirely
+  }
+
+  // User-scoped only (never a cross-tenant scan): the user's own active accounts
+  // that carry a stored account number.
+  const candidatesResult = await supabase
+    .from('accounts')
+    .select('id, account_number, sort_code')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .not('account_number', 'is', null);
+  if (candidatesResult.error) {
+    throw new Error(`Failed to scan accounts for re-adoption: ${candidatesResult.error.message}`);
+  }
+  const candidates: AdoptionCandidate[] = (candidatesResult.data ?? []).map((row) => ({
+    id: row.id as string,
+    accountNumber: (row.account_number as string | null) ?? null,
+    sortCode: (row.sort_code as string | null) ?? null
+  }));
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  // Which of those candidates are already linked to ANY connection (never adopt
+  // a live-linked account). One query, scoped to the candidate ids.
+  const linksResult = await supabase
+    .from('linked_accounts')
+    .select('account_id')
+    .in('account_id', candidates.map((c) => c.id));
+  if (linksResult.error) {
+    throw new Error(`Failed to check existing links: ${linksResult.error.message}`);
+  }
+  const linkedAccountIds = new Set<string>(
+    (linksResult.data ?? []).map((row) => row.account_id as string)
+  );
+
+  return selectAdoptableAccountId(candidates, linkedAccountIds, account.accountNumber, account.sortCode);
+};
 
 const persistAccountsAndLinks = async (
   supabase: ReturnType<typeof getServiceRoleSupabase>,
@@ -99,6 +170,21 @@ const persistAccountsAndLinks = async (
     const existingLink = linkByExternalAccountId.get(account.externalAccountId);
     let accountId = existingLink?.account_id ?? null;
 
+    // Reconnect recovery: when this external account has no link (a fresh
+    // connection after a disconnect, or TrueLayer reissued the account_id),
+    // re-adopt the user's existing account for the same real bank account
+    // instead of auto-creating a duplicate. Routes through the update branch
+    // below, which sets bank_balance only — never `balance` — so no double-count.
+    if (!accountId) {
+      accountId = await findAdoptableAccountId(supabase, userId, account);
+    }
+
+    // Stable bank identifiers, stored so future reconnects can re-adopt this
+    // account (only overwrite when the bank actually supplied them).
+    const identifierFields: Record<string, string> = {};
+    if (account.accountNumber) identifierFields.account_number = account.accountNumber;
+    if (account.sortCode) identifierFields.sort_code = account.sortCode;
+
     if (accountId) {
       // The bank's reported figure goes to bank_balance (the reconciliation
       // reference) ONLY. `balance` is ledger-authoritative — moved exclusively
@@ -114,7 +200,8 @@ const persistAccountsAndLinks = async (
           currency: account.currency,
           institution: connection.institution_name,
           is_active: true,
-          updated_at: nowIso
+          updated_at: nowIso,
+          ...identifierFields
         })
         .eq('id', accountId)
         .eq('user_id', userId)
@@ -151,7 +238,8 @@ const persistAccountsAndLinks = async (
           institution: connection.institution_name,
           is_active: true,
           created_at: nowIso,
-          updated_at: nowIso
+          updated_at: nowIso,
+          ...identifierFields
         })
         .select('id')
         .single();
@@ -241,13 +329,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Balance endpoint failures should not block account discovery.
           }
 
+          const identifiers = extractBankIdentifiers(account);
           return {
             externalAccountId: account.account_id,
             name: account.display_name?.trim() || connection.institution_name,
             type: mapAccountType(account.account_type),
             balance,
             currency: account.currency || 'GBP',
-            mask: inferMask(account)
+            mask: inferMask(account),
+            accountNumber: identifiers.accountNumber,
+            sortCode: identifiers.sortCode
           };
         })
       );
