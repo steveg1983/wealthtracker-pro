@@ -1,0 +1,138 @@
+name: Nightly DB Backup
+
+# Automated off-platform backup (AUDIT_2026-06-12_DEEP_REAUDIT.md finding #24:
+# "DR scripts are manual-only, RPO unbounded"). Runs scripts/backup-database.mjs
+# nightly and keeps the dump as a workflow artifact for 30 days, bounding RPO
+# at ~24h independent of Supabase's own platform backups/PITR.
+#
+# SECURITY — this repository is PUBLIC, and artifacts on public repos are
+# downloadable by any GitHub user. The dump therefore contains real financial
+# data and is NEVER uploaded in the clear: it is tarred and encrypted with
+# AES-256-CBC (openssl, PBKDF2 200k iterations, explicit -md sha256 so
+# OpenSSL/LibreSSL agree) using the BACKUP_ENCRYPTION_KEY secret, and the
+# plaintext is removed from the runner before upload. Every run decrypt-lists
+# the ciphertext before uploading, so a green run proves the artifact is
+# restorable with the configured key.
+#
+# BACKUP_ENCRYPTION_KEY is the ENTIRE confidentiality boundary for a publicly
+# downloadable artifact: it MUST be high-entropy (generated with
+# `openssl rand -base64 32`; never a human passphrase). It lives in .env.local
+# and the password manager. Rotating it does NOT revoke ciphertexts already
+# published (up to ~30 artifacts live at once).
+#
+# RESTORE (from an artifact):
+#   1. Download + unzip the artifact → backup-<stamp>.tar.gz.enc
+#   2. export BACKUP_ENCRYPTION_KEY=...   # from .env.local / password manager
+#      mkdir -p backups/db
+#      openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 \
+#        -in backup-<stamp>.tar.gz.enc -pass env:BACKUP_ENCRYPTION_KEY \
+#        | tar xz -C backups/db
+#   3. node scripts/restore-database.mjs --dir=backups/db/<stamp> [--apply]
+#
+# Missing credentials FAIL loudly (exit 1) — a backup job that silently skips
+# is worse than a red run (same principle as supabase-smoke.yml). Likewise a
+# backup of ZERO rows fails: it means the credentials point at the wrong or an
+# empty project, and uploading a manifest-only artifact as "green" would defeat
+# the purpose.
+#
+# Alerting: a failed run turns this workflow red and GitHub emails the repo
+# owner (default notification settings) — the dead-man's-switch for backups.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 4 * * *" # daily, offset from supabase-smoke (02:30) and Vercel crons
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database backup
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Supabase credentials not set — backup cannot run. Failing loudly instead of skipping to a false green."
+            exit 1
+          fi
+          npm run backup:db
+
+      - name: Encrypt and verify backup (public repo — never upload plaintext)
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          # pipefail is CRITICAL here: without it a tar failure mid-pipe is
+          # masked by openssl's exit 0 and a truncated ciphertext would upload
+          # from a green run after the plaintext has been removed.
+          set -euo pipefail
+          if [ -z "$BACKUP_ENCRYPTION_KEY" ]; then
+            echo "::error::BACKUP_ENCRYPTION_KEY secret not set — refusing to upload an unencrypted dump."
+            exit 1
+          fi
+
+          STAMP=$(ls -1 backups/db | sort | tail -1)
+          if [ -z "$STAMP" ]; then
+            echo "::error::No backup directory produced."
+            exit 1
+          fi
+
+          # Guard against a green-but-empty backup (wrong/empty project: every
+          # table "skips", the script exits 0, and the artifact would be a
+          # manifest with zero rows).
+          TOTAL_ROWS=$(node -e "
+            const m = require('./backups/db/${STAMP}/manifest.json');
+            console.log(Object.values(m.tables ?? {}).reduce((s, t) => s + (t.rows ?? 0), 0));
+          ")
+          echo "Backed up rows: ${TOTAL_ROWS}"
+          if [ "$TOTAL_ROWS" -eq 0 ]; then
+            echo "::error::Backup contains ZERO rows — credentials likely point at the wrong project. Refusing to upload an empty backup as success."
+            exit 1
+          fi
+
+          tar czf - -C backups/db "$STAMP" \
+            | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 \
+                -pass env:BACKUP_ENCRYPTION_KEY \
+                -out "backup-${STAMP}.tar.gz.enc"
+
+          # Prove the uploaded bytes are restorable with the configured key:
+          # decrypt and list the archive. A key mismatch or truncation fails here,
+          # BEFORE the plaintext is removed and BEFORE anything is uploaded.
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 \
+              -pass env:BACKUP_ENCRYPTION_KEY \
+              -in "backup-${STAMP}.tar.gz.enc" \
+            | tar tz > /dev/null
+          echo "Decrypt-verify passed."
+
+          # Plaintext must not survive to any later step (ephemeral runner, but
+          # belt-and-braces before the upload step).
+          rm -rf backups
+
+          sha256sum "backup-${STAMP}.tar.gz.enc"
+          echo "STAMP=${STAMP}" >> "$GITHUB_ENV"
+
+      - name: Upload encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ env.STAMP }}
+          path: backup-*.tar.gz.enc
+          retention-days: 30
+          if-no-files-found: error
