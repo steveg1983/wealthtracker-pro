@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { getStripe, getTierForPriceId, mapStripeStatus } from '../_lib/stripe.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv } from '../_lib/env.js';
+import { captureServerError } from '../_lib/sentry.js';
 
 /**
  * Daily reconciliation between Stripe (source of truth) and the local
@@ -41,6 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (error) {
     console.error('[stripe-reconcile] DB read failed', { code: error.code, message: error.message });
+    await captureServerError(new Error(`reconcile DB read failed: ${error.message}`), {
+      cron: 'stripe-reconcile',
+      code: error.code
+    });
     return res.status(500).json({ error: 'Failed to load subscriptions', code: 'internal_error' });
   }
 
@@ -110,5 +115,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   console.log('[stripe-reconcile] Complete', { checked, corrected, failures: failures.length });
+  if (failures.length > 0) {
+    // Subscriptions that couldn't be reconciled = latent entitlement drift.
+    await captureServerError(new Error(`reconcile completed with ${failures.length} failure(s)`), {
+      cron: 'stripe-reconcile',
+      checked,
+      corrected,
+      failureCount: failures.length
+    });
+  }
   return res.status(200).json({ checked, corrected, failures });
 }

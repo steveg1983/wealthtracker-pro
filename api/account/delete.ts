@@ -5,6 +5,7 @@ import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv, getOptionalEnv } from '../_lib/env.js';
 import { getStripe } from '../_lib/stripe.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
+import { captureServerError } from '../_lib/sentry.js';
 
 /**
  * Self-service account deletion — GDPR Art. 17 (right to erasure).
@@ -138,6 +139,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('id', userRow.id);
       if (userErr) {
         console.error('[account-delete] users row deletion failed', { clerkUserId, message: userErr.message });
+        // GDPR erasure failure — must be seen and followed up.
+        await captureServerError(new Error(`account erasure failed: ${userErr.message}`), {
+          handler: 'account-delete',
+          code: userErr.code
+        });
         return res.status(500).json({
           error: 'Data deletion failed — please retry or contact support',
           code: 'deletion_failed'
@@ -166,6 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ success: true });
   } catch (error) {
     console.error('[account-delete] Unexpected error', error);
+    await captureServerError(error, { handler: 'account-delete' });
     return res.status(500).json({ error: 'Account deletion failed', code: 'internal_error' });
   }
 }

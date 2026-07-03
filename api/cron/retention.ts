@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv, getOptionalEnv } from '../_lib/env.js';
+import { captureServerError } from '../_lib/sentry.js';
 
 /**
  * Weekly data-retention enforcement (GDPR Art. 5(1)(e)).
@@ -35,6 +36,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (error) {
     console.error('[retention] Purge failed', { code: error.code, message: error.message });
+    // Cron health is otherwise unobservable (audit #35): alert on any failure.
+    await captureServerError(new Error(`retention purge failed: ${error.message}`), {
+      cron: 'retention',
+      code: error.code
+    });
     return res.status(500).json({ error: 'Retention purge failed', code: 'internal_error' });
   }
 

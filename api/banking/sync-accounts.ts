@@ -7,6 +7,7 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
+import { captureServerError } from '../_lib/sentry.js';
 import {
   getUserTrueLayerConnection,
   isReauthRequiredError,
@@ -377,6 +378,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Keep the detailed message server-side; return a generic one to the client.
     console.error('[sync-accounts] sync failed', { message });
     const needsReauth = isReauthRequiredError(error);
+    if (!needsReauth) {
+      await captureServerError(error, { handler: 'sync-accounts' });
+    }
     const body = req.body as SyncAccountsRequest | undefined;
     if (body?.connectionId) {
       const sb = getServiceRoleSupabase();
