@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { getStripe, getTierForPriceId, mapStripeStatus } from '../_lib/stripe.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv } from '../_lib/env.js';
+import { captureServerError } from '../_lib/sentry.js';
 
 // Stripe signature verification requires the RAW request body — disable
 // Vercel's automatic JSON parsing for this route.
@@ -238,6 +239,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'processing failed';
     console.error('[stripe-webhook] Event processing failed', { type: event.type, message });
+    // A failed webhook can strand a paying customer's tier — make it visible.
+    await captureServerError(error, { handler: 'stripe-webhook', eventType: event.type, eventId: event.id });
     await supabase
       .from('subscription_logs')
       .update({ error_message: message })

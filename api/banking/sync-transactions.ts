@@ -7,6 +7,7 @@ import type {
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
+import { captureServerError } from '../_lib/sentry.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import {
@@ -378,6 +379,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Reauthorize CTA instead of a Sync button that will always fail (#21/#22).
     const needsReauth = isReauthRequiredError(error);
     const body = req.body as SyncTransactionsRequest | undefined;
+    // needs-reauth is an expected user-action state, not a system fault — only
+    // report genuine failures.
+    if (!needsReauth) {
+      await captureServerError(error, { handler: 'sync-transactions' });
+    }
     if (body?.connectionId) {
       const sb = getServiceRoleSupabase();
       if (needsReauth) {

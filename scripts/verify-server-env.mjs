@@ -44,7 +44,8 @@ const EXPECTED = [
   'TRUELAYER_CLIENT_ID',
   'TRUELAYER_CLIENT_SECRET',
   'TRUELAYER_REDIRECT_URI',
-  'ENCRYPTION_KEY'
+  'ENCRYPTION_KEY',
+  'SENTRY_DSN'
 ];
 
 // Vars that must NOT exist: VITE_-prefixed secrets get inlined into the
