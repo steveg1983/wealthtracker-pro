@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type Stripe from 'stripe';
 import { getStripe, getTierForPriceId, mapStripeStatus } from '../_lib/stripe.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
-import { getRequiredEnv } from '../_lib/env.js';
+import { getRequiredEnv, getOptionalEnv } from '../_lib/env.js';
 import { captureServerError } from '../_lib/sentry.js';
 
 /**
@@ -28,6 +28,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cronSecret = getRequiredEnv('CRON_SECRET');
   if (authHeader !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized', code: 'unauthorized' });
+  }
+
+  // Stripe is an optional/known-pending integration. When it isn't configured,
+  // getStripe() would throw getRequiredEnv('STRIPE_SECRET_KEY') OUTSIDE the
+  // try/catch below — an unhandled crash (FUNCTION_INVOCATION_FAILED) that also
+  // bypasses Sentry capture. There are no subscriptions to reconcile without
+  // Stripe, so skip cleanly (green cron) rather than crash daily.
+  if (!getOptionalEnv('STRIPE_SECRET_KEY')) {
+    console.warn('[stripe-reconcile] STRIPE_SECRET_KEY not configured — skipping reconciliation');
+    return res.status(200).json({ skipped: 'stripe_not_configured', checked: 0, corrected: 0, failures: [] });
   }
 
   const stripe = getStripe();
