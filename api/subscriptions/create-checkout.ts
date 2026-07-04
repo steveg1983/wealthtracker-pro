@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed', code: 'method_not_allowed' });
   }
 
-  if (applyRateLimit(req, res, { name: 'create-checkout', limit: 10, windowMs: 60_000 })) {
+  if (await applyRateLimit(req, res, { name: 'create-checkout', limit: 10, windowMs: 60_000 })) {
     return;
   }
 

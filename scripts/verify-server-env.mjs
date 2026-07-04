@@ -45,7 +45,10 @@ const EXPECTED = [
   'TRUELAYER_CLIENT_SECRET',
   'TRUELAYER_REDIRECT_URI',
   'ENCRYPTION_KEY',
-  'SENTRY_DSN'
+  'SENTRY_DSN',
+  // Shared-store rate limiter (Upstash / Vercel KV) — in-memory fallback when absent.
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN'
 ];
 
 // Vars that must NOT exist: VITE_-prefixed secrets get inlined into the
