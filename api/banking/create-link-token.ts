@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (applyRateLimit(req, res, { name: 'link-token', limit: 10, windowMs: 60_000 })) {
+  if (await applyRateLimit(req, res, { name: 'link-token', limit: 10, windowMs: 60_000 })) {
     return;
   }
 
