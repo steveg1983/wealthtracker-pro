@@ -73,6 +73,7 @@ const main = async () => {
 
   const started = Date.now();
   let totalRestored = 0;
+  let failedChunks = 0;
 
   for (const table of TABLES) {
     if (onlyTable && table !== onlyTable) continue;
@@ -102,17 +103,27 @@ const main = async () => {
       const { error } = await supabase.from(table).upsert(chunk, { onConflict: 'id' });
       if (error) {
         console.log(`  ✗ ${table.padEnd(26)} chunk ${i / CHUNK}: ${error.message}`);
+        failedChunks += 1;
         continue;
       }
       restored += chunk.length;
     }
     totalRestored += restored;
-    console.log(`  ✓ ${table.padEnd(26)} restored ${restored}/${rows.length} rows`);
+    const mark = restored === rows.length ? '✓' : '⚠';
+    console.log(`  ${mark} ${table.padEnd(26)} restored ${restored}/${rows.length} rows`);
   }
 
   console.log(`\n${apply ? 'Restored' : 'Would restore'}: ${totalRestored} rows in ${Date.now() - started} ms`);
   if (!apply && totalRestored > 0) console.log('Re-run with --apply to write.');
   if (apply) console.log('Run npm run audit:data to verify the accounting invariant after restore.');
+
+  // A partial restore must NEVER exit 0 (the false-green the backup-side review
+  // flagged): in a DR scenario a green exit is read as "data is back", and a
+  // silently missing chunk of transactions breaks the ledger invariant.
+  if (failedChunks > 0) {
+    console.error(`\n✗ INCOMPLETE RESTORE: ${failedChunks} chunk(s) failed — data is PARTIAL. Fix the errors above and re-run.`);
+    process.exit(2);
+  }
 };
 
 main().catch((err) => {

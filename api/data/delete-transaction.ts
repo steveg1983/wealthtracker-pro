@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
+import { withSentry } from '../_lib/sentry.js';
 
 interface ErrorResponse {
   error: string;
@@ -26,7 +27,7 @@ const createErrorResponse = (
   return res.status(status).json(payload);
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -76,3 +77,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return createErrorResponse(res, 500, 'Unexpected error', 'internal_error');
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

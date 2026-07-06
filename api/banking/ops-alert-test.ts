@@ -8,6 +8,7 @@ import { requireBankingOpsAdmin } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
+import { withSentry } from '../_lib/sentry.js';
 
 const TEST_EVENT_TYPE = 'banking.ops_alert_test';
 
@@ -19,7 +20,7 @@ const relationMissing = (error: unknown): boolean => {
   return candidate.code === '42P01';
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -91,3 +92,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return createErrorResponse(res, 500, message, 'internal_error');
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

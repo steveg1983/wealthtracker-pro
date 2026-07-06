@@ -7,7 +7,7 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
-import { captureServerError } from '../_lib/sentry.js';
+import { captureServerError, withSentry } from '../_lib/sentry.js';
 import {
   getUserTrueLayerConnection,
   isReauthRequiredError,
@@ -291,7 +291,7 @@ const persistAccountsAndLinks = async (
   }
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -404,3 +404,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : createErrorResponse(res, 500, 'Account sync failed', 'internal_error');
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

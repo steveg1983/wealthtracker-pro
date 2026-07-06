@@ -9,6 +9,7 @@ import { requireBankingOpsAdmin } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
+import { withSentry } from '../_lib/sentry.js';
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 200;
@@ -102,7 +103,7 @@ const mapAuditRow = (row: DeadLetterAuditDbRow): DeadLetterAdminAuditRow => ({
   completedAt: row.completed_at
 });
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -250,3 +251,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return createErrorResponse(res, 500, message, 'internal_error');
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

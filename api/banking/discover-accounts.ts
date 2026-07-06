@@ -13,6 +13,7 @@ import {
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts } from '../_lib/truelayer.js';
+import { withSentry } from '../_lib/sentry.js';
 
 const mapAccountType = (accountType: string | undefined): string => {
   const normalized = (accountType ?? '').toLowerCase();
@@ -28,7 +29,7 @@ const mapAccountType = (accountType: string | undefined): string => {
   }
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -103,3 +104,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return createErrorResponse(res, 500, message, 'internal_error');
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

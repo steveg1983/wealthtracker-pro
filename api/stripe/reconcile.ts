@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { getStripe, getTierForPriceId, mapStripeStatus } from '../_lib/stripe.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv, getOptionalEnv } from '../_lib/env.js';
-import { captureServerError } from '../_lib/sentry.js';
+import { captureServerError, withSentry } from '../_lib/sentry.js';
 
 /**
  * Daily reconciliation between Stripe (source of truth) and the local
@@ -21,7 +21,7 @@ interface SubscriptionRow {
   cancel_at_period_end: boolean | null;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = Array.isArray(req.headers.authorization)
     ? req.headers.authorization[0]
     : req.headers.authorization ?? '';
@@ -136,3 +136,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   return res.status(200).json({ checked, corrected, failures });
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);
