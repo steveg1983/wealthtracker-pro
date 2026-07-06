@@ -89,9 +89,10 @@ export default function Reports() {
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
 
+    // Expenses are stored signed (negative); aggregate as a positive magnitude
     const expensesDecimal = filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+      .reduce((sum, t) => sum.plus(Math.abs(t.amount)), toDecimal(0));
 
     const netIncomeDecimal = incomeDecimal.minus(expensesDecimal);
     const savingsRateDecimal = incomeDecimal.gt(0)
@@ -128,7 +129,8 @@ export default function Reports() {
       .reduce<Record<string, DecimalInstance>>((acc, t) => {
         const key = t.category || 'Uncategorized';
         const current = acc[key] ?? toDecimal(0);
-        acc[key] = current.plus(t.amount);
+        // Expenses are stored signed (negative); totals must be positive magnitudes
+        acc[key] = current.plus(Math.abs(t.amount));
         return acc;
       }, {});
 
@@ -147,6 +149,7 @@ export default function Reports() {
     const monthlyData: Record<string, { income: DecimalInstance; expenses: DecimalInstance }> = {};
 
     filteredTransactions.forEach(t => {
+      if (t.type !== 'income' && t.type !== 'expense') return;
       const monthKey = new Date(t.date).toISOString().slice(0, 7);
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { income: toDecimal(0), expenses: toDecimal(0) };
@@ -155,7 +158,8 @@ export default function Reports() {
       if (t.type === 'income') {
         monthlyData[monthKey].income = monthlyData[monthKey].income.plus(t.amount);
       } else {
-        monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.plus(t.amount);
+        // Expenses are stored signed (negative); plot as positive magnitudes
+        monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.plus(Math.abs(t.amount));
       }
     });
 
@@ -183,7 +187,8 @@ export default function Reports() {
         .reduce<Record<string, DecimalInstance>>((acc, t) => {
           const key = t.category || 'Uncategorized';
           const current = acc[key] ?? toDecimal(0);
-          acc[key] = current.plus(t.amount);
+          // Expenses are stored signed (negative); totals must be positive magnitudes
+          acc[key] = current.plus(Math.abs(t.amount));
           return acc;
         }, {});
 
@@ -210,7 +215,7 @@ export default function Reports() {
         summary,
         categoryBreakdown,
         topTransactions: filteredTransactions
-          .sort((a, b) => b.amount - a.amount)
+          .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
           .slice(0, 10),
         chartElements: includeCharts && chartRef1.current && chartRef2.current
           ? [chartRef1.current, chartRef2.current]
@@ -433,7 +438,7 @@ export default function Reports() {
         <div className="block sm:hidden">
           <div className="space-y-3">
             {filteredTransactions
-              .sort((a, b) => b.amount - a.amount)
+              .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
               .slice(0, 10)
               .map((transaction) => (
                 <div key={transaction.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2">
@@ -448,7 +453,8 @@ export default function Reports() {
                     <p className={`text-lg font-semibold ${
                       transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                      {/* Amounts are stored signed; derive the sign from the value so incoming transfers show '+' */}
+                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
                     </p>
                   </div>
                 </div>
@@ -469,7 +475,7 @@ export default function Reports() {
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredTransactions
-                .sort((a, b) => b.amount - a.amount)
+                .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
                 .slice(0, 10)
                 .map((transaction) => (
                   <tr key={transaction.id}>
@@ -485,7 +491,8 @@ export default function Reports() {
                     <td className={`px-4 py-3 text-sm text-right font-medium ${
                       transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                      {/* Amounts are stored signed; derive the sign from the value so incoming transfers show '+' */}
+                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
                     </td>
                   </tr>
                 ))}

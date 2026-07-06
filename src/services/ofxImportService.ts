@@ -236,20 +236,19 @@ export class OFXImportService {
    * Convert OFX transaction type to our transaction type
    */
   private getTransactionType(ofxType: string, amount: number): 'income' | 'expense' {
-    // Positive amounts are usually income, negative are expenses
+    // Signed convention: the signed TRNAMT is authoritative. A negative amount
+    // is money OUT even when TRNTYPE is CREDIT/DEP/INT/DIV (e.g. a reversed
+    // credit), and a positive amount is money IN even when TRNTYPE is DEBIT.
+    if (amount < 0) {
+      return 'expense';
+    }
     if (amount > 0) {
       return 'income';
     }
-    
-    // Check OFX transaction types
+
+    // Zero/ambiguous amount: let the OFX transaction type break the tie.
     const incomeTypes = ['CREDIT', 'DEP', 'INT', 'DIV'];
-    const _expenseTypes = ['DEBIT', 'CHECK', 'PAYMENT', 'CASH', 'FEE'];
-
-    if (incomeTypes.includes(ofxType)) {
-      return 'income';
-    }
-
-    return 'expense';
+    return incomeTypes.includes(ofxType) ? 'income' : 'expense';
   }
   
   /**
@@ -343,7 +342,9 @@ export class OFXImportService {
         }
       }
       
-      const amount = Math.abs(ofxTrx.amount);
+      // Signed convention: OFX TRNAMT is already signed at the source
+      // (debits negative, credits positive), so store the signed value directly.
+      const amount = ofxTrx.amount;
       const type = this.getTransactionType(ofxTrx.type, ofxTrx.amount);
       
       // Build description

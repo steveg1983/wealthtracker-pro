@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { UploadIcon } from './icons/UploadIcon';
 import { parseMoneyInput } from '../utils/decimal';
+import { signTransactionAmount } from '../utils/transactionAmount';
 import { FileTextIcon } from './icons/FileTextIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
@@ -25,6 +26,8 @@ interface ParsedTransaction {
   type: 'income' | 'expense';
   category: string;
   payee?: string;
+  /** Parser-resolved source account; used to route the import to the right account. */
+  accountName?: string;
 }
 
 interface ParsedAccount {
@@ -86,37 +89,52 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     // Extract transactions
     const transactionRegex = /<STMTTRN>[\s\S]*?<\/STMTTRN>/g;
     const transactionMatches = content.match(transactionRegex) || [];
-    
+    let skippedCount = 0;
+
     for (const trans of transactionMatches) {
       const typeMatch = trans.match(/<TRNTYPE>([^<]+)/);
       const dateMatch = trans.match(/<DTPOSTED>([^<]+)/);
       const amountMatch = trans.match(/<TRNAMT>([^<]+)/);
       const nameMatch = trans.match(/<NAME>([^<]+)/);
       const memoMatch = trans.match(/<MEMO>([^<]+)/);
-      
+
       if (dateMatch && amountMatch) {
         const dateStr = dateMatch[1];
         const year = parseInt(dateStr.substring(0, 4));
         const month = parseInt(dateStr.substring(4, 6));
         const day = parseInt(dateStr.substring(6, 8));
-        
-        const amount = parseMoneyInput(amountMatch[1]) ?? NaN;
+
+        const amount = parseMoneyInput(amountMatch[1]);
+        if (amount === null) {
+          // An unparseable TRNAMT would import as NaN and poison every
+          // raw-sum balance downstream — skip the row and report it.
+          skippedCount++;
+          logger.warn?.('Skipping OFX transaction with unparseable amount', { raw: amountMatch[1] });
+          continue;
+        }
         const description = nameMatch?.[1] || memoMatch?.[1] || 'Imported transaction';
-        const type = amount < 0 ? 'expense' : 'income';
-        
+        // SIGNED CONVENTION: store a signed amount (expense negative, income
+        // positive). OFX TRNAMT is already source-signed; signTransactionAmount
+        // re-derives the sign from the resolved type (idempotent here).
+        const type: 'income' | 'expense' = amount < 0 ? 'expense' : 'income';
+
         transactions.push({
           date: new Date(year, month - 1, day),
-          amount: Math.abs(amount),
+          amount: signTransactionAmount(amount, type),
           description,
           type,
-          category: typeMatch?.[1] || 'Other'
+          category: typeMatch?.[1] || 'Other',
+          accountName
         });
       }
     }
-    
+
     return {
       accounts: Array.from(accountsMap.values()),
-      transactions
+      transactions,
+      ...(skippedCount > 0
+        ? { warning: `Skipped ${skippedCount} transaction(s) with unreadable amounts` }
+        : {})
     };
   };
 
@@ -273,18 +291,23 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           lastUpdated: new Date()
         };
         logger.info?.('Adding account', newAccount);
-        addAccount(newAccount);
-        accountMap.set(account.name, `imported-${Date.now()}`);
+        const createdAccount = await addAccount(newAccount);
+        accountMap.set(account.name, createdAccount.id);
       }
-      
-      // Import transactions
+
+      // Import transactions, routing each to the account the parser resolved
+      // for it. Writing everything to accounts[0] double-counts multi-account
+      // imports; fall back to the first account only when unresolvable.
       const defaultAccountId = accounts[0]?.id || 'default';
       logger.info?.('Importing transactions', { count: preview.transactions.length });
-      
+
       for (const transaction of preview.transactions) {
+        const { accountName, ...transactionFields } = transaction;
+        const resolvedAccountId =
+          (accountName ? accountMap.get(accountName) : undefined) ?? defaultAccountId;
         addTransaction({
-          ...transaction,
-          accountId: defaultAccountId,
+          ...transactionFields,
+          accountId: resolvedAccountId,
         });
       }
       

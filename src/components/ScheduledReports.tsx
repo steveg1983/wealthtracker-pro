@@ -194,9 +194,10 @@ export default function ScheduledReports() {
           .filter(t => t.type === 'income')
           .reduce((sum, t) => sum + t.amount, 0);
         
+        // Expenses are stored signed (negative); totals report the positive magnitude
         const expenses = filteredTransactions
           .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + t.amount, 0);
+          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
         const summary = `
 Financial Report: ${report.name}
@@ -215,7 +216,8 @@ ${Object.entries(
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
       const category = categories.find(c => c.id === t.category)?.name || 'Uncategorized';
-      acc[category] = (acc[category] || 0) + t.amount;
+      // Accumulate magnitudes so the descending sort ranks biggest spend first
+      acc[category] = (acc[category] || 0) + Math.abs(t.amount);
       return acc;
     }, {} as Record<string, number>)
 )
@@ -255,9 +257,10 @@ ${Object.entries(
                   income: filteredTransactions
                     .filter(t => t.type === 'income')
                     .reduce((sum, t) => sum + t.amount, 0),
+                  // Signed convention: expenses are stored negative, report the magnitude
                   expenses: filteredTransactions
                     .filter(t => t.type === 'expense')
-                    .reduce((sum, t) => sum + t.amount, 0),
+                    .reduce((sum, t) => sum + Math.abs(t.amount), 0),
                   netIncome: 0,
                   savingsRate: 0
                 },

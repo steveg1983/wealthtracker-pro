@@ -120,8 +120,10 @@ class CashFlowForecastService {
     const frequency = this.detectFrequency(intervals);
     if (!frequency) return null;
     
-    // Calculate average amount
-    const avgAmount = sorted.reduce((sum, t) => sum + t.amount, 0) / sorted.length;
+    // Calculate average amount as a magnitude — transactions store signed
+    // amounts (expenses negative) but pattern.amount is applied by type in
+    // generateProjections (income added, expenses subtracted)
+    const avgAmount = sorted.reduce((sum, t) => sum + Math.abs(t.amount), 0) / sorted.length;
     
     // Calculate confidence based on consistency
     const avgInterval = intervals.reduce((sum, i) => sum + i, 0) / intervals.length;
@@ -385,7 +387,8 @@ class CashFlowForecastService {
       if (transaction.type === 'income') {
         current.income = current.income.plus(toDecimal(transaction.amount));
       } else if (transaction.type === 'expense') {
-        current.expenses = current.expenses.plus(toDecimal(transaction.amount));
+        // Expense amounts are stored signed (negative); trend is a magnitude
+        current.expenses = current.expenses.plus(toDecimal(transaction.amount).abs());
       }
       
       monthCounts.set(month, (monthCounts.get(month) || 0) + 1);

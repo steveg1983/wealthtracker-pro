@@ -110,7 +110,8 @@ export default function BudgetRollover() {
           t.date >= startDate &&
           t.date <= endDate
         )
-        .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+        // Expense amounts are stored signed (negative); sum magnitudes for spend.
+        .reduce((sum, t) => sum.plus(t.amount.abs()), toDecimal(0));
 
       const remaining = budgetAmount.minus(spent);
       const isExcluded = exclusionSet.has(categoryId) || exclusionSet.has(categoryName);

@@ -56,11 +56,12 @@ describe('pdfExport', () => {
     { id: '2', name: 'Savings', type: 'savings', balance: 5000, currency: 'GBP' }
   ];
 
+  // Transactions store SIGNED amounts: expenses are negative, income positive
   const mockTransactions: Transaction[] = [
     {
       id: '1',
       date: '2024-01-15',
-      amount: 100,
+      amount: -100,
       description: 'Grocery Shopping at Local Market',
       type: 'expense',
       category: 'Food',
@@ -78,7 +79,7 @@ describe('pdfExport', () => {
     {
       id: '3',
       date: '2024-01-17',
-      amount: 50,
+      amount: -50,
       description: 'Coffee Shop',
       type: 'expense',
       category: 'Dining',
@@ -276,7 +277,7 @@ describe('pdfExport', () => {
       const longDescTransaction: Transaction = {
         id: '4',
         date: '2024-01-18',
-        amount: 75,
+        amount: -75,
         description: 'This is a very long transaction description that should be truncated in the PDF report',
         type: 'expense',
         category: 'Misc',
@@ -327,7 +328,7 @@ describe('pdfExport', () => {
       const manyTransactions = Array(20).fill(null).map((_, i) => ({
         id: `trans-${i}`,
         date: '2024-01-01',
-        amount: 100,
+        amount: -100,
         description: `Transaction ${i}`,
         type: 'expense' as const,
         category: 'Test',
@@ -342,8 +343,8 @@ describe('pdfExport', () => {
       await generatePDFReport(reportWithManyTrans, mockAccounts);
 
       // Count how many transaction descriptions were rendered
-      const transactionCalls = (mockText as any).mock.calls.filter((call: any[]) => 
-        call[0].startsWith('Transaction ')
+      const transactionCalls = mockText.mock.calls.filter(
+        (call) => typeof call[0] === 'string' && call[0].startsWith('Transaction ')
       );
       expect(transactionCalls).toHaveLength(10);
     });

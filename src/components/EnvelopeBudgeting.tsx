@@ -64,7 +64,8 @@ export default function EnvelopeBudgeting() {
           t.date.toISOString().startsWith(currentMonth) &&
           t.category === budget.categoryId
         )
-        .reduce((sum: DecimalInstance, t: DecimalTransaction) => sum.plus(t.amount), toDecimal(0));
+        // Expense amounts are stored signed (negative); sum magnitudes for spend.
+        .reduce((sum: DecimalInstance, t: DecimalTransaction) => sum.plus(t.amount.abs()), toDecimal(0));
       
       const remainingAmount = budgetedAmount.minus(spentAmount);
       const isOverspent = remainingAmount.lessThan(0);

@@ -39,13 +39,6 @@
     "src/**/*.cy.ts",
     "src/**/*.cy.tsx",
     "src/**/__tests__/**",
-    "src/test/**",
-    "src/TestApp.tsx",
-    "src/BasicTest.tsx",
-    "src/ImportTest.tsx",
-    "src/SimpleApp.tsx",
-    "src/AppDebug.tsx",
-    "src/AppSimple.tsx",
-    "src/AppStepByStep.tsx"
+    "src/test/**"
   ]
 }

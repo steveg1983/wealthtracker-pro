@@ -512,9 +512,11 @@ class AnalyticsEngine {
           .filter(t => t.type === 'income')
           .reduce((sum, t) => sum + t.amount, 0);
       case 'expenses':
+        // Amounts are signed (expenses negative); the metric is a positive
+        // spending magnitude so 'net' below stays income - |expenses|
         return transactions
           .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + t.amount, 0);
+          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
       case 'net': {
         const income = this.calculateMetric(transactions, 'income');
         const expenses = this.calculateMetric(transactions, 'expenses');

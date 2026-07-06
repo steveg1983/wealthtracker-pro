@@ -237,6 +237,71 @@ PTest Transaction
       expect(result.accountType).toBeUndefined();
       expect(result.transactions).toHaveLength(1);
     });
+
+    it('skips !Account header blocks instead of parsing their fields as a transaction', () => {
+      // Regression: inside an !Account block, 'N' is the account NAME, 'T' the
+      // account TYPE (e.g. "Bank") and '$' the balance. The parser used to feed
+      // "Bank" into the amount parser and crash with a DecimalError, so QIF
+      // files with account headers — including WealthTracker's own exports —
+      // could never be re-imported.
+      const qifWithAccountHeader = `!Account
+NEveryday Checking
+TBank
+$-250.50
+^
+!Type:Bank
+D01/15/2024
+T-54.99
+PCoffee beans
+LFood
+^
+D01/20/2024
+T100.00
+PCashback rebate
+LRewards
+^`;
+
+      const result = qifImportService.parseQIF(qifWithAccountHeader);
+
+      expect(result.accountType).toBe('Bank');
+      // Only the two real transactions — no phantom row from the header block
+      expect(result.transactions).toHaveLength(2);
+      expect(result.transactions[0]).toEqual({
+        date: '2024-01-15',
+        amount: -54.99,
+        payee: 'Coffee beans',
+        category: 'Food'
+      });
+      expect(result.transactions[1]).toEqual({
+        date: '2024-01-20',
+        amount: 100,
+        payee: 'Cashback rebate',
+        category: 'Rewards'
+      });
+    });
+
+    it('does not leak account-header fields into the first transaction when the header block is unterminated', () => {
+      // Some exporters omit the '^' after the !Account block and go straight
+      // to !Type: — header fields must still not bleed into transactions.
+      const qifUnterminatedHeader = `!Account
+NEveryday Checking
+TBank
+!Type:Bank
+D01/15/2024
+T-54.99
+PCoffee beans
+^`;
+
+      const result = qifImportService.parseQIF(qifUnterminatedHeader);
+
+      expect(result.accountType).toBe('Bank');
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0]).toEqual({
+        date: '2024-01-15',
+        amount: -54.99,
+        payee: 'Coffee beans'
+      });
+    });
   });
 
   describe('importTransactions', () => {
@@ -267,11 +332,11 @@ PTest Transaction
 
       const [trx1, trx2, trx3, _trx4] = result.transactions;
 
-      // Check first transaction
+      // Check first transaction (signed convention: expense stored negative)
       expect(trx1).toMatchObject({
         date: expect.any(Date),
         description: 'Tesco Stores - Grocery shopping',
-        amount: 25.50,
+        amount: -25.50,
         type: 'expense',
         accountId: 'acc1',
         category: 'Food & Dining',
@@ -291,11 +356,11 @@ PTest Transaction
       });
       expectDateOnly(trx2.date, '2024-01-20');
 
-      // Check third transaction with check number
+      // Check third transaction with check number (signed convention: expense negative)
       expect(trx3).toMatchObject({
         date: expect.any(Date),
         description: 'Check #1234 - Rent payment',
-        amount: 100,
+        amount: -100,
         type: 'expense',
         accountId: 'acc1',
         category: 'Housing',
@@ -328,6 +393,136 @@ PTest Transaction
 
       expect(result.duplicates).toBe(1);
       expect(result.newTransactions).toBe(3);
+    });
+
+    it('does not dedupe a same-day refund (+X) of a signed expense (-X)', async () => {
+      const existingSignedExpense: Transaction[] = [
+        {
+          id: '1',
+          date: '2024-01-15',
+          description: 'Tesco Stores purchase',
+          amount: -25.50,
+          type: 'expense',
+          accountId: 'acc1',
+          category: 'food',
+          cleared: true,
+          recurring: false
+        }
+      ];
+
+      const refundQIF = `!Type:Bank
+D01/15/2024
+T25.50
+PTesco Stores
+MRefund
+^`;
+
+      const result = await qifImportService.importTransactions(
+        refundQIF,
+        'acc1',
+        existingSignedExpense
+      );
+
+      // A refund keeps its source sign: +25.50 is money IN, not a duplicate
+      // of the -25.50 expense.
+      expect(result.duplicates).toBe(0);
+      expect(result.newTransactions).toBe(1);
+      expect(result.transactions[0]).toMatchObject({
+        amount: 25.50,
+        type: 'income'
+      });
+    });
+
+    it('still dedupes a same-day signed expense with matching payee', async () => {
+      const existingSignedExpense: Transaction[] = [
+        {
+          id: '1',
+          date: '2024-01-15',
+          description: 'Tesco Stores purchase',
+          amount: -25.50,
+          type: 'expense',
+          accountId: 'acc1',
+          category: 'food',
+          cleared: true,
+          recurring: false
+        }
+      ];
+
+      const duplicateQIF = `!Type:Bank
+D01/15/2024
+T-25.50
+PTesco Stores
+^`;
+
+      const result = await qifImportService.importTransactions(
+        duplicateQIF,
+        'acc1',
+        existingSignedExpense
+      );
+
+      expect(result.duplicates).toBe(1);
+      expect(result.newTransactions).toBe(0);
+    });
+
+    it('still dedupes against a legacy positive-stored expense', async () => {
+      const existingLegacyExpense: Transaction[] = [
+        {
+          id: '1',
+          date: '2024-01-15',
+          description: 'Tesco Stores purchase',
+          amount: 25.50, // legacy rows stored expenses as positive magnitudes
+          type: 'expense',
+          accountId: 'acc1',
+          category: 'food',
+          cleared: true,
+          recurring: false
+        }
+      ];
+
+      const duplicateQIF = `!Type:Bank
+D01/15/2024
+T-25.50
+PTesco Stores
+^`;
+
+      const result = await qifImportService.importTransactions(
+        duplicateQIF,
+        'acc1',
+        existingLegacyExpense
+      );
+
+      expect(result.duplicates).toBe(1);
+      expect(result.newTransactions).toBe(0);
+    });
+
+    it('does not dedupe on date + amount alone when the incoming row has no payee', async () => {
+      const existingSignedExpense: Transaction[] = [
+        {
+          id: '1',
+          date: '2024-01-15',
+          description: 'Tesco Stores purchase',
+          amount: -25.50,
+          type: 'expense',
+          accountId: 'acc1',
+          category: 'food',
+          cleared: true,
+          recurring: false
+        }
+      ];
+
+      const noPayeeQIF = `!Type:Bank
+D01/15/2024
+T-25.50
+^`;
+
+      const result = await qifImportService.importTransactions(
+        noPayeeQIF,
+        'acc1',
+        existingSignedExpense
+      );
+
+      expect(result.duplicates).toBe(0);
+      expect(result.newTransactions).toBe(1);
     });
 
     it('auto-categorizes transactions when enabled', async () => {
@@ -524,9 +719,9 @@ PValid transaction
         []
       );
 
-      // Should only import the valid transaction
+      // Should only import the valid transaction (signed convention: expense negative)
       expect(result.transactions).toHaveLength(1);
-      expect(result.transactions[0].amount).toBe(75);
+      expect(result.transactions[0].amount).toBe(-75);
     });
 
     it('handles special characters in text fields', async () => {
@@ -565,8 +760,9 @@ PLarge withdrawal
         []
       );
 
+      // Signed convention: positive deposit stays positive, negative withdrawal stays negative
       expect(result.transactions[0].amount).toBe(999999.99);
-      expect(result.transactions[1].amount).toBe(888888.88);
+      expect(result.transactions[1].amount).toBe(-888888.88);
     });
 
     it('handles Windows line endings', async () => {
@@ -578,8 +774,9 @@ PLarge withdrawal
         []
       );
 
+      // Signed convention: expense stored negative
       expect(result.transactions).toHaveLength(1);
-      expect(result.transactions[0].amount).toBe(50);
+      expect(result.transactions[0].amount).toBe(-50);
     });
 
     it('handles multiple cleared status indicators', () => {

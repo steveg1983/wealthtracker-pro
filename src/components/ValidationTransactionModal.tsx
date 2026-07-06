@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput } from '../utils/decimal';
+import { signTransactionAmount } from '../utils/transactionAmount';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from './icons';
 import type { Transaction, Account } from '../types';
@@ -52,9 +53,16 @@ export default function ValidationTransactionModal({
 
   const handleSave = (transactionId: string): void => {
     const values = editValues[transactionId];
-    if (values) {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (values && transaction) {
+      const parsed = parseMoneyInput(values.amount) ?? 0;
+      // Amounts are stored signed: re-sign by type so an edit can't flip an
+      // expense positive. Transfers keep the entered sign (it encodes direction).
+      const amount = transaction.type === 'transfer'
+        ? parsed
+        : signTransactionAmount(parsed, transaction.type);
       updateTransaction(transactionId, {
-        amount: parseMoneyInput(values.amount) ?? 0,
+        amount,
         category: values.category,
         description: values.description
       });
@@ -141,8 +149,8 @@ export default function ValidationTransactionModal({
                               })}
                               className={`w-full px-3 py-1 border rounded-lg
                                        bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                                       ${(parseMoneyInput(values.amount) ?? 0) <= 0 
-                                         ? 'border-red-500' 
+                                       ${Math.abs(parseMoneyInput(values.amount) ?? 0) === 0
+                                         ? 'border-red-500'
                                          : 'border-gray-300 dark:border-gray-600'}`}
                             />
                           </div>
@@ -178,7 +186,11 @@ export default function ValidationTransactionModal({
                           <span className={`font-medium ${
                             transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                           }`}>
-                            {transaction.type === 'income' ? '+' : '-'}
+                            {/* Amounts are stored signed; derive the displayed sign
+                                from the value (not the type) so incoming transfers
+                                show '+' and a mis-signed positive expense visibly
+                                shows '+£X' beside its mismatch warning. */}
+                            {transaction.amount < 0 ? '-' : '+'}
                             {formatCurrency(Math.abs(transaction.amount))}
                           </span>
                           <span className={`text-sm px-2 py-1 rounded-full ${
@@ -190,10 +202,15 @@ export default function ValidationTransactionModal({
                           </span>
                         </div>
 
-                        {/* Show specific issue indicators */}
+                        {/* Show specific issue indicators.
+                            Amounts are stored signed, so the fault is either a
+                            zero amount or a sign that contradicts the type
+                            (an expense stored positive / income stored negative). */}
                         {issueType === 'zero-negative-amounts' && (
                           <div className="text-sm text-red-600 dark:text-red-400 mt-2">
-                            ⚠️ Amount is zero or negative
+                            {transaction.amount === 0
+                              ? '⚠️ Amount is zero'
+                              : '⚠️ Amount sign does not match transaction type'}
                           </div>
                         )}
                         {issueType === 'invalid-categories' && (!transaction.category || !validCategories.includes(transaction.category)) && (

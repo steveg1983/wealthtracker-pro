@@ -175,17 +175,25 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       });
     }
     
-    // 5. Check for zero or negative amounts
+    // 5. Check for invalid amounts (type-aware).
+    // Amounts are stored SIGNED: expenses/outgoing transfers negative, income
+    // positive. A raw `<= 0` check would flag every legitimate expense, so we
+    // instead flag only genuinely-broken rows: a zero amount, or a sign that
+    // contradicts the type (an expense stored positive / income stored negative).
+    // Transfers encode direction in their sign, so any non-zero transfer is valid.
     const invalidAmountTransactions = transactions.filter(t => {
-      return t.amount <= 0;
+      if (t.amount === 0) return true;
+      if (t.type === 'income') return t.amount < 0;
+      if (t.type === 'expense') return t.amount > 0;
+      return false; // transfer: sign is direction, non-zero is valid
     });
-    
+
     if (invalidAmountTransactions.length > 0) {
       issues.push({
         id: 'invalid-amounts',
         type: 'error',
         category: 'Data Integrity',
-        description: `${invalidAmountTransactions.length} transaction(s) have zero or negative amounts`,
+        description: `${invalidAmountTransactions.length} transaction(s) have a zero amount or a sign that contradicts their type`,
         affectedItems: invalidAmountTransactions.map(t => t.id)
       });
     }
@@ -289,21 +297,9 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       const accountTransactions = transactions.filter(t => t.accountId === account.id);
       const openingBalance = account.openingBalance || 0;
       
-      // Calculate the sum of transactions properly
-      // For transfers, we need to check if this account is the source or destination
-      const transactionSum = accountTransactions.reduce((sum, t) => {
-        if (t.type === 'income') {
-          return sum + t.amount;
-        } else if (t.type === 'expense') {
-          return sum - t.amount;
-        } else if (t.type === 'transfer') {
-          // For transfers, the sign of the amount indicates direction:
-          // Negative amount = money leaving this account (transfer out)
-          // Positive amount = money entering this account (transfer in)
-          return sum + t.amount;
-        }
-        return sum;
-      }, 0);
+      // Amounts are stored signed (expenses and outgoing transfers negative),
+      // so the running balance is the raw sum of amounts for every type.
+      const transactionSum = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
       
       // Debug logging
       const incomeTotal = accountTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -320,8 +316,8 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         openingBalance,
         calculatedBalance: openingBalance + transactionSum,
         actualBalance: account.balance,
-        // Additional debug
-        manualCalc: openingBalance + incomeTotal - expenseTotal - transferTotal,
+        // Additional debug — per-type sums are signed, so they are all added
+        manualCalc: openingBalance + incomeTotal + expenseTotal + transferTotal,
         types: accountTransactions.reduce((acc: Record<string, number>, t) => {
           acc[t.type] = (acc[t.type] || 0) + 1;
           return acc;
@@ -365,13 +361,15 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       }
     });
     
-    // 10. Check for very large transactions (potential data entry errors)
+    // 10. Check for very large transactions (potential data entry errors).
+    // Amounts are stored signed, so compare magnitudes — otherwise a signed mean
+    // is dominated by direction and negative expenses never trip the threshold.
     const avgAmount = transactions.reduce((sum, t) => {
-      return sum + t.amount;
+      return sum + Math.abs(t.amount);
     }, 0) / transactions.length;
-    
+
     const largeTransactions = transactions.filter(t => {
-      return t.amount > avgAmount * 10; // 10x average
+      return Math.abs(t.amount) > avgAmount * 10; // 10x average magnitude
     });
     
     if (largeTransactions.length > 0) {
@@ -576,14 +574,16 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         categoryToUse
       });
 
-      // Create adjustment transaction
+      // Create adjustment transaction. The amount must be stored SIGNED — the
+      // ledger applies raw signed sums, so a positive "expense" adjustment
+      // would move the balance the WRONG way and make the repair diverge.
       const adjustmentType = difference > 0 ? 'income' : 'expense';
       const adjustmentDescription = `Balance adjustment - ${accountName}`;
-      
+
       const newTransaction = {
         date: new Date(),
         description: adjustmentDescription,
-        amount: Math.abs(difference),
+        amount: difference,
         category: categoryToUse,
         accountId: accountId,
         type: adjustmentType as 'income' | 'expense',

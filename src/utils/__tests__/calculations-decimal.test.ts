@@ -120,7 +120,7 @@ describe('Decimal Calculation Utilities', () => {
       const transactions = [
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(3000.33) }),
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(500.67) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(1000) })
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-1000) })
       ];
       const result = calculateTotalIncome(transactions);
       expect(result.toString()).toBe('3501');
@@ -130,8 +130,8 @@ describe('Decimal Calculation Utilities', () => {
   describe('calculateTotalExpenses', () => {
     it('calculates total expenses with decimal precision', () => {
       const transactions = [
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(1000.99) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(500.01) }),
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-1000.99) }),
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-500.01) }),
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(3000) })
       ];
       const result = calculateTotalExpenses(transactions);
@@ -143,9 +143,9 @@ describe('Decimal Calculation Utilities', () => {
     it('calculates budget usage with decimal precision', () => {
       const budget = createMockDecimalBudget({ categoryId: 'groceries', amount: toDecimal(500) });
       const transactions = [
-        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(150.50), type: 'expense' }),
-        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(100.25), type: 'expense' }),
-        createMockDecimalTransaction({ category: 'utilities', amount: toDecimal(50), type: 'expense' })
+        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(-150.50), type: 'expense' }),
+        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(-100.25), type: 'expense' }),
+        createMockDecimalTransaction({ category: 'utilities', amount: toDecimal(-50), type: 'expense' })
       ];
       const result = calculateBudgetUsage(budget, transactions);
       expect(result.toString()).toBe('250.75');
@@ -156,7 +156,7 @@ describe('Decimal Calculation Utilities', () => {
     it('calculates budget progress percentage with decimal precision', () => {
       const budget = createMockDecimalBudget({ categoryId: 'groceries', amount: toDecimal(500) });
       const transactions = [
-        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(125), type: 'expense' })
+        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(-125), type: 'expense' })
       ];
       const result = calculateBudgetProgress(budget, transactions);
       expect(result).toBe(25);
@@ -165,7 +165,7 @@ describe('Decimal Calculation Utilities', () => {
     it('handles decimal percentages correctly', () => {
       const budget = createMockDecimalBudget({ categoryId: 'groceries', amount: toDecimal(300) });
       const transactions = [
-        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(100), type: 'expense' })
+        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(-100), type: 'expense' })
       ];
       const result = calculateBudgetProgress(budget, transactions);
       expect(result).toBeCloseTo(33.33, 2);
@@ -209,8 +209,8 @@ describe('Decimal Calculation Utilities', () => {
     it('calculates cash flow with decimal precision', () => {
       const transactions = [
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(5000.50) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(3000.25) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(500.15) })
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-3000.25) }),
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-500.15) })
       ];
       const result = calculateCashFlow(transactions);
       expect(result.income.toString()).toBe('5000.5');
@@ -222,7 +222,7 @@ describe('Decimal Calculation Utilities', () => {
       const transactions = [
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(0.1) }),
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(0.2) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(0.15) })
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-0.15) })
       ];
       const result = calculateCashFlow(transactions);
       expect(result.income.toString()).toBe('0.3');
@@ -235,7 +235,7 @@ describe('Decimal Calculation Utilities', () => {
     it('calculates savings rate with decimal precision', () => {
       const transactions = [
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(5000) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(3333.33) })
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-3333.33) })
       ];
       const result = calculateSavingsRate(transactions);
       expect(result).toBeCloseTo(33.33, 2);
@@ -245,10 +245,10 @@ describe('Decimal Calculation Utilities', () => {
   describe('getTopCategories', () => {
     it('sorts categories by total with decimal precision', () => {
       const transactions = [
-        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(100.50), type: 'expense' }),
-        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(150.25), type: 'expense' }),
-        createMockDecimalTransaction({ category: 'utilities', amount: toDecimal(300.75), type: 'expense' }),
-        createMockDecimalTransaction({ category: 'transport', amount: toDecimal(200), type: 'expense' })
+        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(-100.50), type: 'expense' }),
+        createMockDecimalTransaction({ category: 'groceries', amount: toDecimal(-150.25), type: 'expense' }),
+        createMockDecimalTransaction({ category: 'utilities', amount: toDecimal(-300.75), type: 'expense' }),
+        createMockDecimalTransaction({ category: 'transport', amount: toDecimal(-200), type: 'expense' })
       ];
       const result = getTopCategories(transactions, 2);
       expect(result).toHaveLength(2);
@@ -306,7 +306,7 @@ describe('Decimal Calculation Utilities', () => {
     it('calculates net income correctly', () => {
       const transactions = [
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(5000) }),
-        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(3000) }),
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(-3000) }),
         createMockDecimalTransaction({ type: 'income', amount: toDecimal(1000) })
       ];
       const result = calculateNetIncome(transactions);
@@ -322,11 +322,12 @@ describe('Decimal Calculation Utilities', () => {
       });
       const transactions = [
         createMockDecimalTransaction({ accountId: '1', type: 'income', amount: toDecimal(500) }),
-        createMockDecimalTransaction({ accountId: '1', type: 'expense', amount: toDecimal(200) }),
+        // Signed convention: expenses are stored negative.
+        createMockDecimalTransaction({ accountId: '1', type: 'expense', amount: toDecimal(-200) }),
         createMockDecimalTransaction({ accountId: '2', type: 'income', amount: toDecimal(100) }) // Different account
       ];
       const result = calculateAccountBalance(account, transactions);
-      expect(result.toString()).toBe('1300');
+      expect(result.toString()).toBe('1300'); // 1000 + 500 + (-200)
     });
   });
 
@@ -504,9 +505,9 @@ describe('Decimal Calculation Utilities', () => {
   describe('calculateSpendingByCategory', () => {
     it('calculates spending by category', () => {
       const transactions = [
-        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(100) }),
-        createMockDecimalTransaction({ category: 'utilities', type: 'expense', amount: toDecimal(50) }),
-        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(75) })
+        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(-100) }),
+        createMockDecimalTransaction({ category: 'utilities', type: 'expense', amount: toDecimal(-50) }),
+        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(-75) })
       ];
       const result = calculateSpendingByCategory(transactions);
       expect(result.groceries.toString()).toBe('175');

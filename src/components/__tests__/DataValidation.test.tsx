@@ -9,105 +9,143 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DataValidation from '../DataValidation';
 import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
+import type { Transaction, Account, Category } from '../../types';
 
 // Mock dependencies
+// Amounts are stored SIGNED: expenses negative, income positive, transfers
+// signed by direction. Legitimately-negative expenses must NOT be flagged; the
+// only invalid-amount rows are a zero amount or a sign that contradicts the type.
+//
+// The app state lives in a hoisted, mutable container so individual tests can
+// swap in their own fixtures (e.g. the balance-repair scenarios) while the
+// mock functions stay stable and assertable across renders.
+const appMocks = vi.hoisted(() => ({
+  state: {
+    transactions: [] as Transaction[],
+    accounts: [] as Account[],
+    categories: [] as Category[]
+  },
+  updateTransaction: vi.fn(),
+  deleteTransaction: vi.fn(),
+  updateAccount: vi.fn(),
+  addTransaction: vi.fn(),
+  addCategory: vi.fn()
+}));
+
 vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
-    transactions: [
-      {
-        id: 'trans-1',
-        date: new Date('2024-01-15'),
-        description: 'Test Transaction',
-        amount: 100,
-        category: 'Food',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-2',
-        date: new Date('2025-12-31'), // Future date
-        description: 'Future Transaction',
-        amount: 50,
-        category: 'Transport',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: false
-      },
-      {
-        id: 'trans-3',
-        date: new Date('2024-01-15'),
-        description: '', // Empty description
-        amount: 75,
-        category: 'Food',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-4',
-        date: new Date('2024-01-15'),
-        description: 'Uncategorized',
-        amount: 25,
-        category: '', // Missing category
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-5',
-        date: new Date('2024-01-15'),
-        description: 'Invalid Category',
-        amount: 30,
-        category: 'InvalidCat', // Invalid category
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-6',
-        date: new Date('2024-01-15'),
-        description: 'Zero Amount',
-        amount: 0, // Zero amount
-        category: 'Food',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-7',
-        date: new Date('2024-01-15'),
-        description: 'Orphaned Transaction',
-        amount: 100,
-        category: 'Food',
-        accountId: 'acc-999', // Non-existent account
-        type: 'expense',
-        cleared: true
-      }
-    ],
-    accounts: [
-      {
-        id: 'acc-1',
-        name: 'Main Checking',
-        type: 'checking',
-        balance: 1000,
-        currency: 'USD',
-        openingBalance: 500,
-        openingBalanceDate: new Date('2024-01-01')
-      }
-    ],
-    categories: [
-      { id: 'cat-1', name: 'Food', type: 'expense', level: 'detail', parentId: 'sub-food' },
-      { id: 'cat-2', name: 'Transport', type: 'expense', level: 'detail', parentId: 'sub-transport' },
-      { id: 'cat-3', name: 'Other', type: 'both', level: 'detail', parentId: 'sub-other' }
-    ],
-    updateTransaction: vi.fn(),
-    deleteTransaction: vi.fn(),
-    updateAccount: vi.fn(),
-    addTransaction: vi.fn(),
-    addCategory: vi.fn()
+    transactions: appMocks.state.transactions,
+    accounts: appMocks.state.accounts,
+    categories: appMocks.state.categories,
+    updateTransaction: appMocks.updateTransaction,
+    deleteTransaction: appMocks.deleteTransaction,
+    updateAccount: appMocks.updateAccount,
+    addTransaction: appMocks.addTransaction,
+    addCategory: appMocks.addCategory
   })
 }));
+
+const defaultTransactions = (): Transaction[] => [
+  {
+    id: 'trans-1',
+    date: new Date('2024-01-15'),
+    description: 'Test Transaction',
+    amount: -100, // valid negative expense — must not be flagged
+    category: 'Food',
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  },
+  {
+    id: 'trans-2',
+    date: new Date('2025-12-31'), // Future date
+    description: 'Future Transaction',
+    amount: -50,
+    category: 'Transport',
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: false
+  },
+  {
+    id: 'trans-3',
+    date: new Date('2024-01-15'),
+    description: '', // Empty description
+    amount: -75,
+    category: 'Food',
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  },
+  {
+    id: 'trans-4',
+    date: new Date('2024-01-15'),
+    description: 'Uncategorized',
+    amount: -25,
+    category: '', // Missing category
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  },
+  {
+    id: 'trans-5',
+    date: new Date('2024-01-15'),
+    description: 'Invalid Category',
+    amount: -30,
+    category: 'InvalidCat', // Invalid category
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  },
+  {
+    id: 'trans-6',
+    date: new Date('2024-01-15'),
+    description: 'Zero Amount',
+    amount: 0, // Zero amount — invalid
+    category: 'Food',
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  },
+  {
+    id: 'trans-7',
+    date: new Date('2024-01-15'),
+    description: 'Orphaned Transaction',
+    amount: -100,
+    category: 'Food',
+    accountId: 'acc-999', // Non-existent account
+    type: 'expense',
+    cleared: true
+  },
+  {
+    id: 'trans-8',
+    date: new Date('2024-01-15'),
+    description: 'Positive Expense',
+    amount: 40, // sign/type mismatch: an expense stored positive — invalid
+    category: 'Food',
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  }
+];
+
+const defaultAccounts = (): Account[] => [
+  {
+    id: 'acc-1',
+    name: 'Main Checking',
+    type: 'checking',
+    balance: 1000,
+    currency: 'USD',
+    lastUpdated: new Date('2024-01-15'),
+    openingBalance: 500,
+    openingBalanceDate: new Date('2024-01-01')
+  }
+];
+
+const defaultCategories = (): Category[] => [
+  { id: 'cat-1', name: 'Food', type: 'expense', level: 'detail', parentId: 'sub-food' },
+  { id: 'cat-2', name: 'Transport', type: 'expense', level: 'detail', parentId: 'sub-transport' },
+  { id: 'cat-3', name: 'Other', type: 'both', level: 'detail', parentId: 'sub-other' }
+];
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
@@ -131,8 +169,20 @@ vi.mock('../FixSummaryModal', () => ({
 }));
 
 vi.mock('../BalanceReconciliationModal', () => ({
-  default: ({ isOpen }: { isOpen: boolean }) => 
-    isOpen ? <div data-testid="balance-reconciliation-modal">Balance Reconciliation Modal</div> : null
+  default: ({
+    isOpen,
+    onConfirm
+  }: {
+    isOpen: boolean;
+    onConfirm: (type: 'opening-balance' | 'adjustment-transaction') => void;
+  }) =>
+    isOpen ? (
+      <div data-testid="balance-reconciliation-modal">
+        Balance Reconciliation Modal
+        <button onClick={() => onConfirm('adjustment-transaction')}>Create adjustment transaction</button>
+        <button onClick={() => onConfirm('opening-balance')}>Adjust opening balance</button>
+      </div>
+    ) : null
 }));
 
 // Mock icons
@@ -162,6 +212,9 @@ vi.mock('../icons', () => ({
 describe('DataValidation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appMocks.state.transactions = defaultTransactions();
+    appMocks.state.accounts = defaultAccounts();
+    appMocks.state.categories = defaultCategories();
   });
 
   afterEach(() => {
@@ -217,10 +270,15 @@ describe('DataValidation', () => {
       expect(screen.getByText(/1 transaction\(s\) have invalid categories/)).toBeInTheDocument();
     });
 
-    it('detects zero or negative amounts', () => {
+    it('detects zero amounts and sign/type mismatches but not legitimate negative expenses', () => {
       render(<DataValidation isOpen={true} onClose={vi.fn()} />);
-      
-      expect(screen.getByText(/1 transaction\(s\) have zero or negative amounts/)).toBeInTheDocument();
+
+      // Under the signed convention this must flag exactly the zero-amount row
+      // (trans-6) and the positive-amount expense (trans-8), NOT the four
+      // legitimately-negative expenses (trans-1/2/3/5/7).
+      expect(
+        screen.getByText(/2 transaction\(s\) have a zero amount or a sign that contradicts their type/)
+      ).toBeInTheDocument();
     });
 
     it('detects orphaned transactions', () => {
@@ -347,6 +405,134 @@ describe('DataValidation', () => {
     it('shows reconciliation modal for balance issues', async () => {
       // This test needs to be isolated, so we'll skip it for now
       // as changing the mock mid-test is complex with Vitest
+    });
+  });
+
+  describe('balance repair (signed adjustment amounts)', () => {
+    const repairAccount = (balance: number): Account => ({
+      id: 'acc-repair',
+      name: 'Repair Account',
+      type: 'checking',
+      balance,
+      currency: 'USD',
+      lastUpdated: new Date('2024-01-01'),
+      openingBalance: 0,
+      openingBalanceDate: new Date('2024-01-01')
+    });
+
+    const adjustmentCategories = (): Category[] => [
+      {
+        id: 'account-adjustments',
+        name: 'Account Adjustments',
+        type: 'both',
+        level: 'detail',
+        parentId: 'sub-adjustments',
+        isSystem: true
+      }
+    ];
+
+    const runAdjustmentRepair = async () => {
+      await userEvent.click(screen.getByRole('checkbox'));
+      await userEvent.click(screen.getByText('Fix Selected Issues'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('balance-reconciliation-modal')).toBeInTheDocument();
+      });
+      await userEvent.click(screen.getByText('Create adjustment transaction'));
+
+      await waitFor(() => {
+        expect(appMocks.addTransaction).toHaveBeenCalledTimes(1);
+      });
+
+      // Let the fix flow settle (post-add delay + loop delay) so no state
+      // updates land after the test tears down.
+      await waitFor(() => {
+        expect(screen.getByTestId('fix-summary-modal')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    };
+
+    it('repairs a -49.99 shortfall with a SIGNED expense adjustment of -49.99, not +49.99', async () => {
+      // No transactions: calculated = opening 0 + signed sum 0 = 0; actual
+      // -49.99 → difference (actual − calculated) = -49.99, a shortfall.
+      appMocks.state.transactions = [];
+      appMocks.state.accounts = [repairAccount(-49.99)];
+      appMocks.state.categories = adjustmentCategories();
+
+      render(<DataValidation isOpen={true} onClose={vi.fn()} />);
+
+      expect(
+        screen.getByText(/Repair Account balance differs from transaction sum/)
+      ).toBeInTheDocument();
+
+      await runAdjustmentRepair();
+
+      // The ledger applies raw SIGNED sums, so the adjustment must carry the
+      // signed difference. A +49.99 "expense" would move the balance the
+      // wrong way and the repair would diverge instead of reconciling.
+      expect(appMocks.addTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'acc-repair',
+          type: 'expense',
+          amount: -49.99,
+          cleared: true
+        })
+      );
+      expect(appMocks.addTransaction).not.toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 49.99 })
+      );
+    });
+
+    it('repairs a +125.50 surplus with a SIGNED income adjustment of +125.50', async () => {
+      appMocks.state.transactions = [];
+      appMocks.state.accounts = [repairAccount(125.5)];
+      appMocks.state.categories = adjustmentCategories();
+
+      render(<DataValidation isOpen={true} onClose={vi.fn()} />);
+
+      await runAdjustmentRepair();
+
+      expect(appMocks.addTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'acc-repair',
+          type: 'income',
+          amount: 125.5
+        })
+      );
+      expect(appMocks.addTransaction).not.toHaveBeenCalledWith(
+        expect.objectContaining({ amount: -125.5 })
+      );
+    });
+
+    it('computes the signed difference against the SIGNED transaction sum when transactions exist', async () => {
+      // calculated = opening 500 + (−100 expense) = 400; actual 350
+      // → difference −50. An abs-summed ledger (500 + 100 = 600) would
+      // produce −250 instead — the signed sum is what must be repaired.
+      appMocks.state.transactions = [
+        {
+          id: 'trans-repair-1',
+          date: new Date('2024-01-15'),
+          description: 'Groceries',
+          amount: -100,
+          category: 'Food',
+          accountId: 'acc-repair',
+          type: 'expense',
+          cleared: true
+        }
+      ];
+      appMocks.state.accounts = [{ ...repairAccount(350), openingBalance: 500 }];
+      appMocks.state.categories = [...defaultCategories(), ...adjustmentCategories()];
+
+      render(<DataValidation isOpen={true} onClose={vi.fn()} />);
+
+      await runAdjustmentRepair();
+
+      expect(appMocks.addTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'acc-repair',
+          type: 'expense',
+          amount: -50
+        })
+      );
     });
   });
 

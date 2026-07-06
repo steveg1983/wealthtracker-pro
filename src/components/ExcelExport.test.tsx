@@ -61,7 +61,8 @@ const mockTransactions: Transaction[] = [
     id: '1',
     date: new Date('2024-01-15'),
     description: 'Grocery Store',
-    amount: toDecimal(50),
+    // Signed convention: expenses are stored as negative amounts
+    amount: toDecimal(-50),
     type: 'expense',
     category: 'Food',
     accountId: 'acc1',
@@ -125,7 +126,7 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   })
 }));
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: mockTransactions,
     accounts: mockAccounts,

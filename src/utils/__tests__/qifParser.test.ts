@@ -24,9 +24,10 @@ LIncome
         const result = parseQIF(qifContent);
 
         expect(result.transactions).toHaveLength(2);
+        // SIGNED CONVENTION: expenses stored negative, income positive.
         expect(result.transactions[0]).toEqual({
           date: new Date(2024, 0, 15),
-          amount: 50.00,
+          amount: -50.00,
           description: 'Grocery Store',
           type: 'expense',
           category: 'Food',
@@ -424,7 +425,8 @@ T-10.999
 
         const result = parseQIF(qifContent);
 
-        expect(result.transactions[0].amount).toBe(11.00);
+        // SIGNED CONVENTION: expense stored negative.
+        expect(result.transactions[0].amount).toBe(-11.00);
       });
 
       it('handles zero amounts', () => {
@@ -510,7 +512,8 @@ PPayee without amount
         // First transaction has date but no amount, second has amount from first line
         expect(result.transactions).toHaveLength(1);
         expect(result.transactions[0].date).toEqual(new Date(2024, 0, 16));
-        expect(result.transactions[0].amount).toBe(50);
+        // SIGNED CONVENTION: expense stored negative.
+        expect(result.transactions[0].amount).toBe(-50);
       });
 
       it('handles transactions without categories', () => {

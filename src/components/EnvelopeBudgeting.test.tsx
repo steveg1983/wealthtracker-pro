@@ -39,7 +39,7 @@ const mockTransactions: DecimalTransaction[] = [
   {
     id: 't1',
     accountId: 'acc1',
-    amount: toDecimal(150),
+    amount: toDecimal(-150), // Expenses are stored signed (negative)
     type: 'expense',
     date: new Date(),
     description: 'Grocery shopping',
@@ -48,7 +48,7 @@ const mockTransactions: DecimalTransaction[] = [
   {
     id: 't2',
     accountId: 'acc1',
-    amount: toDecimal(50),
+    amount: toDecimal(-50), // Expenses are stored signed (negative)
     type: 'expense',
     date: new Date(),
     description: 'Movie tickets',

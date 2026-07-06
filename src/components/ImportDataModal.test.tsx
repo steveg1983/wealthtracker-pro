@@ -136,6 +136,12 @@ describe('ImportDataModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // addAccount's real contract is Promise<Account>: the modal awaits the
+    // created account and uses its id to route imported transactions.
+    mockAddAccount.mockImplementation(async (account: { name: string }) => ({
+      id: `created-${account.name}`,
+      ...account
+    }));
     // Set default return values for mocks
     vi.mocked(parseQIF).mockReturnValue({
       accounts: [],
@@ -317,10 +323,74 @@ describe('ImportDataModal', () => {
       });
       
       fireEvent.change(input);
-      
+
       await waitFor(() => {
         expect(screen.getByText('Found 1 accounts and 1 transactions')).toBeInTheDocument();
       });
+
+      // SIGNED CONVENTION: the OFX debit (-50.00) must reach addTransaction as a
+      // signed-negative expense, not a positive magnitude, so the ledger's raw
+      // balance sum subtracts it.
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'expense', amount: -50.00 })
+        );
+      });
+    });
+
+    it('skips OFX transactions with unparseable amounts instead of importing NaN', async () => {
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      // One good row and one row whose TRNAMT cannot be parsed. Importing the
+      // bad row as NaN would poison every raw-sum balance downstream.
+      const ofxContent = `
+        <OFX>
+          <ACCTID>12345</ACCTID>
+          <ACCTTYPE>CHECKING</ACCTTYPE>
+          <BALAMT>1000.00</BALAMT>
+          <STMTTRN>
+            <TRNTYPE>DEBIT</TRNTYPE>
+            <DTPOSTED>20240115</DTPOSTED>
+            <TRNAMT>-50.00</TRNAMT>
+            <NAME>Store Purchase</NAME>
+          </STMTTRN>
+          <STMTTRN>
+            <TRNTYPE>DEBIT</TRNTYPE>
+            <DTPOSTED>20240116</DTPOSTED>
+            <TRNAMT>N/A</TRNAMT>
+            <NAME>Corrupt Row</NAME>
+          </STMTTRN>
+        </OFX>
+      `;
+
+      const file = createFile(ofxContent, 'test.ofx');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+
+      Object.defineProperty(input, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(input);
+
+      // The skipped row is surfaced as an import notice.
+      await waitFor(() => {
+        expect(screen.getByText(/Skipped 1 transaction\(s\) with unreadable amounts/)).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddTransaction).toHaveBeenCalledTimes(1);
+        expect(mockAddTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({ description: 'Store Purchase', amount: -50.00 })
+        );
+      });
+      // No NaN amount may ever reach the ledger.
+      const amounts = mockAddTransaction.mock.calls.map(([tx]: [{ amount: number }]) => tx.amount);
+      expect(amounts.some(Number.isNaN)).toBe(false);
     });
 
     it('handles MNY files with mapping', async () => {
@@ -586,6 +656,65 @@ describe('ImportDataModal', () => {
         });
         expect(mockAddTransaction).toHaveBeenCalledTimes(1);
       });
+    });
+
+    it('routes each transaction to its parser-resolved account, not accounts[0]', async () => {
+      // 'Checking' already exists (id '1'); 'Holiday Savings' is new and gets
+      // the id returned by addAccount. Writing everything to accounts[0]
+      // double-counts multi-account imports.
+      vi.mocked(parseQIF).mockReturnValue({
+        accounts: [
+          { name: 'Checking', type: 'checking', balance: 1000 },
+          { name: 'Holiday Savings', type: 'savings', balance: 5000 }
+        ],
+        transactions: [
+          { date: new Date('2024-01-05'), amount: -25, description: 'Groceries', type: 'expense', category: 'Food', accountName: 'Checking' },
+          { date: new Date('2024-01-06'), amount: 100, description: 'Interest', type: 'income', category: 'Other', accountName: 'Holiday Savings' },
+          { date: new Date('2024-01-07'), amount: 10, description: 'Orphan', type: 'income', category: 'Other' }
+        ]
+      });
+
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+
+      Object.defineProperty(input, 'files', {
+        value: [file],
+        writable: false,
+      });
+
+      fireEvent.change(input);
+
+      await waitFor(() => {
+        const importButton = screen.getByText('Import Data').closest('button');
+        expect(importButton).not.toBeDisabled();
+      });
+
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        // Only the new account is created.
+        expect(mockAddAccount).toHaveBeenCalledTimes(1);
+        expect(mockAddTransaction).toHaveBeenCalledTimes(3);
+        // Existing account resolved to its real id.
+        expect(mockAddTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({ description: 'Groceries', accountId: '1' })
+        );
+        // New account resolved to the id addAccount returned.
+        expect(mockAddTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({ description: 'Interest', accountId: 'created-Holiday Savings' })
+        );
+        // Unresolvable transaction falls back to the first account.
+        expect(mockAddTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({ description: 'Orphan', accountId: '1' })
+        );
+      });
+
+      // The parser-internal accountName field must not leak into the ledger payload.
+      expect(mockAddTransaction).not.toHaveBeenCalledWith(
+        expect.objectContaining({ accountName: expect.anything() })
+      );
     });
 
     it('shows success message after import', async () => {

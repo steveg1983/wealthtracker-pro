@@ -78,7 +78,8 @@ describe('CashFlowForecastService', () => {
         accountId: 'acc1',
         date: format(currentDate, 'yyyy-MM-dd'),
         description,
-        amount,
+        // Signed convention: expenses are stored as negative amounts
+        amount: type === 'expense' ? -amount : amount,
         type,
         category: type === 'income' ? 'Salary' : 'Bills',
         cleared: true,
@@ -157,14 +158,15 @@ describe('CashFlowForecastService', () => {
     });
 
     it('filters out patterns with low confidence', () => {
-      // Create transactions with irregular intervals
+      // Create transactions with irregular intervals (signed amounts chosen so
+      // all three share the same 10s bucket and grouping succeeds)
       const irregularTransactions: Transaction[] = [
         {
           id: '1',
           accountId: 'acc1',
           date: '2024-01-01',
           description: 'Random Store',
-          amount: 100,
+          amount: -100,
           type: 'expense',
           category: 'Shopping',
           cleared: true,
@@ -175,7 +177,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-05', // 4 days later
           description: 'Random Store',
-          amount: 95,
+          amount: -95,
           type: 'expense',
           category: 'Shopping',
           cleared: true,
@@ -186,7 +188,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-20', // 15 days later
           description: 'Random Store',
-          amount: 105,
+          amount: -98,
           type: 'expense',
           category: 'Shopping',
           cleared: true,
@@ -248,7 +250,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-01',
           description: 'GROCERY STORE #1234',
-          amount: 98, // Keep amounts in same 10s range (90-99)
+          amount: -98, // Signed expenses; keep amounts in the same 10s bucket
           type: 'expense',
           category: 'Food',
           cleared: true,
@@ -259,7 +261,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-08',
           description: 'GROCERY STORE #5678',
-          amount: 95,
+          amount: -95,
           type: 'expense',
           category: 'Food',
           cleared: true,
@@ -270,7 +272,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-15',
           description: 'GROCERY STORE #9012',
-          amount: 97,
+          amount: -97,
           type: 'expense',
           category: 'Food',
           cleared: true,
@@ -281,7 +283,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-22',
           description: 'GROCERY STORE #3456',
-          amount: 94,
+          amount: -94,
           type: 'expense',
           category: 'Food',
           cleared: true,
@@ -304,7 +306,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-01',
           description: 'Store',
-          amount: 100,
+          amount: -100,
           type: 'expense',
           category: 'Shopping',
           cleared: true,
@@ -315,7 +317,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-08',
           description: 'Store',
-          amount: 100,
+          amount: -100,
           type: 'expense',
           category: 'Shopping',
           cleared: true,
@@ -638,8 +640,9 @@ describe('CashFlowForecastService', () => {
         for (let year = 2022; year <= 2023; year++) {
           const date = new Date(year, month, 15);
           
-          // Higher expenses in December (holiday shopping)
-          const expenseAmount = month === 11 ? 500 : 200;
+          // Higher expenses in December (holiday shopping); expenses are
+          // stored signed (negative) per the app convention
+          const expenseAmount = month === 11 ? -500 : -200;
           
           transactions.push({
             id: `income-${year}-${month}`,
@@ -699,7 +702,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: `${year}-01-15`,
           description: 'January Expense',
-          amount: 1000,
+          amount: -1000,
           type: 'expense',
           category: 'Bills',
           cleared: true,
@@ -792,7 +795,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-01',
           description: 'Utility Bill',
-          amount: 150,
+          amount: -150,
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -803,7 +806,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-02-01',
           description: 'Utility Bill',
-          amount: 180, // Winter - higher
+          amount: -180, // Winter - higher
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -814,7 +817,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-03-01',
           description: 'Utility Bill',
-          amount: 160,
+          amount: -160,
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -825,7 +828,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-04-01',
           description: 'Utility Bill',
-          amount: 140,
+          amount: -140,
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -835,8 +838,8 @@ describe('CashFlowForecastService', () => {
 
       const patterns = cashFlowForecastService.detectRecurringPatterns(transactions);
 
-      // These amounts vary too much and group into different ranges
-      // 150/10 = 15, 180/10 = 18, 160/10 = 16, 140/10 = 14
+      // These amounts vary too much and group into different 10s buckets
+      // (floor(amount/10)*10): -150, -180, -160, -140
       // They won't group together, so no pattern detected
       expect(patterns).toHaveLength(0);
     });
@@ -848,7 +851,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-01-01',
           description: 'Utility Bill',
-          amount: 152,
+          amount: -152,
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -859,7 +862,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-02-01',
           description: 'Utility Bill',
-          amount: 158, // Same range (150-159)
+          amount: -158, // Same 10s bucket as the others (-160)
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -870,7 +873,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-03-01',
           description: 'Utility Bill',
-          amount: 155,
+          amount: -155,
           type: 'expense',
           category: 'Utilities',
           cleared: true,
@@ -881,7 +884,7 @@ describe('CashFlowForecastService', () => {
           accountId: 'acc1',
           date: '2024-04-01',
           description: 'Utility Bill',
-          amount: 153,
+          amount: -153,
           type: 'expense',
           category: 'Utilities',
           cleared: true,

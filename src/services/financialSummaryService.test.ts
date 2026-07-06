@@ -40,7 +40,7 @@ const mockTransactions: Transaction[] = [
   {
     id: 't2',
     accountId: 'acc1',
-    amount: 500,
+    amount: -500,
     type: 'expense',
     date: new Date('2025-01-21'),
     description: 'Groceries',
@@ -49,7 +49,7 @@ const mockTransactions: Transaction[] = [
   {
     id: 't3',
     accountId: 'acc2',
-    amount: 1200,
+    amount: -1200,
     type: 'expense',
     date: new Date('2025-01-22'),
     description: 'Rent',
@@ -58,7 +58,7 @@ const mockTransactions: Transaction[] = [
   {
     id: 't4',
     accountId: 'acc1',
-    amount: 150,
+    amount: -150,
     type: 'expense',
     date: new Date('2025-01-23'),
     description: 'Restaurant',
@@ -67,7 +67,7 @@ const mockTransactions: Transaction[] = [
   {
     id: 't5',
     accountId: 'acc2',
-    amount: 100,
+    amount: -100,
     type: 'expense',
     date: new Date('2025-01-24'),
     description: 'Utilities',
@@ -86,7 +86,7 @@ const mockTransactions: Transaction[] = [
   {
     id: 't7',
     accountId: 'acc1',
-    amount: 800,
+    amount: -800,
     type: 'expense',
     date: new Date('2025-01-14'),
     description: 'Shopping',
@@ -96,7 +96,7 @@ const mockTransactions: Transaction[] = [
   {
     id: 't8',
     accountId: 'acc1',
-    amount: 5000,
+    amount: -5000,
     type: 'expense',
     date: new Date('2025-01-25'),
     description: 'New Laptop',
@@ -279,7 +279,9 @@ describe('FinancialSummaryService', () => {
         date: '25 Jan'
         // isHighAmount depends on threshold calculation
       });
-      expect(summary.unusualTransactions[0].amount.toNumber()).toBe(5000);
+      // Expenses are stored signed-negative; the amount is preserved as-is
+      // (the "unusual" detection compares magnitudes).
+      expect(summary.unusualTransactions[0].amount.toNumber()).toBe(-5000);
     });
   });
 

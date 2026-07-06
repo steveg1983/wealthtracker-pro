@@ -26,7 +26,8 @@ export function useTransactionNotifications(): UseTransactionNotificationsReturn
     
     // Legacy check for large transactions (keeping for backward compatibility)
     if (transaction.type === 'expense') {
-      checkLargeTransaction(transaction.amount, transaction.description);
+      // Expenses are stored signed (negative); the threshold expects a positive magnitude
+      checkLargeTransaction(Math.abs(transaction.amount), transaction.description);
     }
   }, [originalAddTransaction, checkLargeTransaction, checkEnhancedTransactionAlerts, transactions]);
 

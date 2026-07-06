@@ -252,7 +252,8 @@ export async function generatePDFReport(data: ReportData, _accounts: Account[]):
     
     const amountColor = transaction.type === 'income' ? [34, 197, 94] as const : [239, 68, 68] as const;
     pdf.setTextColor(amountColor[0], amountColor[1], amountColor[2]);
-    const amountText = `${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.amount)}`;
+    // Amounts are stored signed; derive the sign from the value so incoming transfers show '+'
+    const amountText = `${transaction.amount < 0 ? '-' : '+'}${formatCurrency(Math.abs(transaction.amount))}`;
     pdf.text(amountText, margin + 140, yPosition);
     pdf.setTextColor(0, 0, 0);
     

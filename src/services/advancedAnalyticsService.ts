@@ -96,8 +96,10 @@ class AdvancedAnalyticsService {
       const stats = categoryStats.get(transaction.category || 'Uncategorized');
       if (!stats) return;
       
-      const amount = toDecimal(transaction.amount);
-      const zScore = stats.stdDev.greaterThan(0) 
+      // Expenses are stored signed (negative); compare magnitudes so a large
+      // spend produces a positive z-score
+      const amount = toDecimal(transaction.amount).abs();
+      const zScore = stats.stdDev.greaterThan(0)
         ? amount.minus(stats.mean).dividedBy(stats.stdDev).toNumber()
         : 0;
       
@@ -382,7 +384,8 @@ class AdvancedAnalyticsService {
       if (!categoryGroups.has(category)) {
         categoryGroups.set(category, []);
       }
-      categoryGroups.get(category)!.push(toDecimal(t.amount));
+      // Amounts are signed (expenses negative); aggregate magnitudes
+      categoryGroups.get(category)!.push(toDecimal(t.amount).abs());
     });
     
     const stats = new Map<string, { mean: DecimalInstance; stdDev: DecimalInstance }>();
@@ -407,7 +410,8 @@ class AdvancedAnalyticsService {
     stats: { mean: DecimalInstance; stdDev: DecimalInstance },
     zScore: number
   ): string {
-    const amount = toDecimal(transaction.amount);
+    // Stats hold magnitudes, so compare against the signed amount's magnitude
+    const amount = toDecimal(transaction.amount).abs();
     const percentageAbove = amount.minus(stats.mean).dividedBy(stats.mean).times(100).toNumber();
     
     if (zScore > 3) {
@@ -426,7 +430,8 @@ class AdvancedAnalyticsService {
     transactions.forEach(t => {
       const monthKey = format(new Date(t.date), 'yyyy-MM');
       const current = monthlyTotals.get(monthKey) || toDecimal(0);
-      monthlyTotals.set(monthKey, current.plus(toDecimal(t.amount)));
+      // Amounts are signed (expenses negative); totals are spending magnitudes
+      monthlyTotals.set(monthKey, current.plus(toDecimal(t.amount).abs()));
     });
     
     return monthlyTotals;
@@ -514,12 +519,13 @@ class AdvancedAnalyticsService {
           subscriptions.push({
             id: `sub-${trans[0].description.replace(/\s+/g, '-')}-${trans[0].id}`,
             merchant: trans[0].description,
-            amount: toDecimal(trans[0].amount),
+            // Expense amounts are stored signed (negative); report magnitudes
+            amount: toDecimal(trans[0].amount).abs(),
             frequency: 'monthly',
             category: trans[0].category || 'Uncategorized',
             lastChargeDate: new Date(trans[trans.length - 1].date),
             isActive: true,
-            monthlyAmount: toDecimal(trans[0].amount),
+            monthlyAmount: toDecimal(trans[0].amount).abs(),
             unusedMonths: 0, // Would need more logic to detect usage
             transactionIds: trans.map(t => t.id)
           });

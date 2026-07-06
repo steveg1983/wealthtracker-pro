@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Investments from '../../pages/Investments';
-import { AppProvider } from '../../contexts/AppContext';
+import { AppProvider } from '../../contexts/AppContextSupabase';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 

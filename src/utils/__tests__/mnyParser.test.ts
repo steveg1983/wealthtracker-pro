@@ -221,9 +221,10 @@ describe('mnyParser', () => {
       const result = applyMappingToData(mockRawData, mapping);
 
       expect(result.transactions).toHaveLength(2);
+      // SIGNED CONVENTION: expense stored negative, income positive.
       expect(result.transactions[0]).toEqual({
         date: new Date((44561 - 25569) * 86400 * 1000),
-        amount: 150.50,
+        amount: -150.50,
         description: 'Grocery Store',
         type: 'expense',
         category: 'Food',
@@ -253,7 +254,8 @@ describe('mnyParser', () => {
       const result = applyMappingToData(mockRawData, mapping);
 
       const account = result.accounts[0];
-      expect(account.balance).toBe(2500.00 - 150.50); // Income - Expense
+      // SIGNED CONVENTION: balance is the raw sum of signed amounts (+2500 + -150.50).
+      expect(account.balance).toBe(2500.00 - 150.50);
     });
 
     it('handles missing optional fields', () => {

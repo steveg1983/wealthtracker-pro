@@ -1,6 +1,7 @@
 // Microsoft Money .mny file parser with manual mapping support
 import { formatDecimal } from './decimal-format';
 import { parseMoneyInput } from './decimal';
+import { signTransactionAmount } from './transactionAmount';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface ParsedAccount {
@@ -197,12 +198,16 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
         });
       }
       
-      // Create transaction
+      // SIGNED CONVENTION: store signed amounts (expense negative, income
+      // positive) so the ledger's raw-sum balance update is correct. The mapped
+      // Money amount is already source-signed; signTransactionAmount re-derives
+      // the sign from the resolved type (idempotent for correctly-signed input).
+      const mnyType: 'income' | 'expense' = amount < 0 ? 'expense' : 'income';
       transactions.push({
         date,
-        amount: Math.abs(amount),
+        amount: signTransactionAmount(amount, mnyType),
         description: String(descField),
-        type: amount < 0 ? 'expense' : 'income',
+        type: mnyType,
         category: String(category),
         payee: payee ? String(payee) : undefined,
         accountName
@@ -213,12 +218,11 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
     }
   });
   
-  // Calculate balances
+  // Calculate balances. Amounts are SIGNED (expense negative, income positive),
+  // so the balance is just their raw sum — matching the ledger's convention.
   accounts.forEach(account => {
     const accountTrans = transactions.filter(t => t.accountName === account.name);
-    const income = accountTrans.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const expenses = accountTrans.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    account.balance = income - expenses;
+    account.balance = accountTrans.reduce((sum, t) => sum + t.amount, 0);
   });
   
   return {

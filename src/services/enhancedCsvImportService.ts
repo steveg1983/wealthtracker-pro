@@ -3,8 +3,21 @@ import { smartCategorizationService } from './smartCategorizationService';
 import { importRulesService } from './importRulesService';
 import type { JsonValue } from '../types/common';
 import { toDecimal, toNumber } from '../utils/decimal';
+import { signTransactionAmount } from '../utils/transactionAmount';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+// Column-name keywords marking the money-out / money-in halves of two-column
+// bank formats. Matched as substrings of the lowercased source column name,
+// so 'withdrawal' also covers 'Withdrawals' / 'WITHDRAWALS' / 'Withdrawal
+// Amount'. 'Dare'/'Avere' are the Italian debit/credit column names
+// (intesa-sanpaolo profile).
+const OUTFLOW_COLUMN_KEYWORDS = ['debit', 'paid out', 'money out', 'withdrawal', 'dare'];
+const INFLOW_COLUMN_KEYWORDS = ['credit', 'paid in', 'money in', 'deposit', 'avere'];
+
+type RowBuildResult =
+  | { ok: true; transaction: Partial<Transaction> }
+  | { ok: false; error: string };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -351,6 +364,155 @@ export class EnhancedCsvImportService {
   }
 
   /**
+   * Classify an amount column by its source column name: money-out (debit),
+   * money-in (credit), or a single SIGNED amount column.
+   */
+  private classifyAmountColumn(sourceColumn: string): 'outflow' | 'inflow' | 'signed' {
+    const name = sourceColumn.toLowerCase();
+    if (OUTFLOW_COLUMN_KEYWORDS.some(keyword => name.includes(keyword))) return 'outflow';
+    if (INFLOW_COLUMN_KEYWORDS.some(keyword => name.includes(keyword))) return 'inflow';
+    return 'signed';
+  }
+
+  /**
+   * Normalize an explicit type-column cell (e.g. Mint's "Transaction Type")
+   * to a transaction type. Returns null for unrecognized values so callers
+   * fall back to sign-derived classification.
+   */
+  private normalizeTypeCell(value: string): Transaction['type'] | null {
+    switch (value.trim().toLowerCase()) {
+      case 'debit':
+      case 'withdrawal':
+      case 'expense':
+        return 'expense';
+      case 'credit':
+      case 'deposit':
+      case 'income':
+        return 'income';
+      case 'transfer':
+        return 'transfer';
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Build a transaction from a CSV row. Shared by importTransactions and
+   * generatePreview so previews always match what gets written.
+   *
+   * Signed convention: expenses stored negative, income positive. The parsed
+   * cell SIGN is authoritative — a positive debit cell is money out, but a
+   * NEGATIVE debit cell is a reversal (money in), mirror-inverted for credit
+   * cells. Returns { ok: false } when a debit/credit format yields no usable
+   * amount (zero or empty cells), so the row is skipped instead of importing
+   * an undefined amount.
+   */
+  private buildTransactionFromRow(
+    row: string[],
+    mappings: ColumnMapping[],
+    columnIndices: Map<string, number>
+  ): RowBuildResult {
+    const transaction: Partial<Transaction> = {
+      type: 'expense', // Default
+      cleared: false // Default
+    };
+
+    let outflowCell: number | null = null;
+    let inflowCell: number | null = null;
+    let explicitType: Transaction['type'] | null = null;
+    let hasDirectionalAmountColumn = false;
+
+    for (const mapping of mappings) {
+      const columnKind = mapping.targetField === 'amount'
+        ? this.classifyAmountColumn(mapping.sourceColumn)
+        : 'signed';
+      if (mapping.targetField === 'amount' && columnKind !== 'signed') {
+        hasDirectionalAmountColumn = true;
+      }
+
+      const index = columnIndices.get(mapping.sourceColumn);
+      if (index === undefined || !row[index]) continue;
+      const value = row[index];
+
+      // Special handling for amount fields
+      if (mapping.targetField === 'amount') {
+        const parsedAmount = this.parseAmount(value);
+        // Keep the parsed sign — orientation is applied in the resolution
+        // step below so reversals (negative debit / negative credit cells)
+        // survive.
+        if (columnKind === 'outflow') {
+          outflowCell = parsedAmount;
+        } else if (columnKind === 'inflow') {
+          inflowCell = parsedAmount;
+        } else {
+          // Single signed amount column - use as is
+          transaction.amount = parsedAmount;
+        }
+      } else if (mapping.targetField === 'type') {
+        // Explicit type column (e.g. the Mint profile). Normalized here and
+        // honoured in the resolution step instead of writing the raw cell
+        // (values like 'debit' are not valid Transaction types).
+        const rawType = mapping.transform ? mapping.transform(value) : value;
+        explicitType = typeof rawType === 'string' ? this.normalizeTypeCell(rawType) : null;
+      } else if (mapping.targetField === 'date' && !mapping.transform) {
+        // Apply date parsing for date fields without transform
+        transaction.date = new Date(this.parseDate(value));
+      } else if (mapping.transform) {
+        (transaction as Record<string, JsonValue>)[mapping.targetField] = mapping.transform(value);
+      } else {
+        (transaction as Record<string, JsonValue>)[mapping.targetField] = value;
+      }
+    }
+
+    // Resolve separate debit/credit columns. A debit column stores money-out
+    // magnitudes, so its parsed value is negated into the signed convention;
+    // a credit column already carries the money-in orientation. Zero cells
+    // carry no direction and are ignored.
+    let amountResolved = false;
+    if (hasDirectionalAmountColumn) {
+      const signedFromOutflow = outflowCell !== null && outflowCell !== 0 ? -outflowCell : null;
+      const signedFromInflow = inflowCell !== null && inflowCell !== 0 ? inflowCell : null;
+      const signedAmount = signedFromOutflow ?? signedFromInflow;
+      if (signedAmount !== null) {
+        transaction.amount = signedAmount;
+        transaction.type = signedAmount < 0 ? 'expense' : 'income';
+        amountResolved = true;
+      } else if (transaction.amount === undefined) {
+        return { ok: false, error: 'No non-zero amount found in the debit/credit columns' };
+      }
+    }
+
+    if (!amountResolved) {
+      if (explicitType !== null && transaction.amount !== undefined) {
+        if (transaction.amount < 0) {
+          // A negative amount means the source is SIGNED: the sign is
+          // authoritative and beats a contradictory type cell. Only
+          // 'transfer' is compatible with money-out; anything else resolves
+          // to expense. The amount keeps its source sign.
+          transaction.type = explicitType === 'transfer' ? 'transfer' : 'expense';
+        } else {
+          // Non-negative amounts next to an explicit type cell are unsigned
+          // magnitudes (Mint-style): classify by the type cell and sign the
+          // magnitude accordingly (a positive 'transfer' stays positive —
+          // transfer-in under the signed convention).
+          transaction.type = explicitType;
+          transaction.amount = signTransactionAmount(transaction.amount, explicitType, false);
+        }
+      } else if (explicitType !== null) {
+        transaction.type = explicitType;
+      } else if (transaction.amount && transaction.amount < 0) {
+        // Determine transaction type from a single signed amount column and
+        // keep the amount signed (expense negative, income positive).
+        transaction.type = 'expense';
+      } else if (transaction.amount && transaction.amount > 0) {
+        transaction.type = 'income';
+      }
+    }
+
+    return { ok: true, transaction };
+  }
+
+  /**
    * Check for duplicate transactions
    */
   async checkDuplicateTransaction(
@@ -427,12 +589,16 @@ export class EnhancedCsvImportService {
       errors: []
     };
     
-    // Create column index map
+    // Create column index map keyed by SOURCE column (unique). Bank formats
+    // (Lloyds, Halifax, Nationwide, …) map TWO source columns — "Debit Amount"
+    // and "Credit Amount" — to the same 'amount' target; a targetField-keyed
+    // map collapsed them to one index, so the debit mapping read the credit
+    // column's cell and debit-only rows imported with no amount at all.
     const columnIndices = new Map<string, number>();
     mappings.forEach(mapping => {
       const index = headers.findIndex(h => h === mapping.sourceColumn);
       if (index >= 0) {
-        columnIndices.set(mapping.targetField, index);
+        columnIndices.set(mapping.sourceColumn, index);
       }
     });
     
@@ -441,64 +607,17 @@ export class EnhancedCsvImportService {
       const row = data[rowIndex];
       
       try {
-        const transaction: Partial<Transaction> = {
-          type: 'expense', // Default
-          cleared: false // Default
-        };
-        
-        // Apply mappings
-        let debitAmount: number | null = null;
-        let creditAmount: number | null = null;
-        
-        for (const mapping of mappings) {
-          const index = columnIndices.get(mapping.targetField);
-          if (index !== undefined && row[index]) {
-            const value = row[index];
-            
-            // Special handling for amount fields
-            if (mapping.targetField === 'amount') {
-              const parsedAmount = this.parseAmount(value);
-              
-              // Check if this is a debit or credit column based on the source column name
-              const sourceColumnLower = mapping.sourceColumn.toLowerCase();
-              if (sourceColumnLower.includes('debit') || sourceColumnLower.includes('paid out') || sourceColumnLower.includes('money out')) {
-                debitAmount = Math.abs(parsedAmount);
-              } else if (sourceColumnLower.includes('credit') || sourceColumnLower.includes('paid in') || sourceColumnLower.includes('money in')) {
-                creditAmount = Math.abs(parsedAmount);
-              } else {
-                // Single amount column - use as is
-                transaction.amount = parsedAmount;
-              }
-            } else if (mapping.targetField === 'date' && !mapping.transform) {
-              // Apply date parsing for date fields without transform
-              transaction.date = new Date(this.parseDate(value));
-            } else if (mapping.transform) {
-              (transaction as Record<string, JsonValue>)[mapping.targetField] = mapping.transform(value);
-            } else {
-              (transaction as Record<string, JsonValue>)[mapping.targetField] = value;
-            }
-          }
+        const built = this.buildTransactionFromRow(row, mappings, columnIndices);
+        if (!built.ok) {
+          result.failed++;
+          result.errors.push({
+            row: rowIndex + 2, // +1 for header, +1 for 1-based indexing
+            error: built.error
+          });
+          continue;
         }
-        
-        // Handle separate debit/credit columns
-        if (debitAmount !== null || creditAmount !== null) {
-          if (debitAmount && debitAmount > 0) {
-            transaction.amount = debitAmount;
-            transaction.type = 'expense';
-          } else if (creditAmount && creditAmount > 0) {
-            transaction.amount = creditAmount;
-            transaction.type = 'income';
-          }
-        }
-        
-        // Determine transaction type from amount
-        if (transaction.amount && transaction.amount < 0) {
-          transaction.type = 'expense';
-          transaction.amount = Math.abs(transaction.amount);
-        } else if (transaction.amount && transaction.amount > 0) {
-          transaction.type = 'income';
-        }
-        
+        const transaction = built.transaction;
+
         // Map account name to ID
         if (transaction.accountName) {
           transaction.accountId = accountMap.get(transaction.accountName as string) || 'default';
@@ -622,7 +741,9 @@ export class EnhancedCsvImportService {
     mappings.forEach(mapping => {
       const index = data[0]?.findIndex(h => h === mapping.sourceColumn);
       if (index >= 0) {
-        columnIndices.set(mapping.targetField, index);
+        // Keyed by source column — see importTransactions: two bank columns
+        // (Debit/Credit) can map to the same 'amount' target.
+        columnIndices.set(mapping.sourceColumn, index);
       }
     });
     
@@ -633,41 +754,20 @@ export class EnhancedCsvImportService {
       const row = previewRows[rowIndex];
       
       try {
-        const transaction: Partial<Transaction> = {
-          type: 'expense', // Default
-          cleared: false // Default
-        };
-        
-        // Apply mappings
-        for (const mapping of mappings) {
-          const index = columnIndices.get(mapping.targetField);
-          if (index !== undefined && row[index]) {
-            const value = row[index];
-            
-            if (mapping.targetField === 'amount' && !mapping.transform) {
-              transaction.amount = this.parseAmount(value);
-            } else if (mapping.targetField === 'date' && !mapping.transform) {
-              transaction.date = new Date(this.parseDate(value));
-            } else if (mapping.transform) {
-              (transaction as Record<string, JsonValue>)[mapping.targetField] = mapping.transform(value);
-            } else {
-              (transaction as Record<string, JsonValue>)[mapping.targetField] = value;
-            }
-          }
+        // Shared row builder — previews must match what importTransactions
+        // writes (debit/credit sign handling, explicit type columns, zero
+        // cells all behave identically).
+        const built = this.buildTransactionFromRow(row, mappings, columnIndices);
+        if (!built.ok) {
+          this.logger.warn(`Skipping preview row ${rowIndex}: ${built.error}`);
+          continue;
         }
-        
-        // Determine transaction type from amount
-        if (transaction.amount && transaction.amount < 0) {
-          transaction.type = 'expense';
-          transaction.amount = Math.abs(transaction.amount);
-        } else if (transaction.amount && transaction.amount > 0) {
-          transaction.type = 'income';
-        }
-        
+        const transaction = built.transaction;
+
         // Add transaction
         transaction.id = this.createId('preview', rowIndex);
         transactions.push(transaction);
-        
+
       } catch (error) {
         this.logger.warn(`Failed to parse row ${rowIndex}: ${error instanceof Error ? error.message : String(error)}`);
       }

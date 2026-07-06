@@ -70,7 +70,8 @@ export default function TransactionReconciliation({
   const clearedBalance = useMemo(() => {
     return clearedTransactions.reduce((sum, t) => {
       const amount = typeof t.amount === 'number' ? t.amount : (t.amount as DecimalInstance).toNumber();
-      return sum + (t.type === 'income' ? amount : -amount);
+      // Amounts are stored signed (expenses negative), so sum them directly.
+      return sum + amount;
     }, 0);
   }, [clearedTransactions]);
 
@@ -96,11 +97,15 @@ export default function TransactionReconciliation({
       let score = 0;
       const reasons: string[] = [];
       
-      // Check amount similarity
-      if (Math.abs(historicalAmount - unclearedAmount) < 0.01) {
+      // Check amount similarity. Amounts are stored SIGNED (expenses
+      // negative), so the 10% test must divide by the magnitude — a signed
+      // denominator makes the ratio negative and every candidate "pass".
+      // Zero guard: a zero uncleared amount only matches exact zeros.
+      const amountDiff = Math.abs(historicalAmount - unclearedAmount);
+      if (amountDiff < 0.01) {
         score += 40;
         reasons.push('Exact amount match');
-      } else if (Math.abs(historicalAmount - unclearedAmount) / unclearedAmount < 0.1) {
+      } else if (unclearedAmount !== 0 && amountDiff / Math.abs(unclearedAmount) < 0.1) {
         score += 20;
         reasons.push('Similar amount (within 10%)');
       }
@@ -403,8 +408,9 @@ export default function TransactionReconciliation({
                                   ? 'text-green-600 dark:text-green-400' 
                                   : 'text-red-600 dark:text-red-400'
                               }`}>
-                                {transaction.type === 'income' ? '+' : '-'}
-                                {formatCurrency(transaction.amount)}
+                                {/* Amounts are stored signed; derive the sign from the value so incoming transfers show '+' */}
+                                {transaction.amount < 0 ? '-' : '+'}
+                                {formatCurrency(Math.abs(transaction.amount))}
                               </div>
                             </div>
                             
