@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import { getStripe, getTierForPriceId, mapStripeStatus } from '../_lib/stripe.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv } from '../_lib/env.js';
-import { captureServerError } from '../_lib/sentry.js';
+import { captureServerError, withSentry } from '../_lib/sentry.js';
 
 // Stripe signature verification requires the RAW request body — disable
 // Vercel's automatic JSON parsing for this route.
@@ -121,7 +121,7 @@ const syncSubscription = async (subscription: Stripe.Subscription): Promise<void
   // user_profiles automatically.
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed', code: 'method_not_allowed' });
@@ -249,3 +249,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Event processing failed', code: 'internal_error' });
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

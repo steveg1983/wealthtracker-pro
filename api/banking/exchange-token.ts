@@ -11,6 +11,7 @@ import { encryptSecret } from '../_lib/encryption.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { decodeStateToken } from '../_lib/state.js';
 import { exchangeCodeForToken, fetchAccounts } from '../_lib/truelayer.js';
+import { withSentry } from '../_lib/sentry.js';
 
 interface ProviderMetadata {
   id: string;
@@ -41,7 +42,7 @@ const getProviderFromAccounts = (
   };
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -178,3 +179,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return createErrorResponse(res, 500, 'Unexpected error', 'internal_error');
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

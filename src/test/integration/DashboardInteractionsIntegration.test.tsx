@@ -72,13 +72,17 @@ describe('Dashboard Interactions Integration', () => {
         expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
 
-      // Generous timeout: the dashboard component is lazy-loaded and the
-      // chunk can resolve slowly when the full suite runs under load.
-      const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' }, { timeout: 5000 });
-      const liabilitiesLabel = await screen.findByText(/liabilities/i, { selector: 'p' }, { timeout: 5000 });
+      // The dashboard is lazy-loaded and its chunk can resolve slowly when the
+      // full coverage suite runs under load. Query both labels concurrently so
+      // their wait windows overlap (sequential 5s waits could otherwise sum
+      // past the per-test timeout) and give the test an explicit generous cap.
+      const [assetsLabel, liabilitiesLabel] = await Promise.all([
+        screen.findByText(/assets/i, { selector: 'p' }, { timeout: 15000 }),
+        screen.findByText(/liabilities/i, { selector: 'p' }, { timeout: 15000 })
+      ]);
       expect(assetsLabel).toBeInTheDocument();
       expect(liabilitiesLabel).toBeInTheDocument();
-    });
+    }, 20000);
 
     it('should display monthly performance metrics', async () => {
       renderWithProviders(<Dashboard />);

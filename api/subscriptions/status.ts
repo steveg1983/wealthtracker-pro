@@ -3,6 +3,7 @@ import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
+import { withSentry } from '../_lib/sentry.js';
 
 interface SubscriptionRow {
   id: string;
@@ -16,7 +17,7 @@ interface SubscriptionRow {
   cancel_at_period_end: boolean | null;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -81,3 +82,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Failed to load subscription status', code: 'internal_error' });
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

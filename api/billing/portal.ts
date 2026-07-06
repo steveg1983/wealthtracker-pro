@@ -4,12 +4,13 @@ import { setCorsHeaders, isRedirectUrlAllowed } from '../_lib/cors.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getStripe } from '../_lib/stripe.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
+import { withSentry } from '../_lib/sentry.js';
 
 interface PortalRequest {
   returnUrl?: string;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -66,3 +67,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Failed to create portal session', code: 'internal_error' });
   }
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);

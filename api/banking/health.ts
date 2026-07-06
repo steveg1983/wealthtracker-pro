@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { withSentry } from '../_lib/sentry.js';
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
     return;
   }
@@ -33,3 +34,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Unexpected error', code: 'internal_error' });
     });
 }
+
+// Safety net: report any unhandled throw to Sentry (no-op without SENTRY_DSN).
+export default withSentry(handler);
