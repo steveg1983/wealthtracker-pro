@@ -552,7 +552,8 @@ export class NotificationService {
                transactionDate >= startDate &&
                transactionDate <= endDate;
       })
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
+      // Expenses are stored as negative signed amounts; abs at the summation point yields the positive "spent" magnitude
+      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
   }
 
   private calculateGoalProgress(goal: Goal): number {

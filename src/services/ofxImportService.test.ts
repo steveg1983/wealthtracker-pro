@@ -338,11 +338,11 @@ NEWFILEUID:NONE
       
       const [trx1, trx2, trx3] = result.transactions;
       
-      // Check first transaction
+      // Check first transaction (signed convention: expense stored negative)
       expect(trx1).toMatchObject({
         date: expect.any(Date),
         description: 'Grocery shopping',
-        amount: 25.50,
+        amount: -25.50,
         type: 'expense',
         accountId: 'acc1',
         cleared: true
@@ -361,11 +361,11 @@ NEWFILEUID:NONE
       });
       expectDateOnly(trx2.date, '2024-01-20');
 
-      // Check third transaction
+      // Check third transaction (signed convention: expense stored negative)
       expect(trx3).toMatchObject({
         date: expect.any(Date),
         description: 'Check #1234',
-        amount: 100,
+        amount: -100,
         type: 'expense',
         accountId: 'acc1',
         cleared: true
@@ -557,6 +557,92 @@ NEWFILEUID:NONE
       // Check that FEE type becomes expense
       const feeTrx = result.transactions.find(t => t.description === 'Monthly fee');
       expect(feeTrx?.type).toBe('expense');
+    });
+
+    it('treats a reversed credit (TRNTYPE CREDIT with negative TRNAMT) as an expense', async () => {
+      const reversedCreditOFX = validOFXContent.replace(
+        '</BANKTRANLIST>',
+        `<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20240122100000[0:GMT]
+<TRNAMT>-45.00
+<FITID>2024012201
+<NAME>Salary reversal
+</STMTTRN>
+</BANKTRANLIST>`
+      );
+
+      const result = await ofxImportService.importTransactions(
+        reversedCreditOFX,
+        mockAccounts,
+        []
+      );
+
+      const reversed = result.transactions.find(t => t.description === 'Salary reversal');
+      // Signed TRNAMT is authoritative: a negative CREDIT is money OUT.
+      expect(reversed).toMatchObject({
+        amount: -45,
+        type: 'expense'
+      });
+    });
+
+    it('treats a reversed debit (TRNTYPE DEBIT with positive TRNAMT) as income', async () => {
+      const reversedDebitOFX = validOFXContent.replace(
+        '</BANKTRANLIST>',
+        `<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20240123100000[0:GMT]
+<TRNAMT>30.00
+<FITID>2024012301
+<NAME>Fee refund
+</STMTTRN>
+</BANKTRANLIST>`
+      );
+
+      const result = await ofxImportService.importTransactions(
+        reversedDebitOFX,
+        mockAccounts,
+        []
+      );
+
+      const reversed = result.transactions.find(t => t.description === 'Fee refund');
+      // Signed TRNAMT is authoritative: a positive DEBIT is money IN.
+      expect(reversed).toMatchObject({
+        amount: 30,
+        type: 'income'
+      });
+    });
+
+    it('lets TRNTYPE break the tie only for zero amounts', async () => {
+      const zeroAmountOFX = validOFXContent.replace(
+        '</BANKTRANLIST>',
+        `<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20240124100000[0:GMT]
+<TRNAMT>0.00
+<FITID>2024012401
+<NAME>Zero credit adjustment
+</STMTTRN>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20240124110000[0:GMT]
+<TRNAMT>0.00
+<FITID>2024012402
+<NAME>Zero debit adjustment
+</STMTTRN>
+</BANKTRANLIST>`
+      );
+
+      const result = await ofxImportService.importTransactions(
+        zeroAmountOFX,
+        mockAccounts,
+        []
+      );
+
+      const zeroCredit = result.transactions.find(t => t.description === 'Zero credit adjustment');
+      const zeroDebit = result.transactions.find(t => t.description === 'Zero debit adjustment');
+      expect(zeroCredit?.type).toBe('income');
+      expect(zeroDebit?.type).toBe('expense');
     });
   });
 

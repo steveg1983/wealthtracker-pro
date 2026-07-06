@@ -1,6 +1,7 @@
 // QIF file parser optimized for Microsoft Money exports
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { parseMoneyInput } from './decimal';
+import { signTransactionAmount } from './transactionAmount';
 
 export interface ParsedAccount {
   name: string;
@@ -173,11 +174,16 @@ export function parseQIF(content: string): ParsedData {
           balances.expenses += Math.abs(currentTransaction.amount);
         }
         
+        // SIGNED CONVENTION: store signed amounts (expense negative, income
+        // positive) so the ledger's raw-sum balance update is correct. The QIF
+        // `T` line is already source-signed, so signTransactionAmount re-derives
+        // the sign from the resolved type (idempotent for correctly-signed input).
+        const qifType: 'income' | 'expense' = currentTransaction.amount < 0 ? 'expense' : 'income';
         const transaction: ParsedTransaction = {
           date: currentTransaction.date,
-          amount: Math.abs(currentTransaction.amount),
+          amount: signTransactionAmount(currentTransaction.amount, qifType),
           description: currentTransaction.payee || currentTransaction.memo || 'No description',
-          type: currentTransaction.amount < 0 ? 'expense' : 'income',
+          type: qifType,
           category: currentTransaction.category || 'Uncategorized',
           payee: currentTransaction.payee,
           accountName: accountName

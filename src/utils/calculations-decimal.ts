@@ -1,30 +1,39 @@
 /**
  * Decimal-based calculation functions for precise financial calculations
+ *
+ * SIGNED CONVENTION: transactions store SIGNED amounts (expenses negative,
+ * income positive, transfers signed by direction). Aggregate "spending"
+ * figures are reported as POSITIVE magnitudes (abs at the summation point —
+ * robust to any legacy positive-magnitude rows), and balances are a single
+ * signed sum with no per-type add/subtract.
  */
 
 import Decimal from 'decimal.js';
-import type { 
-  DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal 
+import type {
+  DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal
 } from '../types/decimal-types';
 import { sumDecimals } from './decimal';
 
 // Type alias for cleaner code
 type DecimalInstance = InstanceType<typeof Decimal>;
 
-/**
- * Calculate total income from transactions
- */
-export function calculateTotalIncome(transactions: DecimalTransaction[]): DecimalInstance {
-  const incomeTransactions = transactions.filter(t => t.type === 'income');
-  return sumDecimals(incomeTransactions.map(t => t.amount));
+/** Sum of |amount| — displayed magnitude for income/expense aggregates. */
+function sumMagnitudes(transactions: DecimalTransaction[]): DecimalInstance {
+  return sumDecimals(transactions.map(t => t.amount.abs()));
 }
 
 /**
- * Calculate total expenses from transactions
+ * Calculate total income from transactions (positive magnitude)
+ */
+export function calculateTotalIncome(transactions: DecimalTransaction[]): DecimalInstance {
+  return sumMagnitudes(transactions.filter(t => t.type === 'income'));
+}
+
+/**
+ * Calculate total expenses from transactions (positive magnitude)
  */
 export function calculateTotalExpenses(transactions: DecimalTransaction[]): DecimalInstance {
-  const expenseTransactions = transactions.filter(t => t.type === 'expense');
-  return sumDecimals(expenseTransactions.map(t => t.amount));
+  return sumMagnitudes(transactions.filter(t => t.type === 'expense'));
 }
 
 /**
@@ -44,9 +53,9 @@ export function calculateAccountBalance(
   transactions: DecimalTransaction[]
 ): DecimalInstance {
   const accountTransactions = transactions.filter(t => t.accountId === account.id);
-  const transactionSum = sumDecimals(accountTransactions.map(t => 
-    t.type === 'income' ? t.amount : t.amount.negated()
-  ));
+  // Amounts are signed — a single signed sum is the balance delta. The old
+  // per-type negation double-negated (added) expenses and flipped transfers.
+  const transactionSum = sumDecimals(accountTransactions.map(t => t.amount));
   return account.balance.plus(transactionSum);
 }
 
@@ -84,14 +93,14 @@ export function calculateBudgetSpending(
   startDate: Date,
   endDate: Date
 ): DecimalInstance {
-  const budgetTransactions = transactions.filter(t => 
+  const budgetTransactions = transactions.filter(t =>
     t.type === 'expense' &&
     t.category === budget.categoryId &&
     t.date >= startDate &&
     t.date <= endDate
   );
-  
-  return sumDecimals(budgetTransactions.map(t => t.amount));
+
+  return sumMagnitudes(budgetTransactions);
 }
 
 /**
@@ -190,8 +199,8 @@ export function calculateCategorySpending(
   if (endDate) {
     filtered = filtered.filter(t => t.date <= endDate);
   }
-  
-  return sumDecimals(filtered.map(t => t.amount));
+
+  return sumMagnitudes(filtered);
 }
 
 /**
@@ -201,10 +210,10 @@ export function calculateBudgetUsage(
   budget: DecimalBudget,
   transactions: DecimalTransaction[]
 ): DecimalInstance {
-  const expenseTransactions = transactions.filter(t => 
+  const expenseTransactions = transactions.filter(t =>
     t.type === 'expense' && t.category === budget.categoryId
   );
-  return sumDecimals(expenseTransactions.map(t => t.amount));
+  return sumMagnitudes(expenseTransactions);
 }
 
 /**
@@ -242,9 +251,9 @@ export function calculateSpendingByCategory(
     if (!spending[t.category]) {
       spending[t.category] = new Decimal(0);
     }
-    spending[t.category] = spending[t.category].plus(t.amount);
+    spending[t.category] = spending[t.category].plus(t.amount.abs());
   });
-  
+
   return spending;
 }
 
@@ -416,7 +425,8 @@ export function getTopCategories(
       if (!categoryTotals[t.category]) {
         categoryTotals[t.category] = { total: new Decimal(0), count: 0 };
       }
-      categoryTotals[t.category].total = categoryTotals[t.category].total.plus(t.amount);
+      // Positive magnitudes so the descending sort ranks the LARGEST spend first.
+      categoryTotals[t.category].total = categoryTotals[t.category].total.plus(t.amount.abs());
       categoryTotals[t.category].count += 1;
     });
   
@@ -450,11 +460,10 @@ export function calculateDailyBalance(
     });
     
     dayTransactions.forEach(t => {
-      if (t.type === 'income') {
-        currentBalance = currentBalance.plus(t.amount);
-      } else if (t.type === 'expense') {
-        currentBalance = currentBalance.minus(t.amount);
-      }
+      // Amounts are signed — one signed sum covers income, expenses AND
+      // transfers (the old per-type minus double-negated expenses and
+      // silently dropped transfers from the balance history).
+      currentBalance = currentBalance.plus(t.amount);
     });
     
     balances.push({ date: new Date(date), balance: currentBalance });
@@ -527,8 +536,8 @@ export function calculateCategoryTrends(
              t.type === 'expense';
     });
     
-    const amount = sumDecimals(monthTransactions.map(t => t.amount));
-    
+    const amount = sumMagnitudes(monthTransactions);
+
     trends.push({ month: monthStr, amount });
   }
   

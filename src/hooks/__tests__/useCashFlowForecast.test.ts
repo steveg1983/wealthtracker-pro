@@ -1,6 +1,12 @@
 /**
  * useCashFlowForecast Tests
- * Tests for the cash flow forecast hook
+ * Tests for the cash flow forecast hook.
+ *
+ * The hook reads accounts/transactions from the LIVE AppContextSupabase
+ * provider module. The real provider hydrates asynchronously via DataService,
+ * so — following the house pattern in useGlobalSearch.test.ts — useApp is
+ * stubbed on the live module and hands the hook the fixtures below
+ * synchronously. The financial engine (cashFlowForecastService) stays mocked.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -10,14 +16,23 @@ import { AllProviders } from '../../test/testUtils';
 import { Decimal } from 'decimal.js';
 import type { Transaction, Account } from '../../types';
 import type { ForecastResult } from '../../services/cashFlowForecastService';
+import type { DecimalInstance } from '../../types/decimal-types';
 
-// Mock the AppContext
-vi.mock('../../contexts/AppContext', () => ({
-  useApp: vi.fn(),
-  AppProvider: ({ children }: { children: React.ReactNode }) => children,
+// Stub useApp on the live provider module. vi.hoisted lets the hoisted
+// vi.mock factory reference the shared mock function.
+const { mockUseApp } = vi.hoisted(() => ({
+  mockUseApp: vi.fn(),
 }));
 
-// Mock the cashFlowForecastService
+vi.mock('../../contexts/AppContextSupabase', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../contexts/AppContextSupabase')>();
+  return {
+    ...actual,
+    useApp: mockUseApp,
+  };
+});
+
+// Mock the cashFlowForecastService (the financial engine under the hook)
 vi.mock('../../services/cashFlowForecastService', () => ({
   cashFlowForecastService: {
     forecast: vi.fn(),
@@ -26,16 +41,18 @@ vi.mock('../../services/cashFlowForecastService', () => ({
   },
 }));
 
-import { useApp } from '../../contexts/AppContext';
 import { cashFlowForecastService } from '../../services/cashFlowForecastService';
 
-// Mock data
+// Fixture data. Transaction amounts follow the SIGNED convention:
+// expenses are negative, income positive.
 const mockAccounts: Account[] = [
   {
     id: 'acc-1',
     name: 'Checking',
     type: 'current',
     balance: 5000,
+    currency: 'GBP',
+    lastUpdated: new Date('2025-01-20'),
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2025-01-20'),
   },
@@ -44,6 +61,8 @@ const mockAccounts: Account[] = [
     name: 'Savings',
     type: 'savings',
     balance: 10000,
+    currency: 'GBP',
+    lastUpdated: new Date('2025-01-20'),
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2025-01-20'),
   },
@@ -59,31 +78,31 @@ const mockTransactions: Transaction[] = [
     description: 'Monthly salary',
     date: new Date('2025-01-15'),
     pending: false,
-    isReconciled: false,
   },
   {
     id: 'tx-2',
     accountId: 'acc-1',
-    amount: 1200,
+    amount: -1200,
     type: 'expense',
     category: 'rent',
     description: 'Monthly rent',
     date: new Date('2025-01-01'),
     pending: false,
-    isReconciled: false,
   },
 ];
 
-const mockForecastResult: ForecastResult = {
+// Factory so each forecast call gets a fresh result object — the hook
+// mutates the result in place when merging custom patterns, so a shared
+// object would leak state between tests.
+const createMockForecastResult = (): ForecastResult => ({
   projections: [
     {
       date: new Date('2025-02-01'),
-      startingBalance: new Decimal(15000),
-      endingBalance: new Decimal(16800),
-      totalIncome: new Decimal(3000),
-      totalExpenses: new Decimal(1200),
-      netCashFlow: new Decimal(1800),
-      transactions: [],
+      projectedBalance: new Decimal(16800),
+      projectedIncome: new Decimal(3000),
+      projectedExpenses: new Decimal(1200),
+      recurringTransactions: [],
+      confidence: 90,
     },
   ],
   recurringPatterns: [
@@ -94,29 +113,31 @@ const mockForecastResult: ForecastResult = {
       type: 'income',
       category: 'salary',
       frequency: 'monthly',
-      confidence: 0.95,
+      confidence: 95,
+      lastOccurrence: new Date('2025-01-15'),
       nextOccurrence: new Date('2025-02-15'),
     },
   ],
-  currentBalance: new Decimal(15000),
-  projectedBalance: new Decimal(25000),
-  totalProjectedIncome: new Decimal(18000),
-  totalProjectedExpenses: new Decimal(7200),
-  monthlyAverageIncome: new Decimal(3000),
-  monthlyAverageExpenses: new Decimal(1200),
-};
+  summary: {
+    averageMonthlyIncome: new Decimal(3000),
+    averageMonthlyExpenses: new Decimal(1200),
+    averageMonthlySavings: new Decimal(1800),
+    projectedEndBalance: new Decimal(25000),
+    lowestProjectedBalance: new Decimal(15000),
+    lowestBalanceDate: new Date('2025-03-01'),
+  },
+});
 
 describe('useCashFlowForecast', () => {
-  const mockUseApp = useApp as ReturnType<typeof vi.fn>;
-  const mockForecast = cashFlowForecastService.forecast as ReturnType<typeof vi.fn>;
+  const mockForecast = vi.mocked(cashFlowForecastService.forecast);
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseApp.mockReturnValue({
       accounts: mockAccounts,
       transactions: mockTransactions,
-    } as any);
-    mockForecast.mockReturnValue(mockForecastResult);
+    });
+    mockForecast.mockImplementation(() => createMockForecastResult());
   });
 
   afterEach(() => {
@@ -144,15 +165,12 @@ describe('useCashFlowForecast', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.forecast).toEqual(mockForecastResult);
+        expect(result.current.forecast).toEqual(createMockForecastResult());
       });
 
-      // Verify forecast service was called with accounts, transactions, and period
-      expect(mockForecast).toHaveBeenCalled();
-      const callArgs = mockForecast.mock.calls[0];
-      expect(Array.isArray(callArgs[0])).toBe(true); // accounts array
-      expect(Array.isArray(callArgs[1])).toBe(true); // transactions array
-      expect(callArgs[2]).toBe(6); // default period
+      // Verify the forecast engine received the fixture accounts,
+      // fixture transactions, and the default 6-month period
+      expect(mockForecast).toHaveBeenCalledWith(mockAccounts, mockTransactions, 6);
     });
 
     it('does not generate forecast when disabled', () => {
@@ -164,8 +182,12 @@ describe('useCashFlowForecast', () => {
     });
 
     it('filters accounts and transactions based on accountIds', async () => {
+      // Stable reference: an inline array literal would be a new reference on
+      // every render, which re-fires the hook's forecast effect endlessly.
+      const accountIds = ['acc-1'];
+
       const { result } = renderHook(
-        () => useCashFlowForecast({ accountIds: ['acc-1'] }),
+        () => useCashFlowForecast({ accountIds }),
         {
           wrapper: AllProviders,
         }
@@ -175,11 +197,11 @@ describe('useCashFlowForecast', () => {
         expect(result.current.forecast).toBeDefined();
       });
 
-      // Verify forecast was called
+      // Only acc-1 and its transactions should reach the engine
       expect(mockForecast).toHaveBeenCalled();
       const callArgs = mockForecast.mock.calls[0];
-      expect(Array.isArray(callArgs[0])).toBe(true); // accounts array
-      expect(Array.isArray(callArgs[1])).toBe(true); // transactions array
+      expect(callArgs[0]).toEqual([mockAccounts[0]]);
+      expect(callArgs[1]).toEqual(mockTransactions);
       expect(callArgs[2]).toBe(6); // default period
     });
 
@@ -257,7 +279,8 @@ describe('useCashFlowForecast', () => {
         type: 'expense' as const,
         category: 'custom',
         frequency: 'monthly' as const,
-        confidence: 1,
+        confidence: 100,
+        lastOccurrence: new Date('2025-01-01'),
         nextOccurrence: new Date('2025-02-01'),
       };
 
@@ -312,16 +335,16 @@ describe('useCashFlowForecast', () => {
 });
 
 describe('useSeasonalAnalysis', () => {
-  const mockUseApp = useApp as ReturnType<typeof vi.fn>;
-  const mockAnalyzeSeasonalTrends = cashFlowForecastService.analyzeSeasonalTrends as ReturnType<typeof vi.fn>;
+  const mockAnalyzeSeasonalTrends = vi.mocked(cashFlowForecastService.analyzeSeasonalTrends);
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseApp.mockReturnValue({
+      accounts: mockAccounts,
       transactions: mockTransactions,
-    } as any);
-    
-    const mockTrends = new Map([
+    });
+
+    const mockTrends = new Map<number, { income: DecimalInstance; expenses: DecimalInstance }>([
       [1, { income: new Decimal(3000), expenses: new Decimal(1200) }],
       [2, { income: new Decimal(3000), expenses: new Decimal(1200) }],
     ]);
@@ -338,10 +361,8 @@ describe('useSeasonalAnalysis', () => {
       expect(result.current).toBeInstanceOf(Map);
     });
 
-    // Verify seasonal analysis was called with transactions array
-    expect(mockAnalyzeSeasonalTrends).toHaveBeenCalled();
-    const callArgs = mockAnalyzeSeasonalTrends.mock.calls[0];
-    expect(Array.isArray(callArgs[0])).toBe(true); // transactions array
+    // Verify seasonal analysis received the fixture transactions
+    expect(mockAnalyzeSeasonalTrends).toHaveBeenCalledWith(mockTransactions);
   });
 
   it('does not analyze when disabled', () => {

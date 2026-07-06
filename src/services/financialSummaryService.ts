@@ -176,33 +176,34 @@ export class FinancialSummaryService {
       return transDate >= previousStartDate && transDate <= previousEndDate;
     });
 
-    // Calculate totals
-    const totalIncome = periodTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+    // Calculate totals.
+    // CONVENTION: the live write path stores expenses SIGNED NEGATIVE
+    // (AddTransactionModal, signTransactionAmount, bank imports). Summing raw
+    // expense amounts therefore produced NEGATIVE expense totals, which made
+    // netIncome = income − (negative) OVERSTATE net income by 2×expenses and
+    // inverted the top-category ranking. Expense aggregates use the ABSOLUTE
+    // amount (robust to any legacy positive-magnitude rows), so `totalExpenses`
+    // et al. are positive magnitudes and income − expenses is correct.
+    const sumMagnitudes = (txns: Transaction[]): DecimalInstance =>
+      txns.reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
 
-    const totalExpenses = periodTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+    const totalIncome = sumMagnitudes(periodTransactions.filter(t => t.type === 'income'));
+    const totalExpenses = sumMagnitudes(periodTransactions.filter(t => t.type === 'expense'));
 
     const netIncome = totalIncome.minus(totalExpenses);
 
     // Previous period totals for comparison
-    const previousIncome = previousPeriodTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+    const previousIncome = sumMagnitudes(previousPeriodTransactions.filter(t => t.type === 'income'));
+    const previousExpenses = sumMagnitudes(previousPeriodTransactions.filter(t => t.type === 'expense'));
 
-    const previousExpenses = previousPeriodTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
-
-    // Calculate top spending categories
+    // Calculate top spending categories (positive magnitudes, so the
+    // descending sort ranks the LARGEST spend first)
     const categorySpending = new Map<string, DecimalInstance>();
     periodTransactions
       .filter(t => t.type === 'expense' && t.category)
       .forEach(t => {
         const current = categorySpending.get(t.category) || toDecimal(0);
-        categorySpending.set(t.category, current.plus(toDecimal(t.amount)));
+        categorySpending.set(t.category, current.plus(toDecimal(t.amount).abs()));
       });
 
     const topCategories = Array.from(categorySpending.entries())
@@ -224,13 +225,9 @@ export class FinancialSummaryService {
     // Account balance changes
     const accountBalances = accounts.map(account => {
       const accountTransactions = periodTransactions.filter(t => t.accountId === account.id);
-      const income = accountTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
-      const expenses = accountTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
-      
+      const income = sumMagnitudes(accountTransactions.filter(t => t.type === 'income'));
+      const expenses = sumMagnitudes(accountTransactions.filter(t => t.type === 'expense'));
+
       return {
         accountName: account.name,
         balance: toDecimal(account.balance),
@@ -245,10 +242,7 @@ export class FinancialSummaryService {
       const budgetTransactions = periodTransactions.filter(t =>
         t.type === 'expense' && budgetCategoryId && t.category === budgetCategoryId
       );
-      const spent = budgetTransactions.reduce(
-        (sum, t) => sum.plus(toDecimal(t.amount)),
-        toDecimal(0)
-      );
+      const spent = sumMagnitudes(budgetTransactions);
       // Handle legacy data: old budgets may have 'limit' instead of 'amount'
       const limitValue = budget.amount ?? (budget as { limit?: number }).limit ?? 0;
       const limit = toDecimal(limitValue);
@@ -300,14 +294,16 @@ export class FinancialSummaryService {
 
     const unusualTransactions = periodTransactions
       .filter(t => {
-        const amount = toDecimal(t.amount);
+        // Compare magnitudes: a large expense is stored NEGATIVE, so a raw
+        // greaterThan(positive threshold) could never flag it as unusual.
+        const amount = toDecimal(t.amount).abs();
         return amount.greaterThan(threshold) || t.tags?.includes('unusual');
       })
       .map(t => ({
         description: t.description,
         amount: toDecimal(t.amount),
         date: format(new Date(t.date), 'dd MMM'),
-        isHighAmount: toDecimal(t.amount).greaterThan(threshold)
+        isHighAmount: toDecimal(t.amount).abs().greaterThan(threshold)
       }))
       .slice(0, 5);
 

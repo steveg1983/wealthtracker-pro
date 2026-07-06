@@ -219,8 +219,9 @@ class TaxPlanningService {
     taxCategories.forEach((transactions, categoryId) => {
       const category = DEFAULT_TAX_CATEGORIES.find(c => c.id === categoryId);
       if (category) {
+        // Expenses are stored as negative signed amounts; abs at the summation point yields positive deduction magnitudes
         const amount = transactions.reduce(
-          (sum, t) => sum.plus(toDecimal(t.amount)), 
+          (sum, t) => sum.plus(toDecimal(t.amount).abs()),
           toDecimal(0)
         );
         
@@ -428,9 +429,10 @@ class TaxPlanningService {
 
   private calculateDeductions(transactions: Transaction[]): DecimalInstance {
     // Simplified deduction calculation
+    // Expenses are stored as negative signed amounts; abs at the summation point yields positive deduction magnitudes
     return transactions
-      .filter(t => this.identifyTaxCategory(t) !== null)
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+      .filter(t => t.type === 'expense' && this.identifyTaxCategory(t) !== null)
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
   }
 
   private identifyTaxCategory(transaction: Transaction): TaxCategory | null {
@@ -462,7 +464,8 @@ class TaxPlanningService {
          t.description.toLowerCase().includes('ira') ||
          t.description.toLowerCase().includes('retirement'))
       )
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+      // Expenses are stored as negative signed amounts; abs yields the positive contribution magnitude
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
   }
 
   private calculateCharitableDeductions(transactions: Transaction[], year: number): DecimalInstance {
@@ -473,7 +476,8 @@ class TaxPlanningService {
         (t.description.toLowerCase().includes('charity') || 
          t.description.toLowerCase().includes('donation'))
       )
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+      // Expenses are stored as negative signed amounts; abs yields the positive donation magnitude
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
   }
 
   private calculateHSAContributions(transactions: Transaction[], year: number): DecimalInstance {
@@ -483,7 +487,8 @@ class TaxPlanningService {
         new Date(t.date).getFullYear() === year &&
         t.description.toLowerCase().includes('hsa')
       )
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+      // Expenses are stored as negative signed amounts; abs yields the positive contribution magnitude
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
   }
 }
 

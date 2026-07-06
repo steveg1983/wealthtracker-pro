@@ -1,26 +1,18 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import Budget from '../../pages/Budget';
-import { AppProvider } from '../../contexts/AppContext';
+import BudgetPage from '../../pages/Budget';
+import { AppProvider } from '../../contexts/AppContextSupabase';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { BudgetProvider } from '../../contexts/BudgetContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
-import { __resetAppContextValue, __setAppContextValue } from '../../test/mocks/AppContextSupabase';
-import type { Budget } from '../../types';
+import { ToastProvider } from '../../contexts/ToastContext';
+import { __resetAppContextValue, __setAppContextValue } from '../mocks/AppContextSupabase';
+import type { Budget, Category } from '../../types';
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
+// Legacy budgets predate the categoryId column and only carry a category name.
+type LegacyBudget = Omit<Budget, 'categoryId'> & { category?: string };
 
 // Helper to render with all providers
 const renderWithProviders = (ui: React.ReactElement, { route = '/budget' } = {}) => {
@@ -29,11 +21,13 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/budget' } = {})
       <PreferencesProvider>
         <AppProvider>
           <NotificationProvider>
-            <BudgetProvider>
-              <Routes>
-                <Route path="/budget" element={ui} />
-              </Routes>
-            </BudgetProvider>
+            <ToastProvider>
+              <BudgetProvider>
+                <Routes>
+                  <Route path="/budget" element={ui} />
+                </Routes>
+              </BudgetProvider>
+            </ToastProvider>
           </NotificationProvider>
         </AppProvider>
       </PreferencesProvider>
@@ -46,16 +40,19 @@ describe('Budget Workflow Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorageMock.clear();
-    // Return empty data by default
-    localStorageMock.getItem.mockReturnValue(null);
+    localStorage.clear();
+    sessionStorage.clear();
     __resetAppContextValue();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   describe('Create Budget → Track Spending → Alerts', () => {
     it('should open and close the budget modal', async () => {
       // Step 1: Render budget page
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       // Wait for initial load
       await waitFor(() => {
@@ -74,7 +71,7 @@ describe('Budget Workflow Integration', () => {
       // Verify modal has the expected title
       const modal = screen.getByRole('dialog');
       expect(within(modal).getByRole('heading', { name: 'Add Budget' })).toBeInTheDocument();
-      
+
       // Verify form fields are present - use getAllByText since there might be multiple matches
       const categoryElements = within(modal).getAllByText(/category/i);
       expect(categoryElements.length).toBeGreaterThan(0);
@@ -92,7 +89,7 @@ describe('Budget Workflow Integration', () => {
     });
 
     it('should display different budget tabs', async () => {
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
@@ -120,38 +117,32 @@ describe('Budget Workflow Integration', () => {
     });
 
     it('should handle budget with existing data', async () => {
-      // Set up localStorage with existing budget data
-      const existingData = {
-        budgets: [{
-          id: 'budget-1',
-          categoryId: 'cat-1',
-          name: 'Entertainment',
-          amount: 200,
-          period: 'monthly',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          spent: 0
-        }],
-        categories: [
-          { id: 'cat-1', name: 'Entertainment', type: 'expense', level: 'detail' },
-          { id: 'cat-2', name: 'Food & Dining', type: 'expense', level: 'detail' }
-        ]
-      };
+      // Seed the live provider context with an existing budget
+      const budgets: Budget[] = [{
+        id: 'budget-1',
+        categoryId: 'cat-1',
+        name: 'Entertainment',
+        amount: 200,
+        period: 'monthly',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        spent: 0
+      }];
+      const categories: Category[] = [
+        { id: 'cat-1', name: 'Entertainment', type: 'expense', level: 'detail' },
+        { id: 'cat-2', name: 'Food & Dining', type: 'expense', level: 'detail' }
+      ];
 
-      localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'money_management_budgets') return JSON.stringify(existingData.budgets);
-        if (key === 'money_management_categories') return JSON.stringify(existingData.categories);
-        return null;
-      });
+      __setAppContextValue({ budgets, categories, transactions: [] });
 
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Entertainment')).toBeInTheDocument();
       });
-      
-      // The budget amount appears in the format "$200.00 of $200.00"
+
+      // The budget amount appears in the format "£200.00 of £200.00"
       await waitFor(() => {
         const budgetTexts = screen.getAllByText(/200/);
         expect(budgetTexts.length).toBeGreaterThan(0);
@@ -159,38 +150,32 @@ describe('Budget Workflow Integration', () => {
     });
 
     it('should display budget with existing data', async () => {
-      // Set up data with budgets
-      const testData = {
-        budgets: [{
-          id: 'budget-1',
-          categoryId: 'cat-1',
-          name: 'Groceries',
-          amount: 500,
-          period: 'monthly',
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          spent: 0
-        }],
-        categories: [
-          { id: 'cat-1', name: 'Groceries', type: 'expense', level: 'detail' }
-        ]
-      };
+      // Seed the live provider context with a budget
+      const budgets: Budget[] = [{
+        id: 'budget-1',
+        categoryId: 'cat-1',
+        name: 'Groceries',
+        amount: 500,
+        period: 'monthly',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        spent: 0
+      }];
+      const categories: Category[] = [
+        { id: 'cat-1', name: 'Groceries', type: 'expense', level: 'detail' }
+      ];
 
-      localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'money_management_budgets') return JSON.stringify(testData.budgets);
-        if (key === 'money_management_categories') return JSON.stringify(testData.categories);
-        return null;
-      });
+      __setAppContextValue({ budgets, categories, transactions: [] });
 
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         // Should show budget category
         expect(screen.getByText('Groceries')).toBeInTheDocument();
       });
-      
-      // Budget amount appears in various formats (e.g., "$500.00 of $500.00")
+
+      // Budget amount appears in various formats (e.g., "£500.00 of £500.00")
       await waitFor(() => {
         const budgetTexts = screen.getAllByText(/500/);
         expect(budgetTexts.length).toBeGreaterThan(0);
@@ -198,23 +183,25 @@ describe('Budget Workflow Integration', () => {
     });
 
     it('should render legacy budgets that only store category name', async () => {
-      const legacyBudgets = [{
+      const legacyBudgets: LegacyBudget[] = [{
         id: 'legacy-budget-1',
         category: 'Legacy Travel',
         amount: 150,
-        period: 'monthly' as const,
+        period: 'monthly',
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
         spent: 0
-      }] satisfies Array<Omit<Budget, 'categoryId'>>;
+      }];
 
       __setAppContextValue({
-        budgets: legacyBudgets as unknown as Budget[],
-        categories: []
+        // Single assertion is intentional: legacy rows lack categoryId by design
+        budgets: legacyBudgets as Budget[],
+        categories: [],
+        transactions: []
       });
 
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Legacy Travel')).toBeInTheDocument();
@@ -222,7 +209,7 @@ describe('Budget Workflow Integration', () => {
     });
 
     it('should select different budget periods', async () => {
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
@@ -242,11 +229,11 @@ describe('Budget Workflow Integration', () => {
       const periodLabel = within(modal).getByText(/period/i);
       const periodSelect = periodLabel.parentElement?.querySelector('select');
       expect(periodSelect).toBeInTheDocument();
-      
+
       if (periodSelect) {
         // Verify default is monthly
         expect(periodSelect).toHaveValue('monthly');
-        
+
         // Change to yearly
         await user.selectOptions(periodSelect, 'yearly');
         expect(periodSelect).toHaveValue('yearly');
@@ -262,7 +249,7 @@ describe('Budget Workflow Integration', () => {
     });
 
     it('should navigate between budget tabs successfully', async () => {
-      renderWithProviders(<Budget />);
+      renderWithProviders(<BudgetPage />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /budget/i })).toBeInTheDocument();
@@ -275,11 +262,11 @@ describe('Budget Workflow Integration', () => {
       expect(screen.getByRole('button', { name: /rollover/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /alerts/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /zero-based/i })).toBeInTheDocument();
-      
+
       // Test clicking envelope tab
       const envelopeTab = screen.getByRole('button', { name: /envelope/i });
       await user.click(envelopeTab);
-      
+
       // The envelope tab should show envelope budgeting content
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /envelope budgeting/i })).toBeInTheDocument();

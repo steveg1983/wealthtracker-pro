@@ -8,22 +8,9 @@ import { render, screen } from '@testing-library/react';
 import EditTransactionModal from './EditTransactionModal';
 import type { Transaction } from '../types';
 
-// Mock all dependencies with minimal implementations
-vi.mock('../contexts/AppContext', () => ({
-  useApp: () => ({
-    accounts: [
-      { id: 'acc-1', name: 'Checking Account', type: 'checking', currency: 'USD', balance: 1000, lastUpdated: new Date() },
-    ],
-    categories: [
-      { id: 'cat-1', name: 'Food', level: 'sub', parentId: 'type-expense' },
-    ],
-    updateTransaction: vi.fn(),
-    deleteTransaction: vi.fn(),
-    getSubCategories: vi.fn(() => []),
-    getDetailCategories: vi.fn(() => []),
-  }),
-}));
-
+// Mock all dependencies with minimal implementations.
+// AppContextSupabase (which the component actually consumes) is mocked
+// globally in src/test/setup.ts via src/test/mocks/AppContextSupabase.ts.
 vi.mock('../hooks/useTransactionNotifications', () => ({
   useTransactionNotifications: () => ({
     addTransaction: vi.fn(),
@@ -111,7 +98,8 @@ describe('EditTransactionModal', () => {
   const createMockTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
     id: 'txn-1',
     description: 'Test Transaction',
-    amount: 100.50,
+    // Signed convention: expenses are stored as negative amounts
+    amount: -100.50,
     type: 'expense',
     accountId: 'acc-1',
     date: new Date('2023-01-15'),

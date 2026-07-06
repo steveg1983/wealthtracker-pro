@@ -88,7 +88,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
     const expenses = filtered
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
+      .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
     
     const categoryBreakdown = categories.map(cat => {
       const catTransactions = filtered.filter(t => t.category === cat.name);
@@ -97,7 +97,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
         .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
       const catExpenses = catTransactions
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
+        .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
       
       return {
         Category: cat.name,
@@ -188,7 +188,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
               Description: t.description,
               Category: t.category,
               Type: t.type,
-              Amount: t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber(),
+              Amount: toDecimal(t.amount).toNumber(),
               Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
               Tags: t.tags?.join(', ') || '',
               Notes: t.notes || '',
@@ -196,7 +196,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
             });
           });
           const monthTotal = trans.reduce((sum, t) => 
-            sum + (t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber()), 0
+            sum + (toDecimal(t.amount).toNumber()), 0
           );
           transactionData.push({ Date: '', Description: 'Subtotal', Category: '', Type: '', Amount: monthTotal, Account: '' });
           transactionData.push({ Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' }); // Empty row
@@ -218,7 +218,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
               Description: t.description,
               Category: t.category,
               Type: t.type,
-              Amount: t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber(),
+              Amount: toDecimal(t.amount).toNumber(),
               Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
               Tags: t.tags?.join(', ') || '',
               Notes: t.notes || '',
@@ -226,7 +226,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
             });
           });
           const categoryTotal = trans.reduce((sum, t) => 
-            sum + (t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber()), 0
+            sum + (toDecimal(t.amount).toNumber()), 0
           );
           transactionData.push({ Date: '', Description: 'Subtotal', Category: '', Type: '', Amount: categoryTotal, Account: '' });
           transactionData.push({ Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' }); // Empty row
@@ -240,7 +240,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
             Description: t.description,
             Category: t.category,
             Type: t.type,
-            Amount: t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber(),
+            Amount: toDecimal(t.amount).toNumber(),
             Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
             Tags: t.tags?.join(', ') || '',
             Notes: t.notes || '',
@@ -280,7 +280,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
         const expenses = accTransactions
           .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
+          .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
         
         return {
           Name: acc.name,
@@ -323,12 +323,13 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
         const spent = transactions
           .filter(t => {
             const tDate = t.date instanceof Date ? t.date : new Date(t.date);
-            return t.type === 'expense' && 
+            return t.type === 'expense' &&
               t.category === budget.categoryId &&
               tDate.getMonth() === new Date().getMonth() &&
               tDate.getFullYear() === new Date().getFullYear();
           })
-          .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
+          // Expenses are stored signed (negative); spent is a positive magnitude.
+          .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
         
         const remaining = toDecimal(budget.amount).toNumber() - spent;
         const percentUsed = toDecimal(budget.amount).toNumber() > 0 
@@ -371,7 +372,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
         const expenses = catTransactions
           .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
+          .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
         
         const budget = budgets.find(b => b.categoryId === cat.name);
         

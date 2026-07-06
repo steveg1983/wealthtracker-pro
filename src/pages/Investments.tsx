@@ -41,9 +41,10 @@ export default function Investments() {
     investmentAccounts.some(acc => t.accountId === acc.id)
   );
   
+  // Expenses are stored signed (negative); invested total is a positive magnitude
   const totalInvested = investmentTransactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
     
   const totalReturn = portfolioValue - totalInvested;
   const returnPercentage = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
@@ -95,9 +96,10 @@ export default function Investments() {
       });
       
       // Calculate cumulative invested amount
+      // Expenses are stored signed (negative); invested total is a positive magnitude
       const totalInvestedUpToDate = transactionsUpToDate
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
         
       const totalWithdrawnUpToDate = transactionsUpToDate
         .filter(t => t.type === 'income')

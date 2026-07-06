@@ -26,20 +26,42 @@ export class QIFImportService {
     const transactions: QIFTransaction[] = [];
     let currentTransaction: Partial<QIFTransaction> = {};
     let accountType: string | undefined;
-    
+    let inAccountHeader = false;
+
     for (const line of lines) {
+      if (line.startsWith('!Account')) {
+        // Account header block: its fields describe the account, not a
+        // transaction. In this block 'N' is the account NAME, 'T' the account
+        // TYPE (e.g. "Bank") and '$' the balance — feeding those into the
+        // transaction field parser crashed on non-numeric 'T' values.
+        inAccountHeader = true;
+        continue;
+      }
+
       if (line.startsWith('!Type:')) {
         // Account type declaration
         accountType = line.substring(6);
+        inAccountHeader = false;
         continue;
       }
-      
+
       if (line === '^') {
+        if (inAccountHeader) {
+          // End of account header block — nothing transactional to record
+          inAccountHeader = false;
+          currentTransaction = {};
+          continue;
+        }
         // End of transaction
         if (currentTransaction.date && currentTransaction.amount !== undefined) {
           transactions.push(currentTransaction as QIFTransaction);
         }
         currentTransaction = {};
+        continue;
+      }
+
+      if (inAccountHeader) {
+        // Skip account metadata lines (name/type/balance/description)
         continue;
       }
       
@@ -159,14 +181,32 @@ export class QIFImportService {
     let duplicates = 0;
     
     for (const qifTrx of parseResult.transactions) {
-      // Basic duplicate check by date, amount, and payee
+      // Duplicate check by date, SIGNED amount, and payee similarity
       const isDuplicate = existingTransactions.some(existing => {
         const existingDateStr = typeof existing.date === 'string' ? existing.date : existing.date.toISOString().split('T')[0];
-        const sameDate = existingDateStr === qifTrx.date;
-        const sameAmount = Math.abs(existing.amount - Math.abs(qifTrx.amount)) < 0.01;
-        const samePayee = qifTrx.payee && existing.description.includes(qifTrx.payee);
-        
-        return sameDate && sameAmount && (samePayee || !qifTrx.payee);
+        if (existingDateStr !== qifTrx.date) {
+          return false;
+        }
+
+        // Payee/description similarity is required: never dedupe on
+        // date + amount alone when the incoming row has no payee.
+        const samePayee = Boolean(qifTrx.payee && existing.description.includes(qifTrx.payee));
+        if (!samePayee) {
+          return false;
+        }
+
+        // Signed convention: compare SIGNED amounts so a same-day refund (+X)
+        // of an expense (-X) is NOT swallowed as a duplicate.
+        const sameSignedAmount = Math.abs(existing.amount - qifTrx.amount) < 0.01;
+        if (sameSignedAmount) {
+          return true;
+        }
+
+        // Legacy fallback: rows stored before the signed convention kept
+        // expenses positive. Only for those rows compare by magnitude.
+        const isLegacyPositiveExpense = existing.amount > 0 && existing.type === 'expense';
+        return isLegacyPositiveExpense &&
+          Math.abs(Math.abs(existing.amount) - Math.abs(qifTrx.amount)) < 0.01;
       });
       
       if (isDuplicate) {
@@ -174,7 +214,9 @@ export class QIFImportService {
         continue;
       }
       
-      const amount = Math.abs(qifTrx.amount);
+      // Signed convention: QIF 'T'/'U' amounts are already signed at the source
+      // (expense negative, income positive), so store the signed value directly.
+      const amount = qifTrx.amount;
       const type = qifTrx.amount < 0 ? 'expense' : 'income';
       
       // Build description from payee and memo

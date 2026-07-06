@@ -556,12 +556,14 @@ export class ExportService {
   }
 
   private calculateGroupTotal(items: ExportableData[]): number {
+    // Values are stored signed. Sum the raw value so transactions net out (income − expenses)
+    // and account balances keep their true sign — never abs, which corrupted both.
     return items.reduce((sum, item) => {
       let amount = 0;
       if ('amount' in item) amount = item.amount;
       else if ('balance' in item) amount = item.balance;
       else if ('currentValue' in item) amount = item.currentValue || 0;
-      return sum + Math.abs(amount);
+      return sum + amount;
     }, 0);
   }
 
@@ -654,7 +656,8 @@ export class ExportService {
           const qifDate = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()}`;
           
           qifContent += `D${qifDate}\n`;
-          qifContent += `T${transaction.type === 'expense' ? '-' : ''}${formatDecimal(transaction.amount, 2)}\n`;
+          // Amounts are stored signed (expenses negative), so emit as-is — no per-type '-' prefix
+          qifContent += `T${formatDecimal(transaction.amount, 2)}\n`;
           qifContent += `P${transaction.description || ''}\n`;
           qifContent += `L${transaction.category || 'Uncategorized'}\n`;
           
@@ -720,7 +723,8 @@ NEWFILEUID:${now}
 
       for (const transaction of accountTransactions) {
         const date = new Date(transaction.date).toISOString().replace(/[-:]/g, '').split('.')[0];
-        const amount = transaction.type === 'expense' ? `-${transaction.amount}` : `${transaction.amount}`;
+        // Amounts are stored signed (expenses negative), so emit as-is — no per-type '-' prefix
+        const amount = `${transaction.amount}`;
         
         ofxContent += `<STMTTRN>
 <TRNTYPE>${transaction.type === 'expense' ? 'DEBIT' : 'CREDIT'}

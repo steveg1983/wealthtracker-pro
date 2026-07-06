@@ -573,8 +573,9 @@ export default function BulkTransactionEdit({
                             ? 'text-green-600 dark:text-green-400' 
                             : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {transaction.type === 'income' ? '+' : '-'}
-                          {formatCurrency(transaction.amount)}
+                          {/* Amounts are stored signed (expenses negative): derive the sign from the value, format the magnitude */}
+                          {transaction.amount >= 0 ? '+' : '-'}
+                          {formatCurrency(Math.abs(transaction.amount))}
                         </div>
                       </div>
                     </div>

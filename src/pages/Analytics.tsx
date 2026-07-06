@@ -316,13 +316,15 @@ export default function Analytics(): React.JSX.Element {
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
     
+    // `expenses` is a signed NEGATIVE sum (signed convention). net = income + expenses = income − |expenses|.
     const savingsRate = income.greaterThan(0)
-      ? income.plus(expenses).dividedBy(income).times(100) // expenses are already negative
+      ? income.plus(expenses).dividedBy(income).times(100)
       : toDecimal(0);
-    
+
     return {
       totalIncome: income,
-      totalExpenses: expenses,
+      // Expose expenses as a positive magnitude so the card/footer agree with the abs-rendered rows.
+      totalExpenses: expenses.abs(),
       savingsRate,
       transactionCount: transactions.length
     };

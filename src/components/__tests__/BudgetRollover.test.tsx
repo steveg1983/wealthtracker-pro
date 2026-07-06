@@ -24,7 +24,7 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
       {
         id: 'trans-1',
         date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 15), // Last month
-        amount: toDecimal(150),
+        amount: toDecimal(-150), // Expenses are stored signed (negative)
         category: 'cat-1',
         type: 'expense',
         description: 'Grocery shopping',
@@ -34,7 +34,7 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
       {
         id: 'trans-2',
         date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20), // Last month
-        amount: toDecimal(50),
+        amount: toDecimal(-50), // Expenses are stored signed (negative)
         category: 'cat-2',
         type: 'expense',
         description: 'Gas',

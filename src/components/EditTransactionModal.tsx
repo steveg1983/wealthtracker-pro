@@ -80,16 +80,26 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       onSubmit: (data) => {
         try {
           const isTransfer = data.type === 'transfer';
-          const isTransferToAccount = data.category.startsWith('transfer:');
+          // A freshly-chosen outgoing transfer encodes its target in the
+          // category ('transfer:<id>'); an existing transfer being edited keeps
+          // the target/category it already has.
+          const isNewTransferSelection = data.category.startsWith('transfer:');
+          const editingExistingTransfer = isTransfer && !!transaction;
 
-          // CRITICAL: Transfers MUST have a target account selected
-          if (isTransfer && !isTransferToAccount) {
+          // CRITICAL: a NEW transfer must have a target account selected. An
+          // EXISTING transfer already has one, so editing it must not demand a
+          // re-selection (which previously made every transfer edit throw).
+          if (isTransfer && !isNewTransferSelection && !editingExistingTransfer) {
             throw new Error('Please select an account to transfer to.');
           }
 
-          const targetAccountId = isTransferToAccount ? data.category.slice('transfer:'.length) : undefined;
-          const resolvedCategory = isTransferToAccount ? 'transfer-out' : data.category;
-          const resolvedType = isTransferToAccount ? 'transfer' : data.type;
+          const targetAccountId = isNewTransferSelection
+            ? data.category.slice('transfer:'.length)
+            : transaction?.transferAccountId;   // preserve on edit
+          const resolvedType = isTransfer || isNewTransferSelection ? 'transfer' : data.type;
+          const resolvedCategory = isNewTransferSelection
+            ? 'transfer-out'
+            : data.category;
 
           const validatedData = ValidationService.validateTransaction({
             id: transaction?.id,
@@ -104,14 +114,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           });
 
           const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
-          // The form seeds the amount as Math.abs (line ~53), so it is always
-          // positive and MUST be re-signed. Shared helper = same convention as
-          // AddTransactionModal (this copy previously omitted the expense sign).
-          const signedAmount = signTransactionAmount(
-            parsedAmount,
-            resolvedType as 'income' | 'expense' | 'transfer',
-            isTransferToAccount
-          );
+          // Sign the stored amount. Income/expense are seeded as Math.abs, so
+          // re-sign by type. Transfers ENCODE DIRECTION in their sign: an edit
+          // keeps the entered/seeded sign (so an incoming +transfer can't be
+          // flipped to outgoing), while a newly-selected outgoing transfer is
+          // negative.
+          const signedAmount = resolvedType === 'transfer'
+            ? (transaction ? parsedAmount : -Math.abs(parsedAmount))
+            : signTransactionAmount(parsedAmount, resolvedType as 'income' | 'expense');
           const transactionData = {
             date: new Date(validatedData.date),
             description: validatedData.description,
@@ -133,7 +143,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           }
 
           // Create paired transaction in target account for NEW transfers only
-          if (isTransferToAccount && targetAccountId && !transaction) {
+          if (isNewTransferSelection && targetAccountId && !transaction) {
             addTransaction({
               date: new Date(validatedData.date),
               description: validatedData.description,
