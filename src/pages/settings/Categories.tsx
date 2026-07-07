@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
+import { useToast } from '../../contexts/ToastContext';
+import { MS_MONEY_CATEGORY_SET } from '../../data/msMoneyCategories';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon } from '../../components/icons';
@@ -157,15 +159,50 @@ function SortableCategory({
 }
 
 export default function CategoriesSettings() {
-  const { 
-    transactions, 
+  const {
+    transactions,
     categories,
     updateCategory,
     deleteCategory,
     updateTransaction,
     getSubCategories,
-    getDetailCategories
+    getDetailCategories,
+    importCategoryTree
   } = useApp();
+  const { showSuccess, showError } = useToast();
+  const [isImporting, setIsImporting] = useState(false);
+
+  // The type-level ids are user-specific UUIDs after cloud migration — the old
+  // hardcoded 'type-income'/'type-expense'/'type-transfer' anchors matched
+  // nothing, which rendered every section empty. Resolve them dynamically.
+  const typeAnchorIds = useMemo(() => ({
+    income: categories.find(c => c.level === 'type' && c.type === 'income')?.id ?? 'type-income',
+    expense: categories.find(c => c.level === 'type' && c.type === 'expense')?.id ?? 'type-expense',
+    transfer: categories.find(c => c.level === 'type' && c.type === 'both')?.id ?? 'type-transfer',
+  }), [categories]);
+
+  const handleImportMoneySet = async () => {
+    if (isImporting) return;
+    if (!window.confirm(
+      'Import the Microsoft Money category set? Existing categories with the same names are kept — nothing is deleted or overwritten.'
+    )) {
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const result = await importCategoryTree(MS_MONEY_CATEGORY_SET);
+      showSuccess(
+        result.created > 0
+          ? `Added ${result.created} categories (${result.skipped} already existed).`
+          : 'All Microsoft Money categories already exist — nothing to add.',
+        'Category import complete'
+      );
+    } catch (error) {
+      showError(error);
+    } finally {
+      setIsImporting(false);
+    }
+  };
   
   // Helper function to get category path
   const getCategoryPath = (categoryId: string): string => {
@@ -332,10 +369,17 @@ export default function CategoriesSettings() {
       const overParent = categories.find(c => c.id === overCategory.parentId);
       
       if (activeParent && overParent && activeParent.id !== overParent.id) {
-        // Move subcategory to new parent type
-        updateCategory(active.id as string, { 
+        // Move subcategory to new parent type. Compare against the RESOLVED
+        // anchor ids — cloud-migrated anchors are UUIDs, so matching the old
+        // literal 'type-income'/'type-expense' always fell through to 'both'
+        // and silently corrupted the category's type on cross-section drags.
+        updateCategory(active.id as string, {
           parentId: overParent.id,
-          type: overParent.id === 'type-income' ? 'income' : overParent.id === 'type-expense' ? 'expense' : 'both'
+          type: overParent.id === typeAnchorIds.income
+            ? 'income'
+            : overParent.id === typeAnchorIds.expense
+              ? 'expense'
+              : 'both'
         });
         
         // Update order
@@ -637,6 +681,28 @@ export default function CategoriesSettings() {
         </div>
       )}
 
+      {/* Starter set import */}
+      {!isEditMode && !isDeleteMode && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Microsoft Money category set
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Import the classic Money (UK) category tree. Merges with what you have —
+              same-named categories are kept, nothing is deleted.
+            </p>
+          </div>
+          <button
+            onClick={() => void handleImportMoneySet()}
+            disabled={isImporting}
+            className="px-4 py-2 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap self-start sm:self-auto"
+          >
+            {isImporting ? 'Importing…' : 'Import Money set'}
+          </button>
+        </div>
+      )}
+
       {/* Categories Tree */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <DndContext 
@@ -646,9 +712,9 @@ export default function CategoriesSettings() {
           onDragEnd={handleDragEnd}
         >
           <div className="space-y-6">
-            {renderCategorySection('Income Categories', 'type-income')}
-            {renderCategorySection('Expense Categories', 'type-expense')}
-            {renderCategorySection('Transfer Categories', 'type-transfer')}
+            {renderCategorySection('Income Categories', typeAnchorIds.income)}
+            {renderCategorySection('Expense Categories', typeAnchorIds.expense)}
+            {renderCategorySection('Transfer Categories', typeAnchorIds.transfer)}
           
           {/* Other Categories */}
           <div>

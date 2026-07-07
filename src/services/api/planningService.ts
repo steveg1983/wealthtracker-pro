@@ -423,6 +423,31 @@ export class PlanningService {
     return newCategory;
   }
 
+  /** Bulk create — one insert round trip instead of N (used by tree imports). */
+  static async createCategories(userId: string | null, newCategories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
+    if (newCategories.length === 0) {
+      return [];
+    }
+
+    if (this.cloudReady && userId) {
+      const rows = newCategories.map(category => categoryToDb(category, userId));
+      const { data, error } = await supabase!
+        .from('categories')
+        .insert(rows as never)
+        .select();
+      if (error) throw new Error(handleSupabaseError(error));
+      const created = ((data ?? []) as Row[]).map(categoryFromDb);
+      const cache = await this.getCategories();
+      await this.saveCategories([...cache, ...created]);
+      return created;
+    }
+
+    const created = newCategories.map(category => ({ ...category, id: crypto.randomUUID() } as Category));
+    const categories = await this.getCategories();
+    await this.saveCategories([...categories, ...created]);
+    return created;
+  }
+
   static async updateCategory(userId: string | null, id: string, updates: Partial<Category>): Promise<Category> {
     if (this.cloudReady && userId) {
       const { data, error } = await supabase!
