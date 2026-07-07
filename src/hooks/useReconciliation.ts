@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react';
+import { toDecimal } from '../utils/decimal';
 import type { Account, Transaction } from '../types';
 
 export interface ReconciliationSummary {
@@ -11,12 +12,23 @@ export interface ReconciliationSummary {
   lastReconciledDate: Date | null;
 }
 
+/** MS Money-style session totals: what's been marked cleared, split by direction. */
+export interface ClearedSummary {
+  clearedCount: number;
+  totalCount: number;
+  depositsTotal: number;
+  depositsCount: number;
+  paymentsTotal: number;
+  paymentsCount: number;
+}
+
 interface UseReconciliationReturn {
   reconciliationDetails: ReconciliationSummary[];
   totalUnreconciledCount: number;
   getUnreconciledCount: (accountId: string) => number;
   computeAccountBalance: (accountId: string) => number;
   computeClearedBalance: (accountId: string) => number;
+  computeClearedSummary: (accountId: string) => ClearedSummary;
 }
 
 export function useReconciliation(accounts: Account[], transactions: Transaction[]): UseReconciliationReturn {
@@ -38,15 +50,50 @@ export function useReconciliation(accounts: Account[], transactions: Transaction
     const account = accounts.find(a => a.id === accountId);
     const openingBalance = account?.openingBalance ?? 0;
     const txns = accountTransactionMap.get(accountId) ?? [];
-    return openingBalance + txns.reduce((sum, t) => sum + t.amount, 0);
+    return txns
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(openingBalance))
+      .toNumber();
   }, [accounts, accountTransactionMap]);
 
   const computeClearedBalance = useCallback((accountId: string): number => {
     const account = accounts.find(a => a.id === accountId);
     const openingBalance = account?.openingBalance ?? 0;
     const txns = accountTransactionMap.get(accountId) ?? [];
-    return openingBalance + txns.filter(t => t.cleared === true).reduce((sum, t) => sum + t.amount, 0);
+    return txns
+      .filter(t => t.cleared === true)
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(openingBalance))
+      .toNumber();
   }, [accounts, accountTransactionMap]);
+
+  const computeClearedSummary = useCallback((accountId: string): ClearedSummary => {
+    const txns = accountTransactionMap.get(accountId) ?? [];
+    let depositsTotal = toDecimal(0);
+    let paymentsTotal = toDecimal(0);
+    let depositsCount = 0;
+    let paymentsCount = 0;
+    let clearedCount = 0;
+
+    for (const t of txns) {
+      if (t.cleared !== true) continue;
+      clearedCount += 1;
+      if (t.amount >= 0) {
+        depositsTotal = depositsTotal.plus(toDecimal(t.amount));
+        depositsCount += 1;
+      } else {
+        paymentsTotal = paymentsTotal.plus(toDecimal(t.amount));
+        paymentsCount += 1;
+      }
+    }
+
+    return {
+      clearedCount,
+      totalCount: txns.length,
+      depositsTotal: depositsTotal.toNumber(),
+      depositsCount,
+      paymentsTotal: paymentsTotal.toNumber(),
+      paymentsCount,
+    };
+  }, [accountTransactionMap]);
 
   const reconciliationDetails = useMemo<ReconciliationSummary[]>(() =>
     accounts.map(account => {
@@ -54,9 +101,16 @@ export function useReconciliation(accounts: Account[], transactions: Transaction
       const unreconciledCount = txns.filter(t => t.cleared !== true).length;
       const bankBalance = account.bankBalance ?? null;
       const openingBalance = account.openingBalance ?? 0;
-      const accountBalance = openingBalance + txns.reduce((sum, t) => sum + t.amount, 0);
-      const clearedBalance = openingBalance + txns.filter(t => t.cleared === true).reduce((sum, t) => sum + t.amount, 0);
-      const difference = bankBalance != null ? bankBalance - clearedBalance : null;
+      const accountBalance = txns
+        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(openingBalance))
+        .toNumber();
+      const clearedBalance = txns
+        .filter(t => t.cleared === true)
+        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(openingBalance))
+        .toNumber();
+      const difference = bankBalance != null
+        ? toDecimal(bankBalance).minus(toDecimal(clearedBalance)).toNumber()
+        : null;
 
       return {
         account,
@@ -88,5 +142,6 @@ export function useReconciliation(accounts: Account[], transactions: Transaction
     getUnreconciledCount,
     computeAccountBalance,
     computeClearedBalance,
+    computeClearedSummary,
   };
 }

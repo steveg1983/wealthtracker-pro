@@ -4,23 +4,24 @@ import { useNotifications } from '../contexts/NotificationContext';
 import type { Transaction } from '../types';
 
 interface UseTransactionNotificationsReturn {
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
 }
 
 export function useTransactionNotifications(): UseTransactionNotificationsReturn {
   const { addTransaction: originalAddTransaction, transactions } = useApp();
   const { checkLargeTransaction, checkEnhancedTransactionAlerts } = useNotifications();
 
-  const addTransaction = useCallback((transaction: Omit<Transaction, 'id'>) => {
+  const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
     // Create the full transaction object with ID
     const fullTransaction: Transaction = {
       ...transaction,
       id: `transaction-${Date.now()}`
     };
 
-    // Add the transaction first
-    originalAddTransaction(transaction);
-    
+    // Add the transaction first — awaited so a failed write propagates to the
+    // caller (the edit modal shows it as a submit error) instead of vanishing.
+    await originalAddTransaction(transaction);
+
     // Check for enhanced transaction alerts (includes duplicate detection, unusual spending, etc.)
     checkEnhancedTransactionAlerts(fullTransaction, transactions);
     

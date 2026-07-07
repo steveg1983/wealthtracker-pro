@@ -28,7 +28,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -267,6 +267,27 @@ class DataServiceImpl {
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, filtered);
   }
 
+  /** Bulk-set the reconciliation cleared flag; balance-neutral by definition. */
+  async setTransactionsCleared(ids: string[], cleared: boolean): Promise<number> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.setTransactionsCleared(ids, cleared, userId);
+    }
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const idSet = new Set(ids);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (idSet.has(t.id)) {
+        count += 1;
+        return { ...t, cleared };
+      }
+      return t;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+    return count;
+  }
+
   async getBudgets(): Promise<Budget[]> {
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
@@ -381,6 +402,10 @@ export class DataService {
 
   static deleteTransaction(id: string): Promise<void> {
     return this.service.deleteTransaction(id);
+  }
+
+  static setTransactionsCleared(ids: string[], cleared: boolean): Promise<number> {
+    return this.service.setTransactionsCleared(ids, cleared);
   }
 
   static getBudgets(): Promise<Budget[]> {
