@@ -262,6 +262,54 @@ class TransactionServiceImpl {
     }
   }
 
+  /**
+   * Bulk-set the reconciliation cleared flag on a set of transactions in one
+   * round trip. is_cleared never affects account balances, so this goes through
+   * a dedicated RPC rather than N update_transaction_atomic calls.
+   * Returns the number of rows actually updated.
+   */
+  async setTransactionsCleared(ids: string[], cleared: boolean, userId?: string): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
+      const idSet = new Set(ids);
+      let count = 0;
+      const updated = transactions.map(t => {
+        if (idSet.has(t.id)) {
+          count += 1;
+          return { ...t, cleared, updatedAt: this.getCurrentDate() };
+        }
+        return t;
+      });
+      await this.persistTransactions(updated);
+      return count;
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      // RLS scopes the update to the requesting user; passing the owner adds
+      // the same defence-in-depth IDOR guard as the other atomic RPCs.
+      const { data, error } = await client.rpc('set_transactions_cleared', {
+        p_ids: ids,
+        p_cleared: cleared,
+        ...(userId ? { p_user_id: userId } : {})
+      });
+
+      if (error) {
+        this.logger.error('Error setting cleared status:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+
+      return typeof data === 'number' ? data : ids.length;
+    } catch (error) {
+      this.logger.error('TransactionService.setTransactionsCleared error:', error as Error);
+      throw error;
+    }
+  }
+
   async deleteTransaction(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
       const transactions = await this.readStoredTransactions();
@@ -528,6 +576,10 @@ export class TransactionService {
 
   static deleteTransaction(id: string, userId?: string): Promise<void> {
     return this.service.deleteTransaction(id, userId);
+  }
+
+  static setTransactionsCleared(ids: string[], cleared: boolean, userId?: string): Promise<number> {
+    return this.service.setTransactionsCleared(ids, cleared, userId);
   }
 
   static getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {

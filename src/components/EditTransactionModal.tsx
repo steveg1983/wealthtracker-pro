@@ -21,6 +21,8 @@ interface EditTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   transaction: Transaction | null;
+  /** Account to pre-select for NEW transactions (e.g. the account being reconciled). */
+  defaultAccountId?: string;
 }
 
 interface FormData {
@@ -37,7 +39,7 @@ interface FormData {
   reconciledWith: string;
 }
 
-export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps): React.JSX.Element {
+export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId }: EditTransactionModalProps): React.JSX.Element {
   const { accounts, categories, updateTransaction, deleteTransaction } = useApp();
   const { addTransaction } = useTransactionNotifications();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
@@ -67,7 +69,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     type: 'expense',
     category: '',
     subCategory: '',
-    accountId: accounts.length > 0 ? accounts[0].id : '',
+    accountId: defaultAccountId ?? (accounts.length > 0 ? accounts[0].id : ''),
     tags: [],
     notes: '',
     cleared: false,
@@ -77,7 +79,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   const { formData, updateField, handleSubmit, setFormData, errors } = useModalForm<FormData>(
     initialFormData,
     {
-      onSubmit: (data) => {
+      onSubmit: async (data) => {
         try {
           const isTransfer = data.type === 'transfer';
           // A freshly-chosen outgoing transfer encodes its target in the
@@ -136,15 +138,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             reconciledWith: data.reconciledWith.trim() || undefined
           };
 
+          // Await the writes so a failed RPC surfaces via the form's submit
+          // error instead of silently closing the modal (fire-and-forget bug).
           if (transaction) {
-            updateTransaction(transaction.id, transactionData);
+            await updateTransaction(transaction.id, transactionData);
           } else {
-            addTransaction(transactionData);
+            await addTransaction(transactionData);
           }
 
           // Create paired transaction in target account for NEW transfers only
           if (isNewTransferSelection && targetAccountId && !transaction) {
-            addTransaction({
+            await addTransaction({
               date: new Date(validatedData.date),
               description: validatedData.description,
               amount: Math.abs(parsedAmount),
@@ -261,7 +265,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         type: 'expense',
         subCategory: '',
         category: '',
-        accountId: accounts.length > 0 ? accounts[0].id : '',
+        accountId: defaultAccountId ?? (accounts.length > 0 ? accounts[0].id : ''),
         tags: [],
         notes: '',
         cleared: false,
@@ -270,7 +274,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       setFormattedAmount('');
     }
     setShowDeleteConfirm(false);
-  }, [transaction, accounts, categories, setFormData]);
+  }, [transaction, accounts, categories, setFormData, defaultAccountId]);
 
 
   const handleDelete = () => {

@@ -96,6 +96,11 @@ export interface AppContextType extends AppState {
    * refresh would blank them for cloud users.
    */
   refreshAccountsAndTransactions: () => Promise<void>;
+  /**
+   * Bulk-set the reconciliation cleared flag on transactions in one round trip.
+   * Balance-neutral (is_cleared never affects account balances).
+   */
+  setTransactionsCleared: (ids: string[], cleared: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -456,6 +461,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [transactions]);
 
+  const setTransactionsCleared = useCallback(async (ids: string[], cleared: boolean) => {
+    if (ids.length === 0) {
+      return;
+    }
+    try {
+      await DataService.setTransactionsCleared(ids, cleared);
+      const idSet = new Set(ids);
+      setTransactions(prev => prev.map(t => (idSet.has(t.id) ? { ...t, cleared } : t)));
+    } catch (error) {
+      appLogger.error('Failed to set cleared status', error);
+      throw error;
+    }
+  }, []);
+
   const deleteTransaction = useCallback(async (id: string) => {
     try {
       const transaction = transactions.find(t => t.id === id);
@@ -737,7 +756,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addTransaction,
     updateTransaction,
     deleteTransaction,
-    
+    setTransactionsCleared,
+
     // Budget operations
     addBudget,
     updateBudget,

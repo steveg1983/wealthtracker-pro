@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { parseMoneyInput } from '../../utils/decimal';
+import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import type { ClearedSummary } from '../../hooks/useReconciliation';
 
 interface ReconciliationBalanceBarProps {
   bankBalance: number | null;
   accountBalance: number;
   clearedBalance: number;
   currency?: string;
+  clearedSummary?: ClearedSummary;
   onBankBalanceChange?: (newBalance: number) => void;
 }
 
@@ -15,6 +17,7 @@ export default function ReconciliationBalanceBar({
   accountBalance,
   clearedBalance,
   currency,
+  clearedSummary,
   onBankBalanceChange,
 }: ReconciliationBalanceBarProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
@@ -23,7 +26,9 @@ export default function ReconciliationBalanceBar({
   const [optimisticBankBalance, setOptimisticBankBalance] = useState<number | null>(null);
 
   const displayBankBalance = bankBalance ?? optimisticBankBalance;
-  const difference = displayBankBalance != null ? displayBankBalance - clearedBalance : null;
+  const difference = displayBankBalance != null
+    ? toDecimal(displayBankBalance).minus(toDecimal(clearedBalance)).toNumber()
+    : null;
 
   // Clear optimistic value once the real prop arrives
   useEffect(() => {
@@ -122,6 +127,32 @@ export default function ReconciliationBalanceBar({
           )}
         </div>
       </div>
+
+      {/* Cleared summary (MS Money-style session totals) */}
+      {clearedSummary && clearedSummary.totalCount > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">
+              {clearedSummary.clearedCount} of {clearedSummary.totalCount}
+            </span>{' '}
+            transactions cleared
+          </span>
+          <span>
+            Cleared deposits:{' '}
+            <span className="font-semibold text-green-600 dark:text-green-400">
+              {formatCurrency(clearedSummary.depositsTotal, currency)}
+            </span>{' '}
+            ({clearedSummary.depositsCount})
+          </span>
+          <span>
+            Cleared payments:{' '}
+            <span className="font-semibold text-red-600 dark:text-red-400">
+              {formatCurrency(clearedSummary.paymentsTotal, currency)}
+            </span>{' '}
+            ({clearedSummary.paymentsCount})
+          </span>
+        </div>
+      )}
     </div>
   );
 }

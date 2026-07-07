@@ -34,6 +34,8 @@ const baseValue = {
   addTransaction: noop,
   updateTransaction: noop,
   deleteTransaction: noop,
+  setTransactionsCleared: asyncNoop,
+  refreshAccountsAndTransactions: asyncNoop,
   addBudget: noop,
   updateBudget: noop,
   deleteBudget: noop,

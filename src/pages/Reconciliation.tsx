@@ -1,29 +1,46 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
 import { useReconciliation } from '../hooks/useReconciliation';
 import ReconciliationAccountList from '../components/reconciliation/ReconciliationAccountList';
 import ReconciliationBalanceBar from '../components/reconciliation/ReconciliationBalanceBar';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
+import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
 
 export default function Reconciliation() {
-  const { transactions, accounts, categories, updateTransaction, addTransaction, updateAccount } = useApp();
+  const { transactions, accounts, categories, addTransaction, updateAccount, setTransactionsCleared } = useApp();
+  const { showSuccess, showError } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     searchParams.get('account') || null
   );
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Optimistic cleared-state overlay: the checkbox flips instantly while the
+  // write is in flight, and reverts (with an error toast) if it fails.
+  const [pendingCleared, setPendingCleared] = useState<Map<string, boolean>>(new Map());
+
+  const overlaidTransactions = useMemo(() => {
+    if (pendingCleared.size === 0) return transactions;
+    return transactions.map(t => {
+      const pending = pendingCleared.get(t.id);
+      return pending === undefined ? t : { ...t, cleared: pending };
+    });
+  }, [transactions, pendingCleared]);
 
   const {
     reconciliationDetails,
     totalUnreconciledCount,
     computeAccountBalance,
     computeClearedBalance,
-  } = useReconciliation(accounts, transactions);
+    computeClearedSummary,
+  } = useReconciliation(accounts, overlaidTransactions);
 
   // Selected account data
   const selectedAccount = useMemo(
@@ -34,13 +51,14 @@ export default function Reconciliation() {
   const accountTransactions = useMemo(
     () =>
       selectedAccountId
-        ? transactions.filter(t => t.accountId === selectedAccountId)
+        ? overlaidTransactions.filter(t => t.accountId === selectedAccountId)
         : [],
-    [transactions, selectedAccountId]
+    [overlaidTransactions, selectedAccountId]
   );
 
   const accountBalance = selectedAccountId ? computeAccountBalance(selectedAccountId) : 0;
   const clearedBalance = selectedAccountId ? computeClearedBalance(selectedAccountId) : 0;
+  const clearedSummary = selectedAccountId ? computeClearedSummary(selectedAccountId) : undefined;
   const bankBalance = selectedAccount?.bankBalance ?? null;
 
   // Handlers
@@ -54,9 +72,42 @@ export default function Reconciliation() {
     setSearchParams({});
   }, [setSearchParams]);
 
+  const applyCleared = useCallback(async (requestedIds: string[], cleared: boolean) => {
+    // Drop ids that already have a write in flight — the checkbox is disabled
+    // while pending, and skipping here closes the race for bulk overlaps too
+    // (two in-flight writes for one id could otherwise resolve out of order).
+    const ids = requestedIds.filter(id => !pendingCleared.has(id));
+    if (ids.length === 0) {
+      return;
+    }
+
+    // Optimistic: flip immediately, revert on failure.
+    setPendingCleared(prev => {
+      const next = new Map(prev);
+      ids.forEach(id => next.set(id, cleared));
+      return next;
+    });
+
+    try {
+      await setTransactionsCleared(ids, cleared);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setPendingCleared(prev => {
+        const next = new Map(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+    }
+  }, [pendingCleared, setTransactionsCleared, showError]);
+
   const handleToggleCleared = useCallback((transactionId: string, cleared: boolean) => {
-    updateTransaction(transactionId, { cleared });
-  }, [updateTransaction]);
+    void applyCleared([transactionId], cleared);
+  }, [applyCleared]);
+
+  const handleBulkSetCleared = useCallback((transactionIds: string[], cleared: boolean) => {
+    void applyCleared(transactionIds, cleared);
+  }, [applyCleared]);
 
   const handleBankBalanceChange = useCallback((newBalance: number) => {
     if (selectedAccountId) {
@@ -64,17 +115,24 @@ export default function Reconciliation() {
     }
   }, [selectedAccountId, updateAccount]);
 
-  const handleFinalize = useCallback(() => {
-    if (selectedAccountId) {
-      updateAccount(selectedAccountId, {
+  const handleFinalize = useCallback(async () => {
+    if (!selectedAccountId) {
+      return;
+    }
+    try {
+      // Await the write — success feedback must not fire on a failed save.
+      await updateAccount(selectedAccountId, {
         lastReconciledDate: new Date(),
       });
       setShowFinalizationModal(false);
+      showSuccess('Reconciliation complete.', 'Account reconciled');
       handleBack();
+    } catch (error) {
+      showError(error);
     }
-  }, [selectedAccountId, updateAccount, handleBack]);
+  }, [selectedAccountId, updateAccount, handleBack, showSuccess, showError]);
 
-  const handleCreateAdjustment = useCallback((data: {
+  const handleCreateAdjustment = useCallback(async (data: {
     amount: number;
     type: 'income' | 'expense';
     description: string;
@@ -93,19 +151,30 @@ export default function Reconciliation() {
       cleared: true,
     };
 
-    addTransaction(adjustmentTxn);
+    try {
+      // The modal stays open: the cleared adjustment shrinks the difference and
+      // the modal re-renders with the remainder (zero → balanced state), so the
+      // user can create several adjustments — the Microsoft Money model.
+      await addTransaction(adjustmentTxn);
+      showSuccess('Adjustment transaction created.', 'Adjustment added');
+    } catch (error) {
+      showError(error);
+    }
+  }, [selectedAccountId, addTransaction, showSuccess, showError]);
 
-    // After adjustment, finalize
-    updateAccount(selectedAccountId, {
-      lastReconciledDate: new Date(),
-    });
-
-    setShowFinalizationModal(false);
-    handleBack();
-  }, [selectedAccountId, addTransaction, updateAccount, handleBack]);
+  const handleRowClick = useCallback((transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setIsEditModalOpen(true);
+  }, []);
 
   const handleAddTransaction = useCallback(() => {
-    // Placeholder — will be wired to a transaction creation modal
+    setEditingTransaction(null);
+    setIsEditModalOpen(true);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+    setEditingTransaction(null);
   }, []);
 
   // Step 1: Account Selection
@@ -165,6 +234,7 @@ export default function Reconciliation() {
         accountBalance={accountBalance}
         clearedBalance={clearedBalance}
         currency={selectedAccount?.currency}
+        clearedSummary={clearedSummary}
         onBankBalanceChange={handleBankBalanceChange}
       />
 
@@ -174,8 +244,19 @@ export default function Reconciliation() {
         categories={categories}
         currency={selectedAccount?.currency}
         openingBalance={selectedAccount?.openingBalance ?? 0}
+        pendingClearedIds={pendingCleared}
         onToggleCleared={handleToggleCleared}
+        onBulkSetCleared={handleBulkSetCleared}
+        onRowClick={handleRowClick}
         onAddTransaction={handleAddTransaction}
+      />
+
+      {/* Edit / add transaction (new transactions default to this account) */}
+      <EditTransactionModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        transaction={editingTransaction}
+        defaultAccountId={selectedAccountId}
       />
 
       {/* Finalization Modal */}

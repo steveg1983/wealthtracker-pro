@@ -150,4 +150,102 @@ describe('TransactionService (deterministic fallback)', () => {
       body: JSON.stringify({ transactionId: 'txn-secure' })
     });
   });
+
+  describe('setTransactionsCleared', () => {
+    it('bulk-sets cleared on matching ids in local mode and returns the count', async () => {
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', cleared: false }),
+        baseTransaction({ id: 'txn-2', cleared: false }),
+        baseTransaction({ id: 'txn-3', cleared: true })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.setTransactionsCleared(['txn-1', 'txn-2'], true);
+
+      expect(count).toBe(2);
+      const stored = storage.snapshot();
+      expect(stored.find(t => t.id === 'txn-1')?.cleared).toBe(true);
+      expect(stored.find(t => t.id === 'txn-2')?.cleared).toBe(true);
+      expect(stored.find(t => t.id === 'txn-3')?.cleared).toBe(true);
+    });
+
+    it('can mark transactions uncleared without touching others', async () => {
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', cleared: true }),
+        baseTransaction({ id: 'txn-2', cleared: true })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.setTransactionsCleared(['txn-2'], false);
+
+      expect(count).toBe(1);
+      const stored = storage.snapshot();
+      expect(stored.find(t => t.id === 'txn-1')?.cleared).toBe(true);
+      expect(stored.find(t => t.id === 'txn-2')?.cleared).toBe(false);
+    });
+
+    it('returns 0 and performs no write for an empty id list', async () => {
+      const storage = createStorage([baseTransaction({ id: 'txn-1' })]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.setTransactionsCleared([], true);
+
+      expect(count).toBe(0);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('calls the set_transactions_cleared RPC with owner scope in Supabase mode', async () => {
+      const rpc = vi.fn(async () => ({ data: 3, error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const count = await service.setTransactionsCleared(['a', 'b', 'c'], true, 'user-1');
+
+      expect(count).toBe(3);
+      expect(rpc).toHaveBeenCalledWith('set_transactions_cleared', {
+        p_ids: ['a', 'b', 'c'],
+        p_cleared: true,
+        p_user_id: 'user-1'
+      });
+    });
+
+    it('throws when the RPC reports an error', async () => {
+      const rpc = vi.fn(async () => ({ data: null, error: { message: 'boom' } }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      await expect(service.setTransactionsCleared(['a'], true)).rejects.toThrow();
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
 });

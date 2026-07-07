@@ -102,6 +102,51 @@ describe('useReconciliation', () => {
     });
   });
 
+  describe('computeClearedSummary', () => {
+    it('splits cleared transactions into deposits and payments with Decimal-safe totals', () => {
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, [
+          ...mockTransactions,
+          {
+            id: 'tx5',
+            date: new Date('2024-01-14'),
+            amount: 250.1,
+            description: 'Refund',
+            category: 'Income',
+            accountId: 'acc1',
+            type: 'income',
+            cleared: true
+          }
+        ])
+      );
+
+      const summary = result.current.computeClearedSummary('acc1');
+      // acc1 cleared: tx2 (-50 payment) and tx5 (+250.10 deposit)
+      expect(summary.clearedCount).toBe(2);
+      expect(summary.totalCount).toBe(4);
+      expect(summary.depositsTotal).toBe(250.1);
+      expect(summary.depositsCount).toBe(1);
+      expect(summary.paymentsTotal).toBe(-50);
+      expect(summary.paymentsCount).toBe(1);
+    });
+
+    it('returns zeroed summary for an account with no transactions', () => {
+      const { result } = renderHook(() =>
+        useReconciliation(mockAccounts, mockTransactions)
+      );
+
+      const summary = result.current.computeClearedSummary('missing-account');
+      expect(summary).toEqual({
+        clearedCount: 0,
+        totalCount: 0,
+        depositsTotal: 0,
+        depositsCount: 0,
+        paymentsTotal: 0,
+        paymentsCount: 0,
+      });
+    });
+  });
+
   describe('totalUnreconciledCount', () => {
     it('should count all uncleared transactions', () => {
       const { result } = renderHook(() =>

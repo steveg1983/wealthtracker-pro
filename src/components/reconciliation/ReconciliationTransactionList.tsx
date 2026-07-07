@@ -10,7 +10,13 @@ interface ReconciliationTransactionListProps {
   categories: Category[];
   currency?: string;
   openingBalance: number;
+  /** Ids with a cleared-write in flight; their checkboxes are disabled. */
+  pendingClearedIds?: ReadonlyMap<string, boolean>;
   onToggleCleared: (transactionId: string, cleared: boolean) => void;
+  /** Bulk mark/unmark; ids are the currently visible (filtered) transactions. */
+  onBulkSetCleared: (transactionIds: string[], cleared: boolean) => void;
+  /** Open a transaction to edit its details/category. */
+  onRowClick: (transaction: Transaction) => void;
   onAddTransaction: () => void;
 }
 
@@ -19,7 +25,10 @@ export default function ReconciliationTransactionList({
   categories,
   currency,
   openingBalance,
+  pendingClearedIds,
   onToggleCleared,
+  onBulkSetCleared,
+  onRowClick,
   onAddTransaction,
 }: ReconciliationTransactionListProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
@@ -75,6 +84,31 @@ export default function ReconciliationTransactionList({
     return list;
   }, [sortedTransactions, filterMode, searchTerm, getCategoryName]);
 
+  const visibleUnclearedIds = useMemo(
+    () => filteredTransactions.filter(t => t.cleared !== true).map(t => t.id),
+    [filteredTransactions]
+  );
+  const visibleClearedIds = useMemo(
+    () => filteredTransactions.filter(t => t.cleared === true).map(t => t.id),
+    [filteredTransactions]
+  );
+
+  const handleMarkAllCleared = useCallback(() => {
+    const count = visibleUnclearedIds.length;
+    if (count === 0) return;
+    if (window.confirm(`Mark ${count} transaction${count === 1 ? '' : 's'} as cleared?`)) {
+      onBulkSetCleared(visibleUnclearedIds, true);
+    }
+  }, [visibleUnclearedIds, onBulkSetCleared]);
+
+  const handleUnmarkAll = useCallback(() => {
+    const count = visibleClearedIds.length;
+    if (count === 0) return;
+    if (window.confirm(`Mark ${count} transaction${count === 1 ? '' : 's'} as uncleared?`)) {
+      onBulkSetCleared(visibleClearedIds, false);
+    }
+  }, [visibleClearedIds, onBulkSetCleared]);
+
   return (
     <div className="flex flex-col gap-3">
       {/* Toolbar */}
@@ -107,6 +141,24 @@ export default function ReconciliationTransactionList({
             </button>
           ))}
         </div>
+
+        {/* Bulk actions */}
+        <button
+          onClick={handleMarkAllCleared}
+          disabled={visibleUnclearedIds.length === 0}
+          className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          title="Mark all currently shown transactions as cleared"
+        >
+          Mark all cleared
+        </button>
+        <button
+          onClick={handleUnmarkAll}
+          disabled={visibleClearedIds.length === 0}
+          className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          title="Mark all currently shown transactions as uncleared"
+        >
+          Unmark all
+        </button>
 
         {/* Add transaction */}
         <button
@@ -143,7 +195,9 @@ export default function ReconciliationTransactionList({
               return (
                 <div
                   key={t.id}
-                  className="grid grid-cols-[100px_50px_1fr_180px_120px_120px] gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-750 items-center text-sm"
+                  onClick={() => onRowClick(t)}
+                  className="grid grid-cols-[100px_50px_1fr_180px_120px_120px] gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-750 items-center text-sm cursor-pointer"
+                  title="Click to edit this transaction"
                 >
                   {/* Date */}
                   <div className="text-gray-700 dark:text-gray-300">
@@ -153,8 +207,13 @@ export default function ReconciliationTransactionList({
                   {/* R/U checkbox */}
                   <div className="text-center">
                     <button
-                      onClick={() => onToggleCleared(t.id, !t.cleared)}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                      onClick={(e) => {
+                        // The row itself opens the edit modal; keep the toggle isolated.
+                        e.stopPropagation();
+                        onToggleCleared(t.id, !t.cleared);
+                      }}
+                      disabled={pendingClearedIds?.has(t.id) ?? false}
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-wait ${
                         t.cleared
                           ? 'bg-green-500 border-green-500 text-white'
                           : 'border-gray-300 dark:border-gray-500 hover:border-primary'
@@ -172,7 +231,9 @@ export default function ReconciliationTransactionList({
 
                   {/* Category */}
                   <div className="text-gray-500 dark:text-gray-400 truncate">
-                    {getCategoryName(t.category)}
+                    {getCategoryName(t.category) || (
+                      <span className="italic text-gray-400 dark:text-gray-500">Add category…</span>
+                    )}
                   </div>
 
                   {/* Amount */}
