@@ -90,6 +90,12 @@ export interface AppContextType extends AppState {
   lastSyncTime: Date | null;
   syncError: string | null;
   isUsingSupabase: boolean;
+  /**
+   * Re-pull ONLY accounts + transactions from Supabase (e.g. after a bank sync).
+   * Deliberately narrow — budgets/goals load from PlanningService, so a whole-app
+   * refresh would blank them for cloud users.
+   */
+  refreshAccountsAndTransactions: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -322,6 +328,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSyncError('Failed to sync data');
     } finally {
       setIsSyncing(false);
+    }
+  }, []);
+
+  // Narrow refresh for the bank-sync path: only accounts + transactions come from
+  // Supabase here (getAccounts/getTransactions route to the cloud services), so we
+  // never touch budgets/goals/categories which load from a different source.
+  const refreshAccountsAndTransactions = useCallback(async () => {
+    try {
+      const [updatedAccounts, updatedTransactions] = await Promise.all([
+        DataService.getAccounts(),
+        DataService.getTransactions()
+      ]);
+      setAccounts(updatedAccounts);
+      setTransactions(updatedTransactions);
+      setLastSyncTime(new Date());
+      setSyncError(null);
+    } catch (error) {
+      appLogger.error('Failed to refresh accounts and transactions', error);
+      setSyncError('Failed to refresh account data');
     }
   }, []);
 
@@ -752,6 +777,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lastSyncTime,
     syncError,
     isUsingSupabase,
+    refreshAccountsAndTransactions,
     hasTestData: false,
     loadTestData
   };

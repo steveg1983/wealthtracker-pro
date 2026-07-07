@@ -30,32 +30,48 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const connectionIds = (data ?? []).map((connection) => connection.id);
-    const linkedAccountCountByConnection = new Map<string, number>();
+    // Collect the WealthTracker account ids each connection is linked to, so the
+    // client can map an account → its connection (for a per-account "last synced"
+    // label and sync button on the Accounts page).
+    const linkedAccountIdsByConnection = new Map<string, string[]>();
     if (connectionIds.length > 0) {
       const linkedResult = await supabase
         .from('linked_accounts')
-        .select('connection_id')
+        .select('connection_id, account_id')
         .in('connection_id', connectionIds);
 
-      if (!linkedResult.error) {
+      if (linkedResult.error) {
+        // Non-fatal: still return the connections list, but log so the "every
+        // account shows 0 links / no sync button" degradation is diagnosable.
+        console.error('[connections] failed to load linked_accounts', {
+          message: linkedResult.error.message
+        });
+      } else {
         (linkedResult.data ?? []).forEach((row) => {
-          const current = linkedAccountCountByConnection.get(row.connection_id) ?? 0;
-          linkedAccountCountByConnection.set(row.connection_id, current + 1);
+          const list = linkedAccountIdsByConnection.get(row.connection_id) ?? [];
+          if (row.account_id) {
+            list.push(row.account_id as string);
+          }
+          linkedAccountIdsByConnection.set(row.connection_id, list);
         });
       }
     }
 
-    const response: ConnectionsResponse = (data ?? []).map((connection) => ({
-      id: connection.id,
-      provider: connection.provider,
-      institutionId: connection.institution_id,
-      institutionName: connection.institution_name,
-      institutionLogo: connection.institution_logo ?? undefined,
-      status: connection.status as ConnectionsResponse[number]['status'],
-      lastSync: connection.last_sync ?? undefined,
-      accountsCount: linkedAccountCountByConnection.get(connection.id) ?? 0,
-      expiresAt: connection.expires_at ?? undefined
-    }));
+    const response: ConnectionsResponse = (data ?? []).map((connection) => {
+      const linkedAccountIds = linkedAccountIdsByConnection.get(connection.id) ?? [];
+      return {
+        id: connection.id,
+        provider: connection.provider,
+        institutionId: connection.institution_id,
+        institutionName: connection.institution_name,
+        institutionLogo: connection.institution_logo ?? undefined,
+        status: connection.status as ConnectionsResponse[number]['status'],
+        lastSync: connection.last_sync ?? undefined,
+        accountsCount: linkedAccountIds.length,
+        linkedAccountIds,
+        expiresAt: connection.expires_at ?? undefined
+      };
+    });
 
     return res.status(200).json(response);
   } catch (error) {

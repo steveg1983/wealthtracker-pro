@@ -28,6 +28,8 @@ export interface BankConnection {
   lastSync?: Date;
   accounts: string[];
   accountsCount?: number;
+  /** WealthTracker account ids linked to this connection. */
+  linkedAccountIds: string[];
   createdAt?: Date;
   expiresAt?: Date;
   error?: string;
@@ -487,6 +489,7 @@ export class BankConnectionService {
         lastSync: connection.lastSync ? new Date(connection.lastSync) : undefined,
         accounts: [],
         accountsCount: connection.accountsCount,
+        linkedAccountIds: connection.linkedAccountIds ?? [],
         expiresAt: connection.expiresAt ? new Date(connection.expiresAt) : undefined
       }));
     } catch (error) {
