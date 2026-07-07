@@ -6,10 +6,11 @@ import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon } from '../components/icons';
+import { DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
+import { useAccountBankSync } from '../hooks/useAccountBankSync';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
@@ -17,7 +18,7 @@ import { toDecimal } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, transactions, updateAccount, deleteAccount } = useApp();
+  const { accounts, transactions, updateAccount, deleteAccount, refreshAccountsAndTransactions } = useApp();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,6 +31,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   });
 
   const { getUnreconciledCount, computeAccountBalance } = useReconciliation(accounts, transactions);
+  // Per-account bank connection metadata + one-click "pull fresh bank data".
+  const { getAccountLink, isAccountSyncing, syncAccount } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
 
   // Convert accounts to decimal for calculations
   const decimalAccounts = useMemo(() => accounts.map(a => ({
@@ -368,9 +371,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
               </div>
 
               <div className="p-3 sm:p-4 space-y-3">
-                {typeAccounts.map((account) => (
-                  <div 
-                    key={account.id} 
+                {typeAccounts.map((account) => {
+                  const bankLink = getAccountLink(account.id);
+                  const syncing = isAccountSyncing(account.id);
+                  return (
+                  <div
+                    key={account.id}
                     className="p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-gray-200 transition-all duration-300 cursor-pointer"
                     onClick={(e) => {
                       // Don't navigate if clicking on buttons or inputs
@@ -395,6 +401,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         <p className="text-xs text-gray-500 dark:text-gray-300">
                           Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
                         </p>
+                        {bankLink && (
+                          <p className="text-xs text-gray-500 dark:text-gray-300">
+                            Last bank sync:{' '}
+                            {bankLink.lastSync
+                              ? new Date(bankLink.lastSync).toLocaleString()
+                              : 'Never'}
+                            {bankLink.status === 'reauth_required' && (
+                              <span className="ml-1 text-amber-600 dark:text-amber-400">
+                                · reconnect needed
+                              </span>
+                            )}
+                          </p>
+                        )}
                         {account.openingBalance !== undefined && (
                           <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
                             Opening balance: {formatDisplayCurrency(account.openingBalance, account.currency)} 
@@ -478,6 +497,36 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     Settings
                                   </span>
                                 </div>
+                                {bankLink && (bankLink.status === 'reauth_required' ? (
+                                  <div className="relative group">
+                                    <IconButton
+                                      onClick={() => navigate(preserveDemoParam('/open-banking', location.search))}
+                                      icon={<AlertTriangleIcon size={20} />}
+                                      variant="ghost"
+                                      size="md"
+                                      className="text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-100/50 dark:hover:bg-amber-900/30 min-w-[48px] min-h-[48px]"
+                                      title="Reconnect bank"
+                                    />
+                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                      Reconnect bank
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="relative group">
+                                    <IconButton
+                                      onClick={() => void syncAccount(account.id)}
+                                      icon={<RefreshCwIcon size={20} className={syncing ? 'animate-spin' : ''} />}
+                                      variant="ghost"
+                                      size="md"
+                                      disabled={syncing}
+                                      className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-200 hover:bg-green-100/50 dark:hover:bg-green-900/30 min-w-[48px] min-h-[48px]"
+                                      title="Sync bank data"
+                                    />
+                                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                      {syncing ? 'Syncing…' : 'Sync bank data'}
+                                    </span>
+                                  </div>
+                                ))}
                                 <button
                                   onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}`, location.search))}
                                   className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
@@ -506,7 +555,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
