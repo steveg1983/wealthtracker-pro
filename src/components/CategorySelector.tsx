@@ -129,10 +129,9 @@ export default function CategorySelector({
     setShowDropdown(!showDropdown);
   };
 
-  const handleCreateCategory = (): void => {
+  const handleCreateCategory = async (): Promise<void> => {
     if (!newCategoryName.trim() || !selectedParentId) return;
 
-    const newId = crypto.randomUUID();
     const newCategory: Omit<Category, 'id'> = {
       name: newCategoryName.trim(),
       type: transactionType === 'transfer' ? 'both' : transactionType,
@@ -140,22 +139,16 @@ export default function CategorySelector({
       parentId: selectedParentId,
     };
 
-    addCategory(newCategory);
-
-    // The addCategory creates the ID internally, so find the newly added category
-    // We need to select it after a tick so the state updates
-    setTimeout(() => {
-      // Find the category we just created by name and parent
-      const created = categories.find(c =>
-        c.name === newCategoryName.trim() && c.parentId === selectedParentId
-      );
-      if (created) {
-        onCategoryChange(created.id);
-      } else {
-        // Fallback: use the id we generated (addCategory uses crypto.randomUUID internally)
-        onCategoryChange(newId);
-      }
-    }, 50);
+    try {
+      // addCategory returns the created row — select its REAL id directly.
+      // (The old name-lookup-after-a-tick read a stale closure and its fallback
+      // selected an id that was never persisted, filing the transaction under a
+      // category that doesn't exist.)
+      const created = await addCategory(newCategory);
+      onCategoryChange(created.id);
+    } catch {
+      // addCategory already logs; leave the current selection unchanged.
+    }
 
     // Reset and close
     setNewCategoryName('');

@@ -30,6 +30,7 @@ import type {
   AppState 
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { planCategoryTreeImport, type CategoryTreeGroup } from '../utils/categoryTreeImport';
 
 export interface Tag {
   id: string;
@@ -63,7 +64,10 @@ export interface AppContextType extends AppState {
   contributeToGoal: (id: string, amount: number) => Promise<void>;
   
   // Category operations — async so callers can surface persistence failures
-  addCategory: (category: Omit<Category, 'id'>) => Promise<void>;
+  /** Returns the created category so callers can use its real id immediately. */
+  addCategory: (category: Omit<Category, 'id'>) => Promise<Category>;
+  /** Merge a Money-style category tree; skips same-named entries. Returns counts. */
+  importCategoryTree: (tree: CategoryTreeGroup[]) => Promise<{ created: number; skipped: number }>;
   updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   getSubCategories: (parentId: string) => Category[];
@@ -605,11 +609,66 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         category
       );
       setCategories(prev => [...prev, created]);
+      return created;
     } catch (error) {
       appLogger.error('Failed to add category', error);
       throw error;
     }
   }, []);
+
+  // Import a Money-style two-level tree (sub → detail), merging idempotently:
+  // same-named categories are skipped, so re-running or overlapping the default
+  // set never duplicates. Two phases because details need their sub's id.
+  const importCategoryTree = useCallback(async (tree: CategoryTreeGroup[]) => {
+    const userId = userIdService.getCurrentDatabaseUserId();
+    const plan = planCategoryTreeImport(categories, tree);
+
+    const createdSubs = await PlanningService.createCategories(userId, plan.subsToCreate);
+    // Commit phase 1 to state immediately: if the details insert below fails,
+    // a retry re-plans against state that INCLUDES these subs and skips them —
+    // otherwise the re-insert would hit the (user_id, name, parent_id) unique
+    // constraint and every retry would fail until a page reload.
+    if (createdSubs.length > 0) {
+      setCategories(prev => [...prev, ...createdSubs]);
+    }
+
+    // Resolve each detail's parent among existing + freshly created subs.
+    // IMPORTANT: index by the ANCHOR the sub lives under (same predicate the
+    // planner matches with), not by the sub's own `type` — a sub that ended up
+    // typed 'both' would otherwise be matched by the planner but missing here.
+    const typeAnchorIds = new Map<'income' | 'expense', string | undefined>([
+      ['income', categories.find(c => c.level === 'type' && c.type === 'income')?.id],
+      ['expense', categories.find(c => c.level === 'type' && c.type === 'expense')?.id],
+    ]);
+    const subIdByKey = new Map<string, string>();
+    const keyOf = (type: 'income' | 'expense', name: string) => `${type}:${name.trim().toLowerCase()}`;
+    for (const sub of [...categories, ...createdSubs]) {
+      if (sub.level !== 'sub') continue;
+      if (sub.parentId === typeAnchorIds.get('income')) {
+        subIdByKey.set(keyOf('income', sub.name), sub.id);
+      } else if (sub.parentId === typeAnchorIds.get('expense')) {
+        subIdByKey.set(keyOf('expense', sub.name), sub.id);
+      }
+    }
+
+    const detailRows: Array<Omit<Category, 'id'>> = [];
+    for (const detail of plan.detailsToCreate) {
+      const parentId = subIdByKey.get(keyOf(detail.type, detail.subName));
+      if (!parentId) {
+        throw new Error(`Import failed: parent category "${detail.subName}" was not created.`);
+      }
+      detailRows.push({ ...detail.category, parentId });
+    }
+    const createdDetails = await PlanningService.createCategories(userId, detailRows);
+    if (createdDetails.length > 0) {
+      setCategories(prev => [...prev, ...createdDetails]);
+    }
+
+    return {
+      created: createdSubs.length + createdDetails.length,
+      skipped: plan.skippedCount,
+    };
+  }, [categories]);
 
   const updateCategory = useCallback(async (id: string, updates: Partial<Category>) => {
     try {
@@ -771,6 +830,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Category operations
     addCategory,
+    importCategoryTree,
     updateCategory,
     deleteCategory,
     getSubCategories,

@@ -11,6 +11,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { AppProvider } from './mocks/AppContextSupabase';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
+import { ToastProvider } from '../contexts/ToastContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { LayoutProvider } from '../contexts/LayoutContext';
 import { ThemeProvider } from '../design-system';
@@ -184,11 +185,13 @@ export const AllProviders: React.FC<AllProvidersProps> = ({
       <PreferencesProvider>
           <ThemeProvider>
             <AppProvider initialData={initialState}>
-              <NotificationProvider>
-                <LayoutProvider>
-                  {children}
-                </LayoutProvider>
-              </NotificationProvider>
+              <ToastProvider>
+                <NotificationProvider>
+                  <LayoutProvider>
+                    {children}
+                  </LayoutProvider>
+                </NotificationProvider>
+              </ToastProvider>
             </AppProvider>
           </ThemeProvider>
         </PreferencesProvider>

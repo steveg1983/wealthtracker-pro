@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
 import { PlusIcon } from './icons/PlusIcon';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
@@ -26,9 +27,11 @@ export default function CategoryCreationModal({
   initialType = 'expense' 
 }: CategoryCreationModalProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
-  
+  const { showError } = useToast();
+
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [showNewSpecific, setShowNewSpecific] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const { formData, updateField, reset } = useModalForm<FormData>(
     {
@@ -50,8 +53,14 @@ export default function CategoryCreationModal({
     income: ['Employment', 'Investments', 'Business', 'Other Income']
   };
 
+  // Resolve the type-level anchor dynamically — cloud-migrated categories have
+  // UUID ids, so the old literal `type-${type}` matched nothing (empty dropdown)
+  // and new categories were created orphaned under a non-existent parent.
+  const typeAnchorId =
+    categories.find(c => c.level === 'type' && c.type === formData.type)?.id ?? `type-${formData.type}`;
+
   // Get available categories based on type
-  const availableCategories = getSubCategories(`type-${formData.type}`);
+  const availableCategories = getSubCategories(typeAnchorId);
   const existingCategoryNames = availableCategories.map(cat => cat.name);
   
   // Filter suggestions to only show ones that don't exist yet
@@ -59,70 +68,52 @@ export default function CategoryCreationModal({
     name => !existingCategoryNames.includes(name)
   );
 
-  const handleSubmit = () => {
-    let resultCategoryId = formData.selectedCategory || formData.selectedSpecific;
-    
-    // Create new category if needed
-    if (showNewCategory && formData.newCategoryName.trim()) {
-      const newCategory = {
-        name: formData.newCategoryName.trim(),
-        type: formData.type,
-        level: 'sub' as const,
-        parentId: `type-${formData.type}`,
-        isSystem: false
-      };
-      
-      addCategory(newCategory);
-      
-      // For new categories, we'll use a generated ID - the AppContext will handle the actual ID
-      resultCategoryId = `new-sub-${formData.newCategoryName.trim()}`;
-    }
+  const handleSubmit = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      let resultCategoryId = formData.selectedCategory || formData.selectedSpecific;
 
-    // Create new specific category if needed
-    if ((formData.selectedCategory || resultCategoryId) && showNewSpecific && formData.newSpecificName.trim()) {
-      const parentId = formData.selectedCategory || resultCategoryId;
-      
-      const newSpecific = {
-        name: formData.newSpecificName.trim(),
-        type: formData.type,
-        level: 'detail' as const,
-        parentId: parentId.startsWith('new-sub-') ? `type-${formData.type}` : parentId, // Use type if parent is new
-        isSystem: false
-      };
-      
-      addCategory(newSpecific);
-      resultCategoryId = `new-detail-${formData.newSpecificName.trim()}`;
-    }
+      // Create new sub-level category if needed. addCategory returns the created
+      // row, so downstream code can use the REAL id — no name-lookup timeouts.
+      if (showNewCategory && formData.newCategoryName.trim()) {
+        const createdSub = await addCategory({
+          name: formData.newCategoryName.trim(),
+          type: formData.type,
+          level: 'sub' as const,
+          parentId: typeAnchorId,
+          isSystem: false
+        });
+        resultCategoryId = createdSub.id;
+      }
 
-    // Notify parent component
-    if (onCategoryCreated && resultCategoryId) {
-      // Use a timeout to allow state to update
-      setTimeout(() => {
-        if (resultCategoryId.startsWith('new-')) {
-          // Find the actual created category
-          const categoryName = resultCategoryId.includes('detail') ? 
-            formData.newSpecificName.trim() : formData.newCategoryName.trim();
-          const level = resultCategoryId.includes('detail') ? 'detail' : 'sub';
-          
-          const foundCategory = categories.find(c => 
-            c.name === categoryName && c.level === level
-          );
-          
-          if (foundCategory && onCategoryCreated) {
-            onCategoryCreated(foundCategory.id);
-          }
-        } else if (onCategoryCreated) {
-          onCategoryCreated(resultCategoryId);
-        }
-      }, 150);
-    }
+      // Create new detail category under the selected sub if needed.
+      if (formData.selectedCategory && showNewSpecific && formData.newSpecificName.trim()) {
+        const createdDetail = await addCategory({
+          name: formData.newSpecificName.trim(),
+          type: formData.type,
+          level: 'detail' as const,
+          parentId: formData.selectedCategory,
+          isSystem: false
+        });
+        resultCategoryId = createdDetail.id;
+      }
 
-    // Reset form
-    reset();
-    setShowNewCategory(false);
-    setShowNewSpecific(false);
-    
-    onClose();
+      if (onCategoryCreated && resultCategoryId) {
+        onCategoryCreated(resultCategoryId);
+      }
+
+      // Reset form
+      reset();
+      setShowNewCategory(false);
+      setShowNewSpecific(false);
+
+      onClose();
+    } catch (error) {
+      showError(error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCategoryChange = (value: string) => {
@@ -299,13 +290,13 @@ export default function CategoryCreationModal({
             Cancel
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!((formData.selectedCategory || (showNewCategory && formData.newCategoryName.trim())) || 
+            onClick={() => void handleSubmit()}
+            disabled={isSaving || !((formData.selectedCategory || (showNewCategory && formData.newCategoryName.trim())) ||
                       (formData.selectedSpecific || (showNewSpecific && formData.newSpecificName.trim())))}
             className="flex-1 px-4 py-2 text-sm sm:text-base bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <PlusIcon size={16} />
-            Create Category
+            {isSaving ? 'Creating…' : 'Create Category'}
           </button>
         </div>
       </ModalFooter>
