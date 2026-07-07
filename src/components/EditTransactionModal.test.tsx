@@ -17,6 +17,17 @@ vi.mock('../hooks/useTransactionNotifications', () => ({
   }),
 }));
 
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+    showSuccess: vi.fn(),
+    showError: vi.fn(),
+    showWarning: vi.fn(),
+    showInfo: vi.fn(),
+    dismissToast: vi.fn(),
+  }),
+}));
+
 vi.mock('./CategoryCreationModal', () => ({
   default: () => null,
 }));

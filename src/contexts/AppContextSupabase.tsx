@@ -105,6 +105,12 @@ export interface AppContextType extends AppState {
    * Balance-neutral (is_cleared never affects account balances).
    */
   setTransactionsCleared: (ids: string[], cleared: boolean) => Promise<void>;
+  /**
+   * Apply a category to the listed transactions that are still uncategorized
+   * (payee-memory propagation). Fill-blanks only — never overwrites an explicit
+   * category, enforced server-side. Returns the number actually updated.
+   */
+  applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -479,6 +485,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const applyCategoryToUncategorized = useCallback(async (ids: string[], category: string) => {
+    if (ids.length === 0) {
+      return 0;
+    }
+    try {
+      const count = await DataService.applyCategoryToUncategorized(ids, category);
+      const idSet = new Set(ids);
+      // Mirror the server's fill-blanks semantics locally: only blank rows flip.
+      setTransactions(prev => prev.map(t =>
+        idSet.has(t.id) && (!t.category || t.category.trim() === '') ? { ...t, category } : t
+      ));
+      return count;
+    } catch (error) {
+      appLogger.error('Failed to apply category', error);
+      throw error;
+    }
+  }, []);
+
   const deleteTransaction = useCallback(async (id: string) => {
     try {
       const transaction = transactions.find(t => t.id === id);
@@ -816,6 +840,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateTransaction,
     deleteTransaction,
     setTransactionsCleared,
+    applyCategoryToUncategorized,
 
     // Budget operations
     addBudget,

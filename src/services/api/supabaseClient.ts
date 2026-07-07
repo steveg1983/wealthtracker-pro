@@ -32,6 +32,10 @@ type Database = {
         Args: { p_ids: string[]; p_cleared: boolean; p_user_id?: string };
         Returns: number;
       };
+      apply_category_to_uncategorized: {
+        Args: { p_ids: string[]; p_category: string; p_user_id?: string };
+        Returns: number;
+      };
       migrate_categories_atomic: {
         Args: { p_user_id: string; p_categories: Record<string, unknown>[] };
         Returns: Record<string, unknown>[];

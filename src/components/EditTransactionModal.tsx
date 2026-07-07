@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
+import { findSamePayeeUncategorized } from '../utils/payeeAutoCategorize';
 import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
@@ -40,8 +42,9 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, updateTransaction, deleteTransaction } = useApp();
+  const { accounts, categories, transactions, updateTransaction, deleteTransaction, applyCategoryToUncategorized } = useApp();
   const { addTransaction } = useTransactionNotifications();
+  const { showSuccess } = useToast();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -76,7 +79,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     reconciledWith: ''
   };
   
-  const { formData, updateField, handleSubmit, setFormData, errors } = useModalForm<FormData>(
+  const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     initialFormData,
     {
       onSubmit: async (data) => {
@@ -160,6 +163,36 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               notes: validatedData.notes,
               cleared: false
             });
+          }
+
+          // Payee memory (the Microsoft Money model): the category just chosen
+          // spreads to every UNCATEGORIZED same-direction transaction with the
+          // same payee in this account. Explicit categories are never
+          // overwritten (enforced server-side), and a propagation failure must
+          // not fail the save that already succeeded.
+          if (resolvedType !== 'transfer' && resolvedCategory &&
+              resolvedCategory !== transaction?.category) {
+            const targets = findSamePayeeUncategorized(
+              transactions,
+              validatedData.accountId,
+              validatedData.description,
+              resolvedType,
+              transaction?.id
+            );
+            if (targets.length > 0) {
+              try {
+                const appliedCount = await applyCategoryToUncategorized(targets, resolvedCategory);
+                if (appliedCount > 0) {
+                  const categoryName = categories.find(c => c.id === resolvedCategory)?.name ?? 'this category';
+                  showSuccess(
+                    `Also applied "${categoryName}" to ${appliedCount} other "${validatedData.description}" transaction${appliedCount === 1 ? '' : 's'}.`,
+                    'Payee memory'
+                  );
+                }
+              } catch (propagationError) {
+                logger.error('Payee-memory propagation failed', propagationError as Error);
+              }
+            }
           }
 
           onClose();
@@ -603,9 +636,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {transaction ? 'Save Changes' : 'Add Transaction'}
+                  {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
                 </button>
               </div>
             </div>

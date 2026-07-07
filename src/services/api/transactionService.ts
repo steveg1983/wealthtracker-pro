@@ -310,6 +310,52 @@ class TransactionServiceImpl {
     }
   }
 
+  /**
+   * Apply a category to the listed transactions that are STILL uncategorized
+   * (payee-memory propagation), in one round trip. Fill-blanks only — the RPC
+   * enforces this server-side, so a stale client snapshot can never overwrite
+   * a category the user set elsewhere. Returns the number of rows updated.
+   */
+  async applyCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
+      const idSet = new Set(ids);
+      let count = 0;
+      const updated = transactions.map(t => {
+        if (idSet.has(t.id) && (!t.category || t.category.trim() === '')) {
+          count += 1;
+          return { ...t, category, updatedAt: this.getCurrentDate() };
+        }
+        return t;
+      });
+      await this.persistTransactions(updated);
+      return count;
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      const { data, error } = await client.rpc('apply_category_to_uncategorized', {
+        p_ids: ids,
+        p_category: category,
+        ...(userId ? { p_user_id: userId } : {})
+      });
+
+      if (error) {
+        this.logger.error('Error applying category:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+
+      return typeof data === 'number' ? data : ids.length;
+    } catch (error) {
+      this.logger.error('TransactionService.applyCategoryToUncategorized error:', error as Error);
+      throw error;
+    }
+  }
+
   async deleteTransaction(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
       const transactions = await this.readStoredTransactions();
@@ -580,6 +626,10 @@ export class TransactionService {
 
   static setTransactionsCleared(ids: string[], cleared: boolean, userId?: string): Promise<number> {
     return this.service.setTransactionsCleared(ids, cleared, userId);
+  }
+
+  static applyCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
+    return this.service.applyCategoryToUncategorized(ids, category, userId);
   }
 
   static getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
