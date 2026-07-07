@@ -28,7 +28,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -288,6 +288,30 @@ class DataServiceImpl {
     return count;
   }
 
+  /**
+   * Apply a category to the listed transactions that are still uncategorized
+   * (payee-memory propagation); fill-blanks only, balance-neutral.
+   */
+  async applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.applyCategoryToUncategorized(ids, category, userId);
+    }
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const idSet = new Set(ids);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (idSet.has(t.id) && (!t.category || t.category.trim() === '')) {
+        count += 1;
+        return { ...t, category };
+      }
+      return t;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+    return count;
+  }
+
   async getBudgets(): Promise<Budget[]> {
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
@@ -406,6 +430,10 @@ export class DataService {
 
   static setTransactionsCleared(ids: string[], cleared: boolean): Promise<number> {
     return this.service.setTransactionsCleared(ids, cleared);
+  }
+
+  static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
+    return this.service.applyCategoryToUncategorized(ids, category);
   }
 
   static getBudgets(): Promise<Budget[]> {

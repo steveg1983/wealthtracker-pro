@@ -54,6 +54,13 @@ export function useModalForm<T>(
       e.preventDefault();
     }
 
+    // Re-entrancy guard: a second click while a save is in flight must not
+    // re-run onSubmit (double-clicking "Save" would create duplicate
+    // transactions on a slow connection).
+    if (isSubmitting) {
+      return;
+    }
+
     setIsSubmitting(true);
     clearErrors();
 
@@ -72,7 +79,7 @@ export function useModalForm<T>(
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, onSubmit, onClose, resetOnClose, clearErrors, reset, logger]);
+  }, [formData, onSubmit, onClose, resetOnClose, clearErrors, reset, logger, isSubmitting]);
 
   return {
     formData,

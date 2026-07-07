@@ -248,4 +248,104 @@ describe('TransactionService (deterministic fallback)', () => {
       expect(logger.error).toHaveBeenCalled();
     });
   });
+
+  describe('applyCategoryToUncategorized', () => {
+    it('fills blanks on matching ids in local mode and returns the count', async () => {
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', category: '' }),
+        baseTransaction({ id: 'txn-2', category: '' }),
+        baseTransaction({ id: 'txn-3', category: 'cat-keep' })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.applyCategoryToUncategorized(['txn-1', 'txn-2'], 'cat-mobile');
+
+      expect(count).toBe(2);
+      const stored = storage.snapshot();
+      expect(stored.find(t => t.id === 'txn-1')?.category).toBe('cat-mobile');
+      expect(stored.find(t => t.id === 'txn-2')?.category).toBe('cat-mobile');
+      expect(stored.find(t => t.id === 'txn-3')?.category).toBe('cat-keep');
+    });
+
+    it('never overwrites an existing category even when its id is passed', async () => {
+      // Fill-blanks contract: a stale caller may pass a row that was
+      // categorized elsewhere in the meantime — it must be left untouched.
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', category: 'cat-explicit' }),
+        baseTransaction({ id: 'txn-2', category: '' })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.applyCategoryToUncategorized(['txn-1', 'txn-2'], 'cat-mobile');
+
+      expect(count).toBe(1);
+      const stored = storage.snapshot();
+      expect(stored.find(t => t.id === 'txn-1')?.category).toBe('cat-explicit');
+      expect(stored.find(t => t.id === 'txn-2')?.category).toBe('cat-mobile');
+    });
+
+    it('returns 0 and performs no write for an empty id list', async () => {
+      const storage = createStorage([baseTransaction({ id: 'txn-1' })]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.applyCategoryToUncategorized([], 'cat-mobile');
+
+      expect(count).toBe(0);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('calls the apply_category_to_uncategorized RPC with owner scope in Supabase mode', async () => {
+      const rpc = vi.fn(async () => ({ data: 2, error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const count = await service.applyCategoryToUncategorized(['a', 'b'], 'cat-mobile', 'user-1');
+
+      expect(count).toBe(2);
+      expect(rpc).toHaveBeenCalledWith('apply_category_to_uncategorized', {
+        p_ids: ['a', 'b'],
+        p_category: 'cat-mobile',
+        p_user_id: 'user-1'
+      });
+    });
+
+    it('throws when the RPC reports an error', async () => {
+      const rpc = vi.fn(async () => ({ data: null, error: { message: 'boom' } }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      await expect(service.applyCategoryToUncategorized(['a'], 'cat-x')).rejects.toThrow();
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
 });
