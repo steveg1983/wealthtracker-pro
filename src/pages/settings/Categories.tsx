@@ -184,18 +184,22 @@ export default function CategoriesSettings() {
   const handleImportMoneySet = async () => {
     if (isImporting) return;
     if (!window.confirm(
-      'Import the Microsoft Money category set? Existing categories with the same names are kept — nothing is deleted or overwritten.'
+      'Switch to the Microsoft Money category set? The Money tree is imported and unused default categories are removed. Categories that transactions use, transfer categories, and system categories are always kept.'
     )) {
       return;
     }
     setIsImporting(true);
     try {
-      const result = await importCategoryTree(MS_MONEY_CATEGORY_SET);
+      const result = await importCategoryTree(MS_MONEY_CATEGORY_SET, { pruneOthers: true });
+      const parts: string[] = [];
+      if (result.created > 0) parts.push(`added ${result.created}`);
+      if (result.pruned > 0) parts.push(`removed ${result.pruned} unused defaults`);
+      if (result.keptForTransactions > 0) parts.push(`kept ${result.keptForTransactions} in use by transactions`);
       showSuccess(
-        result.created > 0
-          ? `Added ${result.created} categories (${result.skipped} already existed).`
-          : 'All Microsoft Money categories already exist — nothing to add.',
-        'Category import complete'
+        parts.length > 0
+          ? `Categories updated: ${parts.join(', ')}.`
+          : 'Your categories already match the Microsoft Money set.',
+        'Money set applied'
       );
     } catch (error) {
       showError(error);
@@ -722,8 +726,8 @@ export default function CategoriesSettings() {
               Microsoft Money category set
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Import the classic Money (UK) category tree. Merges with what you have —
-              same-named categories are kept, nothing is deleted.
+              Switch to the classic Money (UK) category tree. Unused default categories
+              are removed; anything your transactions use is kept.
             </p>
           </div>
           <button

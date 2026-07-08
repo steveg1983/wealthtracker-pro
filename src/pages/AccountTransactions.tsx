@@ -8,6 +8,7 @@ import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon 
 import LocalMerchantLogo from '../components/LocalMerchantLogo';
 import DatePicker from '../components/common/DatePicker';
 import EditTransactionModal from '../components/EditTransactionModal';
+import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
@@ -234,6 +235,17 @@ export default function AccountTransactions() {
   // Keyboard event handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Never hijack Delete while the user is typing (the quick-edit panel
+      // keeps a row selected while its inputs are focused).
+      const target = e.target as HTMLElement | null;
+      if (target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      )) {
+        return;
+      }
       if (e.key === 'Delete' && selectedTransactionId) {
         const transaction = transactionsWithBalance.find(t => t.id === selectedTransactionId);
         if (transaction) {
@@ -241,7 +253,7 @@ export default function AccountTransactions() {
         }
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTransactionId, transactionsWithBalance]);
@@ -302,10 +314,39 @@ export default function AccountTransactions() {
       // Second click on already selected transaction - open edit modal
       setIsEditModalOpen(true);
     } else {
-      // First click - just select the transaction
+      // First click - select and pin the quick-edit panel under the table
       setSelectedTransactionId(item.id);
     }
   }, [selectedTransactionId]);
+
+  // The quick-edit panel always reflects the latest saved state of the
+  // selected transaction (context updates flow straight back in).
+  const quickEditTarget = useMemo(
+    () => transactionsWithBalance.find(t => t.id === selectedTransactionId) ?? null,
+    [transactionsWithBalance, selectedTransactionId]
+  );
+
+  // Next non-summary row below the given one in the CURRENT visible order —
+  // powers "Save & Next" in both the quick-edit panel and the full modal.
+  const getNextTransactionId = useCallback((currentId: string): string | null => {
+    const index = displayRows.findIndex(row => row.id === currentId);
+    if (index === -1) return null;
+    for (let i = index + 1; i < displayRows.length; i += 1) {
+      if (!isOpeningBalanceRow(displayRows[i])) {
+        return displayRows[i].id;
+      }
+    }
+    return null;
+  }, [displayRows]);
+
+  const advanceToNextTransaction = useCallback((currentId: string): boolean => {
+    const nextId = getNextTransactionId(currentId);
+    if (!nextId) return false;
+    const nextTransaction = transactionsWithBalance.find(t => t.id === nextId) ?? null;
+    setSelectedTransactionId(nextId);
+    setSelectedTransaction(nextTransaction);
+    return true;
+  }, [getNextTransactionId, transactionsWithBalance]);
   
   
   // Handle quick add
@@ -794,7 +835,23 @@ export default function AccountTransactions() {
           }}
         />
       </div>
-      
+
+      {/* Quick edit: single click pins this condensed editor under the table */}
+      {quickEditTarget && !isEditModalOpen && (
+        <QuickEditTransactionPanel
+          transaction={quickEditTarget}
+          onNext={
+            getNextTransactionId(quickEditTarget.id)
+              ? () => { advanceToNextTransaction(quickEditTarget.id); }
+              : undefined
+          }
+          onClose={() => {
+            setSelectedTransactionId(null);
+            setSelectedTransaction(null);
+          }}
+        />
+      )}
+
       {/* Quick Add Transaction */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3 mt-4">
         <form onSubmit={handleQuickAdd}>
@@ -919,6 +976,17 @@ export default function AccountTransactions() {
             setSelectedTransactionId(null);
           }}
           transaction={selectedTransaction}
+          onSaveAndNext={
+            getNextTransactionId(selectedTransaction.id)
+              ? () => {
+                  if (!advanceToNextTransaction(selectedTransaction.id)) {
+                    setIsEditModalOpen(false);
+                    setSelectedTransaction(null);
+                    setSelectedTransactionId(null);
+                  }
+                }
+              : undefined
+          }
         />
       )}
       

@@ -21,6 +21,7 @@ import {
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { computeExpenseCategoryNetTotals, bucketByCategoryDirection } from '../utils/categoryNetting';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 const reportsLogger = createScopedLogger('ReportsPage');
@@ -31,7 +32,7 @@ const CATEGORY_COLORS = [
 ];
 
 export default function Reports() {
-  const { transactions, accounts } = useApp();
+  const { transactions, accounts, categories } = useApp();
   const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -83,16 +84,24 @@ export default function Reports() {
     });
   }, [transactions, dateRange, selectedAccount, customStartDate, customEndDate]);
 
-  // Calculate summary statistics
+  // Calculate summary statistics — bucketed by CATEGORY direction (the same
+  // Money-style netting as the pie), so a refund filed under an expense
+  // category reduces Expenses here rather than inflating Income.
   const summary = useMemo(() => {
-    const incomeDecimal = filteredTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+    const categoryById = new Map(categories.map(c => [c.id, c]));
+    let incomeDecimal = toDecimal(0);
+    let expensesDecimal = toDecimal(0);
 
-    // Expenses are stored signed (negative); aggregate as a positive magnitude
-    const expensesDecimal = filteredTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(Math.abs(t.amount)), toDecimal(0));
+    for (const t of filteredTransactions) {
+      const bucket = bucketByCategoryDirection(t, categoryById);
+      if (bucket === 'income') {
+        // Signed sum: an outgoing filed under an income category nets it down.
+        incomeDecimal = incomeDecimal.plus(t.amount);
+      } else if (bucket === 'expense') {
+        // Spending is negative; negate so refunds net the total down.
+        expensesDecimal = expensesDecimal.minus(t.amount);
+      }
+    }
 
     const netIncomeDecimal = incomeDecimal.minus(expensesDecimal);
     const savingsRateDecimal = incomeDecimal.gt(0)
@@ -105,7 +114,7 @@ export default function Reports() {
       netIncome: netIncomeDecimal.toNumber(),
       savingsRate: savingsRateDecimal.toNumber(),
     };
-  }, [filteredTransactions]);
+  }, [filteredTransactions, categories]);
 
   const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
     return formatDecimal(value, decimals);
@@ -122,44 +131,36 @@ export default function Reports() {
     }
   }, [transactions, accounts]);
 
-  // Prepare data for category breakdown
-  const categoryData = useMemo(() => {
-    const categoryTotals = filteredTransactions
-      .filter(t => t.type === 'expense')
-      .reduce<Record<string, DecimalInstance>>((acc, t) => {
-        const key = t.category || 'Uncategorized';
-        const current = acc[key] ?? toDecimal(0);
-        // Expenses are stored signed (negative); totals must be positive magnitudes
-        acc[key] = current.plus(Math.abs(t.amount));
-        return acc;
-      }, {});
+  // Prepare data for category breakdown. Money-style netting: bucket by the
+  // CATEGORY's direction and net signed amounts, so a refund filed under an
+  // expense category reduces that category instead of inflating income —
+  // and slice labels show category NAMES, never raw ids.
+  const categoryData = useMemo(
+    () => computeExpenseCategoryNetTotals(filteredTransactions, categories)
+      .slice(0, 8)
+      .map(({ name, value }) => ({ name, value })),
+    [filteredTransactions, categories]
+  );
 
-    const sortedCategories = Object.entries(categoryTotals)
-      .sort(([, a], [, b]) => b.minus(a).toNumber())
-      .slice(0, 8);
-
-    return sortedCategories.map(([cat, amount]) => ({
-      name: cat,
-      value: amount.toNumber()
-    }));
-  }, [filteredTransactions]);
-
-  // Prepare data for monthly trend
+  // Prepare data for monthly trend — same category-direction netting as the
+  // summary and the pie, so all three views on this page agree.
   const monthlyTrendData = useMemo(() => {
     const monthlyData: Record<string, { income: DecimalInstance; expenses: DecimalInstance }> = {};
+    const categoryById = new Map(categories.map(c => [c.id, c]));
 
     filteredTransactions.forEach(t => {
-      if (t.type !== 'income' && t.type !== 'expense') return;
+      const bucket = bucketByCategoryDirection(t, categoryById);
+      if (bucket === 'transfer') return;
       const monthKey = new Date(t.date).toISOString().slice(0, 7);
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { income: toDecimal(0), expenses: toDecimal(0) };
       }
 
-      if (t.type === 'income') {
+      if (bucket === 'income') {
         monthlyData[monthKey].income = monthlyData[monthKey].income.plus(t.amount);
       } else {
-        // Expenses are stored signed (negative); plot as positive magnitudes
-        monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.plus(Math.abs(t.amount));
+        // Spending is negative; negate so refunds net the month down.
+        monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.minus(t.amount);
       }
     });
 
@@ -170,7 +171,7 @@ export default function Reports() {
       income: monthlyData[month].income.toNumber(),
       expenses: monthlyData[month].expenses.toNumber()
     }));
-  }, [filteredTransactions]);
+  }, [filteredTransactions, categories]);
 
   const exportToCSV = () => {
     const csv = exportTransactionsToCSV(filteredTransactions, accounts);
@@ -181,31 +182,20 @@ export default function Reports() {
   const exportToPDF = async (includeCharts: boolean = true) => {
     setIsGeneratingPDF(true);
     try {
-      // Prepare category breakdown data
-      const expenseTotals = filteredTransactions
-        .filter(t => t.type === 'expense')
-        .reduce<Record<string, DecimalInstance>>((acc, t) => {
-          const key = t.category || 'Uncategorized';
-          const current = acc[key] ?? toDecimal(0);
-          // Expenses are stored signed (negative); totals must be positive magnitudes
-          acc[key] = current.plus(Math.abs(t.amount));
-          return acc;
-        }, {});
-
-      const totalExpensesDecimal = Object.values(expenseTotals).reduce(
-        (sum, amount) => sum.plus(amount),
+      // Prepare category breakdown data (same Money-style netting as the pie).
+      const netTotals = computeExpenseCategoryNetTotals(filteredTransactions, categories);
+      const totalExpensesDecimal = netTotals.reduce(
+        (sum, entry) => sum.plus(toDecimal(entry.value)),
         toDecimal(0)
       );
 
-      const categoryBreakdown = Object.entries(expenseTotals)
-        .sort(([, a], [, b]) => b.minus(a).toNumber())
-        .map(([category, amount]) => ({
-          category,
-          amount: amount.toNumber(),
-          percentage: totalExpensesDecimal.gt(0)
-            ? amount.dividedBy(totalExpensesDecimal).times(100).toNumber()
-            : 0
-        }));
+      const categoryBreakdown = netTotals.map(({ name, value }) => ({
+        category: name,
+        amount: value,
+        percentage: totalExpensesDecimal.gt(0)
+          ? toDecimal(value).dividedBy(totalExpensesDecimal).times(100).toNumber()
+          : 0
+      }));
 
       const reportData = {
         title: 'Financial Report',

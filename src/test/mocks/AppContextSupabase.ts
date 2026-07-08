@@ -42,7 +42,7 @@ const baseValue = {
   updateBudget: noop,
   deleteBudget: noop,
   addCategory: noop,
-  importCategoryTree: async () => ({ created: 0, skipped: 0 }),
+  importCategoryTree: async () => ({ created: 0, skipped: 0, pruned: 0, keptForTransactions: 0 }),
   updateCategory: noop,
   deleteCategory: noop,
   addGoal: noop,
