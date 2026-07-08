@@ -81,6 +81,28 @@ export const sanitizeRuntimeControlSearch = (search: string, env: RuntimeModeEnv
   return sanitizeRuntimeControlSearchWithDetails(search, env).sanitizedSearch;
 };
 
+/**
+ * Copy the runtime-control params (demo/testMode) from an existing search into
+ * a new params object. In-page navigations that call setSearchParams replace
+ * the whole query string, so without this they'd drop the flag that keeps a
+ * demo/test session alive and bounce the user out to the landing page. No-op in
+ * production, where these params are sanitized out of the URL on load, so there
+ * is nothing present to copy.
+ */
+export const preserveRuntimeControlParams = (
+  current: URLSearchParams,
+  next: Record<string, string> = {}
+): Record<string, string> => {
+  const merged: Record<string, string> = { ...next };
+  RUNTIME_CONTROL_QUERY_PARAMS.forEach((param) => {
+    const value = current.get(param);
+    if (value !== null) {
+      merged[param] = value;
+    }
+  });
+  return merged;
+};
+
 export const sanitizeRuntimeControlStorageWithDetails = (
   env: RuntimeModeEnv,
   storage: RuntimeStorageLike | null | undefined
