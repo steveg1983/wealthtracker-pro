@@ -9,6 +9,7 @@ import ReconciliationBalanceBar from '../components/reconciliation/Reconciliatio
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
 import EditTransactionModal from '../components/EditTransactionModal';
+import { preserveRuntimeControlParams } from '../utils/runtimeMode';
 import type { Transaction } from '../types';
 
 export default function Reconciliation() {
@@ -68,12 +69,14 @@ export default function Reconciliation() {
   // Handlers
   const handleSelectAccount = useCallback((accountId: string) => {
     setSelectedAccountId(accountId);
-    setSearchParams({ account: accountId });
+    // Preserve demo/testMode so an in-page navigation doesn't drop the flag that
+    // keeps a demo/test session alive (which would bounce us to the landing page).
+    setSearchParams(prev => preserveRuntimeControlParams(prev, { account: accountId }));
   }, [setSearchParams]);
 
   const handleBack = useCallback(() => {
     setSelectedAccountId(null);
-    setSearchParams({});
+    setSearchParams(prev => preserveRuntimeControlParams(prev));
   }, [setSearchParams]);
 
   const applyCleared = useCallback(async (requestedIds: string[], cleared: boolean) => {

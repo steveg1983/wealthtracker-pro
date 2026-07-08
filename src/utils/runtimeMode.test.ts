@@ -7,7 +7,8 @@ import {
   sanitizeRuntimeControlSearch,
   sanitizeRuntimeControlSearchWithDetails,
   sanitizeRuntimeControlStorageWithDetails,
-  sanitizeRuntimeControlStorage
+  sanitizeRuntimeControlStorage,
+  preserveRuntimeControlParams
 } from './runtimeMode';
 
 describe('runtimeMode guards', () => {
@@ -51,6 +52,41 @@ describe('sanitizeRuntimeControlSearch', () => {
     expect(sanitizeRuntimeControlSearch('?testMode=true', env)).toBe('?testMode=true');
     expect(sanitizeRuntimeControlSearch('?foo=bar&demo=true', env)).toBe('?foo=bar&demo=true');
     expect(sanitizeRuntimeControlSearch('?foo=bar&testMode=true', env)).toBe('?foo=bar&testMode=true');
+  });
+});
+
+describe('preserveRuntimeControlParams', () => {
+  it('carries demo/testMode from the current search into the next params', () => {
+    const current = new URLSearchParams('demo=true&account=old');
+    expect(preserveRuntimeControlParams(current, { account: 'new' })).toEqual({
+      account: 'new',
+      demo: 'true'
+    });
+  });
+
+  it('preserves testMode as well as demo', () => {
+    const current = new URLSearchParams('testMode=true');
+    expect(preserveRuntimeControlParams(current, { account: 'x' })).toEqual({
+      account: 'x',
+      testMode: 'true'
+    });
+  });
+
+  it('keeps the control params when the next params are empty (e.g. going back)', () => {
+    const current = new URLSearchParams('account=x&demo=true');
+    expect(preserveRuntimeControlParams(current)).toEqual({ demo: 'true' });
+  });
+
+  it('adds nothing when no control params are present', () => {
+    const current = new URLSearchParams('account=x');
+    expect(preserveRuntimeControlParams(current, { account: 'y' })).toEqual({ account: 'y' });
+  });
+
+  it('does not mutate the caller-provided next object', () => {
+    const current = new URLSearchParams('demo=true');
+    const next = { account: 'x' };
+    preserveRuntimeControlParams(current, next);
+    expect(next).toEqual({ account: 'x' });
   });
 });
 
