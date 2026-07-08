@@ -166,7 +166,7 @@ export function TopNavDropdown({
                 to={itemTo}
                 className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
                   itemActive
-                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 font-medium'
+                    ? 'bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-white font-medium'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
                 onClick={() => setOpenDropdown(null)}

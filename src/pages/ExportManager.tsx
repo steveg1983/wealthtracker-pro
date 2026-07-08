@@ -217,11 +217,11 @@ export default function ExportManager() {
     <PageWrapper title="Export Manager">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-800 dark:to-purple-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Export Manager</h1>
-              <p className="text-blue-100">
+              <p className="text-white/70">
                 Generate reports, schedule exports, and manage templates
               </p>
             </div>

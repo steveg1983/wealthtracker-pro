@@ -649,7 +649,7 @@ export default function AccountTransactions() {
       </button>
 
       {/* Compact header with inline stat boxes */}
-      <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
+      <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <div>
             <div className="flex items-center gap-2">
@@ -887,7 +887,7 @@ export default function AccountTransactions() {
           emptyMessage="No transactions found"
           threshold={50}
           className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
-          headerClassName="bg-secondary dark:bg-gray-700 text-white"
+          headerClassName="bg-[#1a2332] dark:bg-gray-700 text-white"
           rowClassName={(row: DisplayRow) => {
             if (isOpeningBalanceRow(row)) {
               return 'bg-blue-50/60 dark:bg-blue-900/20 italic';

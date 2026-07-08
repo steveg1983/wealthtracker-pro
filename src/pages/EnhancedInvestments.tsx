@@ -474,11 +474,11 @@ export default function EnhancedInvestments() {
     <PageWrapper title="Investment Analytics">
       <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-800 dark:to-indigo-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+      <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">Enhanced Investment Analytics</h1>
-            <p className="text-purple-100">
+            <p className="text-white/70">
               Advanced tools for portfolio optimization and analysis
             </p>
           </div>

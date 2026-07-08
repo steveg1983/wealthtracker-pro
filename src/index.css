@@ -83,7 +83,11 @@
 /* WealthTracker Brand Colors */
 :root {
   --color-primary: #1a2332;
-  --color-secondary: #2d4a3e;
+  /* Secondary is the app's structural accent (heading/button fills, hovers,
+     focus). Kept in the navy family (was green #2d4a3e) so the default theme
+     reads as one consistent dark scheme; the green/red/pink themes below keep
+     their own accents. */
+  --color-secondary: #2d3a4d;
   --color-tertiary: #d4a843;
   --color-light-bg: #f8f9fb;
   --color-light-card: #ffffff;
@@ -95,15 +99,15 @@
   --color-income: #0d9f6f;
   --color-expense: #d94052;
   --color-accent: #d4a843;
-  --focus-ring-color: #2d4a3e;
-  --color-border-focus: #2d4a3e;
+  --focus-ring-color: #2d3a4d;
+  --color-border-focus: #2d3a4d;
 }
 
 /* Default Theme (Wealth) */
 .theme-blue,
 .theme-wealth {
   --color-primary: #1a2332;
-  --color-secondary: #2d4a3e;
+  --color-secondary: #2d3a4d;
   --color-tertiary: #d4a843;
   --color-sidebar: #1a2332;
   --color-sidebar-active: #2d3a4d;

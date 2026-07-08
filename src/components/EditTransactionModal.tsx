@@ -687,7 +687,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     type="submit"
                     disabled={isSubmitting}
                     onClick={() => { advanceAfterSaveRef.current = true; }}
-                    className="px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the next one in the list"
                   >
                     Save &amp; Next
