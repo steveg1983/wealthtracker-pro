@@ -119,7 +119,7 @@ export default function QuickEditTransactionPanel({
   return (
     // data-quick-edit-panel: the register's click-outside-to-deselect handler
     // treats clicks inside this panel as "keep the selection".
-    <div data-quick-edit-panel className="mt-3 bg-white dark:bg-gray-800 rounded-xl shadow-md border-2 border-[#6B86B3] px-4 py-3">
+    <div data-quick-edit-panel className="mt-3 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3">
       <div className="flex flex-col lg:flex-row lg:items-end gap-3">
         <div className="flex items-center gap-2 lg:hidden">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Quick edit</span>
