@@ -347,6 +347,28 @@ export default function AccountTransactions() {
     [transactionsWithBalance, selectedTransactionId]
   );
 
+  // Clicking the page background deselects: the row un-highlights and the
+  // bottom dock flips back from Quick Edit to Quick Add. Clicks inside the
+  // table, the dock, or any dialog keep the selection.
+  useEffect(() => {
+    if (!selectedTransactionId) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest('[data-transaction-table]') ||
+        target.closest('[data-quick-edit-panel]') ||
+        target.closest('[role="dialog"]')
+      ) {
+        return;
+      }
+      setSelectedTransactionId(null);
+      setSelectedTransaction(null);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [selectedTransactionId]);
+
   // Next non-summary row below the given one in the CURRENT visible order —
   // powers "Save & Next" in both the quick-edit panel and the full modal.
   const getNextTransactionId = useCallback((currentId: string): string | null => {
@@ -843,6 +865,7 @@ export default function AccountTransactions() {
           for more visible rows. */}
       <div
         ref={tableWrapRef}
+        data-transaction-table
         style={{ height: tableHeight }}
         className="overflow-hidden"
       >
