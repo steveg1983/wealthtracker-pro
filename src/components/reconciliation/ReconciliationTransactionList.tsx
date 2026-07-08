@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SearchIcon, PlusIcon } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction, Category } from '../../types';
@@ -18,6 +18,12 @@ interface ReconciliationTransactionListProps {
   /** Open a transaction to edit its details/category. */
   onRowClick: (transaction: Transaction) => void;
   onAddTransaction: () => void;
+  /**
+   * Reports the currently visible transactions in display order (after sort +
+   * filter + search) so a parent can drive "Save & Next" through the exact
+   * order the user sees.
+   */
+  onVisibleOrderChange?: (orderedIds: string[]) => void;
 }
 
 export default function ReconciliationTransactionList({
@@ -30,6 +36,7 @@ export default function ReconciliationTransactionList({
   onBulkSetCleared,
   onRowClick,
   onAddTransaction,
+  onVisibleOrderChange,
 }: ReconciliationTransactionListProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
@@ -83,6 +90,12 @@ export default function ReconciliationTransactionList({
 
     return list;
   }, [sortedTransactions, filterMode, searchTerm, getCategoryName]);
+
+  // Surface the visible order upward so a parent can walk transactions in the
+  // exact order shown here (used to drive the modal's "Save & Next").
+  useEffect(() => {
+    onVisibleOrderChange?.(filteredTransactions.map(t => t.id));
+  }, [filteredTransactions, onVisibleOrderChange]);
 
   const visibleUnclearedIds = useMemo(
     () => filteredTransactions.filter(t => t.cleared !== true).map(t => t.id),
