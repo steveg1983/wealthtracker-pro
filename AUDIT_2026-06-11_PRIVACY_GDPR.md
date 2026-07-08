@@ -92,6 +92,12 @@ polish.
 
 ### 🟠 PII at rest
 - Financial data is encrypted in IndexedDB (encryptedStorageService) — good.
+  - *Updated 2026-07-08:* the AES key now persists in localStorage next to the
+    data (it was session-scoped, which orphaned all IndexedDB data every new
+    session — permanent local data loss). With a client-side key stored beside
+    the ciphertext, this at-rest encryption is same-origin obfuscation, not
+    protection against an attacker with origin access. Real protection for
+    signed-in users comes from the data living in Supabase behind RLS.
 - One plaintext localStorage item holds per-user usage counts keyed by user id
   (`usage_${user.id}`, SubscriptionContext.tsx:183) — low sensitivity but
   inconsistent with the encrypted-everything-else posture; consider moving it
