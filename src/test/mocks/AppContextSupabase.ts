@@ -37,6 +37,7 @@ const baseValue = {
   setTransactionsCleared: asyncNoop,
   applyCategoryToUncategorized: async () => 0,
   refreshAccountsAndTransactions: asyncNoop,
+  refreshCategories: asyncNoop,
   addBudget: noop,
   updateBudget: noop,
   deleteBudget: noop,

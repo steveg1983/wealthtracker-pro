@@ -102,4 +102,48 @@ describe('AccountService (deterministic fallback)', () => {
     const accounts = await AccountService.getAccounts('user');
     expect(accounts[0].id).toBe('static');
   });
+
+  describe('getClosedAccounts', () => {
+    it('returns only closed (isActive false) accounts in local mode', async () => {
+      const storage = createStorage([
+        baseAccount({ id: 'open-1', isActive: true }),
+        baseAccount({ id: 'closed-1', isActive: false }),
+        baseAccount({ id: 'legacy-no-flag', isActive: undefined })
+      ]);
+      const service = createAccountService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const closed = await service.getClosedAccounts('user');
+
+      // Legacy rows without the flag count as open — only explicit closes hide.
+      expect(closed.map(a => a.id)).toEqual(['closed-1']);
+    });
+
+    it('queries Supabase for is_active=false rows in cloud mode', async () => {
+      const order = vi.fn(async () => ({ data: [], error: null }));
+      const eqActive = vi.fn(() => ({ order }));
+      const eqUser = vi.fn(() => ({ eq: eqActive }));
+      const select = vi.fn(() => ({ eq: eqUser }));
+      const from = vi.fn(() => ({ select }));
+      const service = createAccountService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { from } as unknown as never
+      });
+
+      await service.getClosedAccounts('user-1');
+
+      expect(from).toHaveBeenCalledWith('accounts');
+      expect(eqUser).toHaveBeenCalledWith('user_id', 'user-1');
+      expect(eqActive).toHaveBeenCalledWith('is_active', false);
+    });
+  });
 });

@@ -213,8 +213,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
 
   // Build unified flat category list grouped by parent sub-category
   const groupedCategories = useMemo(() => {
-    const detailCats = categories.filter(c => c.level === 'detail' && c.id !== 'transfer-in' && c.id !== 'transfer-out');
-    const subCats = categories.filter(c => c.level === 'sub');
+    // Inactive categories (a closed account's transfer category) never appear
+    // in transaction dropdowns; reopening the account restores them.
+    const detailCats = categories.filter(c =>
+      c.level === 'detail' && c.id !== 'transfer-in' && c.id !== 'transfer-out' && c.isActive !== false
+    );
+    const subCats = categories.filter(c => c.level === 'sub' && c.isActive !== false);
 
     // Group detail categories by their parent sub-category
     const groups: { label: string; type: 'income' | 'expense' | 'both'; items: { id: string; name: string; parentName: string }[] }[] = [];

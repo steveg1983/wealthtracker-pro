@@ -284,8 +284,20 @@ export default function CategoriesSettings() {
 
     const activeCategory = categories.find(c => c.id === active.id);
     const overCategory = categories.find(c => c.id === over.id);
-    
+
     if (!activeCategory || !overCategory) return;
+
+    // Transfer categories are system-managed structure — dragging one under an
+    // income/expense sub (or dropping a normal category onto one) would
+    // corrupt the tree in a way the rename/delete guards can't repair.
+    if (activeCategory.isTransferCategory || overCategory.isTransferCategory) {
+      if (activeCategory.parentId !== overCategory.parentId || activeCategory.level !== overCategory.level) {
+        showError(new Error(
+          'Transfer categories are managed automatically from their account and cannot be moved.'
+        ));
+        return;
+      }
+    }
 
     // Handle reordering within the same parent
     if (activeCategory.parentId === overCategory.parentId && activeCategory.level === overCategory.level) {
@@ -425,6 +437,15 @@ export default function CategoriesSettings() {
   };
 
   const startEditing = (categoryId: string, categoryName: string) => {
+    // Transfer category names track their account ("To/From <account name>");
+    // rename the account instead and the category follows automatically.
+    const category = categories.find(c => c.id === categoryId);
+    if (category?.isTransferCategory) {
+      showError(new Error(
+        'Transfer category names follow their account. Rename the account and this updates automatically.'
+      ));
+      return;
+    }
     setEditingCategoryId(categoryId);
     setEditingCategoryName(categoryName);
   };
@@ -445,6 +466,16 @@ export default function CategoriesSettings() {
   const handleDelete = (categoryId: string) => {
     const category = categories.find(c => c.id === categoryId);
     if (!category) return;
+
+    // Account transfer categories are system-managed bookkeeping: created
+    // with the account, renamed with it, hidden when it closes. Deleting one
+    // would orphan that account's transfer history (the DB blocks it too).
+    if (category.isTransferCategory) {
+      showError(new Error(
+        'Transfer categories are managed automatically from their account. Close the account to hide it instead.'
+      ));
+      return;
+    }
 
     const transactionCount = transactions.filter(t => t.category === categoryId).length;
     const childCategories = categories.filter(c => c.parentId === categoryId);
@@ -469,7 +500,9 @@ export default function CategoriesSettings() {
   };
 
   const renderCategorySection = (title: string, parentId: string) => {
-    const subCategories = getSubCategories(parentId);
+    // Inactive categories (a closed account's transfer category) stay out of
+    // sight — reopening the account brings them back automatically.
+    const subCategories = getSubCategories(parentId).filter(c => c.isActive !== false);
     
     // Sort subcategories by order
     const orderedSubCategories = [...subCategories].sort((a, b) => {
@@ -487,7 +520,7 @@ export default function CategoriesSettings() {
     });
     
     const allDetailIds = orderedSubCategories.flatMap(sub => 
-      getDetailCategories(sub.id).map(d => d.id)
+      getDetailCategories(sub.id).filter(d => d.isActive !== false).map(d => d.id)
     );
     
     return (
@@ -500,7 +533,7 @@ export default function CategoriesSettings() {
             <div className="space-y-1">
               {orderedSubCategories.map(subCategory => {
                 const isExpanded = expandedCategories.has(subCategory.id);
-                const detailCategories = getDetailCategories(subCategory.id);
+                const detailCategories = getDetailCategories(subCategory.id).filter(d => d.isActive !== false);
                 
                 // Sort detail categories by order
                 const orderedDetailCategories = [...detailCategories].sort((a, b) => {
@@ -720,7 +753,7 @@ export default function CategoriesSettings() {
           <div>
             <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Other Categories</h3>
             <div className="space-y-1">
-              {categories.filter(cat => cat.type === 'both' && cat.level === 'detail' && !cat.parentId).map(category => {
+              {categories.filter(cat => cat.type === 'both' && cat.level === 'detail' && !cat.parentId && cat.isActive !== false).map(category => {
                 const transactionCount = transactions.filter(t => t.category === category.id).length;
 
                 return (
