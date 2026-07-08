@@ -819,4 +819,158 @@ PIncomplete transaction`;
       expect(result.transactions[0].amount).toBe(-50);
     });
   });
+
+  describe('date order detection (UK vs US)', () => {
+    it('detects UK D/M/Y when a day exceeds 12 and parses dates correctly', () => {
+      const ukQIF = `!Type:Bank
+D13/09/2024
+T-50.00
+PDay thirteen
+^
+D25/12/2024
+T-75.00
+PChristmas
+^
+D09/02/2024
+T-20.00
+PNinth of Feb
+^`;
+
+      const result = qifImportService.parseQIF(ukQIF);
+
+      expect(result.dateOrder).toBe('dmy');
+      expect(result.invalidDateCount).toBe(0);
+      expect(result.transactions.map(t => t.date)).toEqual([
+        '2024-09-13', // 13 Sep
+        '2024-12-25', // 25 Dec
+        '2024-02-09'  // 9 Feb
+      ]);
+    });
+
+    it('does NOT drop UK dates on the 13th-31st (regression for the silent-drop bug)', () => {
+      // The old US-only parser turned these into invalid months (e.g. 2024-13-09)
+      // which serialised to null and were silently dropped — losing ~60% of a
+      // real statement. They must all import now.
+      const ukQIF = `!Type:Bank
+D13/01/2024
+T-1.00
+PA
+^
+D20/03/2024
+T-2.00
+PB
+^
+D31/07/2024
+T-3.00
+PC
+^`;
+
+      const result = qifImportService.parseQIF(ukQIF);
+
+      expect(result.dateOrder).toBe('dmy');
+      expect(result.transactions).toHaveLength(3);
+      expect(result.transactions.map(t => t.date)).toEqual([
+        '2024-01-13',
+        '2024-03-20',
+        '2024-07-31'
+      ]);
+    });
+
+    it('keeps M/D/Y (US) detection when a month-position value exceeds 12', () => {
+      const usQIF = `!Type:Bank
+D01/15/2024
+T-10.00
+PUS date
+^
+D03/28/2024
+T-20.00
+PAnother
+^`;
+
+      const result = qifImportService.parseQIF(usQIF);
+
+      expect(result.dateOrder).toBe('mdy');
+      expect(result.transactions.map(t => t.date)).toEqual(['2024-01-15', '2024-03-28']);
+    });
+
+    it('defaults ambiguous files (no field over 12) to M/D/Y', () => {
+      const ambiguousQIF = `!Type:Bank
+D05/06/2024
+T-10.00
+PAmbiguous
+^`;
+
+      const result = qifImportService.parseQIF(ambiguousQIF);
+
+      expect(result.dateOrder).toBe('mdy');
+      expect(result.transactions[0].date).toBe('2024-05-06'); // month 05, day 06
+    });
+
+    it('handles UK 2-digit years with day-first order', () => {
+      vi.setSystemTime(new Date('2024-06-15'));
+
+      const ukQIF = `!Type:Bank
+D13/09'24
+T-50.00
+PShort year UK
+^`;
+
+      const result = qifImportService.parseQIF(ukQIF);
+
+      expect(result.dateOrder).toBe('dmy');
+      expect(result.transactions[0].date).toBe('2024-09-13');
+
+      vi.useRealTimers();
+    });
+
+    it('parses unambiguous ISO (year-first) dates', () => {
+      const isoQIF = `!Type:Bank
+D2024-09-13
+T-50.00
+PISO date
+^`;
+
+      const result = qifImportService.parseQIF(isoQIF);
+
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].date).toBe('2024-09-13');
+    });
+
+    it('drops rows with an impossible date and counts them instead of guessing', () => {
+      const badQIF = `!Type:Bank
+D13/09/2024
+T-50.00
+PGood
+^
+D30/02/2024
+T-10.00
+PImpossible (30 Feb)
+^`;
+
+      const result = qifImportService.parseQIF(badQIF);
+
+      // 13>12 makes this a day-first file; 30 Feb is not a real date → dropped.
+      expect(result.dateOrder).toBe('dmy');
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].date).toBe('2024-09-13');
+      expect(result.invalidDateCount).toBe(1);
+    });
+
+    it('reports invalidDates through importTransactions', async () => {
+      const badQIF = `!Type:Bank
+D13/09/2024
+T-50.00
+PGood
+^
+D30/02/2024
+T-10.00
+PImpossible
+^`;
+
+      const result = await qifImportService.importTransactions(badQIF, 'acc1', []);
+
+      expect(result.newTransactions).toBe(1);
+      expect(result.invalidDates).toBe(1);
+    });
+  });
 });
