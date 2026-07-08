@@ -29,13 +29,18 @@ export class EncryptedStorageService {
   private readonly keyGenerator: () => string;
   private readonly navigatorRef: Pick<Navigator, 'storage'> | null;
   private memoryKey?: string;
+  private hasWarnedAboutPurgedEntries = false;
 
   constructor(options: EncryptedStorageServiceOptions = {}) {
-    this.sessionStorageRef =
-      options.sessionStorage ?? (typeof sessionStorage !== 'undefined' ? sessionStorage : null);
+    // `undefined` means "resolve the real global"; an EXPLICIT null means
+    // "no storage" (DI contract — `?? global` would silently defeat it).
+    this.sessionStorageRef = options.sessionStorage === undefined
+      ? (typeof sessionStorage !== 'undefined' ? sessionStorage : null)
+      : options.sessionStorage;
     this.shouldResolveGlobalLocalStorage = options.localStorage === undefined;
-    this.localStorageRef =
-      options.localStorage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.localStorageRef = options.localStorage === undefined
+      ? (typeof localStorage !== 'undefined' ? localStorage : null)
+      : options.localStorage;
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
     this.logger = {
       error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {})),
@@ -59,18 +64,64 @@ export class EncryptedStorageService {
   }
 
   private getOrCreateEncryptionKey(): string {
-    if (this.sessionStorageRef) {
-      let key = this.sessionStorageRef.getItem('wt_enc_key');
-      if (!key) {
-        key = this.keyGenerator();
-        this.sessionStorageRef.setItem('wt_enc_key', key);
+    // The encrypted payloads live in IndexedDB, which persists across browser
+    // sessions — so the key MUST persist too. The original session-scoped key
+    // (sessionStorage dies with the tab) made every new session mint a fresh
+    // key that could never read the previous session's data: permanent local
+    // data loss plus a decrypt-error log storm on every load.
+    //
+    // Note on the security model: with the key stored client-side next to the
+    // data, this is obfuscation against casual inspection, not protection
+    // against an attacker with origin access — the same trade-off the
+    // session-scoped key already made.
+    const local = this.getLocalStorage();
+
+    const persistedKey = this.tryReadKey(local);
+    if (persistedKey) {
+      return persistedKey;
+    }
+
+    // Migrate a legacy session-scoped key so data written earlier in THIS
+    // session stays readable in future sessions.
+    const legacySessionKey = this.tryReadKey(this.sessionStorageRef);
+    if (legacySessionKey) {
+      if (local) {
+        this.tryWriteKey(local, legacySessionKey);
       }
+      return legacySessionKey;
+    }
+
+    // This runs at module load (singleton construction): a storage write that
+    // throws (quota full, lockdown modes) must degrade to the in-memory key,
+    // never crash module evaluation and white-screen the app.
+    const key = this.keyGenerator();
+    if (local && this.tryWriteKey(local, key)) {
+      return key;
+    }
+    if (this.sessionStorageRef && this.tryWriteKey(this.sessionStorageRef, key)) {
       return key;
     }
     if (!this.memoryKey) {
-      this.memoryKey = this.keyGenerator();
+      this.memoryKey = key;
     }
     return this.memoryKey;
+  }
+
+  private tryReadKey(storage: (StorageWriter & StorageReader) | null): string | null {
+    try {
+      return storage?.getItem('wt_enc_key') ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private tryWriteKey(storage: StorageWriter & StorageReader, key: string): boolean {
+    try {
+      storage.setItem('wt_enc_key', key);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // Encrypt data
@@ -79,16 +130,17 @@ export class EncryptedStorageService {
     return CryptoJS.AES.encrypt(jsonString, this.encryptionKey).toString();
   }
 
-  // Decrypt data
+  // Decrypt data. Throws on failure — getItem treats an undecryptable entry
+  // as absent and purges it (no per-entry error logging here: entries written
+  // under the legacy session-scoped key are expected casualties, and a log
+  // storm on every load helps nobody).
   private decrypt(encryptedData: string): JsonValue {
-    try {
-      const bytes = CryptoJS.AES.decrypt(encryptedData, this.encryptionKey);
-      const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-      return JSON.parse(decryptedString) as JsonValue;
-    } catch (error) {
-      this.logger.error('Decryption failed:', error as Error);
+    const bytes = CryptoJS.AES.decrypt(encryptedData, this.encryptionKey);
+    const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
+    if (decryptedString === '') {
       throw new Error('Failed to decrypt data');
     }
+    return JSON.parse(decryptedString) as JsonValue;
   }
 
   // Compress data using simple LZ compression
@@ -143,7 +195,7 @@ export class EncryptedStorageService {
   async getItem<T>(key: string): Promise<T | null> {
     try {
       const storedData = await indexedDBService.get<StoredData<T>>(this.storeName, key);
-      
+
       if (!storedData) {
         return null;
       }
@@ -158,7 +210,16 @@ export class EncryptedStorageService {
 
       // Decrypt if encrypted
       if (storedData.encrypted && typeof data === 'string') {
-        data = this.decrypt(data) as T;
+        try {
+          data = this.decryptWithKeyRefresh(data) as T;
+        } catch {
+          // Written under a key nobody holds any more (the legacy
+          // session-scoped scheme) — unreadable forever. Purge it so callers
+          // fall back to their defaults cleanly and the failure never repeats.
+          await this.removeItem(key);
+          this.warnOnceAboutPurgedEntries(key);
+          return null;
+        }
       } else if (storedData.compressed && typeof data === 'string') {
         data = JSON.parse(this.decompress(data)) as T;
       }
@@ -168,6 +229,36 @@ export class EncryptedStorageService {
       this.logger.error('Error retrieving data:', error as Error);
       return null;
     }
+  }
+
+  /**
+   * Decrypt, and on failure re-read the persisted key once before giving up:
+   * another tab may have minted/migrated the key AFTER this instance cached
+   * its copy at construction. Without the retry, that cross-tab desync would
+   * make the purge destroy data the persisted key can still decrypt.
+   */
+  private decryptWithKeyRefresh(encryptedData: string): JsonValue {
+    try {
+      return this.decrypt(encryptedData);
+    } catch (error) {
+      const latestKey =
+        this.tryReadKey(this.getLocalStorage()) ?? this.tryReadKey(this.sessionStorageRef);
+      if (latestKey && latestKey !== this.encryptionKey) {
+        this.encryptionKey = latestKey;
+        return this.decrypt(encryptedData); // still failing → caller purges
+      }
+      throw error;
+    }
+  }
+
+  private warnOnceAboutPurgedEntries(firstKey: string): void {
+    if (this.hasWarnedAboutPurgedEntries) return;
+    this.hasWarnedAboutPurgedEntries = true;
+    this.logger.warn(
+      `Purged locally stored data that could not be decrypted (first key: "${firstKey}"). ` +
+      'It was written under an old session-scoped encryption key and is unreadable; ' +
+      'affected entries are removed so they regenerate cleanly.'
+    );
   }
 
   // Remove item from storage

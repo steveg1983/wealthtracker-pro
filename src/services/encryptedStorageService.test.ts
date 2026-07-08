@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { encryptedStorage, STORAGE_KEYS } from './encryptedStorageService';
+import { encryptedStorage, EncryptedStorageService, STORAGE_KEYS } from './encryptedStorageService';
 import { indexedDBService } from './indexedDBService';
 
 // Mock indexedDBService
@@ -459,25 +459,149 @@ describe('EncryptedStorageService', () => {
   });
 
   describe('Encryption Key Management', () => {
-    it('generates new encryption key if none exists', () => {
-      mockSessionStorage.getItem.mockReturnValue(null);
+    // In-memory web-storage stub honoring the Storage read/write surface.
+    const memStorage = (initial: Record<string, string> = {}) => {
+      const map = new Map(Object.entries(initial));
+      return {
+        getItem: (k: string) => map.get(k) ?? null,
+        setItem: (k: string, v: string) => { map.set(k, v); },
+        removeItem: (k: string) => { map.delete(k); },
+        map,
+      };
+    };
 
-      // Create new instance to trigger key generation
-      const _newService = new (encryptedStorage.constructor as any)();
+    // Round-trip helper: setItem captures the encrypted record the service
+    // hands IndexedDB; getItem replays it into another (or the same) instance.
+    const encryptVia = async (service: EncryptedStorageService, value: unknown) => {
+      await service.setItem('probe', value);
+      const call = vi.mocked(indexedDBService.put).mock.calls.at(-1);
+      return call![1] as { data: string; timestamp: number; encrypted: boolean; compressed: boolean };
+    };
+    const decryptVia = async (service: EncryptedStorageService, record: object) => {
+      vi.mocked(indexedDBService.get).mockResolvedValueOnce(record);
+      return service.getItem('probe');
+    };
 
-      expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
-        'wt_enc_key',
-        expect.any(String)
-      );
+    it('persists a new encryption key in localStorage (data lives in IndexedDB, which outlives the session)', () => {
+      const local = memStorage();
+      const session = memStorage();
+      void new EncryptedStorageService({ localStorage: local, sessionStorage: session });
+
+      expect(local.map.get('wt_enc_key')).toEqual(expect.any(String));
+      expect(session.map.has('wt_enc_key')).toBe(false);
     });
 
-    it('reuses existing encryption key', () => {
-      mockSessionStorage.getItem.mockReturnValue('existing-key');
-      
-      // Create new instance
-      const _newService = new (encryptedStorage.constructor as any)();
+    it('data written in one session is readable in the next (the actual bug being fixed)', async () => {
+      const local = memStorage();
+      const writer = new EncryptedStorageService({ localStorage: local, sessionStorage: memStorage() });
+      const record = await encryptVia(writer, { balance: 123.45 });
 
+      // "Next session": fresh instance, fresh sessionStorage, SAME localStorage.
+      const reader = new EncryptedStorageService({ localStorage: local, sessionStorage: memStorage() });
+      await expect(decryptVia(reader, record)).resolves.toEqual({ balance: 123.45 });
+      expect(indexedDBService.delete).not.toHaveBeenCalled();
+    });
+
+    it('migrates a legacy session-scoped key so earlier data stays readable across sessions', async () => {
+      // Legacy writer: no localStorage at all → key lives in sessionStorage.
+      const session = memStorage();
+      const writer = new EncryptedStorageService({ localStorage: null, sessionStorage: session });
+      const record = await encryptVia(writer, ['legacy']);
+      expect(session.map.get('wt_enc_key')).toEqual(expect.any(String));
+
+      // Same session, new code path: key migrates into localStorage…
+      const local = memStorage();
+      const migrator = new EncryptedStorageService({ localStorage: local, sessionStorage: session });
+      await expect(decryptVia(migrator, record)).resolves.toEqual(['legacy']);
+      expect(local.map.get('wt_enc_key')).toBe(session.map.get('wt_enc_key'));
+
+      // …so a FUTURE session (localStorage only) can still decrypt.
+      const future = new EncryptedStorageService({ localStorage: local, sessionStorage: memStorage() });
+      await expect(decryptVia(future, record)).resolves.toEqual(['legacy']);
+    });
+
+    it('survives a localStorage that throws on write (quota full) via the in-memory key', async () => {
+      const throwing = {
+        getItem: () => null,
+        setItem: () => { throw new Error('QuotaExceededError'); },
+        removeItem: () => {},
+      };
+      // Construction at module load must never throw…
+      const service = new EncryptedStorageService({ localStorage: throwing, sessionStorage: null });
+      // …and the instance still encrypts/decrypts with its memory key.
+      const record = await encryptVia(service, { ok: true });
+      await expect(decryptVia(service, record)).resolves.toEqual({ ok: true });
+    });
+
+    it('honors EXPLICIT null storages (memory key, no global fallback)', async () => {
+      const service = new EncryptedStorageService({ localStorage: null, sessionStorage: null });
+      const record = await encryptVia(service, 42);
+      await expect(decryptVia(service, record)).resolves.toBe(42);
+      // The mocked globals must not have been touched.
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalled();
       expect(mockSessionStorage.setItem).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Undecryptable data self-heal', () => {
+    const memStorage = (initial: Record<string, string> = {}) => {
+      const map = new Map(Object.entries(initial));
+      return {
+        getItem: (k: string) => map.get(k) ?? null,
+        setItem: (k: string, v: string) => { map.set(k, v); },
+        removeItem: (k: string) => { map.delete(k); },
+        map,
+      };
+    };
+
+    it('purges an entry nobody can decrypt, returns null, and warns once', async () => {
+      const writer = new EncryptedStorageService({
+        localStorage: memStorage({ wt_enc_key: 'lost-key' }),
+        sessionStorage: null,
+      });
+      await writer.setItem('probe', { a: 1 });
+      const record = vi.mocked(indexedDBService.put).mock.calls.at(-1)![1];
+
+      const warn = vi.fn();
+      const reader = new EncryptedStorageService({
+        localStorage: memStorage({ wt_enc_key: 'reader-key' }),
+        sessionStorage: null,
+        logger: { error: vi.fn(), warn },
+      });
+
+      vi.mocked(indexedDBService.get).mockResolvedValue(record);
+      const first = await reader.getItem('wealthtracker_accounts');
+      const second = await reader.getItem('wealthtracker_transactions');
+
+      expect(first).toBeNull();
+      expect(second).toBeNull();
+      // Both poisoned entries purged so the failure never repeats…
+      expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'wealthtracker_accounts');
+      expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'wealthtracker_transactions');
+      // …and exactly ONE warning, not an error per entry per load.
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries with the freshly persisted key before purging (cross-tab desync)', async () => {
+      // Reader constructs while localStorage holds key-A…
+      const sharedLocal = memStorage({ wt_enc_key: 'key-A' });
+      const reader = new EncryptedStorageService({ localStorage: sharedLocal, sessionStorage: null });
+
+      // …meanwhile "another tab" rotates the key to key-B and writes data.
+      const writer = new EncryptedStorageService({
+        localStorage: memStorage({ wt_enc_key: 'key-B' }),
+        sessionStorage: null,
+      });
+      await writer.setItem('probe', { fresh: 'write' });
+      const record = vi.mocked(indexedDBService.put).mock.calls.at(-1)![1];
+      sharedLocal.map.set('wt_enc_key', 'key-B');
+
+      vi.mocked(indexedDBService.get).mockResolvedValueOnce(record);
+      const result = await reader.getItem('wealthtracker_transactions');
+
+      // The reader adopts the persisted key and reads the data — no purge.
+      expect(result).toEqual({ fresh: 'write' });
+      expect(indexedDBService.delete).not.toHaveBeenCalled();
     });
   });
 
