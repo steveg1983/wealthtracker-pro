@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { bankConnectionService, type BankConnection } from '../services/bankConnectionService';
 import { useToast } from '../contexts/ToastContext';
@@ -52,7 +52,7 @@ export function buildAccountBankLinks(connections: BankConnection[]): Map<string
 
 export function useAccountBankSync(options?: { onSynced?: () => void | Promise<void> }): UseAccountBankSyncResult {
   const onSynced = options?.onSynced;
-  const { getToken } = useClerkAuth();
+  const { getToken, isSignedIn } = useClerkAuth();
   const { showSuccess, showWarning, showError } = useToast();
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [syncingConnectionIds, setSyncingConnectionIds] = useState<Set<string>>(new Set());
@@ -62,13 +62,27 @@ export function useAccountBankSync(options?: { onSynced?: () => void | Promise<v
     setConnections(bankConnectionService.getConnections());
   }, []);
 
-  // Keep the auth-token provider current and (re)load connections. Depending on
-  // getToken means that if the first mount raced ahead of Clerk minting a token,
-  // we re-fetch once a usable token exists instead of staying empty all visit.
+  // Register the auth-token provider ONCE with a stable closure that reads the
+  // latest getToken via a ref — Clerk's getToken is not referentially stable,
+  // and keying an effect on it re-ran the fetch on every render (a loop of
+  // "Missing authentication token" errors in demo/signed-out mode).
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
   useEffect(() => {
-    bankConnectionService.setAuthTokenProvider(() => getToken());
+    bankConnectionService.setAuthTokenProvider(() => getTokenRef.current());
+  }, []);
+
+  // Load connections only when signed in. isSignedIn flipping false→true is
+  // the recover-on-token-arrival signal (a first mount that raced ahead of
+  // Clerk still re-fetches once the session exists); signed-out/demo sessions
+  // never fetch and never log auth errors.
+  useEffect(() => {
+    if (!isSignedIn) {
+      setConnections([]);
+      return;
+    }
     void reloadConnections();
-  }, [getToken, reloadConnections]);
+  }, [isSignedIn, reloadConnections]);
 
   const linksByAccountId = useMemo(() => buildAccountBankLinks(connections), [connections]);
 
