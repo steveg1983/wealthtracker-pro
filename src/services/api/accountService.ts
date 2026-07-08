@@ -132,6 +132,38 @@ class AccountServiceImpl {
     }
   }
 
+  /**
+   * Closed (deactivated) accounts — the Microsoft Money model: closing hides
+   * an account and its transfer category but preserves every transaction, and
+   * it can be reopened at any time from the Closed Accounts section.
+   */
+  async getClosedAccounts(userId: string): Promise<Account[]> {
+    if (!this.isSupabaseReady()) {
+      const accounts = await this.readAccounts();
+      return accounts.filter(a => a.isActive === false);
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      const { data, error } = await client
+        .from('accounts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', false)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        this.logger.error('Error fetching closed accounts:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+
+      return (data || []).map(row => mapAccountFromDb(row as Record<string, unknown>)) as unknown as Account[];
+    } catch (error) {
+      this.logger.error('AccountService.getClosedAccounts error:', error as Error);
+      return [];
+    }
+  }
+
   async createAccount(
     userId: string,
     account: Omit<Account, 'id' | 'created_at' | 'updated_at'>
@@ -242,9 +274,14 @@ class AccountServiceImpl {
 
   async deleteAccount(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
+      // Local mode mirrors the cloud semantics: closing is a SOFT close
+      // (isActive=false, reopenable), never a hard delete — the Close button
+      // promises "you can reopen it at any time".
       const accounts = await this.readAccounts();
-      const filtered = accounts.filter(account => account.id !== id);
-      await this.persistAccounts(filtered);
+      const updated = accounts.map(account =>
+        account.id === id ? { ...account, isActive: false } : account
+      );
+      await this.persistAccounts(updated);
       return;
     }
 
@@ -376,6 +413,10 @@ export class AccountService {
 
   static getAccounts(userId: string): Promise<Account[]> {
     return this.service.getAccounts(userId);
+  }
+
+  static getClosedAccounts(userId: string): Promise<Account[]> {
+    return this.service.getClosedAccounts(userId);
   }
 
   static createAccount(

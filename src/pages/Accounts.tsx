@@ -1,12 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
+import { DataService } from '../services/api/dataService';
 import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon } from '../components/icons';
+import type { Account } from '../types';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
@@ -18,7 +21,8 @@ import { toDecimal } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, transactions, updateAccount, deleteAccount, refreshAccountsAndTransactions } = useApp();
+  const { accounts, transactions, updateAccount, deleteAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
+  const { showError } = useToast();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,8 +38,48 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // Per-account bank connection metadata + one-click "pull fresh bank data".
   const { getAccountLink, isAccountSyncing, syncAccount } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
 
+  // Only OPEN accounts appear in the main list and totals; closed ones live in
+  // the Closed Accounts section below (the Microsoft Money model — closing
+  // hides an account without touching its history, and it can be reopened).
+  const openAccounts = useMemo(() => accounts.filter(a => a.isActive !== false), [accounts]);
+  const [closedAccounts, setClosedAccounts] = useState<Account[]>([]);
+  const [showClosedAccounts, setShowClosedAccounts] = useState(false);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
+
+  const loadClosedAccounts = useCallback(async () => {
+    try {
+      setClosedAccounts(await DataService.getClosedAccounts());
+    } catch {
+      // Non-fatal: the section simply shows empty; a retry happens on next open.
+      setClosedAccounts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadClosedAccounts();
+  }, [loadClosedAccounts]);
+
+  const handleReopenAccount = useCallback(async (accountId: string) => {
+    if (reopeningId) return;
+    setReopeningId(accountId);
+    try {
+      await updateAccount(accountId, { isActive: true });
+      // The reopened account isn't in context state (closed ones are filtered
+      // out at load), so re-pull actives and refresh the closed list. The DB
+      // trigger also re-activated its transfer category — refresh categories
+      // so it reappears in dropdowns without a reload.
+      await refreshAccountsAndTransactions();
+      await refreshCategories();
+      await loadClosedAccounts();
+    } catch (error) {
+      showError(error);
+    } finally {
+      setReopeningId(null);
+    }
+  }, [reopeningId, updateAccount, refreshAccountsAndTransactions, refreshCategories, loadClosedAccounts, showError]);
+
   // Convert accounts to decimal for calculations
-  const decimalAccounts = useMemo(() => accounts.map(a => ({
+  const decimalAccounts = useMemo(() => openAccounts.map(a => ({
     ...a,
     balance: toDecimal(a.balance),
     openingBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined,
@@ -50,11 +94,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       gainPercent: h.gainPercent ? toDecimal(h.gainPercent) : undefined,
       costBasis: h.costBasis ? toDecimal(h.costBasis) : undefined
     })) : undefined
-  })), [accounts]);
-  
+  })), [openAccounts]);
+
   // Group accounts by type (memoized)
-  const accountsByType = useMemo(() => 
-    accounts.reduce((groups, account) => {
+  const accountsByType = useMemo(() =>
+    openAccounts.reduce((groups, account) => {
       const type = account.type;
       if (!groups[type]) {
         groups[type] = [];
@@ -62,7 +106,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       groups[type].push(account);
       return groups;
     }, {} as Record<string, typeof accounts>),
-    [accounts]
+    [openAccounts]
   );
 
   // Set loading to false when accounts are loaded
@@ -155,7 +199,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // Group accounts by institution
   const accountsByInstitution = useMemo(() => {
     const groups: Record<string, typeof accounts> = {};
-    accounts.forEach(account => {
+    openAccounts.forEach(account => {
       const institution = account.institution || 'Other Accounts';
       if (!groups[institution]) {
         groups[institution] = [];
@@ -170,7 +214,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       return a.localeCompare(b);
     }).forEach(key => { sorted[key] = groups[key]; });
     return sorted;
-  }, [accounts]);
+  }, [openAccounts]);
 
   const handleGroupByChange = (value: 'type' | 'institution') => {
     setGroupBy(value);
@@ -188,9 +232,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     return typeConfig?.color || 'text-gray-600';
   };
 
-  const handleDelete = (accountId: string) => {
-    if (window.confirm('Are you sure you want to archive this account? It will be hidden from your accounts list but all transaction history will be preserved.')) {
-      deleteAccount(accountId);
+  const handleClose = (accountId: string) => {
+    if (window.confirm('Close this account? It moves to the Closed Accounts section — every transaction is preserved and you can reopen it at any time. Its transfer category is hidden from transaction dropdowns while closed.')) {
+      void (async () => {
+        try {
+          await deleteAccount(accountId);
+          // The DB trigger deactivated the account's transfer category —
+          // refresh categories so it leaves dropdowns without a reload.
+          await refreshCategories();
+          await loadClosedAccounts();
+        } catch (error) {
+          showError(error);
+        }
+      })();
     }
   };
 
@@ -539,15 +593,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 <div className="relative group">
                                   <IconButton
-                                    onClick={() => handleDelete(account.id)}
-                                    icon={<DeleteIcon size={20} />}
+                                    onClick={() => handleClose(account.id)}
+                                    icon={<ArchiveIcon size={20} />}
                                     variant="ghost"
                                     size="md"
                                     className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[48px] min-h-[48px]"
-                                    title="Delete account"
+                                    title="Close account"
                                   />
                                   <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Delete
+                                    Close
                                   </span>
                                 </div>
                               </div>
@@ -564,7 +618,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         )}
       </div>
 
-      {accounts.length === 0 && (
+      {openAccounts.length === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">
             No accounts yet. Click "Add Account" to get started!
@@ -572,8 +626,56 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         </div>
       )}
 
+      {/* Closed Accounts (Microsoft Money model: hidden, never deleted) */}
+      {closedAccounts.length > 0 && (
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <button
+            onClick={() => setShowClosedAccounts(prev => !prev)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300">
+              {showClosedAccounts ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
+              Closed Accounts ({closedAccounts.length})
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              History preserved — reopen any time
+            </span>
+          </button>
 
-      <AddAccountModal 
+          {showClosedAccounts && (
+            <div className="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+              {closedAccounts.map(account => (
+                <div key={account.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                      {account.name}
+                    </p>
+                    {account.institution && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                        {account.institution}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+                      {formatDisplayCurrency(account.balance, account.currency)}
+                    </p>
+                    <button
+                      onClick={() => void handleReopenAccount(account.id)}
+                      disabled={reopeningId !== null}
+                      className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {reopeningId === account.id ? 'Reopening…' : 'Reopen'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <AddAccountModal
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
       />
@@ -608,6 +710,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         account={accounts.find(a => a.id === settingsAccountId) || null}
         onSave={async (accountId, updates) => {
           await updateAccount(accountId, updates);
+          // Closing/reopening (or renaming) via settings also updates the
+          // account's transfer category via the DB trigger — keep the Closed
+          // Accounts section and category dropdowns in sync without a reload.
+          if (updates.isActive !== undefined) {
+            await loadClosedAccounts();
+          }
+          if (updates.isActive !== undefined || updates.name !== undefined) {
+            await refreshCategories();
+          }
         }}
       />
 

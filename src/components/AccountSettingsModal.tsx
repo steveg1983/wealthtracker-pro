@@ -242,11 +242,13 @@ export default function AccountSettingsModal({
               onChange={(e) => updateField('isActive', e.target.value === 'active')}
               className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
-              <option value="active">Active</option>
-              <option value="closed">Closed (Archived)</option>
+              <option value="active">Open</option>
+              <option value="closed">Closed</option>
             </select>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Closed accounts are moved to the Archived section
+              Closed accounts move to the Closed Accounts section — history is
+              preserved, the account's transfer category is hidden from
+              transaction dropdowns, and you can reopen it at any time.
             </p>
           </div>
 

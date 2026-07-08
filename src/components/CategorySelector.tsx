@@ -33,7 +33,11 @@ export default function CategorySelector({
     const typeCategory = categories.find(cat =>
       cat.level === 'type' && (cat.type === transactionType || cat.type === 'both')
     );
-    return typeCategory ? getSubCategories(typeCategory.id) : [];
+    // Inactive categories (a closed account's transfer category) never appear
+    // in the picker; reopening the account restores them.
+    return typeCategory
+      ? getSubCategories(typeCategory.id).filter(c => c.isActive !== false)
+      : [];
   };
 
   // Get all detail categories for the transaction type

@@ -101,6 +101,12 @@ export interface AppContextType extends AppState {
    */
   refreshAccountsAndTransactions: () => Promise<void>;
   /**
+   * Re-pull categories (e.g. after closing/reopening an account, whose DB
+   * trigger flips the linked transfer category's active flag server-side).
+   * Never throws — a failed refresh just leaves the current snapshot.
+   */
+  refreshCategories: () => Promise<void>;
+  /**
    * Bulk-set the reconciliation cleared flag on transactions in one round trip.
    * Balance-neutral (is_cleared never affects account balances).
    */
@@ -343,6 +349,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSyncError('Failed to sync data');
     } finally {
       setIsSyncing(false);
+    }
+  }, []);
+
+  const refreshCategories = useCallback(async () => {
+    try {
+      const loaded = await PlanningService.ensureCategories(
+        userIdService.getCurrentDatabaseUserId()
+      );
+      setCategories(loaded);
+    } catch (error) {
+      appLogger.error('Failed to refresh categories', error);
     }
   }, []);
 
@@ -883,6 +900,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     syncError,
     isUsingSupabase,
     refreshAccountsAndTransactions,
+    refreshCategories,
     hasTestData: false,
     loadTestData
   };

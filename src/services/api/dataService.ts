@@ -24,7 +24,7 @@ export interface AppData {
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type AccountServiceLike = Pick<typeof AccountService,
-  'getAccounts' | 'createAccount' | 'updateAccount' | 'deleteAccount'> & {
+  'getAccounts' | 'getClosedAccounts' | 'createAccount' | 'updateAccount' | 'deleteAccount'> & {
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
@@ -156,6 +156,16 @@ class DataServiceImpl {
     return this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
   }
 
+  /** Closed accounts for the Accounts page's Closed Accounts section. */
+  async getClosedAccounts(): Promise<Account[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.accountService.getClosedAccounts(userId);
+    }
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    return accounts.filter(a => a.isActive === false);
+  }
+
   async createAccount(account: Omit<Account, 'id'>): Promise<Account> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
@@ -195,9 +205,13 @@ class DataServiceImpl {
       return this.accountService.deleteAccount(id, userId);
     }
 
+    // Local mode mirrors the cloud semantics: a SOFT close (reopenable from
+    // the Closed Accounts section), never a hard delete.
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
-    const filtered = accounts.filter(account => account.id !== id);
-    await this.persistCollection(STORAGE_KEYS.ACCOUNTS, filtered);
+    const updated = accounts.map(account =>
+      account.id === id ? { ...account, isActive: false } : account
+    );
+    await this.persistCollection(STORAGE_KEYS.ACCOUNTS, updated);
   }
 
   async getTransactions(): Promise<Transaction[]> {
@@ -394,6 +408,10 @@ export class DataService {
 
   static loadAppData(): Promise<AppData> {
     return this.service.loadAppData();
+  }
+
+  static getClosedAccounts(): Promise<Account[]> {
+    return this.service.getClosedAccounts();
   }
 
   static getAccounts(): Promise<Account[]> {
