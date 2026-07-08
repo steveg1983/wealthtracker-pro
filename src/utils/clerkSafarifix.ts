@@ -116,19 +116,15 @@ const applySafariFixes = () => {
     clerkSafariLogger.error('Failed to patch fetch for Safari', error);
   }
 
-  // 2. Add storage event listeners to sync auth state
-  if (window.addEventListener) {
-    window.addEventListener('storage', (e) => {
-      // Sync Clerk session across tabs in Safari
-      if (e.key?.includes('clerk') || e.key?.includes('__session')) {
-        clerkSafariLogger.info('Safari: syncing Clerk session across tabs');
-        // Force a session refresh
-        window.location.reload();
-      }
-    });
-  }
+  // NOTE: We deliberately do NOT reload on Clerk 'storage' events. A previous
+  // version called window.location.reload() on every cross-tab session write,
+  // which caused an infinite reload ping-pong whenever two app windows were
+  // open (e.g. the bank-OAuth popup + the main window): each window's periodic
+  // token refresh fired a 'storage' event in the other, reloading it, which
+  // wrote the token again, and so on. Clerk already synchronises sessions
+  // across tabs natively, so no manual handling is needed here.
 
-  // 3. Polyfill for Safari's missing features
+  // 2. Polyfill for Safari's missing features
   polyfillSafari();
 };
 
