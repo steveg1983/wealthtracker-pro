@@ -22,6 +22,10 @@ export default function Reconciliation() {
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Visible transaction order (sorted + filtered) as shown in the list, reported
+  // by ReconciliationTransactionList. Drives "Save & Next" so it walks the same
+  // order the user sees rather than the raw account order.
+  const [visibleOrderIds, setVisibleOrderIds] = useState<string[]>([]);
   // Optimistic cleared-state overlay: the checkbox flips instantly while the
   // write is in flight, and reverts (with an error toast) if it fails.
   const [pendingCleared, setPendingCleared] = useState<Map<string, boolean>>(new Map());
@@ -177,6 +181,27 @@ export default function Reconciliation() {
     setEditingTransaction(null);
   }, []);
 
+  const handleVisibleOrderChange = useCallback((orderedIds: string[]) => {
+    setVisibleOrderIds(orderedIds);
+  }, []);
+
+  // "Save & Next" navigation: find the transaction shown immediately after the
+  // current one, and swap it into the still-open modal. Mirrors AccountTransactions.
+  const getNextTransactionId = useCallback((currentId: string): string | null => {
+    const index = visibleOrderIds.indexOf(currentId);
+    if (index === -1) return null;
+    return visibleOrderIds[index + 1] ?? null;
+  }, [visibleOrderIds]);
+
+  const advanceToNextTransaction = useCallback((currentId: string): boolean => {
+    const nextId = getNextTransactionId(currentId);
+    if (!nextId) return false;
+    const nextTransaction = accountTransactions.find(t => t.id === nextId) ?? null;
+    if (!nextTransaction) return false;
+    setEditingTransaction(nextTransaction);
+    return true;
+  }, [getNextTransactionId, accountTransactions]);
+
   // Step 1: Account Selection
   if (!selectedAccountId) {
     return (
@@ -249,6 +274,7 @@ export default function Reconciliation() {
         onBulkSetCleared={handleBulkSetCleared}
         onRowClick={handleRowClick}
         onAddTransaction={handleAddTransaction}
+        onVisibleOrderChange={handleVisibleOrderChange}
       />
 
       {/* Edit / add transaction (new transactions default to this account) */}
@@ -257,6 +283,15 @@ export default function Reconciliation() {
         onClose={handleCloseEditModal}
         transaction={editingTransaction}
         defaultAccountId={selectedAccountId}
+        onSaveAndNext={
+          editingTransaction && getNextTransactionId(editingTransaction.id)
+            ? () => {
+                if (!advanceToNextTransaction(editingTransaction.id)) {
+                  handleCloseEditModal();
+                }
+              }
+            : undefined
+        }
       />
 
       {/* Finalization Modal */}

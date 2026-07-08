@@ -33,6 +33,7 @@ describe('ReconciliationTransactionList', () => {
   const onBulkSetCleared = vi.fn();
   const onRowClick = vi.fn();
   const onAddTransaction = vi.fn();
+  const onVisibleOrderChange = vi.fn();
 
   const renderList = (txns: Transaction[] = transactions) =>
     renderWithProviders(
@@ -44,6 +45,7 @@ describe('ReconciliationTransactionList', () => {
         onBulkSetCleared={onBulkSetCleared}
         onRowClick={onRowClick}
         onAddTransaction={onAddTransaction}
+        onVisibleOrderChange={onVisibleOrderChange}
       />
     );
 
@@ -117,5 +119,18 @@ describe('ReconciliationTransactionList', () => {
     renderList();
     fireEvent.click(screen.getByText('Add'));
     expect(onAddTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports the visible order (date-sorted) for Save & Next navigation', () => {
+    renderList();
+    // Sorted by date ascending: the 10th before the 11th.
+    expect(onVisibleOrderChange).toHaveBeenLastCalledWith(['tx-uncleared', 'tx-cleared']);
+  });
+
+  it('reports only the filtered subset when a filter is active', () => {
+    renderList();
+    fireEvent.click(screen.getByText('Uncleared'));
+    // Save & Next must walk only what the user currently sees.
+    expect(onVisibleOrderChange).toHaveBeenLastCalledWith(['tx-uncleared']);
   });
 });
