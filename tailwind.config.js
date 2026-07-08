@@ -10,7 +10,7 @@ export default {
       colors: {
         // Wealth/finance brand palette
         primary: 'var(--color-primary, #1a2332)',
-        secondary: 'var(--color-secondary, #2d4a3e)',
+        secondary: 'var(--color-secondary, #2d3a4d)',
         accent: '#d4a843',
 
         // Surface colors
@@ -48,8 +48,9 @@ export default {
           hover: '#2d3a4d',
         },
 
-        // UI control colors
-        'ui-bg': '#2d4a3e',
+        // UI control colors (navy scheme; ui-add stays green as a semantic
+        // "add/positive" accent)
+        'ui-bg': '#2d3a4d',
         'ui-control': '#1a2332',
         'ui-control-hover': '#2d3a4d',
         'ui-add': '#0d9f6f',

@@ -192,7 +192,7 @@ export default function QuickEditTransactionPanel({
             <button
               onClick={() => void save(true)}
               disabled={isSaving}
-              className="px-3 py-1.5 text-sm font-medium bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-3 py-1.5 text-sm font-medium bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               title="Save and move to the next transaction in the list"
             >
               Save &amp; Next

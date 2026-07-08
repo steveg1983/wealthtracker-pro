@@ -225,8 +225,19 @@ export default function Layout(): React.JSX.Element {
           {/* Primary Nav — 5 core pages */}
           <div className="flex items-center gap-0.5 flex-1 min-w-0">
             <TopNavItem to="/dashboard" icon={HomeIcon} label="Dashboard" />
-            <TopNavItem to="/accounts" icon={WalletIcon} label="Accounts" />
-            <TopNavItem to="/transactions" icon={CreditCardIcon} label="Transactions" />
+            <TopNavDropdown
+              label="Accounts"
+              icon={WalletIcon}
+              items={[
+                { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
+                { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
+                { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
+                { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
+              ]}
+              activePaths={['/accounts', '/transactions', '/reconciliation', '/open-banking']}
+              openDropdown={openDropdown}
+              setOpenDropdown={setOpenDropdown}
+            />
             <TopNavItem to="/budget" icon={BarChart3Icon} label="Budget" />
             <TopNavItem to="/calendar" icon={CalendarIcon} label="Calendar" />
 
@@ -240,13 +251,11 @@ export default function Layout(): React.JSX.Element {
                 { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
                 { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
                 { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
-                { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
-                { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
                 { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
                 { to: '/goals', icon: GoalIcon, label: 'Goals' },
                 { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/settings/categories', '/settings/tags', '/enhanced-import', '/export-manager', '/reconciliation', '/open-banking', '/documents', '/investments', '/goals']}
+              activePaths={['/settings/categories', '/settings/tags', '/enhanced-import', '/export-manager', '/documents', '/investments', '/goals']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -475,6 +484,7 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Archived" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}

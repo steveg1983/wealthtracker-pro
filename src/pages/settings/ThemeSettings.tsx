@@ -118,11 +118,11 @@ export default function ThemeSettings() {
     <PageWrapper title="Theme Settings">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-800 dark:to-blue-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Theme Settings</h1>
-              <p className="text-purple-100">
+              <p className="text-white/70">
                 Customize appearance and automate theme switching
               </p>
             </div>

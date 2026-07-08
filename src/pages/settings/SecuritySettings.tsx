@@ -115,11 +115,11 @@ export default function SecuritySettings() {
     <PageWrapper title="Security Settings">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Security Settings</h1>
-              <p className="text-indigo-100">
+              <p className="text-white/70">
                 Protect your financial data with advanced security features
               </p>
             </div>
