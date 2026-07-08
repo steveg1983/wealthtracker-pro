@@ -34,7 +34,11 @@ export const transactionSchema = z.object({
     { message: 'Amount must be greater than 0' }
   ),
   type: z.enum(['income', 'expense']),
-  category: z.string().min(1, 'Category is required'),
+  // Category is optional (the Microsoft Money model): an empty category means
+  // the transaction sits in the virtual "Uncategorised" bucket that reports,
+  // budgets, and the register all understand. Transfers enforce their target
+  // account separately in the transaction modals.
+  category: z.string().optional().default(''),
   subcategory: z.string().optional(),
   accountId: z.string().uuid('Invalid account ID'),
   tags: z.array(z.string().transform(tag => sanitizeText(tag))).optional(),

@@ -523,6 +523,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   </button>
                 )}
               </div>
+              {/* Category is deliberately optional for income/expense — an
+                  uncategorised transaction sits in the virtual "Uncategorised"
+                  bucket. Transfers still require their target account. */}
               <select
                 value={formData.category}
                 onChange={(e) => {
@@ -530,7 +533,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   updateField('category', val);
                 }}
                 className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
-                required
+                required={formData.type === 'transfer'}
                 aria-label="Transaction category"
               >
                 {formData.type === 'transfer' ? (

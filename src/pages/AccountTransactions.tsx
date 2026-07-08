@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon } from '../components/icons';
+import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon } from '../components/icons';
 import LocalMerchantLogo from '../components/LocalMerchantLogo';
 import DatePicker from '../components/common/DatePicker';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -52,6 +52,27 @@ export default function AccountTransactions() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
+  // Single-viewport layout: search collapses behind a toggle, and the table
+  // can expand over the bottom add/edit dock for bulk browsing.
+  const [showFilters, setShowFilters] = useState(false);
+  const [tableExpanded, setTableExpanded] = useState(false);
+  // The table's height is MEASURED (viewport minus everything above it and a
+  // reserve for the bottom dock) so the whole page always fits one screen,
+  // whatever banners/nav are present. Fixed calc() guesses drift.
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const [tableHeight, setTableHeight] = useState(480);
+  const measureTableHeight = useCallback(() => {
+    const el = tableWrapRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    const dockReserve = tableExpanded ? 32 : 224; // dock (~178) + gaps/padding, or just padding
+    setTableHeight(Math.max(240, window.innerHeight - top - dockReserve));
+  }, [tableExpanded]);
+  useLayoutEffect(() => {
+    measureTableHeight();
+    window.addEventListener('resize', measureTableHeight);
+    return () => window.removeEventListener('resize', measureTableHeight);
+  }, [measureTableHeight, showFilters]);
   const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
@@ -687,9 +708,33 @@ export default function AccountTransactions() {
         </div>
       </div>
       
-      {/* Main content */}
-      <div className="grid gap-6">
-      {/* Search and Filter Bar */}
+      {/* Main content — single-viewport layout: toolbar, table, bottom dock */}
+      <div className="flex flex-col gap-3">
+      {/* Toolbar: filter toggle + table size toggle */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setShowFilters(prev => !prev)}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          <FilterIcon size={14} />
+          Search &amp; filters
+          {(searchTerm || typeFilter !== 'all' || dateFrom || dateTo) && (
+            <span className="w-2 h-2 rounded-full bg-blue-500" title="Filters active" />
+          )}
+          {showFilters ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
+        </button>
+        <button
+          onClick={() => setTableExpanded(prev => !prev)}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title={tableExpanded ? 'Shrink the table and show the add/edit bar' : 'Expand the table over the add/edit bar'}
+        >
+          {tableExpanded ? <MinimizeIcon size={14} /> : <MaximizeIcon size={14} />}
+          {tableExpanded ? 'Standard view' : 'Expand table'}
+        </button>
+      </div>
+
+      {/* Search and Filter Bar (collapsed by default to keep one viewport) */}
+      {showFilters && (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -788,24 +833,18 @@ export default function AccountTransactions() {
                 </button>
               )}
             </div>
-            {/* Compact View Toggle - Hidden but kept in code */}
-            {/* <div className="flex-1 flex justify-end">
-              <button
-                onClick={() => setCompactView(!compactView)}
-                className="flex items-center gap-2 px-3 py-3 sm:py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[48px] sm:min-h-[auto]"
-                title={compactView ? "Expand view" : "Compact view"}
-              >
-                {compactView ? <MaximizeIcon size={18} /> : <MinimizeIcon size={18} />}
-                <span className="hidden sm:inline">{compactView ? 'Expand' : 'Compact'}</span>
-              </button>
-            </div> */}
           </div>
         </div>
       </div>
-      
-      {/* Transactions Table - Updated Layout */}
-      <div 
-        className="h-[calc(100vh-22rem)] min-h-[400px] overflow-hidden"
+      )}
+
+      {/* Transactions Table — measured to keep the whole page in one viewport;
+          the table scrolls internally. Expanded mode trades the bottom dock
+          for more visible rows. */}
+      <div
+        ref={tableWrapRef}
+        style={{ height: tableHeight }}
+        className="overflow-hidden"
       >
         <VirtualizedTable
           items={displayRows}
@@ -836,8 +875,10 @@ export default function AccountTransactions() {
         />
       </div>
 
-      {/* Quick edit: single click pins this condensed editor under the table */}
-      {quickEditTarget && !isEditModalOpen && (
+      {/* Bottom dock — ONE always-visible bar (hidden only in expanded mode):
+          editing the selected row, or adding a new transaction when nothing
+          is selected. */}
+      {!tableExpanded && quickEditTarget && !isEditModalOpen && (
         <QuickEditTransactionPanel
           transaction={quickEditTarget}
           onNext={
@@ -852,8 +893,9 @@ export default function AccountTransactions() {
         />
       )}
 
-      {/* Quick Add Transaction */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3 mt-4">
+      {/* Quick Add Transaction (the dock's default mode) */}
+      {!tableExpanded && !(quickEditTarget && !isEditModalOpen) && (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3">
         <form onSubmit={handleQuickAdd}>
           {/* Row 1: Date | Type | Description */}
           <div className="flex items-end gap-3">
@@ -964,8 +1006,9 @@ export default function AccountTransactions() {
           )}
         </form>
       </div>
+      )}
       </div>
-      
+
       {/* Edit Modal */}
       {selectedTransaction && (
         <EditTransactionModal
