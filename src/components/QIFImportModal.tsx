@@ -28,6 +28,7 @@ type ImportOutcome =
       success: true;
       imported: number;
       duplicates: number;
+      invalidDates: number;
       account: Account | null;
     }
   | {
@@ -125,6 +126,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         success: true,
         imported: result.newTransactions,
         duplicates: result.duplicates,
+        invalidDates: result.invalidDates,
         account
       });
     } catch (error) {
@@ -214,6 +216,11 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {parseResult.transactions.length} transactions found
                   {parseResult.accountType && ` (Type: ${parseResult.accountType})`}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Dates read as {parseResult.dateOrder === 'dmy' ? 'Day/Month/Year (UK)' : 'Month/Day/Year (US)'}
+                  {parseResult.invalidDateCount > 0 &&
+                    ` · ${parseResult.invalidDateCount} row${parseResult.invalidDateCount === 1 ? '' : 's'} skipped (unrecognised date)`}
                 </p>
               </div>
             </div>
@@ -320,6 +327,12 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                 {(importResult.duplicates ?? 0) > 0 && (
                   <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
                     Skipped {importResult.duplicates} potential duplicate transactions
+                  </p>
+                )}
+
+                {importResult.invalidDates > 0 && (
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
+                    Skipped {importResult.invalidDates} row{importResult.invalidDates === 1 ? '' : 's'} with an unrecognised date
                   </p>
                 )}
               </>

@@ -12,9 +12,16 @@ export interface QIFTransaction {
   cleared?: boolean;
 }
 
+/** Order of the day/month fields in a QIF date. */
+export type QIFDateOrder = 'dmy' | 'mdy';
+
 export interface QIFParseResult {
   transactions: QIFTransaction[];
   accountType?: string;
+  /** Day/month field order inferred across the whole file's dates. */
+  dateOrder: QIFDateOrder;
+  /** Rows dropped because their date could not be parsed (never guessed). */
+  invalidDateCount: number;
 }
 
 export class QIFImportService {
@@ -23,7 +30,10 @@ export class QIFImportService {
    */
   parseQIF(content: string): QIFParseResult {
     const lines = content.split('\n').map(line => line.trim());
-    const transactions: QIFTransaction[] = [];
+    // First pass: collect transactions keeping each date as its RAW string. QIF
+    // gives no format hint, so we can't decide day/month order until we've seen
+    // every date in the file (see detectDateOrder).
+    const rawTransactions: QIFTransaction[] = [];
     let currentTransaction: Partial<QIFTransaction> = {};
     let accountType: string | undefined;
     let inAccountHeader = false;
@@ -54,7 +64,7 @@ export class QIFImportService {
         }
         // End of transaction
         if (currentTransaction.date && currentTransaction.amount !== undefined) {
-          transactions.push(currentTransaction as QIFTransaction);
+          rawTransactions.push(currentTransaction as QIFTransaction);
         }
         currentTransaction = {};
         continue;
@@ -64,14 +74,14 @@ export class QIFImportService {
         // Skip account metadata lines (name/type/balance/description)
         continue;
       }
-      
+
       // Parse transaction fields
       const fieldType = line.charAt(0);
       const value = line.substring(1);
-      
+
       switch (fieldType) {
-        case 'D': // Date
-          currentTransaction.date = this.parseQIFDate(value);
+        case 'D': // Date — kept raw here, resolved once the whole file is seen
+          currentTransaction.date = value;
           break;
         case 'T': // Amount
         case 'U': // Amount (investment)
@@ -94,53 +104,160 @@ export class QIFImportService {
           break;
       }
     }
-    
+
     // Add last transaction if exists
     if (currentTransaction.date && currentTransaction.amount !== undefined) {
-      transactions.push(currentTransaction as QIFTransaction);
+      rawTransactions.push(currentTransaction as QIFTransaction);
     }
-    
-    return { transactions, accountType };
+
+    // Second pass: infer the date order from every raw date, then resolve each
+    // to ISO. Rows whose date can't be parsed are dropped and counted — never
+    // silently coerced to "today" (which the old parser did, hiding the error).
+    const dateOrder = this.detectDateOrder(rawTransactions.map(trx => trx.date));
+    const transactions: QIFTransaction[] = [];
+    let invalidDateCount = 0;
+    for (const trx of rawTransactions) {
+      const isoDate = this.parseQIFDate(trx.date, dateOrder);
+      if (!isoDate) {
+        invalidDateCount++;
+        continue;
+      }
+      trx.date = isoDate;
+      transactions.push(trx);
+    }
+
+    return { transactions, accountType, dateOrder, invalidDateCount };
   }
   
   /**
-   * Parse QIF date format (M/D/Y or M/D'Y)
+   * Split a QIF date into its three raw parts, or null if it isn't a 3-part
+   * D/M/Y-style date. Handles the '/' , '.' and '-' separators and Quicken's
+   * apostrophe year separator (e.g. 12/25'23).
    */
-  private parseQIFDate(dateStr: string): string {
-    // Replace single quote with /
-    dateStr = dateStr.replace(/'/g, '/');
-    
-    // Split date parts
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) {
-      // Try other date formats
-      const date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
-      }
-      return new Date().toISOString().split('T')[0];
+  private splitDateParts(dateStr: string): string[] | null {
+    const cleaned = (dateStr ?? '').replace(/'/g, '/').trim();
+    if (!cleaned) {
+      return null;
     }
-    
-    let [month, day, year] = parts;
-    
-    // Handle 2-digit year
-    if (year.length === 2) {
-      const currentYear = new Date().getFullYear();
-      const century = Math.floor(currentYear / 100) * 100;
-      const yearNum = parseInt(year);
-      // If year is greater than current year's last 2 digits + 10, assume previous century
-      if (yearNum > (currentYear % 100) + 10) {
-        year = (century - 100 + yearNum).toString();
+    const parts = cleaned.split(/[/.-]/).map(part => part.trim()).filter(Boolean);
+    return parts.length === 3 ? parts : null;
+  }
+
+  /**
+   * Infer the day/month field order across ALL of a file's dates.
+   *
+   * QIF carries no format hint, so we reason from the values: a first field
+   * greater than 12 can only be a day (→ D/M/Y, e.g. UK / MS Money), a second
+   * field greater than 12 can only be a day (→ M/D/Y, e.g. US / Quicken). Real
+   * statements always contain a day past the 12th, so this is decisive in
+   * practice. Files where nothing exceeds 12 (or that contradict themselves)
+   * fall back to M/D/Y — QIF's Quicken heritage.
+   */
+  private detectDateOrder(rawDates: string[]): QIFDateOrder {
+    let dayFirst = false;   // saw a first field that can only be a day
+    let monthFirst = false; // saw a second field that can only be a day
+    for (const raw of rawDates) {
+      const parts = this.splitDateParts(raw);
+      if (!parts) {
+        continue;
+      }
+      const first = parseInt(parts[0], 10);
+      const second = parseInt(parts[1], 10);
+      if (!Number.isFinite(first) || !Number.isFinite(second)) {
+        continue;
+      }
+      // A 4-digit / >31 leading field is a year (ISO YYYY-MM-DD) — no D/M signal.
+      if (parts[0].length === 4 || first > 31) {
+        continue;
+      }
+      if (first > 12 && first <= 31) {
+        dayFirst = true;
+      }
+      if (second > 12 && second <= 31) {
+        monthFirst = true;
+      }
+    }
+    return dayFirst && !monthFirst ? 'dmy' : 'mdy';
+  }
+
+  /**
+   * Resolve a raw QIF date to an ISO YYYY-MM-DD string using the detected field
+   * order. Returns null for anything that isn't a real calendar date — callers
+   * drop those rows rather than inventing a date.
+   */
+  private parseQIFDate(dateStr: string, order: QIFDateOrder): string | null {
+    const parts = this.splitDateParts(dateStr);
+    if (!parts) {
+      // Non-slash forms (e.g. "5 Jan 2024") — let the platform parser try.
+      const cleaned = (dateStr ?? '').replace(/'/g, '/').trim();
+      if (!cleaned) {
+        return null;
+      }
+      const parsed = new Date(cleaned);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0];
+    }
+
+    let year: number;
+    let month: number;
+    let day: number;
+
+    const first = parseInt(parts[0], 10);
+    if (parts[0].length === 4 || first > 31) {
+      // Year-first ISO form: YYYY-MM-DD (unambiguous).
+      year = first;
+      month = parseInt(parts[1], 10);
+      day = parseInt(parts[2], 10);
+    } else {
+      const second = parseInt(parts[1], 10);
+      year = this.normalizeYear(parts[2]);
+      if (order === 'dmy') {
+        day = first;
+        month = second;
       } else {
-        year = (century + yearNum).toString();
+        month = first;
+        day = second;
       }
     }
-    
-    // Pad month and day
-    month = month.padStart(2, '0');
-    day = day.padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
+
+    if (!this.isValidYmd(year, month, day)) {
+      return null;
+    }
+
+    const pad = (value: number, length = 2): string => value.toString().padStart(length, '0');
+    return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
+  }
+
+  /**
+   * Expand a QIF year to a 4-digit year. 2-digit years assume the current
+   * century unless that lands more than ~10 years in the future, in which case
+   * the previous century is used (matching Quicken's windowing).
+   */
+  private normalizeYear(yearStr: string): number {
+    const year = parseInt(yearStr, 10);
+    if (!Number.isFinite(year)) {
+      return NaN;
+    }
+    if (yearStr.length > 2) {
+      return year;
+    }
+    const currentYear = new Date().getFullYear();
+    const century = Math.floor(currentYear / 100) * 100;
+    if (year > (currentYear % 100) + 10) {
+      return century - 100 + year;
+    }
+    return century + year;
+  }
+
+  /** True only for a real calendar date (rejects e.g. 31 Feb or month 13). */
+  private isValidYmd(year: number, month: number, day: number): boolean {
+    if (![year, month, day].every(Number.isFinite)) {
+      return false;
+    }
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return false;
+    }
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    return dt.getUTCFullYear() === year && dt.getUTCMonth() === month - 1 && dt.getUTCDate() === day;
   }
   
   /**
@@ -175,6 +292,7 @@ export class QIFImportService {
     transactions: Omit<Transaction, 'id'>[];
     duplicates: number;
     newTransactions: number;
+    invalidDates: number;
   }> {
     const parseResult = this.parseQIF(qifContent);
     const transactions: Omit<Transaction, 'id'>[] = [];
@@ -259,7 +377,8 @@ export class QIFImportService {
     return {
       transactions,
       duplicates,
-      newTransactions: transactions.length
+      newTransactions: transactions.length,
+      invalidDates: parseResult.invalidDateCount
     };
   }
 }
