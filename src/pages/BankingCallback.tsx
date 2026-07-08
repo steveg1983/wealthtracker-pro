@@ -33,6 +33,17 @@ export default function BankingCallback() {
     }
   }, []);
 
+  // When we run as an OAuth popup, close ourselves once the opener has been
+  // notified — on error/cancel as well as success. Leaving the popup open left
+  // a second app window running, which (on Safari) could trigger a cross-tab
+  // reload loop. No-op for the full-page redirect flow (no window.opener), where
+  // the in-page buttons below are the correct exit.
+  const closeIfPopup = useCallback((delayMs: number) => {
+    if (window.opener && !window.opener.closed) {
+      window.setTimeout(() => window.close(), delayMs);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoaded) {
       return;
@@ -42,6 +53,7 @@ export default function BankingCallback() {
       setStatus('error');
       setMessage(errorDescription || error);
       notifyOpener({ status: 'error', error: errorDescription || error });
+      closeIfPopup(1200);
       return;
     }
 
@@ -52,6 +64,7 @@ export default function BankingCallback() {
         status: 'error',
         error: 'Missing authorization details from bank connection.'
       });
+      closeIfPopup(1200);
       return;
     }
 
@@ -64,20 +77,19 @@ export default function BankingCallback() {
         setStatus('success');
         setMessage('Bank connection successful. You can now link your accounts.');
         notifyOpener({ status: 'success', connectionId: connection?.id });
-        if (window.opener && !window.opener.closed) {
-          window.setTimeout(() => window.close(), 800);
-        }
+        closeIfPopup(800);
       } catch (err) {
         logger.error('Banking callback failed', err as Error);
         setStatus('error');
         const errorMessage = err instanceof Error ? err.message : 'Unable to complete bank connection.';
         setMessage(errorMessage);
         notifyOpener({ status: 'error', error: errorMessage });
+        closeIfPopup(1200);
       }
     };
 
     void run();
-  }, [code, state, error, errorDescription, getToken, isLoaded, notifyOpener]);
+  }, [code, state, error, errorDescription, getToken, isLoaded, notifyOpener, closeIfPopup]);
 
   return (
     <PageWrapper title="Bank Connection">
