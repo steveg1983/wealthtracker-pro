@@ -29,6 +29,109 @@ export interface CategoryTreePlan {
 
 const norm = (name: string): string => name.trim().toLowerCase();
 
+export interface CategoryPrunePlan {
+  /** Detail-level ids safe to delete (unused, non-system, not in the tree). */
+  detailIdsToDelete: string[];
+  /** Sub-level ids safe to delete (all children pruned, not a tree group). */
+  subIdsToDelete: string[];
+  /** Categories kept only because transactions still reference them. */
+  keptForTransactionsCount: number;
+}
+
+/**
+ * Plan the removal of categories that are NOT part of the given tree — used to
+ * turn "merge the Money set in" into "make my categories BE the Money set".
+ *
+ * Never prunes: type anchors, system categories, transfer categories, anything
+ * under the Transfer anchor, tree members, or any category still referenced by
+ * a transaction (those are counted in keptForTransactionsCount instead).
+ */
+export function planCategoryPrune(
+  existing: Category[],
+  tree: CategoryTreeGroup[],
+  usedCategoryIds: ReadonlySet<string>
+): CategoryPrunePlan {
+  const incomeAnchor = existing.find(c => c.level === 'type' && c.type === 'income')?.id;
+  const expenseAnchor = existing.find(c => c.level === 'type' && c.type === 'expense')?.id;
+
+  const groupNames = new Map<string, Set<string>>([
+    ['income', new Set(tree.filter(g => g.type === 'income').map(g => norm(g.name)))],
+    ['expense', new Set(tree.filter(g => g.type === 'expense').map(g => norm(g.name)))],
+  ]);
+  // Details keyed by (type, group name, detail name); empty groups self-fill.
+  const detailKeys = new Set<string>();
+  for (const group of tree) {
+    const children = group.children.length > 0 ? group.children : [group.name];
+    for (const child of children) {
+      detailKeys.add(`${group.type}:${norm(group.name)}:${norm(child)}`);
+    }
+  }
+
+  const anchorTypeOf = (parentId: string | null | undefined): 'income' | 'expense' | null =>
+    parentId === incomeAnchor ? 'income' : parentId === expenseAnchor ? 'expense' : null;
+
+  // Protection is by IDENTITY, not by the isSystem flag: the legacy seed
+  // stamped isSystem on ordinary default subs (Housing, Transport, …) — the
+  // very categories this prune exists to remove. The genuinely load-bearing
+  // rows are the type anchors, transfer categories, and the Adjustments
+  // bucket used by balance-repair tooling (matched by name — cloud ids are
+  // per-user UUIDs).
+  const isAdjustmentsBucket = (c: Category): boolean =>
+    (c.level === 'sub' && norm(c.name) === 'adjustments' && c.type === 'both') ||
+    (c.level === 'detail' && norm(c.name) === 'account adjustments' && c.type === 'both');
+
+  const isProtected = (c: Category): boolean =>
+    c.level === 'type' || c.isTransferCategory === true ||
+    c.id === 'transfer-in' || c.id === 'transfer-out' ||
+    isAdjustmentsBucket(c);
+
+  const detailIdsToDelete: string[] = [];
+  const subIdsToDelete: string[] = [];
+  let keptForTransactionsCount = 0;
+
+  const subs = existing.filter(c => c.level === 'sub' && anchorTypeOf(c.parentId) !== null);
+
+  for (const sub of subs) {
+    const subProtected = isProtected(sub);
+    const subType = anchorTypeOf(sub.parentId)!;
+    const subInTree = groupNames.get(subType)!.has(norm(sub.name));
+
+    // A protected sub is never deleted itself, but its non-tree details ARE
+    // still candidates — otherwise legacy isSystem subs would smuggle their
+    // whole default detail set past the prune.
+    const details = existing.filter(c => c.level === 'detail' && c.parentId === sub.id);
+    let allDetailsPruned = true;
+
+    for (const detail of details) {
+      if (isProtected(detail)) {
+        allDetailsPruned = false;
+        continue;
+      }
+      const detailInTree = detailKeys.has(`${subType}:${norm(sub.name)}:${norm(detail.name)}`);
+      if (detailInTree) {
+        allDetailsPruned = false;
+        continue;
+      }
+      if (usedCategoryIds.has(detail.id)) {
+        keptForTransactionsCount += 1;
+        allDetailsPruned = false;
+        continue;
+      }
+      detailIdsToDelete.push(detail.id);
+    }
+
+    if (!subProtected && !subInTree && allDetailsPruned) {
+      if (usedCategoryIds.has(sub.id)) {
+        keptForTransactionsCount += 1;
+      } else {
+        subIdsToDelete.push(sub.id);
+      }
+    }
+  }
+
+  return { detailIdsToDelete, subIdsToDelete, keptForTransactionsCount };
+}
+
 /**
  * Diff a Money-style category tree against the user's existing categories.
  *

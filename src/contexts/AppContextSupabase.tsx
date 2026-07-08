@@ -30,7 +30,7 @@ import type {
   AppState 
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
-import { planCategoryTreeImport, type CategoryTreeGroup } from '../utils/categoryTreeImport';
+import { planCategoryTreeImport, planCategoryPrune, type CategoryTreeGroup } from '../utils/categoryTreeImport';
 
 export interface Tag {
   id: string;
@@ -66,8 +66,15 @@ export interface AppContextType extends AppState {
   // Category operations — async so callers can surface persistence failures
   /** Returns the created category so callers can use its real id immediately. */
   addCategory: (category: Omit<Category, 'id'>) => Promise<Category>;
-  /** Merge a Money-style category tree; skips same-named entries. Returns counts. */
-  importCategoryTree: (tree: CategoryTreeGroup[]) => Promise<{ created: number; skipped: number }>;
+  /**
+   * Merge a Money-style category tree; skips same-named entries. With
+   * pruneOthers, unused non-system categories outside the tree are removed
+   * afterwards (categories still referenced by transactions are kept).
+   */
+  importCategoryTree: (
+    tree: CategoryTreeGroup[],
+    options?: { pruneOthers?: boolean }
+  ) => Promise<{ created: number; skipped: number; pruned: number; keptForTransactions: number }>;
   updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   getSubCategories: (parentId: string) => Category[];
@@ -660,7 +667,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Import a Money-style two-level tree (sub → detail), merging idempotently:
   // same-named categories are skipped, so re-running or overlapping the default
   // set never duplicates. Two phases because details need their sub's id.
-  const importCategoryTree = useCallback(async (tree: CategoryTreeGroup[]) => {
+  const importCategoryTree = useCallback(async (
+    tree: CategoryTreeGroup[],
+    options?: { pruneOthers?: boolean }
+  ) => {
     const userId = userIdService.getCurrentDatabaseUserId();
     const plan = planCategoryTreeImport(categories, tree);
 
@@ -705,11 +715,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCategories(prev => [...prev, ...createdDetails]);
     }
 
+    // Optional replace semantics: remove unused categories OUTSIDE the tree so
+    // the user's list becomes the imported set. Anything a transaction still
+    // references is kept (never orphan a transaction's category).
+    let pruned = 0;
+    let keptForTransactions = 0;
+    if (options?.pruneOthers) {
+      const merged = [...categories, ...createdSubs, ...createdDetails];
+      // "In use" covers every reference kind: transactions, budgets (keyed by
+      // categoryId), and recurring transaction templates.
+      const usedCategoryIds = new Set(
+        [
+          ...transactions.map(t => t.category),
+          ...budgets.map(b => b.categoryId),
+          ...recurringTransactions.map(r => r.category),
+        ].filter((c): c is string => !!c && c.trim() !== '')
+      );
+      const prunePlan = planCategoryPrune(merged, tree, usedCategoryIds);
+      const idsToDelete = [...prunePlan.detailIdsToDelete, ...prunePlan.subIdsToDelete];
+      if (idsToDelete.length > 0) {
+        // The RPC re-verifies references server-side and may delete FEWER rows
+        // than planned (a stale snapshot can never destroy referenced data) —
+        // so re-read the authoritative category set instead of trusting the plan.
+        pruned = await PlanningService.deleteUnusedCategories(userId, idsToDelete);
+        const authoritative = await PlanningService.ensureCategories(userId);
+        setCategories(authoritative);
+      }
+      keptForTransactions = prunePlan.keptForTransactionsCount;
+    }
+
     return {
       created: createdSubs.length + createdDetails.length,
       skipped: plan.skippedCount,
+      pruned,
+      keptForTransactions,
     };
-  }, [categories]);
+  }, [categories, transactions, budgets, recurringTransactions]);
 
   const updateCategory = useCallback(async (id: string, updates: Partial<Category>) => {
     try {

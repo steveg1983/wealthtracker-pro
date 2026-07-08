@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planCategoryTreeImport, type CategoryTreeGroup } from '../categoryTreeImport';
+import { planCategoryTreeImport, planCategoryPrune, type CategoryTreeGroup } from '../categoryTreeImport';
 import { MS_MONEY_CATEGORY_SET } from '../../data/msMoneyCategories';
 import type { Category } from '../../types';
 
@@ -131,5 +131,75 @@ describe('planCategoryTreeImport', () => {
     // 16 subs + 86 details (84 named children + 2 self-named for empty groups).
     expect(plan.totalCount).toBe(16 + 86);
     expect(plan.detailsToCreate).toHaveLength(86);
+  });
+});
+
+describe('planCategoryPrune', () => {
+  const tree: CategoryTreeGroup[] = [
+    { name: 'Cars & Bikes', type: 'expense', children: ['Petrol / Diesel'] },
+    { name: 'Wages & Salary', type: 'income', children: ['Net Pay'] },
+  ];
+
+  const base: Category[] = [
+    ...typeCategories,
+    // In the tree — kept.
+    { id: 'sub-cars', name: 'Cars & Bikes', type: 'expense', level: 'sub', parentId: 'uuid-expense' },
+    { id: 'det-petrol', name: 'Petrol / Diesel', type: 'expense', level: 'detail', parentId: 'sub-cars' },
+    // Default set leftovers — prunable when unused.
+    { id: 'sub-shopping', name: 'Shopping', type: 'expense', level: 'sub', parentId: 'uuid-expense' },
+    { id: 'det-clothing', name: 'Clothing', type: 'expense', level: 'detail', parentId: 'sub-shopping' },
+    // System / transfer — never pruned.
+    { id: 'sub-adj', name: 'Adjustments', type: 'both', level: 'sub', parentId: 'uuid-expense', isSystem: true },
+    { id: 'det-tocat', name: 'To/From Bank', type: 'both', level: 'detail', parentId: 'uuid-transfer', isTransferCategory: true, accountId: 'acc-1' },
+  ];
+
+  it('prunes unused non-tree categories and keeps tree/system/transfer ones', () => {
+    const plan = planCategoryPrune(base, tree, new Set());
+    expect(plan.detailIdsToDelete).toEqual(['det-clothing']);
+    expect(plan.subIdsToDelete).toEqual(['sub-shopping']);
+    expect(plan.keptForTransactionsCount).toBe(0);
+  });
+
+  it('keeps categories that transactions still reference (and their parent sub)', () => {
+    const plan = planCategoryPrune(base, tree, new Set(['det-clothing']));
+    expect(plan.detailIdsToDelete).toEqual([]);
+    expect(plan.subIdsToDelete).toEqual([]);
+    expect(plan.keptForTransactionsCount).toBe(1);
+  });
+
+  it('prunes non-tree details inside a tree sub without touching the sub', () => {
+    const existing: Category[] = [
+      ...base,
+      // A default detail living under the KEPT tree sub.
+      { id: 'det-legacy', name: 'Old Detail', type: 'expense', level: 'detail', parentId: 'sub-cars' },
+    ];
+    const plan = planCategoryPrune(existing, tree, new Set());
+    expect(plan.detailIdsToDelete).toContain('det-legacy');
+    expect(plan.subIdsToDelete).not.toContain('sub-cars');
+  });
+
+  it('prunes legacy defaults even though the old seed stamped them isSystem', () => {
+    // The pre-Money default seed marked ordinary subs (Housing, Transport…)
+    // as isSystem — the flag must not smuggle them (or their details) past
+    // the replace semantics for existing users.
+    const existing: Category[] = [
+      ...typeCategories,
+      { id: 'sub-housing', name: 'Housing', type: 'expense', level: 'sub', parentId: 'uuid-expense', isSystem: true },
+      { id: 'det-rent', name: 'Rent', type: 'expense', level: 'detail', parentId: 'sub-housing' },
+    ];
+    const plan = planCategoryPrune(existing, tree, new Set());
+    expect(plan.detailIdsToDelete).toContain('det-rent');
+    expect(plan.subIdsToDelete).toContain('sub-housing');
+  });
+
+  it('always protects the Adjustments bucket and transfer categories by identity', () => {
+    const existing: Category[] = [
+      ...typeCategories,
+      { id: 'sub-adj2', name: 'Adjustments', type: 'both', level: 'sub', parentId: 'uuid-expense' },
+      { id: 'det-adj2', name: 'Account Adjustments', type: 'both', level: 'detail', parentId: 'sub-adj2' },
+    ];
+    const plan = planCategoryPrune(existing, tree, new Set());
+    expect(plan.detailIdsToDelete).toEqual([]);
+    expect(plan.subIdsToDelete).toEqual([]);
   });
 });

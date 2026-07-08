@@ -93,14 +93,23 @@ export function calculateBudgetSpending(
   startDate: Date,
   endDate: Date
 ): DecimalInstance {
+  // Money-style netting: income filed under the budget's category (e.g. a
+  // refund on a purchase) reduces the spend instead of counting as income.
   const budgetTransactions = transactions.filter(t =>
-    t.type === 'expense' &&
+    (t.type === 'expense' || t.type === 'income') &&
     t.category === budget.categoryId &&
     t.date >= startDate &&
     t.date <= endDate
   );
 
-  return sumMagnitudes(budgetTransactions);
+  // Signed convention: spending is negative, so net spend is the negated
+  // signed sum. Clamped at zero if refunds exceed spending in the period.
+  const netSigned = budgetTransactions.reduce(
+    (sum, t) => sum.plus(t.amount),
+    new Decimal(0)
+  );
+  const spent = netSigned.negated();
+  return spent.isNegative() ? new Decimal(0) : spent;
 }
 
 /**
@@ -189,10 +198,12 @@ export function calculateCategorySpending(
   startDate?: Date,
   endDate?: Date
 ): DecimalInstance {
-  let filtered = transactions.filter(t => 
-    t.type === 'expense' && t.category === category
+  // Money-style netting (same semantics as calculateBudgetSpending): income
+  // filed under the category — a refund — reduces the spend.
+  let filtered = transactions.filter(t =>
+    (t.type === 'expense' || t.type === 'income') && t.category === category
   );
-  
+
   if (startDate) {
     filtered = filtered.filter(t => t.date >= startDate);
   }
@@ -200,7 +211,9 @@ export function calculateCategorySpending(
     filtered = filtered.filter(t => t.date <= endDate);
   }
 
-  return sumMagnitudes(filtered);
+  const netSigned = filtered.reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
+  const spent = netSigned.negated();
+  return spent.isNegative() ? new Decimal(0) : spent;
 }
 
 /**
@@ -236,23 +249,33 @@ export function calculateSpendingByCategory(
   startDate?: Date,
   endDate?: Date
 ): Record<string, DecimalInstance> {
-  let filtered = transactions.filter(t => t.type === 'expense');
-  
+  // Money-style netting: include income rows so refunds filed under a
+  // category reduce its spend; categories netting ≤ 0 are dropped.
+  let filtered = transactions.filter(t => t.type === 'expense' || t.type === 'income');
+
   if (startDate) {
     filtered = filtered.filter(t => t.date >= startDate);
   }
   if (endDate) {
     filtered = filtered.filter(t => t.date <= endDate);
   }
-  
-  const spending: Record<string, DecimalInstance> = {};
-  
+
+  const netSigned: Record<string, DecimalInstance> = {};
+
   filtered.forEach(t => {
-    if (!spending[t.category]) {
-      spending[t.category] = new Decimal(0);
+    if (!netSigned[t.category]) {
+      netSigned[t.category] = new Decimal(0);
     }
-    spending[t.category] = spending[t.category].plus(t.amount.abs());
+    netSigned[t.category] = netSigned[t.category].plus(t.amount);
   });
+
+  const spending: Record<string, DecimalInstance> = {};
+  for (const [category, net] of Object.entries(netSigned)) {
+    const spent = net.negated();
+    if (spent.gt(0)) {
+      spending[category] = spent;
+    }
+  }
 
   return spending;
 }

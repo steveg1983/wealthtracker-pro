@@ -337,21 +337,61 @@ describe('Decimal Calculation Utilities', () => {
       const startDate = new Date('2023-01-01');
       const endDate = new Date('2023-01-31');
       const transactions = [
-        createMockDecimalTransaction({ 
-          category: 'groceries', 
-          type: 'expense', 
-          amount: toDecimal(100), 
-          date: new Date('2023-01-15') 
+        // Signed convention: expenses are stored negative.
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-100),
+          date: new Date('2023-01-15')
         }),
-        createMockDecimalTransaction({ 
-          category: 'groceries', 
-          type: 'expense', 
-          amount: toDecimal(50), 
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-50),
           date: new Date('2023-02-01') // Outside range
         })
       ];
       const result = calculateBudgetSpending(budget, transactions, startDate, endDate);
       expect(result.toString()).toBe('100');
+    });
+
+    it('nets refunds filed under the budget category against the spend (Money model)', () => {
+      const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+      const startDate = new Date('2023-01-01');
+      const endDate = new Date('2023-01-31');
+      const transactions = [
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-100),
+          date: new Date('2023-01-10')
+        }),
+        // A refund: income by direction, filed under the expense category.
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'income',
+          amount: toDecimal(30),
+          date: new Date('2023-01-20')
+        })
+      ];
+      const result = calculateBudgetSpending(budget, transactions, startDate, endDate);
+      expect(result.toString()).toBe('70');
+    });
+
+    it('clamps at zero when refunds exceed spending in the period', () => {
+      const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+      const transactions = [
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'income',
+          amount: toDecimal(80),
+          date: new Date('2023-01-20')
+        })
+      ];
+      const result = calculateBudgetSpending(
+        budget, transactions, new Date('2023-01-01'), new Date('2023-01-31')
+      );
+      expect(result.toString()).toBe('0');
     });
   });
 
@@ -467,16 +507,17 @@ describe('Decimal Calculation Utilities', () => {
       const startDate = new Date('2023-01-01');
       const endDate = new Date('2023-01-31');
       const transactions = [
-        createMockDecimalTransaction({ 
-          category: 'groceries', 
-          type: 'expense', 
-          amount: toDecimal(100), 
-          date: new Date('2023-01-15') 
+        // Signed convention: expenses are stored negative.
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-100),
+          date: new Date('2023-01-15')
         }),
-        createMockDecimalTransaction({ 
-          category: 'groceries', 
-          type: 'expense', 
-          amount: toDecimal(50), 
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-50),
           date: new Date('2023-02-01') // Outside range
         })
       ];
@@ -486,19 +527,28 @@ describe('Decimal Calculation Utilities', () => {
 
     it('calculates category spending without date range', () => {
       const transactions = [
-        createMockDecimalTransaction({ 
-          category: 'groceries', 
-          type: 'expense', 
-          amount: toDecimal(100)
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-100)
         }),
-        createMockDecimalTransaction({ 
-          category: 'groceries', 
-          type: 'expense', 
-          amount: toDecimal(50)
+        createMockDecimalTransaction({
+          category: 'groceries',
+          type: 'expense',
+          amount: toDecimal(-50)
         })
       ];
       const result = calculateCategorySpending('groceries', transactions);
       expect(result.toString()).toBe('150');
+    });
+
+    it('nets refunds filed under the category (Money model)', () => {
+      const transactions = [
+        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(-100) }),
+        createMockDecimalTransaction({ category: 'groceries', type: 'income', amount: toDecimal(25) })
+      ];
+      const result = calculateCategorySpending('groceries', transactions);
+      expect(result.toString()).toBe('75');
     });
   });
 

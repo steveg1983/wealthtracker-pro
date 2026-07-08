@@ -36,6 +36,10 @@ type Database = {
         Args: { p_ids: string[]; p_category: string; p_user_id?: string };
         Returns: number;
       };
+      delete_unused_categories: {
+        Args: { p_ids: string[]; p_user_id?: string };
+        Returns: number;
+      };
       migrate_categories_atomic: {
         Args: { p_user_id: string; p_categories: Record<string, unknown>[] };
         Returns: Record<string, unknown>[];

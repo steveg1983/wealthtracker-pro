@@ -423,6 +423,48 @@ export class PlanningService {
     return newCategory;
   }
 
+  /**
+   * Bulk delete of UNUSED categories (the Money-set "replace" import). Cloud
+   * mode goes through the delete_unused_categories RPC, which re-verifies
+   * EVERY row server-side (no transaction/budget/recurring references, no
+   * children outside the batch, never type/transfer categories) — a stale
+   * client snapshot can therefore never destroy referenced data. Returns the
+   * number of rows actually deleted.
+   */
+  static async deleteUnusedCategories(userId: string | null, ids: string[]): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    if (this.cloudReady && userId) {
+      const { data, error } = await supabase!.rpc('delete_unused_categories', {
+        p_ids: ids,
+        p_user_id: userId
+      });
+      if (error) throw new Error(handleSupabaseError(error));
+      const deleted = typeof data === 'number' ? data : 0;
+      // The RPC may have skipped rows; refresh the cache from the cloud so
+      // the local view matches what actually survived.
+      const { data: rows, error: readError } = await supabase!
+        .from('categories')
+        .select('*')
+        .eq('user_id', userId);
+      if (!readError && rows) {
+        await this.saveCategories((rows as Row[]).map(categoryFromDb));
+      }
+      return deleted;
+    }
+
+    // Local mode: the in-memory snapshot IS the source of truth, so the
+    // planner has seen every row and a plain filter is safe.
+    const categories = await this.getCategories();
+    const idSet = new Set(ids);
+    const remaining = categories.filter(c => !idSet.has(c.id) && !idSet.has(c.parentId ?? ''));
+    const deleted = categories.length - remaining.length;
+    await this.saveCategories(remaining);
+    return deleted;
+  }
+
   /** Bulk create — one insert round trip instead of N (used by tree imports). */
   static async createCategories(userId: string | null, newCategories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
     if (newCategories.length === 0) {

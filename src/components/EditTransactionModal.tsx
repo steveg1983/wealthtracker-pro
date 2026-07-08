@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useToast } from '../contexts/ToastContext';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
-import { findSamePayeeUncategorized } from '../utils/payeeAutoCategorize';
+import { usePayeeMemory } from '../hooks/usePayeeMemory';
 import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
@@ -25,6 +24,12 @@ interface EditTransactionModalProps {
   transaction: Transaction | null;
   /** Account to pre-select for NEW transactions (e.g. the account being reconciled). */
   defaultAccountId?: string;
+  /**
+   * Batch mode: when provided (and editing an existing transaction), a
+   * "Save & Next" button appears — it saves, keeps the modal open, and asks
+   * the caller to swap in the next transaction from its list.
+   */
+  onSaveAndNext?: () => void;
 }
 
 interface FormData {
@@ -41,16 +46,24 @@ interface FormData {
   reconciledWith: string;
 }
 
-export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, transactions, updateTransaction, deleteTransaction, applyCategoryToUncategorized } = useApp();
+export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext }: EditTransactionModalProps): React.JSX.Element {
+  const { accounts, categories, updateTransaction, deleteTransaction } = useApp();
   const { addTransaction } = useTransactionNotifications();
-  const { showSuccess } = useToast();
+  const { propagateCategory } = usePayeeMemory();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
-  
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [formattedAmount, setFormattedAmount] = useState('');
+  // Money-style cross-type categorization: browse the OTHER direction's
+  // categories (e.g. file a refund — income by sign — under an expense
+  // category so it nets that expense down).
+  const [crossTypeCategories, setCrossTypeCategories] = useState(false);
   const amountInputRef = useRef<HTMLInputElement>(null);
+  // Batch mode coordination: "Save & Next" sets advance; a successful submit
+  // consumes it and suppresses the close that useModalForm fires afterwards.
+  const advanceAfterSaveRef = useRef(false);
+  const suppressCloseRef = useRef(false);
   
   // Initialize form with transaction data if editing, otherwise use defaults
   const initialFormData: FormData = transaction ? {
@@ -83,6 +96,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     initialFormData,
     {
       onSubmit: async (data) => {
+        // Consume the advance intent up front so a failed save never leaves a
+        // stale "advance" that would hijack the NEXT ordinary Save.
+        const advanceAfterSave = advanceAfterSaveRef.current;
+        advanceAfterSaveRef.current = false;
         try {
           const isTransfer = data.type === 'transfer';
           // A freshly-chosen outgoing transfer encodes its target in the
@@ -167,35 +184,28 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
 
           // Payee memory (the Microsoft Money model): the category just chosen
           // spreads to every UNCATEGORIZED same-direction transaction with the
-          // same payee in this account. Explicit categories are never
-          // overwritten (enforced server-side), and a propagation failure must
-          // not fail the save that already succeeded.
-          if (resolvedType !== 'transfer' && resolvedCategory &&
+          // same payee in this account. Cross-type filings (a one-off refund
+          // correction) deliberately do NOT teach payee memory — a mixed-flow
+          // payee like PayPal must not get all its incoming money stamped with
+          // an expense category.
+          if (resolvedType !== 'transfer' && resolvedCategory && !crossTypeCategories &&
               resolvedCategory !== transaction?.category) {
-            const targets = findSamePayeeUncategorized(
-              transactions,
-              validatedData.accountId,
-              validatedData.description,
-              resolvedType,
-              transaction?.id
-            );
-            if (targets.length > 0) {
-              try {
-                const appliedCount = await applyCategoryToUncategorized(targets, resolvedCategory);
-                if (appliedCount > 0) {
-                  const categoryName = categories.find(c => c.id === resolvedCategory)?.name ?? 'this category';
-                  showSuccess(
-                    `Also applied "${categoryName}" to ${appliedCount} other "${validatedData.description}" transaction${appliedCount === 1 ? '' : 's'}.`,
-                    'Payee memory'
-                  );
-                }
-              } catch (propagationError) {
-                logger.error('Payee-memory propagation failed', propagationError as Error);
-              }
-            }
+            await propagateCategory({
+              accountId: validatedData.accountId,
+              description: validatedData.description,
+              type: resolvedType,
+              categoryId: resolvedCategory,
+              excludeId: transaction?.id,
+            });
           }
 
-          onClose();
+          // Batch mode: "Save & Next" keeps the modal open — the caller swaps
+          // in the next transaction and the form repopulates from the prop.
+          // useModalForm calls our onClose after this resolves; suppress it.
+          if (advanceAfterSave && onSaveAndNext) {
+            suppressCloseRef.current = true;
+            onSaveAndNext();
+          }
         } catch (error) {
           if (error instanceof z.ZodError) {
             logger.error('Validation failed', error);
@@ -206,6 +216,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
         }
       },
       onClose: () => {
+        if (suppressCloseRef.current) {
+          suppressCloseRef.current = false;
+          return;
+        }
         onClose();
       }
     }
@@ -233,7 +247,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
       }
     }
 
-    const incomeGroups = groups.filter(g => g.type === 'income');
+    // 'both'-typed groups (e.g. Adjustments) are valid for either direction —
+    // include them on both sides so an income row carrying such a category is
+    // always representable in the select.
+    const incomeGroups = groups.filter(g => g.type === 'income' || g.type === 'both');
     const expenseGroups = groups.filter(g => g.type === 'expense' || g.type === 'both');
 
     // Transfer accounts: all accounts except the current transaction's account
@@ -292,6 +309,16 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
       });
       // Set formatted amount for display
       setFormattedAmount(formatWithCommas(amountValue));
+      // Cross-type detection: a category from the OTHER direction's tree
+      // (e.g. a refund filed under an expense category) opens with the
+      // toggle already on so the select can represent the stored value.
+      const currentCategory = categories.find(c => c.id === categoryId);
+      setCrossTypeCategories(
+        (transaction.type === 'income' || transaction.type === 'expense') &&
+        currentCategory !== undefined &&
+        (currentCategory.type === 'income' || currentCategory.type === 'expense') &&
+        currentCategory.type !== transaction.type
+      );
     } else {
       // Reset form for new transaction
       const today = new Date().toISOString().split('T')[0];
@@ -309,6 +336,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
         reconciledWith: ''
       });
       setFormattedAmount('');
+      setCrossTypeCategories(false);
     }
     setShowDeleteConfirm(false);
   }, [transaction, accounts, categories, setFormData, defaultAccountId]);
@@ -396,7 +424,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     <button
                       key={t}
                       type="button"
-                      onClick={() => { updateField('type', t); updateField('category', ''); }}
+                      onClick={() => {
+                        updateField('type', t);
+                        updateField('category', '');
+                        setCrossTypeCategories(false);
+                      }}
                       className={`flex-1 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${colors[t]}`}
                     >
                       {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -404,6 +436,24 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   );
                 })}
               </div>
+              {(formData.type === 'income' || formData.type === 'expense') && (
+                <label className="mt-2 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={crossTypeCategories}
+                    onChange={(e) => {
+                      setCrossTypeCategories(e.target.checked);
+                      updateField('category', '');
+                    }}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    {formData.type === 'income'
+                      ? 'Categorise as an expense — e.g. a refund files under the expense category it refunds, reducing that category’s total.'
+                      : 'Categorise as income — file this outgoing under an income category, reducing that category’s total.'}
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Amount */}
@@ -493,39 +543,23 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 ) : (
                   <>
                     <option value="">Select category</option>
-                    {formData.type === 'income' && groupedCategories.incomeGroups.map(group => (
+                    {/* Which direction's tree to browse: normally the
+                        transaction's own, flipped by the cross-type toggle
+                        (Money-style: a refund can file under an expense). */}
+                    {((formData.type === 'income') !== crossTypeCategories) && groupedCategories.incomeGroups.map(group => (
                       <optgroup key={group.label} label={`Income: ${group.label}`}>
                         {group.items.map(item => (
                           <option key={item.id} value={item.id}>{item.name}</option>
                         ))}
                       </optgroup>
                     ))}
-                    {formData.type === 'expense' && groupedCategories.expenseGroups.map(group => (
+                    {((formData.type === 'expense') !== crossTypeCategories) && groupedCategories.expenseGroups.map(group => (
                       <optgroup key={group.label} label={group.label}>
                         {group.items.map(item => (
                           <option key={item.id} value={item.id}>{item.name}</option>
                         ))}
                       </optgroup>
                     ))}
-                    {/* Show all categories when type not yet explicitly chosen */}
-                    {formData.type !== 'income' && formData.type !== 'expense' && (
-                      <>
-                        {groupedCategories.incomeGroups.map(group => (
-                          <optgroup key={group.label} label={`Income: ${group.label}`}>
-                            {group.items.map(item => (
-                              <option key={item.id} value={item.id}>{item.name}</option>
-                            ))}
-                          </optgroup>
-                        ))}
-                        {groupedCategories.expenseGroups.map(group => (
-                          <optgroup key={group.label} label={group.label}>
-                            {group.items.map(item => (
-                              <option key={item.id} value={item.id}>{item.name}</option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </>
-                    )}
                   </>
                 )}
               </select>
@@ -645,6 +679,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 >
                   {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
                 </button>
+                {transaction && onSaveAndNext && (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    onClick={() => { advanceAfterSaveRef.current = true; }}
+                    className="px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Save this transaction and move to the next one in the list"
+                  >
+                    Save &amp; Next
+                  </button>
+                )}
               </div>
             </div>
           </ModalFooter>
