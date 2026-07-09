@@ -4,7 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon } from '../components/icons';
+import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon } from '../components/icons';
 import LocalMerchantLogo from '../components/LocalMerchantLogo';
 import DatePicker from '../components/common/DatePicker';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -14,6 +14,7 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
+import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -41,6 +42,15 @@ function isOpeningBalanceRow(row: DisplayRow): row is OpeningBalanceRow {
 // Persisted (per browser) column layout for the account register.
 const COLUMN_ORDER_KEY = 'accountRegister.columnOrder.v1';
 const COLUMN_WIDTHS_KEY = 'accountRegister.columnWidths.v1';
+const HIDDEN_COLUMNS_KEY = 'accountRegister.hiddenColumns.v1';
+const ARCHIVE_KEY = 'accountRegister.archive.v1';
+// Columns off by default; the user can switch them on in the View dropdown.
+const DEFAULT_HIDDEN_COLUMNS = ['amount', 'notes'];
+
+interface ArchiveState { range: ArchiveRange; from: string; to: string }
+
+// Friendly labels for the View dropdown's column checkboxes.
+const COLUMN_LABELS: Record<string, string> = { reconciled: 'Reconciled (R)' };
 
 const readStored = <T,>(key: string, fallback: T): T => {
   try {
@@ -88,7 +98,7 @@ export default function AccountTransactions() {
     window.addEventListener('resize', measureTableHeight);
     return () => window.removeEventListener('resize', measureTableHeight);
   }, [measureTableHeight, showFilters]);
-  const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit'>('date');
+  const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit' | 'notes'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   // Column layout (order + widths), drag-controlled and persisted per browser.
   const [columnOrder, setColumnOrder] = useState<string[]>(() => readStored<string[]>(COLUMN_ORDER_KEY, []));
@@ -103,6 +113,35 @@ export default function AccountTransactions() {
 
   const handleColumnResize = useCallback((key: string, width: number) => {
     setColumnWidths(prev => ({ ...prev, [key]: width }));
+  }, []);
+
+  // View dropdown: which columns are hidden, and how far back to show.
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => readStored<string[]>(HIDDEN_COLUMNS_KEY, DEFAULT_HIDDEN_COLUMNS));
+  const [archive, setArchive] = useState<ArchiveState>(() => readStored<ArchiveState>(ARCHIVE_KEY, { range: 'all', from: '', to: '' }));
+  const [showView, setShowView] = useState(false);
+  const viewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch { /* storage may be unavailable */ }
+  }, [hiddenColumns]);
+  useEffect(() => {
+    try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive)); } catch { /* storage may be unavailable */ }
+  }, [archive]);
+
+  // Close the View dropdown on outside click.
+  useEffect(() => {
+    if (!showView) return;
+    const onDown = (e: MouseEvent) => {
+      if (viewRef.current && !viewRef.current.contains(e.target as Node)) setShowView(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showView]);
+
+  const archiveWindow = useMemo(() => computeArchiveWindow(archive.range, archive.from, archive.to), [archive]);
+
+  const toggleColumn = useCallback((key: string) => {
+    setHiddenColumns(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
   }, []);
   
   // State for modals and selection
@@ -136,10 +175,14 @@ export default function AccountTransactions() {
         // Type filter
         if (typeFilter !== 'all' && t.type !== typeFilter) return false;
         
-        // Date range filter
+        // Date range filter (Search & filters)
         if (dateFrom && new Date(t.date) < new Date(dateFrom)) return false;
         if (dateTo && new Date(t.date) > new Date(dateTo)) return false;
-        
+
+        // Archive window (View dropdown "Show" presets)
+        if (archiveWindow.from && new Date(t.date) < archiveWindow.from) return false;
+        if (archiveWindow.to && new Date(t.date) > archiveWindow.to) return false;
+
         // Search filter
         if (!searchTerm) return true;
         const search = searchTerm.toLowerCase();
@@ -152,7 +195,7 @@ export default function AccountTransactions() {
         );
       })
       .sort((a, b) => compareTransactions(a, b, sortField, sortDirection, categories));
-  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, sortField, sortDirection, categories]);
+  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, sortField, sortDirection, categories]);
   
   // Calculate running balance
   const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
@@ -630,6 +673,42 @@ export default function AccountTransactions() {
       sortable: true
     },
     {
+      // Single signed Amount column (off by default; Payment/Deposit replace it).
+      key: 'amount',
+      header: 'Amount',
+      width: '120px',
+      accessor: (transaction) => (
+        <span className={`text-sm font-medium ${
+          transaction.amount > 0
+            ? 'text-green-600 dark:text-green-400'
+            : transaction.amount < 0
+            ? 'text-red-600 dark:text-red-400'
+            : 'text-gray-900 dark:text-gray-100'
+        }`}>
+          {formatCurrency(transaction.amount, account?.currency)}
+        </span>
+      ),
+      className: 'text-right',
+      headerClassName: 'text-right',
+      sortable: true
+    },
+    {
+      key: 'notes',
+      header: 'Notes',
+      width: '200px',
+      accessor: (transaction) => {
+        const notes = 'notes' in transaction ? transaction.notes : undefined;
+        return (
+          <span className="text-sm text-gray-600 dark:text-gray-400 truncate block" title={notes || ''}>
+            {notes || ''}
+          </span>
+        );
+      },
+      className: 'text-left',
+      headerClassName: 'text-left',
+      sortable: true
+    },
+    {
       key: 'balance',
       header: 'Balance',
       width: '120px',
@@ -651,11 +730,13 @@ export default function AccountTransactions() {
   const columns: Column<DisplayRow>[] = useMemo(() => {
     const baseKeys = baseColumns.map(c => c.key);
     const byKey = new Map(baseColumns.map(c => [c.key, c] as const));
+    const hidden = new Set(hiddenColumns);
     return orderColumnKeys(baseKeys, columnOrder)
+      .filter(key => !hidden.has(key))
       .map(key => byKey.get(key))
       .filter((c): c is Column<DisplayRow> => Boolean(c))
       .map(c => (columnWidths[c.key] != null ? { ...c, width: columnWidths[c.key] } : c));
-  }, [baseColumns, columnOrder, columnWidths]);
+  }, [baseColumns, columnOrder, columnWidths, hiddenColumns]);
 
   const handleColumnReorder = useCallback((fromKey: string, toKey: string) => {
     setColumnOrder(prev => moveColumnKey(orderColumnKeys(baseColumns.map(c => c.key), prev), fromKey, toKey));
@@ -772,6 +853,7 @@ export default function AccountTransactions() {
       <div className="flex flex-col gap-3">
       {/* Toolbar: filter toggle + table size toggle */}
       <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
         <button
           onClick={() => setShowFilters(prev => !prev)}
           className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -783,6 +865,77 @@ export default function AccountTransactions() {
           )}
           {showFilters ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
         </button>
+
+        {/* View: choose which columns to show, and how far back to list */}
+        <div className="relative" ref={viewRef}>
+          <button
+            onClick={() => setShowView(prev => !prev)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            <EyeIcon size={14} />
+            View
+            {archive.range !== 'all' && (
+              <span className="w-2 h-2 rounded-full bg-blue-500" title="Showing a limited date range" />
+            )}
+            {showView ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
+          </button>
+          {showView && (
+            <div className="absolute z-50 mt-1 left-0 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Columns</p>
+              <div className="max-h-52 overflow-y-auto -mx-1 px-1">
+                {baseColumns.map(col => (
+                  <label key={col.key} className="flex items-center gap-2 py-1 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!hiddenColumns.includes(col.key)}
+                      onChange={() => toggleColumn(col.key)}
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    {COLUMN_LABELS[col.key] ?? col.header}
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Show</p>
+                {ARCHIVE_PRESETS.map(preset => (
+                  <label key={preset.value} className="flex items-center gap-2 py-1 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="archive-range"
+                      checked={archive.range === preset.value}
+                      onChange={() => setArchive(prev => ({ ...prev, range: preset.value }))}
+                      className="border-gray-300 dark:border-gray-600"
+                    />
+                    {preset.label}
+                  </label>
+                ))}
+                {archive.range === 'custom' && (
+                  <div className="mt-2 space-y-2 pl-6">
+                    <div>
+                      <span className="block text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">From</span>
+                      <DatePicker
+                        value={archive.from}
+                        onChange={(v) => setArchive(prev => ({ ...prev, from: v }))}
+                        className="text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg"
+                        aria-label="Archive from date"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-gray-500 dark:text-gray-400 mb-0.5">To</span>
+                      <DatePicker
+                        value={archive.to}
+                        onChange={(v) => setArchive(prev => ({ ...prev, to: v }))}
+                        className="text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg"
+                        aria-label="Archive to date"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        </div>
         <button
           onClick={() => setTableExpanded(prev => !prev)}
           className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -917,7 +1070,7 @@ export default function AccountTransactions() {
           onSort={(column, direction) => {
             // Every header sorts except the running Balance (which stays in its
             // chronological order regardless — see transactionsWithBalance).
-            const sortableFields = ['date', 'description', 'category', 'tags', 'payment', 'deposit'] as const;
+            const sortableFields = ['date', 'description', 'category', 'tags', 'payment', 'deposit', 'amount', 'notes'] as const;
             if ((sortableFields as readonly string[]).includes(column)) {
               setSortField(column as typeof sortField);
               setSortDirection(direction);

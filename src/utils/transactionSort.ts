@@ -1,7 +1,7 @@
 import type { Transaction, Category } from '../types';
 
 export type TransactionSortField =
-  | 'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit';
+  | 'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit' | 'notes';
 
 // Same-day ordering: income, then transfers, then expenses.
 const TYPE_ORDER: Record<string, number> = { income: 0, transfer: 1, expense: 2 };
@@ -25,6 +25,8 @@ export function transactionSortValue(
       return (categories.find(c => c.id === t.category)?.name ?? '').toLowerCase();
     case 'tags':
       return (t.tags ?? []).join(', ').toLowerCase();
+    case 'notes':
+      return (t.notes ?? '').toLowerCase();
     case 'description':
       return t.description.toLowerCase();
     case 'date':
