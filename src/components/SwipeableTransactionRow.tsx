@@ -92,7 +92,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 setOffset(0);
                 setIsRevealed(null);
               }}
-              className="p-3 bg-green-500 text-white rounded-lg"
+              className="p-3 bg-blue-600 text-white rounded-lg"
               aria-label="Reconcile"
             >
               <CheckIcon size={20} />
@@ -211,7 +211,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 {formatCurrency(transaction.amount)}
               </p>
               {transaction.cleared && (
-                <CheckIcon size={16} className="text-green-600 dark:text-green-400 ml-auto mt-1" />
+                <CheckIcon size={16} className="text-blue-600 dark:text-blue-400 ml-auto mt-1" />
               )}
             </div>
           </div>
