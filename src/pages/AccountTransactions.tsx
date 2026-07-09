@@ -12,6 +12,7 @@ import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
+import { compareTransactions } from '../utils/transactionSort';
 import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -73,7 +74,7 @@ export default function AccountTransactions() {
     window.addEventListener('resize', measureTableHeight);
     return () => window.removeEventListener('resize', measureTableHeight);
   }, [measureTableHeight, showFilters]);
-  const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
+  const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // State for modals and selection
@@ -122,31 +123,7 @@ export default function AccountTransactions() {
           (t.notes && t.notes.toLowerCase().includes(search))
         );
       })
-      .sort((a, b) => {
-        let aValue: string | number | Date = a[sortField as keyof Transaction] as string | number | Date;
-        let bValue: string | number | Date = b[sortField as keyof Transaction] as string | number | Date;
-        
-        if (sortField === 'date') {
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
-          
-          // If dates are different, sort by date
-          if (dateA !== dateB) {
-            aValue = dateA;
-            bValue = dateB;
-          } else {
-            // If dates are the same, sort by type (income first, then transfers, then expenses)
-            const typeOrder = { income: 0, transfer: 1, expense: 2 };
-            return typeOrder[a.type] - typeOrder[b.type];
-          }
-        }
-        
-        if (sortDirection === 'asc') {
-          return aValue > bValue ? 1 : -1;
-        } else {
-          return aValue < bValue ? 1 : -1;
-        }
-      });
+      .sort((a, b) => compareTransactions(a, b, sortField, sortDirection, categories));
   }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, sortField, sortDirection, categories]);
   
   // Calculate running balance
@@ -565,7 +542,8 @@ export default function AccountTransactions() {
         </span>
       ),
       className: 'text-left',
-      headerClassName: 'text-left'
+      headerClassName: 'text-left',
+      sortable: true
     },
     {
       key: 'tags',
@@ -584,22 +562,36 @@ export default function AccountTransactions() {
         </div>
       ),
       className: 'text-center',
-      headerClassName: 'text-center'
+      headerClassName: 'text-center',
+      sortable: true
     },
     {
-      key: 'amount',
-      header: 'Amount',
+      key: 'payment',
+      header: 'Payment',
       width: '120px',
+      // Money out — the magnitude (no sign), in red, like MS Money's Payment column.
       accessor: (transaction) => (
-        <span className={`text-sm font-medium ${
-          transaction.amount > 0
-            ? 'text-green-600 dark:text-green-400'
-            : transaction.amount < 0
-            ? 'text-red-600 dark:text-red-400'
-            : 'text-gray-900 dark:text-gray-100'
-        }`}>
-          {formatCurrency(transaction.amount, account?.currency)}
-        </span>
+        transaction.amount < 0 ? (
+          <span className="text-sm font-medium text-red-600 dark:text-red-400">
+            {formatCurrency(Math.abs(transaction.amount), account?.currency)}
+          </span>
+        ) : null
+      ),
+      className: 'text-right',
+      headerClassName: 'text-right',
+      sortable: true
+    },
+    {
+      key: 'deposit',
+      header: 'Deposit',
+      width: '120px',
+      // Money in — in green, like MS Money's Deposit column.
+      accessor: (transaction) => (
+        transaction.amount > 0 ? (
+          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+            {formatCurrency(transaction.amount, account?.currency)}
+          </span>
+        ) : null
       ),
       className: 'text-right',
       headerClassName: 'text-right',
@@ -877,8 +869,11 @@ export default function AccountTransactions() {
           rowHeight={compactView ? 36 : 44}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
-            if (column === 'date' || column === 'description' || column === 'amount') {
-              setSortField(column);
+            // Every header sorts except the running Balance (which stays in its
+            // chronological order regardless — see transactionsWithBalance).
+            const sortableFields = ['date', 'description', 'category', 'tags', 'payment', 'deposit'] as const;
+            if ((sortableFields as readonly string[]).includes(column)) {
+              setSortField(column as typeof sortField);
               setSortDirection(direction);
             }
           }}
