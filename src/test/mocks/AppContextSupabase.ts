@@ -6,6 +6,7 @@ import {
   getDefaultTestGoals,
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
+import type { Category } from '../../types';
 
 const accounts = getDefaultTestAccounts();
 const transactions = getDefaultTestTransactions();
@@ -52,8 +53,8 @@ const baseValue = {
   updateTag: noop,
   deleteTag: noop,
   getTagUsageCount: () => 0,
-  getSubCategories: () => [],
-  getDetailCategories: () => [],
+  getSubCategories: (_parentId?: string): Category[] => [],
+  getDetailCategories: (_parentId?: string): Category[] => [],
   getCategoryById: () => undefined,
   getCategoryPath: () => '',
   recurringTransactions: [],
