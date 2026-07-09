@@ -437,98 +437,127 @@ export default function DataManagementSettings() {
         </div>
       )}
 
+      {/* Tool modals — mounted ONLY while open. Rendering a React.lazy
+          component (even closed, returning null) forces its chunk to download
+          AND runs its hooks: DuplicateDetection's O(n²) duplicate scan and
+          DataValidation's full-data sweep were executing on every visit to
+          this page. Gating on the show-flag defers chunk + work to first open
+          (the Suspense fallback covers the brief load). */}
+
       {/* Data Migration Wizard */}
-      <Suspense fallback={<LoadingState />}>
-        <DataMigrationWizard
-          isOpen={showMigrationWizard}
-          onClose={() => setShowMigrationWizard(false)}
-          onComplete={(data) => {
-            dataManagementLogger.info('Migration completed', data);
-            setShowMigrationWizard(false);
-          }}
-        />
-      </Suspense>
+      {showMigrationWizard && (
+        <Suspense fallback={<LoadingState />}>
+          <DataMigrationWizard
+            isOpen={showMigrationWizard}
+            onClose={() => setShowMigrationWizard(false)}
+            onComplete={(data) => {
+              dataManagementLogger.info('Migration completed', data);
+              setShowMigrationWizard(false);
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Import Modal */}
-      <Suspense fallback={<LoadingState />}>
-        <ImportDataModal
-          isOpen={showImportModal}
-          onClose={() => setShowImportModal(false)}
-        />
-      </Suspense>
+      {showImportModal && (
+        <Suspense fallback={<LoadingState />}>
+          <ImportDataModal
+            isOpen={showImportModal}
+            onClose={() => setShowImportModal(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Batch Import Modal */}
-      <Suspense fallback={<LoadingState />}>
-        <BatchImportModal
-          isOpen={showBatchImport}
-          onClose={() => setShowBatchImport(false)}
-        />
-      </Suspense>
+      {showBatchImport && (
+        <Suspense fallback={<LoadingState />}>
+          <BatchImportModal
+            isOpen={showBatchImport}
+            onClose={() => setShowBatchImport(false)}
+          />
+        </Suspense>
+      )}
 
       {/* CSV Import Wizard */}
-      <Suspense fallback={<LoadingState />}>
-        <CSVImportWizard
-          isOpen={showCSVImportWizard}
-          onClose={() => setShowCSVImportWizard(false)}
-          type="transaction"
-        />
-      </Suspense>
+      {showCSVImportWizard && (
+        <Suspense fallback={<LoadingState />}>
+          <CSVImportWizard
+            isOpen={showCSVImportWizard}
+            onClose={() => setShowCSVImportWizard(false)}
+            type="transaction"
+          />
+        </Suspense>
+      )}
 
       {/* OFX Import Modal */}
-      <Suspense fallback={<LoadingState />}>
-        <OFXImportModal
-          isOpen={showOFXImportModal}
-          onClose={() => setShowOFXImportModal(false)}
-        />
-      </Suspense>
+      {showOFXImportModal && (
+        <Suspense fallback={<LoadingState />}>
+          <OFXImportModal
+            isOpen={showOFXImportModal}
+            onClose={() => setShowOFXImportModal(false)}
+          />
+        </Suspense>
+      )}
 
       {/* QIF Import Modal */}
-      <Suspense fallback={<LoadingState />}>
-        <QIFImportModal
-          isOpen={showQIFImportModal}
-          onClose={() => setShowQIFImportModal(false)}
-        />
-      </Suspense>
+      {showQIFImportModal && (
+        <Suspense fallback={<LoadingState />}>
+          <QIFImportModal
+            isOpen={showQIFImportModal}
+            onClose={() => setShowQIFImportModal(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Duplicate Detection */}
-      <Suspense fallback={<LoadingState />}>
-        <DuplicateDetection
-          isOpen={showDuplicateDetection}
-          onClose={() => setShowDuplicateDetection(false)}
-        />
-      </Suspense>
+      {showDuplicateDetection && (
+        <Suspense fallback={<LoadingState />}>
+          <DuplicateDetection
+            isOpen={showDuplicateDetection}
+            onClose={() => setShowDuplicateDetection(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Excel Export */}
-      <Suspense fallback={<LoadingState />}>
-        <ExcelExport
-          isOpen={showExcelExport}
-          onClose={() => setShowExcelExport(false)}
-        />
-      </Suspense>
+      {showExcelExport && (
+        <Suspense fallback={<LoadingState />}>
+          <ExcelExport
+            isOpen={showExcelExport}
+            onClose={() => setShowExcelExport(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Bulk Edit */}
-      <Suspense fallback={<LoadingState />}>
-        <BulkTransactionEdit
-          isOpen={showBulkEdit}
-          onClose={() => setShowBulkEdit(false)}
-        />
-      </Suspense>
+      {showBulkEdit && (
+        <Suspense fallback={<LoadingState />}>
+          <BulkTransactionEdit
+            isOpen={showBulkEdit}
+            onClose={() => setShowBulkEdit(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Reconciliation */}
-      <Suspense fallback={<LoadingState />}>
-        <TransactionReconciliation
-          isOpen={showReconciliation}
-          onClose={() => setShowReconciliation(false)}
-        />
-      </Suspense>
+      {showReconciliation && (
+        <Suspense fallback={<LoadingState />}>
+          <TransactionReconciliation
+            isOpen={showReconciliation}
+            onClose={() => setShowReconciliation(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Data Validation */}
-      <Suspense fallback={<LoadingState />}>
-        <DataValidation
-          isOpen={showDataValidation}
-          onClose={() => setShowDataValidation(false)}
-        />
-      </Suspense>
+      {showDataValidation && (
+        <Suspense fallback={<LoadingState />}>
+          <DataValidation
+            isOpen={showDataValidation}
+            onClose={() => setShowDataValidation(false)}
+          />
+        </Suspense>
+      )}
 
       {/* Smart Categorization Modal */}
       {showSmartCategorization && (
