@@ -228,7 +228,7 @@ export default function ReconciliationTransactionList({
                       disabled={pendingClearedIds?.has(t.id) ?? false}
                       className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-wait ${
                         t.cleared
-                          ? 'bg-green-500 border-green-500 text-white'
+                          ? 'bg-blue-600 border-blue-600 text-white'
                           : 'border-gray-300 dark:border-gray-500 hover:border-primary'
                       }`}
                       title={t.cleared ? 'Mark as uncleared' : 'Mark as cleared'}

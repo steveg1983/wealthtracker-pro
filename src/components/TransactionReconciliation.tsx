@@ -303,13 +303,13 @@ export default function TransactionReconciliation({
               
               <div className={`rounded-lg p-4 border ${
                 Math.abs(statementDifference) < 0.01
-                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                   : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
               }`}>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Difference</div>
                 <div className={`text-xl font-semibold mt-1 ${
                   Math.abs(statementDifference) < 0.01
-                    ? 'text-green-600 dark:text-green-400'
+                    ? 'text-blue-600 dark:text-blue-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
                   {formatCurrency(statementDifference)}
@@ -441,7 +441,7 @@ export default function TransactionReconciliation({
                           
                           <button
                             onClick={() => handleClearSelected([transaction.id])}
-                            className="ml-4 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                            className="ml-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                           >
                             Clear
                           </button>
@@ -455,12 +455,12 @@ export default function TransactionReconciliation({
 
             {/* Success Message */}
             {unclearedTransactions.length === 0 && Math.abs(statementDifference) < 0.01 && (
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-8 text-center">
-                <CheckCircleIcon className="mx-auto text-green-600 dark:text-green-400 mb-3" size={48} />
-                <h4 className="text-lg font-medium text-green-900 dark:text-green-300">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-8 text-center">
+                <CheckCircleIcon className="mx-auto text-blue-600 dark:text-blue-400 mb-3" size={48} />
+                <h4 className="text-lg font-medium text-blue-900 dark:text-blue-300">
                   Account Reconciled!
                 </h4>
-                <p className="text-sm text-green-800 dark:text-green-200 mt-1">
+                <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
                   All transactions are cleared and your balance matches the statement.
                 </p>
               </div>
