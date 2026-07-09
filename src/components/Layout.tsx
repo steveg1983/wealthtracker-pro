@@ -195,13 +195,13 @@ export default function Layout(): React.JSX.Element {
       <div className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50">
         <a 
           href="#main-content" 
-          className="inline-block px-4 py-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          className="inline-block px-4 py-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
         >
           Skip to main content
         </a>
         <a 
           href="#main-navigation" 
-          className="inline-block px-4 py-2 ml-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          className="inline-block px-4 py-2 ml-2 bg-[#1a2332] text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
         >
           Skip to navigation
         </a>
@@ -321,7 +321,7 @@ export default function Layout(): React.JSX.Element {
                   <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 w-72 z-50">
                     {currentHelp && (
                       <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">About this page</p>
+                        <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-1">About this page</p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{currentHelp[1]}</p>
                       </div>
                     )}
@@ -673,12 +673,12 @@ export default function Layout(): React.JSX.Element {
       
       {/* Auto-resolved notification */}
       {conflictState.autoResolvedCount > 0 && (
-        <div className="fixed top-20 right-4 z-50 bg-green-100 dark:bg-green-900/90 p-3 rounded-lg shadow-lg animate-fade-in-out">
+        <div className="fixed top-20 right-4 z-50 bg-blue-100 dark:bg-blue-900/90 p-3 rounded-lg shadow-lg animate-fade-in-out">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-            <span className="text-sm text-green-800 dark:text-green-200">
+            <span className="text-sm text-blue-800 dark:text-blue-200">
               {conflictState.autoResolvedCount} conflict{conflictState.autoResolvedCount !== 1 ? 's' : ''} auto-resolved
             </span>
           </div>

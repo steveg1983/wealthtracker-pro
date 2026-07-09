@@ -159,19 +159,21 @@ describe('OfflineIndicator', () => {
       expect(banner).toHaveClass('bg-orange-500', 'text-white');
     });
 
-    it('shows green background when back online', () => {
+    it('shows blue background when back online', () => {
       setNavigatorOnline(true);
-      
+
       render(<OfflineIndicator />);
-      
+
       // Go offline first
       triggerOfflineEvent();
       // Then come back online
       triggerOnlineEvent();
-      
-      const banner = screen.getByText('Back online').closest('.bg-green-500');
+
+      // "Back online" uses the theme accent blue (the app-wide green→blue sweep;
+      // the offline state stays orange, so the two states remain distinct).
+      const banner = screen.getByText('Back online').closest('.bg-blue-600');
       expect(banner).toBeInTheDocument();
-      expect(banner).toHaveClass('bg-green-500', 'text-white');
+      expect(banner).toHaveClass('bg-blue-600', 'text-white');
     });
 
     it('displays WiFi off icon when offline', () => {

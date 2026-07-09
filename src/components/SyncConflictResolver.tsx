@@ -243,8 +243,8 @@ function ConflictDetail({ conflict, onResolve, onBack }: ConflictDetailProps): R
 
           <div className="space-y-4">
             <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-green-500">Server Version</span>
-              <span className="text-xs bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 px-2 py-1 rounded">
+              <span className="text-blue-600">Server Version</span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                 Latest from Server
               </span>
             </h3>
