@@ -10,6 +10,18 @@ interface CategorySelectorProps {
   placeholder?: string;
   className?: string;
   allowCreate?: boolean;
+  /**
+   * List detail categories from BOTH directions (income + expense), not just
+   * `transactionType`. For the Money-style cross-type filing the quick-edit
+   * bar offers (a refund filed under the expense category it refunds).
+   */
+  includeAllTypes?: boolean;
+  /**
+   * Render the "Select a category for this … transaction" hint under the box.
+   * Off in compact/inline contexts (the quick-edit bar) where a second line
+   * would break the single-row layout.
+   */
+  showHelperText?: boolean;
 }
 
 export default function CategorySelector({
@@ -18,6 +30,8 @@ export default function CategorySelector({
   transactionType,
   placeholder = "Select category...",
   className = "",
+  includeAllTypes = false,
+  showHelperText = true,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -30,6 +44,14 @@ export default function CategorySelector({
 
   // Get sub-categories for the transaction type
   const getSubCategoriesForType = (): Category[] => {
+    // includeAllTypes: gather sub-categories under EVERY type tree (both
+    // directions), for the quick-edit bar's cross-type list.
+    if (includeAllTypes) {
+      return categories
+        .filter(cat => cat.level === 'type')
+        .flatMap(tc => getSubCategories(tc.id))
+        .filter(c => c.isActive !== false);
+    }
     const typeCategory = categories.find(cat =>
       cat.level === 'type' && (cat.type === transactionType || cat.type === 'both')
     );
@@ -329,7 +351,7 @@ export default function CategorySelector({
       </div>
 
       {/* Helper Text */}
-      {!selectedCategory && !showDropdown && (
+      {showHelperText && !selectedCategory && !showDropdown && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           Select a category for this {transactionType} transaction
         </p>

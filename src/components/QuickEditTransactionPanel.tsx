@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
 import { XIcon } from './icons';
+import CategorySelector from './CategorySelector';
 import type { Transaction } from '../types';
 
 interface QuickEditTransactionPanelProps {
@@ -46,23 +47,6 @@ export default function QuickEditTransactionPanel({
     setDescription(transaction.description);
     setCategory(transaction.category ?? '');
   }, [transaction]);
-
-  // Both directions are listed (Money-style cross-type categorization is
-  // legitimate — a refund can file under the expense category it refunds).
-  const categoryGroups = useMemo(() => {
-    const active = categories.filter(c => c.isActive !== false);
-    const detailCats = active.filter(c =>
-      c.level === 'detail' && c.id !== 'transfer-in' && c.id !== 'transfer-out'
-    );
-    const subCats = active.filter(c => c.level === 'sub');
-    return subCats
-      .map(sub => ({
-        label: sub.name,
-        type: sub.type,
-        items: detailCats.filter(d => d.parentId === sub.id),
-      }))
-      .filter(g => g.items.length > 0);
-  }, [categories]);
 
   const isTransfer = transaction.type === 'transfer';
 
@@ -135,7 +119,7 @@ export default function QuickEditTransactionPanel({
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white"
+            className="w-full px-3 h-[42px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl dark:text-white"
           />
         </div>
 
@@ -149,34 +133,32 @@ export default function QuickEditTransactionPanel({
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white"
+            className="w-full px-3 h-[42px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl dark:text-white"
           />
         </div>
 
-        {/* Category (not editable for transfers — they carry system categories) */}
+        {/* Category (not editable for transfers — they carry system categories).
+            Searchable combobox: click to type-filter, or use the chevron to
+            browse the full list. Both directions are offered (Money-style
+            cross-type filing — a refund can file under the expense it refunds). */}
         <div className="w-full lg:w-72">
-          <label htmlFor="quick-edit-category" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
             Category
-          </label>
-          <select
-            id="quick-edit-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            disabled={isTransfer}
-            className="w-full px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg dark:text-white disabled:opacity-50"
-          >
-            <option value="">{isTransfer ? 'Transfer' : 'Select category'}</option>
-            {!isTransfer && categoryGroups.map(group => (
-              <optgroup
-                key={group.label}
-                label={group.type === 'income' ? `Income: ${group.label}` : group.label}
-              >
-                {group.items.map(item => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          </span>
+          {isTransfer ? (
+            <div className="w-full px-3 h-[42px] flex items-center text-sm bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-gray-500 dark:text-gray-400">
+              Transfer
+            </div>
+          ) : (
+            <CategorySelector
+              selectedCategory={category}
+              onCategoryChange={setCategory}
+              transactionType={transaction.type}
+              includeAllTypes
+              showHelperText={false}
+              placeholder="Search or select category…"
+            />
+          )}
         </div>
 
         {/* Actions */}
@@ -184,7 +166,7 @@ export default function QuickEditTransactionPanel({
           <button
             onClick={() => void save(false)}
             disabled={isSaving}
-            className="px-3 py-1.5 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            className="px-4 h-[42px] inline-flex items-center justify-center text-sm font-medium bg-[#1a2332] text-white rounded-xl hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {isSaving ? 'Saving…' : 'Save'}
           </button>
@@ -192,7 +174,7 @@ export default function QuickEditTransactionPanel({
             <button
               onClick={() => void save(true)}
               disabled={isSaving}
-              className="px-3 py-1.5 text-sm font-medium bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-4 h-[42px] inline-flex items-center justify-center text-sm font-medium bg-[#2d3a4d] text-white rounded-xl hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               title="Save and move to the next transaction in the list"
             >
               Save &amp; Next
