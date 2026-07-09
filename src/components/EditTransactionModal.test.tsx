@@ -363,8 +363,51 @@ describe('EditTransactionModal', () => {
           transaction={transaction2}
         />
       );
-      
+
       expect(screen.getByTestId('modal-title')).toHaveTextContent('Edit Transaction');
+    });
+  });
+
+  describe('Previous / Save & Next batch buttons', () => {
+    it('shows both when handlers are provided for an existing transaction', () => {
+      render(
+        <EditTransactionModal
+          isOpen
+          onClose={mockOnClose}
+          transaction={createMockTransaction()}
+          onSaveAndNext={vi.fn()}
+          onSaveAndPrevious={vi.fn()}
+        />
+      );
+      expect(screen.getByRole('button', { name: 'Previous' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save & Next' })).toBeInTheDocument();
+    });
+
+    it('omits Previous when there is no previous handler (e.g. first row)', () => {
+      render(
+        <EditTransactionModal
+          isOpen
+          onClose={mockOnClose}
+          transaction={createMockTransaction()}
+          onSaveAndNext={vi.fn()}
+        />
+      );
+      expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Save & Next' })).toBeInTheDocument();
+    });
+
+    it('shows neither for a new transaction', () => {
+      render(
+        <EditTransactionModal
+          isOpen
+          onClose={mockOnClose}
+          transaction={null}
+          onSaveAndNext={vi.fn()}
+          onSaveAndPrevious={vi.fn()}
+        />
+      );
+      expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Save & Next' })).toBeNull();
     });
   });
 });

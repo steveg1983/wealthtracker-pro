@@ -438,6 +438,26 @@ export default function AccountTransactions() {
     setSelectedTransaction(nextTransaction);
     return true;
   }, [getNextTransactionId, transactionsWithBalance]);
+
+  const getPreviousTransactionId = useCallback((currentId: string): string | null => {
+    const index = displayRows.findIndex(row => row.id === currentId);
+    if (index === -1) return null;
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (!isOpeningBalanceRow(displayRows[i])) {
+        return displayRows[i].id;
+      }
+    }
+    return null;
+  }, [displayRows]);
+
+  const advanceToPreviousTransaction = useCallback((currentId: string): boolean => {
+    const previousId = getPreviousTransactionId(currentId);
+    if (!previousId) return false;
+    const previousTransaction = transactionsWithBalance.find(t => t.id === previousId) ?? null;
+    setSelectedTransactionId(previousId);
+    setSelectedTransaction(previousTransaction);
+    return true;
+  }, [getPreviousTransactionId, transactionsWithBalance]);
   
   
   // Handle quick add
@@ -1247,6 +1267,11 @@ export default function AccountTransactions() {
                     setSelectedTransactionId(null);
                   }
                 }
+              : undefined
+          }
+          onSaveAndPrevious={
+            getPreviousTransactionId(selectedTransaction.id)
+              ? () => { advanceToPreviousTransaction(selectedTransaction.id); }
               : undefined
           }
         />
