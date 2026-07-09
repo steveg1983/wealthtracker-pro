@@ -461,7 +461,7 @@ export function ImprovedDashboard() {
             {metrics.budgetStatus.length > 3 && (
               <button 
                 onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-                className="w-full mt-2 py-2 text-emerald-700 dark:text-emerald-400 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                className="w-full mt-2 py-2 text-blue-700 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               >
                 View All Budgets ({metrics.budgetStatus.length}) →
               </button>
@@ -487,7 +487,7 @@ export function ImprovedDashboard() {
           </h3>
           <button
             onClick={() => setShowAccountSettings(!showAccountSettings)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
             aria-label="Customize displayed accounts"
             aria-expanded={showAccountSettings}
           >
@@ -504,7 +504,7 @@ export function ImprovedDashboard() {
               </p>
               <button
                 onClick={() => setShowAccountSettings(false)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
                 aria-label="Close account settings"
               >
                 <XIcon size={16} className="text-gray-500" />
@@ -520,7 +520,7 @@ export function ImprovedDashboard() {
                     onClick={() => toggleAccountSelection(account.id)}
                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
                       isSelected
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
                         : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-550'
                     }`}
                     aria-pressed={isSelected ? 'true' : 'false'}
@@ -553,7 +553,7 @@ export function ImprovedDashboard() {
             displayedAccounts.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 data-testid="account-balance-card"
                 onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
                 role="button"
@@ -765,7 +765,7 @@ export function ImprovedDashboard() {
           {metrics.recentActivity.length > 10 && (
             <button 
               onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
-              className="w-full mt-4 py-2 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+              className="w-full mt-4 py-2 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               aria-label="View all transactions"
             >
               View All Transactions →
@@ -779,7 +779,7 @@ export function ImprovedDashboard() {
       <nav aria-label="Quick actions" className="grid grid-cols-2 sm:grid-cols-4 gap-6">
         <button
           onClick={() => setShowAddTransactionModal(true)}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
           aria-label="Add a new transaction"
         >
           <CreditCardIcon size={32} className="mx-auto mb-3 text-[#1a2332] dark:text-gray-300" aria-hidden="true" />
@@ -790,10 +790,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
           aria-label="View all accounts"
         >
-          <WalletIcon size={32} className="mx-auto mb-3 text-emerald-600" aria-hidden="true" />
+          <WalletIcon size={32} className="mx-auto mb-3 text-blue-600" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             View Accounts
           </span>
@@ -801,7 +801,7 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
           aria-label="Set up or view budgets"
         >
           <TargetIcon size={32} className="mx-auto mb-3 text-amber-600" aria-hidden="true" />
@@ -812,10 +812,10 @@ export function ImprovedDashboard() {
 
         <button
           onClick={() => navigate(preserveDemoParam('/analytics', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
           aria-label="View financial analytics"
         >
-          <TrendingUpIcon size={32} className="mx-auto mb-3 text-[#2d4a3e] dark:text-emerald-400" aria-hidden="true" />
+          <TrendingUpIcon size={32} className="mx-auto mb-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
             Analytics
           </span>

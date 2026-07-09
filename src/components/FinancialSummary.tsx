@@ -57,7 +57,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
         </div>
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="text-sm text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
+          className="text-sm text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
         >
           {showDetails ? 'Hide' : 'Show'} Details
         </button>
