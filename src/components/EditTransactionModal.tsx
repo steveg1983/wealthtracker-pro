@@ -30,6 +30,11 @@ interface EditTransactionModalProps {
    * the caller to swap in the next transaction from its list.
    */
   onSaveAndNext?: () => void;
+  /**
+   * Batch mode counterpart: when provided, a "Previous" button appears that
+   * saves and swaps in the PREVIOUS transaction from the caller's list.
+   */
+  onSaveAndPrevious?: () => void;
 }
 
 interface FormData {
@@ -46,7 +51,7 @@ interface FormData {
   reconciledWith: string;
 }
 
-export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext }: EditTransactionModalProps): React.JSX.Element {
+export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious }: EditTransactionModalProps): React.JSX.Element {
   const { accounts, categories, updateTransaction, deleteTransaction } = useApp();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
@@ -60,9 +65,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // category so it nets that expense down).
   const [crossTypeCategories, setCrossTypeCategories] = useState(false);
   const amountInputRef = useRef<HTMLInputElement>(null);
-  // Batch mode coordination: "Save & Next" sets advance; a successful submit
-  // consumes it and suppresses the close that useModalForm fires afterwards.
-  const advanceAfterSaveRef = useRef(false);
+  // Batch mode coordination: Save & Next / Previous set a direction; a
+  // successful submit consumes it and suppresses the close that useModalForm
+  // fires afterwards.
+  const advanceDirectionRef = useRef<'next' | 'previous' | null>(null);
   const suppressCloseRef = useRef(false);
   
   // Initialize form with transaction data if editing, otherwise use defaults
@@ -98,8 +104,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
       onSubmit: async (data) => {
         // Consume the advance intent up front so a failed save never leaves a
         // stale "advance" that would hijack the NEXT ordinary Save.
-        const advanceAfterSave = advanceAfterSaveRef.current;
-        advanceAfterSaveRef.current = false;
+        const advanceDirection = advanceDirectionRef.current;
+        advanceDirectionRef.current = null;
         try {
           const isTransfer = data.type === 'transfer';
           // A freshly-chosen outgoing transfer encodes its target in the
@@ -202,9 +208,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           // Batch mode: "Save & Next" keeps the modal open — the caller swaps
           // in the next transaction and the form repopulates from the prop.
           // useModalForm calls our onClose after this resolves; suppress it.
-          if (advanceAfterSave && onSaveAndNext) {
+          if (advanceDirection === 'next' && onSaveAndNext) {
             suppressCloseRef.current = true;
             onSaveAndNext();
+          } else if (advanceDirection === 'previous' && onSaveAndPrevious) {
+            suppressCloseRef.current = true;
+            onSaveAndPrevious();
           }
         } catch (error) {
           if (error instanceof z.ZodError) {
@@ -675,6 +684,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 >
                   Cancel
                 </button>
+                {transaction && onSaveAndPrevious && (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    onClick={() => { advanceDirectionRef.current = 'previous'; }}
+                    className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Save this transaction and move to the previous one in the list"
+                  >
+                    Previous
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -686,7 +706,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    onClick={() => { advanceAfterSaveRef.current = true; }}
+                    onClick={() => { advanceDirectionRef.current = 'next'; }}
                     className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the next one in the list"
                   >

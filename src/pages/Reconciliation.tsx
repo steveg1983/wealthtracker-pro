@@ -205,6 +205,21 @@ export default function Reconciliation() {
     return true;
   }, [getNextTransactionId, accountTransactions]);
 
+  const getPreviousTransactionId = useCallback((currentId: string): string | null => {
+    const index = visibleOrderIds.indexOf(currentId);
+    if (index <= 0) return null;
+    return visibleOrderIds[index - 1] ?? null;
+  }, [visibleOrderIds]);
+
+  const advanceToPreviousTransaction = useCallback((currentId: string): boolean => {
+    const previousId = getPreviousTransactionId(currentId);
+    if (!previousId) return false;
+    const previousTransaction = accountTransactions.find(t => t.id === previousId) ?? null;
+    if (!previousTransaction) return false;
+    setEditingTransaction(previousTransaction);
+    return true;
+  }, [getPreviousTransactionId, accountTransactions]);
+
   // Step 1: Account Selection
   if (!selectedAccountId) {
     return (
@@ -293,6 +308,11 @@ export default function Reconciliation() {
                   handleCloseEditModal();
                 }
               }
+            : undefined
+        }
+        onSaveAndPrevious={
+          editingTransaction && getPreviousTransactionId(editingTransaction.id)
+            ? () => { advanceToPreviousTransaction(editingTransaction.id); }
             : undefined
         }
       />
