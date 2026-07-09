@@ -60,7 +60,7 @@ export default function ReconciliationAccountList({
                     {unreconciledCount} unreconciled
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                     All cleared
                   </span>
                 )}
@@ -90,7 +90,7 @@ export default function ReconciliationAccountList({
                   difference == null
                     ? 'text-gray-400'
                     : Math.abs(difference) < 0.005
-                    ? 'text-green-600 dark:text-green-400'
+                    ? 'text-blue-600 dark:text-blue-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
                   {difference != null

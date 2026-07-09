@@ -138,7 +138,7 @@ export default function ReconciliationFinalizationModal({
               </button>
               <button
                 onClick={onFinalize}
-                className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 Finalize Anyway
               </button>
@@ -147,8 +147,8 @@ export default function ReconciliationFinalizationModal({
         ) : isBalanced ? (
           /* Balanced — success */
           <div className="text-center py-6">
-            <CheckCircleIcon size={48} className="mx-auto text-green-500 mb-3" />
-            <h3 className="text-lg font-semibold text-green-600 dark:text-green-400 mb-1">
+            <CheckCircleIcon size={48} className="mx-auto text-blue-600 mb-3" />
+            <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
               Account Balanced!
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -156,7 +156,7 @@ export default function ReconciliationFinalizationModal({
             </p>
             <button
               onClick={onFinalize}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             >
               Complete Reconciliation
             </button>
