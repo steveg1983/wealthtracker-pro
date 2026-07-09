@@ -65,16 +65,16 @@ export default function BillNegotiator() {
   return (
     <div className="space-y-6">
       {/* Summary Card */}
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold mb-2">Bill Negotiation Assistant</h3>
-            <p className="text-green-100">
+            <p className="text-blue-100">
               AI-powered suggestions to reduce your recurring bills
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-green-100">Potential Annual Savings</p>
+            <p className="text-sm text-blue-100">Potential Annual Savings</p>
             <p className="text-3xl font-bold">{formatCurrency(totalPotentialSavings.times(12))}</p>
           </div>
         </div>
@@ -91,7 +91,7 @@ export default function BillNegotiator() {
                 key={suggestion.merchant}
                 className={`bg-white dark:bg-gray-800 rounded-xl p-6 border ${
                   isCompleted 
-                    ? 'border-green-200 dark:border-green-800 opacity-75' 
+                    ? 'border-blue-200 dark:border-blue-800 opacity-75'
                     : 'border-gray-200 dark:border-gray-700'
                 }`}
               >
@@ -102,7 +102,7 @@ export default function BillNegotiator() {
                         {suggestion.merchant}
                       </h4>
                       {isCompleted && (
-                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 text-sm">
                           <CheckIcon size={16} />
                           Negotiated
                         </span>
@@ -214,7 +214,7 @@ export default function BillNegotiator() {
               <ul className="space-y-2">
                 {selectedBill.negotiationTips.map((tip, index) => (
                   <li key={index} className="flex items-start gap-2">
-                    <CheckIcon size={16} className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                    <CheckIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">{tip}</span>
                   </li>
                 ))}
@@ -249,7 +249,7 @@ export default function BillNegotiator() {
                   setShowTipsModal(false);
                   setSelectedBill(null);
                 }}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Mark as Negotiated
               </button>

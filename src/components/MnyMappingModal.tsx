@@ -143,7 +143,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
         <div className="mb-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-start gap-2">
-              <AlertCircleIcon className="text-emerald-700 dark:text-emerald-400 mt-0.5" size={20} />
+              <AlertCircleIcon className="text-blue-700 dark:text-blue-400 mt-0.5" size={20} />
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-semibold mb-1">Help us understand your data</p>
                 <p>We've extracted data from your Money file. Please tell us what each column represents by selecting from the dropdown menus.</p>

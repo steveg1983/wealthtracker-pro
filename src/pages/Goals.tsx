@@ -217,7 +217,7 @@ export default function Goals() {
                 {formatCurrency(totalTargetAmount)}
               </p>
             </div>
-            <TrendingUpIcon className="h-8 w-8 text-green-600" />
+            <TrendingUpIcon className="h-8 w-8 text-blue-600" />
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export default function Goals() {
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            progressValue >= 100 ? "bg-green-600" : progressValue >= 75 ? "bg-[#1a2332]" : progressValue >= 50 ? "bg-yellow-600" : "bg-gray-400"
+                            progressValue >= 100 ? "bg-blue-600" : progressValue >= 75 ? "bg-[#1a2332]" : progressValue >= 50 ? "bg-yellow-600" : "bg-gray-400"
                           }`}
                           style={{ width: `${Math.min(progressValue, 100)}%` }}
                         />
@@ -380,7 +380,7 @@ export default function Goals() {
                   Build your emergency fund or save for a big purchase
                 </p>
               </div>
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="text-2xl mb-2">💳</div>
                 <h4 className="font-medium text-gray-900 dark:text-white text-sm">Debt Payoff</h4>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -464,7 +464,7 @@ export default function Goals() {
           <div className="mt-6">
             <button
               onClick={() => setShowAchievements(!showAchievements)}
-              className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-2"
+              className="text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium flex items-center gap-2"
             >
               <span>🏆</span>
               {showAchievements ? 'Hide' : 'View'} Achievement History

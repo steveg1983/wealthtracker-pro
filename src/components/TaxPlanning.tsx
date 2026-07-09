@@ -87,11 +87,11 @@ export default function TaxPlanning(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-2">Tax Planning Center</h2>
-            <p className="text-green-100">
+            <p className="text-blue-100">
               Track deductions, estimate taxes, and optimize your tax strategy
             </p>
           </div>
@@ -109,7 +109,7 @@ export default function TaxPlanning(): React.JSX.Element {
             </select>
             <button
               onClick={generateReport}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
             >
               <DownloadIcon size={16} />
               Export Report
@@ -124,7 +124,7 @@ export default function TaxPlanning(): React.JSX.Element {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Total Income</span>
-              <DollarSignIcon size={20} className="text-green-600 dark:text-green-400" />
+              <DollarSignIcon size={20} className="text-blue-600 dark:text-blue-400" />
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               {formatCurrency(taxEstimate.income)}
@@ -134,7 +134,7 @@ export default function TaxPlanning(): React.JSX.Element {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Total Deductions</span>
-              <FileTextIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+              <FileTextIcon size={20} className="text-blue-700 dark:text-blue-400" />
             </div>
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               {formatCurrency(taxEstimate.deductions)}
@@ -261,7 +261,7 @@ export default function TaxPlanning(): React.JSX.Element {
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                           <div
-                            className="bg-green-600 h-3 rounded-full"
+                            className="bg-blue-600 h-3 rounded-full"
                             style={{ width: `${Math.min(taxEstimate.effectiveRate, 100)}%` }}
                           />
                         </div>
@@ -386,7 +386,7 @@ export default function TaxPlanning(): React.JSX.Element {
                       </div>
                       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                         <p className="text-sm text-gray-600 dark:text-gray-400">Est. Tax Impact</p>
-                        <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                        <p className="text-xl font-bold text-green-600 dark:text-green-400">
                           {formatCurrency(
                             capitalGains.reduce((sum, g) => sum.plus(g.estimatedTax), toDecimal(0))
                           )}
@@ -461,13 +461,13 @@ export default function TaxPlanning(): React.JSX.Element {
                         <div className={`p-3 rounded-lg ${
                           optimization.category === 'retirement' ? 'bg-purple-100 dark:bg-purple-900/30' :
                           optimization.category === 'investment' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                          optimization.category === 'charitable' ? 'bg-green-100 dark:bg-green-900/30' :
+                          optimization.category === 'charitable' ? 'bg-blue-100 dark:bg-blue-900/30' :
                           'bg-gray-100 dark:bg-gray-700'
                         }`}>
                           <PiggyBankIcon size={24} className={
                             optimization.category === 'retirement' ? 'text-purple-600 dark:text-purple-400' :
-                            optimization.category === 'investment' ? 'text-emerald-700 dark:text-emerald-400' :
-                            optimization.category === 'charitable' ? 'text-green-600 dark:text-green-400' :
+                            optimization.category === 'investment' ? 'text-blue-700 dark:text-blue-400' :
+                            optimization.category === 'charitable' ? 'text-blue-600 dark:text-blue-400' :
                             'text-gray-600 dark:text-gray-400'
                           } />
                         </div>

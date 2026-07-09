@@ -183,7 +183,7 @@ export default function BulkEditPanel({
           <div className="space-y-3">
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 hover:text-emerald-800"
+              className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400 hover:text-blue-800"
             >
               <EyeIcon size={16} />
               {showPreview ? 'Hide' : 'Show'} preview of changes

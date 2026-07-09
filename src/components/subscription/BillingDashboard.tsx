@@ -109,7 +109,7 @@ export default function BillingDashboard({
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: { color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200', icon: CheckCircleIcon },
+      active: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200', icon: CheckCircleIcon },
       trialing: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200', icon: CheckCircleIcon },
       past_due: { color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200', icon: AlertTriangleIcon },
       cancelled: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', icon: AlertTriangleIcon },
@@ -284,7 +284,7 @@ export default function BillingDashboard({
             {subscription.status === 'trialing' && subscription.trialEnd && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <CheckCircleIcon size={20} className="text-blue-700 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-blue-900 dark:text-blue-300 font-medium">
                       Free Trial Active
@@ -441,7 +441,7 @@ export default function BillingDashboard({
                     <td className="py-4">
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         invoice.status === 'paid' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
                           : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200'
                       }`}>
                         {invoice.status}
@@ -453,7 +453,7 @@ export default function BillingDashboard({
                           href={invoice.invoicePdf}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
+                          className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                         >
                           <DownloadIcon size={16} />
                         </a>

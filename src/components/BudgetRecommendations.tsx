@@ -295,9 +295,9 @@ export default function BudgetRecommendations() {
               <div className="flex items-start gap-3">
                 <div className="mt-0.5">
                   {insight.type === 'achievement' ? (
-                    <CheckIcon size={20} className="text-green-600 dark:text-green-400" />
+                    <CheckIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   ) : insight.type === 'opportunity' ? (
-                    <PiggyBankIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+                    <PiggyBankIcon size={20} className="text-blue-700 dark:text-blue-400" />
                   ) : (
                     <AlertTriangleIcon size={20} className="text-yellow-600 dark:text-yellow-400" />
                   )}
@@ -427,7 +427,7 @@ export default function BudgetRecommendations() {
 
       {analysis.recommendations.length === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-8 text-center">
-          <CheckIcon className="mx-auto text-green-500 mb-3" size={48} />
+          <CheckIcon className="mx-auto text-blue-600 mb-3" size={48} />
           <h3 className="text-lg font-semibold mb-2">No Recommendations Available</h3>
           <p className="text-gray-600 dark:text-gray-400">
             Your budgets are well-aligned with your spending patterns!

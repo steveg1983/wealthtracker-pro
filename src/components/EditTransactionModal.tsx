@@ -428,7 +428,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   const colors = {
                     income: isActive ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-green-600',
                     expense: isActive ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-red-600',
-                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600',
+                    transfer: isActive ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-blue-600',
                   };
                   return (
                     <button
@@ -626,7 +626,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   onChange={(e) => updateField('cleared', e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
-                <CheckIcon2 size={16} className="text-green-600 dark:text-green-400" />
+                <CheckIcon2 size={16} className="text-blue-600 dark:text-blue-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Reconciled
                 </span>
@@ -639,14 +639,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   disabled
                   className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <LinkIcon size={16} className="text-emerald-700 dark:text-emerald-400" />
+                <LinkIcon size={16} className="text-blue-700 dark:text-blue-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Linked to bank statement
                 </span>
               </label>
 
               {transaction?.reconciledWith && transaction.reconciledWith !== 'manual' && (
-                <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400">
+                <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
                   <LinkIcon size={16} />
                   <span>Reconciled with transaction ID: {transaction.reconciledWith}</span>
                 </div>

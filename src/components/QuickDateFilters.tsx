@@ -145,7 +145,7 @@ export default function QuickDateFilters({ onDateRangeSelect, currentFrom, curre
             {(currentFrom || currentTo) && (
               <button
                 onClick={() => onDateRangeSelect('', '')}
-                className="text-xs text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-xs text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                 aria-label="Clear date filter"
               >
                 Clear

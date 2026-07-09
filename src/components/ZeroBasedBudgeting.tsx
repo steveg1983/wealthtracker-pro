@@ -331,7 +331,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
                   <p className="text-2xl font-bold">{formatCurrency(totals.approved)}</p>
                   <p className="text-xs text-gray-500">{approvedPercentage}%</p>
                 </div>
-                <CheckCircleIcon size={32} className="text-green-600" />
+                <CheckCircleIcon size={32} className="text-blue-600" />
               </div>
             </div>
             
@@ -380,7 +380,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
             
             <button
               onClick={() => setShowItemModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <PlusIcon size={20} />
               Add Budget Item
@@ -402,7 +402,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
                     key={item.id}
                     className={`flex items-center justify-between p-4 rounded-lg border ${
                       item.isApproved 
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' 
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
                         : 'bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-600'
                     }`}
                   >
@@ -472,7 +472,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
           {/* Tips */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">
             <div className="flex items-start gap-3">
-              <InfoIcon size={24} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+              <InfoIcon size={24} className="text-blue-700 dark:text-blue-400 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
                   Zero-Based Budgeting Tips
