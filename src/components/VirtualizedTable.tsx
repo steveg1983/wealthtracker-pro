@@ -1,4 +1,4 @@
-import React, { memo, useMemo, ReactNode, useCallback } from 'react';
+import React, { memo, useMemo, useState, ReactNode, useCallback } from 'react';
 import { VirtualizedList } from './VirtualizedList';
 
 export interface Column<T> {
@@ -9,6 +9,8 @@ export interface Column<T> {
   className?: string;
   headerClassName?: string;
   sortable?: boolean;
+  /** Set false to suppress the resize handle (e.g. a flex-filler column). */
+  resizable?: boolean;
 }
 
 export interface VirtualizedTableProps<T> {
@@ -31,6 +33,10 @@ export interface VirtualizedTableProps<T> {
   onLoadMore?: () => void;
   hasMore?: boolean;
   threshold?: number;
+  /** Opt-in: drag a header onto another to reorder columns. */
+  onColumnReorder?: (fromKey: string, toKey: string) => void;
+  /** Opt-in: drag a header's right edge to resize. New width in px. */
+  onColumnResize?: (key: string, width: number) => void;
 }
 
 // Table header component
@@ -44,7 +50,9 @@ const TableHeader = memo(function TableHeader<T>({
   onSelectionChange,
   onSort,
   sortColumn,
-  sortDirection
+  sortDirection,
+  onColumnReorder,
+  onColumnResize
 }: {
   columns: Column<T>[];
   headerClassName?: string;
@@ -56,7 +64,33 @@ const TableHeader = memo(function TableHeader<T>({
   onSort?: (column: string, direction: 'asc' | 'desc') => void;
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
+  onColumnReorder?: (fromKey: string, toKey: string) => void;
+  onColumnResize?: (key: string, width: number) => void;
 }) {
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+
+  // Drag the right edge of a header to resize. Uses the cell's live rendered
+  // width as the baseline so it works regardless of px/flex sizing.
+  const startResize = useCallback((e: React.MouseEvent, key: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const cell = (e.currentTarget as HTMLElement).parentElement;
+    const startX = e.clientX;
+    const startWidth = cell ? cell.getBoundingClientRect().width : 120;
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.max(48, Math.round(startWidth + (ev.clientX - startX)));
+      onColumnResize?.(key, next);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [onColumnResize]);
   const allSelected = useMemo(() => {
     if (!selectedItems || items.length === 0) return false;
     return items.every((item, index) => 
@@ -98,29 +132,62 @@ const TableHeader = memo(function TableHeader<T>({
         </div>
       )}
       
-      {columns.map((column) => (
-        <div
-          key={column.key}
-          className={`px-3 py-2 font-medium text-sm ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''}`}
-          style={{ width: column.width }}
-        >
-          {column.sortable && onSort ? (
-            <button
-              onClick={() => handleSort(column.key)}
-              className={`inline-flex items-center gap-1 ${headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100'}`}
-            >
-              {column.header}
-              {sortColumn === column.key && (
-                <span className="text-xs">
-                  {sortDirection === 'asc' ? '↑' : '↓'}
-                </span>
-              )}
-            </button>
-          ) : (
-            column.header
-          )}
-        </div>
-      ))}
+      {columns.map((column) => {
+        const reorderable = !!onColumnReorder;
+        const resizable = !!onColumnResize && column.resizable !== false;
+        const isDropTarget = !!dragKey && dragKey !== column.key && overKey === column.key;
+        return (
+          <div
+            key={column.key}
+            draggable={reorderable}
+            onDragStart={reorderable ? (e) => {
+              setDragKey(column.key);
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', column.key);
+            } : undefined}
+            onDragOver={reorderable ? (e) => {
+              e.preventDefault();
+              if (dragKey && dragKey !== column.key) setOverKey(column.key);
+            } : undefined}
+            onDragLeave={reorderable ? () => setOverKey(k => (k === column.key ? null : k)) : undefined}
+            onDrop={reorderable ? (e) => {
+              e.preventDefault();
+              const from = dragKey ?? e.dataTransfer.getData('text/plain');
+              if (from && from !== column.key) onColumnReorder!(from, column.key);
+              setDragKey(null);
+              setOverKey(null);
+            } : undefined}
+            onDragEnd={reorderable ? () => { setDragKey(null); setOverKey(null); } : undefined}
+            className={`relative px-3 py-2 font-medium text-sm ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''} ${reorderable ? 'cursor-move select-none' : ''} ${isDropTarget ? 'border-l-2 border-blue-400' : ''} ${dragKey === column.key ? 'opacity-50' : ''}`}
+            style={{ width: column.width }}
+          >
+            {column.sortable && onSort ? (
+              <button
+                onClick={() => handleSort(column.key)}
+                className={`inline-flex items-center gap-1 ${headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100'}`}
+              >
+                {column.header}
+                {sortColumn === column.key && (
+                  <span className="text-xs">
+                    {sortDirection === 'asc' ? '↑' : '↓'}
+                  </span>
+                )}
+              </button>
+            ) : (
+              column.header
+            )}
+            {resizable && (
+              <div
+                onMouseDown={(e) => startResize(e, column.key)}
+                onClick={(e) => e.stopPropagation()}
+                draggable={false}
+                className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400/50"
+                aria-hidden="true"
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 });
@@ -146,7 +213,9 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   isLoading = false,
   onLoadMore,
   hasMore = false,
-  threshold = 100
+  threshold = 100,
+  onColumnReorder,
+  onColumnResize
 }: VirtualizedTableProps<T>) {
   // Memoize row renderer
   const renderRow = useCallback((item: T, index: number, style: React.CSSProperties) => {
@@ -238,6 +307,8 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
           onSort={onSort}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
+          onColumnReorder={onColumnReorder}
+          onColumnResize={onColumnResize}
         />
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           {emptyMessage}
@@ -259,8 +330,10 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         onSort={onSort}
         sortColumn={sortColumn}
         sortDirection={sortDirection}
+        onColumnReorder={onColumnReorder}
+        onColumnResize={onColumnResize}
       />
-      
+
       <VirtualizedList
         items={items}
         renderItem={renderRow as (item: unknown, index: number, style: React.CSSProperties) => React.ReactElement}

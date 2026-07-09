@@ -13,6 +13,7 @@ import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import { compareTransactions } from '../utils/transactionSort';
+import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -36,6 +37,19 @@ type DisplayRow = TransactionWithBalance | OpeningBalanceRow;
 function isOpeningBalanceRow(row: DisplayRow): row is OpeningBalanceRow {
   return 'isOpeningBalance' in row && row.isOpeningBalance === true;
 }
+
+// Persisted (per browser) column layout for the account register.
+const COLUMN_ORDER_KEY = 'accountRegister.columnOrder.v1';
+const COLUMN_WIDTHS_KEY = 'accountRegister.columnWidths.v1';
+
+const readStored = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
@@ -76,6 +90,20 @@ export default function AccountTransactions() {
   }, [measureTableHeight, showFilters]);
   const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Column layout (order + widths), drag-controlled and persisted per browser.
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => readStored<string[]>(COLUMN_ORDER_KEY, []));
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => readStored<Record<string, number>>(COLUMN_WIDTHS_KEY, {}));
+
+  useEffect(() => {
+    try { localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); } catch { /* storage may be unavailable */ }
+  }, [columnOrder]);
+  useEffect(() => {
+    try { localStorage.setItem(COLUMN_WIDTHS_KEY, JSON.stringify(columnWidths)); } catch { /* storage may be unavailable */ }
+  }, [columnWidths]);
+
+  const handleColumnResize = useCallback((key: string, width: number) => {
+    setColumnWidths(prev => ({ ...prev, [key]: width }));
+  }, []);
   
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -489,8 +517,9 @@ export default function AccountTransactions() {
     return category.name;
   }, [categories, accounts]);
 
-  // Define table columns for VirtualizedTable
-  const columns: Column<DisplayRow>[] = useMemo(() => [
+  // Define table columns for VirtualizedTable (base definitions; order + widths
+  // are applied below from the persisted layout).
+  const baseColumns: Column<DisplayRow>[] = useMemo(() => [
     {
       key: 'date',
       header: 'Date',
@@ -530,7 +559,10 @@ export default function AccountTransactions() {
       ),
       className: 'flex-1 min-w-0',
       headerClassName: 'flex-1 min-w-0',
-      sortable: true
+      sortable: true,
+      // The flex filler: it absorbs the slack when other columns are resized, so
+      // it has no resize handle of its own.
+      resizable: false
     },
     {
       key: 'category',
@@ -614,7 +646,21 @@ export default function AccountTransactions() {
       headerClassName: 'text-right'
     }
   ], [formatCurrency, account?.currency, getCategoryName]);
-  
+
+  // Apply the persisted order + widths on top of the base definitions.
+  const columns: Column<DisplayRow>[] = useMemo(() => {
+    const baseKeys = baseColumns.map(c => c.key);
+    const byKey = new Map(baseColumns.map(c => [c.key, c] as const));
+    return orderColumnKeys(baseKeys, columnOrder)
+      .map(key => byKey.get(key))
+      .filter((c): c is Column<DisplayRow> => Boolean(c))
+      .map(c => (columnWidths[c.key] != null ? { ...c, width: columnWidths[c.key] } : c));
+  }, [baseColumns, columnOrder, columnWidths]);
+
+  const handleColumnReorder = useCallback((fromKey: string, toKey: string) => {
+    setColumnOrder(prev => moveColumnKey(orderColumnKeys(baseColumns.map(c => c.key), prev), fromKey, toKey));
+  }, [baseColumns]);
+
   if (!account) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
@@ -879,6 +925,8 @@ export default function AccountTransactions() {
           }}
           sortColumn={sortField}
           sortDirection={sortDirection}
+          onColumnReorder={handleColumnReorder}
+          onColumnResize={handleColumnResize}
           emptyMessage="No transactions found"
           threshold={50}
           className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
