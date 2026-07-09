@@ -5,6 +5,7 @@ import { usePayeeMemory } from '../hooks/usePayeeMemory';
 import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
+import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
@@ -535,46 +536,40 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               {/* Category is deliberately optional for income/expense — an
                   uncategorised transaction sits in the virtual "Uncategorised"
                   bucket. Transfers still require their target account. */}
-              <select
-                value={formData.category}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  updateField('category', val);
-                }}
-                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
-                required={formData.type === 'transfer'}
-                aria-label="Transaction category"
-              >
-                {formData.type === 'transfer' ? (
-                  <>
-                    <option value="">Select account to transfer to</option>
-                    {groupedCategories.transferAccounts.map(acct => (
-                      <option key={acct.id} value={acct.id}>{acct.name}</option>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <option value="">Select category</option>
-                    {/* Which direction's tree to browse: normally the
-                        transaction's own, flipped by the cross-type toggle
-                        (Money-style: a refund can file under an expense). */}
-                    {((formData.type === 'income') !== crossTypeCategories) && groupedCategories.incomeGroups.map(group => (
-                      <optgroup key={group.label} label={`Income: ${group.label}`}>
-                        {group.items.map(item => (
-                          <option key={item.id} value={item.id}>{item.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                    {((formData.type === 'expense') !== crossTypeCategories) && groupedCategories.expenseGroups.map(group => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.items.map(item => (
-                          <option key={item.id} value={item.id}>{item.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </>
-                )}
-              </select>
+              {formData.type === 'transfer' ? (
+                <select
+                  value={formData.category}
+                  onChange={(e) => updateField('category', e.target.value)}
+                  className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                  required
+                  aria-label="Transfer destination account"
+                >
+                  <option value="">Select account to transfer to</option>
+                  {groupedCategories.transferAccounts.map(acct => (
+                    <option key={acct.id} value={acct.id}>{acct.name}</option>
+                  ))}
+                </select>
+              ) : (
+                /* Searchable combobox: click to type-filter, or use the chevron
+                   to browse. usePortal escapes the modal body's overflow-y-auto
+                   clipping. Which direction's tree it lists is the transaction's
+                   own, flipped by the cross-type toggle (Money-style: a refund
+                   can file under an expense). The modal's own "Create new
+                   category" button covers creation, so the inline one is off. */
+                <CategorySelector
+                  selectedCategory={formData.category}
+                  onCategoryChange={(id) => updateField('category', id)}
+                  transactionType={
+                    crossTypeCategories
+                      ? (formData.type === 'income' ? 'expense' : 'income')
+                      : formData.type
+                  }
+                  placeholder="Search or select category…"
+                  allowCreate={false}
+                  showHelperText={false}
+                  usePortal
+                />
+              )}
             </div>
 
             {/* Tags */}

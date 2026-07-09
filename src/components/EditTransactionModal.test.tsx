@@ -32,6 +32,12 @@ vi.mock('./CategoryCreationModal', () => ({
   default: () => null,
 }));
 
+// Stubbed like the other heavy children — the picker's own behaviour is
+// covered by CategorySelector.test.tsx; here we only care about the modal.
+vi.mock('./CategorySelector', () => ({
+  default: () => <div data-testid="category-selector">Category Selector</div>,
+}));
+
 vi.mock('./TagSelector', () => ({
   default: () => <div data-testid="tag-selector">Tag Selector</div>,
 }));

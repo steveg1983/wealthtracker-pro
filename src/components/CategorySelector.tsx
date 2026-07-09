@@ -1,7 +1,17 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Category } from '../types';
 import { ChevronDownIcon, TagIcon, PlusIcon, ArrowLeftIcon, CheckIcon } from './icons';
+
+/** Fixed-position coordinates for the portaled dropdown (usePortal mode). */
+interface MenuPosition {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+}
 
 interface CategorySelectorProps {
   selectedCategory: string;
@@ -22,6 +32,14 @@ interface CategorySelectorProps {
    * would break the single-row layout.
    */
   showHelperText?: boolean;
+  /**
+   * Render the dropdown in a fixed-position portal on document.body instead of
+   * absolutely inside this component. Needed inside scroll containers that clip
+   * their overflow (the Edit Transaction modal's `overflow-y-auto` body would
+   * otherwise cut the list off). Off by default so existing non-clipped usages
+   * (which open the list upward in-flow) are unchanged.
+   */
+  usePortal?: boolean;
 }
 
 export default function CategorySelector({
@@ -30,8 +48,10 @@ export default function CategorySelector({
   transactionType,
   placeholder = "Select category...",
   className = "",
+  allowCreate = true,
   includeAllTypes = false,
   showHelperText = true,
+  usePortal = false,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -40,7 +60,52 @@ export default function CategorySelector({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedParentId, setSelectedParentId] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const newCategoryInputRef = useRef<HTMLInputElement>(null);
+  // Fixed coordinates for the portaled dropdown (usePortal mode only).
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+
+  // Anchor the portaled menu to the trigger. Chooses up/down by available space
+  // and recomputes on scroll/resize so it tracks the trigger inside a scrolling
+  // modal body.
+  const computeMenuPosition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 4;
+    const maxMenu = 384; // matches the non-portal max-h-96
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUp = spaceBelow < Math.min(maxMenu, 240) && spaceAbove > spaceBelow;
+    const available = (openUp ? spaceAbove : spaceBelow) - gap - 8;
+    const maxHeight = Math.max(160, Math.min(maxMenu, available));
+    setMenuPos({
+      left: rect.left,
+      width: rect.width,
+      maxHeight,
+      ...(openUp
+        ? { bottom: window.innerHeight - rect.top + gap }
+        : { top: rect.bottom + gap }),
+    });
+  }, []);
+
+  // Position (and keep positioning) the portaled menu while it is open.
+  useLayoutEffect(() => {
+    if (!usePortal || !showDropdown) {
+      setMenuPos(null);
+      return;
+    }
+    computeMenuPosition();
+    const onReflow = () => computeMenuPosition();
+    // Capture phase so it also fires for the scrolling modal body, not just window.
+    window.addEventListener('scroll', onReflow, true);
+    window.addEventListener('resize', onReflow);
+    return () => {
+      window.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    };
+  }, [usePortal, showDropdown, computeMenuPosition]);
 
   // Get sub-categories for the transaction type
   const getSubCategoriesForType = (): Category[] => {
@@ -116,7 +181,13 @@ export default function CategorySelector({
   // Handle clicking outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      // The portaled menu lives outside dropdownRef, so check it separately —
+      // otherwise a click on a list item would count as "outside" and close the
+      // menu before the option's onClick could fire.
+      const inTrigger = dropdownRef.current?.contains(target) ?? false;
+      const inMenu = menuRef.current?.contains(target) ?? false;
+      if (!inTrigger && !inMenu) {
         setShowDropdown(false);
         setSearchTerm('');
         setShowCreateForm(false);
@@ -191,6 +262,7 @@ export default function CategorySelector({
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div className="relative">
         <div
+          ref={triggerRef}
           className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-text flex items-center"
           onClick={handleInputClick}
         >
@@ -219,9 +291,24 @@ export default function CategorySelector({
           </div>
         </div>
 
-        {/* Dropdown */}
-        {showDropdown && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50">
+        {/* Dropdown — in-flow (opens upward) by default, or a fixed-position
+            portal on document.body when usePortal escapes a clipping modal. */}
+        {showDropdown && (() => {
+          const menu = (
+          <div
+            ref={usePortal ? menuRef : undefined}
+            style={usePortal && menuPos ? {
+              position: 'fixed',
+              left: menuPos.left,
+              width: menuPos.width,
+              maxHeight: menuPos.maxHeight,
+              zIndex: 9999,
+              ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
+            } : undefined}
+            className={usePortal
+              ? 'overflow-y-auto bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg'
+              : 'absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50'}
+          >
             {showCreateForm ? (
               /* Create New Category Form */
               <div className="p-3">
@@ -327,27 +414,32 @@ export default function CategorySelector({
                 )}
 
                 {/* Add New Category Option */}
-                <div className="border-t border-gray-200 dark:border-gray-600">
-                  <div
-                    className="px-3 py-2.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-primary dark:text-blue-400"
-                    onClick={() => {
-                      setShowCreateForm(true);
-                      if (searchTerm) {
-                        setNewCategoryName(searchTerm);
-                        setSearchTerm('');
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <PlusIcon size={14} />
-                      <span className="font-medium text-sm">Add New Category</span>
+                {allowCreate && (
+                  <div className="border-t border-gray-200 dark:border-gray-600">
+                    <div
+                      className="px-3 py-2.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-primary dark:text-blue-400"
+                      onClick={() => {
+                        setShowCreateForm(true);
+                        if (searchTerm) {
+                          setNewCategoryName(searchTerm);
+                          setSearchTerm('');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <PlusIcon size={14} />
+                        <span className="font-medium text-sm">Add New Category</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>
-        )}
+          );
+          if (!usePortal) return menu;
+          return menuPos ? createPortal(menu, document.body) : null;
+        })()}
       </div>
 
       {/* Helper Text */}
