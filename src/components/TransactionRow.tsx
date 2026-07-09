@@ -140,7 +140,7 @@ export const TransactionRow = memo(function TransactionRow({
             style={{ width: columnWidths.reconciled }}
           >
             {transaction.cleared && (
-              <CheckIcon className="text-green-500 mx-auto" size={compactView ? 14 : 16} data-testid="check-icon" />
+              <CheckIcon className="text-blue-600 mx-auto" size={compactView ? 14 : 16} data-testid="check-icon" />
             )}
           </td>
         );
@@ -200,7 +200,7 @@ export const TransactionRow = memo(function TransactionRow({
           >
             {isEditingCategory && availableCategories && onUpdateCategory ? (
               <select
-                className="w-full text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={transaction.category || ''}
                 onChange={(e) => {
                   onUpdateCategory(transaction.id, e.target.value);
@@ -219,7 +219,7 @@ export const TransactionRow = memo(function TransactionRow({
               // (WCAG 2.1.1 — a span with onClick is invisible to AT).
               <button
                 type="button"
-                className={`${compactView ? 'text-sm' : ''} truncate block w-full text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-emerald-500`}
+                className={`${compactView ? 'text-sm' : ''} truncate block w-full text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-blue-500`}
                 title={`${categoryPath} (click to change)`}
                 aria-label={`Change category, currently ${categoryPath || 'uncategorized'}`}
                 onClick={() => setIsEditingCategory(true)}
@@ -247,7 +247,7 @@ export const TransactionRow = memo(function TransactionRow({
               <input
                 type="number"
                 step="0.01"
-                className="w-full text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="w-full text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={editAmount}
                 aria-label="Edit transaction amount"
                 onChange={(e) => setEditAmount(e.target.value)}
@@ -277,7 +277,7 @@ export const TransactionRow = memo(function TransactionRow({
               // Real button so keyboard and screen-reader users can edit too.
               <button
                 type="button"
-                className={`${amountColorClass} ${compactView ? 'text-sm' : ''} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full text-right`}
+                className={`${amountColorClass} ${compactView ? 'text-sm' : ''} cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full text-right`}
                 onClick={() => {
                   setEditAmount(String(Math.abs(transaction.amount)));
                   setIsEditingAmount(true);

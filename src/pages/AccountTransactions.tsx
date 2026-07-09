@@ -602,7 +602,7 @@ export default function AccountTransactions() {
       width: '35px',
       accessor: (transaction) => (
         transaction.cleared ? (
-          <span className="text-green-600 dark:text-green-400">✓</span>
+          <span className="text-blue-600 dark:text-blue-400">✓</span>
         ) : null
       ),
       className: 'text-center',
@@ -856,7 +856,7 @@ export default function AccountTransactions() {
               return (
                 <span className={`text-sm font-bold whitespace-nowrap ${
                   difference === 0
-                    ? 'text-green-600 dark:text-green-400'
+                    ? 'text-blue-600 dark:text-blue-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
                   {formatCurrency(difference, account.currency)}
@@ -1154,7 +1154,7 @@ export default function AccountTransactions() {
                 {([
                   { value: 'expense', label: 'Exp', activeColor: 'text-red-600 dark:text-red-400' },
                   { value: 'income', label: 'Inc', activeColor: 'text-green-600 dark:text-green-400' },
-                  { value: 'transfer', label: 'Txfr', activeColor: 'text-emerald-700 dark:text-emerald-400' },
+                  { value: 'transfer', label: 'Txfr', activeColor: 'text-blue-600 dark:text-blue-400' },
                 ] as const).map(({ value, label, activeColor }) => (
                   <button
                     key={value}

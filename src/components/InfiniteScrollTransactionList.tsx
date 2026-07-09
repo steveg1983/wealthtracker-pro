@@ -179,7 +179,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
           ) : (
             <button
               onClick={loadMoreItems}
-              className="px-4 py-2 text-sm text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
             >
               Load More
             </button>
