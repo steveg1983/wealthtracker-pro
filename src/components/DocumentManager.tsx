@@ -164,7 +164,7 @@ export default function DocumentManager({
 
   const getTypeColor = (type: Document['type']) => {
     switch (type) {
-      case 'receipt': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'receipt': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'invoice': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'statement': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
       case 'contract': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
@@ -268,7 +268,7 @@ export default function DocumentManager({
               placeholder="Search documents..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
           </div>
 
@@ -284,7 +284,7 @@ export default function DocumentManager({
                 setFilterType(value);
               }
             }}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
           >
             <option value="all">All Types</option>
             <option value="receipt">Receipts</option>
@@ -304,7 +304,7 @@ export default function DocumentManager({
                   setFilterTags([...filterTags, e.target.value]);
                 }
               }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white"
             >
               <option value="">Filter by tag...</option>
               {getAllTags().map(tag => (
@@ -416,7 +416,7 @@ export default function DocumentManager({
                       {doc.type}
                     </span>
                     {doc.extractedData && (
-                      <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                      <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
                         <CheckCircleIcon size={12} />
                         OCR
                       </span>

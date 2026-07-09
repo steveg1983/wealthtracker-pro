@@ -434,12 +434,12 @@ export default function DuplicateDetection({
 
         {/* No duplicates found */}
         {!scanning && duplicateGroups.length === 0 && (
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-8 text-center">
-            <CheckIcon className="mx-auto text-green-600 dark:text-green-400 mb-3" size={48} />
-            <h4 className="font-medium text-green-900 dark:text-green-300">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-8 text-center">
+            <CheckIcon className="mx-auto text-blue-600 dark:text-blue-400 mb-3" size={48} />
+            <h4 className="font-medium text-blue-900 dark:text-blue-300">
               No duplicates found!
             </h4>
-            <p className="text-sm text-green-800 dark:text-green-200 mt-1">
+            <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
               {newTransactions 
                 ? "All transactions in the import appear to be unique."
                 : "Your transaction history doesn't contain any duplicates."

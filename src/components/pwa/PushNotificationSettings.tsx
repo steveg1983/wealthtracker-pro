@@ -86,7 +86,7 @@ export const PushNotificationSettings: React.FC = () => {
       icon: TargetIcon,
       title: 'Goal Achievements',
       description: 'Celebrate when you reach your financial goals',
-      color: 'text-green-600'
+      color: 'text-blue-600'
     },
     {
       key: 'investmentAlerts' as const,
@@ -100,7 +100,7 @@ export const PushNotificationSettings: React.FC = () => {
       icon: BarChart3Icon,
       title: 'Weekly Reports',
       description: 'Get weekly summaries of your finances',
-      color: 'text-teal-600'
+      color: 'text-blue-600'
     },
     {
       key: 'unusualSpending' as const,
@@ -118,7 +118,7 @@ export const PushNotificationSettings: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {isSubscribed ? (
-              <BellIcon className="h-6 w-6 text-green-600" />
+              <BellIcon className="h-6 w-6 text-blue-600" />
             ) : (
               <BellOffIcon className="h-6 w-6 text-gray-400" />
             )}
@@ -170,7 +170,7 @@ export const PushNotificationSettings: React.FC = () => {
         {isSubscribed && (
           <button
             onClick={handleTestNotification}
-            className="mt-4 text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="mt-4 text-sm text-blue-700 dark:text-blue-400 hover:underline"
           >
             {testSent ? (
               <span className="flex items-center gap-1">

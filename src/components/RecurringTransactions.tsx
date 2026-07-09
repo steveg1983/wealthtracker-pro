@@ -180,7 +180,7 @@ export default function RecurringTransactions(): React.JSX.Element {
     if (daysUntilNext <= 0) return 'text-red-500';
     if (daysUntilNext <= 3) return 'text-orange-500';
     if (daysUntilNext <= 7) return 'text-yellow-500';
-    return 'text-green-500';
+    return 'text-blue-600';
   };
 
   return (
@@ -241,7 +241,7 @@ export default function RecurringTransactions(): React.JSX.Element {
                       </span>
                     )}
                     {processingTemplates.has(template.id) && (
-                      <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                      <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
                         Processing...
                       </span>
                     )}
@@ -287,7 +287,7 @@ export default function RecurringTransactions(): React.JSX.Element {
                     onClick={() => toggleTemplateActive(template.id)}
                     className={`p-2 rounded-lg transition-colors ${
                       template.isActive
-                        ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                        ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                         : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                     title={template.isActive ? 'Pause' : 'Resume'}

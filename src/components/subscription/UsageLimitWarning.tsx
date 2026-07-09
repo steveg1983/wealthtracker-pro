@@ -145,7 +145,7 @@ export default function UsageLimitWarning({
             
             <button
               onClick={() => window.location.href = '/subscription'}
-              className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm underline"
+              className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm underline"
             >
               View Plans
             </button>
@@ -201,7 +201,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
       <div className="grid grid-cols-1 gap-3 mb-6">
         {featureBenefits.map((benefit, index) => (
           <div key={index} className="flex items-center gap-3">
-            <CheckIcon size={16} className="text-green-600 dark:text-green-400 flex-shrink-0" />
+            <CheckIcon size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <span className="text-gray-700 dark:text-gray-300 text-sm">
               {benefit}
             </span>
@@ -219,7 +219,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
         
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="px-6 py-3 text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+          className="px-6 py-3 text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
         >
           Compare Plans
         </button>

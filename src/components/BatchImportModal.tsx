@@ -279,7 +279,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
 
   const getStatusIcon = (status: FileInfo['status']) => {
     switch (status) {
-      case 'success': return <CheckIcon size={16} className="text-green-600" />;
+      case 'success': return <CheckIcon size={16} className="text-blue-600" />;
       case 'error': return <XIcon size={16} className="text-red-600" />;
       case 'processing': return <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />;
       default: return null;
@@ -318,7 +318,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
           </div>
         ) : importSummary ? (
           <div className="text-center">
-            <CheckIcon size={48} className="mx-auto text-green-600 mb-4" />
+            <CheckIcon size={48} className="mx-auto text-blue-600 mb-4" />
             <h3 className="text-lg font-semibold mb-4">Import Complete!</h3>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -330,7 +330,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                 </div>
                 <div>
                   <p className="text-gray-600 dark:text-gray-400">Transactions Imported</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-2xl font-bold text-blue-600">
                     {importSummary.totalTransactions}
                   </p>
                 </div>
@@ -420,7 +420,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                           file.status === 'error'
                             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                             : file.status === 'success'
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                             : file.status === 'processing'
                             ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                             : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700'
@@ -438,7 +438,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             {file.size} • {file.type.toUpperCase()}
                             {file.status === 'success' && file.imported !== undefined && (
-                              <span className="ml-2 text-green-600">
+                              <span className="ml-2 text-blue-600">
                                 {file.imported} imported, {file.duplicates} duplicates
                               </span>
                             )}

@@ -172,7 +172,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 {currentPlan.name}
               </span>
               {currentPlan.badge && (
-                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
                   {currentPlan.badge}
                 </span>
               )}
@@ -227,7 +227,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
           <ul className="space-y-2">
             {currentPlan.features.filter(f => f.included).map((feature, index) => (
               <li key={index} className="flex items-start gap-2">
-                <CheckIcon size={16} className="text-green-600 dark:text-green-400 mt-0.5" />
+                <CheckIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {feature.name}
                 </span>

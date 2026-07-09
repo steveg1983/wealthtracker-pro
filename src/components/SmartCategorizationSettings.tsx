@@ -181,7 +181,7 @@ export default function SmartCategorizationSettings() {
           </>
         ) : (
           <div className="text-center py-8">
-            <CheckCircleIcon className="mx-auto text-green-500 mb-3" size={48} />
+            <CheckCircleIcon className="mx-auto text-blue-600 mb-3" size={48} />
             <p className="text-gray-600 dark:text-gray-400">
               All transactions are already categorized!
             </p>
@@ -189,10 +189,10 @@ export default function SmartCategorizationSettings() {
         )}
 
         {autoCategorizeResult && (
-          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-center gap-2">
-              <CheckCircleIcon className="text-green-600 dark:text-green-400" size={20} />
-              <p className="text-sm text-green-800 dark:text-green-200">
+              <CheckCircleIcon className="text-blue-600 dark:text-blue-400" size={20} />
+              <p className="text-sm text-blue-800 dark:text-blue-200">
                 Successfully categorized <strong>{autoCategorizeResult.count}</strong> transactions
                 with an average confidence of <strong>{Math.round(autoCategorizeResult.confidence * 100)}%</strong>
               </p>

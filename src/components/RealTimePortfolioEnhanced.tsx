@@ -148,8 +148,8 @@ export default function RealTimePortfolioEnhanced({
             <div className="flex items-center gap-2">
               {marketStatus.isOpen ? (
                 <>
-                  <WifiIcon size={16} className="text-green-500" />
-                  <span className="text-sm text-green-600 dark:text-green-400">Market Open</span>
+                  <WifiIcon size={16} className="text-blue-600" />
+                  <span className="text-sm text-blue-600 dark:text-blue-400">Market Open</span>
                 </>
               ) : (
                 <>
@@ -316,9 +316,9 @@ export default function RealTimePortfolioEnhanced({
                       </p>
                     </div>
                     {holding.quote && (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        <span className="text-xs text-green-600 dark:text-green-400">Live</span>
+                      <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                        <span className="text-xs text-blue-600 dark:text-blue-400">Live</span>
                       </div>
                     )}
                   </div>

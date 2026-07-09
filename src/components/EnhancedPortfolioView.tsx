@@ -327,8 +327,8 @@ export default function EnhancedPortfolioView({
                           {holding.ticker}
                         </span>
                         {hasLivePrice && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">
-                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">
+                            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
                             Live
                           </span>
                         )}
@@ -413,8 +413,8 @@ export default function EnhancedPortfolioView({
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900 dark:text-white">{holding.ticker}</p>
                       {hasLivePrice && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">
-                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">
+                          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
                           Live
                         </span>
                       )}

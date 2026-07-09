@@ -53,7 +53,7 @@ export default function GoalCelebrationModal({ isOpen, onClose, goal, message }:
             <span className="text-6xl">🏆</span>
           </div>
           <div className="absolute -top-2 -right-2 animate-pulse">
-            <CheckCircleIcon size={32} className="text-green-500" />
+            <CheckCircleIcon size={32} className="text-blue-600" />
           </div>
         </div>
 
@@ -71,11 +71,11 @@ export default function GoalCelebrationModal({ isOpen, onClose, goal, message }:
         </p>
 
         {/* Achievement Details */}
-        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 mb-6">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 mb-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             Target Achieved
           </p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {formatCurrency(goal.targetAmount)}
           </p>
         </div>

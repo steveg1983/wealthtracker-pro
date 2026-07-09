@@ -81,7 +81,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <BellIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+              <BellIcon size={20} className="text-blue-700 dark:text-blue-400" />
               Notification Settings
             </h2>
             <button
@@ -97,7 +97,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
             {!hasPermission && (
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <AlertCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+                  <AlertCircleIcon size={20} className="text-blue-700 dark:text-blue-400 mt-0.5" />
                   <div className="flex-1">
                     <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
                       Enable Notifications
@@ -181,7 +181,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
             {/* Bill Reminders */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <CalendarIcon size={20} className="text-green-600 dark:text-green-400" />
+                <CalendarIcon size={20} className="text-blue-600 dark:text-blue-400" />
                 <div>
                   <h3 className="font-medium text-gray-900 dark:text-white">
                     Bill Reminders

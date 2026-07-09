@@ -528,7 +528,7 @@ export default function ExportManager() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleUseTemplate(template)}
-                            className="p-1 text-emerald-700 dark:text-emerald-400 hover:text-blue-900 dark:hover:text-blue-300"
+                            className="p-1 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                             title="Use template"
                           >
                             <PlayIcon size={14} />
@@ -599,7 +599,7 @@ export default function ExportManager() {
                             <h4 className="font-medium text-gray-900 dark:text-white">{report.name}</h4>
                             <span className={`text-xs px-2 py-1 rounded ${
                               report.isActive 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                             }`}>
                               {report.isActive ? 'Active' : 'Paused'}
@@ -630,7 +630,7 @@ export default function ExportManager() {
                             className={`p-2 rounded ${
                               report.isActive
                                 ? 'text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-300'
-                                : 'text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300'
+                                : 'text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
                             }`}
                             title={report.isActive ? 'Pause report' : 'Resume report'}
                           >

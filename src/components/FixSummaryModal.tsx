@@ -93,14 +93,14 @@ function FixSummaryModal({
     >
       <div className="p-6">
         {/* Summary Header */}
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-3">
-            <CheckCircleIcon className="text-green-600 dark:text-green-400" size={24} />
+            <CheckCircleIcon className="text-blue-600 dark:text-blue-400" size={24} />
             <div>
-              <h3 className="font-medium text-green-900 dark:text-green-100">
+              <h3 className="font-medium text-blue-900 dark:text-blue-100">
                 Successfully Applied {changes.length} Fix{changes.length !== 1 ? 'es' : ''}
               </h3>
-              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                 Review the changes below. You can undo individual fixes or all changes at once.
               </p>
             </div>
@@ -164,7 +164,7 @@ function FixSummaryModal({
                             
                             <ArrowRightIcon size={16} className="text-gray-400 flex-shrink-0" />
                             
-                            <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                            <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                               {formatValue(change.newValue, change.field)}
                             </span>
                           </div>

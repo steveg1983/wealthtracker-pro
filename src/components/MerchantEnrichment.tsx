@@ -153,7 +153,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
       {/* Header */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <SearchIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+          <SearchIcon size={20} className="text-blue-700 dark:text-blue-400" />
           Merchant Enrichment
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -226,7 +226,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
                 {merchants.length}
               </p>
             </div>
@@ -402,10 +402,10 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="text-emerald-700 dark:text-emerald-400 hover:text-blue-900 dark:hover:text-blue-300">
+                        <button className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
                           <EyeIcon size={16} />
                         </button>
-                        <button className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300">
+                        <button className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
                           <EditIcon size={16} />
                         </button>
                       </div>

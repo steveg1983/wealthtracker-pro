@@ -83,13 +83,13 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
       case 'transaction':
         return <CreditCardIcon size={16} className="text-blue-500" />;
       case 'account':
-        return <PiggyBankIcon size={16} className="text-green-500" />;
+        return <PiggyBankIcon size={16} className="text-blue-600" />;
       case 'budget':
         return <TargetIcon size={16} className="text-purple-500" />;
       case 'goal':
         return <TrendingUpIcon size={16} className="text-orange-500" />;
       case 'sync':
-        return <CheckCircleIcon size={16} className="text-teal-500" />;
+        return <CheckCircleIcon size={16} className="text-blue-600" />;
       case 'system':
         return <InfoIcon size={16} className="text-gray-500" />;
       default:
@@ -168,7 +168,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                   {counts.unread > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
+                      className="text-xs text-blue-700 dark:text-blue-400 hover:underline"
                     >
                       Mark all as read
                     </button>
@@ -190,7 +190,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                     onClick={() => setFilter(tab.value)}
                     className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                       filter === tab.value
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-emerald-700 dark:text-emerald-400'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
