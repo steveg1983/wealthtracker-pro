@@ -89,6 +89,61 @@ describe('AccountService (deterministic fallback)', () => {
     expect(storage.snapshot()[0].balance).toBe(250);
   });
 
+  it('maps low-balance-alert fields to snake_case columns on a cloud update (with an overdrawn opening balance)', async () => {
+    // Regression: these camelCase fields used to be sent to PostgREST verbatim
+    // (no column) which rejected the whole update — so unrelated edits like the
+    // opening balance silently failed. They must now map to snake_case columns.
+    let capturedUpdate: Record<string, unknown> = {};
+    const single = vi.fn(async () => ({
+      data: {
+        id: 'acct-1',
+        name: 'GREEN S A',
+        type: 'checking',
+        initial_balance: -18243.14,
+        is_active: true,
+        low_balance_alert_enabled: true,
+        low_balance_threshold: '150.00'
+      },
+      error: null
+    }));
+    const select = vi.fn(() => ({ single }));
+    const eqId = vi.fn(() => ({ select, eq: vi.fn(() => ({ select })) }));
+    const update = vi.fn((payload: Record<string, unknown>) => {
+      capturedUpdate = payload;
+      return { eq: eqId };
+    });
+    const from = vi.fn(() => ({ update }));
+
+    const service = createAccountService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now,
+      uuid,
+      supabaseClient: { from } as unknown as never
+    });
+
+    const result = await service.updateAccount('acct-1', {
+      lowBalanceAlertEnabled: true,
+      lowBalanceThreshold: 150,
+      openingBalance: -18243.14
+    });
+
+    // Write side: camelCase → snake_case; the overdrawn balance is fine.
+    expect(from).toHaveBeenCalledWith('accounts');
+    expect(capturedUpdate).toMatchObject({
+      low_balance_alert_enabled: true,
+      low_balance_threshold: 150,
+      initial_balance: -18243.14
+    });
+    expect(capturedUpdate).not.toHaveProperty('lowBalanceAlertEnabled');
+
+    // Read side: snake_case → camelCase, numeric threshold coerced to a number.
+    expect(result.lowBalanceAlertEnabled).toBe(true);
+    expect(result.lowBalanceThreshold).toBe(150);
+    expect(result.openingBalance).toBe(-18243.14);
+  });
+
   it('allows static AccountService reconfiguration for tests', async () => {
     const storage = createStorage([baseAccount({ id: 'static' })]);
     AccountService.configure({
