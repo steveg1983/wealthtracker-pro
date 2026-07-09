@@ -973,4 +973,57 @@ PImpossible
       expect(result.invalidDates).toBe(1);
     });
   });
+
+  describe('category matching', () => {
+    const appCategories: Category[] = [
+      { id: 'sub-food', name: 'Food', type: 'expense', level: 'sub' },
+      { id: 'det-groceries', name: 'Groceries', type: 'expense', level: 'detail', parentId: 'sub-food' },
+      { id: 'sub-income', name: 'Income', type: 'income', level: 'sub' },
+      { id: 'det-salary', name: 'Salary', type: 'income', level: 'detail', parentId: 'sub-income' }
+    ];
+
+    it('matches QIF categories to existing app category ids and reports unmatched', async () => {
+      const qif = `!Type:Bank
+D13/01/2024
+T-40.00
+PSupermarket
+LFood:Groceries
+^
+D15/01/2024
+T2000.00
+PEmployer
+LSalary
+^
+D16/01/2024
+T-10.00
+PMystery shop
+LObscureThing
+^`;
+
+      const result = await qifImportService.importTransactions(qif, 'acc1', [], {
+        categories: appCategories
+      });
+
+      expect(result.transactions[0].category).toBe('det-groceries'); // matched by path leaf
+      expect(result.transactions[1].category).toBe('det-salary');    // matched by name
+      expect(result.transactions[2].category).toBe('ObscureThing');  // no match — raw text kept
+      expect(result.matchedCategories).toBe(2);
+      expect(result.unmatchedCategories).toEqual([{ name: 'ObscureThing', count: 1 }]);
+    });
+
+    it('leaves categories untouched (raw name) when no app categories are provided', async () => {
+      const qif = `!Type:Bank
+D13/01/2024
+T-40.00
+PShop
+LGroceries
+^`;
+
+      const result = await qifImportService.importTransactions(qif, 'acc1', []);
+
+      expect(result.transactions[0].category).toBe('Groceries');
+      expect(result.matchedCategories).toBe(0);
+      expect(result.unmatchedCategories).toEqual([]);
+    });
+  });
 });

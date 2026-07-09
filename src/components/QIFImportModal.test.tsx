@@ -432,7 +432,10 @@ describe('QIFImportModal', () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         newTransactions: 1,
-        duplicates: 0
+        duplicates: 0,
+        invalidDates: 0,
+        matchedCategories: 0,
+        unmatchedCategories: []
       };
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
@@ -456,7 +459,10 @@ describe('QIFImportModal', () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         newTransactions: 1,
-        duplicates: 3
+        duplicates: 3,
+        invalidDates: 0,
+        matchedCategories: 0,
+        unmatchedCategories: []
       };
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
@@ -510,7 +516,10 @@ describe('QIFImportModal', () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         newTransactions: 1,
-        duplicates: 0
+        duplicates: 0,
+        invalidDates: 0,
+        matchedCategories: 0,
+        unmatchedCategories: []
       };
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
@@ -533,7 +542,10 @@ describe('QIFImportModal', () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         newTransactions: 1,
-        duplicates: 0
+        duplicates: 0,
+        invalidDates: 0,
+        matchedCategories: 0,
+        unmatchedCategories: []
       };
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
@@ -601,7 +613,10 @@ describe('QIFImportModal', () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         newTransactions: 1,
-        duplicates: 0
+        duplicates: 0,
+        invalidDates: 0,
+        matchedCategories: 0,
+        unmatchedCategories: []
       };
       
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);
@@ -643,7 +658,10 @@ describe('QIFImportModal', () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         newTransactions: 1,
-        duplicates: 0
+        duplicates: 0,
+        invalidDates: 0,
+        matchedCategories: 0,
+        unmatchedCategories: []
       };
       
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);

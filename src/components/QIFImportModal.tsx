@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
+import { transactionImportService } from '../services/transactionImportService';
 import type { Account } from '../types';
 import type { QIFParseResult } from '../services/qifImportService';
 import { Modal } from './common/Modal';
@@ -29,6 +31,10 @@ type ImportOutcome =
       imported: number;
       duplicates: number;
       invalidDates: number;
+      matchedCategories: number;
+      unmatchedCategories: { name: string; count: number }[];
+      /** False when a chunk failed partway — imported < intended. */
+      complete: boolean;
       account: Account | null;
     }
   | {
@@ -37,10 +43,12 @@ type ImportOutcome =
     };
 
 export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
-  const { accounts, transactions, categories, addTransaction } = useApp();
+  const { accounts, transactions, categories, addTransaction, refreshAccountsAndTransactions, isUsingSupabase } = useApp();
+  const { getToken } = useAuth();
   const { formatCurrency } = useCurrencyDecimal();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
   const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -103,6 +111,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     if (!parseResult || !file || !selectedAccountId) return;
 
     setIsProcessing(true);
+    setProgress(null);
 
     try {
       const content = await file.text();
@@ -116,17 +125,44 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         }
       );
 
-      for (const transaction of result.transactions) {
-        addTransaction(transaction);
+      let insertedCount = result.transactions.length;
+      let complete = true;
+
+      if (isUsingSupabase) {
+        // Cloud: write via the chunked, awaited bulk endpoint (one atomic RPC
+        // per chunk) so a large statement can't flood the API and lose rows.
+        transactionImportService.setAuthTokenProvider(() => getToken());
+        const bulk = await transactionImportService.importInChunks(
+          selectedAccountId,
+          result.transactions,
+          { onProgress: setProgress }
+        );
+        insertedCount = bulk.inserted;
+        complete = bulk.complete;
+        // Pull the freshly-inserted rows + updated balance into the app.
+        await refreshAccountsAndTransactions();
+        if (!complete) {
+          throw new Error(
+            `Imported ${bulk.inserted} of ${bulk.total} transactions before an error stopped the import.`
+          );
+        }
+      } else {
+        // Local/demo mode: no cloud endpoint — write sequentially and awaited.
+        for (const transaction of result.transactions) {
+          await addTransaction(transaction);
+        }
       }
 
       const account = accounts.find(a => a.id === selectedAccountId) ?? null;
 
       setImportResult({
         success: true,
-        imported: result.newTransactions,
+        imported: insertedCount,
         duplicates: result.duplicates,
         invalidDates: result.invalidDates,
+        matchedCategories: result.matchedCategories,
+        unmatchedCategories: result.unmatchedCategories,
+        complete,
         account
       });
     } catch (error) {
@@ -137,8 +173,9 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
       });
     } finally {
       setIsProcessing(false);
+      setProgress(null);
     }
-  }, [accounts, addTransaction, categories, file, parseResult, selectedAccountId, skipDuplicates, transactions, logger]);
+  }, [accounts, addTransaction, categories, file, getToken, isUsingSupabase, parseResult, refreshAccountsAndTransactions, selectedAccountId, skipDuplicates, transactions, logger]);
   
   // Reset modal
   const resetModal = useCallback(() => {
@@ -146,6 +183,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     setParseResult(null);
     setImportResult(null);
     setSelectedAccountId('');
+    setProgress(null);
   }, []);
   
   return (
@@ -288,11 +326,28 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               </div>
             </div>
             
+            {/* Progress (large cloud imports run in chunks) */}
+            {isProcessing && progress && progress.total > 0 && (
+              <div>
+                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+                  <span>Importing…</span>
+                  <span>{progress.inserted.toLocaleString()} / {progress.total.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#1a2332] dark:bg-blue-500 transition-all"
+                    style={{ width: `${Math.min(100, Math.round((progress.inserted / progress.total) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-3">
               <button
                 onClick={resetModal}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                disabled={isProcessing}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -334,6 +389,31 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                   <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
                     Skipped {importResult.invalidDates} row{importResult.invalidDates === 1 ? '' : 's'} with an unrecognised date
                   </p>
+                )}
+
+                {importResult.matchedCategories > 0 && (
+                  <p className="text-sm text-green-600 dark:text-green-400 mb-2">
+                    Matched {importResult.matchedCategories.toLocaleString()} transaction{importResult.matchedCategories === 1 ? '' : 's'} to your existing categories
+                  </p>
+                )}
+
+                {importResult.unmatchedCategories.length > 0 && (
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-6 text-left max-w-md mx-auto bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                    <p className="font-medium text-gray-800 dark:text-gray-200 mb-1">
+                      {importResult.unmatchedCategories.length} categor{importResult.unmatchedCategories.length === 1 ? 'y' : 'ies'} in the file don’t exist in the app yet:
+                    </p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {importResult.unmatchedCategories.slice(0, 8).map(c => (
+                        <li key={c.name}>{c.name} <span className="text-gray-400">({c.count})</span></li>
+                      ))}
+                      {importResult.unmatchedCategories.length > 8 && (
+                        <li className="list-none text-gray-400">…and {importResult.unmatchedCategories.length - 8} more</li>
+                      )}
+                    </ul>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Those transactions kept their original category text so nothing is lost. Create these categories (or ask to auto-create them) to link them up.
+                    </p>
+                  </div>
                 )}
               </>
             ) : (
