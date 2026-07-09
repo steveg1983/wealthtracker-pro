@@ -85,7 +85,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
 
   const getIcon = useCallback((type: Notification['type']): React.JSX.Element => {
     switch (type) {
-      case 'success': return <CheckCircleIcon size={16} className="text-green-600" />;
+      case 'success': return <CheckCircleIcon size={16} className="text-blue-600" />;
       case 'warning': return <AlertCircleIcon size={16} className="text-yellow-600" />;
       case 'error': return <XCircleIcon size={16} className="text-red-600" />;
       default: return <InfoIcon size={16} className="text-blue-600" />;
@@ -108,7 +108,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
 
   const getRuleTypeIcon = useCallback((type: NotificationRule['type'] | string): React.JSX.Element => {
     switch (type) {
-      case 'budget': return <DollarSignIcon size={16} className="text-green-600" />;
+      case 'budget': return <DollarSignIcon size={16} className="text-blue-600" />;
       case 'transaction': return <CreditCardIcon size={16} className="text-blue-600" />;
       case 'goal': return <TargetIcon size={16} className="text-purple-600" />;
       case 'account': return <TrendingUpIcon size={16} className="text-orange-600" />;
@@ -224,7 +224,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                 </h4>
                 <span className={`px-2 py-1 text-xs rounded-full ${
                   rule.enabled
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                     : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-300'
                 }`}>
                   {rule.enabled ? 'Active' : 'Inactive'}
@@ -253,7 +253,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
               onClick={() => handleToggleRule(rule.id, !rule.enabled)}
               className={`p-2 rounded-lg ${
                 rule.enabled
-                  ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                  ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                   : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
               }`}
               title={rule.enabled ? 'Disable rule' : 'Enable rule'}
@@ -289,7 +289,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <BellIcon size={24} className="text-emerald-700 dark:text-emerald-400" />
+              <BellIcon size={24} className="text-blue-700 dark:text-blue-400" />
               Notification Center
               {unreadCount > 0 && (
                 <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
@@ -361,7 +361,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                     placeholder="Search notifications..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         setFilter(nextFilter);
                       }
                     }}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-600 dark:bg-gray-700 dark:text-white text-sm"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-600 dark:bg-gray-700 dark:text-white text-sm"
                   >
                     <option value="all">All</option>
                     <option value="unread">Unread</option>

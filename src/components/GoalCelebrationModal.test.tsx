@@ -323,7 +323,7 @@ describe('GoalCelebrationModal', () => {
       renderModal();
       
       const achievementSection = screen.getByText('Target Achieved').parentElement;
-      expect(achievementSection).toHaveClass('bg-green-50', 'dark:bg-green-900/20', 'rounded-xl');
+      expect(achievementSection).toHaveClass('bg-blue-50', 'dark:bg-blue-900/20', 'rounded-xl');
     });
   });
 

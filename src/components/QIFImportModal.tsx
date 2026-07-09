@@ -223,7 +223,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
             {/* Info Box */}
             <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <InfoIcon className="text-emerald-700 dark:text-emerald-400 mt-0.5" size={20} />
+                <InfoIcon className="text-blue-700 dark:text-blue-400 mt-0.5" size={20} />
                 <div className="text-sm">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">
                     About QIF Files
@@ -369,8 +369,8 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
           <div className="text-center">
             {importResult.success ? (
               <>
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
-                  <CheckIcon size={32} className="text-green-600 dark:text-green-400" />
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
+                  <CheckIcon size={32} className="text-blue-600 dark:text-blue-400" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   Import Successful!
@@ -392,7 +392,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                 )}
 
                 {importResult.matchedCategories > 0 && (
-                  <p className="text-sm text-green-600 dark:text-green-400 mb-2">
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
                     Matched {importResult.matchedCategories.toLocaleString()} transaction{importResult.matchedCategories === 1 ? '' : 's'} to your existing categories
                   </p>
                 )}

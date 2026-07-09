@@ -98,10 +98,10 @@ export default function AchievementHistory() {
               .map((achievement, index) => (
                 <div
                   key={`${achievement.goalId}-${index}`}
-                  className="flex items-start gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl"
+                  className="flex items-start gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl"
                 >
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center">
                       <span className="text-xl">{getGoalIcon(achievement.type)}</span>
                     </div>
                   </div>
@@ -120,7 +120,7 @@ export default function AchievementHistory() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                    <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                       {formatCurrency(achievement.targetAmount)}
                     </p>
                   </div>

@@ -87,8 +87,8 @@ export default function AccessibilityAuditPanel({ isOpen, onClose }: { isOpen: b
             </div>
             {auditResults.length === 0 && (
               <div className="flex items-center gap-2">
-                <CheckCircle size={16} className="text-green-600" />
-                <span className="text-green-600">No issues found!</span>
+                <CheckCircle size={16} className="text-blue-600" />
+                <span className="text-blue-600">No issues found!</span>
               </div>
             )}
           </div>
@@ -104,7 +104,7 @@ export default function AccessibilityAuditPanel({ isOpen, onClose }: { isOpen: b
             <div className="space-y-4">
               {auditResults.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle size={48} className="text-green-600 mx-auto mb-4" />
+                  <CheckCircle size={48} className="text-blue-600 mx-auto mb-4" />
                   <p className="text-lg font-medium text-gray-900 dark:text-white">
                     Great job! No accessibility issues found.
                   </p>

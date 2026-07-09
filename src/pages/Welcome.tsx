@@ -45,7 +45,7 @@ export default function Welcome() {
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
               The #1 Personal Finance App
-              <span className="block text-emerald-700 dark:text-emerald-400 mt-2">
+              <span className="block text-blue-700 dark:text-blue-400 mt-2">
                 That Just Works
               </span>
             </h1>
@@ -92,7 +92,7 @@ export default function Welcome() {
           {/* Feature 1 */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
-              <BarChart3Icon size={24} className="text-emerald-700 dark:text-emerald-400" />
+              <BarChart3Icon size={24} className="text-blue-700 dark:text-blue-400" />
             </div>
             <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
               Intelligent Analytics
@@ -104,8 +104,8 @@ export default function Welcome() {
 
           {/* Feature 2 */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
-              <TrendingUpIcon size={24} className="text-green-600 dark:text-green-400" />
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
+              <TrendingUpIcon size={24} className="text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
               Investment Tracking

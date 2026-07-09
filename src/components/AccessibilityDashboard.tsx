@@ -49,7 +49,7 @@ export const AccessibilityDashboard: React.FC = () => {
               Overall Score
             </h3>
             {stats.total === 0 ? (
-              <CheckCircleIcon className="h-6 w-6 text-green-600" />
+              <CheckCircleIcon className="h-6 w-6 text-blue-600" />
             ) : (
               <AlertTriangleIcon className="h-6 w-6 text-yellow-600" />
             )}
@@ -132,7 +132,7 @@ export const AccessibilityDashboard: React.FC = () => {
     <div className="space-y-4">
       {issues.length === 0 ? (
         <div className={`text-center py-12 ${accessibleColorClasses['text-muted']}`}>
-          <CheckCircleIcon className="h-12 w-12 mx-auto mb-4 text-green-600" />
+          <CheckCircleIcon className="h-12 w-12 mx-auto mb-4 text-blue-600" />
           <p className="text-lg">No accessibility issues found!</p>
           <p className="text-sm mt-2">Your app meets WCAG 2.1 AA standards.</p>
         </div>
@@ -200,7 +200,7 @@ export const AccessibilityDashboard: React.FC = () => {
                   {combo.fg} on {combo.bg}
                 </h4>
                 {passes ? (
-                  <CheckCircleIcon className="h-5 w-5 text-green-600" />
+                  <CheckCircleIcon className="h-5 w-5 text-blue-600" />
                 ) : (
                   <XCircleIcon className="h-5 w-5 text-red-600" />
                 )}
@@ -350,7 +350,7 @@ export const AccessibilityDashboard: React.FC = () => {
                   className={`
                     py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2
                     ${activeTab === tab.id 
-                      ? 'border-blue-600 text-emerald-700 dark:text-emerald-400' 
+                      ? 'border-blue-600 text-blue-700 dark:text-blue-400' 
                       : `border-transparent ${accessibleColorClasses['text-muted']} hover:text-gray-700 dark:hover:text-gray-300`
                     }
                   `}

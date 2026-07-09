@@ -203,7 +203,7 @@ export default function SubscriptionPage({
         {(currentView === 'payment' || currentView === 'success') && (
           <button
             onClick={handleBackToPricing}
-            className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4"
+            className="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4"
           >
             <ArrowLeftIcon size={16} />
             Back to Plans
@@ -229,7 +229,7 @@ export default function SubscriptionPage({
               }} />
               <button
                 onClick={() => setCurrentView('plans')}
-                className="text-emerald-700 dark:text-emerald-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-blue-700 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 Change Plan
               </button>
@@ -278,8 +278,8 @@ export default function SubscriptionPage({
       case 'success':
         return (
           <div className="max-w-2xl mx-auto text-center py-12">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircleIcon size={32} className="text-green-600" />
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircleIcon size={32} className="text-blue-600" />
             </div>
             
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">

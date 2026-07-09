@@ -81,9 +81,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           {/* Local Version */}
           <div className="border rounded-lg p-4 dark:border-gray-700">
             <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-              <span className="text-emerald-700 dark:text-emerald-400">Your Version</span>
+              <span className="text-blue-700 dark:text-blue-400">Your Version</span>
               {selectedResolution === 'client' && (
-                <CheckIcon className="h-4 w-4 text-green-500" />
+                <CheckIcon className="h-4 w-4 text-blue-600" />
               )}
             </h4>
             <div className="space-y-1 text-sm">
@@ -107,9 +107,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           {/* Server Version */}
           <div className="border rounded-lg p-4 dark:border-gray-700">
             <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-              <span className="text-green-600 dark:text-green-400">Server Version</span>
+              <span className="text-blue-600 dark:text-blue-400">Server Version</span>
               {selectedResolution === 'server' && (
-                <CheckIcon className="h-4 w-4 text-green-500" />
+                <CheckIcon className="h-4 w-4 text-blue-600" />
               )}
             </h4>
             <div className="space-y-1 text-sm">
@@ -122,7 +122,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
               onClick={() => setSelectedResolution('server')}
               className={`mt-3 w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 selectedResolution === 'server'
-                  ? 'bg-green-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
               }`}
             >
@@ -152,13 +152,13 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center">
             <p className="text-sm text-gray-500 mb-1">Your Balance</p>
-            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+            <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
               {formatCurrency(client.balance)}
             </p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-500 mb-1">Server Balance</p>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {formatCurrency(server.balance)}
             </p>
           </div>

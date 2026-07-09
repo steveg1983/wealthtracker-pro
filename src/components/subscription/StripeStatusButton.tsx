@@ -83,7 +83,7 @@ export default function StripeStatusButton(): React.JSX.Element {
       <button
         onClick={checkStatus}
         disabled={loading}
-        className="mb-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? 'Checking...' : 'Check Stripe Status'}
       </button>
@@ -100,7 +100,7 @@ export default function StripeStatusButton(): React.JSX.Element {
       {status && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <CheckCircleIcon size={16} className="text-green-600 dark:text-green-400" />
+            <CheckCircleIcon size={16} className="text-blue-600 dark:text-blue-400" />
             <span className="font-medium">Status Retrieved Successfully</span>
           </div>
           
@@ -115,7 +115,7 @@ export default function StripeStatusButton(): React.JSX.Element {
                   <span className="text-gray-600 dark:text-gray-400">Status:</span>
                   <span className={`ml-2 font-medium capitalize ${
                     status.status === 'trialing' ? 'text-blue-600' :
-                    status.status === 'active' ? 'text-green-600' :
+                    status.status === 'active' ? 'text-blue-600' :
                     status.status === 'canceled' ? 'text-red-600' :
                     'text-gray-600'
                   }`}>

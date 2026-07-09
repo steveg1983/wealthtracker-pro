@@ -255,7 +255,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
               <p className="text-sm text-gray-600 dark:text-gray-400">Categories</p>
               <p className="text-2xl font-bold">{allocations.length}</p>
             </div>
-            <TargetIcon size={32} className="text-green-600" />
+            <TargetIcon size={32} className="text-blue-600" />
           </div>
         </div>
         
@@ -424,7 +424,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
       {/* Insights */}
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">
         <div className="flex items-start gap-3">
-          <InfoIcon size={24} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+          <InfoIcon size={24} className="text-blue-700 dark:text-blue-400 mt-0.5" />
           <div>
             <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
               Allocation Insights

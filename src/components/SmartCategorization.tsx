@@ -109,7 +109,7 @@ export function SmartCategorization({
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {
     const percent = confidence * 100;
-    if (percent >= 80) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+    if (percent >= 80) return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
     if (percent >= 60) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
     return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
   };
@@ -285,7 +285,7 @@ export function SmartCategorization({
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => applySuggestion(suggestion.categoryId)}
-                  className="p-2 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg transition-colors"
+                  className="p-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-lg transition-colors"
                   title="Apply this category"
                 >
                   <CheckIcon size={16} />

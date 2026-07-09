@@ -259,7 +259,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Dividends</p>
                 <p className="text-2xl font-bold">{formatCurrency(summary.totalDividends.toNumber())}</p>
               </div>
-              <DollarSignIcon size={32} className="text-green-600" />
+              <DollarSignIcon size={32} className="text-blue-600" />
             </div>
           </div>
           

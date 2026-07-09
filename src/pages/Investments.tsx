@@ -267,7 +267,7 @@ export default function Investments() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Invested</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
                 {formatCurrency(totalInvested)}
               </p>
             </div>
@@ -483,7 +483,7 @@ export default function Investments() {
         {/* Investment Tips */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
           <div className="flex items-start gap-3">
-            <AlertCircleIcon className="text-emerald-700 dark:text-emerald-400 mt-1" size={20} />
+            <AlertCircleIcon className="text-blue-700 dark:text-blue-400 mt-1" size={20} />
             <div>
               <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">

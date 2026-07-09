@@ -148,7 +148,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
                         Conflict
                       </span>
                     ) : (
-                      <span className="text-xs px-2 py-1 bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200 rounded">
+                      <span className="text-xs px-2 py-1 bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200 rounded">
                         Compatible
                       </span>
                     )}
@@ -178,7 +178,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
                 
                 <div className={`p-2 rounded ${
                   currentSelection === 'server' && isDifferent
-                    ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-400'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-400'
                     : 'bg-gray-50 dark:bg-gray-800'
                 }`}>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Server Version</div>
@@ -250,13 +250,13 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
       <div className="space-y-6">
         {/* Smart Resolution Header */}
         {analysis.canAutoResolve && (
-          <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <SparklesIcon className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <SparklesIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-medium text-green-900 dark:text-green-100">
+              <h3 className="font-medium text-blue-900 dark:text-blue-100">
                 Smart Resolution Available
               </h3>
-              <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                 We can automatically merge these changes with {analysis.confidence}% confidence.
                 {analysis.conflictingFields.length > 0 && 
                   ` ${analysis.conflictingFields.length} field(s) have conflicts but can be resolved intelligently.`
@@ -287,7 +287,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
             <h4 className="font-medium">Resolution Strategy</h4>
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-emerald-700 dark:text-emerald-400 hover:underline"
+              className="text-sm text-blue-700 dark:text-blue-400 hover:underline"
             >
               {showAdvanced ? 'Hide' : 'Show'} Advanced Options
             </button>
@@ -330,7 +330,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               onClick={() => setSelectedResolution('server')}
               className={`p-3 rounded-lg border-2 transition-all ${
                 selectedResolution === 'server'
-                  ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
             >

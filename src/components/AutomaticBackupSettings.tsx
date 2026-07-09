@@ -267,7 +267,7 @@ export default function AutomaticBackupSettings() {
             {/* Cloud Storage (Coming Soon) */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
               <div className="flex items-start gap-3">
-                <CloudIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+                <CloudIcon size={20} className="text-blue-700 dark:text-blue-400 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">
                     Cloud Storage Integration Coming Soon
@@ -325,7 +325,7 @@ export default function AutomaticBackupSettings() {
               >
                 <div className="flex items-center gap-3">
                   {entry.success ? (
-                    <CheckCircleIcon size={20} className="text-green-600 dark:text-green-400" />
+                    <CheckCircleIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   ) : (
                     <XCircleIcon size={20} className="text-red-600 dark:text-red-400" />
                   )}
@@ -436,7 +436,7 @@ export default function AutomaticBackupSettings() {
       {/* Information Panel */}
       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
         <div className="flex items-start gap-3">
-          <AlertCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+          <AlertCircleIcon size={20} className="text-blue-700 dark:text-blue-400 mt-0.5" />
           <div>
             <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
               About Automatic Backups

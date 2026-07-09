@@ -147,7 +147,7 @@ export default function HouseholdManagement() {
     switch (role) {
       case 'owner': return <ShieldIcon size={16} className="text-purple-600" />;
       case 'admin': return <UserIcon size={16} className="text-blue-600" />;
-      case 'member': return <UserIcon size={16} className="text-green-600" />;
+      case 'member': return <UserIcon size={16} className="text-blue-600" />;
       case 'viewer': return <UserIcon size={16} className="text-gray-600" />;
     }
   };
@@ -156,7 +156,7 @@ export default function HouseholdManagement() {
     switch (role) {
       case 'owner': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
       case 'admin': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'member': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'member': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'viewer': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
     }
   };
@@ -556,7 +556,7 @@ export default function HouseholdManagement() {
                 <div className="text-right">
                   <p className="font-medium">
                     {contribution.netContribution >= 0 ? (
-                      <span className="text-green-600 dark:text-green-400">
+                      <span className="text-blue-600 dark:text-blue-400">
                         +{formatCurrency(contribution.netContribution)}
                       </span>
                     ) : (
@@ -574,7 +574,7 @@ export default function HouseholdManagement() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Income:</span>
-                  <span className="font-medium text-green-600 dark:text-green-400">
+                  <span className="font-medium text-blue-600 dark:text-blue-400">
                     {formatCurrency(contribution.totalIncome)}
                   </span>
                 </div>

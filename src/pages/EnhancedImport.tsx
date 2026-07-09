@@ -56,7 +56,7 @@ export default function EnhancedImport() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <GlobeIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+              <GlobeIcon size={20} className="text-blue-700 dark:text-blue-400" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Supported Banks</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
@@ -68,7 +68,7 @@ export default function EnhancedImport() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <FileTextIcon size={20} className="text-green-600 dark:text-green-400" />
+              <FileTextIcon size={20} className="text-blue-600 dark:text-blue-400" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">File Formats</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
@@ -109,7 +109,7 @@ export default function EnhancedImport() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <UploadIcon size={24} className="text-emerald-700 dark:text-emerald-400" />
+                <UploadIcon size={24} className="text-blue-700 dark:text-blue-400" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -120,19 +120,19 @@ export default function EnhancedImport() {
                 </p>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Automatic bank format detection
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Smart column mapping
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Rule-based transformations
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Duplicate detection
                   </li>
                 </ul>
@@ -150,8 +150,8 @@ export default function EnhancedImport() {
           {/* Batch Import */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                <FolderIcon size={24} className="text-green-600 dark:text-green-400" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <FolderIcon size={24} className="text-blue-600 dark:text-blue-400" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -162,25 +162,25 @@ export default function EnhancedImport() {
                 </p>
                 <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4">
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Multiple file processing
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Drag and drop support
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Progress tracking
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircleIcon size={14} className="text-green-600" />
+                    <CheckCircleIcon size={14} className="text-blue-600" />
                     Error recovery
                   </li>
                 </ul>
                 <button
                   onClick={() => setShowBatchImport(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
                 >
                   <FolderIcon size={16} />
                   Start Batch Import
@@ -260,7 +260,7 @@ export default function EnhancedImport() {
                 key={index}
                 className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
-                <GlobeIcon size={14} className="text-emerald-700 dark:text-emerald-400 flex-shrink-0" />
+                <GlobeIcon size={14} className="text-blue-700 dark:text-blue-400 flex-shrink-0" />
                 <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
                   {bank}
                 </span>
@@ -269,7 +269,7 @@ export default function EnhancedImport() {
           </div>
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertCircleIcon size={20} className="text-emerald-700 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+              <AlertCircleIcon size={20} className="text-blue-700 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
                 <p className="text-blue-900 dark:text-blue-100 font-medium mb-1">
                   Don't see your bank?

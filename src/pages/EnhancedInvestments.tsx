@@ -163,7 +163,7 @@ export default function EnhancedInvestments() {
               </p>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
                 <div 
-                  className="bg-green-500 h-2 rounded-full" 
+                  className="bg-blue-600 h-2 rounded-full"
                   style={{ width: `${riskMetrics.diversificationScore}%` }}
                 />
               </div>
@@ -201,9 +201,9 @@ export default function EnhancedInvestments() {
 
   const _renderDividends = () => (
     <div className="space-y-6">
-      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-        <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">Dividend Tracking</h3>
-        <p className="text-sm text-green-700 dark:text-green-200">
+      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Dividend Tracking</h3>
+        <p className="text-sm text-blue-700 dark:text-blue-200">
           Monitor dividend income and reinvestment opportunities.
         </p>
       </div>
@@ -367,9 +367,9 @@ export default function EnhancedInvestments() {
 
   const renderESG = () => (
     <div className="space-y-6">
-      <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4">
-        <h3 className="font-semibold text-teal-900 dark:text-teal-100 mb-2">ESG Scoring</h3>
-        <p className="text-sm text-teal-700 dark:text-teal-200">
+      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">ESG Scoring</h3>
+        <p className="text-sm text-blue-700 dark:text-blue-200">
           Environmental, Social, and Governance ratings for your investments.
         </p>
       </div>
@@ -405,7 +405,7 @@ export default function EnhancedInvestments() {
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div 
-                        className="bg-green-500 h-2 rounded-full" 
+                        className="bg-blue-600 h-2 rounded-full"
                         style={{ width: `${score.environmental}%` }}
                       />
                     </div>
@@ -490,7 +490,7 @@ export default function EnhancedInvestments() {
       {insights.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
-            <InfoIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+            <InfoIcon size={20} className="text-blue-700 dark:text-blue-400 mt-0.5" />
             <div className="space-y-2">
               {insights.map((insight, index) => (
                 <p key={index} className="text-sm text-blue-800 dark:text-blue-200">

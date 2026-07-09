@@ -408,8 +408,8 @@ describe('FixSummaryModal', () => {
     it('has proper success header styling', () => {
       renderModal();
       
-      const successHeader = screen.getByText('Successfully Applied 1 Fix').closest('.bg-green-50');
-      expect(successHeader).toHaveClass('bg-green-50', 'border', 'border-green-200', 'rounded-lg');
+      const successHeader = screen.getByText('Successfully Applied 1 Fix').closest('.bg-blue-50');
+      expect(successHeader).toHaveClass('bg-blue-50', 'border', 'border-blue-200', 'rounded-lg');
     });
 
     it('has proper change record styling', () => {

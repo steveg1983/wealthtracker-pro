@@ -258,7 +258,7 @@ export default function LinkBankAccountsModal({
                           {formatCurrency(da.balance, da.currency)}
                         </p>
                         {isMatched && selectedId && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 mt-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
                             Auto-matched
                           </span>
                         )}
@@ -295,7 +295,7 @@ export default function LinkBankAccountsModal({
                       {isMatched && selectedId && (() => {
                         const reason = getMatchReason(da, accounts);
                         return reason ? (
-                          <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                          <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
                             Matched: {reason}
                           </p>
                         ) : null;

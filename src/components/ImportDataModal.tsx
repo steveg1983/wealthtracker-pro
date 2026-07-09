@@ -352,7 +352,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-2">
-                <InfoIcon className="text-emerald-700 dark:text-emerald-400 mt-0.5" size={20} />
+                <InfoIcon className="text-blue-700 dark:text-blue-400 mt-0.5" size={20} />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-semibold mb-1">Money File Import:</p>
                   <p>For Money .mny or .mbf files, we'll show you the data and let you tell us what each column represents.</p>
@@ -437,7 +437,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
           {message && !preview?.warning && (
             <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
-              status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+              status === 'success' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
               status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
               'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
             }`}>

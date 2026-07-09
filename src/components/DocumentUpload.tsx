@@ -368,13 +368,13 @@ export default function DocumentUpload({
       {uploadedDocs.length > 0 && (
         <div className="space-y-2">
           <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-            <CheckIcon size={16} className="text-green-600" />
+            <CheckIcon size={16} className="text-blue-600" />
             Uploaded Documents ({uploadedDocs.length})
           </h3>
           {uploadedDocs.map(doc => (
             <div
               key={doc.id}
-              className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700"
+              className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700"
             >
               <div className="flex items-center gap-3">
                 {getFileIcon(doc.mimeType)}
@@ -390,7 +390,7 @@ export default function DocumentUpload({
                   )}
                 </div>
               </div>
-              <CheckIcon size={20} className="text-green-600" />
+              <CheckIcon size={20} className="text-blue-600" />
             </div>
           ))}
         </div>
