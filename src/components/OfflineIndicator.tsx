@@ -39,7 +39,7 @@ export default function OfflineIndicator(): React.JSX.Element | null {
         className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
           isOffline
             ? 'bg-orange-500 text-white'
-            : 'bg-green-500 text-white'
+            : 'bg-blue-600 text-white'
         }`}
       >
         {isOffline ? (

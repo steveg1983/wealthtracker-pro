@@ -40,7 +40,7 @@ export function RealtimeStatusIndicator({
 
   const getStatusColor = () => {
     if (connectionState.isConnected) {
-      return 'bg-green-500';
+      return 'bg-blue-600';
     } else if (connectionState.isReconnecting) {
       return 'bg-yellow-500 animate-pulse';
     } else {
@@ -190,7 +190,7 @@ export function RealtimeStatusDot(): React.JSX.Element {
     return <></>;
   }
 
-  const statusColor = connectionState.isConnected ? 'bg-green-500' : 'bg-yellow-500 animate-pulse';
+  const statusColor = connectionState.isConnected ? 'bg-blue-600' : 'bg-yellow-500 animate-pulse';
   const statusText = connectionState.isConnected ? 'Real-time sync active' : 'Reconnecting to real-time sync...';
 
   return (
