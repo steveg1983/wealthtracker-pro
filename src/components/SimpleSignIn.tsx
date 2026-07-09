@@ -22,13 +22,13 @@ export default function SimpleSignIn() {
         <SignedOut>
           <div className="space-y-4">
             <SignInButton mode="modal">
-              <button className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition-all shadow-lg">
+              <button className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all shadow-lg">
                 Sign In
               </button>
             </SignInButton>
             
             <SignUpButton mode="modal">
-              <button className="w-full py-3 px-4 border-2 border-blue-500 text-emerald-700 dark:text-emerald-400 rounded-xl font-medium hover:bg-blue-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition-all">
+              <button className="w-full py-3 px-4 border-2 border-blue-500 text-blue-700 dark:text-blue-400 rounded-xl font-medium hover:bg-blue-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all">
                 Create Account
               </button>
             </SignUpButton>
@@ -41,7 +41,7 @@ export default function SimpleSignIn() {
             <UserButton afterSignOutUrl="/" />
             <a 
               href="/dashboard" 
-              className="block w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600 transition-all shadow-lg"
+              className="block w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all shadow-lg"
             >
               Go to Dashboard
             </a>

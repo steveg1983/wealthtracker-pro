@@ -217,7 +217,7 @@ export default function DataManagementSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={() => setShowBatchImport(true)}
-            className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
           >
             <FolderIcon size={20} />
             Batch Import Multiple Files
@@ -241,7 +241,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowQIFImportModal(true)}
-            className="px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
           >
             <DatabaseIcon size={20} />
             QIF Import (Quicken)
@@ -277,7 +277,7 @@ export default function DataManagementSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={handleExportData}
-            className="px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
           >
             <DownloadIcon size={20} />
             Quick Export (JSON)
@@ -285,7 +285,7 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowExcelExport(true)}
-            className="px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
           >
             <GridIcon size={20} />
             Legacy Excel Export

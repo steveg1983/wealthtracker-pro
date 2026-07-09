@@ -449,8 +449,8 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
           {currentStep === 'result' && importResult && (
             <div className="p-6">
               <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
-                  <CheckIcon size={32} className="text-green-600 dark:text-green-400" />
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
+                  <CheckIcon size={32} className="text-blue-600 dark:text-blue-400" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   Import Complete!
@@ -459,11 +459,11 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
 
               {/* Results Summary */}
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                     {importResult.success}
                   </p>
-                  <p className="text-sm text-green-800 dark:text-green-300">Imported</p>
+                  <p className="text-sm text-blue-800 dark:text-blue-300">Imported</p>
                 </div>
                 
                 {importResult.duplicates > 0 && (
@@ -596,7 +596,7 @@ function StepIndicator({
         <div
           className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
             isComplete
-              ? 'bg-gradient-to-br from-green-400 to-green-600 text-white shadow-lg shadow-green-500/30 scale-105'
+              ? 'bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-lg shadow-blue-600/30 scale-105'
               : isActive
               ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/30 scale-110'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
@@ -611,7 +611,7 @@ function StepIndicator({
       </div>
       <span className={`text-xs mt-2 font-medium transition-colors duration-200 ${
         isComplete
-          ? 'text-green-600 dark:text-green-400'
+          ? 'text-blue-600 dark:text-blue-400'
           : isActive 
           ? 'text-primary' 
           : 'text-gray-500 dark:text-gray-400'

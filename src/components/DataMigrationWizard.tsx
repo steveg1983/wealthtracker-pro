@@ -52,7 +52,7 @@ const MIGRATION_SOURCES = [
     name: 'Mint',
     description: 'Import from Intuit Mint',
     icon: CreditCardIcon,
-    color: 'bg-green-500',
+    color: 'bg-blue-600',
     fileTypes: ['.csv'],
     instructions: 'Export your data from Mint as CSV files before it shuts down.'
   },
@@ -249,7 +249,7 @@ export default function DataMigrationWizard({
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
                       currentStep > step.id
-                        ? 'bg-green-500 text-white'
+                        ? 'bg-blue-600 text-white'
                         : currentStep === step.id
                         ? 'bg-blue-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
@@ -269,7 +269,7 @@ export default function DataMigrationWizard({
                   <div
                     className={`flex-1 h-0.5 mx-2 transition-colors ${
                       currentStep > step.id
-                        ? 'bg-green-500'
+                        ? 'bg-blue-600'
                         : 'bg-gray-200 dark:bg-gray-700'
                     }`}
                   />
@@ -423,7 +423,7 @@ export default function DataMigrationWizard({
 
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <ZapIcon size={20} className="text-emerald-700 dark:text-emerald-400 mt-0.5" />
+                  <ZapIcon size={20} className="text-blue-700 dark:text-blue-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
                       Smart Mapping Active
@@ -506,7 +506,7 @@ export default function DataMigrationWizard({
                 </>
               ) : (
                 <>
-                  <CheckCircleIcon size={64} className="text-green-500 mx-auto mb-4" />
+                  <CheckCircleIcon size={64} className="text-blue-600 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                     Ready to Import
                   </h3>

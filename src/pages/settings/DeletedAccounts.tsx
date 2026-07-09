@@ -112,8 +112,8 @@ export default function DeletedAccounts() {
 
       {/* Success Message */}
       {successMessage && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
             <CheckCircleIcon size={20} />
             <span>{successMessage}</span>
           </div>
@@ -123,7 +123,7 @@ export default function DeletedAccounts() {
       {/* Info Section */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6">
         <div className="flex items-start gap-3">
-          <ArchiveIcon size={24} className="text-emerald-700 dark:text-emerald-400 mt-1" />
+          <ArchiveIcon size={24} className="text-blue-700 dark:text-blue-400 mt-1" />
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2">About Archived Accounts</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -195,7 +195,7 @@ export default function DeletedAccounts() {
                       flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ml-4
                       ${restoringId === account.id
                         ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }
                     `}
                   >
