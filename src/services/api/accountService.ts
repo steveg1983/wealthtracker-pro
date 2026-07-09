@@ -34,6 +34,8 @@ const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
   creditLimit: 'credit_limit',
   bankBalance: 'bank_balance',
   lastReconciledDate: 'last_reconciled_date',
+  lowBalanceAlertEnabled: 'low_balance_alert_enabled',
+  lowBalanceThreshold: 'low_balance_threshold',
 };
 
 function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
@@ -58,6 +60,8 @@ function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown>
     openingBalance: row.initial_balance ?? row.opening_balance,
     isActive: row.is_active,
     lastUpdated: row.last_updated ?? row.updated_at,
+    lowBalanceAlertEnabled: row.low_balance_alert_enabled === true,
+    lowBalanceThreshold: row.low_balance_threshold != null ? Number(row.low_balance_threshold) : undefined,
   };
 }
 
