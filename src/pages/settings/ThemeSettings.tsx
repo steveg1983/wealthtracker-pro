@@ -141,7 +141,7 @@ export default function ThemeSettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               {getCurrentTheme() === 'dark' ? (
-                <MoonIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+                <MoonIcon size={20} className="text-blue-700 dark:text-blue-400" />
               ) : (
                 <SunIcon size={20} className="text-yellow-600 dark:text-yellow-400" />
               )}
@@ -156,7 +156,7 @@ export default function ThemeSettings() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <ClockIcon size={20} className="text-green-600 dark:text-green-400" />
+              <ClockIcon size={20} className="text-blue-600 dark:text-blue-400" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Active Schedule</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
@@ -252,14 +252,14 @@ export default function ThemeSettings() {
                     key={schedule.id}
                     className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 ${
                       schedule.isActive
-                        ? 'border-green-500 dark:border-green-400'
+                        ? 'border-blue-600 dark:border-blue-400'
                         : 'border-transparent'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-3 h-3 rounded-full ${
-                          schedule.isActive ? 'bg-green-500' : 'bg-gray-400'
+                          schedule.isActive ? 'bg-blue-600' : 'bg-gray-400'
                         }`} />
                         <div>
                           <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -276,7 +276,7 @@ export default function ThemeSettings() {
                           className={`p-2 rounded ${
                             schedule.isActive
                               ? 'text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300'
-                              : 'text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300'
+                              : 'text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
                           }`}
                           title={schedule.isActive ? 'Deactivate schedule' : 'Activate schedule'}
                         >
@@ -284,7 +284,7 @@ export default function ThemeSettings() {
                         </button>
                         <button
                           onClick={() => setEditingSchedule(schedule)}
-                          className="p-2 text-emerald-700 dark:text-emerald-400 hover:text-blue-900 dark:hover:text-blue-300"
+                          className="p-2 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                           title="Edit schedule"
                         >
                           <EditIcon size={16} />
@@ -387,7 +387,7 @@ export default function ThemeSettings() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="p-2 text-emerald-700 dark:text-emerald-400 hover:text-blue-900 dark:hover:text-blue-300"
+                        className="p-2 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
                         title="Preview preset"
                       >
                         <EyeIcon size={16} />

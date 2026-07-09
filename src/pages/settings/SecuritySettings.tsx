@@ -131,7 +131,7 @@ export default function SecuritySettings() {
         {setupMessage && (
           <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             setupMessage.type === 'success' 
-              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
               : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
           }`}>
             {setupMessage.type === 'success' ? (
@@ -162,7 +162,7 @@ export default function SecuritySettings() {
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   settings.twoFactorEnabled
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
                 }`}
               >
                 {settings.twoFactorEnabled ? 'Disable' : 'Enable'}
@@ -170,8 +170,8 @@ export default function SecuritySettings() {
             </div>
             
             {settings.twoFactorEnabled && (
-              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
                   <CheckCircleIcon size={16} />
                   Two-factor authentication is active
                 </p>
@@ -199,7 +199,7 @@ export default function SecuritySettings() {
                     ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 cursor-not-allowed'
                     : settings.biometricEnabled
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
                 }`}
               >
                 {!biometricAvailable ? 'Not Available' : settings.biometricEnabled ? 'Disable' : 'Enable'}
@@ -220,7 +220,7 @@ export default function SecuritySettings() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <LockIcon size={20} className="text-green-600 dark:text-green-400" />
+                  <LockIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   End-to-End Encryption
                 </h3>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -232,7 +232,7 @@ export default function SecuritySettings() {
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   settings.encryptionEnabled
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
                 }`}
               >
                 {settings.encryptionEnabled ? 'Disable' : 'Enable'}
@@ -240,8 +240,8 @@ export default function SecuritySettings() {
             </div>
             
             {settings.encryptionEnabled && (
-              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
                   <CheckCircleIcon size={16} />
                   All data is encrypted using AES-256-GCM
                 </p>
@@ -254,7 +254,7 @@ export default function SecuritySettings() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <EyeIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+                  <EyeIcon size={20} className="text-blue-700 dark:text-blue-400" />
                   Read-Only Mode
                 </h3>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -266,7 +266,7 @@ export default function SecuritySettings() {
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   settings.readOnlyMode
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50'
                 }`}
               >
                 {settings.readOnlyMode ? 'Disable' : 'Enable'}
