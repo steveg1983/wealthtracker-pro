@@ -83,6 +83,15 @@ describe('CategorySelector', () => {
     expect(onCategoryChange).toHaveBeenCalledWith('det-groceries');
   });
 
+  it('groups items under their parent sub-category headers', () => {
+    renderOpen({ includeAllTypes: true });
+    // Section headers (the sub-categories) plus their detail items beneath.
+    expect(screen.getByText('Salary')).toBeInTheDocument();
+    expect(screen.getByText('Food')).toBeInTheDocument();
+    expect(screen.getByText('Payslip')).toBeInTheDocument();
+    expect(screen.getByText('Groceries')).toBeInTheDocument();
+  });
+
   it('omits the helper hint when showHelperText is false', () => {
     render(
       <CategorySelector

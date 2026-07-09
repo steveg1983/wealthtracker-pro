@@ -154,6 +154,20 @@ export default function CategorySelector({
     );
   };
 
+  // Group the search-filtered detail categories under their parent sub-category
+  // (Bills, Food, Personal…), preserving sub-category order — the dropdown shows
+  // titled sections instead of a flat list, while search still filters items.
+  const getGroupedOptions = (): Array<{ id: string; name: string; items: Category[] }> => {
+    const matchedIds = new Set(getFilteredOptions().map(c => c.id));
+    return getSubCategoriesForType()
+      .map(sub => ({
+        id: sub.id,
+        name: sub.name,
+        items: getDetailCategories(sub.id).filter(d => matchedIds.has(d.id)),
+      }))
+      .filter(group => group.items.length > 0);
+  };
+
   // Get parent category name for display
   const getParentCategoryName = (categoryId: string): string => {
     const category = categories.find(c => c.id === categoryId);
@@ -256,14 +270,14 @@ export default function CategorySelector({
   };
 
   const subCategories = getSubCategoriesForType();
-  const filteredOptions = getFilteredOptions();
+  const groupedOptions = getGroupedOptions();
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div className="relative">
         <div
           ref={triggerRef}
-          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-text flex items-center"
+          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-text flex items-center"
           onClick={handleInputClick}
         >
           <div className="flex items-center justify-between">
@@ -384,27 +398,30 @@ export default function CategorySelector({
               </div>
             ) : (
               <>
-                {/* Category List */}
-                {filteredOptions.length > 0 ? (
-                  filteredOptions.map((category) => (
-                    <div
-                      key={category.id}
-                      className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${
-                        selectedCategory === category.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                      }`}
-                      onClick={() => handleCategorySelect(category.id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <TagIcon size={14} className="text-gray-400" />
-                        <div>
-                          <div className="font-medium text-gray-900 dark:text-white">
-                            {category.name}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {getParentCategoryName(category.id)}
+                {/* Category list — grouped under their parent sub-category
+                    (Bills, Food, Personal…) with sticky section headers. */}
+                {groupedOptions.length > 0 ? (
+                  groupedOptions.map((group) => (
+                    <div key={group.id}>
+                      <div className="sticky top-0 z-10 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {group.name}
+                      </div>
+                      {group.items.map((category) => (
+                        <div
+                          key={category.id}
+                          className={`px-3 py-2 pl-8 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${
+                            selectedCategory === category.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                          onClick={() => handleCategorySelect(category.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <TagIcon size={14} className="text-gray-400 shrink-0" />
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {category.name}
+                            </span>
                           </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   ))
                 ) : (
