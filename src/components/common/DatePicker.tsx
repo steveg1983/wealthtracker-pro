@@ -14,6 +14,11 @@ const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+const MONTHS_SHORT = MONTHS.map(m => m.slice(0, 3));
+// Years shown per page in the year view (a clean 3×4 grid).
+const YEAR_PAGE = 12;
+
+type PickerView = 'days' | 'months' | 'years';
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -49,6 +54,9 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
 
   const [viewYear, setViewYear] = useState(selectedYear ?? new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(selectedMonth ?? new Date().getMonth());
+  // Drill-up navigation: days → months → years, so jumping far back (e.g. to
+  // 2008) is two clicks on the header instead of dozens on the arrow.
+  const [view, setView] = useState<PickerView>('days');
 
   // Sync view when value changes externally
   useEffect(() => {
@@ -95,11 +103,24 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
     setIsOpen(false);
   };
 
+  // Header drill-down picks a month/year to VIEW (not the value) and steps back
+  // down a level: years → months → days.
+  const selectMonth = (month: number) => {
+    setViewMonth(month);
+    setView('days');
+  };
+
+  const selectYear = (year: number) => {
+    setViewYear(year);
+    setView('months');
+  };
+
   const selectToday = () => {
     const now = new Date();
     onChange(toYMD(now.getFullYear(), now.getMonth(), now.getDate()));
     setViewYear(now.getFullYear());
     setViewMonth(now.getMonth());
+    setView('days');
     setIsOpen(false);
   };
 
@@ -146,6 +167,16 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
     return day === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
   };
 
+  // Start of the 12-year block currently in view (e.g. 2004–2015 for 2008).
+  const yearPageStart = viewYear - (((viewYear % YEAR_PAGE) + YEAR_PAGE) % YEAR_PAGE);
+  const nowYear = new Date().getFullYear();
+  const nowMonth = new Date().getMonth();
+
+  const openPicker = () => {
+    setView('days');
+    setIsOpen(o => !o);
+  };
+
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
@@ -154,7 +185,7 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
           type="text"
           readOnly
           value={formatDisplayDate(value)}
-          onClick={() => setIsOpen(o => !o)}
+          onClick={openPicker}
           placeholder="dd/mm/yyyy"
           aria-label={ariaLabel}
           className={`w-full px-3 py-2 pr-10 cursor-pointer ${className}`}
@@ -167,62 +198,136 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
 
       {isOpen && (
         <div className="absolute z-50 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3 w-[280px]">
-          {/* Header */}
+          {/* Header — the arrows step within the current view (month / year /
+              12-year block) and the label drills UP a level (day→month→year). */}
           <div className="flex items-center justify-between mb-2">
             <button
               type="button"
-              onClick={prevMonth}
+              onClick={
+                view === 'days'
+                  ? prevMonth
+                  : view === 'months'
+                  ? () => setViewYear(y => y - 1)
+                  : () => setViewYear(y => y - YEAR_PAGE)
+              }
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              aria-label="Previous month"
+              aria-label={view === 'days' ? 'Previous month' : view === 'months' ? 'Previous year' : 'Previous years'}
             >
               <ChevronLeftIcon size={18} />
             </button>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-              {MONTHS[viewMonth]} {viewYear}
-            </span>
+            {view === 'years' ? (
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                {yearPageStart} – {yearPageStart + YEAR_PAGE - 1}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setView(view === 'days' ? 'months' : 'years')}
+                className="text-sm font-medium text-gray-700 dark:text-gray-200 px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label={view === 'days' ? 'Select month' : 'Select year'}
+              >
+                {view === 'days' ? `${MONTHS[viewMonth]} ${viewYear}` : viewYear}
+              </button>
+            )}
             <button
               type="button"
-              onClick={nextMonth}
+              onClick={
+                view === 'days'
+                  ? nextMonth
+                  : view === 'months'
+                  ? () => setViewYear(y => y + 1)
+                  : () => setViewYear(y => y + YEAR_PAGE)
+              }
               className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              aria-label="Next month"
+              aria-label={view === 'days' ? 'Next month' : view === 'months' ? 'Next year' : 'Next years'}
             >
               <ChevronRightIcon size={18} />
             </button>
           </div>
 
-          {/* Day headers */}
-          <div className="grid grid-cols-7 mb-1">
-            {DAYS.map((d, i) => (
-              <div key={i} className="text-center text-xs font-medium text-gray-400 dark:text-gray-500 py-1">
-                {d}
+          {view === 'days' && (
+            <>
+              {/* Day headers */}
+              <div className="grid grid-cols-7 mb-1">
+                {DAYS.map((d, i) => (
+                  <div key={i} className="text-center text-xs font-medium text-gray-400 dark:text-gray-500 py-1">
+                    {d}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Day grid */}
-          <div className="grid grid-cols-7">
-            {cells.map((cell, i) => {
-              const selected = isSelected(cell.day, cell.current);
-              const today = isToday(cell.day, cell.current);
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => cell.current && selectDay(cell.day)}
-                  disabled={!cell.current}
-                  className={`
-                    w-9 h-9 text-sm rounded-lg flex items-center justify-center transition-colors
-                    ${!cell.current ? 'text-gray-300 dark:text-gray-600 cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'}
-                    ${selected ? 'bg-[#1a2332] text-white hover:bg-secondary' : ''}
-                    ${today && !selected ? 'border border-primary text-primary font-semibold' : ''}
-                    ${cell.current && !selected && !today ? 'text-gray-700 dark:text-gray-200' : ''}
-                  `}
-                >
-                  {cell.day}
-                </button>
-              );
-            })}
-          </div>
+              {/* Day grid */}
+              <div className="grid grid-cols-7">
+                {cells.map((cell, i) => {
+                  const selected = isSelected(cell.day, cell.current);
+                  const today = isToday(cell.day, cell.current);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => cell.current && selectDay(cell.day)}
+                      disabled={!cell.current}
+                      className={`
+                        w-9 h-9 text-sm rounded-lg flex items-center justify-center transition-colors
+                        ${!cell.current ? 'text-gray-300 dark:text-gray-600 cursor-default' : 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'}
+                        ${selected ? 'bg-[#1a2332] text-white hover:bg-secondary' : ''}
+                        ${today && !selected ? 'border border-primary text-primary font-semibold' : ''}
+                        ${cell.current && !selected && !today ? 'text-gray-700 dark:text-gray-200' : ''}
+                      `}
+                    >
+                      {cell.day}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {view === 'months' && (
+            <div className="grid grid-cols-3 gap-1">
+              {MONTHS_SHORT.map((label, i) => {
+                const selected = selectedYear === viewYear && selectedMonth === i;
+                const current = nowYear === viewYear && nowMonth === i;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => selectMonth(i)}
+                    className={`
+                      h-10 text-sm rounded-lg flex items-center justify-center transition-colors
+                      ${selected ? 'bg-[#1a2332] text-white hover:bg-secondary' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200'}
+                      ${current && !selected ? 'border border-primary text-primary font-semibold' : ''}
+                    `}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {view === 'years' && (
+            <div className="grid grid-cols-3 gap-1">
+              {Array.from({ length: YEAR_PAGE }, (_, i) => yearPageStart + i).map(year => {
+                const selected = selectedYear === year;
+                const current = nowYear === year;
+                return (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => selectYear(year)}
+                    className={`
+                      h-10 text-sm rounded-lg flex items-center justify-center transition-colors
+                      ${selected ? 'bg-[#1a2332] text-white hover:bg-secondary' : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200'}
+                      ${current && !selected ? 'border border-primary text-primary font-semibold' : ''}
+                    `}
+                  >
+                    {year}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Footer */}
           <div className="flex justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
