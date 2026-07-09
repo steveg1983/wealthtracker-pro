@@ -140,8 +140,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'current', 
       title: 'Current Accounts', 
-      icon: WalletIcon, 
-      color: 'text-emerald-700 dark:text-emerald-400',
+      icon: WalletIcon,
+      color: 'text-blue-700 dark:text-blue-400',
       bgColor: 'bg-blue-200 dark:bg-blue-900/20',
       borderColor: 'border-blue-200 dark:border-blue-800'
     },
@@ -291,7 +291,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets</p>
-              <p className="text-2xl font-bold mt-1 text-emerald-600">{formatDisplayCurrency(totalAssets)}</p>
+              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{formatDisplayCurrency(totalAssets)}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Liabilities</p>
@@ -309,7 +309,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             onClick={() => handleGroupByChange('type')}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               groupBy === 'type'
-                ? 'bg-[#1a2332] dark:bg-emerald-600 text-white'
+                ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
             }`}
           >
@@ -319,7 +319,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             onClick={() => handleGroupByChange('institution')}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               groupBy === 'institution'
-                ? 'bg-[#1a2332] dark:bg-emerald-600 text-white'
+                ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
             }`}
           >
@@ -517,7 +517,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 <p className={`text-sm font-semibold tabular-nums ${
                                   getUnreconciledCount(account.id) > 0
                                     ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-green-600 dark:text-green-400'
+                                    : 'text-blue-600 dark:text-blue-400'
                                 }`}>
                                   {getUnreconciledCount(account.id)}
                                 </p>
@@ -573,7 +573,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                       variant="ghost"
                                       size="md"
                                       disabled={syncing}
-                                      className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-200 hover:bg-green-100/50 dark:hover:bg-green-900/30 min-w-[48px] min-h-[48px]"
+                                      className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 min-w-[48px] min-h-[48px]"
                                       title="Sync bank data"
                                     />
                                     <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">

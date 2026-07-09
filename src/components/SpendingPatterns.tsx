@@ -66,7 +66,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
   const getPatternTypeIcon = (type: SpendingPattern['patternType']) => {
     switch (type) {
       case 'recurring':
-        return <CalendarIcon size={16} className="text-emerald-700 dark:text-emerald-400" />;
+        return <CalendarIcon size={16} className="text-blue-700 dark:text-blue-400" />;
       case 'seasonal':
         return <ClockIcon size={16} className="text-purple-600 dark:text-purple-400" />;
       case 'trend':
@@ -170,7 +170,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Patterns</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
                 {patterns.filter(p => p.isActive).length}
               </p>
             </div>
@@ -182,11 +182,11 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Recurring</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {patterns.filter(p => p.patternType === 'recurring' && p.isActive).length}
               </p>
             </div>
-            <CalendarIcon size={24} className="text-green-500" />
+            <CalendarIcon size={24} className="text-blue-600" />
           </div>
         </div>
 
@@ -382,7 +382,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-emerald-700 dark:text-emerald-400 hover:text-blue-900 dark:hover:text-blue-300">
+                      <button className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
                         <EyeIcon size={16} />
                       </button>
                     </td>

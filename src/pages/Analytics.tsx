@@ -432,7 +432,7 @@ export default function Analytics(): React.JSX.Element {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Savings Rate</p>
-                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {`${formatPercentage(keyMetrics.savingsRate, 1)}%`}
                   </p>
                 </div>

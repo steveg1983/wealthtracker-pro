@@ -231,7 +231,7 @@ export default function BudgetRollover() {
         {/* Status */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${rolloverSettings.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
+            <div className={`w-2 h-2 rounded-full ${rolloverSettings.enabled ? 'bg-blue-600' : 'bg-gray-400'}`} />
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Rollover {rolloverSettings.enabled ? 'Enabled' : 'Disabled'}
             </span>
@@ -239,7 +239,7 @@ export default function BudgetRollover() {
           {rolloverSettings.autoApply && (
             <div className="flex items-center gap-2">
               <RepeatIcon size={14} className="text-blue-500" />
-              <span className="text-sm text-emerald-700 dark:text-emerald-400">Auto-apply</span>
+              <span className="text-sm text-blue-700 dark:text-blue-400">Auto-apply</span>
             </div>
           )}
         </div>
@@ -297,7 +297,7 @@ export default function BudgetRollover() {
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 dark:text-white">{data.categoryName}</h4>
                   {data.willRollover && (
-                    <CheckCircleIcon size={16} className="text-green-500" />
+                    <CheckCircleIcon size={16} className="text-blue-600" />
                   )}
                 </div>
                 
@@ -323,7 +323,7 @@ export default function BudgetRollover() {
                   {data.willRollover && (
                     <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                       <span className="text-gray-600 dark:text-gray-400">Will Rollover:</span>
-                      <span className="font-medium text-emerald-700 dark:text-emerald-400">
+                      <span className="font-medium text-green-600 dark:text-green-400">
                         {formatCurrency(data.rolloverAmount)}
                       </span>
                     </div>

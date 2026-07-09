@@ -177,7 +177,7 @@ export default function PaymentForm({
             <span className="text-lg font-semibold text-gray-900 dark:text-white">
               Total:
             </span>
-            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+            <span className="text-lg font-bold text-green-600 dark:text-green-400">
               {formattedPlanPrice}/{billingLabel.toLowerCase()}
             </span>
           </div>

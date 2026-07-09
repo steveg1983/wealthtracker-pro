@@ -147,7 +147,7 @@ export default function TransactionDetailsView({
               <div className="flex items-center gap-3">
                 {transaction.cleared ? (
                   <>
-                    <CheckIcon2 size={20} className="text-green-600 dark:text-green-400" />
+                    <CheckIcon2 size={20} className="text-blue-600 dark:text-blue-400" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       Transaction reconciled
                     </span>
@@ -164,7 +164,7 @@ export default function TransactionDetailsView({
 
               {transaction.reconciledWith && transaction.reconciledWith !== 'manual' && (
                 <div className="flex items-center gap-3">
-                  <LinkIcon size={20} className="text-emerald-700 dark:text-emerald-400" />
+                  <LinkIcon size={20} className="text-blue-700 dark:text-blue-400" />
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     Linked to bank statement (ID: {transaction.reconciledWith})
                   </span>

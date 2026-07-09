@@ -49,7 +49,7 @@ export default function MarkdownEditor({
       .replace(/`([^`]+)`/gim, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm">$1</code>')
       
       // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-emerald-700 dark:text-emerald-400 hover:underline">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-700 dark:text-blue-400 hover:underline">$1</a>')
       
       // Lists
       .replace(/^\* (.+)$/gim, '<li class="ml-4">• $1</li>')

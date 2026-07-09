@@ -301,7 +301,7 @@ export default function SharedBudgetsGoals() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleReviewApproval(approval.id, true)}
-                      className="p-2 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded hover:bg-green-200"
+                      className="p-2 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded hover:bg-blue-200"
                     >
                       <CheckIcon size={16} />
                     </button>
@@ -489,7 +489,7 @@ export default function SharedBudgetsGoals() {
                   <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                     <div 
                       className={`h-full transition-all duration-300 ${
-                        goal.completedAt ? 'bg-green-500' : 'bg-purple-500'
+                        goal.completedAt ? 'bg-blue-600' : 'bg-purple-500'
                       }`}
                       style={{ width: `${Math.min(percentageDecimal.toNumber(), 100)}%` }}
                     />
@@ -548,8 +548,8 @@ export default function SharedBudgetsGoals() {
                 )}
 
                 {goal.completedAt && (
-                  <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
                       <CheckIcon size={16} className="inline mr-1" />
                       Goal achieved on {format(goal.completedAt!, 'MMM d, yyyy')}!
                     </p>

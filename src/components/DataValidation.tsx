@@ -706,12 +706,12 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         </div>
 
         {validationIssues.length === 0 ? (
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-8 text-center">
-            <CheckCircleIcon className="mx-auto text-green-600 dark:text-green-400 mb-3" size={48} />
-            <h4 className="text-lg font-medium text-green-900 dark:text-green-300">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-8 text-center">
+            <CheckCircleIcon className="mx-auto text-blue-600 dark:text-blue-400 mb-3" size={48} />
+            <h4 className="text-lg font-medium text-blue-900 dark:text-blue-300">
               All data looks good!
             </h4>
-            <p className="text-sm text-green-800 dark:text-green-200 mt-1">
+            <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
               No validation issues found in your financial data.
             </p>
           </div>
@@ -807,8 +807,8 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
                                     issueType
                                   });
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-emerald-700 dark:text-emerald-400
-                                         hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded"
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-700 dark:text-blue-400
+                                         hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                               >
                                 <EyeIcon size={14} />
                                 View Details

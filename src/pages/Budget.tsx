@@ -366,7 +366,7 @@ export default function Budget() {
                   onClick={() => handleToggleActive(budget.id, budget.isActive)}
                   className={`px-3 py-1 text-sm rounded ${
                     budget.isActive !== false
-                      ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                      ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
