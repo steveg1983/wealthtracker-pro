@@ -80,6 +80,28 @@
   }
 }
 
+/* Checkbox / radio controls (app-wide).
+   - accent-color pins them to the app blue (#2563eb) so they never inherit the
+     viewer's OS accent colour (a green macOS accent was making every box green).
+   - On desktop (pointer: fine) they're a crisp, professional size rather than the
+     chunky finger-target look; touch devices keep the larger target from the
+     media query above. This is a PC/Mac-first professional app. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #2563eb;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    min-height: 16px;
+    margin: 0;
+  }
+}
+
 /* WealthTracker Brand Colors */
 :root {
   --color-primary: #1a2332;
