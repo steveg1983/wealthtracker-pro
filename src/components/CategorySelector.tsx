@@ -277,7 +277,7 @@ export default function CategorySelector({
       <div className="relative">
         <div
           ref={triggerRef}
-          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm focus-within:border-blue-500 cursor-text flex items-center"
+          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm cursor-text flex items-center"
           onClick={handleInputClick}
         >
           <div className="flex items-center justify-between">
@@ -289,7 +289,7 @@ export default function CategorySelector({
                   onChange={handleInputChange}
                   onFocus={handleInputFocus}
                   placeholder={placeholder}
-                  className="w-full bg-transparent text-gray-900 dark:text-white focus:outline-none !border-0"
+                  className="w-full bg-transparent text-gray-900 dark:text-white !border-0 focus:!outline-none focus-visible:!outline-none"
                   autoFocus
                 />
               ) : (
