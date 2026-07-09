@@ -1,5 +1,6 @@
 import type { Transaction, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
+import { buildCategoryMatcher } from '../utils/qifCategoryMatch';
 import { toDecimal, toNumber } from '../utils/decimal';
 
 export interface QIFTransaction {
@@ -293,11 +294,22 @@ export class QIFImportService {
     duplicates: number;
     newTransactions: number;
     invalidDates: number;
+    /** How many rows inherited an existing app category from their QIF category. */
+    matchedCategories: number;
+    /** Distinct QIF categories with no app match, most common first. */
+    unmatchedCategories: { name: string; count: number }[];
   }> {
     const parseResult = this.parseQIF(qifContent);
     const transactions: Omit<Transaction, 'id'>[] = [];
     let duplicates = 0;
-    
+
+    // Match the QIF file's own categories to the app's existing ones.
+    const categoryMatcher = options.categories && options.categories.length > 0
+      ? buildCategoryMatcher(options.categories)
+      : null;
+    let matchedCategoryCount = 0;
+    const unmatchedCategoryCounts = new Map<string, number>();
+
     for (const qifTrx of parseResult.transactions) {
       // Duplicate check by date, SIGNED amount, and payee similarity
       const isDuplicate = existingTransactions.some(existing => {
@@ -343,14 +355,32 @@ export class QIFImportService {
         description = description ? `${description} - ${qifTrx.memo}` : qifTrx.memo;
       }
       description = description || 'QIF Transaction';
-      
+
+      // Category: prefer the QIF file's own category (MS Money already tagged
+      // it) matched to a category that exists in the app. A name with no match
+      // is kept as-is and reported, so the user can create/auto-create it rather
+      // than have it silently guessed or dropped.
+      let resolvedCategory = qifTrx.category || '';
+      if (qifTrx.category && categoryMatcher) {
+        const matchedId = categoryMatcher.match(qifTrx.category, type);
+        if (matchedId) {
+          resolvedCategory = matchedId;
+          matchedCategoryCount++;
+        } else {
+          unmatchedCategoryCounts.set(
+            qifTrx.category,
+            (unmatchedCategoryCounts.get(qifTrx.category) ?? 0) + 1
+          );
+        }
+      }
+
       const transaction: Omit<Transaction, 'id'> = {
         date: new Date(qifTrx.date),
         description,
         amount,
         type,
         accountId: targetAccountId,
-        category: qifTrx.category || '',
+        category: resolvedCategory,
         cleared: qifTrx.cleared || false,
         notes: qifTrx.checkNumber ? `Check #: ${qifTrx.checkNumber}` : undefined,
         isRecurring: false
@@ -378,7 +408,10 @@ export class QIFImportService {
       transactions,
       duplicates,
       newTransactions: transactions.length,
-      invalidDates: parseResult.invalidDateCount
+      invalidDates: parseResult.invalidDateCount,
+      matchedCategories: matchedCategoryCount,
+      unmatchedCategories: Array.from(unmatchedCategoryCounts, ([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
     };
   }
 }
