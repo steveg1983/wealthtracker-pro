@@ -80,14 +80,16 @@
   }
 }
 
-/* Checkbox / radio controls (app-wide).
+/* Checkbox / radio / range controls (app-wide).
    - accent-color pins them to the app blue (#2563eb) so they never inherit the
-     viewer's OS accent colour (a green macOS accent was making every box green).
-   - On desktop (pointer: fine) they're a crisp, professional size rather than the
-     chunky finger-target look; touch devices keep the larger target from the
-     media query above. This is a PC/Mac-first professional app. */
+     viewer's OS accent colour (a green macOS accent was making every box and
+     slider green).
+   - On desktop (pointer: fine) checkboxes/radios are a crisp, professional
+     size rather than the chunky finger-target look; touch devices keep the
+     larger target from the media query above. PC/Mac-first professional app. */
 input[type="checkbox"],
-input[type="radio"] {
+input[type="radio"],
+input[type="range"] {
   accent-color: #2563eb;
 }
 
