@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Category } from '../types';
@@ -240,6 +240,73 @@ export default function CategorySelector({
     setShowDropdown(!showDropdown);
   };
 
+  // ── Keyboard support (combobox pattern) ────────────────────────────────────
+  // The native <select> this component replaced was fully keyboard-operable;
+  // this restores that: Enter/Space/arrows open the picker, arrows walk the
+  // filtered options, Enter selects, Escape closes and returns focus.
+  const instanceId = useId();
+  const listboxId = `${instanceId}-listbox`;
+  const optionDomId = (categoryId: string): string => `${instanceId}-opt-${categoryId}`;
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+
+  // Any change to the option list invalidates the highlight.
+  useEffect(() => {
+    setHighlightIndex(-1);
+  }, [showDropdown, searchTerm]);
+
+  const closeAndRefocus = (): void => {
+    setShowDropdown(false);
+    setSearchTerm('');
+    triggerRef.current?.focus();
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (showDropdown) return; // the search input owns keys while open
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setShowDropdown(true);
+    }
+  };
+
+  const handleSearchKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    flatOptions: Category[]
+  ): void => {
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setHighlightIndex(i => Math.min(i + 1, flatOptions.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setHighlightIndex(i => Math.max(i - 1, 0));
+        break;
+      case 'Enter': {
+        e.preventDefault();
+        const chosen = flatOptions[highlightIndex] ??
+          (flatOptions.length === 1 ? flatOptions[0] : undefined);
+        if (chosen) handleCategorySelect(chosen.id);
+        break;
+      }
+      case 'Escape':
+        e.preventDefault();
+        closeAndRefocus();
+        break;
+      case 'Tab':
+        // Let focus move on naturally, but don't leave the menu hanging open.
+        setShowDropdown(false);
+        setSearchTerm('');
+        break;
+    }
+  };
+
+  // Keep the highlighted option scrolled into view while arrowing.
+  useEffect(() => {
+    if (highlightIndex < 0) return;
+    const el = document.querySelector(`[data-highlighted-option="${instanceId}"]`);
+    el?.scrollIntoView?.({ block: 'nearest' });
+  }, [highlightIndex, instanceId]);
+
   const handleCreateCategory = async (): Promise<void> => {
     if (!newCategoryName.trim() || !selectedParentId) return;
 
@@ -271,12 +338,22 @@ export default function CategorySelector({
 
   const subCategories = getSubCategoriesForType();
   const groupedOptions = getGroupedOptions();
+  // Flat view of the visible options, in render order — what the arrow keys walk.
+  const flatOptions = groupedOptions.flatMap(g => g.items);
+  const highlightedId = highlightIndex >= 0 ? flatOptions[highlightIndex]?.id : undefined;
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div className="relative">
         <div
           ref={triggerRef}
+          tabIndex={0}
+          role="combobox"
+          aria-expanded={showDropdown}
+          aria-haspopup="listbox"
+          aria-controls={showDropdown ? listboxId : undefined}
+          aria-label="Category"
+          onKeyDown={handleTriggerKeyDown}
           className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm cursor-text flex items-center"
           onClick={handleInputClick}
         >
@@ -288,7 +365,11 @@ export default function CategorySelector({
                   value={searchTerm}
                   onChange={handleInputChange}
                   onFocus={handleInputFocus}
+                  onKeyDown={(e) => handleSearchKeyDown(e, flatOptions)}
                   placeholder={placeholder}
+                  aria-autocomplete="list"
+                  aria-controls={listboxId}
+                  aria-activedescendant={highlightedId ? optionDomId(highlightedId) : undefined}
                   className="w-full bg-transparent text-gray-900 dark:text-white !border-0 focus:!outline-none focus-visible:!outline-none"
                   autoFocus
                 />
@@ -311,6 +392,8 @@ export default function CategorySelector({
           const menu = (
           <div
             ref={usePortal ? menuRef : undefined}
+            id={listboxId}
+            role="listbox"
             style={usePortal && menuPos ? {
               position: 'fixed',
               left: menuPos.left,
@@ -409,8 +492,16 @@ export default function CategorySelector({
                       {group.items.map((category) => (
                         <div
                           key={category.id}
+                          id={optionDomId(category.id)}
+                          role="option"
+                          aria-selected={selectedCategory === category.id}
+                          data-highlighted-option={highlightedId === category.id ? instanceId : undefined}
                           className={`px-3 py-2 pl-8 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${
-                            selectedCategory === category.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                            highlightedId === category.id
+                              ? 'bg-gray-100 dark:bg-gray-600'
+                              : selectedCategory === category.id
+                              ? 'bg-blue-50 dark:bg-blue-900/20'
+                              : ''
                           }`}
                           onClick={() => handleCategorySelect(category.id)}
                         >

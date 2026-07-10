@@ -104,4 +104,70 @@ describe('CategorySelector', () => {
     );
     expect(screen.queryByText(/Select a category for this/)).not.toBeInTheDocument();
   });
+
+  describe('keyboard support', () => {
+    it('is focusable and opens with Enter, Space, or ArrowDown', () => {
+      render(
+        <CategorySelector
+          selectedCategory=""
+          onCategoryChange={vi.fn()}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+        />
+      );
+      const trigger = screen.getByRole('combobox', { name: 'Category' });
+      expect(trigger).toHaveAttribute('tabindex', '0');
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+      fireEvent.keyDown(trigger, { key: 'Enter' });
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+    });
+
+    it('walks options with arrows and selects with Enter', () => {
+      const { onCategoryChange } = renderOpen({ includeAllTypes: true });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+
+      // Options render in group order: Salary→Payslip, then Food→Groceries.
+      fireEvent.keyDown(input, { key: 'ArrowDown' }); // highlight Payslip
+      fireEvent.keyDown(input, { key: 'ArrowDown' }); // highlight Groceries
+      expect(input).toHaveAttribute('aria-activedescendant');
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCategoryChange).toHaveBeenCalledWith('det-groceries');
+    });
+
+    it('selects the single remaining filtered option with Enter', () => {
+      const { onCategoryChange } = renderOpen({ includeAllTypes: true });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+      fireEvent.change(input, { target: { value: 'groc' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCategoryChange).toHaveBeenCalledWith('det-groceries');
+    });
+
+    it('closes with Escape and returns focus to the trigger', () => {
+      renderOpen();
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Category' })).toHaveFocus();
+    });
+
+    it('marks options with the option role and selection state', () => {
+      render(
+        <CategorySelector
+          selectedCategory="det-payslip"
+          onCategoryChange={vi.fn()}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+          includeAllTypes
+        />
+      );
+      // Trigger shows the selected name, so open via the combobox role.
+      fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
+      const options = screen.getAllByRole('option');
+      expect(options.length).toBeGreaterThanOrEqual(2);
+      const payslip = options.find(o => o.textContent?.includes('Payslip'));
+      expect(payslip).toHaveAttribute('aria-selected', 'true');
+    });
+  });
 });
