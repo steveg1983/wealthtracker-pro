@@ -20,6 +20,7 @@ interface AccountSettingsModalProps {
 }
 
 interface FormData {
+  name: string;
   type: Account['type'];
   openingBalance: string;
   openingBalanceDate: string;
@@ -50,6 +51,7 @@ export default function AccountSettingsModal({
 }: AccountSettingsModalProps) {
   const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     {
+      name: '',
       type: 'current',
       openingBalance: '',
       openingBalanceDate: '',
@@ -68,6 +70,10 @@ export default function AccountSettingsModal({
         const updates: Partial<Account> = {
           type: data.type,
           institution: data.institution || undefined,
+          // Display name only — bank-feed links key on connection/account ids
+          // (external_account_name is stored separately), so renaming is safe.
+          // Never blank a name: an empty field leaves the current name as-is.
+          ...(data.name.trim() !== '' ? { name: data.name.trim() } : {}),
           notes: data.notes || undefined,
           sortCode: data.sortCode || undefined,
           accountNumber: data.accountNumber || undefined,
@@ -92,6 +98,7 @@ export default function AccountSettingsModal({
   useEffect(() => {
     if (account) {
       setFormData({
+        name: account.name || '',
         type: account.type || 'current',
         openingBalance: account.openingBalance != null ? account.openingBalance.toFixed(2) : '',
         openingBalanceDate: account.openingBalanceDate
@@ -130,9 +137,26 @@ export default function AccountSettingsModal({
     <Modal isOpen={isOpen} onClose={onClose} title="Account Settings" size="md">
       <form onSubmit={handleSubmit}>
         <ModalBody className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4">
-            {account.name}
-          </p>
+          {/* Account Name */}
+          <div>
+            <label htmlFor="account-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Account Name
+            </label>
+            <input
+              id="account-name"
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => updateField('name', e.target.value)}
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              aria-label="Account name"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Display name only — renaming never affects bank feed links, which
+              are matched on the bank's own account identifiers
+            </p>
+          </div>
+
           {/* Account Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -75,9 +75,9 @@ describe('AccountSettingsModal', () => {
       expect(screen.getByText('Account Settings')).toBeInTheDocument();
     });
 
-    it('displays account name', () => {
+    it('displays the account name in an editable field', () => {
       render(<AccountSettingsModal {...defaultProps} />);
-      expect(screen.getByText('Test Account')).toBeInTheDocument();
+      expect(screen.getByLabelText('Account name')).toHaveValue('Test Account');
     });
 
     it('renders all form fields', () => {
@@ -297,6 +297,7 @@ describe('AccountSettingsModal', () => {
       
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledWith('acc1', {
+          name: 'Test Account',
           type: 'savings',
           institution: 'New Bank',
           notes: 'Test notes',
@@ -343,15 +344,42 @@ describe('AccountSettingsModal', () => {
     it('parses opening balance as float', async () => {
       const onSave = vi.fn();
       render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
-      
+
       fireEvent.change(screen.getByLabelText('Opening balance amount'), { target: { value: '123.45' } });
       fireEvent.click(screen.getByText('Save Changes'));
-      
+
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
           openingBalance: 123.45
         }));
       });
+    });
+
+    it('saves a renamed account (trimmed)', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText('Account name'), { target: { value: '  HSBC Current — Steve  ' } });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
+          name: 'HSBC Current — Steve'
+        }));
+      });
+    });
+
+    it('never blanks the name: an emptied field is omitted from the update', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText('Account name'), { target: { value: '   ' } });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledTimes(1);
+      });
+      expect(onSave.mock.calls[0][1]).not.toHaveProperty('name');
     });
 
     it('includes opening balance when provided', async () => {
