@@ -31,7 +31,6 @@ describe('PreferencesContext', () => {
     expect(result.current.compactView).toBe(true); // Default is true (compact view)
     expect(result.current.currency).toBe('GBP');
     expect(result.current.theme).toBe('light');
-    expect(result.current.colorTheme).toBe('blue');
     expect(result.current.firstName).toBe('');
   });
 
@@ -44,8 +43,6 @@ describe('PreferencesContext', () => {
           return 'USD';
         case 'money_management_theme':
           return 'dark';
-        case 'money_management_color_theme':
-          return 'green';
         case 'money_management_first_name':
           return 'John';
         default:
@@ -60,7 +57,6 @@ describe('PreferencesContext', () => {
     expect(result.current.compactView).toBe(true);
     expect(result.current.currency).toBe('USD');
     expect(result.current.theme).toBe('dark');
-    expect(result.current.colorTheme).toBe('green');
     expect(result.current.firstName).toBe('John');
   });
 

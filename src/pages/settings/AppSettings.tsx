@@ -15,8 +15,6 @@ export default function AppSettings() {
     setFirstName,
     theme,
     setTheme,
-    colorTheme,
-    setColorTheme,
     themeSchedule,
     setThemeSchedule,
     showBudget,
@@ -65,33 +63,6 @@ export default function AppSettings() {
     { value: 'dark', label: 'Dark', icon: MoonIcon },
     { value: 'auto', label: 'Auto', icon: MonitorIcon },
     { value: 'scheduled', label: 'Scheduled', icon: ClockIcon },
-  ];
-
-  const colorThemes = [
-    { 
-      value: 'blue', 
-      label: 'Ocean Blue', 
-      colors: ['#7ba8d1', '#5a729a', '#b8d4f1'],
-      description: 'Calm and professional'
-    },
-    { 
-      value: 'green', 
-      label: 'Forest Green', 
-      colors: ['#a9d08e', '#7fa86b', '#d4e6c4'],
-      description: 'Natural and growth-focused'
-    },
-    { 
-      value: 'red', 
-      label: 'Sunset Red', 
-      colors: ['#e2a8a8', '#b88585', '#f1d4d4'],
-      description: 'Warm and energetic'
-    },
-    { 
-      value: 'pink', 
-      label: 'Blossom Pink', 
-      colors: ['#e2a8d4', '#b885a5', '#f1d4e8'],
-      description: 'Creative and elegant'
-    },
   ];
 
   const pageToggles = [
@@ -318,42 +289,6 @@ export default function AppSettings() {
             </div>
           </div>
         )}
-
-        {/* Color Theme Palette */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Color Theme
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {colorThemes.map(({ value, label, colors, description }) => (
-              <button
-                key={value}
-                onClick={() => setColorTheme(value as 'blue' | 'green' | 'red' | 'pink')}
-                className={`flex flex-col items-start gap-3 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
-                  colorTheme === value
-                    ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-3 w-full">
-                  <div className="flex gap-1">
-                    {colors.map((color, index) => (
-                      <div
-                        key={index}
-                        className="w-6 h-6 rounded-full shadow-sm"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="font-medium text-sm">{label}</div>
-                    <div className="text-xs opacity-70">{description}</div>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Page Visibility */}
