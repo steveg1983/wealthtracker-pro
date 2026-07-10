@@ -265,17 +265,12 @@ input[type="range"] {
   border-color: var(--color-light-accent) !important;
 }
 
-.dark .dark\:text-blue-400 {
-  color: var(--color-primary) !important;
-}
-
-.dark .dark\:border-blue-400 {
-  border-color: var(--color-primary) !important;
-}
-
-.dark .dark\:bg-blue-600 {
-  background-color: var(--color-primary) !important;
-}
+/* NOTE: this file used to remap dark:text-blue-400 / dark:border-blue-400 /
+   dark:bg-blue-600 to var(--color-primary) with !important. --color-primary is
+   near-black navy (#1a2332), so in dark mode every one of those utilities
+   rendered as unreadable near-black on dark surfaces — and the green→blue
+   accent sweep put dark:text-blue-400 on ~176 elements. The remaps are gone:
+   Tailwind's own dark-mode blues (readable on dark) now apply. */
 
 /* Smooth transitions - excluding font properties */
 * {
