@@ -411,7 +411,9 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                       )}
                     </ul>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      Those transactions kept their original category text so nothing is lost. Create these categories (or ask to auto-create them) to link them up.
+                      Those transactions were left uncategorised. Categorise one
+                      of a payee's rows and payee memory fills the rest of that
+                      payee automatically.
                     </p>
                   </div>
                 )}
