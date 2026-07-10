@@ -66,7 +66,7 @@ describe('AccountSettingsModal', () => {
       render(<AccountSettingsModal {...defaultProps} />);
       
       expect(screen.getByText('Account Settings')).toBeInTheDocument();
-      expect(screen.getByText('Test Account')).toBeInTheDocument();
+      expect(screen.getByLabelText('Account name')).toHaveValue('Test Account');
       expect(screen.getByText('Account Type')).toBeInTheDocument();
       expect(screen.getByLabelText('Opening balance amount')).toBeInTheDocument();
     });
