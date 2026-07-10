@@ -63,6 +63,15 @@ const MAX_DESCRIPTION_CONTRIBUTION = 100 * 0.3;
 const timeOf = (date: Date | string): number =>
   (date instanceof Date ? date : new Date(date)).getTime();
 
+/** Max score without spreading (spread args overflow on very large groups). */
+const maxScore = (items: Array<{ score: number }>): number => {
+  let max = -Infinity;
+  for (const item of items) {
+    if (item.score > max) max = item.score;
+  }
+  return max;
+};
+
 /** Two-row Levenshtein distance — same DP as the original full matrix. */
 function levenshteinDistance(s1: string, s2: string): number {
   const len1 = s1.length;
@@ -265,7 +274,7 @@ export function findDuplicateMatches(
   found.sort((a, b) => a.entry.index - b.entry.index);
   return {
     matches: found.map(f => f.entry.txn),
-    confidence: found.length > 0 ? Math.max(...found.map(f => f.score)) : 0,
+    confidence: found.length > 0 ? maxScore(found) : 0,
   };
 }
 
@@ -303,7 +312,7 @@ export function findDuplicateGroups(
       groups.push({
         original: seed.txn,
         potential: matches.map(m => m.entry.txn),
-        confidence: Math.max(...matches.map(m => m.score)),
+        confidence: maxScore(matches),
       });
     }
   }

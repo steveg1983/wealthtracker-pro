@@ -16,7 +16,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Decimal, toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
-import type { RebalancingSuggestion, RiskMetrics, DividendInfo, ESGScore, BenchmarkComparison } from '../services/investmentEnhancementService';
+import type { RebalancingSuggestion, RiskMetrics, ESGScore, BenchmarkComparison } from '../services/investmentEnhancementService';
 import DividendTracker from '../components/DividendTracker';
 import PortfolioRebalancer from '../components/PortfolioRebalancer';
 import AllocationAnalysis from '../components/AllocationAnalysis';
@@ -28,7 +28,6 @@ export default function EnhancedInvestments() {
   const [activeTab, setActiveTab] = useState('allocation-analysis');
   const [rebalancingSuggestions, setRebalancingSuggestions] = useState<RebalancingSuggestion[]>([]);
   const [riskMetrics, setRiskMetrics] = useState<RiskMetrics | null>(null);
-  const [dividendInfo, setDividendInfo] = useState<DividendInfo[]>([]);
   const [esgScores, setEsgScores] = useState<ESGScore[]>([]);
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkComparison | null>(null);
   const [insights, setInsights] = useState<string[]>([]);
@@ -52,7 +51,6 @@ export default function EnhancedInvestments() {
       // Calculate all metrics
       setRebalancingSuggestions(investmentEnhancementService.getRebalancingSuggestions(investments));
       setRiskMetrics(investmentEnhancementService.calculateRiskMetrics(investments));
-      setDividendInfo(investmentEnhancementService.trackDividends(investments, transactions));
       setEsgScores(investmentEnhancementService.getESGScores(investments));
       setBenchmarkData(investmentEnhancementService.compareWithBenchmarks(investments));
       setInsights(investmentEnhancementService.generateInsights(investments, transactions));
@@ -194,94 +192,6 @@ export default function EnhancedInvestments() {
               </div>
             </div>
           )}
-        </>
-      )}
-    </div>
-  );
-
-  const _renderDividends = () => (
-    <div className="space-y-6">
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Dividend Tracking</h3>
-        <p className="text-sm text-blue-700 dark:text-blue-200">
-          Monitor dividend income and reinvestment opportunities.
-        </p>
-      </div>
-
-      {dividendInfo.length === 0 ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <DollarSignIcon size={48} className="mx-auto mb-4 opacity-50" />
-          <p>No dividend-paying investments found</p>
-        </div>
-      ) : (
-        <>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Annual Dividends</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(
-                    dividendInfo.reduce((sum, d) => sum.plus(d.projectedAnnual), toDecimal(0))
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Average Yield</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {`${formatPercentage(
-                    dividendInfo.reduce(
-                      (sum, d) => sum.plus(toDecimal(d.yield)),
-                      toDecimal(0)
-                    ).dividedBy(dividendInfo.length),
-                    2
-                  )}%`}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">YTD Received</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(
-                    dividendInfo.reduce((sum, d) => sum.plus(d.totalReceived), toDecimal(0))
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {dividendInfo.map((dividend, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{dividend.name}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{dividend.symbol}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-green-600 dark:text-green-400">
-                      {`${formatPercentage(dividend.yield, 2)}% yield`}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {dividend.frequency}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">Annual: </span>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {formatCurrency(dividend.annualDividend)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">Next Ex-Date: </span>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {dividend.exDividendDate?.toLocaleDateString() || 'TBD'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </>
       )}
     </div>

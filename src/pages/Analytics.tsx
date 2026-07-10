@@ -616,6 +616,10 @@ export default function Analytics(): React.JSX.Element {
           
           {activeTab === 'insights' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Severity is a traffic-light scale: amber=warning, green=success,
+                  blue=info. Success deliberately stays green — recolouring it
+                  blue (the accent sweep) would make success and info
+                  indistinguishable. */}
               {insights.map((insight, index) => (
                 <div
                   key={index}
