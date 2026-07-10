@@ -332,14 +332,16 @@ PCoffee beans
 
       const [trx1, trx2, trx3, _trx4] = result.transactions;
 
-      // Check first transaction (signed convention: expense stored negative)
+      // Check first transaction (signed convention: expense stored negative).
+      // No app categories were provided, so the file's category names cannot
+      // match anything — rows import UNCATEGORISED (never raw text).
       expect(trx1).toMatchObject({
         date: expect.any(Date),
         description: 'Tesco Stores - Grocery shopping',
         amount: -25.50,
         type: 'expense',
         accountId: 'acc1',
-        category: 'Food & Dining',
+        category: '',
         cleared: true
       });
       expectDateOnly(trx1.date, '2024-01-15');
@@ -351,7 +353,7 @@ PCoffee beans
         amount: 2500,
         type: 'income',
         accountId: 'acc1',
-        category: 'Salary',
+        category: '',
         cleared: true
       });
       expectDateOnly(trx2.date, '2024-01-20');
@@ -363,11 +365,16 @@ PCoffee beans
         amount: -100,
         type: 'expense',
         accountId: 'acc1',
-        category: 'Housing',
+        category: '',
         cleared: false,
         notes: 'Check #: 1234'
       });
       expectDateOnly(trx3.date, '2024-01-10');
+
+      // The file's category names are reported for visibility.
+      expect(result.unmatchedCategories.map(c => c.name)).toEqual(
+        expect.arrayContaining(['Food & Dining', 'Salary', 'Housing'])
+      );
     });
 
     it('detects and skips duplicate transactions', async () => {
@@ -566,10 +573,18 @@ PPayroll
       expect(result.transactions[1].category).toBe('salary');
     });
 
-    it('preserves existing categories when auto-categorize is enabled', async () => {
+    it('auto-categorizes unmatched rows but never overrides matched file categories', async () => {
       (smartCategorizationService.suggestCategories as any).mockReturnValue([
         { categoryId: 'different', confidence: 0.9, reason: 'Test' }
       ]);
+
+      // 'Salary' exists as a detail category (matches the QIF name);
+      // 'Food & Dining' does not — that row imports blank and the
+      // auto-categorize pass is allowed to fill it.
+      const detailCategories: Category[] = [
+        { id: 'sub-income', name: 'Income', type: 'income', level: 'sub' },
+        { id: 'det-salary', name: 'Salary', type: 'income', level: 'detail', parentId: 'sub-income' }
+      ];
 
       const result = await qifImportService.importTransactions(
         validQIFContent,
@@ -577,13 +592,12 @@ PPayroll
         existingTransactions,
         {
           autoCategorize: true,
-          categories: mockCategories
+          categories: detailCategories
         }
       );
 
-      // Should keep original categories from QIF
-      expect(result.transactions[0].category).toBe('Food & Dining');
-      expect(result.transactions[1].category).toBe('Salary');
+      expect(result.transactions[0].category).toBe('different');   // unmatched → suggestion
+      expect(result.transactions[1].category).toBe('det-salary');  // matched → preserved
     });
 
     it('handles transactions with only payee', async () => {
@@ -740,7 +754,10 @@ L[Special/Category]
       );
 
       expect(result.transactions[0].description).toBe('Mark\'s & Spencer - Payment for "special" items');
-      expect(result.transactions[0].category).toBe('Special/Category');
+      // Unmatched category names are never stored on the transaction — the
+      // row imports uncategorised and the name is reported instead.
+      expect(result.transactions[0].category).toBe('');
+      expect(result.unmatchedCategories).toEqual([{ name: 'Special/Category', count: 1 }]);
     });
 
     it('handles very large amounts', async () => {
@@ -1006,12 +1023,12 @@ LObscureThing
 
       expect(result.transactions[0].category).toBe('det-groceries'); // matched by path leaf
       expect(result.transactions[1].category).toBe('det-salary');    // matched by name
-      expect(result.transactions[2].category).toBe('ObscureThing');  // no match — raw text kept
+      expect(result.transactions[2].category).toBe('');              // no match — left uncategorised
       expect(result.matchedCategories).toBe(2);
       expect(result.unmatchedCategories).toEqual([{ name: 'ObscureThing', count: 1 }]);
     });
 
-    it('leaves categories untouched (raw name) when no app categories are provided', async () => {
+    it('imports uncategorised (and reports the names) when no app categories are provided', async () => {
       const qif = `!Type:Bank
 D13/01/2024
 T-40.00
@@ -1021,9 +1038,9 @@ LGroceries
 
       const result = await qifImportService.importTransactions(qif, 'acc1', []);
 
-      expect(result.transactions[0].category).toBe('Groceries');
+      expect(result.transactions[0].category).toBe('');
       expect(result.matchedCategories).toBe(0);
-      expect(result.unmatchedCategories).toEqual([]);
+      expect(result.unmatchedCategories).toEqual([{ name: 'Groceries', count: 1 }]);
     });
   });
 });
