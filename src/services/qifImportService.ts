@@ -358,11 +358,13 @@ export class QIFImportService {
 
       // Category: prefer the QIF file's own category (MS Money already tagged
       // it) matched to a category that exists in the app. A name with no match
-      // is kept as-is and reported, so the user can create/auto-create it rather
-      // than have it silently guessed or dropped.
-      let resolvedCategory = qifTrx.category || '';
-      if (qifTrx.category && categoryMatcher) {
-        const matchedId = categoryMatcher.match(qifTrx.category, type);
+      // is left UNCATEGORISED and reported — storing the raw name used to
+      // orphan thousands of rows on category ids that don't exist (repaired
+      // 2026-07-10); a blank stays visible in the Uncategorised bucket, is
+      // fillable by payee memory, and lets the auto-categorize pass below run.
+      let resolvedCategory = '';
+      if (qifTrx.category) {
+        const matchedId = categoryMatcher?.match(qifTrx.category, type) ?? null;
         if (matchedId) {
           resolvedCategory = matchedId;
           matchedCategoryCount++;
