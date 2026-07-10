@@ -2,13 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Remove all blue focus outlines globally */
-*:focus,
-*:focus-visible,
-*:focus-within {
-  outline: none !important;
-  box-shadow: none !important;
-}
+/* Focus indication strategy: accessibility-colors.css is the single source of
+   truth — it draws a 2px accent outline on :focus-visible only (keyboard
+   focus; text inputs on any focus, per browser heuristics). The old rule here
+   nuked outline AND box-shadow on every :focus/:focus-within with !important,
+   which killed all Tailwind focus rings, stripped shadows from focused
+   containers, and forced components into !important arms races to show any
+   focus state at all. Mouse clicks show no outline (they don't match
+   :focus-visible), so nothing "blue flashes" on ordinary clicking. */
 
 /* Pull to Refresh Styles */
 .pull-to-refresh {
@@ -123,8 +124,10 @@ input[type="range"] {
   --color-income: #0d9f6f;
   --color-expense: #d94052;
   --color-accent: #d4a843;
-  --focus-ring-color: #2d3a4d;
-  --color-border-focus: #2d3a4d;
+  /* Keyboard-focus outline colour (consumed by accessibility-colors.css).
+     The accent blue — the old navy #2d3a4d was near-invisible in dark mode. */
+  --focus-ring-color: #2563eb;
+  --color-border-focus: #2563eb;
 }
 
 /* Default Theme (Wealth) */
