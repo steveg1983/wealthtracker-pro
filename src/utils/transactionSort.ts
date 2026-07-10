@@ -64,5 +64,13 @@ export function compareTransactions(
   const bValue = transactionSortValue(b, field, categories);
   if (aValue < bValue) return direction === 'asc' ? -1 : 1;
   if (aValue > bValue) return direction === 'asc' ? 1 : -1;
-  return 0;
+
+  // Equal on the chosen column: tie-break chronologically (oldest first, then
+  // the same-day type order the Date sort uses). Sorting by Description
+  // therefore lists a payee's rows together in date order instead of leaving
+  // their relative order to chance.
+  const dateA = new Date(a.date).getTime();
+  const dateB = new Date(b.date).getTime();
+  if (dateA !== dateB) return dateA - dateB;
+  return (TYPE_ORDER[a.type] ?? 0) - (TYPE_ORDER[b.type] ?? 0);
 }
