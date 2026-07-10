@@ -10,8 +10,6 @@ interface PreferencesContextType {
   theme: 'light' | 'dark' | 'auto' | 'scheduled';
   setTheme: (value: 'light' | 'dark' | 'auto' | 'scheduled') => void;
   actualTheme: 'light' | 'dark';
-  colorTheme: 'blue' | 'green' | 'red' | 'pink';
-  setColorTheme: (value: 'blue' | 'green' | 'red' | 'pink') => void;
   firstName: string;
   setFirstName: (value: string) => void;
   // Theme scheduling
@@ -88,20 +86,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     } catch (error) {
       console.error('Error reading theme from localStorage:', error);
       return 'light';
-    }
-  });
-
-  const [colorTheme, setColorTheme] = useState<'blue' | 'green' | 'red' | 'pink'>((): 'blue' | 'green' | 'red' | 'pink' => {
-    try {
-      const saved = localStorage.getItem('money_management_color_theme');
-      if (!saved || !['blue', 'green', 'red', 'pink'].includes(saved)) {
-        localStorage.setItem('money_management_color_theme', 'blue');
-        return 'blue';
-      }
-      return saved as 'blue' | 'green' | 'red' | 'pink';
-    } catch (error) {
-      console.error('Error reading colorTheme from localStorage:', error);
-      return 'blue';
     }
   });
 
@@ -342,20 +326,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     return (): void => clearTimeout(timer);
   }, [actualTheme]);
 
-  // Apply color theme class
+  // Colour-theme variants were retired 2026-07-10 — one brand scheme (:root)
+  // plus light/dark. Clear any theme-* class a previous session applied and
+  // drop the stored preference.
   useEffect(() => {
     const root = document.documentElement;
-    
-    // Remove all theme classes
-    const themeClasses = ['theme-blue', 'theme-green', 'theme-red', 'theme-pink'];
-    
-    themeClasses.forEach(className => {
+    ['theme-blue', 'theme-green', 'theme-red', 'theme-pink'].forEach(className => {
       root.classList.remove(className);
     });
-    
-    // Add the selected theme class
-    root.classList.add(`theme-${colorTheme}`);
-  }, [colorTheme]);
+    try {
+      localStorage.removeItem('money_management_color_theme');
+    } catch {
+      // storage may be unavailable; nothing to clean up
+    }
+  }, []);
 
   // Consolidate all localStorage updates into a single effect for better performance
   useEffect(() => {
@@ -363,7 +347,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       localStorage.setItem('money_management_compact_view', compactView.toString());
       localStorage.setItem('money_management_currency', currency);
       localStorage.setItem('money_management_theme', theme);
-      localStorage.setItem('money_management_color_theme', colorTheme);
       localStorage.setItem('money_management_first_name', firstName);
       localStorage.setItem('money_management_show_budget', showBudget.toString());
       localStorage.setItem('money_management_show_goals', showGoals.toString());
@@ -385,7 +368,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     const timeoutId = setTimeout(savePreferences, 300);
     
     return (): void => clearTimeout(timeoutId);
-  }, [compactView, currency, theme, colorTheme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showTaxPlanning, showHousehold, showBusinessFeatures, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
+  }, [compactView, currency, theme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showTaxPlanning, showHousehold, showBusinessFeatures, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
 
   return (
     <PreferencesContext.Provider value={{
@@ -396,8 +379,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       theme,
       setTheme,
       actualTheme,
-      colorTheme,
-      setColorTheme,
       firstName,
       setFirstName,
       themeSchedule,
