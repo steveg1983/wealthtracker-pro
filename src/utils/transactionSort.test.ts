@@ -71,4 +71,35 @@ describe('compareTransactions', () => {
     expect(transactionSortValue(t({ amount: -5 }), 'payment', cats)).toBe(-5);
     expect(transactionSortValue(t({ category: 'c-food' }), 'category', cats)).toBe('food');
   });
+
+  it('tie-breaks equal non-date values chronologically (oldest first)', () => {
+    // Three O2 rows + one Amazon row: description sort groups the O2 rows and
+    // orders them by date within the group, regardless of input order.
+    const list = [
+      t({ id: 'o2-new', description: 'O2', date: new Date('2024-03-10') }),
+      t({ id: 'amazon', description: 'Amazon', date: new Date('2024-02-01') }),
+      t({ id: 'o2-old', description: 'O2', date: new Date('2024-01-05') }),
+      t({ id: 'o2-mid', description: 'O2', date: new Date('2024-02-15') })
+    ];
+    expect(orderedIds(list, 'description', 'asc')).toEqual(['amazon', 'o2-old', 'o2-mid', 'o2-new']);
+    // desc flips the groups, not the within-group date order
+    expect(orderedIds(list, 'description', 'desc')).toEqual(['o2-old', 'o2-mid', 'o2-new', 'amazon']);
+  });
+
+  it('tie-breaks equal amounts chronologically too', () => {
+    const list = [
+      t({ id: 'b', amount: -10, date: new Date('2024-02-01') }),
+      t({ id: 'a', amount: -10, date: new Date('2024-01-01') }),
+      t({ id: 'c', amount: -99, date: new Date('2024-03-01') })
+    ];
+    expect(orderedIds(list, 'amount', 'asc')).toEqual(['c', 'a', 'b']); // -99, then the -10s oldest-first
+  });
+
+  it('uses the same-day type order as the final tie-break', () => {
+    const list = [
+      t({ id: 'exp', description: 'O2', date: new Date('2024-01-05'), type: 'expense' }),
+      t({ id: 'inc', description: 'O2', date: new Date('2024-01-05'), type: 'income' })
+    ];
+    expect(orderedIds(list, 'description', 'asc')).toEqual(['inc', 'exp']);
+  });
 });
