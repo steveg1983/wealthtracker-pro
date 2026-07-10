@@ -172,6 +172,19 @@ export default function CategoriesSettings() {
   const { showSuccess, showError } = useToast();
   const [isImporting, setIsImporting] = useState(false);
 
+  // Direct transaction count per category id, computed once per data change.
+  // Every row shows its counter (view AND edit/delete modes) — the old per-row
+  // transactions.filter() was O(rows × transactions) at 16k+ transactions.
+  const categoryTransactionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.category) {
+        counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [transactions]);
+
   // The type-level ids are user-specific UUIDs after cloud migration — the old
   // hardcoded 'type-income'/'type-expense'/'type-transfer' anchors matched
   // nothing, which rendered every section empty. Resolve them dynamically.
@@ -550,10 +563,14 @@ export default function CategoriesSettings() {
                   if (bIndex !== -1) return 1;
                   return 0;
                 });
-                const subTransactionCount = transactions.filter(t => {
-                  const cat = categories.find(c => c.id === t.category);
-                  return cat && (cat.id === subCategory.id || cat.parentId === subCategory.id);
-                }).length;
+                // Direct hits on the sub-category plus everything filed under
+                // ANY of its detail children (including inactive ones, so the
+                // rolled-up number always accounts for every transaction).
+                const subTransactionCount =
+                  (categoryTransactionCounts.get(subCategory.id) ?? 0) +
+                  categories
+                    .filter(c => c.parentId === subCategory.id)
+                    .reduce((sum, c) => sum + (categoryTransactionCounts.get(c.id) ?? 0), 0);
 
                 return (
                   <div key={subCategory.id}>
@@ -585,11 +602,9 @@ export default function CategoriesSettings() {
                             aria-label={isExpanded ? `Collapse ${subCategory.name}` : `Expand ${subCategory.name}`}
                           />
                         )}
-                        {!isEditMode && (
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            ({subTransactionCount})
-                          </span>
-                        )}
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          ({subTransactionCount})
+                        </span>
                       </div>
                     </SortableCategory>
 
@@ -597,7 +612,7 @@ export default function CategoriesSettings() {
                     {isExpanded && orderedDetailCategories.length > 0 && (
                       <div className="ml-8 space-y-1">
                         {orderedDetailCategories.map(detailCategory => {
-                              const detailTransactionCount = transactions.filter(t => t.category === detailCategory.id).length;
+                              const detailTransactionCount = categoryTransactionCounts.get(detailCategory.id) ?? 0;
 
                               return (
                                 <SortableCategory
@@ -615,11 +630,9 @@ export default function CategoriesSettings() {
                                   onClick={() => handleCategoryClick(detailCategory.id, detailCategory.name)}
                                   isDraggable={true}
                                 >
-                                  {!isEditMode && (
-                                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                                      ({detailTransactionCount})
-                                    </span>
-                                  )}
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    ({detailTransactionCount})
+                                  </span>
                                 </SortableCategory>
                               );
                         })}</div>
@@ -675,9 +688,15 @@ export default function CategoriesSettings() {
       }
     >
 
+      {/* Desktop: the page chrome (title/toolbar above, instructions + import
+          below) stays in view and the category tree scrolls internally, so
+          the edit/delete/add buttons are always reachable. Mobile keeps the
+          normal page scroll. */}
+      <div className="lg:flex lg:flex-col lg:h-[calc(100vh-13rem)]">
+
       {/* Instructions */}
       {(isEditMode || isDeleteMode) ? (
-        <div className={`border rounded-2xl p-4 mb-6 ${
+        <div className={`lg:shrink-0 border rounded-2xl p-4 mb-6 ${
           isDeleteMode 
             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
             : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
@@ -705,7 +724,7 @@ export default function CategoriesSettings() {
           </div>
         </div>
       ) : (
-        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
+        <div className="lg:shrink-0 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <p className="mb-2">💡 <strong>Tip:</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -720,7 +739,7 @@ export default function CategoriesSettings() {
 
       {/* Starter set import */}
       {!isEditMode && !isDeleteMode && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="lg:shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Microsoft Money category set
@@ -740,8 +759,8 @@ export default function CategoriesSettings() {
         </div>
       )}
 
-      {/* Categories Tree */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+      {/* Categories Tree — the scrolling region on desktop */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -758,7 +777,7 @@ export default function CategoriesSettings() {
             <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-3">Other Categories</h3>
             <div className="space-y-1">
               {categories.filter(cat => cat.type === 'both' && cat.level === 'detail' && !cat.parentId && cat.isActive !== false).map(category => {
-                const transactionCount = transactions.filter(t => t.category === category.id).length;
+                const transactionCount = categoryTransactionCounts.get(category.id) ?? 0;
 
                 return (
                   <div key={category.id} className="ml-4">
@@ -776,11 +795,9 @@ export default function CategoriesSettings() {
                       onClick={() => handleCategoryClick(category.id, category.name)}
                       isDraggable={false}
                     >
-                      {!isEditMode && (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          ({transactionCount})
-                        </span>
-                      )}
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        ({transactionCount})
+                      </span>
                     </SortableCategory>
                   </div>
                 );
@@ -797,6 +814,8 @@ export default function CategoriesSettings() {
           </DragOverlay>
         </DndContext>
       </div>
+
+      </div>{/* end desktop flex column */}
 
       {/* Category Delete Confirmation Dialog */}
       {deletingCategoryId && (
