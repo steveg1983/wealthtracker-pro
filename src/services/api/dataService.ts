@@ -12,7 +12,7 @@ import { isSupabaseConfigured } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal } from '../../utils/decimal';
-import type { Account, Transaction, Budget, Goal, Category } from '../../types';
+import type { Account, Transaction, TransactionSplit, TransactionSplitInput, Budget, Goal, Category } from '../../types';
 
 export interface AppData {
   accounts: Account[];
@@ -28,7 +28,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -326,6 +326,91 @@ class DataServiceImpl {
     return count;
   }
 
+  /** Splits for one transaction, in display order (empty when not split). */
+  async getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.getTransactionSplits(transactionId);
+    }
+
+    const stored = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
+    return stored
+      .filter(s => s.transactionId === transactionId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  /**
+   * Replace a transaction's splits atomically (empty array un-splits it).
+   * Server-side the RPC validates ≥2 lines / non-zero amounts / sum ==
+   * expectedAmount and syncs the amount + account balance; the local path
+   * mirrors those rules so demo/offline behave identically.
+   */
+  async setTransactionSplits(
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null
+  ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.setTransactionSplits(transactionId, splits, expectedAmount, userId);
+    }
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const index = transactions.findIndex(t => t.id === transactionId);
+    if (index === -1) {
+      throw new Error('Transaction not found');
+    }
+    const transaction = transactions[index];
+    if (transaction.type === 'transfer') {
+      throw new Error('Transfers cannot be split');
+    }
+
+    const stored = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
+    const others = stored.filter(s => s.transactionId !== transactionId);
+
+    if (splits.length === 0) {
+      await this.persistCollection(STORAGE_KEYS.TRANSACTION_SPLITS, others);
+      transactions[index] = { ...transaction, isSplit: false } as Transaction;
+      await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
+      return { isSplit: false, splitCount: 0, amount: transaction.amount };
+    }
+
+    if (splits.length < 2) {
+      throw new Error('A split needs at least 2 lines');
+    }
+    let sum = toDecimal(0);
+    for (const split of splits) {
+      if (!split.category.trim()) {
+        throw new Error('Every split line needs a category');
+      }
+      if (!split.amount) {
+        throw new Error('Every split line needs a non-zero amount');
+      }
+      sum = sum.plus(toDecimal(split.amount));
+    }
+    if (expectedAmount !== null && !sum.equals(toDecimal(expectedAmount))) {
+      throw new Error('The split lines must sum to the transaction amount');
+    }
+
+    const newSplits: TransactionSplit[] = splits.map((split, i) => ({
+      id: this.generateId(),
+      transactionId,
+      category: split.category,
+      amount: split.amount,
+      ...(split.memo ? { memo: split.memo } : {}),
+      sortOrder: i + 1,
+    }));
+    await this.persistCollection(STORAGE_KEYS.TRANSACTION_SPLITS, [...others, ...newSplits]);
+
+    const newAmount = sum.toNumber();
+    transactions[index] = { ...transaction, isSplit: true, category: '', amount: newAmount } as Transaction;
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
+    if (newAmount !== transaction.amount) {
+      await this.updateAccountBalance(transaction.accountId, -transaction.amount + newAmount);
+    }
+    return { isSplit: true, splitCount: newSplits.length, amount: newAmount };
+  }
+
   async getBudgets(): Promise<Budget[]> {
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
@@ -452,6 +537,18 @@ export class DataService {
 
   static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category);
+  }
+
+  static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
+    return this.service.getTransactionSplits(transactionId);
+  }
+
+  static setTransactionSplits(
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null
+  ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
+    return this.service.setTransactionSplits(transactionId, splits, expectedAmount);
   }
 
   static getBudgets(): Promise<Budget[]> {

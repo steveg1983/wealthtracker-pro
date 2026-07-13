@@ -36,6 +36,15 @@ type Database = {
         Args: { p_ids: string[]; p_category: string; p_user_id?: string };
         Returns: number;
       };
+      set_transaction_splits: {
+        Args: {
+          p_transaction_id: string;
+          p_splits: { category: string; amount: number; memo?: string }[];
+          p_expected_amount: number | null;
+          p_user_id?: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       delete_unused_categories: {
         Args: { p_ids: string[]; p_user_id?: string };
         Returns: number;
