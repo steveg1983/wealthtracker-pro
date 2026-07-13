@@ -45,6 +45,14 @@ interface CategorySelectorProps {
    * in the reassignment dialog must not be offered as its own replacement.
    */
   excludeIds?: string[];
+  /**
+   * Offer "Uncategorised" as a pinned first option (selects the blank
+   * category, id ''), and let Delete/Backspace on the closed picker clear the
+   * selection. For editors where a transaction may legitimately have no
+   * category; OFF where a real category is required (split lines, the
+   * delete-reassignment dialog).
+   */
+  allowClear?: boolean;
 }
 
 export default function CategorySelector({
@@ -58,6 +66,7 @@ export default function CategorySelector({
   showHelperText = true,
   usePortal = false,
   excludeIds,
+  allowClear = false,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -238,8 +247,13 @@ export default function CategorySelector({
     setShowDropdown(true);
   };
 
+  // Internal stand-in id for the "Uncategorised" option — the real value is
+  // '' (blank category), but '' is falsy and would fall through the
+  // highlight/activedescendant logic.
+  const UNCATEGORISED_ID = '__uncategorised__';
+
   const handleCategorySelect = (categoryId: string): void => {
-    onCategoryChange(categoryId);
+    onCategoryChange(categoryId === UNCATEGORISED_ID ? '' : categoryId);
     setShowDropdown(false);
     setSearchTerm('');
   };
@@ -273,12 +287,16 @@ export default function CategorySelector({
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       setShowDropdown(true);
+    } else if (allowClear && selectedCategory && (e.key === 'Delete' || e.key === 'Backspace')) {
+      // Money-style: clearing the category un-categorises the transaction.
+      e.preventDefault();
+      onCategoryChange('');
     }
   };
 
   const handleSearchKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    flatOptions: Category[]
+    flatOptions: Array<Pick<Category, 'id' | 'name'>>
   ): void => {
     switch (e.key) {
       case 'ArrowDown':
@@ -346,8 +364,14 @@ export default function CategorySelector({
 
   const subCategories = getSubCategoriesForType();
   const groupedOptions = getGroupedOptions();
+  // "Uncategorised" stays visible while the search could still mean it
+  // ('' matches everything, "unc" matches, "food" hides it).
+  const showClearOption = allowClear && 'uncategorised'.includes(searchTerm.toLowerCase());
   // Flat view of the visible options, in render order — what the arrow keys walk.
-  const flatOptions = groupedOptions.flatMap(g => g.items);
+  const flatOptions: Array<Pick<Category, 'id' | 'name'>> = [
+    ...(showClearOption ? [{ id: UNCATEGORISED_ID, name: 'Uncategorised' }] : []),
+    ...groupedOptions.flatMap(g => g.items),
+  ];
   const highlightedId = highlightIndex >= 0 ? flatOptions[highlightIndex]?.id : undefined;
 
   return (
@@ -489,6 +513,23 @@ export default function CategorySelector({
               </div>
             ) : (
               <>
+                {/* Un-categorise: pinned above the groups; selecting it blanks
+                    the category (the transaction moves to the virtual
+                    Uncategorised bucket). */}
+                {showClearOption && (
+                  <div
+                    id={optionDomId(UNCATEGORISED_ID)}
+                    role="option"
+                    aria-selected={selectedCategory === ''}
+                    data-highlighted-option={highlightedId === UNCATEGORISED_ID ? instanceId : undefined}
+                    className={`px-3 py-2 cursor-pointer border-b border-gray-100 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 ${
+                      highlightedId === UNCATEGORISED_ID ? 'bg-gray-100 dark:bg-gray-600' : ''
+                    }`}
+                    onClick={() => handleCategorySelect(UNCATEGORISED_ID)}
+                  >
+                    <span className="italic text-gray-500 dark:text-gray-400">Uncategorised</span>
+                  </div>
+                )}
                 {/* Category list — grouped under their parent sub-category
                     (Bills, Food, Personal…) with sticky section headers. */}
                 {groupedOptions.length > 0 ? (
@@ -523,7 +564,7 @@ export default function CategorySelector({
                       ))}
                     </div>
                   ))
-                ) : (
+                ) : showClearOption ? null : (
                   <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-center">
                     {searchTerm ? 'No categories found' : 'No categories available'}
                   </div>

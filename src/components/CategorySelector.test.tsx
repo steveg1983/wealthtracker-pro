@@ -170,4 +170,71 @@ describe('CategorySelector', () => {
       expect(payslip).toHaveAttribute('aria-selected', 'true');
     });
   });
+
+  describe('excludeIds', () => {
+    it('leaves excluded categories out of the list', () => {
+      renderOpen({ includeAllTypes: true, excludeIds: ['det-groceries'] });
+      expect(screen.queryByText('Groceries')).not.toBeInTheDocument();
+      expect(screen.getByText('Payslip')).toBeInTheDocument();
+    });
+  });
+
+  describe('allowClear (un-categorise)', () => {
+    it('offers a pinned Uncategorised option that selects the blank category', () => {
+      const { onCategoryChange } = renderOpen({ allowClear: true });
+      fireEvent.click(screen.getByText('Uncategorised'));
+      expect(onCategoryChange).toHaveBeenCalledWith('');
+    });
+
+    it('hides the option without allowClear', () => {
+      renderOpen();
+      expect(screen.queryByText('Uncategorised')).not.toBeInTheDocument();
+    });
+
+    it('keeps the option while the search could still mean it', () => {
+      renderOpen({ allowClear: true });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+      fireEvent.change(input, { target: { value: 'unc' } });
+      expect(screen.getByText('Uncategorised')).toBeInTheDocument();
+      fireEvent.change(input, { target: { value: 'payslip' } });
+      expect(screen.queryByText('Uncategorised')).not.toBeInTheDocument();
+    });
+
+    it('is the first keyboard stop and selects the blank category with Enter', () => {
+      const { onCategoryChange } = renderOpen({ allowClear: true });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCategoryChange).toHaveBeenCalledWith('');
+    });
+
+    it('clears the selection with Delete on the closed picker', () => {
+      const onCategoryChange = vi.fn();
+      render(
+        <CategorySelector
+          selectedCategory="det-payslip"
+          onCategoryChange={onCategoryChange}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+          allowClear
+        />
+      );
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Category' }), { key: 'Delete' });
+      expect(onCategoryChange).toHaveBeenCalledWith('');
+    });
+
+    it('does NOT clear on Delete without allowClear', () => {
+      const onCategoryChange = vi.fn();
+      render(
+        <CategorySelector
+          selectedCategory="det-payslip"
+          onCategoryChange={onCategoryChange}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+        />
+      );
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Category' }), { key: 'Delete' });
+      expect(onCategoryChange).not.toHaveBeenCalled();
+    });
+  });
 });

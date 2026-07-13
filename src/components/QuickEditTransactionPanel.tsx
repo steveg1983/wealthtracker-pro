@@ -167,6 +167,7 @@ export default function QuickEditTransactionPanel({
               includeAllTypes
               showHelperText={false}
               placeholder="Search or select category…"
+              allowClear
             />
           )}
         </div>
