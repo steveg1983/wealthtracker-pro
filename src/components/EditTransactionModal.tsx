@@ -2,8 +2,15 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
-import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
+import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon, XIcon } from '../components/icons';
 import type { Transaction } from '../types';
+import {
+  splitRemainder,
+  validateSplitDrafts,
+  signSplitAmounts,
+  displaySplitAmount,
+  type SplitLineDraft,
+} from '../utils/transactionSplits';
 import CategoryCreationModal from './CategoryCreationModal';
 import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
@@ -53,7 +60,7 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, updateTransaction, deleteTransaction } = useApp();
+  const { accounts, categories, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits } = useApp();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
@@ -65,6 +72,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // categories (e.g. file a refund — income by sign — under an expense
   // category so it nets that expense down).
   const [crossTypeCategories, setCrossTypeCategories] = useState(false);
+  // Split mode (Money-style): categorisation moves into category+amount lines
+  // that must sum exactly to the transaction amount. Amounts here live in the
+  // ENTERED domain (positive magnitudes, minus = a reducing line like
+  // cashback); signing to the DB convention happens once at save.
+  const [isSplitMode, setIsSplitMode] = useState(false);
+  const [splitLines, setSplitLines] = useState<SplitLineDraft[]>([]);
+  const [splitsLoading, setSplitsLoading] = useState(false);
   const amountInputRef = useRef<HTMLInputElement>(null);
   // Batch mode coordination: Save & Next / Previous set a direction; a
   // successful submit consumes it and suppresses the close that useModalForm
@@ -142,6 +156,16 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
             notes: data.notes.trim() || undefined,
           });
 
+          // Split saves only exist for EDITS of income/expense rows; the rule
+          // is enforced before any write so a lopsided split never half-saves.
+          const splitting = isSplitMode && !!transaction && resolvedType !== 'transfer';
+          if (splitting) {
+            const splitError = validateSplitDrafts(data.amount, splitLines);
+            if (splitError) {
+              throw new Error(splitError);
+            }
+          }
+
           const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
           // Sign the stored amount. Income/expense are seeded as Math.abs, so
           // re-sign by type. Transfers ENCODE DIRECTION in their sign: an edit
@@ -168,7 +192,34 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           // Await the writes so a failed RPC surfaces via the form's submit
           // error instead of silently closing the modal (fire-and-forget bug).
           if (transaction) {
-            await updateTransaction(transaction.id, transactionData);
+            if (splitting) {
+              // A split parent's amount/category/type are guarded by a DB
+              // trigger — only set_transaction_splits may change them. The
+              // ordinary update carries everything else; the RPC then swaps
+              // the split lines in, re-validates the sum against the entered
+              // amount server-side, and syncs amount + account balance.
+              await updateTransaction(transaction.id, {
+                date: transactionData.date,
+                description: transactionData.description,
+                accountId: transactionData.accountId,
+                tags: transactionData.tags,
+                notes: transactionData.notes,
+                cleared: transactionData.cleared,
+                reconciledWith: transactionData.reconciledWith
+              });
+              await setTransactionSplits(
+                transaction.id,
+                signSplitAmounts(splitLines, resolvedType as 'income' | 'expense'),
+                signedAmount
+              );
+            } else if (transaction.isSplit) {
+              // Un-split FIRST — while is_split the guard trigger rejects the
+              // category/amount this update carries.
+              await setTransactionSplits(transaction.id, [], null);
+              await updateTransaction(transaction.id, transactionData);
+            } else {
+              await updateTransaction(transaction.id, transactionData);
+            }
           } else {
             await addTransaction(transactionData);
           }
@@ -195,7 +246,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           // correction) deliberately do NOT teach payee memory — a mixed-flow
           // payee like PayPal must not get all its incoming money stamped with
           // an expense category.
-          if (resolvedType !== 'transfer' && resolvedCategory && !crossTypeCategories &&
+          if (!splitting && resolvedType !== 'transfer' && resolvedCategory && !crossTypeCategories &&
               resolvedCategory !== transaction?.category) {
             await propagateCategory({
               accountId: validatedData.accountId,
@@ -351,6 +402,73 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     setShowDeleteConfirm(false);
   }, [transaction, accounts, categories, setFormData, defaultAccountId]);
 
+  // Load an already-split transaction's lines into the editor (stored signed
+  // amounts convert back to the entered domain). Non-split rows reset the
+  // split state so batch mode (Save & Next) never leaks lines between rows.
+  useEffect(() => {
+    let cancelled = false;
+    if (transaction?.isSplit) {
+      setIsSplitMode(true);
+      setSplitsLoading(true);
+      getTransactionSplits(transaction.id)
+        .then(splits => {
+          if (cancelled) return;
+          const direction = transaction.type === 'income' ? 'income' : 'expense';
+          setSplitLines(splits.map(s => ({
+            category: s.category,
+            amount: displaySplitAmount(s.amount, direction),
+            ...(s.memo ? { memo: s.memo } : {}),
+          })));
+        })
+        .catch(error => {
+          if (!cancelled) {
+            logger.error('Failed to load transaction splits', error as Error);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setSplitsLoading(false);
+          }
+        });
+    } else {
+      setIsSplitMode(false);
+      setSplitLines([]);
+      setSplitsLoading(false);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [transaction, getTransactionSplits, logger]);
+
+  const handleSplitToggle = (checked: boolean): void => {
+    setIsSplitMode(checked);
+    if (checked && splitLines.length === 0) {
+      // Seed with the current single category carrying the full amount, plus
+      // one empty line to move part of it into.
+      setSplitLines([
+        { category: formData.category, amount: formData.amount },
+        { category: '', amount: '' },
+      ]);
+    }
+  };
+
+  const updateSplitLine = (index: number, patch: Partial<SplitLineDraft>): void => {
+    setSplitLines(prev => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  };
+
+  const addSplitLine = (): void => {
+    setSplitLines(prev => [...prev, { category: '', amount: '' }]);
+  };
+
+  const removeSplitLine = (index: number): void => {
+    setSplitLines(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Save is blocked while the split doesn't balance; the remainder line
+  // doubles as the explanation.
+  const splitActive = isSplitMode && !!transaction && formData.type !== 'transfer';
+  const splitValidationMessage = splitActive ? validateSplitDrafts(formData.amount, splitLines) : null;
+  const splitRemaining = splitActive ? splitRemainder(formData.amount, splitLines) : null;
 
   const handleDelete = () => {
     if (!transaction) return;
@@ -425,6 +543,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               <div className="flex gap-1 items-center h-[42px] bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 {(['income', 'expense', 'transfer'] as const).map((t) => {
                   const isActive = formData.type === t;
+                  // A split transaction's type is locked by the DB guard
+                  // (its sign convention is baked into the split lines) and
+                  // transfers cannot be split at all.
+                  const lockedBySplit = isSplitMode && !isActive &&
+                    (t === 'transfer' || transaction?.isSplit === true);
                   const colors = {
                     income: isActive ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-green-600',
                     expense: isActive ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-red-600',
@@ -434,12 +557,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     <button
                       key={t}
                       type="button"
+                      disabled={lockedBySplit}
+                      title={lockedBySplit
+                        ? (t === 'transfer'
+                          ? 'Transfers cannot be split — untick the split option first'
+                          : 'Remove the split before changing the transaction type')
+                        : undefined}
                       onClick={() => {
                         updateField('type', t);
                         updateField('category', '');
                         setCrossTypeCategories(false);
                       }}
-                      className={`flex-1 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${colors[t]}`}
+                      className={`flex-1 px-4 py-1.5 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${colors[t]}`}
                     >
                       {t.charAt(0).toUpperCase() + t.slice(1)}
                     </button>
@@ -520,7 +649,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               <div className="flex justify-between items-center mb-1">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <TagIcon size={16} />
-                  {formData.type === 'transfer' ? 'Transfer To' : 'Category'}
+                  {formData.type === 'transfer' ? 'Transfer To' : splitActive ? 'Split Categories' : 'Category'}
                 </label>
                 {formData.type !== 'transfer' && (
                   <button
@@ -533,6 +662,19 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   </button>
                 )}
               </div>
+              {/* Split toggle — edits of income/expense rows only (a NEW row
+                  is added single-category first, then split; transfers encode
+                  their target in the category and cannot split). */}
+              {transaction && formData.type !== 'transfer' && (
+                <label className="mb-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSplitMode}
+                    onChange={(e) => handleSplitToggle(e.target.checked)}
+                  />
+                  <span>Split across multiple categories</span>
+                </label>
+              )}
               {/* Category is deliberately optional for income/expense — an
                   uncategorised transaction sits in the virtual "Uncategorised"
                   bucket. Transfers still require their target account. */}
@@ -549,6 +691,92 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     <option key={acct.id} value={acct.id}>{acct.name}</option>
                   ))}
                 </select>
+              ) : splitActive ? (
+                /* Split editor: one CategorySelector + amount per line. The
+                   remainder line is the live "totals must match" indicator —
+                   save stays blocked until it reads exactly zero. */
+                <div className="space-y-2">
+                  {splitsLoading ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Loading splits…</p>
+                  ) : (
+                    <>
+                      {splitLines.map((line, index) => (
+                        <div key={index} className="flex gap-2 items-center">
+                          <div className="flex-1 min-w-0">
+                            <CategorySelector
+                              selectedCategory={line.category}
+                              onCategoryChange={(id) => updateSplitLine(index, { category: id })}
+                              transactionType={
+                                crossTypeCategories
+                                  ? (formData.type === 'income' ? 'expense' : 'income')
+                                  : formData.type
+                              }
+                              placeholder="Search or select category…"
+                              allowCreate={false}
+                              showHelperText={false}
+                              usePortal
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={line.amount}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || value === '-' || /^-?[0-9,]*\.?[0-9]{0,2}$/.test(value)) {
+                                updateSplitLine(index, { amount: value });
+                              }
+                            }}
+                            placeholder="0.00"
+                            aria-label={`Split line ${index + 1} amount`}
+                            className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white"
+                          />
+                          {splitLines.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removeSplitLine(index)}
+                              aria-label={`Remove split line ${index + 1}`}
+                              title="Remove this split line"
+                              className="shrink-0 p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
+                            >
+                              <XIcon size={18} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center pt-1">
+                        <button
+                          type="button"
+                          onClick={addSplitLine}
+                          className="text-sm text-primary hover:text-secondary flex items-center gap-1"
+                        >
+                          <PlusIcon size={14} />
+                          Add another category
+                        </button>
+                        {splitRemaining !== null && (
+                          <span
+                            className={`text-sm font-medium ${
+                              splitRemaining.isZero()
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }`}
+                            aria-live="polite"
+                          >
+                            {splitRemaining.isZero()
+                              ? 'Fully allocated ✓'
+                              : `Remaining to allocate: ${(() => {
+                                  const selectedAccount = accounts.find(a => a.id === formData.accountId);
+                                  return selectedAccount ? getCurrencySymbol(selectedAccount.currency) : '';
+                                })()}${formatWithCommas(splitRemaining.toString())}`}
+                          </span>
+                        )}
+                      </div>
+                      {splitValidationMessage && (
+                        <p className="text-sm text-red-600 dark:text-red-400">{splitValidationMessage}</p>
+                      )}
+                    </>
+                  )}
+                </div>
               ) : (
                 /* Searchable combobox: click to type-filter, or use the chevron
                    to browse. usePortal escapes the modal body's overflow-y-auto
@@ -682,7 +910,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 {transaction && onSaveAndPrevious && (
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || splitValidationMessage !== null}
                     onClick={() => { advanceDirectionRef.current = 'previous'; }}
                     className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the previous one in the list"
@@ -692,7 +920,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 )}
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || splitValidationMessage !== null}
                   className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Saving…' : transaction ? 'Save Changes' : 'Add Transaction'}
@@ -700,7 +928,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 {transaction && onSaveAndNext && (
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || splitValidationMessage !== null}
                     onClick={() => { advanceDirectionRef.current = 'next'; }}
                     className="px-4 py-2 bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Save this transaction and move to the next one in the list"

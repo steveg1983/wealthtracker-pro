@@ -424,6 +424,7 @@ export const encryptedStorage = new EncryptedStorageService();
 export const STORAGE_KEYS = {
   ACCOUNTS: 'wealthtracker_accounts',
   TRANSACTIONS: 'wealthtracker_transactions',
+  TRANSACTION_SPLITS: 'wealthtracker_transaction_splits',
   BUDGETS: 'wealthtracker_budgets',
   GOALS: 'wealthtracker_goals',
   TAGS: 'wealthtracker_tags',

@@ -135,6 +135,32 @@ export interface Transaction {
   };
 }
 
+/**
+ * One category line of a split transaction. A split transaction stays a
+ * single ledger row (one date, one payee, one signed amount, one balance
+ * effect); its categorisation moves into lines that MUST sum exactly to the
+ * transaction amount — enforced by the set_transaction_splits RPC and its
+ * guard trigger. Amounts are signed with the same convention as
+ * Transaction.amount; a negative-relative line (e.g. cashback inside a shop)
+ * is legal, exactly like Microsoft Money.
+ */
+export interface TransactionSplit {
+  id: string;
+  transactionId: string;
+  /** Category id as text — same convention as Transaction.category. */
+  category: string;
+  amount: number;
+  memo?: string;
+  sortOrder: number;
+}
+
+/** Input for creating/replacing a transaction's splits (ids are server-assigned). */
+export interface TransactionSplitInput {
+  category: string;
+  amount: number;
+  memo?: string;
+}
+
 export interface Budget {
   id: string;
   categoryId: string;  // Changed from 'category' to match service implementation

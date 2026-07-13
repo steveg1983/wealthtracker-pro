@@ -198,7 +198,17 @@ export const TransactionRow = memo(function TransactionRow({
             className={`${compactView ? 'py-1.5' : 'py-3'} px-6 text-gray-900 dark:text-gray-100 text-left`}
             style={{ width: columnWidths.category }}
           >
-            {isEditingCategory && availableCategories && onUpdateCategory ? (
+            {transaction.isSplit ? (
+              // Money-style: a split transaction shows "Split" in the category
+              // column; its categorisation lives in the split lines and is
+              // edited through the full transaction editor, never inline.
+              <span
+                className={`${compactView ? 'text-sm' : ''} truncate block italic text-blue-600 dark:text-blue-400`}
+                title="Split across multiple categories — open the transaction to edit its splits"
+              >
+                Split
+              </span>
+            ) : isEditingCategory && availableCategories && onUpdateCategory ? (
               <select
                 className="w-full text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={transaction.category || ''}
@@ -383,7 +393,9 @@ export const TransactionRow = memo(function TransactionRow({
           />
         </td>
       )}
-      {columnOrder.map(column => renderCell(column))}
+      {columnOrder.map(column => (
+        <React.Fragment key={column}>{renderCell(column)}</React.Fragment>
+      ))}
     </tr>
   );
 }, (prevProps, nextProps) => {
@@ -393,6 +405,7 @@ export const TransactionRow = memo(function TransactionRow({
     prevProps.transaction.amount === nextProps.transaction.amount &&
     prevProps.transaction.description === nextProps.transaction.description &&
     prevProps.transaction.category === nextProps.transaction.category &&
+    prevProps.transaction.isSplit === nextProps.transaction.isSplit &&
     prevProps.transaction.cleared === nextProps.transaction.cleared &&
     prevProps.account?.id === nextProps.account?.id &&
     prevProps.categoryPath === nextProps.categoryPath &&

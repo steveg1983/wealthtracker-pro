@@ -49,6 +49,9 @@ export default function QuickEditTransactionPanel({
   }, [transaction]);
 
   const isTransfer = transaction.type === 'transfer';
+  // A split transaction's categorisation lives in its split lines — the DB
+  // guard rejects a single-category write, so this panel never sends one.
+  const isSplit = transaction.isSplit === true;
 
   const save = async (advance: boolean) => {
     if (isSaving) return;
@@ -67,7 +70,7 @@ export default function QuickEditTransactionPanel({
       await updateTransaction(transaction.id, {
         date: parsedDate,
         description: description.trim(),
-        ...(isTransfer ? {} : { category }),
+        ...(isTransfer || isSplit ? {} : { category }),
       });
 
       // Payee memory — but never for CROSS-TYPE filings (a refund put under an
@@ -79,7 +82,7 @@ export default function QuickEditTransactionPanel({
         (chosenCategory.type === 'income' || chosenCategory.type === 'expense') &&
         chosenCategory.type !== transaction.type;
 
-      if (!isTransfer && categoryChanged && category && !isCrossType &&
+      if (!isTransfer && !isSplit && categoryChanged && category && !isCrossType &&
           (transaction.type === 'income' || transaction.type === 'expense')) {
         await propagateCategory({
           accountId: transaction.accountId,
@@ -148,6 +151,13 @@ export default function QuickEditTransactionPanel({
           {isTransfer ? (
             <div className="w-full px-3 h-[42px] flex items-center text-sm bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-gray-500 dark:text-gray-400">
               Transfer
+            </div>
+          ) : isSplit ? (
+            <div
+              className="w-full px-3 h-[42px] flex items-center text-sm bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-xl text-blue-600 dark:text-blue-400 italic"
+              title="Split across multiple categories — open the full editor (double-click the row) to change its splits"
+            >
+              Split
             </div>
           ) : (
             <CategorySelector

@@ -598,6 +598,46 @@ describe('TransactionRow', () => {
     });
   });
 
+  describe('Split Transactions', () => {
+    it('shows "Split" in the category column instead of a category path', () => {
+      render(
+        <table>
+          <tbody>
+            <TransactionRow
+              {...defaultProps}
+              transaction={{ ...mockTransaction, isSplit: true, category: '' }}
+              categoryPath=""
+            />
+          </tbody>
+        </table>
+      );
+
+      expect(screen.getByText('Split')).toBeInTheDocument();
+      expect(screen.queryByText('Uncategorized')).not.toBeInTheDocument();
+    });
+
+    it('never offers inline category editing for a split transaction', () => {
+      render(
+        <table>
+          <tbody>
+            <TransactionRow
+              {...defaultProps}
+              transaction={{ ...mockTransaction, isSplit: true, category: '' }}
+              categoryPath=""
+              availableCategories={[{ id: 'cat-1', name: 'Groceries' }]}
+              onUpdateCategory={vi.fn()}
+            />
+          </tbody>
+        </table>
+      );
+
+      // A normal row would render a "click to change" category button here;
+      // a split row's categorisation is only editable through the full editor.
+      expect(screen.queryByRole('button', { name: /change category/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Split')).toBeInTheDocument();
+    });
+  });
+
   describe('Performance', () => {
     it('memoizes component correctly', () => {
       const { rerender } = render(

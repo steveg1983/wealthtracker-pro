@@ -20,14 +20,16 @@ import {
 } from '../utils/decimal-converters';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
-import type { 
-  Account, 
-  Transaction, 
-  Category, 
-  Budget, 
-  Goal, 
+import type {
+  Account,
+  Transaction,
+  TransactionSplit,
+  TransactionSplitInput,
+  Category,
+  Budget,
+  Goal,
   RecurringTransaction,
-  AppState 
+  AppState
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { planCategoryTreeImport, planCategoryPrune, type CategoryTreeGroup } from '../utils/categoryTreeImport';
@@ -124,6 +126,19 @@ export interface AppContextType extends AppState {
    * category, enforced server-side. Returns the number actually updated.
    */
   applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
+  /** Splits for one transaction, in display order (empty when not split). */
+  getTransactionSplits: (transactionId: string) => Promise<TransactionSplit[]>;
+  /**
+   * Replace a transaction's splits atomically (empty array un-splits it).
+   * Split lines must sum EXACTLY to expectedAmount — enforced server-side by
+   * the set_transaction_splits RPC, which also syncs the transaction amount
+   * and account balance when the sum changes them.
+   */
+  setTransactionSplits: (
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null
+  ) => Promise<{ isSplit: boolean; splitCount: number; amount: number }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -516,9 +531,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const count = await DataService.applyCategoryToUncategorized(ids, category);
       const idSet = new Set(ids);
-      // Mirror the server's fill-blanks semantics locally: only blank rows flip.
+      // Mirror the server's fill-blanks semantics locally: only blank,
+      // NON-SPLIT rows flip (a split parent's blank category means "split").
       setTransactions(prev => prev.map(t =>
-        idSet.has(t.id) && (!t.category || t.category.trim() === '') ? { ...t, category } : t
+        idSet.has(t.id) && !t.isSplit && (!t.category || t.category.trim() === '') ? { ...t, category } : t
       ));
       return count;
     } catch (error) {
@@ -526,6 +542,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
   }, []);
+
+  const getTransactionSplits = useCallback(async (transactionId: string) => {
+    try {
+      return await DataService.getTransactionSplits(transactionId);
+    } catch (error) {
+      appLogger.error('Failed to load transaction splits', error);
+      throw error;
+    }
+  }, []);
+
+  const setTransactionSplits = useCallback(async (
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null
+  ) => {
+    try {
+      const oldTransaction = transactions.find(t => t.id === transactionId);
+      const result = await DataService.setTransactionSplits(transactionId, splits, expectedAmount);
+
+      // Mirror the atomic server change locally: the flag, the blanked
+      // category while split, and the amount the splits sum to.
+      setTransactions(prev => prev.map(t =>
+        t.id === transactionId
+          ? {
+              ...t,
+              isSplit: result.isSplit,
+              amount: result.amount,
+              ...(result.isSplit ? { category: '' } : {}),
+            }
+          : t
+      ));
+
+      // Balance follows the amount (Decimal arithmetic; the DB balance was
+      // adjusted atomically inside set_transaction_splits).
+      if (oldTransaction && result.amount !== oldTransaction.amount) {
+        const difference = toDecimal(result.amount).minus(toDecimal(oldTransaction.amount));
+        setAccounts(prev => prev.map(acc =>
+          acc.id === oldTransaction.accountId
+            ? { ...acc, balance: toDecimal(acc.balance || 0).plus(difference).toNumber() }
+            : acc
+        ));
+      }
+
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to set transaction splits', error);
+      throw error;
+    }
+  }, [transactions]);
 
   const deleteTransaction = useCallback(async (id: string) => {
     try {
@@ -899,6 +964,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTransaction,
     setTransactionsCleared,
     applyCategoryToUncategorized,
+    getTransactionSplits,
+    setTransactionSplits,
 
     // Budget operations
     addBudget,

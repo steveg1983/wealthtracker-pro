@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import EditTransactionModal from './EditTransactionModal';
 import type { Transaction } from '../types';
 
@@ -107,6 +107,7 @@ vi.mock('../components/icons', () => ({
   ArrowRightLeftIcon: () => <div data-testid="arrow-right-left-icon">↔️</div>,
   BanknoteIcon: () => <div data-testid="banknote-icon">💵</div>,
   PaperclipIcon: () => <div data-testid="paperclip-icon">📎</div>,
+  XIcon: () => <div data-testid="x-icon">✕</div>,
 }));
 
 describe('EditTransactionModal', () => {
@@ -414,6 +415,73 @@ describe('EditTransactionModal', () => {
       );
       expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Save & Next' })).toBeNull();
+    });
+  });
+
+  describe('split mode', () => {
+    const splitToggle = () =>
+      screen.getByRole('checkbox', { name: /split across multiple categories/i });
+
+    it('offers the split toggle when editing a transaction', () => {
+      renderModal(true, createMockTransaction());
+      expect(splitToggle()).toBeInTheDocument();
+      expect(splitToggle()).not.toBeChecked();
+    });
+
+    it('hides the toggle for new transactions (create single first, then split)', () => {
+      renderModal(true, null);
+      expect(
+        screen.queryByRole('checkbox', { name: /split across multiple categories/i })
+      ).toBeNull();
+    });
+
+    it('seeds two split lines when toggled on', () => {
+      renderModal(true, createMockTransaction());
+      fireEvent.click(splitToggle());
+
+      expect(screen.getAllByLabelText(/split line \d+ amount/i)).toHaveLength(2);
+      expect(screen.getByRole('button', { name: /add another category/i })).toBeInTheDocument();
+      // Two empty lines have no categories yet — save is blocked and says why
+      expect(screen.getByText(/every split line needs a category/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    });
+
+    it('shows the live remainder when the totals do not match', () => {
+      renderModal(true, createMockTransaction());
+      fireEvent.click(splitToggle());
+
+      fireEvent.change(screen.getByLabelText('Split line 1 amount'), { target: { value: '60' } });
+      // Mocked form amount is '' (0), so allocating 60 leaves -60 outstanding
+      expect(screen.getByText(/remaining to allocate/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    });
+
+    it('adds and removes split lines (minimum of two enforced)', () => {
+      renderModal(true, createMockTransaction());
+      fireEvent.click(splitToggle());
+
+      // Two lines: no remove buttons (the minimum)
+      expect(screen.queryByRole('button', { name: /remove split line/i })).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /add another category/i }));
+      expect(screen.getAllByLabelText(/split line \d+ amount/i)).toHaveLength(3);
+      expect(screen.getAllByRole('button', { name: /remove split line/i })).toHaveLength(3);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove split line 3' }));
+      expect(screen.getAllByLabelText(/split line \d+ amount/i)).toHaveLength(2);
+      expect(screen.queryByRole('button', { name: /remove split line/i })).toBeNull();
+    });
+
+    it('returns to the single category picker when toggled back off', () => {
+      renderModal(true, createMockTransaction());
+      fireEvent.click(splitToggle());
+      // Split mode renders one (stubbed) selector per line — two of them —
+      // and no amount-free single picker.
+      expect(screen.getAllByTestId('category-selector')).toHaveLength(2);
+
+      fireEvent.click(splitToggle());
+      expect(screen.getAllByTestId('category-selector')).toHaveLength(1);
+      expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled();
     });
   });
 });
