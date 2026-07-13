@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { offlineService } from '../services/offlineService';
 import { AlertCircleIcon, CheckIcon, XIcon } from './icons';
 import { formatCurrency } from '../utils/formatters';
@@ -101,8 +101,24 @@ export function SyncConflictResolver(): React.JSX.Element | null {
   const [selectedConflict, setSelectedConflict] = useState<Conflict | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
+  // The IndexedDB reads below can resolve AFTER unmount; a late setState then
+  // crashes (react-dom touches window, already torn down in tests — the
+  // intermittent "window is not defined" quality-gates failure). Every
+  // post-await setState checks this ref first. Reset on mount because Strict
+  // Mode remounts reuse the same ref.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const loadConflicts = useCallback(async () => {
     const unresolved: unknown[] = await offlineService.getConflicts();
+    if (!isMountedRef.current) {
+      return;
+    }
     const normalized = unresolved
       .map(normalizeConflict)
       .filter((conflict): conflict is Conflict => Boolean(conflict) && conflict !== null && !conflict.resolved);
@@ -117,6 +133,9 @@ export function SyncConflictResolver(): React.JSX.Element | null {
     const shouldCloseAfterResolve = conflicts.length <= 1;
     await offlineService.resolveConflict(conflictId, resolution);
     await loadConflicts();
+    if (!isMountedRef.current) {
+      return;
+    }
     setSelectedConflict(null);
 
     if (shouldCloseAfterResolve) {
