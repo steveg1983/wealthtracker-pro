@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FileTextIcon, DownloadIcon, CalendarIcon, FileSpreadsheetIcon, FilePlusIcon, XIcon, TrendingUpIcon, DollarSignIcon, PieChartIcon, ReceiptIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -113,7 +114,13 @@ const REPORT_TEMPLATES = [
 ];
 
 export default function EnhancedExportManager(): React.JSX.Element {
-  const { accounts, transactions, budgets } = useApp();
+  const { accounts, transactions: rawTransactions, transactionSplits, budgets } = useApp();
+  // Exports work on the split-EXPANDED view (one row per split line) so
+  // category summaries and budget analysis count split lines correctly.
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits),
+    [rawTransactions, transactionSplits]
+  );
   const { formatCurrency } = useCurrencyDecimal();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { financialSummaryService } from '../services/financialSummaryService';
 import PageWrapper from '../components/PageWrapper';
 import FinancialSummary from '../components/FinancialSummary';
@@ -9,7 +10,13 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatDecimal } from '../utils/decimal-format';
 
 export default function FinancialSummaries() {
-  const { transactions, accounts, budgets, goals } = useApp();
+  const { transactions: rawTransactions, transactionSplits, accounts, budgets, goals } = useApp();
+  // Split parents expand into per-line rows so category rankings count split
+  // lines under their categories (totals are unchanged — lines sum exactly).
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits),
+    [rawTransactions, transactionSplits]
+  );
   const { formatCurrency } = useCurrencyDecimal();
   const [activeTab, setActiveTab] = useState<'weekly' | 'monthly'>('weekly');
   const [showHistory, setShowHistory] = useState(false);

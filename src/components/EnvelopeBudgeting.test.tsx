@@ -93,7 +93,8 @@ let currentMockBudgets = mockBudgets;
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     categories: mockCategories,
-    getDecimalTransactions: () => mockTransactions
+    transactions: mockTransactions,
+    transactionSplits: []
   })
 }));
 

@@ -40,6 +40,11 @@ interface CategorySelectorProps {
    * (which open the list upward in-flow) are unchanged.
    */
   usePortal?: boolean;
+  /**
+   * Category ids to leave out of the list — e.g. the category being DELETED
+   * in the reassignment dialog must not be offered as its own replacement.
+   */
+  excludeIds?: string[];
 }
 
 export default function CategorySelector({
@@ -52,6 +57,7 @@ export default function CategorySelector({
   includeAllTypes = false,
   showHelperText = true,
   usePortal = false,
+  excludeIds,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -137,7 +143,9 @@ export default function CategorySelector({
       detailCategories.push(...details);
     });
 
-    return detailCategories;
+    return excludeIds && excludeIds.length > 0
+      ? detailCategories.filter(c => !excludeIds.includes(c.id))
+      : detailCategories;
   };
 
   // Filter categories based on search term

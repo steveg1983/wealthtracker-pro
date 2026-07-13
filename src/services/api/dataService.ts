@@ -28,7 +28,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -326,6 +326,16 @@ class DataServiceImpl {
     return count;
   }
 
+  /** Every split line of the user's transactions (for category aggregation). */
+  async getAllTransactionSplits(): Promise<TransactionSplit[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.getAllTransactionSplits(userId);
+    }
+
+    return this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
+  }
+
   /** Splits for one transaction, in display order (empty when not split). */
   async getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
@@ -537,6 +547,10 @@ export class DataService {
 
   static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category);
+  }
+
+  static getAllTransactionSplits(): Promise<TransactionSplit[]> {
+    return this.service.getAllTransactionSplits();
   }
 
   static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {

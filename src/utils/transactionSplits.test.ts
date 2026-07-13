@@ -5,8 +5,11 @@ import {
   validateSplitDrafts,
   signSplitAmounts,
   displaySplitAmount,
+  expandSplitTransactions,
+  splitsByTransaction,
   type SplitLineDraft,
 } from './transactionSplits';
+import type { Transaction, TransactionSplit } from '../types';
 
 const line = (category: string, amount: string): SplitLineDraft => ({ category, amount });
 
@@ -90,6 +93,81 @@ describe('signSplitAmounts', () => {
     );
     expect(result[0].memo).toBe('petrol');
     expect(result[1]).not.toHaveProperty('memo');
+  });
+});
+
+describe('expandSplitTransactions', () => {
+  const txn = (over: Partial<Transaction>): Transaction => ({
+    id: 'x',
+    date: new Date('2026-06-17'),
+    description: 'TESCO STORES',
+    amount: -100,
+    type: 'expense',
+    accountId: 'acc-1',
+    category: 'cat-a',
+    cleared: false,
+    ...over,
+  }) as Transaction;
+
+  const split = (over: Partial<TransactionSplit>): TransactionSplit => ({
+    id: 's1',
+    transactionId: 't1',
+    category: 'cat-a',
+    amount: -60,
+    sortOrder: 1,
+    ...over,
+  });
+
+  it('passes non-split transactions through untouched', () => {
+    const list = [txn({ id: 't1' }), txn({ id: 't2', category: 'cat-b' })];
+    expect(expandSplitTransactions(list, [])).toEqual(list);
+    // Splits belonging to OTHER transactions change nothing either
+    expect(expandSplitTransactions(list, [split({ transactionId: 't9' })])).toEqual(list);
+  });
+
+  it('replaces a split parent with one row per line', () => {
+    const parent = txn({ id: 't1', isSplit: true, category: '', amount: -100 });
+    const lines = [
+      split({ id: 's1', transactionId: 't1', category: 'groceries', amount: -60, sortOrder: 1 }),
+      split({ id: 's2', transactionId: 't1', category: 'household', amount: -40, sortOrder: 2, memo: 'bin bags' }),
+    ];
+    const result = expandSplitTransactions([parent], lines);
+
+    expect(result).toHaveLength(2);
+    expect(result.map(r => r.category)).toEqual(['groceries', 'household']);
+    expect(result.map(r => r.amount)).toEqual([-60, -40]);
+    expect(result.every(r => r.isSplitLine && r.splitParentId === 't1')).toBe(true);
+    expect(result.every(r => r.description === 'TESCO STORES')).toBe(true);
+    // Synthetic ids never collide with the parent's
+    expect(result.every(r => r.id !== 't1')).toBe(true);
+    // A line memo travels as the row's note
+    expect(result[1].notes).toBe('bin bags');
+    // Line amounts sum to the parent amount (the DB invariant)
+    expect(result.reduce((sum, r) => sum + r.amount, 0)).toBe(parent.amount);
+  });
+
+  it('derives the virtual row type from the line sign (cashback nets, never inflates)', () => {
+    const parent = txn({ id: 't1', isSplit: true, category: '', amount: -100 });
+    const lines = [
+      split({ id: 's1', transactionId: 't1', category: 'groceries', amount: -120, sortOrder: 1 }),
+      split({ id: 's2', transactionId: 't1', category: 'cashback', amount: 20, sortOrder: 2 }),
+    ];
+    const [groceries, cashback] = expandSplitTransactions([parent], lines);
+    expect(groceries.type).toBe('expense');
+    expect(cashback.type).toBe('income');
+  });
+
+  it('passes a split parent through whole when its lines are missing', () => {
+    const parent = txn({ id: 't1', isSplit: true, category: '', amount: -100 });
+    expect(expandSplitTransactions([parent], [])).toEqual([parent]);
+  });
+
+  it('orders lines by sortOrder via splitsByTransaction', () => {
+    const map = splitsByTransaction([
+      split({ id: 's2', sortOrder: 2 }),
+      split({ id: 's1', sortOrder: 1 }),
+    ]);
+    expect(map.get('t1')?.map(s => s.id)).toEqual(['s1', 's2']);
   });
 });
 

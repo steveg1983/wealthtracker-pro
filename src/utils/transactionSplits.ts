@@ -1,4 +1,5 @@
 import { toDecimal, parseMoneyInput, type DecimalInstance } from './decimal';
+import type { Transaction, TransactionSplit } from '../types';
 
 /**
  * Split-editor money maths. Everything runs through Decimal — the "totals
@@ -87,4 +88,84 @@ export function signSplitAmounts(
 export function displaySplitAmount(storedAmount: number, type: 'income' | 'expense'): string {
   const value = toDecimal(storedAmount);
   return (type === 'expense' ? value.negated() : value).toString();
+}
+
+/**
+ * A transaction as seen by CATEGORY-AGGREGATION surfaces: either a real
+ * transaction passed through, or one line of a split parent projected into a
+ * virtual row that carries the line's category and amount.
+ */
+export interface SplitExpandedTransaction extends Transaction {
+  /** True for a virtual row projected from one split line. */
+  isSplitLine?: boolean;
+  /** The real transaction the line belongs to (open THIS in editors). */
+  splitParentId?: string;
+}
+
+/** Group splits by their parent transaction id, in sort order. */
+export function splitsByTransaction(splits: TransactionSplit[]): Map<string, TransactionSplit[]> {
+  const map = new Map<string, TransactionSplit[]>();
+  for (const split of splits) {
+    const list = map.get(split.transactionId);
+    if (list) {
+      list.push(split);
+    } else {
+      map.set(split.transactionId, [split]);
+    }
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+  return map;
+}
+
+/**
+ * Expand split parents into per-line virtual rows for CATEGORY aggregation
+ * (counters, category transaction lists, budgets, analytics, exports).
+ *
+ * - Non-split transactions pass through untouched.
+ * - A split parent is REPLACED by one row per line: same date/payee/account,
+ *   the line's category and signed amount, a synthetic id, and splitParentId
+ *   pointing back at the real row. Line amounts sum to the parent amount by
+ *   the set_transaction_splits invariant, so totals stay exact.
+ * - A parent whose lines are missing (splits not loaded yet) passes through
+ *   unchanged rather than vanishing from view.
+ *
+ * NEVER feed the result into balance arithmetic, the account register, or
+ * any write path — virtual rows have synthetic ids and exist only so
+ * "amount per category" style views can treat split lines as first-class.
+ */
+export function expandSplitTransactions(
+  transactions: Transaction[],
+  splits: TransactionSplit[]
+): SplitExpandedTransaction[] {
+  if (splits.length === 0) {
+    return transactions;
+  }
+  const byTransaction = splitsByTransaction(splits);
+  const expanded: SplitExpandedTransaction[] = [];
+  for (const transaction of transactions) {
+    const lines = transaction.isSplit ? byTransaction.get(transaction.id) : undefined;
+    if (!lines || lines.length === 0) {
+      expanded.push(transaction);
+      continue;
+    }
+    for (const line of lines) {
+      expanded.push({
+        ...transaction,
+        id: `${transaction.id}::split::${line.id}`,
+        category: line.category,
+        amount: line.amount,
+        // Sign⇄type coherence: a positive line inside an expense split (e.g.
+        // cashback) behaves like the cross-type income filing consumers
+        // already understand — aggregators that abs() expense amounts must
+        // not count it as MORE spending.
+        type: line.amount >= 0 ? 'income' : 'expense',
+        notes: line.memo ?? transaction.notes,
+        isSplitLine: true,
+        splitParentId: transaction.id,
+      });
+    }
+  }
+  return expanded;
 }

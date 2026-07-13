@@ -47,11 +47,19 @@ const transactions = [
   txn({ id: 't1', description: 'A S CAR VALET SER', amount: -45 }),
   txn({ id: 't2', description: 'TFL CONGESTN CHRGE', amount: -12.5, date: new Date('2026-06-25') }),
   txn({ id: 't3', description: 'SOME OTHER CATEGORY ROW', category: 'cat-elsewhere' }),
+  // A split parent: £60 of it filed under cat-other, £40 elsewhere
+  txn({ id: 't4', description: 'TESCO SUPERSTORE', amount: -100, category: '', isSplit: true }),
+];
+
+const transactionSplits = [
+  { id: 's1', transactionId: 't4', category: 'cat-other', amount: -60, sortOrder: 1 },
+  { id: 's2', transactionId: 't4', category: 'cat-elsewhere', amount: -40, sortOrder: 2 },
 ];
 
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions,
+    transactionSplits,
     accounts: [{ id: 'acc-1', name: 'HSBC Premier - Current Account' }],
   }),
 }));
@@ -87,6 +95,22 @@ describe('CategoryTransactionsModal', () => {
 
     expect(screen.getByTestId('edit-transaction-modal')).toBeInTheDocument();
     expect(screen.getByText('Editing: TFL CONGESTN CHRGE')).toBeInTheDocument();
+  });
+
+  it('lists a split line under its category with the LINE amount and a badge', () => {
+    renderModal();
+    // The £60 cat-other line of the £100 split appears; the parent's total doesn't
+    const splitRow = screen.getByRole('button', { name: /TESCO SUPERSTORE/ });
+    expect(splitRow).toHaveTextContent('split');
+    expect(splitRow).toHaveTextContent('£60.00');
+    expect(splitRow).not.toHaveTextContent('£100.00');
+  });
+
+  it('opens the PARENT transaction when a split line is clicked', () => {
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: /TESCO SUPERSTORE/ }));
+    // The editor receives the real parent transaction, not the virtual line
+    expect(screen.getByText('Editing: TESCO SUPERSTORE')).toBeInTheDocument();
   });
 
   it('returns to the list when the editor closes', () => {

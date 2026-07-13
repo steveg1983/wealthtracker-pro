@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { financialSummaryService, type SummaryData } from '../services/financialSummaryService';
 import { CalendarIcon, TrendingUpIcon, TrendingDownIcon, PieChartIcon, TargetIcon } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -13,7 +14,13 @@ interface FinancialSummaryProps {
 }
 
 export default function FinancialSummary({ period }: FinancialSummaryProps) {
-  const { transactions, accounts, budgets, goals } = useApp();
+  const { transactions: rawTransactions, transactionSplits, accounts, budgets, goals } = useApp();
+  // Split parents expand into per-line rows so category rankings count split
+  // lines under their categories (totals are unchanged — lines sum exactly).
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits),
+    [rawTransactions, transactionSplits]
+  );
   const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [showDetails, setShowDetails] = useState(false);
