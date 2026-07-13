@@ -5,6 +5,8 @@ import { SearchIcon } from './icons/SearchIcon';
 import { XCircleIcon } from './icons/XCircleIcon';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import EditTransactionModal from './EditTransactionModal';
+import type { Transaction } from '../types';
 
 interface CategoryTransactionsModalProps {
   isOpen: boolean;
@@ -30,7 +32,12 @@ export default function CategoryTransactionsModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>('all');
-  
+  // Row click-through: opens the full transaction editor so rows can be
+  // re-categorised (or otherwise fixed) without leaving this list. Saving a
+  // category change recomputes categoryTransactions, so the row leaves the
+  // list on its own.
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
   // Get all transactions for this category
   const categoryTransactions = useMemo(() => {
     return transactions.filter(t => t.category === categoryId);
@@ -156,6 +163,7 @@ export default function CategoryTransactionsModal({
       setTransactionFilter('all');
       setFromDate('');
       setToDate('');
+      setEditingTransaction(null);
     }
   }, [isOpen]);
   
@@ -328,36 +336,39 @@ export default function CategoryTransactionsModal({
               {filteredTransactions.map(transaction => {
                 const account = accounts.find(a => a.id === transaction.accountId);
                 return (
-                  <div
+                  <button
                     key={transaction.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    type="button"
+                    onClick={() => setEditingTransaction(transaction)}
+                    title="Edit or re-categorise this transaction"
+                    className="w-full text-left flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                   >
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
+                          <span className="block font-medium text-gray-900 dark:text-white">
                             {transaction.description}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                          </span>
+                          <span className="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             {new Date(transaction.date).toLocaleDateString()} • {account?.name || 'Unknown Account'}
-                          </p>
+                          </span>
                         </div>
                         <div className="text-right ml-4">
-                          <p className={`font-medium ${
+                          <span className={`block font-medium ${
                             transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0)
-                              ? 'text-green-600 dark:text-green-400' 
+                              ? 'text-green-600 dark:text-green-400'
                               : 'text-red-600 dark:text-red-400'
                           }`}>
                             {transaction.amount >= 0 ? '+' : '-'}
                             {formatCurrency(Math.abs(transaction.amount))}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          </span>
+                          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                             {transaction.type === 'transfer' ? `transfer (${transaction.amount > 0 ? 'in' : 'out'})` : transaction.type}
-                          </p>
+                          </span>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -380,6 +391,16 @@ export default function CategoryTransactionsModal({
           </div>
         </div>
       </div>
+
+      {/* Full editor for the clicked row — portals to document.body, so it
+          stacks above this modal. */}
+      {editingTransaction && (
+        <EditTransactionModal
+          isOpen
+          onClose={() => setEditingTransaction(null)}
+          transaction={editingTransaction}
+        />
+      )}
     </div>
   );
 }
