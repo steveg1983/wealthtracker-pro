@@ -15,6 +15,7 @@ import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -31,7 +32,7 @@ export default function Budget() {
   };
   
   // Get data from context
-  const { budgets, updateBudget, deleteBudget, transactions, categories } = useApp();
+  const { budgets, updateBudget, deleteBudget, transactions, transactionSplits, categories } = useApp();
   const { checkEnhancedBudgetAlerts, checkBudgetAlerts, alertThreshold } = useNotifications();
 
   // Memoize current date values
@@ -45,6 +46,14 @@ export default function Budget() {
 
   // Calculate spent amounts for each budget with memoization
   const budgetsWithSpent = useMemo(() => {
+    // Split parents expand into their per-line rows first, so a split line
+    // spends against ITS category's budget. Converted to decimal once, not
+    // per budget.
+    const decimalTransactions = expandSplitTransactions(transactions, transactionSplits).map(t => ({
+      ...t,
+      amount: toDecimal(t.amount)
+    }));
+
     return budgets
       .filter(budget => budget !== null && budget !== undefined)
       .map((budget) => {
@@ -53,13 +62,7 @@ export default function Budget() {
           ...budget,
           amount: toDecimal(budget.amount)
         };
-        
-        // Convert transactions to decimal for calculations
-        const decimalTransactions = transactions.map(t => ({
-          ...t,
-          amount: toDecimal(t.amount)
-        }));
-        
+
         // Calculate date range for budget period
         let startDate: Date;
         let endDate: Date;
@@ -94,7 +97,7 @@ export default function Budget() {
           remaining: remaining.toNumber()
         };
       });
-  }, [budgets, transactions, currentMonth, currentYear]);
+  }, [budgets, transactions, transactionSplits, currentMonth, currentYear]);
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();

@@ -357,6 +357,55 @@ class TransactionServiceImpl {
     }
   }
 
+  /** Every split line of the user's transactions (for category aggregation). */
+  async getAllTransactionSplits(userId?: string): Promise<TransactionSplit[]> {
+    if (!this.isSupabaseReady()) {
+      return (await this.storage.get<TransactionSplit[]>(STORAGE_KEYS.TRANSACTION_SPLITS)) ?? [];
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      // Page like getTransactions — splits are few today, but the 1000-row
+      // PostgREST cap would silently truncate a heavy splitter's data.
+      const PAGE_SIZE = 1000;
+      const rows: Record<string, unknown>[] = [];
+      let from = 0;
+      for (;;) {
+        let query = client
+          .from('transaction_splits')
+          .select('*')
+          .order('transaction_id', { ascending: true })
+          .order('sort_order', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+        if (userId) {
+          query = query.eq('user_id', userId);
+        }
+        const { data, error } = await query;
+        if (error) {
+          this.logger.error('Error fetching transaction splits:', error);
+          throw new Error(handleSupabaseError(error));
+        }
+        const page = (data || []) as Record<string, unknown>[];
+        rows.push(...page);
+        if (page.length < PAGE_SIZE) {
+          break;
+        }
+        from += PAGE_SIZE;
+      }
+      return rows.map(row => ({
+        id: String(row.id),
+        transactionId: String(row.transaction_id),
+        category: String(row.category),
+        amount: Number(row.amount),
+        memo: typeof row.memo === 'string' && row.memo !== '' ? row.memo : undefined,
+        sortOrder: Number(row.sort_order),
+      }));
+    } catch (error) {
+      this.logger.error('TransactionService.getAllTransactionSplits error:', error as Error);
+      throw error;
+    }
+  }
+
   /** Splits for one transaction, in display order (empty when not split). */
   async getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
     if (!this.isSupabaseReady()) {
@@ -761,6 +810,10 @@ export class TransactionService {
 
   static applyCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category, userId);
+  }
+
+  static getAllTransactionSplits(userId?: string): Promise<TransactionSplit[]> {
+    return this.service.getAllTransactionSplits(userId);
   }
 
   static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {

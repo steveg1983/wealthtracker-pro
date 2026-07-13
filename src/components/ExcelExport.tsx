@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
 import { 
@@ -46,7 +47,14 @@ interface ExportOptions {
 }
 
 export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): React.JSX.Element {
-  const { transactions, accounts, budgets, categories } = useApp();
+  const { transactions: rawTransactions, transactionSplits, accounts, budgets, categories } = useApp();
+  // Exports work on the split-EXPANDED view: a split parent becomes one row
+  // per line, so category columns and breakdowns are correct and totals
+  // still sum exactly (lines sum to the parent by the DB invariant).
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits),
+    [rawTransactions, transactionSplits]
+  );
   const { getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   const currencySymbol = getCurrencySymbol(displayCurrency);
   const [isExporting, setIsExporting] = useState(false);

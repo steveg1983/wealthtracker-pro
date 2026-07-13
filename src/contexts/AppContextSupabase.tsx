@@ -126,6 +126,12 @@ export interface AppContextType extends AppState {
    * category, enforced server-side. Returns the number actually updated.
    */
   applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
+  /**
+   * Every split line of the user's transactions, loaded at boot and kept in
+   * step by setTransactionSplits. Category-aggregation surfaces expand split
+   * parents into these via expandSplitTransactions.
+   */
+  transactionSplits: TransactionSplit[];
   /** Splits for one transaction, in display order (empty when not split). */
   getTransactionSplits: (transactionId: string) => Promise<TransactionSplit[]>;
   /**
@@ -153,6 +159,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  // Every split line of the user's transactions, loaded once at boot and kept
+  // in step by setTransactionSplits/deleteTransaction. Category-aggregation
+  // surfaces (counters, budgets, analytics, exports) expand split parents
+  // into these lines via expandSplitTransactions.
+  const [transactionSplits, setTransactionSplitsState] = useState<TransactionSplit[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -227,6 +238,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Now load transactions, budgets, and goals (post-remap views).
         const data = await DataService.loadAppData();
         setTransactions(data.transactions);
+
+        // Split lines ride along with transactions; a failure here must not
+        // block the app (split parents then pass through aggregation whole).
+        try {
+          setTransactionSplitsState(await DataService.getAllTransactionSplits());
+        } catch (splitError) {
+          appLogger.error('Failed to load transaction splits', splitError);
+          setTransactionSplitsState([]);
+        }
 
         // Without an authenticated user (demo / local-only mode) the
         // SimpleAccountService path above returns nothing — it needs a
@@ -561,6 +581,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const oldTransaction = transactions.find(t => t.id === transactionId);
       const result = await DataService.setTransactionSplits(transactionId, splits, expectedAmount);
 
+      // Keep the aggregation-facing splits state in step. Re-read the rows
+      // (rather than synthesising them) so ids match the server's; a failed
+      // re-read only staleness-es this transaction's lines until next load.
+      try {
+        const freshSplits = result.isSplit ? await DataService.getTransactionSplits(transactionId) : [];
+        setTransactionSplitsState(prev => [
+          ...prev.filter(s => s.transactionId !== transactionId),
+          ...freshSplits,
+        ]);
+      } catch (splitReadError) {
+        appLogger.error('Failed to refresh splits after save', splitReadError);
+      }
+
       // Mirror the atomic server change locally: the flag, the blanked
       // category while split, and the amount the splits sum to.
       setTransactions(prev => prev.map(t =>
@@ -597,6 +630,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const transaction = transactions.find(t => t.id === id);
       await DataService.deleteTransaction(id);
       setTransactions(prev => prev.filter(t => t.id !== id));
+      // Its split lines cascade away in the DB (FK); mirror locally.
+      setTransactionSplitsState(prev => prev.filter(s => s.transactionId !== id));
       
       // Update account balance (Decimal arithmetic; the DB balance is reversed
       // atomically inside delete_transaction_atomic).
@@ -964,6 +999,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTransaction,
     setTransactionsCleared,
     applyCategoryToUncategorized,
+    transactionSplits,
     getTransactionSplits,
     setTransactionSplits,
 

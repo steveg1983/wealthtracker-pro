@@ -4,6 +4,8 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { useBudgets } from '../contexts/BudgetContext';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
+import { toDecimalTransaction } from '../utils/decimal-converters';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import type { DecimalInstance } from '../types/decimal-types';
 import type { DecimalTransaction } from '../types/decimal-types';
 import { 
@@ -29,7 +31,7 @@ interface Envelope {
 }
 
 export default function EnvelopeBudgeting() {
-  const { categories, getDecimalTransactions } = useApp();
+  const { categories, transactions: rawTransactions, transactionSplits } = useApp();
   const { budgets, addBudget, updateBudget } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
@@ -49,7 +51,12 @@ export default function EnvelopeBudgeting() {
     priority: 'medium' as 'high' | 'medium' | 'low'
   });
 
-  const transactions = getDecimalTransactions();
+  // Split parents expand into per-line rows so split lines spend against
+  // THEIR categories' envelopes.
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits).map(toDecimalTransaction),
+    [rawTransactions, transactionSplits]
+  );
   const currentMonth = new Date().toISOString().slice(0, 7);
 
   // Create envelopes from existing budgets

@@ -25,6 +25,7 @@ import { Modal, ModalBody } from '../common/Modal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
+import { expandSplitTransactions } from '../../utils/transactionSplits';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -35,7 +36,7 @@ import { toDecimal } from '../../utils/decimal';
  * 4. Mobile-optimized - works great on all screen sizes
  */
 export function ImprovedDashboard() {
-  const { accounts, transactions, budgets } = useApp();
+  const { accounts, transactions, transactionSplits, budgets } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -129,8 +130,11 @@ export function ImprovedDashboard() {
     // Calculate budget status for active budgets
     const activeBudgets = budgets.filter(b => b.isActive);
     
+    // Split parents expand into per-line rows so a split line spends
+    // against ITS category's budget.
+    const recentExpanded = expandSplitTransactions(recentTransactions, transactionSplits);
     const budgetStatus = activeBudgets.map(budget => {
-      const categoryTransactions = recentTransactions.filter(t => 
+      const categoryTransactions = recentExpanded.filter(t =>
         t.category === budget.categoryId && t.type === 'expense'
       );
       const spent = categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
@@ -167,7 +171,7 @@ export function ImprovedDashboard() {
       netWorthChange: 0, // Will be calculated from actual historical data when available
       netWorthChangePercent: 0 // Will be calculated from actual historical data when available
     };
-  }, [accounts, transactions, budgets]);
+  }, [accounts, transactions, transactionSplits, budgets]);
   
   // Generate net worth data for chart - ONLY REAL DATA
   const netWorthData = useMemo(() => {

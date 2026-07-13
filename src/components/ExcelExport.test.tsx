@@ -129,6 +129,7 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: mockTransactions,
+    transactionSplits: [],
     accounts: mockAccounts,
     budgets: mockBudgets,
     categories: mockCategories

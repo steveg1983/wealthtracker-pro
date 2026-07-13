@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { householdService } from '../services/householdService';
 import {
@@ -21,6 +21,7 @@ import {
 import { CreateBudgetModal, CreateGoalModal } from './SharedBudgetsModals';
 import { useCurrency } from '../hooks/useCurrency';
 import { toDecimal } from '../utils/decimal';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { format } from 'date-fns';
@@ -50,7 +51,13 @@ interface GoalFormState {
 }
 
 export default function SharedBudgetsGoals() {
-  const { transactions, categories, addBudget, addGoal } = useApp();
+  const { transactions: rawTransactions, transactionSplits, categories, addBudget, addGoal } = useApp();
+  // Split parents expand into per-line rows so shared-budget spending counts
+  // split lines against their categories.
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits),
+    [rawTransactions, transactionSplits]
+  );
   const { formatCurrency } = useCurrency();
   const [household] = useState(householdService.getHousehold());
   const [currentMember] = useState(household?.members[0]); // Assume first member is current user

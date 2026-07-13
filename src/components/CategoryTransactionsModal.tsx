@@ -6,6 +6,7 @@ import { XCircleIcon } from './icons/XCircleIcon';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import EditTransactionModal from './EditTransactionModal';
+import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import type { Transaction } from '../types';
 
 interface CategoryTransactionsModalProps {
@@ -23,7 +24,7 @@ export default function CategoryTransactionsModal({
   categoryId,
   categoryName 
 }: CategoryTransactionsModalProps) {
-  const { transactions, accounts } = useApp();
+  const { transactions, transactionSplits, accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   // Filter states
@@ -38,10 +39,13 @@ export default function CategoryTransactionsModal({
   // list on its own.
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  // Get all transactions for this category
-  const categoryTransactions = useMemo(() => {
-    return transactions.filter(t => t.category === categoryId);
-  }, [transactions, categoryId]);
+  // All rows filed under this category — split parents expand into their
+  // per-line virtual rows first, so a split line shows here under ITS
+  // category, carrying the line's amount (not the parent's total).
+  const categoryTransactions = useMemo<SplitExpandedTransaction[]>(() => {
+    return expandSplitTransactions(transactions, transactionSplits)
+      .filter(t => t.category === categoryId);
+  }, [transactions, transactionSplits, categoryId]);
   
   // Apply filters
   const filteredTransactions = useMemo(() => {
@@ -339,8 +343,19 @@ export default function CategoryTransactionsModal({
                   <button
                     key={transaction.id}
                     type="button"
-                    onClick={() => setEditingTransaction(transaction)}
-                    title="Edit or re-categorise this transaction"
+                    onClick={() => {
+                      // A split line belongs to its parent transaction — the
+                      // editor opens THAT (with all its split lines loaded).
+                      const target = transaction.isSplitLine
+                        ? transactions.find(t => t.id === transaction.splitParentId)
+                        : transaction;
+                      if (target) {
+                        setEditingTransaction(target);
+                      }
+                    }}
+                    title={transaction.isSplitLine
+                      ? 'Part of a split transaction — opens the full transaction to edit its splits'
+                      : 'Edit or re-categorise this transaction'}
                     className="w-full text-left flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                   >
                     <div className="flex-1">
@@ -348,6 +363,11 @@ export default function CategoryTransactionsModal({
                         <div>
                           <span className="block font-medium text-gray-900 dark:text-white">
                             {transaction.description}
+                            {transaction.isSplitLine && (
+                              <span className="ml-2 align-middle text-xs font-medium italic text-blue-600 dark:text-blue-400">
+                                split
+                              </span>
+                            )}
                           </span>
                           <span className="block text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             {new Date(transaction.date).toLocaleDateString()} • {account?.name || 'Unknown Account'}

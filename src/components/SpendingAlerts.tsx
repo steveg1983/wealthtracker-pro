@@ -5,6 +5,8 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { calculateBudgetSpending, calculateBudgetPercentage } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
+import { toDecimalTransaction } from '../utils/decimal-converters';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance, DecimalBudget } from '../types/decimal-types';
 import {
@@ -103,7 +105,7 @@ const DEFAULT_ALERT_CONFIGS: AlertConfig[] = [
 ];
 
 export default function SpendingAlerts() {
-  const { categories, getDecimalTransactions } = useApp();
+  const { categories, transactions, transactionSplits } = useApp();
   const { budgets } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
@@ -121,7 +123,10 @@ export default function SpendingAlerts() {
         ...b,
         amount: toDecimal(b.amount)
       }));
-      const decimalTransactions = getDecimalTransactions();
+      // Split parents expand into per-line rows so split lines alert
+      // against THEIR categories' budgets.
+      const decimalTransactions = expandSplitTransactions(transactions, transactionSplits)
+        .map(toDecimalTransaction);
       const newAlerts: Alert[] = [];
       
       const now = new Date();
@@ -211,7 +216,7 @@ export default function SpendingAlerts() {
     const interval = setInterval(checkAlerts, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [budgets, alertConfigs, mutedCategories, getDecimalTransactions, alerts, setAlerts]);
+  }, [budgets, alertConfigs, mutedCategories, transactions, transactionSplits, alerts, setAlerts]);
 
   // Calculate alert statistics
   const alertStats = useMemo((): AlertStats => {

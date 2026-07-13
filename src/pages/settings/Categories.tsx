@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
 import { MS_MONEY_CATEGORY_SET } from '../../data/msMoneyCategories';
+import { expandSplitTransactions, splitsByTransaction } from '../../utils/transactionSplits';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
+import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon } from '../../components/icons';
 import { PlusIcon, XIcon, CheckIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
@@ -162,6 +164,8 @@ export default function CategoriesSettings() {
   const {
     transactions,
     categories,
+    transactionSplits,
+    setTransactionSplits,
     updateCategory,
     deleteCategory,
     updateTransaction,
@@ -172,18 +176,26 @@ export default function CategoriesSettings() {
   const { showSuccess, showError } = useToast();
   const [isImporting, setIsImporting] = useState(false);
 
-  // Direct transaction count per category id, computed once per data change.
-  // Every row shows its counter (view AND edit/delete modes) — the old per-row
-  // transactions.filter() was O(rows × transactions) at 16k+ transactions.
+  // Split parents expand into their per-line virtual rows so a split line
+  // counts under ITS category, not nowhere (the parent's category is blank).
+  const expandedTransactions = useMemo(
+    () => expandSplitTransactions(transactions, transactionSplits),
+    [transactions, transactionSplits]
+  );
+
+  // Transaction count per category id (split lines included), computed once
+  // per data change. Every row shows its counter (view AND edit/delete
+  // modes) — the old per-row transactions.filter() was O(rows × transactions)
+  // at 16k+ transactions.
   const categoryTransactionCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const t of transactions) {
+    for (const t of expandedTransactions) {
       if (t.category) {
         counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
       }
     }
     return counts;
-  }, [transactions]);
+  }, [expandedTransactions]);
 
   // The type-level ids are user-specific UUIDs after cloud migration — the old
   // hardcoded 'type-income'/'type-expense'/'type-transfer' anchors matched
@@ -221,18 +233,6 @@ export default function CategoriesSettings() {
     }
   };
   
-  // Helper function to get category path
-  const getCategoryPath = (categoryId: string): string => {
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return categoryId;
-    
-    if (category.level === 'detail' && category.parentId) {
-      const parent = categories.find(c => c.id === category.parentId);
-      return parent ? `${parent.name} > ${category.name}` : category.name;
-    }
-    
-    return category.name;
-  };
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -240,6 +240,7 @@ export default function CategoriesSettings() {
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const [isReassigning, setIsReassigning] = useState(false);
   const [reassignCategoryId, setReassignCategoryId] = useState<string>('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -494,7 +495,10 @@ export default function CategoriesSettings() {
       return;
     }
 
-    const transactionCount = transactions.filter(t => t.category === categoryId).length;
+    // Count on the EXPANDED view so a category used only inside split lines
+    // still routes through reassignment — deleting it outright would orphan
+    // those lines' categorisation (the DB refuses that delete anyway).
+    const transactionCount = expandedTransactions.filter(t => t.category === categoryId).length;
     const childCategories = categories.filter(c => c.parentId === categoryId);
 
     if (childCategories.length > 0) {
@@ -827,64 +831,94 @@ export default function CategoriesSettings() {
             </div>
             {(() => {
               const category = categories.find(c => c.id === deletingCategoryId);
-              const transactionCount = transactions.filter(t => t.category === deletingCategoryId).length;
+              const directRows = transactions.filter(t => t.category === deletingCategoryId && !t.isSplit);
+              const affectedSplitLines = transactionSplits.filter(s => s.category === deletingCategoryId);
+              const transactionCount = directRows.length + affectedSplitLines.length;
 
               return (
                 <>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    The category "{category?.name}" has {transactionCount} transaction{transactionCount !== 1 ? 's' : ''} associated with it.
+                    The category "{category?.name}" has {transactionCount} transaction{transactionCount !== 1 ? 's' : ''} associated with it
+                    {affectedSplitLines.length > 0 && (
+                      <> (including {affectedSplitLines.length} split line{affectedSplitLines.length !== 1 ? 's' : ''})</>
+                    )}.
                   </p>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     Please select a category to reassign these transactions to:
                   </p>
-                  <select
-                    value={reassignCategoryId}
-                    onChange={(e) => setReassignCategoryId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white mb-6"
-                  >
-                    <option value="">Select a category...</option>
-                    {categories
-                      .filter(c => 
-                        c.id !== deletingCategoryId && 
-                        c.level === 'detail' && 
-                        (category?.type === 'both' || c.type === 'both' || c.type === category?.type)
-                      )
-                      .map(c => (
-                        <option key={c.id} value={c.id}>
-                          {getCategoryPath(c.id)}
-                        </option>
-                      ))
-                    }
-                  </select>
+                  {/* Same searchable grouped picker as the transaction editor —
+                      it filters out inactive categories (a closed account's
+                      transfer categories, stale renames) automatically. */}
+                  <div className="mb-6">
+                    <CategorySelector
+                      selectedCategory={reassignCategoryId}
+                      onCategoryChange={setReassignCategoryId}
+                      transactionType={category?.type === 'income' ? 'income' : 'expense'}
+                      includeAllTypes={category?.type === 'both'}
+                      excludeIds={[deletingCategoryId]}
+                      placeholder="Search or select category…"
+                      allowCreate={false}
+                      showHelperText={false}
+                      usePortal
+                    />
+                  </div>
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
                         setDeletingCategoryId(null);
                         setReassignCategoryId('');
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                      disabled={isReassigning}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        if (reassignCategoryId) {
-                          // Reassign all transactions from the deleted category to the new category
-                          const transactionsToReassign = transactions.filter(t => t.category === deletingCategoryId);
-                          transactionsToReassign.forEach(transaction => {
-                            updateTransaction(transaction.id, { category: reassignCategoryId });
-                          });
-                          
-                          // Now delete the category
-                          deleteCategory(deletingCategoryId);
+                      onClick={async () => {
+                        if (!reassignCategoryId || reassignCategoryId === deletingCategoryId || isReassigning) {
+                          return;
+                        }
+                        setIsReassigning(true);
+                        try {
+                          // Ordinary rows move in one pass; failures surface
+                          // instead of silently racing the category delete.
+                          await Promise.all(directRows.map(transaction =>
+                            updateTransaction(transaction.id, { category: reassignCategoryId })
+                          ));
+
+                          // Split lines: swap the category inside each affected
+                          // parent's split set. Amounts are untouched, so the
+                          // sum invariant holds and the RPC accepts.
+                          const affectedParents = splitsByTransaction(affectedSplitLines);
+                          for (const parentId of affectedParents.keys()) {
+                            const allLines = transactionSplits
+                              .filter(s => s.transactionId === parentId)
+                              .sort((a, b) => a.sortOrder - b.sortOrder);
+                            const parent = transactions.find(t => t.id === parentId);
+                            await setTransactionSplits(
+                              parentId,
+                              allLines.map(line => ({
+                                category: line.category === deletingCategoryId ? reassignCategoryId : line.category,
+                                amount: line.amount,
+                                ...(line.memo ? { memo: line.memo } : {}),
+                              })),
+                              parent?.amount ?? null
+                            );
+                          }
+
+                          await deleteCategory(deletingCategoryId);
                           setDeletingCategoryId(null);
                           setReassignCategoryId('');
+                        } catch (error) {
+                          showError(error);
+                        } finally {
+                          setIsReassigning(false);
                         }
                       }}
                       className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
-                      disabled={!reassignCategoryId}
+                      disabled={!reassignCategoryId || isReassigning}
                     >
-                      Delete & Reassign
+                      {isReassigning ? 'Reassigning…' : 'Delete & Reassign'}
                     </button>
                   </div>
                 </>
