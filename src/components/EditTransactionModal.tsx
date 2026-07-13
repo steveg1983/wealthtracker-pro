@@ -796,6 +796,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   allowCreate={false}
                   showHelperText={false}
                   usePortal
+                  allowClear
                 />
               )}
             </div>
