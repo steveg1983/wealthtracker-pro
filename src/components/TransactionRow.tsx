@@ -253,7 +253,16 @@ export const TransactionRow = memo(function TransactionRow({
             className={`${compactView ? 'py-1.5' : 'py-3'} px-6 font-medium text-right`}
             style={{ width: columnWidths.amount }}
           >
-            {isEditingAmount && onUpdateAmount ? (
+            {transaction.isSplit ? (
+              // A split parent's amount is the sum of its split lines (locked
+              // by the DB guard) — inline editing would only ever error.
+              <span
+                className={`${amountColorClass} ${compactView ? 'text-sm' : ''}`}
+                title="Split transaction — its amount is the sum of its splits; edit them in the full editor"
+              >
+                {formattedAmount}
+              </span>
+            ) : isEditingAmount && onUpdateAmount ? (
               <input
                 type="number"
                 step="0.01"

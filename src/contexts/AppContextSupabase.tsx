@@ -318,10 +318,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 appLogger.debug('Accounts reloaded', { count: updatedAccounts.length });
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
-                
+
                 // Also refresh transactions to update account balances
                 const updatedTransactions = await DataService.getTransactions();
                 setTransactions(updatedTransactions);
+
+                // Splits ride along — without this, a split edited on another
+                // device leaves this device's category views stale.
+                try {
+                  setTransactionSplitsState(await DataService.getAllTransactionSplits());
+                } catch (splitError) {
+                  appLogger.error('Failed to refresh transaction splits', splitError);
+                }
               });
             }
           );
@@ -340,7 +348,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 // Reload transactions when any change happens
                 const updatedTransactions = await DataService.getTransactions();
                 setTransactions(updatedTransactions);
-                
+
+                // Splits ride along — without this, a split edited on another
+                // device leaves this device's category views stale.
+                try {
+                  setTransactionSplitsState(await DataService.getAllTransactionSplits());
+                } catch (splitError) {
+                  appLogger.error('Failed to refresh transaction splits', splitError);
+                }
+
                 // Also refresh accounts to update balances
                 const updatedAccounts = await DataService.getAccounts();
                 setAccounts(updatedAccounts);

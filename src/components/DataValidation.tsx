@@ -110,8 +110,10 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       });
     }
     
-    // 3. Check for missing categories
-    const uncategorizedTransactions = transactions.filter(t => !t.category || t.category === '');
+    // 3. Check for missing categories. A split parent's blank category means
+    // "split" (its categorisation lives in its lines), not "missing" — and the
+    // DB guard would reject stamping a category onto it anyway.
+    const uncategorizedTransactions = transactions.filter(t => (!t.category || t.category === '') && !t.isSplit);
     
     if (uncategorizedTransactions.length > 0) {
       issues.push({

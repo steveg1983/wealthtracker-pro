@@ -48,7 +48,9 @@ export default function SmartCategorizationSettings() {
   };
 
   const handleAutoCategorize = async () => {
-    const uncategorized = transactions.filter(t => !t.category);
+    // A split parent's blank category means "split", not "uncategorised" —
+    // the DB guard rejects stamping a single category onto it.
+    const uncategorized = transactions.filter(t => !t.category && !t.isSplit);
     const results = smartCategorizationService.autoCategorize(
       uncategorized, 
       confidenceThreshold / 100
