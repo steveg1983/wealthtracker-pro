@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { Modal } from './common/Modal';
@@ -60,6 +61,7 @@ export default function BulkTransactionEdit({
   preSelectedIds = []
 }: BulkTransactionEditProps) {
   const { transactions, accounts, categories, updateTransaction } = useApp();
+  const { showWarning, showError } = useToast();
   const { formatCurrency } = useCurrencyDecimal();
   const logger = useMemo(() => createScopedLogger('BulkTransactionEdit'), []);
   
@@ -196,16 +198,25 @@ export default function BulkTransactionEdit({
     
     try {
       let count = 0;
+      let splitCategorySkips = 0;
       for (const id of selectedIds) {
         const transaction = transactions.find(t => t.id === id);
         if (!transaction) continue;
-        
+
         const updates: Partial<Transaction> = {};
-        
+
         if (changes.category !== undefined) {
-          updates.category = changes.category;
+          if (transaction.isSplit) {
+            // A split parent's categorisation lives in its split lines — the
+            // DB guard rejects a single-category write, which would abort the
+            // whole batch mid-loop. Skip the category (other fields still
+            // apply) and tell the user below.
+            splitCategorySkips++;
+          } else {
+            updates.category = changes.category;
+          }
         }
-        
+
         if (changes.tags !== undefined) {
           updates.tags = changes.tags;
         }
@@ -226,20 +237,31 @@ export default function BulkTransactionEdit({
           updates.accountId = changes.moveToAccount;
         }
         
-        await updateTransaction(id, updates);
+        // A row whose only requested change was skipped has nothing to write.
+        if (Object.keys(updates).length > 0) {
+          await updateTransaction(id, updates);
+        }
         count++;
         setAppliedCount(count);
       }
-      
+
+      if (splitCategorySkips > 0) {
+        showWarning(
+          `Category left unchanged on ${splitCategorySkips} split transaction${splitCategorySkips === 1 ? '' : 's'} — a split's categories live in its split lines (open the transaction to edit them).`
+        );
+      }
+
       // Add to history before resetting
       addToHistory();
-      
+
       // Reset after successful update
       setSelectedIds(new Set());
       setChanges({ appendNote: false });
       onClose();
     } catch (error) {
+      // Surface the failure — a silent partial batch is worse than an error.
       logger.error('Error applying bulk changes', error as Error);
+      showError(error);
     } finally {
       setApplying(false);
     }

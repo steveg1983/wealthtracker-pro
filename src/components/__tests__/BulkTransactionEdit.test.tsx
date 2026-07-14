@@ -89,6 +89,17 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
   })
 }));
 
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+    showSuccess: vi.fn(),
+    showError: vi.fn(),
+    showWarning: vi.fn(),
+    showInfo: vi.fn(),
+    dismissToast: vi.fn(),
+  }),
+}));
+
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
     formatCurrency: (amount: number, currency: string = 'USD') =>

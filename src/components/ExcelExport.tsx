@@ -337,20 +337,21 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
               tDate.getFullYear() === new Date().getFullYear();
           })
           // Expenses are stored signed (negative); spent is a positive magnitude.
-          .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
-        
-        const remaining = toDecimal(budget.amount).toNumber() - spent;
-        const percentUsed = toDecimal(budget.amount).toNumber() > 0 
-          ? (spent / toDecimal(budget.amount).toNumber()) * 100 
+          .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
+
+        const budgetAmount = toDecimal(budget.amount);
+        const remaining = budgetAmount.minus(spent);
+        const percentUsed = budgetAmount.greaterThan(0)
+          ? spent.dividedBy(budgetAmount).times(100).toNumber()
           : 0;
-        
+
         return {
           Category: budget.categoryId,
-          'Budget Amount': toDecimal(budget.amount).toNumber(),
-          Spent: spent,
-          Remaining: remaining,
+          'Budget Amount': budgetAmount.toNumber(),
+          Spent: spent.toNumber(),
+          Remaining: remaining.toNumber(),
           '% Used': `${formatDecimal(percentUsed, 1)}%`,
-          Status: remaining < 0 ? 'Over Budget' : percentUsed > 80 ? 'Warning' : 'On Track'
+          Status: remaining.isNegative() ? 'Over Budget' : percentUsed > 80 ? 'Warning' : 'On Track'
         };
       });
       
