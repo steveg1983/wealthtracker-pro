@@ -45,6 +45,14 @@ type Database = {
         };
         Returns: Record<string, unknown>;
       };
+      link_transfer_pair: {
+        Args: { p_id_a: string; p_id_b: string; p_user_id?: string };
+        Returns: Record<string, unknown>;
+      };
+      create_transfer_counterpart: {
+        Args: { p_id: string; p_target_account_id: string; p_user_id?: string };
+        Returns: Record<string, unknown>;
+      };
       delete_unused_categories: {
         Args: { p_ids: string[]; p_user_id?: string };
         Returns: number;

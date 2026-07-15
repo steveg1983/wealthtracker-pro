@@ -40,6 +40,8 @@ const baseValue = {
   transactionSplits: [],
   getTransactionSplits: async () => [],
   setTransactionSplits: async () => ({ isSplit: false, splitCount: 0, amount: 0 }),
+  linkTransferPair: async () => { throw new Error('not available in mock'); },
+  createTransferCounterpart: async () => { throw new Error('not available in mock'); },
   refreshAccountsAndTransactions: asyncNoop,
   refreshCategories: asyncNoop,
   addBudget: noop,
