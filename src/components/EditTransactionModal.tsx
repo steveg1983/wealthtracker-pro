@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
@@ -12,6 +13,9 @@ import {
   type SplitLineDraft,
 } from '../utils/transactionSplits';
 import CategoryCreationModal from './CategoryCreationModal';
+import TransferMatchDialog from './TransferMatchDialog';
+import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
+import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
@@ -60,7 +64,8 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits } = useApp();
+  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart } = useApp();
+  const { showSuccess, showError } = useToast();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
@@ -79,6 +84,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [splitLines, setSplitLines] = useState<SplitLineDraft[]>([]);
   const [splitsLoading, setSplitsLoading] = useState(false);
+  // Money-style transfer flow: converting an existing row into a transfer
+  // (via a To/From category or the Transfer type) opens a match-or-create
+  // confirmation instead of writing blindly.
+  const [transferPrompt, setTransferPrompt] = useState<{
+    targetAccountId: string;
+    candidates: TransferCandidate[];
+  } | null>(null);
+  const [transferBusy, setTransferBusy] = useState(false);
   const amountInputRef = useRef<HTMLInputElement>(null);
   // Batch mode coordination: Save & Next / Previous set a direction; a
   // successful submit consumes it and suppresses the close that useModalForm
@@ -139,10 +152,32 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           const targetAccountId = isNewTransferSelection
             ? data.category.slice('transfer:'.length)
             : transaction?.transferAccountId;   // preserve on edit
+
+          // A linked pair's target is structural — moving it would strand the
+          // opposite row. v1: recreate the transfer to move it.
+          if (transaction?.linkedTransferId && isNewTransferSelection &&
+              targetAccountId !== transaction.transferAccountId) {
+            throw new Error(
+              'This transfer is linked to its opposite transaction. To move it, delete the transfer and recreate it.'
+            );
+          }
+
           const resolvedType = isTransfer || isNewTransferSelection ? 'transfer' : data.type;
+          // Transfers file under the target account's To/From category. An
+          // unchanged edit keeps whatever the row already carries; a new
+          // selection resolves the target's category (legacy sentinel only if
+          // the account somehow has none).
           const resolvedCategory = isNewTransferSelection
-            ? 'transfer-out'
+            ? (transaction && targetAccountId === transaction.transferAccountId && transaction.category
+                ? transaction.category
+                : (transferCategoryFor(categories, targetAccountId ?? '')?.id ?? 'transfer-out'))
             : data.category;
+
+          // Filing under a To/From category = "make this a transfer".
+          const chosenCategoryObj = categories.find(c => c.id === data.category);
+          if (!transaction && chosenCategoryObj?.isTransferCategory) {
+            throw new Error('To record a new transfer, use the Transfer type above — it creates both sides.');
+          }
 
           const validatedData = ValidationService.validateTransaction({
             id: transaction?.id,
@@ -164,6 +199,53 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
             if (splitError) {
               throw new Error(splitError);
             }
+          }
+
+          // Converting an EXISTING row into a transfer (To/From category
+          // chosen, or Type switched to Transfer with a target): save the
+          // ordinary field edits, then hand over to the Money-style
+          // match-or-create flow, which owns the category/type change. The
+          // row's stored amount stays authoritative for matching.
+          const conversionTargetId = !splitting && transaction && !transaction.linkedTransferId
+            ? (isNewTransferSelection && transaction.type !== 'transfer'
+                ? targetAccountId
+                : (resolvedType !== 'transfer' && chosenCategoryObj?.isTransferCategory
+                    ? chosenCategoryObj.accountId
+                    : undefined))
+            : undefined;
+          if (conversionTargetId && transaction) {
+            if (conversionTargetId === validatedData.accountId) {
+              throw new Error(
+                "That's this account's own transfer category — pick the OTHER account's To/From category."
+              );
+            }
+            if (transaction.isSplit) {
+              throw new Error('A split transaction cannot become a transfer — remove the split first.');
+            }
+            await updateTransaction(transaction.id, {
+              date: new Date(validatedData.date),
+              description: validatedData.description,
+              accountId: validatedData.accountId,
+              tags: validatedData.tags,
+              notes: validatedData.notes,
+              cleared: data.cleared,
+              reconciledWith: data.reconciledWith.trim() || undefined
+            });
+            suppressCloseRef.current = true; // the dialog decides when to close
+            setTransferPrompt({
+              targetAccountId: conversionTargetId,
+              candidates: findTransferCandidates(
+                transactions,
+                {
+                  ...transaction,
+                  accountId: validatedData.accountId,
+                  date: new Date(validatedData.date),
+                  description: validatedData.description,
+                },
+                conversionTargetId
+              ),
+            });
+            return;
           }
 
           const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
@@ -347,7 +429,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // Initialize form when transaction changes
   useEffect(() => {
     if (transaction) {
-      const categoryId = transaction.category || '';
+      // Existing transfers seed the target select ('transfer:<account>') so
+      // it DISPLAYS the current target instead of the placeholder; the save
+      // path preserves the row's category when the target is unchanged.
+      const categoryId = transaction.type === 'transfer' && transaction.transferAccountId
+        ? `transfer:${transaction.transferAccountId}`
+        : (transaction.category || '');
       
       // For transfers, preserve the sign to show transfer direction
       // For income/expense, always use absolute value since type determines sign
@@ -469,6 +556,23 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   const splitActive = isSplitMode && !!transaction && formData.type !== 'transfer';
   const splitValidationMessage = splitActive ? validateSplitDrafts(formData.amount, splitLines) : null;
   const splitRemaining = splitActive ? splitRemainder(formData.amount, splitLines) : null;
+
+  // Complete the transfer flow (link or create) and close the editor. A
+  // failure keeps the dialog open so the user can retry or cancel.
+  const completeTransfer = async (action: () => Promise<unknown>, successMessage: string): Promise<void> => {
+    setTransferBusy(true);
+    try {
+      await action();
+      showSuccess(successMessage);
+      setTransferPrompt(null);
+      onClose();
+    } catch (error) {
+      logger.error('Transfer conversion failed', error as Error);
+      showError(error);
+    } finally {
+      setTransferBusy(false);
+    }
+  };
 
   const handleDelete = () => {
     if (!transaction) return;
@@ -943,8 +1047,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
         </form>
       </Modal>
 
-        {/* Delete confirmation */}
-        {showDeleteConfirm && (
+        {/* Delete confirmation — portalled: a transformed ancestor would
+            re-anchor position:fixed and hide it behind the portalled Modal. */}
+        {showDeleteConfirm && createPortal(
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -968,7 +1073,29 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Money-style transfer confirmation (match-or-create) */}
+        {transaction && transferPrompt && (
+          <TransferMatchDialog
+            isOpen
+            source={transaction}
+            sourceAccountName={accounts.find(a => a.id === (formData.accountId || transaction.accountId))?.name ?? 'this account'}
+            targetAccountName={accounts.find(a => a.id === transferPrompt.targetAccountId)?.name ?? 'the other account'}
+            candidates={transferPrompt.candidates}
+            busy={transferBusy}
+            onLink={(candidateId) => void completeTransfer(
+              () => linkTransferPair(transaction.id, candidateId),
+              'Linked as a transfer.'
+            )}
+            onCreate={() => void completeTransfer(
+              () => createTransferCounterpart(transaction.id, transferPrompt.targetAccountId),
+              'Transfer created — the other side was added to the target account.'
+            )}
+            onCancel={() => setTransferPrompt(null)}
+          />
         )}
 
         {/* Category Creation Modal */}

@@ -148,7 +148,9 @@ export default function CategorySelector({
     const detailCategories: Category[] = [];
 
     subCategories.forEach(subCat => {
-      const details = getDetailCategories(subCat.id);
+      // Inactive DETAIL categories (a closed account's To/From) stay hidden,
+      // same as inactive subs — reopening the account restores them.
+      const details = getDetailCategories(subCat.id).filter(d => d.isActive !== false);
       detailCategories.push(...details);
     });
 

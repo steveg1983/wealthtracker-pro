@@ -28,7 +28,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'createTransferCounterpart'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -421,6 +421,127 @@ class DataServiceImpl {
     return { isSplit: true, splitCount: newSplits.length, amount: newAmount };
   }
 
+  /** The account-managed To/From category id, or the legacy sentinel. */
+  private async localTransferCategoryFor(accountId: string, amount: number): Promise<string> {
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    const transferCategory = categories.find(c => c.isTransferCategory === true && c.accountId === accountId);
+    return transferCategory?.id ?? (amount < 0 ? 'transfer-out' : 'transfer-in');
+  }
+
+  /**
+   * Join two existing rows into a linked transfer pair. Mirrors the
+   * link_transfer_pair RPC's invariants locally so demo/offline behave
+   * identically. Balance-neutral: amounts are untouched.
+   */
+  async linkTransferPair(idA: string, idB: string): Promise<{ a: Transaction; b: Transaction }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.linkTransferPair(idA, idB, userId);
+    }
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const a = transactions.find(t => t.id === idA);
+    const b = transactions.find(t => t.id === idB);
+    if (!a || !b) {
+      throw new Error('Transaction not found');
+    }
+    if (a.accountId === b.accountId) {
+      throw new Error('A transfer needs two different accounts');
+    }
+    const amountA = toDecimal(a.amount);
+    if (amountA.isZero() || !toDecimal(b.amount).equals(amountA.negated())) {
+      throw new Error('Transfer sides must have exactly opposite non-zero amounts');
+    }
+    if (a.isSplit || b.isSplit) {
+      throw new Error('A split transaction cannot become a transfer — remove the split first');
+    }
+    if (a.linkedTransferId || b.linkedTransferId) {
+      throw new Error('Transaction is already part of a linked transfer');
+    }
+
+    const newA: Transaction = {
+      ...a,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(b.accountId, a.amount),
+      transferAccountId: b.accountId,
+      linkedTransferId: b.id,
+    };
+    const newB: Transaction = {
+      ...b,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(a.accountId, b.amount),
+      transferAccountId: a.accountId,
+      linkedTransferId: a.id,
+    };
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTIONS,
+      transactions.map(t => (t.id === idA ? newA : t.id === idB ? newB : t))
+    );
+    return { a: newA, b: newB };
+  }
+
+  /**
+   * Money-style "create the other side": insert the counterpart in the target
+   * account, convert the source into a linked transfer, and move the target
+   * account's balance. Mirrors the create_transfer_counterpart RPC.
+   */
+  async createTransferCounterpart(
+    id: string,
+    targetAccountId: string
+  ): Promise<{ source: Transaction; counterpart: Transaction }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.createTransferCounterpart(id, targetAccountId, userId);
+    }
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const source = transactions.find(t => t.id === id);
+    if (!source) {
+      throw new Error('Transaction not found');
+    }
+    if (toDecimal(source.amount).isZero()) {
+      throw new Error('A zero-amount transaction cannot become a transfer');
+    }
+    if (source.isSplit) {
+      throw new Error('A split transaction cannot become a transfer — remove the split first');
+    }
+    if (source.linkedTransferId) {
+      throw new Error('Transaction is already part of a linked transfer');
+    }
+    if (source.accountId === targetAccountId) {
+      throw new Error('A transfer needs two different accounts');
+    }
+
+    const counterpartAmount = toDecimal(source.amount).negated().toNumber();
+    const counterpart: Transaction = {
+      id: this.generateId(),
+      date: source.date,
+      description: source.description,
+      amount: counterpartAmount,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(source.accountId, counterpartAmount),
+      accountId: targetAccountId,
+      notes: source.notes,
+      cleared: false,
+      transferAccountId: source.accountId,
+      linkedTransferId: source.id,
+    } as Transaction;
+    const newSource: Transaction = {
+      ...source,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(targetAccountId, source.amount),
+      transferAccountId: targetAccountId,
+      linkedTransferId: counterpart.id,
+    };
+
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTIONS,
+      [...transactions.map(t => (t.id === id ? newSource : t)), counterpart]
+    );
+    await this.updateAccountBalance(targetAccountId, counterpartAmount);
+    return { source: newSource, counterpart };
+  }
+
   async getBudgets(): Promise<Budget[]> {
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
@@ -551,6 +672,17 @@ export class DataService {
 
   static getAllTransactionSplits(): Promise<TransactionSplit[]> {
     return this.service.getAllTransactionSplits();
+  }
+
+  static linkTransferPair(idA: string, idB: string): Promise<{ a: Transaction; b: Transaction }> {
+    return this.service.linkTransferPair(idA, idB);
+  }
+
+  static createTransferCounterpart(
+    id: string,
+    targetAccountId: string
+  ): Promise<{ source: Transaction; counterpart: Transaction }> {
+    return this.service.createTransferCounterpart(id, targetAccountId);
   }
 
   static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {

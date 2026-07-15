@@ -145,6 +145,21 @@ export interface AppContextType extends AppState {
     splits: TransactionSplitInput[],
     expectedAmount: number | null
   ) => Promise<{ isSplit: boolean; splitCount: number; amount: number }>;
+  /**
+   * Join two existing rows (in different accounts, exactly opposite amounts)
+   * into a linked transfer pair — both become type 'transfer' carrying the
+   * other account's To/From category. Balance-neutral; atomic server-side.
+   */
+  linkTransferPair: (idA: string, idB: string) => Promise<{ a: Transaction; b: Transaction }>;
+  /**
+   * Money-style "create the other side": insert the counterpart in the target
+   * account and convert the source into a linked transfer, atomically. Moves
+   * the target account's balance by the counterpart amount.
+   */
+  createTransferCounterpart: (
+    id: string,
+    targetAccountId: string
+  ) => Promise<{ source: Transaction; counterpart: Transaction }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -641,6 +656,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [transactions]);
 
+  const linkTransferPair = useCallback(async (idA: string, idB: string) => {
+    try {
+      const result = await DataService.linkTransferPair(idA, idB);
+      // Balance-neutral: both rows existed with these amounts already.
+      setTransactions(prev => prev.map(t =>
+        t.id === result.a.id ? result.a : t.id === result.b.id ? result.b : t
+      ));
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to link transfer pair', error);
+      throw error;
+    }
+  }, []);
+
+  const createTransferCounterpart = useCallback(async (id: string, targetAccountId: string) => {
+    try {
+      const result = await DataService.createTransferCounterpart(id, targetAccountId);
+      setTransactions(prev => [
+        ...prev.map(t => (t.id === result.source.id ? result.source : t)),
+        result.counterpart,
+      ]);
+      // The DB moved the target account's balance atomically; mirror locally
+      // (Decimal arithmetic, same as the other write paths).
+      setAccounts(prev => prev.map(acc =>
+        acc.id === targetAccountId
+          ? { ...acc, balance: toDecimal(acc.balance || 0).plus(toDecimal(result.counterpart.amount)).toNumber() }
+          : acc
+      ));
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to create transfer counterpart', error);
+      throw error;
+    }
+  }, []);
+
   const deleteTransaction = useCallback(async (id: string) => {
     try {
       const transaction = transactions.find(t => t.id === id);
@@ -1018,6 +1068,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     transactionSplits,
     getTransactionSplits,
     setTransactionSplits,
+    linkTransferPair,
+    createTransferCounterpart,
 
     // Budget operations
     addBudget,

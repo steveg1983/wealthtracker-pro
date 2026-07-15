@@ -536,6 +536,77 @@ class TransactionServiceImpl {
     }
   }
 
+  /**
+   * Join two existing rows into a linked transfer pair (both sides already
+   * exist). Amount/account/link invariants are enforced by the RPC; balance-
+   * neutral by construction. Cloud-only here — the local/demo path lives in
+   * DataService (which owns local storage semantics).
+   */
+  async linkTransferPair(
+    idA: string,
+    idB: string,
+    userId?: string
+  ): Promise<{ a: Transaction; b: Transaction }> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('linkTransferPair requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const client = this.supabaseClient!;
+      const { data, error } = await client.rpc('link_transfer_pair', {
+        p_id_a: idA,
+        p_id_b: idB,
+        ...(userId ? { p_user_id: userId } : {})
+      });
+      if (error) {
+        this.logger.error('Error linking transfer pair:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as { a?: Record<string, unknown>; b?: Record<string, unknown> };
+      return {
+        a: mapFromDbFields(result.a ?? {}) as unknown as Transaction,
+        b: mapFromDbFields(result.b ?? {}) as unknown as Transaction,
+      };
+    } catch (error) {
+      this.logger.error('TransactionService.linkTransferPair error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Money-style "create the other side": insert the counterpart in the target
+   * account and convert the source into a linked transfer, atomically (the
+   * RPC also adjusts the target account's balance and audits everything).
+   */
+  async createTransferCounterpart(
+    id: string,
+    targetAccountId: string,
+    userId?: string
+  ): Promise<{ source: Transaction; counterpart: Transaction }> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('createTransferCounterpart requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const client = this.supabaseClient!;
+      const { data, error } = await client.rpc('create_transfer_counterpart', {
+        p_id: id,
+        p_target_account_id: targetAccountId,
+        ...(userId ? { p_user_id: userId } : {})
+      });
+      if (error) {
+        this.logger.error('Error creating transfer counterpart:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as { source?: Record<string, unknown>; counterpart?: Record<string, unknown> };
+      return {
+        source: mapFromDbFields(result.source ?? {}) as unknown as Transaction,
+        counterpart: mapFromDbFields(result.counterpart ?? {}) as unknown as Transaction,
+      };
+    } catch (error) {
+      this.logger.error('TransactionService.createTransferCounterpart error:', error as Error);
+      throw error;
+    }
+  }
+
   async deleteTransaction(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
       const transactions = await this.readStoredTransactions();
@@ -814,6 +885,18 @@ export class TransactionService {
 
   static getAllTransactionSplits(userId?: string): Promise<TransactionSplit[]> {
     return this.service.getAllTransactionSplits(userId);
+  }
+
+  static linkTransferPair(idA: string, idB: string, userId?: string): Promise<{ a: Transaction; b: Transaction }> {
+    return this.service.linkTransferPair(idA, idB, userId);
+  }
+
+  static createTransferCounterpart(
+    id: string,
+    targetAccountId: string,
+    userId?: string
+  ): Promise<{ source: Transaction; counterpart: Transaction }> {
+    return this.service.createTransferCounterpart(id, targetAccountId, userId);
   }
 
   static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
