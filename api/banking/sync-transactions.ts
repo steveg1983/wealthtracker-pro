@@ -20,7 +20,8 @@ import {
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
 import type { TrueLayerTransaction } from '../_lib/truelayer.js';
-import { fetchTransactions } from '../_lib/truelayer.js';
+import { fetchCardTransactions, fetchTransactions } from '../_lib/truelayer.js';
+import { cardAmountToAppSigned } from '../../src/services/banking/cardNormalization.js';
 
 const coerceIsoDateTime = (value: string, endOfDay: boolean): string | null => {
   const trimmed = value.trim();
@@ -147,7 +148,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     const linkedAccountsResult = await supabase
       .from('linked_accounts')
-      .select('account_id, external_account_id')
+      .select('account_id, external_account_id, external_kind')
       .eq('connection_id', connection.id);
 
     if (linkedAccountsResult.error) {
@@ -205,17 +206,27 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       const allTransactions: Array<{
         accountId: string;
         transaction: TrueLayerTransaction;
+        isCard: boolean;
       }> = [];
 
       for (const linkedAccount of mappedLinkedAccounts) {
-        const transactions = await fetchTransactions(accessToken, linkedAccount.external_account_id, {
-          from: dateRange.from,
-          to: dateRange.to
-        });
+        // Cards are served by /data/v1/cards with an INVERTED sign convention
+        // (positive = money out); the amounts are normalised below.
+        const isCard = (linkedAccount as { external_kind?: string }).external_kind === 'card';
+        const transactions = isCard
+          ? await fetchCardTransactions(accessToken, linkedAccount.external_account_id, {
+              from: dateRange.from,
+              to: dateRange.to
+            })
+          : await fetchTransactions(accessToken, linkedAccount.external_account_id, {
+              from: dateRange.from,
+              to: dateRange.to
+            });
         transactions.forEach((transaction) => {
           allTransactions.push({
             accountId: linkedAccount.account_id,
-            transaction
+            transaction,
+            isCard
           });
         });
       }
@@ -224,14 +235,18 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const prepared = fetchedTransactions
-      .map(({ accountId, transaction }) => {
+      .map(({ accountId, transaction, isCard }) => {
         const externalTransactionId = toExternalTransactionId(transaction);
         if (!externalTransactionId) {
           return null;
         }
 
-        const amount = normalizeAmount(transaction.amount);
-        const type = transaction.amount < 0 ? 'expense' : 'income';
+        // Cards: positive = purchase (money out) → app-negative expense.
+        // Accounts: already app-signed (debits negative).
+        const amount = isCard
+          ? cardAmountToAppSigned(transaction.amount)
+          : normalizeAmount(transaction.amount);
+        const type = amount < 0 ? 'expense' : 'income';
         const description = transaction.description?.trim() || transaction.merchant_name?.trim() || 'Bank transaction';
 
         return {
@@ -246,6 +261,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
           date: toDateOnly(transaction.timestamp),
           metadata: {
             provider: 'truelayer',
+            sourceKind: isCard ? 'card' : 'account',
             sourceAccountId: transaction.account_id,
             transactionType: transaction.transaction_type ?? null,
             merchantName: transaction.merchant_name ?? null,

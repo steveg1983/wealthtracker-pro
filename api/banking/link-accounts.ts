@@ -69,7 +69,9 @@ async function handler(req: VercelRequest, res: VercelResponse) {
             account_id: link.accountId,
             external_account_id: link.externalAccountId,
             external_account_name: link.externalAccountName,
-            external_account_mask: link.externalAccountMask ?? null
+            external_account_mask: link.externalAccountMask ?? null,
+            // 'card' → sync reads /data/v1/cards for this external account.
+            external_kind: link.kind === 'card' ? 'card' : 'account'
           },
           { onConflict: 'connection_id,external_account_id' }
         );

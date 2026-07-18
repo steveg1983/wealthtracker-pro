@@ -12,7 +12,12 @@ import {
   getUserTrueLayerConnection,
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
-import { fetchAccountBalance, fetchAccounts } from '../_lib/truelayer.js';
+import { fetchAccountBalance, fetchAccounts, fetchCardBalance, fetchCards } from '../_lib/truelayer.js';
+import {
+  cardBalanceToAppBalance,
+  cardDisplayName,
+  cardMask
+} from '../../src/services/banking/cardNormalization.js';
 import { withSentry } from '../_lib/sentry.js';
 
 const mapAccountType = (accountType: string | undefined): string => {
@@ -55,8 +60,11 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     const accounts = await withTrueLayerAccessToken(supabase, connection, async (accessToken) => {
       const truelayerAccounts = await fetchAccounts(accessToken);
+      // Credit cards live on a separate API surface. fetchCards returns []
+      // when the connection's token lacks the cards scope (pre-cards links).
+      const truelayerCards = await fetchCards(accessToken);
 
-      return Promise.all(
+      const discoveredAccounts = await Promise.all(
         truelayerAccounts.map(async (account): Promise<DiscoveredBankAccount> => {
           let balance = 0;
           try {
@@ -84,10 +92,35 @@ async function handler(req: VercelRequest, res: VercelResponse) {
             currency: account.currency || 'GBP',
             sortCode: account.account_number?.sort_code ?? undefined,
             accountNumber: accountNumber ?? undefined,
-            mask
+            mask,
+            kind: 'account'
           };
         })
       );
+
+      const discoveredCards = await Promise.all(
+        truelayerCards.map(async (card): Promise<DiscoveredBankAccount> => {
+          // Card `current` = amount OWED (positive) → app liability (negative).
+          let balance = 0;
+          try {
+            balance = cardBalanceToAppBalance(await fetchCardBalance(accessToken, card.account_id));
+          } catch {
+            // Balance endpoint failures should not block discovery.
+          }
+
+          return {
+            externalAccountId: card.account_id,
+            name: cardDisplayName(card, connection.institution_name),
+            type: 'credit',
+            balance,
+            currency: card.currency || 'GBP',
+            mask: cardMask(card.partial_card_number),
+            kind: 'card'
+          };
+        })
+      );
+
+      return [...discoveredAccounts, ...discoveredCards];
     });
 
     const response: DiscoverAccountsResponse = {

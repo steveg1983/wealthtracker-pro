@@ -76,16 +76,21 @@ describe('ScheduledReportService (deterministic)', () => {
   });
 
   it('calculates next weekly run using the injected clock', () => {
-    const now = vi.fn(() => new Date('2024-01-01T09:00:00Z')); // Tuesday
+    const base = new Date('2024-01-01T09:00:00Z'); // a Monday
+    const now = vi.fn(() => new Date(base));
     const { service } = createService({ now });
     const report = { ...baseReport(), dayOfWeek: 3, time: '10:30' }; // Wednesday
 
     const nextRun = service.calculateNextRun(report);
 
-    expect(nextRun.getUTCDay()).toBe(3);
-    expect(nextRun.getUTCHours()).toBe(10);
-    expect(nextRun.getUTCMinutes()).toBe(30);
-    expect(nextRun.getUTCDate()).toBe(3); // Jan 3rd 2024 is Wednesday
+    // The service schedules in LOCAL time (setHours/getDay) — assert local
+    // components so the test holds in every timezone, not only where local
+    // equals UTC on the test date.
+    expect(nextRun.getDay()).toBe(3);
+    expect(nextRun.getHours()).toBe(10);
+    expect(nextRun.getMinutes()).toBe(30);
+    expect(nextRun.getTime()).toBeGreaterThan(base.getTime());
+    expect(nextRun.getTime() - base.getTime()).toBeLessThanOrEqual(8 * 24 * 60 * 60 * 1000);
   });
 
   it('runs only due reports when checking schedule', async () => {
