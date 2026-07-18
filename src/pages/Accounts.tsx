@@ -10,6 +10,8 @@ import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon } from '../components/icons';
 import type { Account } from '../types';
+
+type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
@@ -32,6 +34,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [isLoading, setIsLoading] = useState(true);
   const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() => {
     return (localStorage.getItem('accountsGroupBy') as 'type' | 'institution') || 'type';
+  });
+  const [sortMode, setSortMode] = useState<AccountSortMode>(() => {
+    const stored = localStorage.getItem('accountsSortMode');
+    return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc'
+      ? stored
+      : 'default';
   });
 
   const { getUnreconciledCount, computeAccountBalance } = useReconciliation(accounts, transactions);
@@ -221,6 +229,31 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     localStorage.setItem('accountsGroupBy', value);
   };
 
+  const handleSortChange = (value: AccountSortMode) => {
+    setSortMode(value);
+    localStorage.setItem('accountsSortMode', value);
+  };
+
+  // Order accounts WITHIN each group. 'default' keeps insertion order (as
+  // loaded); balance sorts use Decimal comparison on the computed ledger
+  // balance — ordering only, never arithmetic.
+  const sortAccounts = useCallback((list: Account[]): Account[] => {
+    if (sortMode === 'default') {
+      return list;
+    }
+    const sorted = [...list];
+    if (sortMode === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    } else {
+      sorted.sort((a, b) => {
+        const comparison = toDecimal(computeAccountBalance(a.id))
+          .comparedTo(toDecimal(computeAccountBalance(b.id)));
+        return sortMode === 'balance-desc' ? -comparison : comparison;
+      });
+    }
+    return sorted;
+  }, [sortMode, computeAccountBalance]);
+
   // Get icon for account type
   const getAccountTypeIcon = (type: string) => {
     const typeConfig = accountTypes.find(t => t.type === type);
@@ -249,185 +282,14 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   };
 
 
-  return (
-    <PageWrapper 
-      title="Accounts"
-      rightContent={
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
-          title="Add Account"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          Add Account
-        </button>
-      }
-    >
-
-
-      {/* Net Worth Summary Bar */}
-      {!isLoading && accounts.length > 0 && (() => {
-        const totalBalance = calculateTotalBalance(decimalAccounts, decimalTransactions);
-        const totalAssets = decimalAccounts
-          .filter(a => {
-            const bal = computeAccountBalance(a.id);
-            return bal > 0;
-          })
-          .reduce((sum, a) => sum + computeAccountBalance(a.id), 0);
-        const totalLiabilities = decimalAccounts
-          .filter(a => {
-            const bal = computeAccountBalance(a.id);
-            return bal < 0;
-          })
-          .reduce((sum, a) => sum + Math.abs(computeAccountBalance(a.id)), 0);
-
-        return (
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white">
-              <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth</p>
-              <p className="text-2xl font-bold mt-1">{formatDisplayCurrency(totalBalance)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets</p>
-              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{formatDisplayCurrency(totalAssets)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Liabilities</p>
-              <p className="text-2xl font-bold mt-1 text-red-600">{formatDisplayCurrency(totalLiabilities)}</p>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Group by toggle */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-sm text-gray-500 dark:text-gray-400">Group by:</span>
-        <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
-          <button
-            onClick={() => handleGroupByChange('type')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              groupBy === 'type'
-                ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-            }`}
-          >
-            Account Type
-          </button>
-          <button
-            onClick={() => handleGroupByChange('institution')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              groupBy === 'institution'
-                ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
-            }`}
-          >
-            Institution
-          </button>
-        </div>
-      </div>
-
-      {/* Accounts grid */}
-      <div className="grid gap-6">
-        {isLoading ? (
-          <>
-            <SkeletonCard className="h-48" />
-            <SkeletonCard className="h-48" />
-            <SkeletonCard className="h-48" />
-          </>
-        ) : groupBy === 'institution' ? (
-          /* Institution grouping view */
-          Object.entries(accountsByInstitution).map(([institution, instAccounts]) => {
-            const instDecimalAccounts = decimalAccounts.filter(da => {
-              const original = instAccounts.find(a => a.id === da.id);
-              return !!original;
-            });
-            const instTotal = calculateTotalBalance(instDecimalAccounts, decimalTransactions);
-
-            return (
-            <div key={institution} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{institution}</h2>
-                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                      ({instAccounts.length} {instAccounts.length === 1 ? 'account' : 'accounts'})
-                    </span>
-                  </div>
-                  <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatDisplayCurrency(instTotal)}
-                  </p>
-                </div>
-              </div>
-              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {instAccounts.map(account => {
-                  const balance = computeAccountBalance(account.id);
-                  const unreconciledCount = getUnreconciledCount(account.id);
-                  const TypeIcon = getAccountTypeIcon(account.type);
-                  const typeColor = getAccountTypeColor(account.type);
-
-                  return (
-                    <div
-                      key={account.id}
-                      className="p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-gray-200 transition-all duration-300 cursor-pointer"
-                      onClick={() => onAccountClick ? onAccountClick(account.id) : navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <TypeIcon className={typeColor} size={16} />
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{account.name}</h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{account.type}</p>
-                          </div>
-                        </div>
-                        <p className={`text-base font-bold ${balance < 0 ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
-                          {formatDisplayCurrency(balance)}
-                        </p>
-                      </div>
-                      {unreconciledCount > 0 && (
-                        <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                          {unreconciledCount} unreconciled
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            );
-          })
-        ) : (
-          /* Account type grouping view (original) */
-          accountTypes.map(({ type, title, icon: Icon, color }) => {
-            const typeAccounts = accountsByType[type] || [];
-            if (typeAccounts.length === 0) return null;
-
-            const decimalTypeAccounts = decimalAccountsByType[type] || [];
-            const typeTotal = calculateTotalBalance(decimalTypeAccounts, decimalTransactions);
-
-            return (
-            <div key={type} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <Icon className={color} size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                      ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
-                    </span>
-                  </div>
-                  <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatDisplayCurrency(typeTotal)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 sm:p-4 space-y-3">
-                {typeAccounts.map((account) => {
-                  const bankLink = getAccountLink(account.id);
-                  const syncing = isAccountSyncing(account.id);
+  // ONE card for every grouping view — identical layout, stats and actions
+  // (settings / sync / reconcile / close) regardless of how the list is
+  // grouped (Steve: 'similar looking format across all our views').
+  const renderAccountCard = (account: Account) => {
+    const bankLink = getAccountLink(account.id);
+    const syncing = isAccountSyncing(account.id);
+    const TypeIcon = getAccountTypeIcon(account.type);
+    const typeColor = getAccountTypeColor(account.type);
                   return (
                   <div
                     key={account.id}
@@ -444,9 +306,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                          {account.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <TypeIcon className={typeColor} size={16} />
+                          <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            {account.name}
+                          </h3>
+                        </div>
                         {account.institution && (
                           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                             {account.institution}
@@ -609,8 +474,205 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       </div>
                     </div>
                   </div>
-                  );
-                })}
+    );
+  };
+
+  return (
+    <PageWrapper 
+      title="Accounts"
+      rightContent={
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+          title="Add Account"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Add Account
+        </button>
+      }
+    >
+
+
+      {/* Desktop: the net-worth summary + controls stay pinned while the
+          account list scrolls in its own region — Add Account, view switches
+          and the totals remain reachable from anywhere in a long list. */}
+      <div className="lg:flex lg:flex-col lg:h-[calc(100vh-13rem)]">
+      <div className="lg:shrink-0">
+      {/* Net Worth Summary Bar */}
+      {!isLoading && accounts.length > 0 && (() => {
+        const totalBalance = calculateTotalBalance(decimalAccounts, decimalTransactions);
+        const totalAssets = decimalAccounts
+          .filter(a => {
+            const bal = computeAccountBalance(a.id);
+            return bal > 0;
+          })
+          .reduce((sum, a) => sum + computeAccountBalance(a.id), 0);
+        const totalLiabilities = decimalAccounts
+          .filter(a => {
+            const bal = computeAccountBalance(a.id);
+            return bal < 0;
+          })
+          .reduce((sum, a) => sum + Math.abs(computeAccountBalance(a.id)), 0);
+
+        return (
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white">
+              <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth</p>
+              <p className="text-2xl font-bold mt-1">{formatDisplayCurrency(totalBalance)}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets</p>
+              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{formatDisplayCurrency(totalAssets)}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Liabilities</p>
+              <p className="text-2xl font-bold mt-1 text-red-600">{formatDisplayCurrency(totalLiabilities)}</p>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Group + sort controls */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Group by:</span>
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+            <button
+              onClick={() => handleGroupByChange('type')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                groupBy === 'type'
+                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              }`}
+            >
+              Account Type
+            </button>
+            <button
+              onClick={() => handleGroupByChange('institution')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                groupBy === 'institution'
+                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              }`}
+            >
+              Institution
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Sort:</span>
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+            <button
+              onClick={() => handleSortChange('default')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                sortMode === 'default'
+                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              }`}
+            >
+              Default
+            </button>
+            <button
+              onClick={() => handleSortChange('name')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                sortMode === 'name'
+                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              }`}
+            >
+              Name A–Z
+            </button>
+            <button
+              onClick={() => handleSortChange(sortMode === 'balance-desc' ? 'balance-asc' : 'balance-desc')}
+              title={sortMode === 'balance-desc'
+                ? 'Sorted highest value first — click for lowest first'
+                : sortMode === 'balance-asc'
+                  ? 'Sorted lowest value first — click for highest first'
+                  : 'Sort by account value'}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                sortMode === 'balance-desc' || sortMode === 'balance-asc'
+                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              }`}
+            >
+              Value {sortMode === 'balance-asc' ? '↑' : '↓'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      </div>{/* end pinned chrome */}
+
+      <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      {/* Accounts grid */}
+      <div className="grid gap-6">
+        {isLoading ? (
+          <>
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+          </>
+        ) : groupBy === 'institution' ? (
+          /* Institution grouping view */
+          Object.entries(accountsByInstitution).map(([institution, instAccounts]) => {
+            const instDecimalAccounts = decimalAccounts.filter(da => {
+              const original = instAccounts.find(a => a.id === da.id);
+              return !!original;
+            });
+            const instTotal = calculateTotalBalance(instDecimalAccounts, decimalTransactions);
+
+            return (
+            <div key={institution} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />
+                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{institution}</h2>
+                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                      ({instAccounts.length} {instAccounts.length === 1 ? 'account' : 'accounts'})
+                    </span>
+                  </div>
+                  <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+                    {formatDisplayCurrency(instTotal)}
+                  </p>
+                </div>
+              </div>
+              <div className="p-3 sm:p-4 space-y-3">
+                {sortAccounts(instAccounts).map(renderAccountCard)}
+              </div>
+            </div>
+            );
+          })
+        ) : (
+          /* Account type grouping view (original) */
+          accountTypes.map(({ type, title, icon: Icon, color }) => {
+            const typeAccounts = accountsByType[type] || [];
+            if (typeAccounts.length === 0) return null;
+
+            const decimalTypeAccounts = decimalAccountsByType[type] || [];
+            const typeTotal = calculateTotalBalance(decimalTypeAccounts, decimalTransactions);
+
+            return (
+            <div key={type} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Icon className={color} size={20} />
+                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                      ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
+                    </span>
+                  </div>
+                  <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+                    {formatDisplayCurrency(typeTotal)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 sm:p-4 space-y-3">
+                {sortAccounts(typeAccounts).map(renderAccountCard)}
               </div>
             </div>
           );
@@ -674,6 +736,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           )}
         </div>
       )}
+
+      </div>{/* end scroll region */}
+      </div>{/* end desktop flex column */}
 
       <AddAccountModal
         isOpen={isAddModalOpen} 
