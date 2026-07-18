@@ -16,7 +16,12 @@ import {
   markConnectionSyncSuccess,
   withTrueLayerAccessToken
 } from '../_lib/banking-sync.js';
-import { fetchAccountBalance, fetchAccounts } from '../_lib/truelayer.js';
+import { fetchAccountBalance, fetchAccounts, fetchCardBalance, fetchCards } from '../_lib/truelayer.js';
+import {
+  cardBalanceToAppBalance,
+  cardDisplayName,
+  cardMask
+} from '../../src/services/banking/cardNormalization.js';
 import { selectAdoptableAccountId, type AdoptionCandidate } from '../../src/services/banking/accountMatching.js';
 
 const inferMask = (account: {
@@ -72,6 +77,8 @@ interface SyncedTrueLayerAccount {
   mask?: string;
   accountNumber?: string | null;
   sortCode?: string | null;
+  /** 'card' → served by /data/v1/cards; 'account' → /data/v1/accounts. */
+  kind: 'account' | 'card';
 }
 
 interface LinkedAccountRow {
@@ -260,7 +267,8 @@ const persistAccountsAndLinks = async (
           account_id: accountId,
           external_account_id: account.externalAccountId,
           external_account_mask: account.mask ?? null,
-          external_account_name: account.name
+          external_account_name: account.name,
+          external_kind: account.kind
         },
         {
           onConflict: 'connection_id,external_account_id'
@@ -317,9 +325,12 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     const accounts = await withTrueLayerAccessToken(supabase, connection, async (accessToken) => {
       const truelayerAccounts = await fetchAccounts(accessToken);
+      // Cards live on a separate API surface; [] when the token predates the
+      // cards scope, so old bank connections sync exactly as before.
+      const truelayerCards = await fetchCards(accessToken);
 
-      return Promise.all(
-        truelayerAccounts.map(async (account) => {
+      const syncedAccounts = await Promise.all(
+        truelayerAccounts.map(async (account): Promise<SyncedTrueLayerAccount> => {
           let balance = 0;
           try {
             const fetchedBalance = await fetchAccountBalance(accessToken, account.account_id);
@@ -339,10 +350,39 @@ async function handler(req: VercelRequest, res: VercelResponse) {
             currency: account.currency || 'GBP',
             mask: inferMask(account),
             accountNumber: identifiers.accountNumber,
-            sortCode: identifiers.sortCode
+            sortCode: identifiers.sortCode,
+            kind: 'account'
           };
         })
       );
+
+      const syncedCards = await Promise.all(
+        truelayerCards.map(async (card): Promise<SyncedTrueLayerAccount> => {
+          // Card `current` = amount OWED (positive) → app liability (negative).
+          let balance = 0;
+          try {
+            balance = cardBalanceToAppBalance(await fetchCardBalance(accessToken, card.account_id));
+          } catch {
+            // Balance endpoint failures should not block discovery.
+          }
+
+          return {
+            externalAccountId: card.account_id,
+            name: cardDisplayName(card, connection.institution_name),
+            type: 'credit',
+            balance,
+            currency: card.currency || 'GBP',
+            mask: cardMask(card.partial_card_number),
+            // Cards carry no sort code / account number, so reconnect
+            // re-adoption is skipped for them (see findAdoptableAccountId).
+            accountNumber: null,
+            sortCode: null,
+            kind: 'card'
+          };
+        })
+      );
+
+      return [...syncedAccounts, ...syncedCards];
     });
 
     await persistAccountsAndLinks(supabase, auth.userId, connection, accounts);

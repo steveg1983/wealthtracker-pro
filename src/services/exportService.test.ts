@@ -59,7 +59,14 @@ describe('ExportService', () => {
     });
 
     expect(report.id).toMatch(/^id-/);
-    expect(report.nextRun.toISOString()).toBe('2025-01-08T09:00:00.000Z');
+    // The service schedules at LOCAL 9am (setHours) — assert in local terms,
+    // computed independently from the same fixed clock, so the test passes in
+    // every timezone instead of only where local == UTC on the test date.
+    const expectedWeekly = new Date(FIXED_NOW);
+    expectedWeekly.setDate(expectedWeekly.getDate() + 7);
+    expectedWeekly.setHours(9, 0, 0, 0);
+    expect(report.nextRun.getTime()).toBe(expectedWeekly.getTime());
+    expect(report.nextRun.getHours()).toBe(9);
     expect(storage.setItem).toHaveBeenCalledWith(
       'scheduled-reports',
       expect.stringContaining('"name":"Weekly Summary"')
@@ -88,7 +95,11 @@ describe('ExportService', () => {
 
     const updated = service.updateScheduledReport(report.id, { frequency: 'daily' });
     expect(updated?.frequency).toBe('daily');
-    expect(updated?.nextRun.toISOString()).toBe('2025-01-02T09:00:00.000Z');
+    // Local-time semantics (see above): next local day at local 9am.
+    const expectedDaily = new Date(FIXED_NOW);
+    expectedDaily.setDate(expectedDaily.getDate() + 1);
+    expectedDaily.setHours(9, 0, 0, 0);
+    expect(updated?.nextRun.getTime()).toBe(expectedDaily.getTime());
   });
 
   it('manages export templates via storage-backed persistence', () => {

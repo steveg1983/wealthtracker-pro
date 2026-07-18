@@ -39,6 +39,12 @@ export interface DiscoveredBankAccount {
   sortCode?: string;
   accountNumber?: string;
   mask?: string;
+  /**
+   * Which TrueLayer surface serves this external account: 'account' →
+   * /data/v1/accounts (banks), 'card' → /data/v1/cards (credit cards, e.g.
+   * American Express). Absent means 'account' (pre-cards clients).
+   */
+  kind?: 'account' | 'card';
 }
 
 export interface DiscoverAccountsResponse {
@@ -60,6 +66,8 @@ export interface LinkAccountsRequest {
     // disconnect→reconnect can re-adopt it instead of creating a duplicate.
     sortCode?: string;
     accountNumber?: string;
+    /** 'card' when the external account is served by the Cards API. */
+    kind?: 'account' | 'card';
   }>;
 }
 

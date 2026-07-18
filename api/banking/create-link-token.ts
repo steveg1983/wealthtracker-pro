@@ -11,7 +11,10 @@ import { createStateToken } from '../_lib/state.js';
 import { buildAuthUrl, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
 import { withSentry } from '../_lib/sentry.js';
 
-const AUTH_SCOPES = ['info', 'accounts', 'balance', 'transactions', 'offline_access'];
+// 'cards' unlocks credit-card providers (American Express etc.) in the auth
+// dialog and the /data/v1/cards endpoints. Existing connections keep their
+// old scopes until re-linked.
+const AUTH_SCOPES = ['info', 'accounts', 'balance', 'cards', 'transactions', 'offline_access'];
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
