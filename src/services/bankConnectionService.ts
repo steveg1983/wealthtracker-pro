@@ -534,62 +534,44 @@ export class BankConnectionService {
     return this.configStatus;
   }
 
+  /**
+   * Quick-pick list for the Connect a Bank modal. Every entry launches the
+   * SAME generic TrueLayer flow — the definitive institution choice happens
+   * on TrueLayer's own secure page, which lists every provider our client
+   * can access (all UK Open Banking banks, plus card issuers like American
+   * Express now the auth link requests the cards scope). This list is
+   * recognition/reassurance only, so missing an entry never blocks anyone:
+   * the modal's "Browse all banks" action runs the identical flow.
+   *
+   * (The old list also carried Chase/Bank of America "via Plaid" — dead
+   * entries for a provider that was removed from the app.)
+   */
   async getInstitutions(_country: string = 'GB'): Promise<BankInstitution[]> {
+    const uk = (id: string, name: string): BankInstitution => ({
+      id,
+      name,
+      country: 'GB',
+      provider: 'truelayer',
+      supportsAccountDetails: true,
+      supportsTransactions: true,
+      supportsBalance: true
+    });
+
     return [
-      {
-        id: 'barclays',
-        name: 'Barclays',
-        country: 'GB',
-        provider: 'truelayer',
-        supportsAccountDetails: true,
-        supportsTransactions: true,
-        supportsBalance: true
-      },
-      {
-        id: 'hsbc',
-        name: 'HSBC',
-        country: 'GB',
-        provider: 'truelayer',
-        supportsAccountDetails: true,
-        supportsTransactions: true,
-        supportsBalance: true
-      },
-      {
-        id: 'lloyds',
-        name: 'Lloyds Bank',
-        country: 'GB',
-        provider: 'truelayer',
-        supportsAccountDetails: true,
-        supportsTransactions: true,
-        supportsBalance: true
-      },
-      {
-        id: 'natwest',
-        name: 'NatWest',
-        country: 'GB',
-        provider: 'truelayer',
-        supportsAccountDetails: true,
-        supportsTransactions: true,
-        supportsBalance: true
-      },
-      {
-        id: 'chase',
-        name: 'Chase',
-        country: 'US',
-        provider: 'plaid',
-        supportsAccountDetails: true,
-        supportsTransactions: true,
-        supportsBalance: true
-      },
-      {
-        id: 'bank-of-america',
-        name: 'Bank of America',
-        country: 'US',
-        provider: 'plaid',
-        supportsAccountDetails: true,
-        supportsTransactions: true,
-        supportsBalance: true
-      }
+      uk('amex', 'American Express'),
+      uk('barclays', 'Barclays'),
+      uk('barclaycard', 'Barclaycard'),
+      uk('first-direct', 'First Direct'),
+      uk('halifax', 'Halifax'),
+      uk('hsbc', 'HSBC'),
+      uk('lloyds', 'Lloyds Bank'),
+      uk('monzo', 'Monzo'),
+      uk('nationwide', 'Nationwide'),
+      uk('natwest', 'NatWest'),
+      uk('revolut', 'Revolut'),
+      uk('santander', 'Santander'),
+      uk('starling', 'Starling Bank'),
+      uk('tsb', 'TSB')
     ];
   }
 

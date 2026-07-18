@@ -575,4 +575,62 @@ describe('real-world scenarios', () => {
     expect(screen.getByText('Application Version 1.0')).toBeInTheDocument();
     expect(screen.queryByLabelText('Close modal')).not.toBeInTheDocument();
   });
+
+  describe('focus stability across parent re-renders', () => {
+    it('does not steal focus from an input when onClose identity changes', async () => {
+      // Callers routinely pass inline `onClose={() => …}` — a NEW function
+      // identity per render. The old effect depended on onClose, so every
+      // parent re-render (e.g. typing into a search box) re-ran the delayed
+      // modalRef.focus() and stole the cursor after each keystroke.
+      // (Real 50ms open-focus timer; the suite mocks system time, so fake
+      // timers are unavailable here.)
+      const settle = () => new Promise((resolve) => { setTimeout(resolve, 120); });
+
+      const view = render(
+        <Modal isOpen={true} onClose={() => {}} title="Search">
+          <ModalBody>
+            <input type="text" placeholder="Search for your bank..." />
+          </ModalBody>
+        </Modal>
+      );
+      // Let the initial open-focus timer fire first
+      await settle();
+
+      const input = screen.getByPlaceholderText('Search for your bank...');
+      input.focus();
+      expect(input).toHaveFocus();
+
+      // Simulate the caller re-rendering with a fresh onClose identity
+      // (what happens on every keystroke of a caller-owned search field)
+      view.rerender(
+        <Modal isOpen={true} onClose={() => {}} title="Search">
+          <ModalBody>
+            <input type="text" placeholder="Search for your bank..." />
+          </ModalBody>
+        </Modal>
+      );
+      await settle();
+
+      expect(input).toHaveFocus();
+    });
+
+    it('still calls the LATEST onClose on Escape after re-renders', () => {
+      const first = vi.fn();
+      const second = vi.fn();
+      const view = render(
+        <Modal isOpen={true} onClose={first} title="Test">
+          <ModalBody>content</ModalBody>
+        </Modal>
+      );
+      view.rerender(
+        <Modal isOpen={true} onClose={second} title="Test">
+          <ModalBody>content</ModalBody>
+        </Modal>
+      );
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(first).not.toHaveBeenCalled();
+    });
+  });
 });

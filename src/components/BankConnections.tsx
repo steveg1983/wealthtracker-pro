@@ -134,9 +134,9 @@ export default function BankConnections({
 
       if (result.url) {
         startOAuthFlow(result.url);
-      } else if (result.linkToken) {
-        // Handle Plaid Link flow
-        alert('Plaid Link integration would open here with token: ' + result.linkToken);
+      } else {
+        // Plaid was removed from the app; nothing should reach here.
+        logger.error('Bank connection returned no auth URL', new Error(`provider=${institution.provider}`));
       }
     } catch (error) {
       logger.error('Failed to connect bank', error as Error);
@@ -395,8 +395,10 @@ export default function BankConnections({
           {/* Provider Info */}
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
             <p className="text-blue-800 dark:text-blue-200">
-              <strong>Secure Connection:</strong> Your credentials are never stored. 
-              Connection is established directly with your bank using OAuth.
+              <strong>Secure Connection:</strong> Your credentials are never stored.
+              Connection is established directly with your bank using OAuth. You&rsquo;ll
+              confirm your exact bank or card provider on TrueLayer&rsquo;s secure page —
+              this list is just a shortcut.
             </p>
           </div>
 
@@ -432,6 +434,24 @@ export default function BankConnections({
               </p>
             </div>
           )}
+
+          {/* Catch-all: the in-app list is a shortcut, never a gate — the
+              full provider choice lives on TrueLayer's page. */}
+          <button
+            onClick={() => handleConnect({
+              id: 'uk-ob-all',
+              name: 'your bank',
+              country: 'GB',
+              provider: 'truelayer',
+              supportsAccountDetails: true,
+              supportsTransactions: true,
+              supportsBalance: true
+            })}
+            disabled={isLoading}
+            className="w-full p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Don&rsquo;t see your bank or card? <span className="font-medium text-primary dark:text-blue-400">Browse all providers</span>
+          </button>
         </div>
       </Modal>
     </div>
