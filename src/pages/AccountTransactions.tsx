@@ -8,6 +8,7 @@ import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon,
 import LocalMerchantLogo from '../components/LocalMerchantLogo';
 import DatePicker from '../components/common/DatePicker';
 import EditTransactionModal from '../components/EditTransactionModal';
+import AccountSettingsModal from '../components/AccountSettingsModal';
 import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -65,7 +66,7 @@ export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { accounts, transactions, categories, deleteTransaction, addTransaction } = useApp();
+  const { accounts, transactions, categories, deleteTransaction, addTransaction, updateAccount, refreshCategories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { compactView, setCompactView: _setCompactView } = usePreferences();
   
@@ -147,6 +148,7 @@ export default function AccountTransactions() {
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   
@@ -796,7 +798,7 @@ export default function AccountTransactions() {
                 {account.name}
               </h1>
               <button
-                onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
+                onClick={() => setShowAccountSettings(true)}
                 className="p-1 text-white/50 hover:text-white transition-colors"
                 title="Account Settings"
                 type="button"
@@ -1302,6 +1304,25 @@ export default function AccountTransactions() {
           </div>
         </div>
       )}
+
+      {/* Account Settings — opened directly from the register header. */}
+      <AccountSettingsModal
+        isOpen={showAccountSettings}
+        onClose={() => setShowAccountSettings(false)}
+        account={account}
+        onSave={async (accountId, updates) => {
+          await updateAccount(accountId, updates);
+          // Rename/close also updates the account's transfer category via the
+          // DB trigger — refresh so dropdowns stay in sync without a reload.
+          if (updates.isActive !== undefined || updates.name !== undefined) {
+            await refreshCategories();
+          }
+          // Closing the account from its own register: nothing left to show.
+          if (updates.isActive === false) {
+            navigate(preserveDemoParam('/accounts', location.search));
+          }
+        }}
+      />
     </div>
   );
 }
