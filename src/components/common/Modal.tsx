@@ -31,6 +31,18 @@ export function Modal({
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
+  // Latest-callback ref: callers routinely pass inline `onClose={() => …}`
+  // handlers whose identity changes every render. With onClose in the effect
+  // deps, ANY parent re-render (e.g. typing into a search box whose state
+  // lives in the caller) re-ran the whole setup — including the delayed
+  // modalRef.focus() that stole the cursor from the active input after every
+  // keystroke, plus a scroll-lock/listener churn. The effect now runs only on
+  // open/close and reads the current handler through the ref.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (isOpen) {
       // Store the currently focused element
@@ -63,10 +75,10 @@ export function Modal({
         }
       };
 
-      // Handle escape key
+      // Handle escape key (via the ref — see onCloseRef above)
       const handleEscapeKey = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-          onClose();
+          onCloseRef.current();
         }
       };
 
@@ -106,7 +118,7 @@ export function Modal({
         previousActiveElement.current?.focus();
       };
     }
-  }, [isOpen, onClose]);
+  }, [isOpen]);
   
   if (!isOpen) return null;
 
