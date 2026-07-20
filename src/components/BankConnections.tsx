@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { bankConnectionService, type BankConnection, type BankInstitution } from '../services/bankConnectionService';
 import { Modal } from './common/Modal';
+import LinkBankAccountsModal from './banking/LinkBankAccountsModal';
 import BankingOpsAlertStatsCard from './BankingOpsAlertStatsCard';
 import type { BankingAuditDateRangePreset, BankingAuditScope } from '../utils/bankingOpsUrlState';
 import {
@@ -46,6 +47,7 @@ export default function BankConnections({
   const [isLoading, setIsLoading] = useState(false);
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
   const [configStatus, setConfigStatus] = useState({ plaid: false, trueLayer: false });
+  const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
   const logger = useMemo(() => createScopedLogger('BankConnections'), []);
   const { getToken } = useClerkAuth();
 
@@ -81,7 +83,12 @@ export default function BankConnections({
       if (event.origin !== window.location.origin) {
         return;
       }
-      const payload = event.data as { type?: string; status?: 'success' | 'error'; error?: string } | null;
+      const payload = event.data as {
+        type?: string;
+        status?: 'success' | 'error';
+        error?: string;
+        connectionId?: string;
+      } | null;
       if (!payload || payload.type !== 'wealthtracker:bank-oauth-complete') {
         return;
       }
@@ -91,7 +98,11 @@ export default function BankConnections({
       void loadConnections();
       if (payload.status === 'success') {
         setShowAddBank(false);
-        onAccountsLinked?.();
+        if (payload.connectionId) {
+          setLinkingConnectionId(payload.connectionId);
+        } else {
+          onAccountsLinked?.();
+        }
       } else if (payload.error) {
         logger.error('OAuth callback returned error', new Error(payload.error));
       }
@@ -189,6 +200,22 @@ export default function BankConnections({
     
     for (const connection of activeConnections) {
       await handleSync(connection.id);
+    }
+  };
+
+  const handleLinkComplete = async (connectionId: string) => {
+    setLinkingConnectionId(null);
+    setSyncingConnections(prev => new Set(prev).add(connectionId));
+    try {
+      await bankConnectionService.syncTransactionsOnly(connectionId);
+      void loadConnections();
+      onAccountsLinked?.();
+    } finally {
+      setSyncingConnections(prev => {
+        const next = new Set(prev);
+        next.delete(connectionId);
+        return next;
+      });
     }
   };
 
@@ -317,6 +344,14 @@ export default function BankConnections({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setLinkingConnectionId(connection.id)}
+                    disabled={connection.status === 'reauth_required'}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+                    title="Link accounts"
+                  >
+                    <LinkIcon size={20} />
+                  </button>
                   <button
                     onClick={() => handleSync(connection.id)}
                     disabled={syncingConnections.has(connection.id) || connection.status === 'reauth_required'}
@@ -454,6 +489,16 @@ export default function BankConnections({
           </button>
         </div>
       </Modal>
+
+      {/* Link discovered bank accounts/cards to app accounts */}
+      {linkingConnectionId && (
+        <LinkBankAccountsModal
+          isOpen={true}
+          onClose={() => setLinkingConnectionId(null)}
+          connectionId={linkingConnectionId}
+          onLinkComplete={handleLinkComplete}
+        />
+      )}
     </div>
   );
 }

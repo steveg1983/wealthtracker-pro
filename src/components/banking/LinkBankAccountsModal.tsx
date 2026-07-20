@@ -26,6 +26,29 @@ const normalizeSortCode = (value: string | undefined): string =>
 const normalizeAccountNumber = (value: string | undefined): string =>
   (value ?? '').replace(/\s/g, '').toLowerCase();
 
+const isCard = (discovered: DiscoveredBankAccount): boolean =>
+  discovered.kind === 'card' || discovered.type === 'credit';
+
+// Cards expose no sort code or account number — only a last-4 mask. Restrict
+// mask matching to credit accounts, and only auto-select on a unique hit, so
+// a shared last-4 across accounts can't mislink.
+const findCardMaskMatch = (
+  discovered: DiscoveredBankAccount,
+  existingAccounts: Account[]
+): Account | null => {
+  if (!isCard(discovered) || !discovered.mask) {
+    return null;
+  }
+  const matches = existingAccounts.filter((account) => {
+    if (account.type !== 'credit') {
+      return false;
+    }
+    const aAccountNumber = normalizeAccountNumber(account.accountNumber);
+    return aAccountNumber.length >= 4 && aAccountNumber.slice(-4) === discovered.mask;
+  });
+  return matches.length === 1 ? matches[0] : null;
+};
+
 const findSmartMatch = (
   discovered: DiscoveredBankAccount,
   existingAccounts: Account[]
@@ -34,7 +57,7 @@ const findSmartMatch = (
   const dAccountNumber = normalizeAccountNumber(discovered.accountNumber);
 
   if (!dSortCode && !dAccountNumber) {
-    return null;
+    return findCardMaskMatch(discovered, existingAccounts)?.id ?? null;
   }
 
   for (const account of existingAccounts) {
@@ -70,7 +93,10 @@ const getMatchReason = (
   const dSortCode = normalizeSortCode(discovered.sortCode);
   const dAccountNumber = normalizeAccountNumber(discovered.accountNumber);
 
-  if (!dSortCode && !dAccountNumber) return null;
+  if (!dSortCode && !dAccountNumber) {
+    const cardMatch = findCardMaskMatch(discovered, existingAccounts);
+    return cardMatch ? `Card ending ${discovered.mask} matches` : null;
+  }
 
   for (const account of existingAccounts) {
     const aSortCode = normalizeSortCode(account.sortCode);
