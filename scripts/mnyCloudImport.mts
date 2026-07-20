@@ -44,6 +44,7 @@ const args = process.argv.slice(2);
 const seedPath = args.find(a => !a.startsWith('--'));
 const EXECUTE = args.includes('--execute');
 const CONFIRM = args.includes('--confirm-wipe');
+const VERIFY_ONLY = args.includes('--verify-only');
 if (!seedPath) {
   console.error('usage: tsx scripts/mnyCloudImport.mts <seed.json> [--execute --confirm-wipe]');
   process.exit(1);
@@ -138,6 +139,12 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
   const userId = users[0].id as string;
   console.log(`Target user: ${users[0].email} (${userId})`);
 
+  if (VERIFY_ONLY) {
+    await verifyImport(userId, seed.transactionSplits.filter(s => s.amount !== 0).length);
+    console.log('\nVERIFY-ONLY complete.');
+    return;
+  }
+
   // ── 2. Backup ──────────────────────────────────────────────────────────────
   const current: Record<string, Record<string, unknown>[]> = {};
   for (const t of ['accounts', 'categories', 'transactions', 'transaction_splits', 'budgets', 'goals']) {
@@ -184,8 +191,13 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     ['linked_accounts', () => sb.from('linked_accounts').delete().in('account_id', [...acctIds])],
     ['budgets', () => sb.from('budgets').delete().eq('user_id', userId)],
     ['goals', () => sb.from('goals').delete().eq('user_id', userId)],
-    ['categories', () => sb.from('categories').delete().eq('user_id', userId)],
+    // Accounts BEFORE categories: the protect_transfer_category trigger
+    // refuses to delete a To/From category while its account row exists —
+    // deleting the account first cascades its transfer category away
+    // (categories_account_id_fkey ON DELETE CASCADE), and the remaining
+    // ordinary categories then delete freely.
     ['accounts', () => sb.from('accounts').delete().eq('user_id', userId)],
+    ['categories', () => sb.from('categories').delete().eq('user_id', userId)],
   ] as Array<[string, () => PromiseLike<{ error: { message: string } | null }>]>) {
     const { error } = await run();
     if (error) fail(`wiping ${table}: ${error.message} (backup is at ${backupPath})`);
@@ -227,9 +239,12 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     is_active: c.isActive !== false,
   })));
 
-  // Transactions first WITHOUT linked_transfer_split_id (splits don't exist
-  // yet); the 86 split-leg counterparts get it in a second pass below.
-  await insertAll('transactions', seed.transactions.map(t => ({
+  // Transactions in TWO passes: linked transfer pairs reference EACH OTHER,
+  // so no batch order can satisfy linked_transfer_id on insert (the FK is
+  // checked per statement). Insert everything unlinked first, then upsert the
+  // full rows of the linked ones with linked_transfer_id set.
+  // (linked_transfer_split_id is a third pass — splits don't exist yet.)
+  const txnRow = (t: SeedTransaction, withLink: boolean): Record<string, unknown> => ({
     id: txnMap.get(t.id),
     user_id: userId,
     account_id: acctMap.get(t.accountId),
@@ -242,16 +257,45 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     is_cleared: t.cleared === true,
     is_split: t.isSplit === true,
     transfer_account_id: t.transferAccountId ? acctMap.get(t.transferAccountId) : null,
-    linked_transfer_id: t.linkedTransferId ? txnMap.get(t.linkedTransferId) : null,
+    linked_transfer_id: withLink && t.linkedTransferId ? txnMap.get(t.linkedTransferId) : null,
     is_recurring: false,
     metadata: t.bankReference ? { bankReference: t.bankReference } : {},
-  })));
+  });
+  await insertAll('transactions', seed.transactions.map(t => txnRow(t, false)));
 
-  await insertAll('transaction_splits', seed.transactionSplits.map(s => ({
+  const linkedTxns = seed.transactions.filter(t => t.linkedTransferId);
+  {
+    const BATCH = 500;
+    for (let i = 0; i < linkedTxns.length; i += BATCH) {
+      const { error } = await sb.from('transactions')
+        .upsert(linkedTxns.slice(i, i + BATCH).map(t => txnRow(t, true)), { onConflict: 'id' });
+      if (error) fail(`linking transfer pairs (batch at ${i}): ${error.message}`);
+      process.stdout.write(`\r  transfer links: ${Math.min(i + BATCH, linkedTxns.length)}/${linkedTxns.length}`);
+    }
+    process.stdout.write('\n');
+  }
+
+  // The cloud schema requires every split line to be categorised
+  // (transaction_splits_category_not_blank); Money split lines with no
+  // category file under "Unassigned (MS Money import)" — same meaning,
+  // now explicit.
+  const unassigned = catMap.get('mny-unassigned');
+  if (!unassigned) fail('seed is missing the mny-unassigned category');
+  // Zero-amount lines are empty Money artifacts (no category, no memo, no
+  // effect on any sum) and the cloud schema refuses them — drop, not remap.
+  // Refuse if one is a transfer leg (would strand its counterpart).
+  const zeroLegs = seed.transactionSplits.filter(s => s.amount === 0 && s.linkedTransferId);
+  if (zeroLegs.length) fail(`zero-amount split line(s) that are transfer legs: ${zeroLegs.map(s => s.id).join(', ')}`);
+  const importSplits = seed.transactionSplits.filter(s => s.amount !== 0);
+  const droppedZero = seed.transactionSplits.length - importSplits.length;
+  if (droppedZero) console.log(`  ${droppedZero} zero-amount empty split line(s) dropped (no effect on sums)`);
+  const blankLines = importSplits.filter(s => !cat(s.category)).length;
+  if (blankLines) console.log(`  ${blankLines} uncategorised split line(s) → Unassigned (MS Money import)`);
+  await insertAll('transaction_splits', importSplits.map(s => ({
     id: splitMap.get(s.id),
     transaction_id: txnMap.get(s.transactionId),
     user_id: userId,
-    category: cat(s.category),
+    category: cat(s.category) || unassigned,
     amount: s.amount,
     memo: s.memo ?? null,
     sort_order: s.sortOrder,
@@ -269,6 +313,13 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
   console.log(`  pinned ${pinned.length} split-leg counterparts`);
 
   // ── 5. Verify ──────────────────────────────────────────────────────────────
+  await verifyImport(userId, importSplits.length);
+  console.log(`\nDONE. Backup kept at ${backupPath}`);
+  console.log('Re-link bank feeds: Settings → Banking → link accounts to the imported ones.');
+})();
+
+/** Full post-import verification — Decimal maths, fails the process on any breach. */
+async function verifyImport(userId: string, expectedSplits: number): Promise<void> {
   console.log('\nVERIFYING…');
   const dbAccts = await fetchAll('accounts', { col: 'user_id', val: userId });
   const dbTxns = await fetchAll('transactions', { col: 'user_id', val: userId });
@@ -278,7 +329,7 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     `${dbSplits.length} splits, ${dbCats.length} categories`);
   if (dbAccts.length !== seed.accounts.length) fail('account count mismatch');
   if (dbTxns.length !== seed.transactions.length) fail('transaction count mismatch');
-  if (dbSplits.length !== seed.transactionSplits.length) fail('split count mismatch');
+  if (dbSplits.length !== expectedSplits) fail('split count mismatch');
 
   // Ledger invariant per account: initial_balance + Σ txns == balance
   const sums = new Map<string, Decimal>();
@@ -309,7 +360,9 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
 
   // Transfer reciprocity + split-leg consistency
   const splitById = new Map(dbSplits.map(s => [String(s.id), s]));
+  const currencyByAcct = new Map(dbAccts.map(a => [String(a.id), String(a.currency ?? 'GBP')]));
   let linked = 0, unlinked = 0, badPairs = 0, legs = 0, badLegs = 0;
+  let crossCurrencyPairs = 0;
   for (const t of dbTxns) {
     if (t.type !== 'transfer') continue;
     if (!t.linked_transfer_id) { unlinked++; continue; }
@@ -324,21 +377,28 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
       if (!ok) badLegs++;
     } else {
       const partner = txnById.get(String(t.linked_transfer_id));
+      // Exact negation only applies when both accounts share a currency —
+      // Money records each side of a cross-currency transfer in its own
+      // currency (e.g. −$1,336.25 ↔ +£1,069.00), so those pairs only need
+      // to be reciprocal.
+      const sameCurrency = partner &&
+        currencyByAcct.get(String(t.account_id)) === currencyByAcct.get(String(partner.account_id));
+      if (partner && !sameCurrency) crossCurrencyPairs++;
       const ok = partner &&
         String(partner.linked_transfer_id) === String(t.id) &&
-        new Decimal(String(partner.amount)).negated().equals(new Decimal(String(t.amount)));
+        (!sameCurrency ||
+          new Decimal(String(partner.amount)).negated().equals(new Decimal(String(t.amount))));
       if (!ok) badPairs++;
     }
   }
 
   console.log(`  ledger invariant: ${dbAccts.length - badLedger}/${dbAccts.length} accounts OK`);
   console.log(`  splits reconcile: ${byParent.size - badSplits}/${byParent.size} OK`);
-  console.log(`  transfers: ${linked} linked (${legs} split-leg), ${unlinked} unlinked, ` +
+  console.log(`  transfers: ${linked} linked (${legs} split-leg, ` +
+    `${crossCurrencyPairs} cross-currency legs), ${unlinked} unlinked, ` +
     `${badPairs} broken pairs, ${badLegs} broken legs`);
 
   if (badLedger || badSplits || badPairs || badLegs) {
-    fail(`verification FAILED — backup is at ${backupPath}`);
+    fail('verification FAILED — see ~/WealthTracker-backups for the pre-wipe backups');
   }
-  console.log(`\nDONE. Backup kept at ${backupPath}`);
-  console.log('Re-link bank feeds: Settings → Banking → link accounts to the imported ones.');
-})();
+}
