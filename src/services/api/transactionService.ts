@@ -41,6 +41,7 @@ const CAMEL_TO_DB: Record<string, string> = {
   updatedAt: 'updated_at',
   recurringTransactionId: 'recurring_transaction_id',
   linkedTransferId: 'linked_transfer_id',
+  linkedTransferSplitId: 'linked_transfer_split_id',
   plaidTransactionId: 'plaid_transaction_id',
   paymentChannel: 'payment_channel',
   addedBy: 'added_by',
@@ -358,6 +359,20 @@ class TransactionServiceImpl {
   }
 
   /** Every split line of the user's transactions (for category aggregation). */
+  /** DB split row → app TransactionSplit, including transfer-leg fields. */
+  private mapSplitRow(row: Record<string, unknown>): TransactionSplit {
+    return {
+      id: String(row.id),
+      transactionId: String(row.transaction_id),
+      category: String(row.category),
+      amount: Number(row.amount),
+      memo: typeof row.memo === 'string' && row.memo !== '' ? row.memo : undefined,
+      sortOrder: Number(row.sort_order),
+      ...(row.transfer_account_id ? { transferAccountId: String(row.transfer_account_id) } : {}),
+      ...(row.linked_transfer_id ? { linkedTransferId: String(row.linked_transfer_id) } : {}),
+    };
+  }
+
   async getAllTransactionSplits(userId?: string): Promise<TransactionSplit[]> {
     if (!this.isSupabaseReady()) {
       return (await this.storage.get<TransactionSplit[]>(STORAGE_KEYS.TRANSACTION_SPLITS)) ?? [];
@@ -367,6 +382,7 @@ class TransactionServiceImpl {
       const client = this.supabaseClient!;
       // Page like getTransactions — splits are few today, but the 1000-row
       // PostgREST cap would silently truncate a heavy splitter's data.
+      // (Row mapping shared with getTransactionSplits via mapSplitRow.)
       const PAGE_SIZE = 1000;
       const rows: Record<string, unknown>[] = [];
       let from = 0;
@@ -392,14 +408,7 @@ class TransactionServiceImpl {
         }
         from += PAGE_SIZE;
       }
-      return rows.map(row => ({
-        id: String(row.id),
-        transactionId: String(row.transaction_id),
-        category: String(row.category),
-        amount: Number(row.amount),
-        memo: typeof row.memo === 'string' && row.memo !== '' ? row.memo : undefined,
-        sortOrder: Number(row.sort_order),
-      }));
+      return rows.map(row => this.mapSplitRow(row));
     } catch (error) {
       this.logger.error('TransactionService.getAllTransactionSplits error:', error as Error);
       throw error;
@@ -428,14 +437,7 @@ class TransactionServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return ((data || []) as Record<string, unknown>[]).map(row => ({
-        id: String(row.id),
-        transactionId: String(row.transaction_id),
-        category: String(row.category),
-        amount: Number(row.amount),
-        memo: typeof row.memo === 'string' && row.memo !== '' ? row.memo : undefined,
-        sortOrder: Number(row.sort_order),
-      }));
+      return ((data || []) as Record<string, unknown>[]).map(row => this.mapSplitRow(row));
     } catch (error) {
       this.logger.error('TransactionService.getTransactionSplits error:', error as Error);
       throw error;

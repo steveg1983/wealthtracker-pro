@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import compression from 'vite-plugin-compression2'
 import path from 'path'
+import fs from 'fs'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
 
@@ -17,6 +18,27 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // DEV-ONLY: serve the gitignored MS Money local seed (real financial
+    // data) from OUTSIDE public/ — public/ is copied verbatim into dist, so
+    // keeping the seed there would bundle it into a build. apply:'serve'
+    // means this route exists only on the dev server; builds never see it.
+    {
+      name: 'mny-local-seed-dev-only',
+      apply: 'serve' as const,
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.split('?')[0] !== '/mny-local-seed.json') { next(); return; }
+          const seedPath = path.resolve(process.cwd(), '.mny-local/mny-local-seed.json');
+          if (!fs.existsSync(seedPath)) {
+            res.statusCode = 404;
+            res.end('mny-local-seed.json not generated — run scripts/mnyLocalImport.mts');
+            return;
+          }
+          res.setHeader('Content-Type', 'application/json');
+          fs.createReadStream(seedPath).pipe(res);
+        });
+      },
+    },
     // Add gzip compression for better mobile performance
     compression({
       algorithms: ['gzip'],

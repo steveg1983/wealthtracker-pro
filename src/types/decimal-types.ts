@@ -25,7 +25,7 @@ export interface DecimalHolding {
 export interface DecimalAccount {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other' | 'checking';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'liability' | 'mortgage' | 'assets' | 'other' | 'checking';
   balance: DecimalInstance;
   currency: string;
   institution?: string;

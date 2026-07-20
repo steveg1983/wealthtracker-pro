@@ -27,6 +27,7 @@ import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
 import SafariWarning from './components/SafariWarning';
 import ConsentBanner from './components/ConsentBanner';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
+import { isMnyLocalImportRequested, loadMnyLocalSeed } from './utils/mnyLocalImport';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 
 // Lazy load all pages for code splitting with preload support
@@ -85,8 +86,14 @@ function App(): React.JSX.Element {
     
     // Initialize demo mode if requested
     if (isDemoMode()) {
-      initializeDemoData();
-      // Demo mode activated - Using sample data for UI/UX testing
+      // DEV-ONLY: ?demo=true&mnyimport=local loads the local MS Money seed
+      // instead of the demo sample data (a no-op in production builds).
+      if (isMnyLocalImportRequested()) {
+        void loadMnyLocalSeed();
+      } else {
+        initializeDemoData();
+        // Demo mode activated - Using sample data for UI/UX testing
+      }
     }
     
     // Simplified storage check - don't auto-clear

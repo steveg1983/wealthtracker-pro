@@ -9,6 +9,7 @@ import { UserService } from './userService';
 import { AccountService } from './accountService';
 import { TransactionService } from './transactionService';
 import { isSupabaseConfigured } from './supabaseClient';
+import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal } from '../../utils/decimal';
@@ -35,6 +36,7 @@ type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
 type SupabaseChecker = () => boolean;
+type CloudSessionChecker = () => boolean;
 type DateProvider = () => Date;
 type UuidGenerator = () => string;
 
@@ -48,6 +50,8 @@ export interface DataServiceOptions {
   now?: DateProvider;
   uuid?: UuidGenerator;
   isSupabaseConfigured?: SupabaseChecker;
+  /** Whether a signed-in (Clerk) session exists right now. */
+  hasCloudSession?: CloudSessionChecker;
 }
 
 class DataServiceImpl {
@@ -60,6 +64,7 @@ class DataServiceImpl {
   private readonly nowProvider: DateProvider;
   private readonly uuid: UuidGenerator;
   private readonly supabaseChecker: SupabaseChecker;
+  private readonly hasCloudSession: CloudSessionChecker;
 
   constructor(options: DataServiceOptions = {}) {
     this.accountService = options.accountService ?? AccountService;
@@ -82,11 +87,29 @@ class DataServiceImpl {
       return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     });
     this.supabaseChecker = options.isSupabaseConfigured ?? isSupabaseConfigured;
+    this.hasCloudSession = options.hasCloudSession ?? hasSupabaseTokenGetter;
   }
 
   private isSupabaseReady(): boolean {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     return Boolean(userId && this.supabaseChecker());
+  }
+
+  /**
+   * A signed-in (Clerk) session exists but the database user id hasn't
+   * resolved yet — still connecting, or resolution failed. In this state the
+   * browser-local fallback must NOT run: it would read demo/import data (or
+   * divert writes) inside a signed-in view. Reads return empty; writes refuse.
+   */
+  private isCloudSessionPending(): boolean {
+    return this.supabaseChecker() && this.hasCloudSession() &&
+      !this.userIdService.getCurrentDatabaseUserId();
+  }
+
+  private guardCloudWrite(): void {
+    if (this.isCloudSessionPending()) {
+      throw new Error('Still connecting to your account — please try again in a moment.');
+    }
   }
 
   private async readCollection<T>(key: string): Promise<T[]> {
@@ -123,7 +146,9 @@ class DataServiceImpl {
   async loadAppData(): Promise<AppData> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (!userId && this.supabaseChecker()) {
-      this.logger.warn('[DataService] No database ID available, using localStorage fallback');
+      this.logger.warn(this.hasCloudSession()
+        ? '[DataService] Signed in but database user id unresolved — returning empty data (local fallback blocked)'
+        : '[DataService] No database ID available, using localStorage fallback');
     }
 
     try {
@@ -153,6 +178,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.accountService.getAccounts(userId);
     }
+    if (this.isCloudSessionPending()) return [];
     return this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
   }
 
@@ -162,6 +188,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.accountService.getClosedAccounts(userId);
     }
+    if (this.isCloudSessionPending()) return [];
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     return accounts.filter(a => a.isActive === false);
   }
@@ -171,6 +198,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.accountService.createAccount(userId, account);
     }
+    this.guardCloudWrite();
 
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const newAccount: Account = {
@@ -187,6 +215,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.accountService.updateAccount(id, updates, userId);
     }
+    this.guardCloudWrite();
 
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const index = accounts.findIndex(account => account.id === id);
@@ -204,6 +233,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.accountService.deleteAccount(id, userId);
     }
+    this.guardCloudWrite();
 
     // Local mode mirrors the cloud semantics: a SOFT close (reopenable from
     // the Closed Accounts section), never a hard delete.
@@ -220,6 +250,7 @@ class DataServiceImpl {
       return this.transactionService.getTransactions(userId);
     }
 
+    if (this.isCloudSessionPending()) return [];
     return this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
   }
 
@@ -228,6 +259,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.createTransaction(userId, transaction);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const newTransaction: Transaction = {
@@ -246,6 +278,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.updateTransaction(id, updates, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const index = transactions.findIndex(transaction => transaction.id === id);
@@ -271,6 +304,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.deleteTransaction(id, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const transaction = transactions.find(t => t.id === id);
@@ -287,6 +321,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.setTransactionsCleared(ids, cleared, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const idSet = new Set(ids);
@@ -311,6 +346,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.applyCategoryToUncategorized(ids, category, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const idSet = new Set(ids);
@@ -333,6 +369,7 @@ class DataServiceImpl {
       return this.transactionService.getAllTransactionSplits(userId);
     }
 
+    if (this.isCloudSessionPending()) return [];
     return this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
   }
 
@@ -343,6 +380,7 @@ class DataServiceImpl {
       return this.transactionService.getTransactionSplits(transactionId);
     }
 
+    if (this.isCloudSessionPending()) return [];
     const stored = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
     return stored
       .filter(s => s.transactionId === transactionId)
@@ -364,6 +402,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.setTransactionSplits(transactionId, splits, expectedAmount, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const index = transactions.findIndex(t => t.id === transactionId);
@@ -376,6 +415,14 @@ class DataServiceImpl {
     }
 
     const stored = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
+    // A line that is one leg of a linked transfer is structural — replacing or
+    // removing it would strand the opposite transaction. Same v1 stance as
+    // moving a linked transfer: delete/unlink first, then edit.
+    if (stored.some(s => s.transactionId === transactionId && s.linkedTransferId)) {
+      throw new Error(
+        'This split contains a linked transfer line — delete the linked transfer first, then edit the split.'
+      );
+    }
     const others = stored.filter(s => s.transactionId !== transactionId);
 
     if (splits.length === 0) {
@@ -438,6 +485,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.linkTransferPair(idA, idB, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const a = transactions.find(t => t.id === idA);
@@ -493,6 +541,7 @@ class DataServiceImpl {
     if (userId && this.supabaseChecker()) {
       return this.transactionService.createTransferCounterpart(id, targetAccountId, userId);
     }
+    this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const source = transactions.find(t => t.id === id);
@@ -542,15 +591,21 @@ class DataServiceImpl {
     return { source: newSource, counterpart };
   }
 
+  // Budgets/goals/categories are local-only here (PlanningService owns the
+  // cloud path) — but a signed-in session must still never read them from
+  // browser-local storage, so the same pending gate applies.
   async getBudgets(): Promise<Budget[]> {
+    if (this.isCloudSessionPending()) return [];
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
 
   async getGoals(): Promise<Goal[]> {
+    if (this.isCloudSessionPending()) return [];
     return this.readCollection<Goal>(STORAGE_KEYS.GOALS);
   }
 
   async getCategories(): Promise<Category[]> {
+    if (this.isCloudSessionPending()) return [];
     return this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
   }
 

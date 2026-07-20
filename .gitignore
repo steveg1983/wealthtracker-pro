@@ -24,3 +24,10 @@ src-backup-*
 backups/
 test-results/
 playwright-report/
+
+# MS Money local import (never commit real financial data)
+.mny-local/
+public/mny-local-seed.json
+*.mny
+**/mny-local-*.json
+mny-local-seed.json
