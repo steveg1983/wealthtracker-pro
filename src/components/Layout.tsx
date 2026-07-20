@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 
 const AddTransactionModal = lazy(() => import('./AddTransactionModal'));
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, ArchiveIcon, CalendarIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -268,7 +268,6 @@ export default function Layout(): React.JSX.Element {
                 { to: '/settings/app', icon: Settings2Icon, label: 'App Settings' },
                 { to: '/settings/data', icon: DatabaseIcon, label: 'Data Management' },
                 { to: '/settings/security', icon: ShieldIcon, label: 'Security' },
-                { to: '/settings/deleted-accounts', icon: ArchiveIcon, label: 'Deleted Accounts' },
                 { to: '/subscription', icon: CreditCardIcon, label: 'Subscription' },
               ]}
               activePaths={['/settings', '/subscription']}
@@ -485,7 +484,6 @@ export default function Layout(): React.JSX.Element {
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Archived" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>
@@ -566,7 +564,6 @@ export default function Layout(): React.JSX.Element {
                       <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Deleted Accounts" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />

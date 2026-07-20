@@ -2,6 +2,7 @@ import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { AlertCircleIcon, DollarSignIcon } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import ToggleSwitch from './ui/ToggleSwitch';
 
 export default function LargeTransactionAlertSettings() {
   const { 
@@ -28,16 +29,11 @@ export default function LargeTransactionAlertSettings() {
               Get notified when adding transactions above a certain amount
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              aria-label="Large transaction alerts"
-              checked={largeTransactionAlertsEnabled}
-              onChange={(e) => setLargeTransactionAlertsEnabled(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-          </label>
+          <ToggleSwitch
+            checked={largeTransactionAlertsEnabled}
+            onChange={setLargeTransactionAlertsEnabled}
+            aria-label="Large transaction alerts"
+          />
         </div>
 
         {/* Threshold Amount */}

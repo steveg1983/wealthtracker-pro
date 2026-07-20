@@ -5,6 +5,7 @@ import PageWrapper from '../../components/PageWrapper';
 import BudgetAlertSettings from '../../components/BudgetAlertSettings';
 import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
 import LocaleSelector from '../../components/settings/LocaleSelector';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 export default function AppSettings() {
   const navigate = useNavigate();
@@ -316,16 +317,11 @@ export default function AppSettings() {
                   {toggle.description}
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={toggle.value}
-                  onChange={(e) => toggle.onChange(e.target.checked)}
-                  className="sr-only peer"
-                  aria-label={toggle.title}
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-              </label>
+              <ToggleSwitch
+                checked={toggle.value}
+                onChange={toggle.onChange}
+                aria-label={toggle.title}
+              />
             </div>
           ))}
         </div>
@@ -354,16 +350,11 @@ export default function AppSettings() {
               Show confetti and celebration messages when you achieve your goals
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={enableGoalCelebrations}
-              onChange={(e) => setEnableGoalCelebrations(e.target.checked)}
-              className="sr-only peer"
-              aria-label="Enable goal celebrations"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-          </label>
+          <ToggleSwitch
+            checked={enableGoalCelebrations}
+            onChange={setEnableGoalCelebrations}
+            aria-label="Enable goal celebrations"
+          />
         </div>
       </div>
     </PageWrapper>

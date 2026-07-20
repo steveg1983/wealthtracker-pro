@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -8,7 +8,14 @@ import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { ArchiveIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon } from '../components/icons';
+import BankingCriticalIncidentBadge from '../components/BankingCriticalIncidentBadge';
+import { LoadingState } from '../components/loading/LoadingState';
+import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
+
+// Bank connection management lives on this page (the natural home for it);
+// the Data Management page keeps only its URL-driven deep links for ops alerts.
+const BankConnections = lazy(() => import('../components/BankConnections'));
 import type { Account } from '../types';
 
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
@@ -29,6 +36,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const navigate = useNavigate();
   const location = useLocation();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // null = closed; 'critical'/'jwks' preset the ops filters the incident
+  // badges deep-link to (mirrors the Data Management handlers).
+  const [bankConnectionsView, setBankConnectionsView] = useState<null | 'plain' | 'critical' | 'jwks'>(null);
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -534,7 +544,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         );
       })()}
 
-      {/* Group + sort controls */}
+      {/* Group + sort controls, with bank connections on the right */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Group by:</span>
@@ -600,6 +610,17 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
               Value {sortMode === 'balance-asc' ? '↑' : '↓'}
             </button>
           </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <BankingCriticalIncidentBadge onClick={() => setBankConnectionsView('critical')} />
+          <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={() => setBankConnectionsView('jwks')} />
+          <button
+            onClick={() => setBankConnectionsView('plain')}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <BankIcon size={16} />
+            Bank Connections
+          </button>
         </div>
       </div>
 
@@ -741,10 +762,39 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       </div>{/* end desktop flex column */}
 
       <AddAccountModal
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
       />
-      
+
+      {/* Bank Connections Modal (badge clicks preset the ops filters) */}
+      {bankConnectionsView !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Connections</h2>
+              <button
+                onClick={() => setBankConnectionsView(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Close bank connections"
+              >
+                <XCircleIcon size={24} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+              <Suspense fallback={<LoadingState />}>
+                <BankConnections
+                  onAccountsLinked={() => { void refreshAccountsAndTransactions(); }}
+                  defaultOpsOnlyAboveThreshold={bankConnectionsView !== 'plain'}
+                  defaultOpsEventTypePrefix={bankConnectionsView === 'jwks' ? TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX : undefined}
+                  defaultOpenOpsAuditLog={bankConnectionsView === 'critical'}
+                  defaultOpsAuditStatus={bankConnectionsView === 'critical' ? 'failed' : undefined}
+                />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Balance Adjustment Modal */}
       {/* Portfolio View Modal */}
       {portfolioAccountId && (() => {

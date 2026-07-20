@@ -10,6 +10,7 @@ import {
 } from './icons';
 import type { NotificationSettings as NotificationSettingsType } from '../services/mobileService';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import ToggleSwitch from './ui/ToggleSwitch';
 
 interface NotificationSettingsProps {
   isOpen: boolean;
@@ -127,23 +128,12 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                   Receive all types of notifications
                 </p>
               </div>
-              <button
-                onClick={() => handleSettingChange('enabled', !settings.enabled)}
+              <ToggleSwitch
+                checked={settings.enabled && hasPermission}
+                onChange={v => handleSettingChange('enabled', v)}
                 disabled={!hasPermission}
                 aria-label="Push notifications"
-                aria-pressed={settings.enabled}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.enabled && hasPermission
-                    ? 'bg-[var(--color-primary)]'
-                    : 'bg-gray-200 dark:bg-gray-700'
-                } ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.enabled && hasPermission ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              />
             </div>
 
             {/* Budget Alerts */}
@@ -159,23 +149,12 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => handleSettingChange('budgetAlerts', !settings.budgetAlerts)}
-                aria-label="Budget alert notifications"
-                aria-pressed={settings.budgetAlerts}
+              <ToggleSwitch
+                checked={settings.budgetAlerts && settings.enabled}
+                onChange={v => handleSettingChange('budgetAlerts', v)}
                 disabled={!settings.enabled}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.budgetAlerts && settings.enabled
-                    ? 'bg-[var(--color-primary)]'
-                    : 'bg-gray-200 dark:bg-gray-700'
-                } ${!settings.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.budgetAlerts && settings.enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+                aria-label="Budget alert notifications"
+              />
             </div>
 
             {/* Bill Reminders */}
@@ -191,23 +170,12 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => handleSettingChange('billReminders', !settings.billReminders)}
-                aria-label="Bill reminder notifications"
-                aria-pressed={settings.billReminders}
+              <ToggleSwitch
+                checked={settings.billReminders && settings.enabled}
+                onChange={v => handleSettingChange('billReminders', v)}
                 disabled={!settings.enabled}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.billReminders && settings.enabled
-                    ? 'bg-[var(--color-primary)]'
-                    : 'bg-gray-200 dark:bg-gray-700'
-                } ${!settings.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.billReminders && settings.enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+                aria-label="Bill reminder notifications"
+              />
             </div>
 
             {/* Expense Threshold */}
@@ -246,23 +214,12 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleQuietHoursChange('enabled', !settings.quietHours.enabled)}
-                  aria-label="Quiet hours"
-                  aria-pressed={settings.quietHours.enabled}
-                  disabled={!settings.enabled}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.quietHours.enabled && settings.enabled
-                      ? 'bg-[var(--color-primary)]'
-                      : 'bg-gray-200 dark:bg-gray-700'
-                  } ${!settings.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      settings.quietHours.enabled && settings.enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
+                <ToggleSwitch
+                checked={settings.quietHours.enabled && settings.enabled}
+                onChange={v => handleQuietHoursChange('enabled', v)}
+                disabled={!settings.enabled}
+                aria-label="Quiet hours"
+              />
               </div>
 
               {settings.quietHours.enabled && settings.enabled && (

@@ -111,16 +111,22 @@ export function FocusIndicator() {
         outline: none;
       }
 
-      /* Ensure interactive elements have minimum size */
-      button, a, input, select, textarea, [role="button"] {
-        min-height: 44px;
-        min-width: 44px;
-      }
+      /* Ensure interactive elements have minimum TOUCH target size.
+         Scoped to coarse pointers: applying this on desktop inflated every
+         compact control (toggle switches rendered as 44x44 blobs). Controls
+         with their own >=44px hit area via padding (.toggle-switch) are
+         exempt everywhere. */
+      @media (hover: none) and (pointer: coarse) {
+        button:not(.toggle-switch), a, input, select, textarea, [role="button"] {
+          min-height: 44px;
+          min-width: 44px;
+        }
 
-      /* Exception for inline links */
-      p a, li a, span a {
-        min-height: auto;
-        min-width: auto;
+        /* Exception for inline links */
+        p a, li a, span a {
+          min-height: auto;
+          min-width: auto;
+        }
       }
     `}} />
   );

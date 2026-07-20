@@ -4,6 +4,7 @@ import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import type { Account as BaseAccount } from '../types';
+import ToggleSwitch from './ui/ToggleSwitch';
 
 // Extend the base Account type with additional fields needed for settings
 // (type comes from BaseAccount — the single canonical union).
@@ -282,20 +283,11 @@ export default function AccountSettingsModal({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Low Balance Alert
               </label>
-              <button
-                type="button"
-                onClick={() => updateField('lowBalanceAlertEnabled', !formData.lowBalanceAlertEnabled)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                  formData.lowBalanceAlertEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-                role="switch"
-                aria-checked={formData.lowBalanceAlertEnabled ? 'true' : 'false'}
+              <ToggleSwitch
+                checked={!!formData.lowBalanceAlertEnabled}
+                onChange={v => updateField('lowBalanceAlertEnabled', v)}
                 aria-label="Toggle low balance alert"
-              >
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-                  formData.lowBalanceAlertEnabled ? 'translate-x-4.5' : 'translate-x-0.5'
-                }`} />
-              </button>
+              />
             </div>
             {formData.lowBalanceAlertEnabled && (
               <div className="mt-1">

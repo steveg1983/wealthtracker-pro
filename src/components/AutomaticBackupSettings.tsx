@@ -17,6 +17,7 @@ import {
 } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import ToggleSwitch from './ui/ToggleSwitch';
 
 type BackupHistoryEntry = {
   timestamp: number;
@@ -154,20 +155,11 @@ export default function AutomaticBackupSettings() {
               Automatically backup your data at scheduled intervals
             </p>
           </div>
-          <button
-            onClick={() => handleConfigChange({ enabled: !config.enabled })}
+          <ToggleSwitch
+            checked={config.enabled}
+            onChange={enabled => handleConfigChange({ enabled })}
             aria-label="Automatic backups"
-            aria-pressed={config.enabled}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              config.enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                config.enabled ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
+          />
         </div>
 
         {config.enabled && (
@@ -230,20 +222,11 @@ export default function AutomaticBackupSettings() {
                     Protect your backup files with encryption
                   </p>
                 </div>
-                <button
-                  onClick={() => handleConfigChange({ encryptionEnabled: !config.encryptionEnabled })}
+                <ToggleSwitch
+                  checked={config.encryptionEnabled}
+                  onChange={encryptionEnabled => handleConfigChange({ encryptionEnabled })}
                   aria-label="Encrypt backups"
-                  aria-pressed={config.encryptionEnabled}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    config.encryptionEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      config.encryptionEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
+                />
               </div>
 
               <div>

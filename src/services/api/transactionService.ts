@@ -135,12 +135,13 @@ class TransactionServiceImpl {
 
       // Supabase caps responses at 1000 rows by default — without explicit
       // paging, users with more transactions silently lose data from view.
-      // Page through the full history with .range() until exhausted.
+      // A full Money-era history is 50k+ rows (50+ pages), so pages are
+      // fetched IN PARALLEL (count first, bounded concurrency) — sequential
+      // paging made every app load a ~50-round-trip wait.
       const PAGE_SIZE = 1000;
-      const rows: Record<string, unknown>[] = [];
-      let from = 0;
+      const CONCURRENCY = 6;
 
-      for (;;) {
+      const fetchPage = async (from: number): Promise<Record<string, unknown>[]> => {
         const { data, error } = await client
           .from('transactions')
           .select('*')
@@ -148,19 +149,43 @@ class TransactionServiceImpl {
           .order('date', { ascending: false })
           .order('id', { ascending: false }) // stable tiebreak for paging
           .range(from, from + PAGE_SIZE - 1);
-
         if (error) {
           this.logger.error('Error fetching transactions:', error);
           throw new Error(handleSupabaseError(error));
         }
+        return (data || []) as Record<string, unknown>[];
+      };
 
-        const page = (data || []) as Record<string, unknown>[];
-        rows.push(...page);
+      const { count, error: countError } = await client
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      if (countError) {
+        this.logger.error('Error counting transactions:', countError);
+        throw new Error(handleSupabaseError(countError));
+      }
 
-        if (page.length < PAGE_SIZE) {
-          break;
+      const pages = Math.ceil((count ?? 0) / PAGE_SIZE);
+      const results: Record<string, unknown>[][] = new Array<Record<string, unknown>[]>(pages);
+      let nextPage = 0;
+      const worker = async (): Promise<void> => {
+        for (;;) {
+          const i = nextPage++;
+          if (i >= pages) return;
+          results[i] = await fetchPage(i * PAGE_SIZE);
         }
-        from += PAGE_SIZE;
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pages) }, worker));
+
+      const rows = results.flat();
+      // Rows inserted between the count and the page fetches land past the
+      // last page — keep the old sequential tail walk for that (rare) case.
+      if (pages > 0 && (results[pages - 1]?.length ?? 0) === PAGE_SIZE) {
+        for (let from = pages * PAGE_SIZE; ; from += PAGE_SIZE) {
+          const tail = await fetchPage(from);
+          rows.push(...tail);
+          if (tail.length < PAGE_SIZE) break;
+        }
       }
 
       return rows.map(row => mapFromDbFields(row)) as unknown as Transaction[];

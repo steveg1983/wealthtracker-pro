@@ -19,9 +19,11 @@
 
 /* Touch Target Optimization */
 @media (hover: none) and (pointer: coarse) {
-  /* Ensure all interactive elements have minimum touch target size */
+  /* Ensure all interactive elements have minimum touch target size.
+     .toggle-switch is exempt — it carries its own ≥44px hit area via
+     padding while the visible track stays slim. */
   .touch-target,
-  button,
+  button:not(.toggle-switch),
   a,
   input,
   select,
@@ -523,8 +525,9 @@ button.rounded-full:focus-visible,
       border-radius: 8px;
     }
     
-    /* Larger buttons on mobile */
-    button {
+    /* Larger buttons on mobile (.toggle-switch keeps its own ≥44px hit
+       area via padding — see ToggleSwitch) */
+    button:not(.toggle-switch) {
       @apply min-h-[48px] touch-target;
     }
     
