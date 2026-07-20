@@ -200,7 +200,9 @@ interface CardBalancesResponse {
  * The user's cards on this connection. A connection authorised BEFORE the
  * `cards` scope was added will be rejected with 403 — treated as "no cards"
  * so pre-existing bank connections keep syncing untouched; the user re-links
- * to pick up card access.
+ * to pick up card access. 501 endpoint_not_supported (a provider with no
+ * cards surface) is likewise "no cards" — deterministic per provider, so
+ * tolerating it cannot mask a transient failure.
  */
 export const fetchCards = async (accessToken: string): Promise<TrueLayerCard[]> => {
   const response = await fetch(`${getApiBaseUrl()}/data/v1/cards`, {
@@ -209,7 +211,7 @@ export const fetchCards = async (accessToken: string): Promise<TrueLayerCard[]> 
     }
   });
 
-  if (response.status === 403) {
+  if (response.status === 403 || response.status === 501) {
     return [];
   }
   if (!response.ok) {
@@ -290,6 +292,15 @@ export const fetchAccounts = async (accessToken: string): Promise<TrueLayerAccou
     }
   });
 
+  // Cards-only providers (e.g. American Express) reject the bank-accounts
+  // surface with 501 endpoint_not_supported — a deterministic per-provider
+  // response, so "no bank accounts" is the truth, not an error. ONLY 501 is
+  // tolerated: any other failure must still throw, because sync-accounts
+  // prunes stale links against this result and a transient failure mapped to
+  // [] would delete the user's account links.
+  if (response.status === 501) {
+    return [];
+  }
   if (!response.ok) {
     const details = await response.text();
     throw new Error(`TrueLayer accounts fetch failed: ${response.status} ${details}`);
