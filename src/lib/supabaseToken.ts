@@ -19,6 +19,16 @@ export function registerSupabaseTokenGetter(getter: TokenGetter | null): void {
   clerkTokenGetter = getter;
 }
 
+/**
+ * Whether a Clerk session is currently registered. The getter is registered
+ * exactly while a user is signed in (AuthContext), so this doubles as the
+ * data layer's "signed-in session exists" signal — used to stop local-storage
+ * fallbacks from leaking demo/import data into a signed-in view.
+ */
+export function hasSupabaseTokenGetter(): boolean {
+  return clerkTokenGetter !== null;
+}
+
 export async function getSupabaseAccessToken(): Promise<string | null> {
   if (!clerkTokenGetter) {
     return null;

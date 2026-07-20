@@ -122,6 +122,111 @@ describe('DataService (deterministic fallback)', () => {
     expect(data.categories).toHaveLength(1);
   });
 
+  it('refuses to edit or un-split a split containing a linked transfer line', async () => {
+    // A split whose second line is one leg of a transfer (the counterpart
+    // transaction points back at it). Replacing or removing the lines would
+    // strand the counterpart, so both must be rejected.
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount()],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({ id: 'split-parent', amount: -100, isSplit: true, category: '' }),
+        baseTransaction({
+          id: 'counterpart',
+          accountId: 'acct-2',
+          amount: 30,
+          type: 'transfer',
+          linkedTransferId: 'split-parent',
+          linkedTransferSplitId: 'line-2'
+        })
+      ],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [
+        { id: 'line-1', transactionId: 'split-parent', category: 'food', amount: -70, sortOrder: 1 },
+        {
+          id: 'line-2',
+          transactionId: 'split-parent',
+          category: 'tofrom-acct-2',
+          amount: -30,
+          sortOrder: 2,
+          transferAccountId: 'acct-2',
+          linkedTransferId: 'counterpart'
+        }
+      ]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+
+    await expect(
+      service.setTransactionSplits(
+        'split-parent',
+        [
+          { category: 'food', amount: -50 },
+          { category: 'travel', amount: -50 }
+        ],
+        -100
+      )
+    ).rejects.toThrow(/linked transfer line/);
+    await expect(service.setTransactionSplits('split-parent', [], null)).rejects.toThrow(
+      /linked transfer line/
+    );
+    // nothing was persisted — the split and its leg line survive intact
+    expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(2);
+  });
+
+  it('never falls back to local storage while a signed-in session is still resolving', async () => {
+    // A Clerk session exists (hasCloudSession true) but the database user id
+    // hasn't resolved — e.g. during init, or when resolution fails. Local
+    // storage holds demo/import data that must NOT leak into the signed-in
+    // view, and writes must refuse rather than divert into local storage.
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [
+        baseAccount({ id: 'demo-open' }),
+        baseAccount({ id: 'demo-closed', isActive: false })
+      ],
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction()],
+      [STORAGE_KEYS.BUDGETS]: [{ id: 'demo-budget' }],
+      [STORAGE_KEYS.CATEGORIES]: [{ id: 'demo-cat' }]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => true,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId // getCurrentDatabaseUserId → null
+    });
+
+    expect(await service.getAccounts()).toEqual([]);
+    expect(await service.getClosedAccounts()).toEqual([]);
+    expect(await service.getTransactions()).toEqual([]);
+    expect(await service.getAllTransactionSplits()).toEqual([]);
+    expect(await service.getBudgets()).toEqual([]);
+    expect(await service.getCategories()).toEqual([]);
+    await expect(service.createTransaction(baseTransaction({ id: undefined as never })))
+      .rejects.toThrow(/Still connecting/);
+    await expect(service.deleteAccount('demo-open')).rejects.toThrow(/Still connecting/);
+    expect(storage.set).not.toHaveBeenCalled();
+
+    // No session at all (demo / local-only mode): the local fallback still works.
+    const localService = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => false,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+    expect(await localService.getAccounts()).toHaveLength(2);
+    expect(await localService.getClosedAccounts()).toHaveLength(1);
+  });
+
   it('allows static DataService reconfiguration for tests', async () => {
     const storage = createStorage({
       [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'static-account' })]

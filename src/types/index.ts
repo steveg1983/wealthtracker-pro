@@ -16,7 +16,7 @@ export interface Holding {
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other' | 'checking';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'liability' | 'mortgage' | 'assets' | 'other' | 'checking';
   balance: number;
   currency: string;
   institution?: string;
@@ -82,6 +82,13 @@ export interface Transaction {
   addedBy?: string; // Member ID who added this transaction
   linkedTransferId?: string; // ID of the corresponding transfer transaction in the other account
   transferAccountId?: string; // Account ID of the other side of a transfer
+  /**
+   * When the linked side is a SPLIT transaction (this leg's opposite is one
+   * line inside it, not the whole row): the id of that TransactionSplit line.
+   * linkedTransferId then points at the split parent. Absent for ordinary
+   * transaction↔transaction pairs.
+   */
+  linkedTransferSplitId?: string;
 
   // Transfer-specific metadata for wealth management
   transferMetadata?: {
@@ -152,6 +159,15 @@ export interface TransactionSplit {
   amount: number;
   memo?: string;
   sortOrder: number;
+  /**
+   * Set when this LINE is one leg of a transfer (the Microsoft Money model —
+   * a transfer recorded inside a split): the account on the other side, and
+   * the counterpart transaction over there. The counterpart's
+   * linkedTransferId points back at this line's parent transaction, and its
+   * linkedTransferSplitId at this line.
+   */
+  transferAccountId?: string;
+  linkedTransferId?: string;
 }
 
 /** Input for creating/replacing a transaction's splits (ids are server-assigned). */
