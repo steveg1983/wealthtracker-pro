@@ -10,7 +10,8 @@ import { applyRateLimit } from '../_lib/rate-limit.js';
 import { encryptSecret } from '../_lib/encryption.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { decodeStateToken } from '../_lib/state.js';
-import { exchangeCodeForToken, fetchAccounts } from '../_lib/truelayer.js';
+import { exchangeCodeForToken, fetchAccounts, fetchCards } from '../_lib/truelayer.js';
+import type { TrueLayerAccount, TrueLayerCard } from '../_lib/truelayer.js';
 import { withSentry } from '../_lib/sentry.js';
 
 interface ProviderMetadata {
@@ -19,16 +20,16 @@ interface ProviderMetadata {
   logo?: string;
 }
 
-const getProviderFromAccounts = (
-  accounts: Array<{
+const getProviderMetadata = (
+  sources: Array<{
     provider?: {
       provider_id: string;
       display_name: string;
       logo_uri?: string;
     };
   }>
-): ProviderMetadata => {
-  const provider = accounts[0]?.provider;
+): ProviderMetadata | null => {
+  const provider = sources.find((source) => source.provider)?.provider;
   if (provider) {
     return {
       id: provider.provider_id,
@@ -36,10 +37,7 @@ const getProviderFromAccounts = (
       logo: provider.logo_uri
     };
   }
-  return {
-    id: `truelayer-${Date.now()}`,
-    name: 'Unknown institution'
-  };
+  return null;
 };
 
 async function handler(req: VercelRequest, res: VercelResponse) {
@@ -85,15 +83,24 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       name: 'Unknown institution'
     };
 
+    // Cards (e.g. Amex) live on a separate TrueLayer surface, and cards-only
+    // providers reject the bank-accounts endpoint entirely — so fetch each
+    // surface independently and let either one identify the institution.
+    let accounts: TrueLayerAccount[] = [];
+    let cards: TrueLayerCard[] = [];
     try {
-      const accounts = await fetchAccounts(accessToken);
-      accountsCount = accounts.length;
-      if (accounts.length > 0) {
-        providerMetadata = getProviderFromAccounts(accounts);
-      }
+      accounts = await fetchAccounts(accessToken);
     } catch (accountError) {
       console.warn('Failed to fetch account details from TrueLayer', accountError);
     }
+    try {
+      cards = await fetchCards(accessToken);
+    } catch (cardError) {
+      console.warn('Failed to fetch card details from TrueLayer', cardError);
+    }
+
+    accountsCount = accounts.length + cards.length;
+    providerMetadata = getProviderMetadata([...accounts, ...cards]) ?? providerMetadata;
 
     const nowIso = new Date().toISOString();
     const connectionPayload = {
