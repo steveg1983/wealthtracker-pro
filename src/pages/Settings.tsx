@@ -1,4 +1,4 @@
-import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon, ArchiveIcon } from '../components/icons';
+import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon } from '../components/icons';
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
@@ -48,13 +48,6 @@ export default function Settings() {
       icon: EyeIcon,
       path: '/settings/accessibility',
       color: 'bg-pink-500'
-    },
-    {
-      title: 'Deleted Accounts',
-      description: 'View and restore deleted accounts',
-      icon: ArchiveIcon,
-      path: '/settings/deleted-accounts',
-      color: 'bg-gray-500'
     }
   ];
 

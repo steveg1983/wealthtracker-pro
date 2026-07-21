@@ -1,10 +1,8 @@
 import { useState, lazy, Suspense, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
-import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../../constants/bankingOps';
-import BankingCriticalIncidentBadge from '../../components/BankingCriticalIncidentBadge';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
 
 // Lazy load heavy components to reduce initial bundle size
@@ -88,69 +86,6 @@ export default function DataManagementSettings() {
     setShowTestDataConfirm(false);
   };
 
-  const openBankConnections = () => {
-    setShowBankConnectionsWithCriticalFilter(false);
-    setShowBankConnectionsWithOpsEventType(undefined);
-    setShowBankConnectionsWithOpsEventPrefix(undefined);
-    setShowBankConnectionsWithFailedAuditFilter(false);
-    setShowBankConnectionsWithAuditStatus(undefined);
-    setShowBankConnectionsWithAuditScope(undefined);
-    setShowBankConnectionsWithAuditDateRangePreset(undefined);
-    setShowBankConnections(true);
-    replaceBankingOpsQueryState({
-      modalOpen: true,
-      onlyAboveThreshold: false,
-      eventType: null,
-      eventTypePrefix: null,
-      auditOpen: false,
-      auditStatus: null,
-      auditScope: null,
-      auditDateRangePreset: null
-    });
-  };
-
-  const openBankConnectionsWithCriticalFilter = () => {
-    setShowBankConnectionsWithCriticalFilter(true);
-    setShowBankConnectionsWithOpsEventType(undefined);
-    setShowBankConnectionsWithOpsEventPrefix(undefined);
-    setShowBankConnectionsWithFailedAuditFilter(true);
-    setShowBankConnectionsWithAuditStatus('failed');
-    setShowBankConnectionsWithAuditScope(undefined);
-    setShowBankConnectionsWithAuditDateRangePreset(undefined);
-    setShowBankConnections(true);
-    replaceBankingOpsQueryState({
-      modalOpen: true,
-      onlyAboveThreshold: true,
-      eventType: null,
-      eventTypePrefix: null,
-      auditOpen: true,
-      auditStatus: 'failed',
-      auditScope: null,
-      auditDateRangePreset: null
-    });
-  };
-
-  const openBankConnectionsWithJwksCircuitFilter = () => {
-    setShowBankConnectionsWithCriticalFilter(true);
-    setShowBankConnectionsWithOpsEventType(undefined);
-    setShowBankConnectionsWithOpsEventPrefix(TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX);
-    setShowBankConnectionsWithFailedAuditFilter(false);
-    setShowBankConnectionsWithAuditStatus(undefined);
-    setShowBankConnectionsWithAuditScope(undefined);
-    setShowBankConnectionsWithAuditDateRangePreset(undefined);
-    setShowBankConnections(true);
-    replaceBankingOpsQueryState({
-      modalOpen: true,
-      onlyAboveThreshold: true,
-      eventType: null,
-      eventTypePrefix: TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX,
-      auditOpen: false,
-      auditStatus: null,
-      auditScope: null,
-      auditDateRangePreset: null
-    });
-  };
-
   const closeBankConnections = () => {
     setShowBankConnections(false);
     setShowBankConnectionsWithCriticalFilter(false);
@@ -183,24 +118,9 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      {/* Bank Connections */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Bank Connections</h3>
-          <BankingCriticalIncidentBadge onClick={openBankConnectionsWithCriticalFilter} />
-          <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={openBankConnectionsWithJwksCircuitFilter} />
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            onClick={openBankConnections}
-            className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center justify-center gap-2"
-          >
-            <Building2Icon size={20} />
-            Manage Bank Connections
-          </button>
-        </div>
-      </div>
+      {/* Bank connection MANAGEMENT lives on the Accounts page now; this page
+          keeps only the URL-driven modal below so ops alert deep links
+          (banking incident emails) keep working. */}
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>

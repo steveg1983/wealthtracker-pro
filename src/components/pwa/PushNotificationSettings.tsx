@@ -5,8 +5,9 @@
 
 import React from 'react';
 import { usePushNotifications } from '../../services/pushNotificationService';
-import { 
-  BellIcon, 
+import ToggleSwitch from '../ui/ToggleSwitch';
+import {
+  BellIcon,
   BellOffIcon,
   CheckIcon,
   AlertCircleIcon,
@@ -134,20 +135,12 @@ export const PushNotificationSettings: React.FC = () => {
             </div>
           </div>
           
-          <button
-            onClick={handleToggleNotifications}
+          <ToggleSwitch
+            checked={isSubscribed}
+            onChange={() => handleToggleNotifications()}
             disabled={isLoading || permission === 'denied'}
             aria-label="Push notifications"
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              isSubscribed ? 'bg-[#1a2332]' : 'bg-gray-200 dark:bg-gray-700'
-            } ${isLoading || permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                isSubscribed ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
+          />
         </div>
 
         {permission === 'denied' && (
@@ -208,20 +201,11 @@ export const PushNotificationSettings: React.FC = () => {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => handlePreferenceChange(key, !preferences[key])}
+                  <ToggleSwitch
+                    checked={Boolean(preferences[key])}
+                    onChange={v => handlePreferenceChange(key, v)}
                     aria-label={`Notification preference: ${key}`}
-                    aria-pressed={Boolean(preferences[key])}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      preferences[key] ? 'bg-[#1a2332]' : 'bg-gray-200 dark:bg-gray-700'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        preferences[key] ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+                  />
                 </div>
               </div>
             ))}

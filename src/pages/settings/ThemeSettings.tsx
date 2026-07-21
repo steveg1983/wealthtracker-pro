@@ -18,6 +18,7 @@ import {
 import PageWrapper from '../../components/PageWrapper';
 import { formatDecimal } from '../../utils/decimal-format';
 import { createScopedLogger } from '../../loggers/scopedLogger';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 const themeSettingsLogger = createScopedLogger('ThemeSettingsPage');
 
@@ -454,9 +455,7 @@ export default function ThemeSettings() {
                       Automatically use your operating system's theme preference
                     </p>
                   </div>
-                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-gray-300 dark:bg-gray-600 transition-colors" role="switch" aria-checked="false" aria-label="Follow system theme">
-                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-0.5 transition-transform" />
-                  </button>
+                  <ToggleSwitch checked={false} onChange={() => {}} disabled aria-label="Follow system theme" className="ml-4" />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -466,9 +465,7 @@ export default function ThemeSettings() {
                       Allow scheduled themes to override system settings
                     </p>
                   </div>
-                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-primary transition-colors" role="switch" aria-checked="true" aria-label="Override system preferences">
-                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-4.5 transition-transform" />
-                  </button>
+                  <ToggleSwitch checked={true} onChange={() => {}} disabled aria-label="Override system preferences" className="ml-4" />
                 </div>
               </div>
             </div>
@@ -483,9 +480,7 @@ export default function ThemeSettings() {
                       Enable animated transitions when switching themes
                     </p>
                   </div>
-                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-primary transition-colors" role="switch" aria-checked="true" aria-label="Smooth transitions">
-                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-4.5 transition-transform" />
-                  </button>
+                  <ToggleSwitch checked={true} onChange={() => {}} disabled aria-label="Smooth transitions" className="ml-4" />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -495,9 +490,7 @@ export default function ThemeSettings() {
                       Minimize animations for better performance
                     </p>
                   </div>
-                  <button type="button" className="relative ml-4 inline-flex h-5 w-9 items-center rounded-full bg-gray-300 dark:bg-gray-600 transition-colors" role="switch" aria-checked="false" aria-label="Reduce motion">
-                    <span className="inline-block h-3.5 w-3.5 rounded-full bg-white translate-x-0.5 transition-transform" />
-                  </button>
+                  <ToggleSwitch checked={false} onChange={() => {}} disabled aria-label="Reduce motion" className="ml-4" />
                 </div>
               </div>
             </div>

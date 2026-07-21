@@ -247,7 +247,10 @@ export class AutomaticBackupService {
     const data: Record<string, unknown> = {
       version: '2.0',
       timestamp: new Date().toISOString(),
-      app_version: process.env.REACT_APP_VERSION || '1.4.7',
+      // import.meta.env, not process.env — `process` doesn't exist in the
+      // browser bundle and the stray CRA-ism made every scheduled backup
+      // throw before writing anything.
+      app_version: import.meta.env.VITE_APP_VERSION || '1.4.7',
     };
     
     for (const key of keys) {

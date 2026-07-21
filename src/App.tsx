@@ -51,7 +51,6 @@ const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-setti
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
 const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories" */ './pages/settings/Categories'));
 const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
-const DeletedAccounts = lazyWithPreload(() => import(/* webpackChunkName: "deleted-accounts" */ './pages/settings/DeletedAccounts'));
 const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "security-settings" */ './pages/settings/SecuritySettings'));
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
 const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
@@ -321,11 +320,6 @@ function App(): React.JSX.Element {
                     <Route path="accessibility" element={
                       <ProtectedSuspense>
                         <AccessibilitySettings />
-                      </ProtectedSuspense>
-                    } />
-                    <Route path="deleted-accounts" element={
-                      <ProtectedSuspense>
-                        <DeletedAccounts />
                       </ProtectedSuspense>
                     } />
                     <Route path="security" element={

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { BellIcon, AlertCircleIcon } from './icons';
 import { formatDecimal } from '../utils/decimal-format';
+import ToggleSwitch from './ui/ToggleSwitch';
 
 export default function BudgetAlertSettings() {
   const { 
@@ -27,16 +28,11 @@ export default function BudgetAlertSettings() {
               Get notified when you're approaching or exceeding budget limits
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              aria-label="Budget alerts"
-              checked={budgetAlertsEnabled}
-              onChange={(e) => setBudgetAlertsEnabled(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-          </label>
+          <ToggleSwitch
+            checked={budgetAlertsEnabled}
+            onChange={setBudgetAlertsEnabled}
+            aria-label="Budget alerts"
+          />
         </div>
 
         {/* Alert Threshold */}
