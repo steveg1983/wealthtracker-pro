@@ -564,7 +564,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setOptions(prev => ({ ...prev, format: 'pdf' }))}
-                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                    className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
                       options.format === 'pdf'
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                         : 'border-gray-200 dark:border-gray-700'
@@ -577,7 +577,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                   
                   <button
                     onClick={() => setOptions(prev => ({ ...prev, format: 'excel' }))}
-                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                    className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
                       options.format === 'excel'
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                         : 'border-gray-200 dark:border-gray-700'
@@ -590,7 +590,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                   
                   <button
                     onClick={() => setOptions(prev => ({ ...prev, format: 'csv' }))}
-                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                    className={`flex-1 justify-center p-3 rounded-lg border-2 transition-all ${
                       options.format === 'csv'
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                         : 'border-gray-200 dark:border-gray-700'

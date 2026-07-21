@@ -117,7 +117,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
           <div className="flex gap-3 mt-6">
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
+              className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
             >
               Get Started
             </button>

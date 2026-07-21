@@ -76,13 +76,13 @@ export default function PWAInstallPrompt() {
         <div className="flex space-x-2">
           <button
             onClick={handleInstall}
-            className="flex-1 bg-[#8EA9DB] hover:bg-[#7A97C9] text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            className="flex-1 justify-center bg-[#8EA9DB] hover:bg-[#7A97C9] text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
             Install
           </button>
           <button
             onClick={handleLater}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors"
+            className="flex-1 justify-center bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors"
           >
             Later
           </button>

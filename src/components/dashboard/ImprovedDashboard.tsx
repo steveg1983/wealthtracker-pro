@@ -21,6 +21,7 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
+import EditTransactionModal from '../EditTransactionModal';
 import { Modal, ModalBody } from '../common/Modal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
@@ -44,6 +45,10 @@ export function ImprovedDashboard() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
+  // A row in the breakdown list opens the full editor — check details, fix a
+  // category — and the list re-derives live, so a re-categorised transaction
+  // drops out of it immediately.
+  const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   
   // Load saved preferences from localStorage
   useEffect(() => {
@@ -383,7 +388,12 @@ export function ImprovedDashboard() {
                 }
 
                 return monthlyTxns.map(t => (
-                  <tr key={t.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                  <tr
+                    key={t.id}
+                    onClick={() => setEditingBreakdownTxnId(t.id)}
+                    className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                    title="Click to view or edit this transaction"
+                  >
                     <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                     </td>
@@ -412,6 +422,15 @@ export function ImprovedDashboard() {
           </table>
         </ModalBody>
       </Modal>
+
+      {/* Edit a transaction straight from the breakdown list */}
+      {editingBreakdownTxnId && (
+        <EditTransactionModal
+          isOpen
+          onClose={() => setEditingBreakdownTxnId(null)}
+          transaction={transactions.find(t => t.id === editingBreakdownTxnId) ?? null}
+        />
+      )}
 
       {/* Budget Status Section - Shows current budget progress */}
       {metrics.budgetStatus.length > 0 && (
@@ -465,7 +484,7 @@ export function ImprovedDashboard() {
             {metrics.budgetStatus.length > 3 && (
               <button 
                 onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-                className="w-full mt-2 py-2 text-blue-700 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                className="w-full justify-center mt-2 py-2 text-blue-700 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               >
                 View All Budgets ({metrics.budgetStatus.length}) →
               </button>
@@ -769,7 +788,7 @@ export function ImprovedDashboard() {
           {metrics.recentActivity.length > 10 && (
             <button 
               onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
-              className="w-full mt-4 py-2 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+              className="w-full justify-center mt-4 py-2 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
               aria-label="View all transactions"
             >
               View All Transactions →

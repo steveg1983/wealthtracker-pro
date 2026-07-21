@@ -457,14 +457,14 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                 setShowTestDataWarning(false);
               }}
               disabled={parsing || importing}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={handleImport}
               disabled={!preview || importing || parsing || preview.accounts.length === 0}
-              className={`flex-1 px-4 py-2 rounded-lg ${
+              className={`flex-1 justify-center px-4 py-2 rounded-lg ${
                 preview && !importing && !parsing && preview.accounts.length > 0
                   ? 'bg-[#1a2332] text-white hover:bg-secondary'
                   : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
@@ -514,19 +514,19 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             <div className="flex gap-3">
               <button
                 onClick={() => setShowTestDataWarning(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleContinueWithTestData}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                className="flex-1 justify-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
               >
                 Continue
               </button>
               <button
                 onClick={handleClearAndImport}
-                className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
+                className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
               >
                 Clear & Import
               </button>

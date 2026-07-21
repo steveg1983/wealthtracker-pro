@@ -242,13 +242,13 @@ export default function SubscriptionStatus(): React.JSX.Element {
             <>
               <button
                 onClick={() => handleUpgrade('premium')}
-                className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
+                className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
               >
                 Upgrade to Premium
               </button>
               <button
                 onClick={() => handleUpgrade('pro')}
-                className="flex-1 px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                className="flex-1 justify-center px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
               >
                 Upgrade to Pro
               </button>
@@ -259,7 +259,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             <>
               <button
                 onClick={() => handleUpgrade('pro')}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                className="flex-1 justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Upgrade to Pro
               </button>

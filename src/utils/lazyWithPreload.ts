@@ -5,12 +5,35 @@ export interface PreloadableComponent<T extends ComponentType<any>> extends Lazy
   preload: () => Promise<{ default: T }>;
 }
 
+// After a deploy, a long-lived tab holds an index that references chunk
+// hashes that no longer exist — its next route navigation fails with
+// "Importing a module script failed" (the Bank Feeds error). One automatic
+// reload fetches the fresh index and fixes it; the sessionStorage guard
+// stops a reload loop if the failure is real (e.g. offline).
+const RELOAD_GUARD_KEY = 'chunk_reload_guard';
+
+function importWithStaleChunkRecovery<T>(factory: () => Promise<T>): Promise<T> {
+  return factory().then(module => {
+    window.sessionStorage.removeItem(RELOAD_GUARD_KEY);
+    return module;
+  }).catch((error: unknown) => {
+    if (window.sessionStorage.getItem(RELOAD_GUARD_KEY) !== 'true') {
+      window.sessionStorage.setItem(RELOAD_GUARD_KEY, 'true');
+      window.location.reload();
+      // The page is reloading — never resolve, so no broken UI flashes.
+      return new Promise<T>(() => {});
+    }
+    throw error;
+  });
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyWithPreload<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ): PreloadableComponent<T> {
-  const Component = lazy(factory) as PreloadableComponent<T>;
-  Component.preload = factory;
+  const recovering = () => importWithStaleChunkRecovery(factory);
+  const Component = lazy(recovering) as PreloadableComponent<T>;
+  Component.preload = recovering;
   return Component;
 }
 

@@ -272,7 +272,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
               <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={handleClearAll}
-                  className="w-full text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="w-full justify-center text-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   Clear all notifications
                 </button>

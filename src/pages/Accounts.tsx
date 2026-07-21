@@ -8,7 +8,7 @@ import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { ArchiveIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon } from '../components/icons';
 import BankingCriticalIncidentBadge from '../components/BankingCriticalIncidentBadge';
 import { LoadingState } from '../components/loading/LoadingState';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
@@ -17,6 +17,7 @@ import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
 const BankConnections = lazy(() => import('../components/BankConnections'));
 import type { Account } from '../types';
+import { ACCOUNT_TYPE_SECTIONS } from '../utils/accountSections';
 
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
@@ -153,65 +154,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     [decimalAccounts]
   );
 
-  // Define account type metadata
-  const accountTypes = [
-    { 
-      type: 'current', 
-      title: 'Current Accounts', 
-      icon: WalletIcon,
-      color: 'text-blue-700 dark:text-blue-400',
-      bgColor: 'bg-blue-200 dark:bg-blue-900/20',
-      borderColor: 'border-blue-200 dark:border-blue-800'
-    },
-    { 
-      type: 'savings', 
-      title: 'Savings Accounts', 
-      icon: PiggyBankIcon, 
-      color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-200 dark:bg-green-900/20',
-      borderColor: 'border-green-200 dark:border-green-800'
-    },
-    { 
-      type: 'credit', 
-      title: 'Credit Cards', 
-      icon: CreditCardIcon, 
-      color: 'text-orange-600 dark:text-orange-400',
-      bgColor: 'bg-orange-200 dark:bg-orange-900/20',
-      borderColor: 'border-orange-200 dark:border-orange-800'
-    },
-    { 
-      type: 'loan', 
-      title: 'Loans', 
-      icon: TrendingDownIcon, 
-      color: 'text-red-600 dark:text-red-400',
-      bgColor: 'bg-red-200 dark:bg-red-900/20',
-      borderColor: 'border-red-200 dark:border-red-800'
-    },
-    { 
-      type: 'investment', 
-      title: 'Investments', 
-      icon: TrendingUpIcon, 
-      color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-200 dark:bg-purple-900/20',
-      borderColor: 'border-purple-200 dark:border-purple-800'
-    },
-    { 
-      type: 'asset', 
-      title: 'Assets', 
-      icon: HomeIcon, 
-      color: 'text-indigo-600 dark:text-indigo-400',
-      bgColor: 'bg-indigo-200 dark:bg-indigo-900/20',
-      borderColor: 'border-indigo-200 dark:border-indigo-800'
-    },
-    { 
-      type: 'liability', 
-      title: 'Liabilities', 
-      icon: TrendingDownIcon, 
-      color: 'text-gray-600 dark:text-gray-400',
-      bgColor: 'bg-gray-200 dark:bg-gray-900/20',
-      borderColor: 'border-gray-200 dark:border-gray-800'
-    },
-  ];
+  // The shared account-type sections (same groupings everywhere).
+  const accountTypes = ACCOUNT_TYPE_SECTIONS;
 
 
   // Group accounts by institution

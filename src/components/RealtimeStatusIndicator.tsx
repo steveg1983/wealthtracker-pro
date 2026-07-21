@@ -166,7 +166,7 @@ export function RealtimeStatusIndicator({
               <button
                 onClick={handleReconnect}
                 disabled={connectionState.isReconnecting}
-                className="w-full mt-2 text-xs bg-blue-500 text-white px-3 py-2 rounded hover:bg-[#1a2332] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full justify-center mt-2 text-xs bg-blue-500 text-white px-3 py-2 rounded hover:bg-[#1a2332] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {connectionState.isReconnecting ? 'Reconnecting...' : 'Reconnect'}
               </button>

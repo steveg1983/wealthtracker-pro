@@ -267,7 +267,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
       <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={() => onBankSelected('custom', 'Custom Format')}
-          className={`w-full p-4 rounded-lg border-2 border-dashed text-center transition-all ${
+          className={`w-full justify-center p-4 rounded-lg border-2 border-dashed text-center transition-all ${
             selectedBank === 'custom'
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
               : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'

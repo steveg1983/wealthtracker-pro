@@ -94,7 +94,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             </div>
             <button
               onClick={() => setSelectedResolution('client')}
-              className={`mt-3 w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              className={`mt-3 w-full justify-center py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 selectedResolution === 'client'
                   ? 'bg-[#1a2332] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
@@ -120,7 +120,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             </div>
             <button
               onClick={() => setSelectedResolution('server')}
-              className={`mt-3 w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              className={`mt-3 w-full justify-center py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 selectedResolution === 'server'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'

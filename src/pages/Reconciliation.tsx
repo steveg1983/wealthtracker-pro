@@ -4,7 +4,8 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
 import { useReconciliation } from '../hooks/useReconciliation';
-import ReconciliationAccountList from '../components/reconciliation/ReconciliationAccountList';
+import ReconciliationAccountList, { type ReconciliationGroup } from '../components/reconciliation/ReconciliationAccountList';
+import { ACCOUNT_TYPE_SECTIONS } from '../utils/accountSections';
 import ReconciliationBalanceBar from '../components/reconciliation/ReconciliationBalanceBar';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
@@ -20,6 +21,23 @@ export default function Reconciliation() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     searchParams.get('account') || null
   );
+  // Group + sort for the account list — the same controls (and persistence
+  // keys pattern) as the Accounts page, so the two pages always feel the same.
+  const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() =>
+    (localStorage.getItem('reconciliationGroupBy') as 'type' | 'institution') || 'type'
+  );
+  const [sortMode, setSortMode] = useState<'default' | 'name' | 'balance-desc' | 'balance-asc'>(() => {
+    const stored = localStorage.getItem('reconciliationSortMode');
+    return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc' ? stored : 'default';
+  });
+  const handleGroupByChange = useCallback((value: 'type' | 'institution') => {
+    setGroupBy(value);
+    try { localStorage.setItem('reconciliationGroupBy', value); } catch { /* storage unavailable */ }
+  }, []);
+  const handleSortChange = useCallback((value: 'default' | 'name' | 'balance-desc' | 'balance-asc') => {
+    setSortMode(value);
+    try { localStorage.setItem('reconciliationSortMode', value); } catch { /* storage unavailable */ }
+  }, []);
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -46,6 +64,37 @@ export default function Reconciliation() {
     computeClearedBalance,
     computeClearedSummary,
   } = useReconciliation(accounts, overlaidTransactions);
+
+  // Build the grouped, sorted account list (same sections as the Accounts page).
+  const accountGroups = useMemo<ReconciliationGroup[]>(() => {
+    const sortSummaries = (list: typeof reconciliationDetails) => {
+      const sorted = [...list];
+      if (sortMode === 'name') sorted.sort((a, b) => a.account.name.localeCompare(b.account.name));
+      else if (sortMode === 'balance-desc') sorted.sort((a, b) => b.accountBalance - a.accountBalance);
+      else if (sortMode === 'balance-asc') sorted.sort((a, b) => a.accountBalance - b.accountBalance);
+      return sorted;
+    };
+
+    if (groupBy === 'institution') {
+      const byInstitution = new Map<string, typeof reconciliationDetails>();
+      for (const s of reconciliationDetails) {
+        const key = s.account.institution || 'Other Accounts';
+        (byInstitution.get(key) ?? byInstitution.set(key, []).get(key)!).push(s);
+      }
+      return [...byInstitution.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([title, summaries]) => ({ title, summaries: sortSummaries(summaries) }));
+    }
+
+    const groups: ReconciliationGroup[] = ACCOUNT_TYPE_SECTIONS.map(section => ({
+      title: section.title,
+      summaries: sortSummaries(reconciliationDetails.filter(s => s.account.type === section.type)),
+    }));
+    const known = new Set(ACCOUNT_TYPE_SECTIONS.map(s => s.type));
+    const other = reconciliationDetails.filter(s => !known.has(s.account.type));
+    if (other.length > 0) groups.push({ title: 'Other', summaries: sortSummaries(other) });
+    return groups;
+  }, [reconciliationDetails, groupBy, sortMode]);
 
   // Selected account data
   const selectedAccount = useMemo(
@@ -235,8 +284,57 @@ export default function Reconciliation() {
           </p>
         </div>
 
+        {/* Group + sort controls — mirrors the Accounts page */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Group by:</span>
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+              {([['type', 'Account Type'], ['institution', 'Institution']] as const).map(([value, label]) => (
+                <button key={value} onClick={() => handleGroupByChange(value)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    groupBy === value
+                      ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Sort:</span>
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+              <button onClick={() => handleSortChange('default')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  sortMode === 'default' ? 'bg-[#1a2332] dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                }`}>
+                Default
+              </button>
+              <button onClick={() => handleSortChange('name')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  sortMode === 'name' ? 'bg-[#1a2332] dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                }`}>
+                Name A–Z
+              </button>
+              <button onClick={() => handleSortChange(sortMode === 'balance-desc' ? 'balance-asc' : 'balance-desc')}
+                title={sortMode === 'balance-desc'
+                  ? 'Sorted highest value first — click for lowest first'
+                  : sortMode === 'balance-asc'
+                    ? 'Sorted lowest value first — click for highest first'
+                    : 'Sort by account value'}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  sortMode === 'balance-desc' || sortMode === 'balance-asc'
+                    ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                }`}>
+                Value {sortMode === 'balance-asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <ReconciliationAccountList
-          summaries={reconciliationDetails}
+          groups={accountGroups}
           onSelectAccount={handleSelectAccount}
         />
       </div>

@@ -212,7 +212,7 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
+          className="flex-1 justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
         >
           Start Free Trial
         </button>

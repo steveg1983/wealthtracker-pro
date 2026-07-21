@@ -672,7 +672,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                         updateField('category', '');
                         setCrossTypeCategories(false);
                       }}
-                      className={`flex-1 px-4 py-1.5 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${colors[t]}`}
+                      className={`flex-1 justify-center px-4 py-1.5 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${colors[t]}`}
                     >
                       {t.charAt(0).toUpperCase() + t.slice(1)}
                     </button>
