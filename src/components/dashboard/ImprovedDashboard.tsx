@@ -27,6 +27,7 @@ import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardChar
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
+import { computeIncomeExpense, bucketContribution } from '../../utils/incomeExpense';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -37,7 +38,7 @@ import { expandSplitTransactions } from '../../utils/transactionSplits';
  * 4. Mobile-optimized - works great on all screen sizes
  */
 export function ImprovedDashboard() {
-  const { accounts, transactions, transactionSplits, budgets } = useApp();
+  const { accounts, transactions, transactionSplits, budgets, categories } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,15 +98,12 @@ export function ImprovedDashboard() {
       new Date(t.date) >= thirtyDaysAgo
     );
 
-    const monthlyIncome = recentTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0))
-      .toNumber();
-
-    const monthlyExpenses = recentTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0))
-      .toNumber();
+    // Income/expenses by CATEGORY SEMANTICS (utils/incomeExpense): a refund
+    // filed under an expense category is an expense credit that reduces
+    // spending — direction of movement never decides the bucket.
+    const flows = computeIncomeExpense(recentTransactions, transactionSplits, categories);
+    const monthlyIncome = flows.income.toNumber();
+    const monthlyExpenses = flows.expenses.toNumber();
 
     const monthlySavings = toDecimal(monthlyIncome).minus(toDecimal(monthlyExpenses)).toNumber();
     const savingsRate = monthlyIncome > 0
@@ -165,6 +163,8 @@ export function ImprovedDashboard() {
       totalLiabilities,
       monthlyIncome,
       monthlyExpenses,
+      monthlyIncomeRows: flows.incomeRows,
+      monthlyExpenseRows: flows.expenseRows,
       monthlySavings,
       savingsRate,
       recentActivity,
@@ -176,7 +176,7 @@ export function ImprovedDashboard() {
       netWorthChange: 0, // Will be calculated from actual historical data when available
       netWorthChangePercent: 0 // Will be calculated from actual historical data when available
     };
-  }, [accounts, transactions, transactionSplits, budgets]);
+  }, [accounts, transactions, transactionSplits, budgets, categories]);
   
   // Generate net worth data for chart - ONLY REAL DATA
   const netWorthData = useMemo(() => {
@@ -377,20 +377,22 @@ export function ImprovedDashboard() {
             </thead>
             <tbody>
               {(() => {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                const monthlyTxns = transactions
-                  .filter(t => new Date(t.date) >= thirtyDaysAgo && t.type === breakdownType)
+                // The classified rows behind the header figure (category
+                // semantics — refunds appear here as negative credits). Split
+                // lines list individually; clicking one edits its parent.
+                const rows = [...(breakdownType === 'income' ? metrics.monthlyIncomeRows : metrics.monthlyExpenseRows)]
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                if (monthlyTxns.length === 0) {
+                if (rows.length === 0) {
                   return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No {breakdownType} transactions this month</td></tr>;
                 }
 
-                return monthlyTxns.map(t => (
+                return rows.map(t => {
+                  const contribution = bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
+                  return (
                   <tr
                     key={t.id}
-                    onClick={() => setEditingBreakdownTxnId(t.id)}
+                    onClick={() => setEditingBreakdownTxnId(t.splitParentId ?? t.id)}
                     className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                     title="Click to view or edit this transaction"
                   >
@@ -399,14 +401,18 @@ export function ImprovedDashboard() {
                     </td>
                     <td className="py-2 text-sm text-gray-900 dark:text-white">
                       {t.description}
+                      {contribution < 0 && (
+                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
+                      )}
                     </td>
                     <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
                       breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {formatCurrencyWithSymbol(Math.abs(t.amount))}
+                      {contribution < 0 ? `-${formatCurrencyWithSymbol(Math.abs(contribution))}` : formatCurrencyWithSymbol(contribution)}
                     </td>
                   </tr>
-                ));
+                  );
+                });
               })()}
             </tbody>
             <tfoot>
@@ -727,20 +733,52 @@ export function ImprovedDashboard() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Your top 5 accounts by balance
           </p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-                  <PieChart
-                    data={pieData}
-                    innerRadius={true}
-                    colors={COLORS}
-                    onClick={(clickedData: AccountDistributionDatum) => {
-                      navigate(`/transactions?account=${clickedData.id}`);
-                    }}
-                formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
-                contentStyle={chartStyles.pieTooltip}
-                aria-label="Pie chart showing distribution of account balances"
-              />
-            </ResponsiveContainer>
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
+            <div className="h-64 md:flex-1 min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                    <PieChart
+                      data={pieData}
+                      innerRadius={true}
+                      colors={COLORS}
+                      onClick={(clickedData: AccountDistributionDatum) => {
+                        navigate(`/transactions?account=${clickedData.id}`);
+                      }}
+                  formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
+                  contentStyle={chartStyles.pieTooltip}
+                  aria-label="Pie chart showing distribution of account balances"
+                />
+              </ResponsiveContainer>
+            </div>
+            {/* Legend: which slice is which, with values and shares */}
+            <ul className="md:w-80 space-y-2" aria-label="Account distribution legend">
+              {(() => {
+                const total = pieData.reduce((sum, d) => sum.plus(toDecimal(d.value)), toDecimal(0));
+                return pieData.map((d, i) => (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/transactions?account=${d.id}`)}
+                      className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                    >
+                      <span
+                        className="w-3 h-3 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                        aria-hidden="true"
+                      />
+                      <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
+                      <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatCurrencyWithSymbol(d.value, displayCurrency)}
+                      </span>
+                      <span className="w-12 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                        {total.greaterThan(0)
+                          ? `${toDecimal(d.value).dividedBy(total).times(100).toFixed(1)}%`
+                          : ''}
+                      </span>
+                    </button>
+                  </li>
+                ));
+              })()}
+            </ul>
           </div>
         </section>
       )}

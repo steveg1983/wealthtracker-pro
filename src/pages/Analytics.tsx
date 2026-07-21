@@ -17,6 +17,8 @@ import { Modal, ModalBody } from '../components/common/Modal';
 import PageWrapper from '../components/PageWrapper';
 import { Decimal, toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { computeIncomeExpense, bucketContribution } from '../utils/incomeExpense';
+import EditTransactionModal from '../components/EditTransactionModal';
 
 // Lazy load heavy components to reduce bundle size
 const DashboardBuilder = lazy(() => import('../components/analytics/DashboardBuilder'));
@@ -99,12 +101,13 @@ interface Insight {
 type QueryResult = Record<string, unknown>;
 
 export default function Analytics(): React.JSX.Element {
-  const { transactions, accounts, categories: _categories, budgets, goals, investments } = useApp();
+  const { transactions, transactionSplits, accounts, categories, budgets, goals, investments } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   type AnalyticsTab = 'dashboards' | 'explorer' | 'insights' | 'reports';
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('dashboards');
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
+  const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [activeDashboard, setActiveDashboard] = useState<Dashboard | null>(null);
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
@@ -306,29 +309,25 @@ export default function Analytics(): React.JSX.Element {
     setShowChartWizard(false);
   };
   
-  // Calculate key metrics
+  // Calculate key metrics — income/expenses by CATEGORY SEMANTICS
+  // (utils/incomeExpense): a refund filed under an expense category reduces
+  // spending instead of inflating income; transfers never count.
   const keyMetrics = useMemo(() => {
-    const income = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories);
 
-    const expenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
-    
-    // `expenses` is a signed NEGATIVE sum (signed convention). net = income + expenses = income − |expenses|.
-    const savingsRate = income.greaterThan(0)
-      ? income.plus(expenses).dividedBy(income).times(100)
+    const savingsRate = flows.income.greaterThan(0)
+      ? flows.income.minus(flows.expenses).dividedBy(flows.income).times(100)
       : toDecimal(0);
 
     return {
-      totalIncome: income,
-      // Expose expenses as a positive magnitude so the card/footer agree with the abs-rendered rows.
-      totalExpenses: expenses.abs(),
+      totalIncome: flows.income,
+      totalExpenses: flows.expenses,
+      incomeRows: flows.incomeRows,
+      expenseRows: flows.expenseRows,
       savingsRate,
       transactionCount: transactions.length
     };
-  }, [transactions]);
+  }, [transactions, transactionSplits, categories]);
   
   return (
     <PageWrapper title="Analytics">
@@ -727,27 +726,62 @@ export default function Analytics(): React.JSX.Element {
             </thead>
             <tbody>
               {(() => {
-                const txns = transactions
-                  .filter(t => t.type === breakdownType)
+                // The classified rows behind the header figure (category
+                // semantics — refunds appear as negative credits). Split lines
+                // list individually; clicking any row edits the transaction.
+                const allRows = [...(breakdownType === 'income' ? keyMetrics.incomeRows : keyMetrics.expenseRows)]
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                if (txns.length === 0) {
+                if (allRows.length === 0) {
                   return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No transactions</td></tr>;
                 }
 
-                return txns.map(t => (
-                  <tr key={t.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                // These totals span ALL history — cap the list so the modal
+                // doesn't render tens of thousands of DOM rows. The footer
+                // total still reflects every row.
+                const CAP = 500;
+                const rows = allRows.slice(0, CAP);
+                const capped = allRows.length > CAP;
+
+                const rendered = rows.map(t => {
+                  const contribution = bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
+                  return (
+                  <tr
+                    key={t.id}
+                    onClick={() => setEditingBreakdownTxnId(t.splitParentId ?? t.id)}
+                    className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                    title="Click to view or edit this transaction"
+                  >
                     <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                       {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                     </td>
-                    <td className="py-2 text-sm text-gray-900 dark:text-white">{t.description}</td>
+                    <td className="py-2 text-sm text-gray-900 dark:text-white">
+                      {t.description}
+                      {contribution < 0 && (
+                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
+                      )}
+                    </td>
                     <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
                       breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {formatCurrency(Math.abs(t.amount))}
+                      {contribution < 0 ? `-${formatCurrency(Math.abs(contribution))}` : formatCurrency(contribution)}
                     </td>
                   </tr>
-                ));
+                  );
+                });
+
+                return (
+                  <>
+                    {rendered}
+                    {capped && (
+                      <tr>
+                        <td colSpan={3} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                          Showing the latest {CAP.toLocaleString()} of {allRows.length.toLocaleString()} rows — the total below covers them all.
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
               })()}
             </tbody>
             <tfoot>
@@ -763,6 +797,15 @@ export default function Analytics(): React.JSX.Element {
           </table>
         </ModalBody>
       </Modal>
+
+      {/* Edit a transaction straight from the breakdown list */}
+      {editingBreakdownTxnId && (
+        <EditTransactionModal
+          isOpen
+          onClose={() => setEditingBreakdownTxnId(null)}
+          transaction={transactions.find(t => t.id === editingBreakdownTxnId) ?? null}
+        />
+      )}
     </PageWrapper>
   );
 }
