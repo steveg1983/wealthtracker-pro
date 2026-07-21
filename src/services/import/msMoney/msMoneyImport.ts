@@ -167,10 +167,39 @@ export function planCloudImport(
 }
 
 /**
- * Execute the plan against Supabase under the authenticated client. Wipe order
- * matters: accounts BEFORE categories (the protect_transfer_category trigger
- * only lets a To/From category go once its account row is gone), and
- * self-referential transfer links are cleared before the transaction wipe.
+ * Delete ALL of the user's financial data under the authenticated client.
+ * Wipe order matters: accounts BEFORE categories (the
+ * protect_transfer_category trigger only lets a To/From category go once its
+ * account row is gone), and self-referential transfer links are cleared
+ * before the transaction wipe. Bank-account links cascade away with their
+ * accounts; bank connections themselves are kept.
+ *
+ * Used by the MS Money total migration AND the Danger Zone "Clear All Data".
+ */
+export async function wipeCloudData(supabase: SupabaseClient, userId: string): Promise<void> {
+  {
+    const { error } = await supabase.from('transactions')
+      .update({ linked_transfer_id: null, linked_transfer_split_id: null })
+      .eq('user_id', userId).not('linked_transfer_id', 'is', null);
+    if (error) throw new Error(`Failed while unlinking transfers: ${error.message}`);
+  }
+  for (const table of ['transaction_splits', 'transactions', 'budgets', 'goals', 'accounts', 'categories']) {
+    const { error } = await supabase.from(table).delete().eq('user_id', userId);
+    if (error) throw new Error(`Failed while clearing ${table}: ${error.message}`);
+  }
+}
+
+/** The local-mode equivalent: empty every financial collection. */
+export function wipeLocalData(
+  storageKeys: { ACCOUNTS: string; TRANSACTIONS: string; CATEGORIES: string; TRANSACTION_SPLITS: string; BUDGETS: string; GOALS: string; RECURRING: string }
+): void {
+  for (const key of Object.values(storageKeys)) {
+    window.localStorage.setItem(key, '[]');
+  }
+}
+
+/**
+ * Execute the plan against Supabase under the authenticated client.
  */
 export async function importToCloud(
   result: MsMoneyImportResult,
@@ -186,21 +215,7 @@ export async function importToCloud(
   };
 
   onProgress?.({ phase: 'wiping', fraction: 0.02, message: 'Backing out existing data…' });
-  // Clear self-referential FKs first so the row deletes can't trip them.
-  {
-    const { error } = await supabase.from('transactions')
-      .update({ linked_transfer_id: null, linked_transfer_split_id: null })
-      .eq('user_id', userId).not('linked_transfer_id', 'is', null);
-    if (error) fail('unlinking transfers', error.message);
-  }
-  for (const [table, order] of [
-    ['transaction_splits', 0], ['transactions', 1], ['budgets', 2],
-    ['goals', 3], ['accounts', 4], ['categories', 5],
-  ] as [string, number][]) {
-    void order;
-    const { error } = await supabase.from(table).delete().eq('user_id', userId);
-    if (error) fail(`clearing ${table}`, error.message);
-  }
+  await wipeCloudData(supabase, userId);
 
   const insert = async (table: string, rows: Record<string, unknown>[], phase: ImportPhase, base: number, span: number) => {
     const batches = chunk(rows);

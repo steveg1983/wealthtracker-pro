@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { planCloudImport, importToLocalStorage } from './msMoneyImport';
+import { planCloudImport, importToLocalStorage, wipeLocalData } from './msMoneyImport';
 import type { MsMoneyImportResult } from './transform';
 
 function sampleResult(): MsMoneyImportResult {
@@ -67,6 +67,15 @@ describe('planCloudImport', () => {
     expect(plan.splits).toHaveLength(1);
     expect(plan.splits[0].transaction_id).toBe(splitParent.id);
     expect(String(plan.splits[0].category).startsWith('new-')).toBe(true);
+  });
+});
+
+describe('wipeLocalData', () => {
+  it('empties every financial collection', () => {
+    const KEYS = { ACCOUNTS: 'a', TRANSACTIONS: 't', CATEGORIES: 'c', TRANSACTION_SPLITS: 's', BUDGETS: 'b', GOALS: 'g', RECURRING: 'r' };
+    for (const k of Object.values(KEYS)) window.localStorage.setItem(k, '[{"id":"x"}]');
+    wipeLocalData(KEYS);
+    for (const k of Object.values(KEYS)) expect(window.localStorage.getItem(k)).toBe('[]');
   });
 });
 
