@@ -1,9 +1,16 @@
-import { useState, lazy, Suspense, useMemo } from 'react';
+import { useState, lazy, Suspense, useMemo, useCallback } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, type IconProps } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
+import { DataService } from '../../services/api/dataService';
+import { supabase } from '../../lib/supabase';
+import { STORAGE_KEYS } from '../../services/storageAdapter';
+import type { MsMoneyImportResult } from '../../services/import/msMoney/transform';
+import type { ImportProgress } from '../../services/import/msMoney/msMoneyImport';
+
+const MsMoneyImportModal = lazy(() => import('../../components/MsMoneyImportModal'));
 
 // Lazy load heavy components to reduce initial bundle size
 const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
@@ -25,7 +32,7 @@ const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBac
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
+  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData, isUsingSupabase } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
@@ -53,6 +60,29 @@ export default function DataManagementSettings() {
   const [showBankConnectionsWithAuditScope, setShowBankConnectionsWithAuditScope] = useState(initialBankingOpsUrlState.auditScope);
   const [showBankConnectionsWithAuditDateRangePreset, setShowBankConnectionsWithAuditDateRangePreset] = useState(initialBankingOpsUrlState.auditDateRangePreset);
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
+  const [showMsMoneyImport, setShowMsMoneyImport] = useState(false);
+
+  // Run the destructive MS Money import against the right backend: Supabase for
+  // signed-in users (batched inserts under RLS), local storage otherwise. The
+  // modal owns the confirmation + backup gate; this only executes.
+  const executeMsMoneyImport = useCallback(async (
+    result: MsMoneyImportResult,
+    onProgress: (p: ImportProgress) => void
+  ) => {
+    const { importToCloud, importToLocalStorage } = await import('../../services/import/msMoney/msMoneyImport');
+    const databaseUserId = DataService.getUserIds().databaseId;
+    if (isUsingSupabase && supabase && databaseUserId) {
+      await importToCloud(result, supabase, databaseUserId, () => crypto.randomUUID(), { onProgress });
+    } else {
+      await importToLocalStorage(result, STORAGE_KEYS, { onProgress });
+    }
+  }, [isUsingSupabase]);
+
+  // A total migration replaces everything — reload so the app re-reads the new
+  // dataset cleanly rather than reconciling against stale in-memory state.
+  const handleMsMoneyImported = useCallback(() => {
+    window.setTimeout(() => window.location.reload(), 1200);
+  }, []);
 
   const replaceBankingOpsQueryState = (updates: Parameters<typeof withBankingOpsUrlState>[1]) => {
     if (typeof window === 'undefined') {
@@ -122,163 +152,92 @@ export default function DataManagementSettings() {
           keeps only the URL-driven modal below so ops alert deep links
           (banking incident emails) keep working. */}
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
-        
-        {/* Migration Wizard - Full Width */}
+      {/* ── Import ─────────────────────────────────────────────── */}
+      <Section title="Import" description="Bring data in from other apps, files, or a full Microsoft Money migration.">
+        {/* Microsoft Money — a first-class total-migration flow */}
         <button
-          onClick={() => setShowMigrationWizard(true)}
-          className="w-full mb-4 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
+          onClick={() => setShowMsMoneyImport(true)}
+          className="w-full mb-4 text-left rounded-xl border border-[#1a2332]/15 dark:border-blue-500/30 bg-[#1a2332]/[0.03] dark:bg-blue-500/10 hover:bg-[#1a2332]/[0.06] dark:hover:bg-blue-500/20 transition-colors p-4 flex items-center gap-4"
         >
-          <DatabaseIcon size={20} />
-          <span className="font-medium">Data Migration Wizard (Mint, Quicken, YNAB, etc.)</span>
+          <span className="shrink-0 grid place-items-center h-11 w-11 rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white">
+            <DatabaseIcon size={22} />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold text-gray-900 dark:text-white">Import from Microsoft Money</span>
+            <span className="block text-sm text-gray-500 dark:text-gray-400">
+              Migrate your entire <code>.mny</code> file — every account, transaction and transfer. Replaces all current data.
+            </span>
+          </span>
         </button>
-        
+
+        <ActionButton icon={DatabaseIcon} title="Data Migration Wizard"
+          description="Guided import from Mint, Quicken, YNAB and more" onClick={() => setShowMigrationWizard(true)} />
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            onClick={() => setShowBatchImport(true)}
-            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <FolderIcon size={20} />
-            Batch Import Multiple Files
-          </button>
-
-          <button
-            onClick={() => setShowCSVImportWizard(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <FileTextIcon size={20} />
-            CSV Import (Bank Statements)
-          </button>
-
-          <button
-            onClick={() => setShowOFXImportModal(true)}
-            className="px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <CreditCardIcon size={20} />
-            OFX Import (Auto Match)
-          </button>
-
-          <button
-            onClick={() => setShowQIFImportModal(true)}
-            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <DatabaseIcon size={20} />
-            QIF Import (Quicken)
-          </button>
-
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
-          >
-            <UploadIcon size={20} />
-            Legacy Import (MNY/MBF)
-          </button>
+          <ActionButton icon={FileTextIcon} title="CSV Import" description="Bank statement files" onClick={() => setShowCSVImportWizard(true)} />
+          <ActionButton icon={CreditCardIcon} title="OFX Import" description="Auto-matched bank data" onClick={() => setShowOFXImportModal(true)} />
+          <ActionButton icon={DatabaseIcon} title="QIF Import" description="Quicken export files" onClick={() => setShowQIFImportModal(true)} />
+          <ActionButton icon={FolderIcon} title="Batch Import" description="Several files at once" onClick={() => setShowBatchImport(true)} />
+          <ActionButton icon={UploadIcon} title="Legacy Import" description="Older MNY / MBF files" onClick={() => setShowImportModal(true)} />
         </div>
-      </div>
+      </Section>
 
-      {/* Automatic Backups Section */}
-      <div className="mb-6">
-        <Suspense fallback={<LoadingState />}>
-          <AutomaticBackupSettings />
-        </Suspense>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
-        
-        {/* Enhanced Export Manager - Full Width */}
+      {/* ── Export ─────────────────────────────────────────────── */}
+      <Section title="Export" description="Download your data for backup or use elsewhere.">
         <div className="mb-4">
           <Suspense fallback={<LoadingState />}>
             <EnhancedExportManager />
           </Suspense>
         </div>
-        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <ActionButton icon={DownloadIcon} title="Quick Export" description="Full data as JSON" onClick={handleExportData} />
+          <ActionButton icon={GridIcon} title="Excel Export" description="Spreadsheet format" onClick={() => setShowExcelExport(true)} />
+        </div>
+      </Section>
+
+      {/* ── Backups ────────────────────────────────────────────── */}
+      <Section title="Backups" description="Schedule automatic backups of your data.">
+        <Suspense fallback={<LoadingState />}>
+          <AutomaticBackupSettings />
+        </Suspense>
+      </Section>
+
+      {/* ── Tools ──────────────────────────────────────────────── */}
+      <Section title="Tools" description="Tidy up, reconcile, and improve your data.">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <ActionButton icon={LightbulbIcon} title="Smart Categorization" description="Auto-categorize with AI" onClick={() => setShowSmartCategorization(true)} />
+          <ActionButton icon={WrenchIcon} title="Import Rules" description="Transformations on import" onClick={() => setShowImportRules(true)} />
+          <ActionButton icon={SearchIcon} title="Find Duplicates" description="Detect repeated transactions" onClick={() => setShowDuplicateDetection(true)} />
+          <ActionButton icon={EditIcon} title="Bulk Edit" description="Change many at once" onClick={() => setShowBulkEdit(true)} />
+          <ActionButton icon={LinkIcon} title="Reconcile Accounts" description="Match against statements" onClick={() => setShowReconciliation(true)} />
+          <ActionButton icon={WrenchIcon} title="Validate & Clean" description="Find and fix data issues" onClick={() => setShowDataValidation(true)} />
+        </div>
+      </Section>
+
+      {/* ── Danger Zone ────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 shadow-sm p-6 mb-6">
+        <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-1">Danger Zone</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Irreversible actions — handle with care.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
-            onClick={handleExportData}
-            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <DownloadIcon size={20} />
-            Quick Export (JSON)
-          </button>
-
-          <button
-            onClick={() => setShowExcelExport(true)}
-            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <GridIcon size={20} />
-            Legacy Excel Export
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Advanced System Data Options</h3>
-        
-        <div className="space-y-3">
-          <button
-            onClick={() => setShowSmartCategorization(true)}
-            className="w-full px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <LightbulbIcon size={20} />
-            Smart Categorization (AI)
-          </button>
-
-          <button
-            onClick={() => setShowImportRules(true)}
-            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <WrenchIcon size={20} />
-            Import Rules & Transformations
-          </button>
-
-          <button
-            onClick={() => setShowDuplicateDetection(true)}
-            className="w-full px-4 py-2 bg-yellow-700 text-white rounded-lg hover:bg-yellow-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <SearchIcon size={20} />
-            Find Duplicate Transactions
-          </button>
-
-          <button
-            onClick={() => setShowBulkEdit(true)}
-            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <EditIcon size={20} />
-            Bulk Edit Transactions
-          </button>
-
-          <button
-            onClick={() => setShowReconciliation(true)}
-            className="w-full px-4 py-2 bg-cyan-700 text-white rounded-lg hover:bg-cyan-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <LinkIcon size={20} />
-            Reconcile Accounts
-          </button>
-
-          <button
-            onClick={() => setShowDataValidation(true)}
-            className="w-full px-4 py-2 bg-orange-700 text-white rounded-lg hover:bg-orange-800 transition-colors flex items-center justify-center gap-2"
-          >
-            <WrenchIcon size={20} />
-            Validate & Clean Data
-          </button>
-
-          <button
             onClick={() => setShowTestDataConfirm(true)}
-            className="w-full px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800 transition-colors flex items-center justify-center gap-2"
+            className="text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3"
           >
-            <DatabaseIcon size={20} />
-            {hasTestData ? 'Reload Test Data' : 'Load Test Data'}
+            <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"><DatabaseIcon size={18} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">{hasTestData ? 'Reload Test Data' : 'Load Test Data'}</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">Adds sample data to explore features</span>
+            </span>
           </button>
-          
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="w-full px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors flex items-center justify-center gap-2"
+            className="text-left rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors p-3 flex items-center gap-3"
           >
-            <DeleteIcon size={20} />
-            Clear All Data
+            <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400"><DeleteIcon size={18} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-red-700 dark:text-red-400">Clear All Data</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">Permanently delete everything</span>
+            </span>
           </button>
         </div>
       </div>
@@ -363,6 +322,19 @@ export default function DataManagementSettings() {
           DataValidation's full-data sweep were executing on every visit to
           this page. Gating on the show-flag defers chunk + work to first open
           (the Suspense fallback covers the brief load). */}
+
+      {/* Microsoft Money Import */}
+      {showMsMoneyImport && (
+        <Suspense fallback={<LoadingState />}>
+          <MsMoneyImportModal
+            isOpen={showMsMoneyImport}
+            onClose={() => setShowMsMoneyImport(false)}
+            onBackup={handleExportData}
+            onExecute={executeMsMoneyImport}
+            onImported={handleMsMoneyImported}
+          />
+        </Suspense>
+      )}
 
       {/* Data Migration Wizard */}
       {showMigrationWizard && (
@@ -554,5 +526,38 @@ export default function DataManagementSettings() {
       )}
 
     </div>
+  );
+}
+
+/** A titled card that groups related actions — the one section shell. */
+function Section({ title, description, children }: {
+  title: string; description: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{description}</p>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+/** The one action-button style: neutral outline, icon tile, title + hint. */
+function ActionButton({ icon: Icon, title, description, onClick }: {
+  icon: React.ComponentType<IconProps>; title: string; description: string; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3"
+    >
+      <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
+        <Icon size={18} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-gray-900 dark:text-white">{title}</span>
+        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
+      </span>
+    </button>
   );
 }
