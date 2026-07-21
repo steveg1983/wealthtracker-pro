@@ -1,6 +1,6 @@
 
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
-import type { Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
+import type { Account, Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { toDecimal } from '../../utils/decimal';
 
@@ -534,6 +534,19 @@ class TransactionServiceImpl {
           ? { ...t, isSplit: true, category: '', amount: sum.toNumber(), updatedAt: this.getCurrentDate() }
           : t
       ));
+      // A split that changes the transaction total must move the account
+      // balance with it (mirrors dataService.setTransactionSplits) — Decimal
+      // delta only; float math on money is banned.
+      if (!sum.equals(toDecimal(transaction.amount))) {
+        const accounts = (await this.storage.get<Account[]>(STORAGE_KEYS.ACCOUNTS)) ?? [];
+        const account = accounts.find(a => a.id === transaction.accountId);
+        if (account) {
+          account.balance = toDecimal(account.balance || 0)
+            .plus(sum.minus(toDecimal(transaction.amount)))
+            .toNumber();
+          await this.storage.set(STORAGE_KEYS.ACCOUNTS, accounts);
+        }
+      }
       return { isSplit: true, splitCount: splits.length, amount: sum.toNumber() };
     }
 

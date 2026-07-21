@@ -293,7 +293,12 @@ class DataServiceImpl {
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
 
     if (updates.amount !== undefined && updates.amount !== oldAmount) {
-      await this.updateAccountBalance(oldAccountId, -oldAmount + updates.amount);
+      // Decimal delta — raw float subtraction here drifted the local ledger
+      // (e.g. -70.3 - (-70.1) = -0.19999999999999574).
+      await this.updateAccountBalance(
+        oldAccountId,
+        toDecimal(updates.amount).minus(toDecimal(oldAmount)).toNumber()
+      );
     }
 
     return transactions[index];
@@ -463,7 +468,10 @@ class DataServiceImpl {
     transactions[index] = { ...transaction, isSplit: true, category: '', amount: newAmount } as Transaction;
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
     if (newAmount !== transaction.amount) {
-      await this.updateAccountBalance(transaction.accountId, -transaction.amount + newAmount);
+      await this.updateAccountBalance(
+        transaction.accountId,
+        sum.minus(toDecimal(transaction.amount)).toNumber()
+      );
     }
     return { isSplit: true, splitCount: newSplits.length, amount: newAmount };
   }

@@ -244,3 +244,64 @@ describe('DataService (deterministic fallback)', () => {
     expect(accounts[0].id).toBe('static-account');
   });
 });
+
+
+// Regression: audit 2026-07-21 — local-mode balance deltas must be Decimal.
+// Raw float subtraction drifted the ledger: -70.3 - (-70.1) is
+// -0.19999999999999574 in IEEE-754, and toDecimal() faithfully preserved the
+// drift into the stored balance.
+describe('DataService Decimal balance deltas (local mode)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+  const uuid = vi.fn(() => 'generated-id');
+  const now = vi.fn(() => new Date('2025-09-01T00:00:00.000Z'));
+  const userId = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+  };
+
+  const buildService = (storage: ReturnType<typeof createStorage>): DataService =>
+    createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+
+  it('updateTransaction applies an exact Decimal delta to the balance', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ balance: -70.1 })],
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ amount: -70.1 })]
+    });
+    const service = buildService(storage);
+
+    await service.updateTransaction('txn-1', { amount: -70.3 });
+
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    // Float delta gave -70.29999999999999; the ledger must hold exactly -70.3.
+    expect(accounts[0].balance).toBe(-70.3);
+  });
+
+  it('setTransactionSplits applies an exact Decimal delta when the total changes', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ balance: -70.1 })],
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ amount: -70.1 })],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: []
+    });
+    const service = buildService(storage);
+
+    await service.setTransactionSplits(
+      'txn-1',
+      [
+        { category: 'cat-a', amount: -0.2 },
+        { category: 'cat-b', amount: -70.1 }
+      ],
+      null
+    );
+
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts[0].balance).toBe(-70.3);
+  });
+});
