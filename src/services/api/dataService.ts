@@ -569,6 +569,20 @@ class DataServiceImpl {
       throw new Error('A transfer needs two different accounts');
     }
 
+    // Mirrors the RPC's cross-currency guard: the counterpart is -amount with
+    // no conversion, so both accounts must share a currency (when both set).
+    const allAccounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const sourceAccount = allAccounts.find(a => a.id === source.accountId);
+    const targetAccount = allAccounts.find(a => a.id === targetAccountId);
+    if (
+      sourceAccount?.currency && targetAccount?.currency &&
+      sourceAccount.currency !== targetAccount.currency
+    ) {
+      throw new Error(
+        `Transfers between accounts in different currencies are not supported yet (${sourceAccount.currency} and ${targetAccount.currency})`
+      );
+    }
+
     const counterpartAmount = toDecimal(source.amount).negated().toNumber();
     const counterpart: Transaction = {
       id: this.generateId(),

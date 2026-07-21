@@ -282,10 +282,22 @@ export default function QuickEditTransactionPanel({
             () => linkTransferPair(transaction.id, candidateId),
             `Linked as a transfer with ${targetAccountName}.`
           )}
-          onCreate={() => void completeTransfer(
-            () => createTransferCounterpart(transaction.id, transferPrompt.targetAccountId),
-            `Transfer created — the other side was added to ${targetAccountName}.`
-          )}
+          onCreate={() => {
+            // Pre-flight the RPC's cross-currency guard so the user gets a
+            // clear message without a failed server round-trip.
+            const sourceCurrency = accounts.find(a => a.id === transaction.accountId)?.currency;
+            const targetCurrency = accounts.find(a => a.id === transferPrompt.targetAccountId)?.currency;
+            if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
+              showError(new Error(
+                `Transfers between accounts in different currencies aren't supported yet (${sourceCurrency} and ${targetCurrency}).`
+              ));
+              return;
+            }
+            void completeTransfer(
+              () => createTransferCounterpart(transaction.id, transferPrompt.targetAccountId),
+              `Transfer created — the other side was added to ${targetAccountName}.`
+            );
+          }}
           onCancel={() => {
             setTransferPrompt(null);
             advanceAfterTransferRef.current = false;
