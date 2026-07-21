@@ -225,7 +225,7 @@ export default function HouseholdManagement() {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  className="flex-1 justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
                   Create
                 </button>
@@ -420,7 +420,7 @@ export default function HouseholdManagement() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  className="flex-1 justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
                   Send Invite
                 </button>
@@ -644,7 +644,7 @@ export default function HouseholdManagement() {
                   <div className="flex gap-2">
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                      className="flex-1 justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                     >
                       Send Invite
                     </button>

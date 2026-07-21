@@ -255,7 +255,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={sendTestNotification}
-                  className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+                  className="w-full justify-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
                 >
                   Send Test Notification
                 </button>

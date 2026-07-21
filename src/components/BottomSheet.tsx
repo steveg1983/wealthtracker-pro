@@ -343,7 +343,7 @@ export function ActionSheet({
       <div className="border-t border-gray-200 dark:border-gray-700 p-2">
         <button
           onClick={onClose}
-          className="w-full py-3 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="w-full justify-center py-3 font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         >
           {cancelLabel}
         </button>

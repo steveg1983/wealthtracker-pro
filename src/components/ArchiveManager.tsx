@@ -62,12 +62,7 @@ export default function ArchiveManager() {
 
   return (
     <div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-        Archiving keeps your live register fast and focused by hiding older, reconciled transactions.
-        Nothing is deleted — balances and reports stay exact, and you can bring archived transactions back any time.
-      </p>
-
-      {/* Cutoff selector */}
+      {/* Cutoff selector (the Section heading already explains what archiving is) */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
         <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Archive transactions older than</p>
         <div className="flex flex-wrap items-center gap-2">

@@ -667,7 +667,7 @@ export default function CustomReportBuilder({
         
         <button
           onClick={() => setShowCatalog(true)}
-          className="mt-4 w-full py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="mt-4 w-full justify-center py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
         >
           <PlusIcon size={24} className="mx-auto text-gray-400 dark:text-gray-600" />
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Add Component</p>

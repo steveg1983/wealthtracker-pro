@@ -195,7 +195,7 @@ export default function BankingOpsAuditPanel(props: BankingOpsAuditPanelProps): 
               type="button"
               onClick={loadMoreAudit}
               disabled={isLoadingMoreAudit}
-              className="w-full py-1.5 text-xs text-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700"
+              className="w-full justify-center py-1.5 text-xs text-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700"
             >
               {isLoadingMoreAudit ? 'Loading more...' : 'Load more'}
             </button>

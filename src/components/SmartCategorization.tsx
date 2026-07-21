@@ -195,7 +195,7 @@ export function SmartCategorization({
                 >
                   <button
                     onClick={() => applySuggestion(suggestion.categoryId)}
-                    className="flex items-center gap-2 flex-1 text-left"
+                    className="flex items-center gap-2 flex-1 justify-center text-left"
                   >
                     <span
                       className="w-2 h-2 rounded-full flex-shrink-0"

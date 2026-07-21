@@ -239,12 +239,15 @@ input[type="range"] {
   /* Note: font-weight is NOT included to prevent flickering */
 }
 
-/* Default button styling to prevent square corners */
+/* Default button styling to prevent square corners.
+   Deliberately NO justify-content here: a global "center" made every
+   full-width icon+label button centre its content (the Data Management /
+   Tools / Reconciliation "zig-zag" look). Buttons that want centred content
+   declare justify-center themselves. */
 button {
   border-radius: 0.5rem; /* Default to rounded-lg */
   display: inline-flex;
   align-items: center;
-  justify-content: center;
 }
 
 /* Touch gesture styles */

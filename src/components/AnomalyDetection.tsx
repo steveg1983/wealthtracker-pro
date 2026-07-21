@@ -362,7 +362,7 @@ export default function AnomalyDetection() {
                       handleViewTransaction(selectedAnomaly.transactionId);
                       setSelectedAnomaly(null);
                     }}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    className="flex-1 justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                   >
                     View Transaction
                   </button>
@@ -373,7 +373,7 @@ export default function AnomalyDetection() {
                       navigate(`/transactions?ids=${selectedAnomaly.transactions?.join(',')}`);
                       setSelectedAnomaly(null);
                     }}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    className="flex-1 justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                   >
                     View {selectedAnomaly.transactions.length} Transactions
                   </button>

@@ -285,7 +285,7 @@ export default function CategoryCreationModal({
         <div className="flex gap-2 w-full">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="flex-1 justify-center px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             Cancel
           </button>

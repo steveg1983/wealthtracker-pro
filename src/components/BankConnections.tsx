@@ -474,7 +474,7 @@ export default function BankConnections({
                 key={institution.id}
                 onClick={() => handleConnect(institution)}
                 disabled={isLoading}
-                className="w-full p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors text-left flex items-center gap-4"
+                className="w-full justify-center p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors text-left flex items-center gap-4"
               >
                 <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-lg flex items-center justify-center">
                   <Building2Icon size={24} className="text-gray-600 dark:text-gray-400" />
@@ -513,7 +513,7 @@ export default function BankConnections({
               supportsBalance: true
             })}
             disabled={isLoading}
-            className="w-full p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="w-full justify-center p-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Don&rsquo;t see your bank or card? <span className="font-medium text-primary dark:text-blue-400">Browse all providers</span>
           </button>

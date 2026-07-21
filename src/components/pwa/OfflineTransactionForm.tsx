@@ -155,7 +155,7 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, type: 'expense' })}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                className={`flex-1 justify-center py-2 px-4 rounded-lg font-medium transition-colors ${
                   formData.type === 'expense'
                     ? 'bg-red-500 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -166,7 +166,7 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, type: 'income' })}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                className={`flex-1 justify-center py-2 px-4 rounded-lg font-medium transition-colors ${
                   formData.type === 'income'
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -284,14 +284,14 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex-1 justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-2 px-4 bg-[#1a2332] text-white rounded-lg font-medium hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 justify-center py-2 px-4 bg-[#1a2332] text-white rounded-lg font-medium hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Queuing...' : 'Add Transaction'}
               </button>

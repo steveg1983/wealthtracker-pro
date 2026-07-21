@@ -254,7 +254,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
             navigator.clipboard.writeText(summaryText);
             // Could add a toast notification here
           }}
-          className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
+          className="flex-1 justify-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
         >
           Copy Summary
         </button>
@@ -264,7 +264,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
             financialSummaryService.saveSummary(summary);
             // Could add a toast notification here
           }}
-          className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors text-sm"
+          className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors text-sm"
         >
           Save to History
         </button>

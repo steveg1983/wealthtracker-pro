@@ -345,7 +345,7 @@ export default function LinkBankAccountsModal({
             type="button"
             onClick={handleLink}
             disabled={isLoading || isLinking || linkedCount === 0 || hasDuplicates}
-            className="flex-1 bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 justify-center bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLinking
               ? 'Linking...'
@@ -354,7 +354,7 @@ export default function LinkBankAccountsModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            className="flex-1 justify-center bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
           >
             Cancel
           </button>

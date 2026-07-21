@@ -319,14 +319,14 @@ export default function DataManagementSettings() {
               <button
                 onClick={() => { setShowDeleteConfirm(false); setClearConfirmText(''); setClearError(''); }}
                 disabled={isClearing}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
+                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
               >
                 Cancel
               </button>
               <button
                 onClick={() => { void handleClearData(); }}
                 disabled={isClearing || clearConfirmText.trim().toUpperCase() !== 'DELETE'}
-                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 justify-center px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isClearing ? 'Deleting…' : 'Delete All Data'}
               </button>
@@ -357,13 +357,13 @@ export default function DataManagementSettings() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowTestDataConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleLoadTestData}
-                className="flex-1 px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
+                className="flex-1 justify-center px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
               >
                 Load Test Data
               </button>

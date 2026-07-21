@@ -103,14 +103,14 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleClose}
-              className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
+              className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
             >
               Continue with Test Data
             </button>
             {onClearData && (
               <button
                 onClick={onClearData}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Clear & Start Fresh
               </button>
