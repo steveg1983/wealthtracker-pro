@@ -98,6 +98,7 @@
     "@types/uuid": "^10.0.0",
     "ag-grid-community": "^34.1.2",
     "ag-grid-react": "^34.1.2",
+    "buffer": "^6.0.3",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",

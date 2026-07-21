@@ -13,6 +13,10 @@
  * (TRN_SPLIT) and transfers (TRN_XFER). Amounts are read as-is and normalised
  * to decimal strings; the transform is the single place money maths happens.
  */
+// Installs Buffer + process shims BEFORE mdb-reader's dependency subtree
+// evaluates — must stay the first import in this file.
+import './nodeGlobalsShim';
+import { Buffer } from 'buffer';
 import MDBReader from 'mdb-reader';
 import { decryptMny } from './mnyDecrypt';
 import type {
