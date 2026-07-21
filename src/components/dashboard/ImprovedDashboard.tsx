@@ -134,16 +134,22 @@ export function ImprovedDashboard() {
     const activeBudgets = budgets.filter(b => b.isActive);
     
     // Split parents expand into per-line rows so a split line spends
-    // against ITS category's budget.
+    // against ITS category's budget. Money-style netting: a refund filed to
+    // the budget's category REDUCES spend (refunds arrive as income-typed
+    // rows, so there is deliberately no type filter — only transfers skip).
     const recentExpanded = expandSplitTransactions(recentTransactions, transactionSplits);
     const budgetStatus = activeBudgets.map(budget => {
       const categoryTransactions = recentExpanded.filter(t =>
-        t.category === budget.categoryId && t.type === 'expense'
+        t.category === budget.categoryId && t.type !== 'transfer'
       );
-      const spent = categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const remaining = budget.amount - spent;
-      const percentUsed = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
-      
+      const netSpent = categoryTransactions.reduce(
+        (sum, t) => sum.minus(toDecimal(t.amount)), toDecimal(0));
+      const spent = netSpent.isNegative() ? 0 : netSpent.toNumber();
+      const remaining = toDecimal(budget.amount).minus(toDecimal(spent)).toNumber();
+      const percentUsed = budget.amount > 0
+        ? toDecimal(spent).dividedBy(toDecimal(budget.amount)).times(100).toNumber()
+        : 0;
+
       return {
         ...budget,
         spent,
@@ -152,10 +158,12 @@ export function ImprovedDashboard() {
         isOverBudget: spent > budget.amount
       };
     });
-    
-    const totalBudgeted = activeBudgets.reduce((sum, b) => sum + b.amount, 0);
-    const totalSpentOnBudgets = budgetStatus.reduce((sum, b) => sum + b.spent, 0);
-    const overallBudgetPercent = totalBudgeted > 0 ? (totalSpentOnBudgets / totalBudgeted) * 100 : 0;
+
+    const totalBudgeted = activeBudgets.reduce((sum, b) => sum.plus(toDecimal(b.amount)), toDecimal(0)).toNumber();
+    const totalSpentOnBudgets = budgetStatus.reduce((sum, b) => sum.plus(toDecimal(b.spent)), toDecimal(0)).toNumber();
+    const overallBudgetPercent = totalBudgeted > 0
+      ? toDecimal(totalSpentOnBudgets).dividedBy(toDecimal(totalBudgeted)).times(100).toNumber()
+      : 0;
     
     return {
       netWorth,

@@ -16,6 +16,8 @@ import {
 } from './icons';
 import { generatePDFReport } from '../utils/pdfExport';
 import { exportTransactionsToCSV } from '../utils/csvExport';
+import { toDecimal } from '../utils/decimal';
+import { computeIncomeExpense } from '../utils/incomeExpense';
 interface ScheduledReport {
   id: string;
   name: string;
@@ -38,7 +40,7 @@ interface ScheduledReport {
 }
 
 export default function ScheduledReports() {
-  const { transactions, accounts, categories } = useApp();
+  const { transactions, transactionSplits, accounts, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { addNotification } = useNotifications();
   
@@ -188,16 +190,14 @@ export default function ScheduledReports() {
         return dateMatch && accountMatch && categoryMatch;
       });
 
+      // Income/expenses by CATEGORY semantics (utils/incomeExpense): refunds
+      // filed under expense categories net spending down instead of counting
+      // as income; splits count per line; Decimal throughout.
+      const flows = computeIncomeExpense(filteredTransactions, transactionSplits, categories);
+
       if (report.format === 'summary') {
-        // Generate text summary
-        const income = filteredTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0);
-        
-        // Expenses are stored signed (negative); totals report the positive magnitude
-        const expenses = filteredTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const income = flows.income.toNumber();
+        const expenses = flows.expenses.toNumber();
 
         const summary = `
 Financial Report: ${report.name}
@@ -207,17 +207,16 @@ Period: ${report.reportConfig.dateRange === 'custom' ? `Last ${report.reportConf
 Summary:
 - Total Income: ${formatCurrency(income)}
 - Total Expenses: ${formatCurrency(expenses)}
-- Net Income: ${formatCurrency(income - expenses)}
+- Net Income: ${formatCurrency(toDecimal(income).minus(toDecimal(expenses)).toNumber())}
 - Transactions: ${filteredTransactions.length}
 
 Top Expenses by Category:
 ${Object.entries(
-  filteredTransactions
-    .filter(t => t.type === 'expense')
+  flows.expenseRows
     .reduce((acc, t) => {
       const category = categories.find(c => c.id === t.category)?.name || 'Uncategorized';
-      // Accumulate magnitudes so the descending sort ranks biggest spend first
-      acc[category] = (acc[category] || 0) + Math.abs(t.amount);
+      // Net signed spend per category (refunds subtract), ranked biggest first.
+      acc[category] = toDecimal(acc[category] || 0).minus(toDecimal(t.amount)).toNumber();
       return acc;
     }, {} as Record<string, number>)
 )
@@ -254,13 +253,8 @@ ${Object.entries(
                 title: report.name,
                 dateRange: `Last ${report.reportConfig.dateRange}`,
                 summary: {
-                  income: filteredTransactions
-                    .filter(t => t.type === 'income')
-                    .reduce((sum, t) => sum + t.amount, 0),
-                  // Signed convention: expenses are stored negative, report the magnitude
-                  expenses: filteredTransactions
-                    .filter(t => t.type === 'expense')
-                    .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+                  income: flows.income.toNumber(),
+                  expenses: flows.expenses.toNumber(),
                   netIncome: 0,
                   savingsRate: 0
                 },
@@ -268,9 +262,9 @@ ${Object.entries(
                 topTransactions: filteredTransactions.slice(0, 10)
               };
               
-              reportData.summary.netIncome = reportData.summary.income - reportData.summary.expenses;
-              reportData.summary.savingsRate = reportData.summary.income > 0 
-                ? (reportData.summary.netIncome / reportData.summary.income) * 100 
+              reportData.summary.netIncome = flows.income.minus(flows.expenses).toNumber();
+              reportData.summary.savingsRate = flows.income.greaterThan(0)
+                ? flows.income.minus(flows.expenses).dividedBy(flows.income).times(100).toNumber()
                 : 0;
 
               await generatePDFReport(reportData, accounts);
@@ -297,7 +291,7 @@ ${Object.entries(
         message: `Failed to generate ${report.name}`
       });
     }
-  }, [transactions, categories, accounts, formatCurrency, addNotification]);
+  }, [transactions, transactionSplits, categories, accounts, formatCurrency, addNotification]);
 
   // Update refs after functions are defined
   useEffect(() => {
