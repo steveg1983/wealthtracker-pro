@@ -1,557 +1,204 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { UploadIcon, FileTextIcon, CheckCircleIcon, AlertCircleIcon, ArrowRightIcon, ArrowLeftIcon, DatabaseIcon, ShieldIcon, ZapIcon, CreditCardIcon, TrendingUpIcon, UsersIcon, XIcon } from './icons';
-import { useDropzone } from 'react-dropzone';
-import { formatDecimal } from '../utils/decimal-format';
-import { createScopedLogger } from '../loggers/scopedLogger';
+/**
+ * Data Migration Wizard — an HONEST router to the app's real importers.
+ *
+ * The previous version pantomimed a five-step migration: a setTimeout for
+ * "processing", hard-coded preview numbers (every user saw "1,234
+ * transactions"), and a "complete" step that imported nothing. That is the
+ * worst kind of broken — it lies.
+ *
+ * What actually exists and works: the CSV import wizard, the QIF importer, the
+ * OFX importer, and the dedicated Microsoft Money total migration. So this
+ * wizard now does the one thing the old version did well — per-app export
+ * instructions — and then opens the RIGHT real tool, wired via onOpenTool.
+ */
+import React, { useState } from 'react';
+import { FileTextIcon, DatabaseIcon, ArrowLeftIcon, CreditCardIcon, TrendingUpIcon, UsersIcon, ShieldIcon, XIcon, AlertCircleIcon } from './icons';
+import type { IconProps } from './icons';
 
-export type MigrationSource = 'mint' | 'quicken' | 'ynab' | 'personalcapital' | 'excel' | 'csv' | 'other';
+/** The real import tools this wizard can hand off to. */
+export type MigrationTool = 'csv' | 'qif' | 'ofx' | 'msmoney';
 
-interface MigrationStep {
-  id: number;
-  title: string;
+interface ToolOption {
+  tool: MigrationTool;
+  label: string;
+  hint: string;
+}
+
+interface MigrationSource {
+  id: string;
+  name: string;
   description: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<IconProps>;
+  /** How to get your data out of the source app. */
+  instructions: string[];
+  tools: ToolOption[];
+  /** Money is a destructive total migration — surfaced differently. */
+  destructiveNote?: string;
 }
 
-const MIGRATION_STEPS: MigrationStep[] = [
+const SOURCES: MigrationSource[] = [
   {
-    id: 1,
-    title: 'Select Source',
-    description: 'Choose where you\'re migrating from',
-    icon: DatabaseIcon
-  },
-  {
-    id: 2,
-    title: 'Upload Data',
-    description: 'Upload your exported data files',
-    icon: UploadIcon
-  },
-  {
-    id: 3,
-    title: 'Map Fields',
-    description: 'Review and map data fields',
-    icon: ArrowRightIcon
-  },
-  {
-    id: 4,
-    title: 'Review',
-    description: 'Preview your imported data',
-    icon: CheckCircleIcon
-  },
-  {
-    id: 5,
-    title: 'Import',
-    description: 'Complete the migration',
-    icon: ZapIcon
-  }
-];
-
-const MIGRATION_SOURCES = [
-  {
-    id: 'mint' as MigrationSource,
-    name: 'Mint',
-    description: 'Import from Intuit Mint',
-    icon: CreditCardIcon,
-    color: 'bg-blue-600',
-    fileTypes: ['.csv'],
-    instructions: 'Export your data from Mint as CSV files before it shuts down.'
-  },
-  {
-    id: 'quicken' as MigrationSource,
-    name: 'Quicken',
-    description: 'Import from Quicken',
-    icon: TrendingUpIcon,
-    color: 'bg-blue-500',
-    fileTypes: ['.qif', '.qfx'],
-    instructions: 'Export your Quicken data as QIF or QFX files.'
-  },
-  {
-    id: 'ynab' as MigrationSource,
-    name: 'YNAB',
-    description: 'You Need A Budget',
-    icon: UsersIcon,
-    color: 'bg-purple-500',
-    fileTypes: ['.csv'],
-    instructions: 'Export your YNAB data from Account Settings > Export.'
-  },
-  {
-    id: 'personalcapital' as MigrationSource,
-    name: 'Personal Capital',
-    description: 'Import from Personal Capital',
-    icon: ShieldIcon,
-    color: 'bg-indigo-500',
-    fileTypes: ['.csv'],
-    instructions: 'Download your transaction history as CSV from Personal Capital.'
-  },
-  {
-    id: 'excel' as MigrationSource,
-    name: 'Excel',
-    description: 'Import from Excel spreadsheet',
-    icon: FileTextIcon,
-    color: 'bg-orange-500',
-    fileTypes: ['.xlsx', '.xls'],
-    instructions: 'Upload your Excel file with transaction data.'
-  },
-  {
-    id: 'csv' as MigrationSource,
-    name: 'CSV',
-    description: 'Generic CSV import',
+    id: 'msmoney',
+    name: 'Microsoft Money',
+    description: 'Native .mny file — full migration',
     icon: DatabaseIcon,
-    color: 'bg-gray-500',
-    fileTypes: ['.csv'],
-    instructions: 'Upload any CSV file with financial data.'
-  }
+    instructions: [
+      'Locate your Money file (usually My Documents, ending in .mny).',
+      'No export needed — WealthTracker reads the file directly in your browser.',
+    ],
+    tools: [{ tool: 'msmoney', label: 'Open the Microsoft Money importer', hint: 'Reads the .mny natively' }],
+    destructiveNote:
+      'The Microsoft Money importer is a TOTAL migration: it replaces all current data with the contents of your Money file.',
+  },
+  {
+    id: 'mint',
+    name: 'Mint',
+    description: 'Intuit Mint CSV export',
+    icon: CreditCardIcon,
+    instructions: [
+      'In Mint, go to Transactions and use “Export all transactions” (CSV).',
+      'Save the CSV file somewhere you can find it.',
+    ],
+    tools: [{ tool: 'csv', label: 'Open the CSV importer', hint: 'Maps Mint’s CSV columns' }],
+  },
+  {
+    id: 'quicken',
+    name: 'Quicken',
+    description: 'QIF or QFX export',
+    icon: TrendingUpIcon,
+    instructions: [
+      'In Quicken: File → Export → QIF for full history, or download QFX from your bank inside Quicken.',
+      'QIF preserves the most detail; QFX (Web Connect) files use the OFX importer.',
+    ],
+    tools: [
+      { tool: 'qif', label: 'Open the QIF importer', hint: 'Best for full Quicken history' },
+      { tool: 'ofx', label: 'Open the OFX importer', hint: 'For QFX / Web Connect files' },
+    ],
+  },
+  {
+    id: 'ynab',
+    name: 'YNAB',
+    description: 'You Need A Budget CSV',
+    icon: UsersIcon,
+    instructions: [
+      'In YNAB: My Budget → Export budget data — you’ll get a ZIP containing CSV files.',
+      'Unzip it and use the “Register” CSV (your transactions).',
+    ],
+    tools: [{ tool: 'csv', label: 'Open the CSV importer', hint: 'Use the Register CSV' }],
+  },
+  {
+    id: 'personalcapital',
+    name: 'Personal Capital',
+    description: 'Empower / Personal Capital CSV',
+    icon: ShieldIcon,
+    instructions: [
+      'In Personal Capital (Empower): Transactions → download as CSV.',
+    ],
+    tools: [{ tool: 'csv', label: 'Open the CSV importer', hint: 'Maps the transaction CSV' }],
+  },
+  {
+    id: 'spreadsheet',
+    name: 'Excel / other CSV',
+    description: 'Any spreadsheet or CSV',
+    icon: FileTextIcon,
+    instructions: [
+      'In Excel (or any spreadsheet): File → Save As → CSV.',
+      'Make sure there’s a header row (date, description, amount at minimum).',
+    ],
+    tools: [{ tool: 'csv', label: 'Open the CSV importer', hint: 'Column mapping included' }],
+  },
 ];
-
-interface MigrationSummary {
-  accounts: number;
-  transactions: number;
-  categories: number;
-  dateRange: string;
-}
-
-interface MigrationCompletePayload {
-  source: MigrationSource | null;
-  files: File[];
-  data: MigrationSummary | null;
-}
 
 interface DataMigrationWizardProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete?: (data: MigrationCompletePayload) => void;
+  /** Open one of the real import tools (the page owns those modals). */
+  onOpenTool: (tool: MigrationTool) => void;
 }
 
-export default function DataMigrationWizard({ 
-  isOpen, 
-  onClose, 
-  onComplete 
-}: DataMigrationWizardProps): React.JSX.Element | null {
-  const logger = useMemo(() => createScopedLogger('DataMigrationWizard'), []);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedSource, setSelectedSource] = useState<MigrationSource | null>(null);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [mappedData, setMappedData] = useState<MigrationSummary | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setUploadedFiles(prev => [...prev, ...acceptedFiles]);
-    setError(null);
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: selectedSource 
-      ? MIGRATION_SOURCES.find(s => s.id === selectedSource)?.fileTypes.reduce((acc, type) => ({
-          ...acc,
-          [type === '.csv' ? 'text/csv' : 
-           type === '.xlsx' || type === '.xls' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
-           type === '.qif' || type === '.qfx' ? 'application/x-qw' : 'text/plain']: [type]
-        }), {})
-      : undefined,
-    maxSize: 10 * 1024 * 1024 // 10MB
-  });
-
-  const handleNextStep = async () => {
-    if (currentStep === 2 && uploadedFiles.length === 0) {
-      setError('Please upload at least one file');
-      return;
-    }
-
-    if (currentStep === 2) {
-      // Start processing files
-      setIsProcessing(true);
-      try {
-        // Simulate file processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // In production, this would parse the files and extract data
-        setMappedData({
-          accounts: 5,
-          transactions: 1234,
-          categories: 15,
-          dateRange: '2020-01-01 to 2024-01-01'
-        });
-        
-        setIsProcessing(false);
-    } catch (error) {
-      setError('Failed to process files');
-      logger.error('File processing failed', error as Error);
-      setIsProcessing(false);
-      return;
-    }
-  }
-
-    if (currentStep === 5) {
-      // Complete migration
-      setIsProcessing(true);
-      try {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        if (onComplete) {
-          onComplete({
-            source: selectedSource,
-            files: uploadedFiles,
-            data: mappedData
-          });
-        }
-        
-        onClose();
-      } catch (error) {
-        setError('Migration failed. Please try again.');
-        logger.error('Migration failed', error as Error);
-        setIsProcessing(false);
-      }
-      return;
-    }
-
-    setCurrentStep(prev => Math.min(prev + 1, 5));
-  };
-
-  const handlePrevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-    setError(null);
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
+export default function DataMigrationWizard({ isOpen, onClose, onOpenTool }: DataMigrationWizardProps): React.JSX.Element | null {
+  const [source, setSource] = useState<MigrationSource | null>(null);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Data Migration Wizard
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              aria-label="Close wizard"
-            >
-              <XIcon size={20} />
-            </button>
-          </div>
+  const handleClose = () => { setSource(null); onClose(); };
+  const openTool = (tool: MigrationTool) => {
+    setSource(null);
+    onOpenTool(tool);
+  };
 
-          {/* Progress Steps */}
-          <div className="mt-6 flex items-center justify-between">
-            {MIGRATION_STEPS.map((step, index) => (
-              <div
-                key={step.id}
-                className={`flex items-center ${index < MIGRATION_STEPS.length - 1 ? 'flex-1' : ''}`}
-              >
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                      currentStep > step.id
-                        ? 'bg-blue-600 text-white'
-                        : currentStep === step.id
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
-                    }`}
-                  >
-                    {currentStep > step.id ? (
-                      <CheckCircleIcon size={20} />
-                    ) : (
-                      <span className="text-sm font-medium">{step.id}</span>
-                    )}
-                  </div>
-                  <span className="mt-2 text-xs text-gray-600 dark:text-gray-400 hidden sm:block">
-                    {step.title}
-                  </span>
-                </div>
-                {index < MIGRATION_STEPS.length - 1 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-2 transition-colors ${
-                      currentStep > step.id
-                        ? 'bg-blue-600'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {source && (
+              <button onClick={() => setSource(null)} aria-label="Back to app list"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <ArrowLeftIcon size={20} />
+              </button>
+            )}
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {source ? `Migrate from ${source.name}` : 'Where are you migrating from?'}
+            </h2>
           </div>
+          <button onClick={handleClose} aria-label="Close migration wizard"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <XIcon size={22} />
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertCircleIcon size={20} className="text-red-600 dark:text-red-400 mt-0.5" />
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </div>
+        <div className="p-6 overflow-y-auto">
+          {!source && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {SOURCES.map(s => (
+                <button key={s.id} onClick={() => setSource(s)}
+                  className="text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center gap-3">
+                  <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-[#1a2332] dark:text-blue-400">
+                    <s.icon size={18} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-gray-900 dark:text-white">{s.name}</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">{s.description}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Step 1: Select Source */}
-          {currentStep === 1 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Select Your Data Source
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Choose the application or format you're migrating from
-              </p>
+          {source && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Get your data out of {source.name}</h3>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  {source.instructions.map((line, i) => <li key={i}>{line}</li>)}
+                </ol>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {MIGRATION_SOURCES.map(source => {
-                  const Icon = source.icon;
-                  return (
-                    <button
-                      key={source.id}
-                      onClick={() => setSelectedSource(source.id)}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        selectedSource === source.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <div className={`w-12 h-12 ${source.color} rounded-lg flex items-center justify-center mb-3 mx-auto`}>
-                        <Icon size={24} className="text-white" />
-                      </div>
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                        {source.name}
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {source.description}
-                      </p>
+              {source.destructiveNote && (
+                <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 flex items-start gap-2">
+                  <AlertCircleIcon size={18} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                  <p className="text-sm text-red-800 dark:text-red-200">{source.destructiveNote}</p>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Then import it here</h3>
+                <div className="space-y-2">
+                  {source.tools.map(t => (
+                    <button key={t.tool} onClick={() => openTool(t.tool)}
+                      className="w-full text-left rounded-xl border border-gray-200 dark:border-gray-700 hover:border-[#1a2332]/30 dark:hover:border-blue-500/40 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors p-3 flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-gray-900 dark:text-white">{t.label}</span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">{t.hint}</span>
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 shrink-0">→</span>
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Upload Data */}
-          {currentStep === 2 && selectedSource && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Upload Your Data Files
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                {MIGRATION_SOURCES.find(s => s.id === selectedSource)?.instructions}
-              </p>
-
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                  isDragActive
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <UploadIcon size={48} className="mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 dark:text-gray-400 mb-2">
-                  {isDragActive
-                    ? 'Drop the files here...'
-                    : 'Drag & drop files here, or click to select'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Supported formats: {MIGRATION_SOURCES.find(s => s.id === selectedSource)?.fileTypes.join(', ')}
-                </p>
-              </div>
-
-              {uploadedFiles.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                    Uploaded Files ({uploadedFiles.length})
-                  </h4>
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileTextIcon size={20} className="text-gray-500" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDecimal(file.size / 1024, 2)} KB
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                        aria-label="Remove file"
-                      >
-                        <XIcon size={16} />
-                      </button>
-                    </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Map Fields */}
-          {currentStep === 3 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Field Mapping
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                We've automatically mapped your data fields. Review and adjust if needed.
-              </p>
-
-              <div className="space-y-4">
-                {['Date', 'Description', 'Amount', 'Category', 'Account'].map(field => (
-                  <div key={field} className="flex items-center gap-4">
-                    <label className="w-32 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {field}
-                    </label>
-                    <select className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                      <option>Auto-detected: {field}</option>
-                      <option>Column A</option>
-                      <option>Column B</option>
-                      <option>Column C</option>
-                      <option>Skip this field</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <ZapIcon size={20} className="text-blue-700 dark:text-blue-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
-                      Smart Mapping Active
-                    </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-400">
-                      Our AI has automatically detected and mapped your fields based on common patterns.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           )}
-
-          {/* Step 4: Review */}
-          {currentStep === 4 && mappedData && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Review Import Summary
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Please review the data that will be imported
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Accounts</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {mappedData.accounts}
-                  </p>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Transactions</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {mappedData.transactions}
-                  </p>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Categories</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {mappedData.categories}
-                  </p>
-                </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Date Range</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">
-                    {mappedData.dateRange}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircleIcon size={20} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-1">
-                      Important Note
-                    </p>
-                    <p className="text-xs text-yellow-700 dark:text-yellow-400">
-                      Duplicate transactions will be automatically detected and skipped during import.
-                      Your existing data will not be affected.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 5: Import */}
-          {currentStep === 5 && (
-            <div className="text-center py-8">
-              {isProcessing ? (
-                <>
-                  <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    Importing Your Data...
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    This may take a few minutes. Please don't close this window.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <CheckCircleIcon size={64} className="text-blue-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    Ready to Import
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Click "Complete Import" to finish the migration process.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <button
-            onClick={handlePrevStep}
-            disabled={currentStep === 1 || isProcessing}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              currentStep === 1 || isProcessing
-                ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-            }`}
-          >
-            <ArrowLeftIcon size={16} />
-            Previous
-          </button>
-
-          <button
-            onClick={handleNextStep}
-            disabled={
-              (currentStep === 1 && !selectedSource) ||
-              (currentStep === 2 && uploadedFiles.length === 0) ||
-              isProcessing
-            }
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              ((currentStep === 1 && !selectedSource) ||
-                (currentStep === 2 && uploadedFiles.length === 0) ||
-                isProcessing)
-                ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-[#1a2332] text-white hover:bg-[#2d3a4d]'
-            }`}
-          >
-            {currentStep === 5 ? 'Complete Import' : 'Next'}
-            {currentStep < 5 && <ArrowRightIcon size={16} />}
-          </button>
         </div>
       </div>
     </div>

@@ -105,11 +105,43 @@ export default function DataManagementSettings() {
     URL.revokeObjectURL(url);
   };
 
-  const handleClearData = () => {
-    clearAllData();
-    setShowDeleteConfirm(false);
-    // No need to reload - the state updates will trigger re-renders
+  const [isClearing, setIsClearing] = useState(false);
+  const [clearConfirmText, setClearConfirmText] = useState('');
+  const [clearError, setClearError] = useState('');
+
+  // ACTUALLY delete everything. clearAllData() only resets in-memory state —
+  // on cloud the data all came back on the next load, which made the button a
+  // lie. Now the same proven wipe the MS Money migration uses runs first, then
+  // the app reloads to re-read the (empty) truth.
+  const handleClearData = async () => {
+    setIsClearing(true);
+    setClearError('');
+    try {
+      const { wipeCloudData, wipeLocalData } = await import('../../services/import/msMoney/msMoneyImport');
+      const databaseUserId = DataService.getUserIds().databaseId;
+      if (isUsingSupabase && supabase && databaseUserId) {
+        await wipeCloudData(supabase, databaseUserId);
+      } else {
+        wipeLocalData(STORAGE_KEYS);
+      }
+      await clearAllData();
+      setShowDeleteConfirm(false);
+      window.location.reload();
+    } catch (error) {
+      dataManagementLogger.error('Clear all data failed', error);
+      setClearError(error instanceof Error ? error.message : 'Failed to delete data.');
+      setIsClearing(false);
+    }
   };
+
+  // The wizard routes to the real import tools it recommends.
+  const handleWizardTool = useCallback((tool: 'csv' | 'qif' | 'ofx' | 'msmoney') => {
+    setShowMigrationWizard(false);
+    if (tool === 'csv') setShowCSVImportWizard(true);
+    else if (tool === 'qif') setShowQIFImportModal(true);
+    else if (tool === 'ofx') setShowOFXImportModal(true);
+    else setShowMsMoneyImport(true);
+  }, []);
 
   const handleLoadTestData = () => {
     loadTestData();
@@ -258,21 +290,37 @@ export default function DataManagementSettings() {
               <li>{transactions.length} transactions</li>
               <li>{budgets.length} budgets</li>
             </ul>
-            <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-6">
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-4">
               This action cannot be undone!
             </p>
+            <div className="mb-4">
+              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">
+                Type <span className="font-mono font-bold">DELETE</span> to confirm
+              </label>
+              <input
+                value={clearConfirmText}
+                onChange={(e) => setClearConfirmText(e.target.value)}
+                placeholder="DELETE"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+            {clearError && (
+              <p className="text-sm text-red-600 dark:text-red-400 mb-4">{clearError}</p>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => { setShowDeleteConfirm(false); setClearConfirmText(''); setClearError(''); }}
+                disabled={isClearing}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
               >
                 Cancel
               </button>
               <button
-                onClick={handleClearData}
-                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800"
+                onClick={() => { void handleClearData(); }}
+                disabled={isClearing || clearConfirmText.trim().toUpperCase() !== 'DELETE'}
+                className="flex-1 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Delete All Data
+                {isClearing ? 'Deleting…' : 'Delete All Data'}
               </button>
             </div>
           </div>
@@ -336,16 +384,13 @@ export default function DataManagementSettings() {
         </Suspense>
       )}
 
-      {/* Data Migration Wizard */}
+      {/* Data Migration Wizard — routes to the real importers */}
       {showMigrationWizard && (
         <Suspense fallback={<LoadingState />}>
           <DataMigrationWizard
             isOpen={showMigrationWizard}
             onClose={() => setShowMigrationWizard(false)}
-            onComplete={(data) => {
-              dataManagementLogger.info('Migration completed', data);
-              setShowMigrationWizard(false);
-            }}
+            onOpenTool={handleWizardTool}
           />
         </Suspense>
       )}
