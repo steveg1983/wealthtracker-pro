@@ -1,10 +1,13 @@
-import React, { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { Modal, ModalBody, ModalFooter } from '../common/Modal';
 import { bankConnectionService } from '../../services/bankConnectionService';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { DiscoveredBankAccount } from '../../types/banking-api';
 import type { Account } from '../../types';
+
+import AccountPickerCombobox from './AccountPickerCombobox';
+import { CREATE_NEW_VALUE } from './accountPickerOptions';
 
 const AddAccountModal = lazy(() => import('../AddAccountModal'));
 
@@ -114,33 +117,6 @@ const getMatchReason = (
   return null;
 };
 
-const CREATE_NEW_VALUE = '__create_new__';
-
-// The picker groups accounts the way the app sections them, alphabetised
-// within each group — a raw insertion-order list is unusable at 200 accounts.
-const ACCOUNT_GROUP_ORDER: Array<{ label: string; types: Array<Account['type']> }> = [
-  { label: 'Current Accounts', types: ['current', 'checking'] },
-  { label: 'Savings', types: ['savings'] },
-  { label: 'Credit Cards', types: ['credit'] },
-  { label: 'Loans', types: ['loan'] },
-  { label: 'Mortgages', types: ['mortgage'] },
-  { label: 'Investments', types: ['investment'] },
-  { label: 'Assets', types: ['asset', 'assets'] },
-  { label: 'Liabilities', types: ['liability'] },
-  { label: 'Other', types: ['other'] }
-];
-
-const groupAccountsForPicker = (
-  accounts: Account[]
-): Array<{ label: string; accounts: Account[] }> => {
-  const active = accounts.filter((a) => a.isActive !== false);
-  return ACCOUNT_GROUP_ORDER.map((group) => ({
-    label: group.label,
-    accounts: active
-      .filter((a) => group.types.includes(a.type))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-  })).filter((group) => group.accounts.length > 0);
-};
 
 
 export default function LinkBankAccountsModal({
@@ -157,7 +133,6 @@ export default function LinkBankAccountsModal({
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAccountFor, setCreateAccountFor] = useState<string | null>(null);
-  const accountGroups = useMemo(() => groupAccountsForPicker(accounts), [accounts]);
 
   const loadDiscoveredAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -325,28 +300,12 @@ export default function LinkBankAccountsModal({
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                         Link to:
                       </label>
-                      <select
+                      <AccountPickerCombobox
+                        accounts={accounts}
                         value={selectedId}
-                        onChange={(e) =>
-                          updateLink(da.externalAccountId, e.target.value)
-                        }
-                        aria-label={`Link ${da.name} to account`}
-                        className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
-                      >
-                        <option value="">-- Skip (don&apos;t link) --</option>
-                        {accountGroups.map((group) => (
-                          <optgroup key={group.label} label={group.label}>
-                            {group.accounts.map((a) => (
-                              <option key={a.id} value={a.id}>
-                                {a.name}
-                                {a.institution ? ` (${a.institution})` : ''}
-                                {a.sortCode ? ` - ${a.sortCode}` : ''}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                        <option value={CREATE_NEW_VALUE}>+ Create New Account</option>
-                      </select>
+                        onChange={(v) => updateLink(da.externalAccountId, v)}
+                        ariaLabel={`Link ${da.name} to account`}
+                      />
 
                       {/* Match reason */}
                       {isMatched && selectedId && (() => {
