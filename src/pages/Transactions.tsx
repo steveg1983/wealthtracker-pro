@@ -41,6 +41,7 @@ const Transactions = React.memo(function Transactions() {
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | 'net' | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
+  const [showArchived, setShowArchived] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [dateFrom, setDateFrom] = useState('');
@@ -84,8 +85,17 @@ const Transactions = React.memo(function Transactions() {
     direction: sortDirection
   }), [sortField, sortDirection]);
 
+  // Soft archive: hide archived transactions from the live register unless the
+  // user opts to show them. Reports read the full context set, not this — so
+  // hiding here never affects any report or balance.
+  const archivedCount = useMemo(() => transactions.reduce((n, t) => n + (t.archived ? 1 : 0), 0), [transactions]);
+  const liveTransactions = useMemo(
+    () => (showArchived ? transactions : transactions.filter(t => !t.archived)),
+    [transactions, showArchived]
+  );
+
   const { transactions: filteredAndSortedTransactions, getCategoryPath } = useTransactionFilters(
-    transactions,
+    liveTransactions,
     accounts,
     categories,
     filterOptions,
@@ -669,6 +679,22 @@ const Transactions = React.memo(function Transactions() {
               />
             </div>
           </div>
+
+          {/* Archived transactions toggle — only shown when some exist */}
+          {archivedCount > 0 && (
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                id="show-archived"
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => { setShowArchived(e.target.checked); resetPagination(); }}
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+              />
+              <label htmlFor="show-archived" className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                Show {archivedCount.toLocaleString()} archived transaction{archivedCount === 1 ? '' : 's'}
+              </label>
+            </div>
+          )}
         </div>
         </div>
         </div>

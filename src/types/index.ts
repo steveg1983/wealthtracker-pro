@@ -23,6 +23,12 @@ export interface Account {
   lastUpdated: Date;
   openingBalance?: number;
   openingBalanceDate?: Date;
+  /**
+   * Soft-archive cutoff: transactions on/before this date (that are
+   * reconciled) are hidden from the live register. NULL/undefined = nothing
+   * archived ("keep all"). Balances are unaffected — see soft_archive.
+   */
+  archiveThroughDate?: Date | null;
   holdings?: Holding[];
   notes?: string;
   isActive?: boolean;
@@ -65,6 +71,12 @@ export interface Transaction {
   isRecurring?: boolean;
   isSplit?: boolean;
   isImported?: boolean;
+  /**
+   * Soft-archived: hidden from the live register but never deleted and still
+   * counted in balances and reports. Set by the archive operation and the
+   * reconcile-sweep; cleared by unarchive. See the soft_archive migration.
+   */
+  archived?: boolean;
   pending?: boolean;
   plaidTransactionId?: string;
   merchant?: string;

@@ -227,6 +227,57 @@ describe('DataService (deterministic fallback)', () => {
     expect(await localService.getClosedAccounts()).toHaveLength(1);
   });
 
+  it('archives reconciled transactions on/before the cutoff (local) and can restore them', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-1' })],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({ id: 'old-cleared', date: new Date('2023-01-01'), cleared: true }),   // archive
+        baseTransaction({ id: 'old-uncleared', date: new Date('2023-01-01'), cleared: false }),// stays (unreconciled)
+        baseTransaction({ id: 'recent', date: new Date('2026-01-01'), cleared: true }),         // stays (after cutoff)
+      ]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false, storageAdapter: storage, logger, uuid, now, userIdService: userId
+    });
+
+    const archived = await service.archiveTransactionsBefore('acct-1', new Date('2024-01-01'));
+    expect(archived).toBe(1);
+    let txns = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(txns.find(t => t.id === 'old-cleared')?.archived).toBe(true);
+    expect(txns.find(t => t.id === 'old-uncleared')?.archived).toBeFalsy();
+    expect(txns.find(t => t.id === 'recent')?.archived).toBeFalsy();
+    // account records the cutoff
+    const accts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accts[0].archiveThroughDate).toEqual(new Date('2024-01-01'));
+
+    const restored = await service.unarchiveAccount('acct-1');
+    expect(restored).toBe(1);
+    txns = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(txns.every(t => !t.archived)).toBe(true);
+    expect((storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[])[0].archiveThroughDate).toBeNull();
+  });
+
+  it('reconcile-sweep: clearing an old transaction under the cutoff archives it (local)', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-1', archiveThroughDate: new Date('2024-01-01') })],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({ id: 'old', date: new Date('2023-06-01'), cleared: false }),   // under cutoff → sweeps
+        baseTransaction({ id: 'recent', date: new Date('2026-06-01'), cleared: false }), // after cutoff → stays live
+      ]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false, storageAdapter: storage, logger, uuid, now, userIdService: userId
+    });
+
+    await service.setTransactionsCleared(['old', 'recent'], true);
+    const txns = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(txns.find(t => t.id === 'old')?.archived).toBe(true);       // dropped off the live list
+    expect(txns.find(t => t.id === 'recent')?.archived).toBeFalsy();   // still visible
+    // un-clearing never un-archives (unarchive is an explicit action)
+    await service.setTransactionsCleared(['old'], false);
+    expect((storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[]).find(t => t.id === 'old')?.archived).toBe(true);
+  });
+
   it('allows static DataService reconfiguration for tests', async () => {
     const storage = createStorage({
       [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'static-account' })]

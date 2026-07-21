@@ -126,6 +126,10 @@ export interface AppContextType extends AppState {
    * category, enforced server-side. Returns the number actually updated.
    */
   applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
+  /** Soft-archive an account's reconciled transactions on/before the cutoff. */
+  archiveTransactionsBefore: (accountId: string, cutoff: Date) => Promise<number>;
+  /** Bring an account's archived transactions back into the live register. */
+  unarchiveAccount: (accountId: string) => Promise<number>;
   /**
    * Every split line of the user's transactions, loaded at boot and kept in
    * step by setTransactionSplits. Category-aggregation surfaces expand split
@@ -571,6 +575,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTransactions(prev => prev.map(t => (idSet.has(t.id) ? { ...t, cleared } : t)));
     } catch (error) {
       appLogger.error('Failed to set cleared status', error);
+      throw error;
+    }
+  }, []);
+
+  // Soft-archive: hide an account's reconciled transactions on/before the
+  // cutoff. Balance-neutral — we only flip the `archived` flag and record the
+  // cutoff; every account balance and report stays exact.
+  const archiveTransactionsBefore = useCallback(async (accountId: string, cutoff: Date) => {
+    try {
+      const count = await DataService.archiveTransactionsBefore(accountId, cutoff);
+      setTransactions(prev => prev.map(t =>
+        t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff
+          ? { ...t, archived: true } : t
+      ));
+      setAccounts(prev => prev.map(a => (a.id === accountId ? { ...a, archiveThroughDate: cutoff } : a)));
+      return count;
+    } catch (error) {
+      appLogger.error('Failed to archive transactions', error);
+      throw error;
+    }
+  }, []);
+
+  const unarchiveAccount = useCallback(async (accountId: string) => {
+    try {
+      const count = await DataService.unarchiveAccount(accountId);
+      setTransactions(prev => prev.map(t => (t.accountId === accountId && t.archived ? { ...t, archived: false } : t)));
+      setAccounts(prev => prev.map(a => (a.id === accountId ? { ...a, archiveThroughDate: null } : a)));
+      return count;
+    } catch (error) {
+      appLogger.error('Failed to unarchive account', error);
       throw error;
     }
   }, []);
@@ -1065,6 +1099,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTransaction,
     setTransactionsCleared,
     applyCategoryToUncategorized,
+    archiveTransactionsBefore,
+    unarchiveAccount,
     transactionSplits,
     getTransactionSplits,
     setTransactionSplits,

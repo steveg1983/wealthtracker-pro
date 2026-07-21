@@ -42,6 +42,7 @@ const CAMEL_TO_DB: Record<string, string> = {
   recurringTransactionId: 'recurring_transaction_id',
   linkedTransferId: 'linked_transfer_id',
   linkedTransferSplitId: 'linked_transfer_split_id',
+  archived: 'archived',
   plaidTransactionId: 'plaid_transaction_id',
   paymentChannel: 'payment_channel',
   addedBy: 'added_by',
@@ -582,6 +583,56 @@ class TransactionServiceImpl {
    * neutral by construction. Cloud-only here — the local/demo path lives in
    * DataService (which owns local storage semantics).
    */
+  /**
+   * Soft-archive an account's reconciled transactions on/before a cutoff. The
+   * RPC also stamps accounts.archive_through_date, atomically. Cloud-only —
+   * DataService owns the local-mode path (it touches the accounts collection
+   * too). Balance-neutral. Returns the number archived.
+   */
+  async archiveTransactionsBefore(accountId: string, cutoffIso: string, userId?: string): Promise<number> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('archiveTransactionsBefore requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('archive_transactions_before', {
+        p_account_id: accountId,
+        p_cutoff: cutoffIso,
+        ...(userId ? { p_user_id: userId } : {}),
+      });
+      if (error) {
+        this.logger.error('Error archiving transactions:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as { archived?: number };
+      return typeof result.archived === 'number' ? result.archived : 0;
+    } catch (error) {
+      this.logger.error('TransactionService.archiveTransactionsBefore error:', error as Error);
+      throw error;
+    }
+  }
+
+  /** Bring an account's archived transactions back into the live register. Cloud-only. */
+  async unarchiveAccount(accountId: string, userId?: string): Promise<number> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('unarchiveAccount requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('unarchive_account', {
+        p_account_id: accountId,
+        ...(userId ? { p_user_id: userId } : {}),
+      });
+      if (error) {
+        this.logger.error('Error unarchiving account:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as { unarchived?: number };
+      return typeof result.unarchived === 'number' ? result.unarchived : 0;
+    } catch (error) {
+      this.logger.error('TransactionService.unarchiveAccount error:', error as Error);
+      throw error;
+    }
+  }
+
   async linkTransferPair(
     idA: string,
     idB: string,
@@ -929,6 +980,14 @@ export class TransactionService {
 
   static linkTransferPair(idA: string, idB: string, userId?: string): Promise<{ a: Transaction; b: Transaction }> {
     return this.service.linkTransferPair(idA, idB, userId);
+  }
+
+  static archiveTransactionsBefore(accountId: string, cutoffIso: string, userId?: string): Promise<number> {
+    return this.service.archiveTransactionsBefore(accountId, cutoffIso, userId);
+  }
+
+  static unarchiveAccount(accountId: string, userId?: string): Promise<number> {
+    return this.service.unarchiveAccount(accountId, userId);
   }
 
   static createTransferCounterpart(

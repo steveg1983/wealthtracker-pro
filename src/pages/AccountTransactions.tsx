@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
-import { parseMoneyInput } from '../utils/decimal';
+import { parseMoneyInput, toDecimal } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon } from '../components/icons';
@@ -120,6 +120,10 @@ export default function AccountTransactions() {
   const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => readStored<string[]>(HIDDEN_COLUMNS_KEY, DEFAULT_HIDDEN_COLUMNS));
   const [archive, setArchive] = useState<ArchiveState>(() => readStored<ArchiveState>(ARCHIVE_KEY, { range: 'all', from: '', to: '' }));
   const [showView, setShowView] = useState(false);
+  // Soft archive (persistent, server-side) — distinct from the date-window
+  // "archive" dropdown above. Off by default; the toggle appears only when the
+  // account actually has archived transactions.
+  const [showArchived, setShowArchived] = useState(false);
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -166,17 +170,28 @@ export default function AccountTransactions() {
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
+  // Every transaction for this account, unfiltered — the basis for running
+  // balances (so hiding rows never corrupts the displayed balance).
+  const fullAccountTransactions = useMemo<Transaction[]>(
+    () => (account ? transactions.filter(t => t.accountId === account.id) : []),
+    [account, transactions]
+  );
+  const hasArchivedHere = useMemo(() => fullAccountTransactions.some(t => t.archived), [fullAccountTransactions]);
+
   // Get account-specific transactions
   const accountTransactions = useMemo<Transaction[]>(() => {
     if (!account) return [];
-    
-    
+
+
     return transactions
       .filter(t => t.accountId === account.id)
       .filter(t => {
+        // Soft archive: hidden from the live register unless the user opts in.
+        if (!showArchived && t.archived) return false;
+
         // Type filter
         if (typeFilter !== 'all' && t.type !== typeFilter) return false;
-        
+
         // Date range filter (Search & filters)
         if (dateFrom && new Date(t.date) < new Date(dateFrom)) return false;
         if (dateTo && new Date(t.date) > new Date(dateTo)) return false;
@@ -197,49 +212,43 @@ export default function AccountTransactions() {
         );
       })
       .sort((a, b) => compareTransactions(a, b, sortField, sortDirection, categories));
-  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, sortField, sortDirection, categories]);
+  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categories]);
   
   // Calculate running balance
   const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
     if (!account) return [] as TransactionWithBalance[];
     
     
-    // Sort transactions by date and type for proper balance calculation
-    // Within the same date: income first, then transfers, then expenses
+    // Running balance is computed over the FULL account history — every
+    // transaction, ignoring the view filters — so hiding rows (archived, date
+    // window, search) never corrupts the balance shown against a visible row.
+    // Within the same date: income first, then transfers, then expenses.
     const typeOrder = { income: 0, transfer: 1, expense: 2 };
-    const sortedForBalance = [...accountTransactions].sort((a, b) => {
+    const sortedForBalance = [...fullAccountTransactions].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      
-      // First sort by date
       if (dateA !== dateB) {
         return dateA - dateB;
       }
-      
-      // If same date, sort by type (income first, then transfers, then expenses)
       return typeOrder[a.type] - typeOrder[b.type];
     });
-    
+
     // Start from opening balance or 0
     let runningBalance = account.openingBalance || 0;
-    
-    // Calculate running balance for each transaction
-    const withBalance = sortedForBalance.map((transaction) => {
-      // Since amounts are already signed (negative for expenses), just add them
+
+    // Calculate running balance for each transaction (amounts are pre-signed)
+    const balanceMap = new Map<string, number>();
+    for (const transaction of sortedForBalance) {
       runningBalance += transaction.amount;
-      return { ...transaction, balance: runningBalance };
-    });
-    
-    // Now sort back to the user's requested order, but keep the calculated balances
-    const balanceMap = new Map(withBalance.map(t => [t.id, t.balance]));
-    
-    const result = accountTransactions.map(t => ({
+      balanceMap.set(transaction.id, runningBalance);
+    }
+
+    // Display the filtered subset, each carrying its true running balance.
+    return accountTransactions.map(t => ({
       ...t,
-      balance: balanceMap.get(t.id) || 0
+      balance: balanceMap.get(t.id) ?? 0
     }));
-    
-    return result;
-  }, [account, accountTransactions]);
+  }, [account, accountTransactions, fullAccountTransactions]);
 
   // Build display rows with virtual Opening Balance as first entry
   const displayRows = useMemo<DisplayRow[]>(() => {
@@ -247,16 +256,33 @@ export default function AccountTransactions() {
 
     const openingBalance = account.openingBalance ?? 0;
 
-    // Date: use openingBalanceDate, or 1 day before oldest transaction, or today
+    // The lead row's balance is whatever the balance was JUST BEFORE the
+    // earliest VISIBLE transaction. With nothing hidden that equals the opening
+    // balance ("Opening Balance"); when earlier history is hidden (archived, or
+    // a date window) it's the carried-forward figure ("Brought forward"), so
+    // the visible running balances stay continuous and correct.
+    const earliestVisible = transactionsWithBalance.length > 0
+      ? transactionsWithBalance.reduce((min, t) => (new Date(t.date) < new Date(min.date) ? t : min))
+      : null;
+    // No visible rows → the lead balance is the full account balance (opening
+    // plus every transaction, all of which are currently hidden).
+    const fullBalance = fullAccountTransactions
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(openingBalance)).toNumber();
+    const leadBalance = earliestVisible
+      ? toDecimal(earliestVisible.balance).minus(toDecimal(earliestVisible.amount)).toNumber()
+      : fullBalance;
+    const isBroughtForward = Math.abs(leadBalance - openingBalance) > 0.005;
+
+    // Date: cutoff/earliest-visible for a brought-forward line, else the
+    // opening date, else a day before the oldest, else today.
     let obDate: Date;
-    if (account.openingBalanceDate) {
+    if (isBroughtForward && earliestVisible) {
+      obDate = new Date(earliestVisible.date);
+      obDate.setDate(obDate.getDate() - 1);
+    } else if (account.openingBalanceDate) {
       obDate = new Date(account.openingBalanceDate);
-    } else if (transactionsWithBalance.length > 0) {
-      const oldest = transactionsWithBalance.reduce((min, t) => {
-        const d = new Date(t.date).getTime();
-        return d < min ? d : min;
-      }, Infinity);
-      obDate = new Date(oldest);
+    } else if (earliestVisible) {
+      obDate = new Date(earliestVisible.date);
       obDate.setDate(obDate.getDate() - 1);
     } else {
       obDate = new Date();
@@ -266,9 +292,9 @@ export default function AccountTransactions() {
       id: 'opening-balance',
       isOpeningBalance: true,
       date: obDate,
-      description: 'Opening Balance',
-      amount: openingBalance,
-      balance: openingBalance,
+      description: isBroughtForward ? 'Brought forward' : 'Opening Balance',
+      amount: leadBalance,
+      balance: leadBalance,
       type: 'income',
       category: '',
       accountId: account.id,
@@ -281,7 +307,7 @@ export default function AccountTransactions() {
       return [...transactionsWithBalance, openingBalanceRow];
     }
     return [openingBalanceRow, ...transactionsWithBalance];
-  }, [account, transactionsWithBalance, sortField, sortDirection]);
+  }, [account, transactionsWithBalance, fullAccountTransactions, sortField, sortDirection]);
 
   // Calculate unreconciled total
   const unreconciledTotal = useMemo(() => {
@@ -292,13 +318,15 @@ export default function AccountTransactions() {
       .reduce((sum, t) => sum + t.amount, 0);
   }, [account, accountTransactions]);
 
-  // Compute account balance from transactions (opening balance + sum of all txns)
+  // The true account balance = opening + Σ ALL its transactions. Computed over
+  // the FULL set (never the filtered view) so archiving/date filters never
+  // change the headline balance. Decimal — money is never summed as float.
   const computedAccountBalance = useMemo(() => {
     if (!account) return 0;
-    const openingBalance = account.openingBalance ?? 0;
-    const txnTotal = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
-    return openingBalance + txnTotal;
-  }, [account, accountTransactions]);
+    return fullAccountTransactions
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(account.openingBalance ?? 0))
+      .toNumber();
+  }, [account, fullAccountTransactions]);
 
   // Bank balance from TrueLayer sync (or null if not available)
   const bankBalance = account?.bankBalance ?? null;
@@ -887,6 +915,22 @@ export default function AccountTransactions() {
           )}
           {showFilters ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
         </button>
+
+        {/* Soft-archive toggle — only when this account has archived history */}
+        {hasArchivedHere && (
+          <button
+            onClick={() => setShowArchived(prev => !prev)}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+              showArchived
+                ? 'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-gray-50 dark:bg-gray-700'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+            title="Archived transactions are hidden from the live list but never deleted"
+          >
+            <EyeIcon size={14} />
+            {showArchived ? 'Hide archived' : 'Show archived'}
+          </button>
+        )}
 
         {/* View: choose which columns to show, and how far back to list */}
         <div className="relative" ref={viewRef}>
