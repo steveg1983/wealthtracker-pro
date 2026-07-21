@@ -130,8 +130,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     return createErrorResponse(res, 405, 'Method not allowed', 'method_not_allowed');
   }
 
+  let authUserId: string | null = null;
   try {
     const auth = await requireAuth(req);
+    authUserId = auth.userId;
     const supabase = getServiceRoleSupabase();
     const body = req.body as SyncTransactionsRequest | undefined;
     if (!body || typeof body.connectionId !== 'string' || !body.connectionId.trim()) {
@@ -159,7 +161,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (linkedAccounts.length === 0) {
       // No linked accounts: record the run but DON'T flip status to 'connected'
       // (issue #23) — that would mask a broken/needs-reauth connection as healthy.
-      await markConnectionSyncNoAccounts(supabase, connection.id);
+      await markConnectionSyncNoAccounts(supabase, connection.id, auth.userId);
       await supabase.from('sync_history').insert({
         connection_id: connection.id,
         sync_type: 'transactions',
@@ -193,7 +195,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (mappedLinkedAccounts.length === 0) {
       // Linked accounts exist but none map to the user's accounts: same masking
       // risk as above (issue #23) — record the run without forcing 'connected'.
-      await markConnectionSyncNoAccounts(supabase, connection.id);
+      await markConnectionSyncNoAccounts(supabase, connection.id, auth.userId);
       const response: SyncTransactionsResponse = {
         success: true,
         transactionsImported: 0,
@@ -365,7 +367,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     const duplicatesSkipped = prepared.length - insertedCount;
 
-    await markConnectionSyncSuccess(supabase, connection.id);
+    await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
     await supabase.from('sync_history').insert({
       connection_id: connection.id,
       sync_type: 'transactions',
@@ -400,15 +402,21 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     if (!needsReauth) {
       await captureServerError(error, { handler: 'sync-transactions' });
     }
-    if (body?.connectionId) {
-      const sb = getServiceRoleSupabase();
+    // body.connectionId is client-supplied and the service-role client
+    // bypasses RLS — re-validate ownership before persisting any failure
+    // state, or one user could flip another's connection to error/reauth.
+    const sb = getServiceRoleSupabase();
+    const ownedConnection = body?.connectionId && authUserId
+      ? await getUserTrueLayerConnection(sb, authUserId, body.connectionId.trim())
+      : null;
+    if (ownedConnection && authUserId) {
       if (needsReauth) {
-        await markConnectionNeedsReauth(sb, body.connectionId, message);
+        await markConnectionNeedsReauth(sb, ownedConnection.id, authUserId, message);
       } else {
-        await markConnectionSyncFailure(sb, body.connectionId, message);
+        await markConnectionSyncFailure(sb, ownedConnection.id, authUserId, message);
       }
       await sb.from('sync_history').insert({
-        connection_id: body.connectionId,
+        connection_id: ownedConnection.id,
         sync_type: 'transactions',
         status: 'failed',
         records_synced: 0,
