@@ -48,6 +48,7 @@ export default function BankConnections({
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
   const [configStatus, setConfigStatus] = useState({ plaid: false, trueLayer: false });
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
   const logger = useMemo(() => createScopedLogger('BankConnections'), []);
   const { getToken } = useClerkAuth();
 
@@ -97,14 +98,19 @@ export default function BankConnections({
       cleanup();
       void loadConnections();
       if (payload.status === 'success') {
+        setOauthError(null);
         setShowAddBank(false);
         if (payload.connectionId) {
           setLinkingConnectionId(payload.connectionId);
         } else {
           onAccountsLinked?.();
         }
-      } else if (payload.error) {
-        logger.error('OAuth callback returned error', new Error(payload.error));
+      } else {
+        // The popup closes itself moments after an error — if we don't show
+        // the message here, the failure is completely invisible to the user.
+        const errorText = payload.error || 'The bank connection was not completed.';
+        logger.error('OAuth callback returned error', new Error(errorText));
+        setOauthError(errorText);
       }
     };
 
@@ -137,6 +143,7 @@ export default function BankConnections({
 
   const handleConnect = async (institution: BankInstitution) => {
     setIsLoading(true);
+    setOauthError(null);
     try {
       const result = await bankConnectionService.connectBank(
         institution.id,
@@ -158,6 +165,7 @@ export default function BankConnections({
 
   const handleReauthorize = async (connectionId: string) => {
     setIsLoading(true);
+    setOauthError(null);
     try {
       const result = await bankConnectionService.reauthorizeConnection(connectionId);
       if (result.url) {
@@ -271,6 +279,28 @@ export default function BankConnections({
         initialAuditScope={defaultOpsAuditScope}
         initialAuditDateRangePreset={defaultOpsAuditDateRangePreset}
       />
+
+      {/* OAuth failure — surfaced here because the popup self-closes */}
+      {oauthError && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircleIcon className="text-red-600 dark:text-red-400 mt-0.5" size={20} />
+            <div className="flex-1">
+              <p className="font-medium text-red-800 dark:text-red-200">
+                Bank connection failed
+              </p>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">{oauthError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOauthError(null)}
+              className="text-sm text-red-700 dark:text-red-300 underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">

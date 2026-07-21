@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Modal, ModalBody, ModalFooter } from '../common/Modal';
 import { bankConnectionService } from '../../services/bankConnectionService';
 import { useApp } from '../../contexts/AppContextSupabase';
@@ -116,6 +116,33 @@ const getMatchReason = (
 
 const CREATE_NEW_VALUE = '__create_new__';
 
+// The picker groups accounts the way the app sections them, alphabetised
+// within each group — a raw insertion-order list is unusable at 200 accounts.
+const ACCOUNT_GROUP_ORDER: Array<{ label: string; types: Array<Account['type']> }> = [
+  { label: 'Current Accounts', types: ['current', 'checking'] },
+  { label: 'Savings', types: ['savings'] },
+  { label: 'Credit Cards', types: ['credit'] },
+  { label: 'Loans', types: ['loan'] },
+  { label: 'Mortgages', types: ['mortgage'] },
+  { label: 'Investments', types: ['investment'] },
+  { label: 'Assets', types: ['asset', 'assets'] },
+  { label: 'Liabilities', types: ['liability'] },
+  { label: 'Other', types: ['other'] }
+];
+
+const groupAccountsForPicker = (
+  accounts: Account[]
+): Array<{ label: string; accounts: Account[] }> => {
+  const active = accounts.filter((a) => a.isActive !== false);
+  return ACCOUNT_GROUP_ORDER.map((group) => ({
+    label: group.label,
+    accounts: active
+      .filter((a) => group.types.includes(a.type))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  })).filter((group) => group.accounts.length > 0);
+};
+
+
 export default function LinkBankAccountsModal({
   isOpen,
   onClose,
@@ -130,6 +157,7 @@ export default function LinkBankAccountsModal({
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAccountFor, setCreateAccountFor] = useState<string | null>(null);
+  const accountGroups = useMemo(() => groupAccountsForPicker(accounts), [accounts]);
 
   const loadDiscoveredAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -306,15 +334,17 @@ export default function LinkBankAccountsModal({
                         className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
                       >
                         <option value="">-- Skip (don&apos;t link) --</option>
-                        {accounts
-                          .filter((a) => a.isActive !== false)
-                          .map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.name}
-                              {a.institution ? ` (${a.institution})` : ''}
-                              {a.sortCode ? ` - ${a.sortCode}` : ''}
-                            </option>
-                          ))}
+                        {accountGroups.map((group) => (
+                          <optgroup key={group.label} label={group.label}>
+                            {group.accounts.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name}
+                                {a.institution ? ` (${a.institution})` : ''}
+                                {a.sortCode ? ` - ${a.sortCode}` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
                         <option value={CREATE_NEW_VALUE}>+ Create New Account</option>
                       </select>
 
