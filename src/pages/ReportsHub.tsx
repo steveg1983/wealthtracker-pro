@@ -5,7 +5,7 @@ import { SkeletonCard } from '../components/loading/Skeleton';
 
 // Lazy load each report view
 const Reports = lazy(() => import('./Reports'));
-const FinancialSummaries = lazy(() => import('./FinancialSummaries'));
+const NetWorthReport = lazy(() => import('./NetWorthReport'));
 const CustomReports = lazy(() => import('./CustomReports'));
 
 type ReportTab = 'income-expense' | 'net-worth' | 'custom';
@@ -57,7 +57,7 @@ export default function ReportsHub() {
       {/* Tab content */}
       <Suspense fallback={<SkeletonCard className="h-96" />}>
         {activeTab === 'income-expense' && <Reports />}
-        {activeTab === 'net-worth' && <FinancialSummaries />}
+        {activeTab === 'net-worth' && <NetWorthReport />}
         {activeTab === 'custom' && <CustomReports />}
       </Suspense>
 
