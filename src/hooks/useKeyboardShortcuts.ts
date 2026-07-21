@@ -174,8 +174,8 @@ export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKe
     {
       key: 'r',
       altKey: true,
-      description: 'Go to Analytics',
-      action: () => navigate('/analytics'),
+      description: 'Go to Reports',
+      action: () => navigate('/reports'),
       category: 'Navigation',
     },
     {

@@ -880,13 +880,13 @@ export function ImprovedDashboard() {
         </button>
 
         <button
-          onClick={() => navigate(preserveDemoParam('/analytics', location.search))}
+          onClick={() => navigate(preserveDemoParam('/reports', location.search))}
           className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="View financial analytics"
+          aria-label="View reports"
         >
           <TrendingUpIcon size={32} className="mx-auto mb-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />
           <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Analytics
+            Reports
           </span>
         </button>
       </nav>

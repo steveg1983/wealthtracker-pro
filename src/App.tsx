@@ -1,5 +1,5 @@
 import { Suspense, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import { SentryErrorBoundary } from './lib/sentry';
 import { ErrorFallback } from './components/ErrorFallback';
@@ -44,7 +44,6 @@ const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpa
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ './pages/Calendar'));
 const ReportsHub = lazyWithPreload(() => import(/* webpackChunkName: "reports-hub" */ './pages/ReportsHub'));
 const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ './pages/Goals'));
-const Analytics = lazyWithPreload(() => import(/* webpackChunkName: "analytics" */ './pages/Analytics'));
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
 const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
@@ -65,6 +64,16 @@ const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-bank
 const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
 const PrivacyPolicy = lazyWithPreload(() => import(/* webpackChunkName: "legal" */ './pages/legal/PrivacyPolicy'));
 const TermsOfService = lazyWithPreload(() => import(/* webpackChunkName: "legal" */ './pages/legal/TermsOfService'));
+
+/**
+ * Legacy-route redirect that KEEPS the query string. A bare <Navigate>
+ * drops ?demo=true / ?testMode, and losing those bounces a demo session to
+ * the landing page mid-navigation.
+ */
+function RedirectWithSearch({ to }: { to: string }): React.JSX.Element {
+  const location = useLocation();
+  return <Navigate to={{ pathname: to, search: location.search }} replace />;
+}
 
 function App(): React.JSX.Element {
   useEffect(() => {
@@ -197,7 +206,7 @@ function App(): React.JSX.Element {
                               <Transactions />
                             </ProtectedSuspense>
                           } />
-                          <Route path="transactions-comparison" element={<Navigate to="/transactions" replace />} />
+                          <Route path="transactions-comparison" element={<RedirectWithSearch to="/transactions" />} />
                           <Route path="reconciliation" element={
                             <ProtectedSuspense>
                               <Reconciliation />
@@ -233,12 +242,10 @@ function App(): React.JSX.Element {
                               <Goals />
                             </ProtectedSuspense>
                           } />
-                          <Route path="analytics" element={
-                            <ProtectedSuspense>
-                              <Analytics />
-                            </ProtectedSuspense>
-                          } />
-                          
+                          {/* Analytics folded into the Reports hub (one
+                              reporting surface); old links keep working. */}
+                          <Route path="analytics" element={<RedirectWithSearch to="/reports" />} />
+
                           {/* Reports sub-pages (loaded by ReportsHub) */}
                           <Route path="custom-reports" element={
                             <ProtectedSuspense requirePremium={true}>
@@ -251,14 +258,14 @@ function App(): React.JSX.Element {
                             </ProtectedSuspense>
                           } />
                           {/* Redirects for consolidated/removed pages */}
-                          <Route path="ai-analytics" element={<Navigate to="/reports" replace />} />
-                          <Route path="ai-features" element={<Navigate to="/reports" replace />} />
-                          <Route path="tax-planning" element={<Navigate to="/reports" replace />} />
-                          <Route path="household" element={<Navigate to="/settings" replace />} />
-                          <Route path="mobile-features" element={<Navigate to="/dashboard" replace />} />
-                          <Route path="business-features" element={<Navigate to="/dashboard" replace />} />
-                          <Route path="financial-planning" element={<Navigate to="/reports" replace />} />
-                          <Route path="data-intelligence" element={<Navigate to="/reports" replace />} />
+                          <Route path="ai-analytics" element={<RedirectWithSearch to="/reports" />} />
+                          <Route path="ai-features" element={<RedirectWithSearch to="/reports" />} />
+                          <Route path="tax-planning" element={<RedirectWithSearch to="/reports" />} />
+                          <Route path="household" element={<RedirectWithSearch to="/settings" />} />
+                          <Route path="mobile-features" element={<RedirectWithSearch to="/dashboard" />} />
+                          <Route path="business-features" element={<RedirectWithSearch to="/dashboard" />} />
+                          <Route path="financial-planning" element={<RedirectWithSearch to="/reports" />} />
+                          <Route path="data-intelligence" element={<RedirectWithSearch to="/reports" />} />
                           <Route path="export-manager" element={
                             <ProtectedSuspense>
                               <ExportManager />
@@ -279,13 +286,13 @@ function App(): React.JSX.Element {
                       <OpenBanking />
                     </ProtectedSuspense>
                   } />
-                  <Route path="performance" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="performance" element={<RedirectWithSearch to="/dashboard" />} />
                   <Route path="subscription" element={
                     <ProtectedSuspense>
                       <Subscription />
                     </ProtectedSuspense>
                   } />
-                  <Route path="advanced" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="advanced" element={<RedirectWithSearch to="/dashboard" />} />
                   <Route path="settings">
                     <Route index element={
                       <ProtectedSuspense>
@@ -338,7 +345,7 @@ function App(): React.JSX.Element {
                       </ProtectedSuspense>
                     } />
                   </Route>
-                        <Route path="forecasting" element={<Navigate to="/budget" replace />} />
+                        <Route path="forecasting" element={<RedirectWithSearch to="/budget" />} />
                       </Route>
                         </Routes>
                               </Router>

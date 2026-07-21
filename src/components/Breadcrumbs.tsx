@@ -59,9 +59,6 @@ export default function Breadcrumbs() {
           }
           breadcrumbs.push({ label: 'Budget', path: preserveDemoParam('/budget', location.search) });
           break;
-        case 'analytics':
-          breadcrumbs.push({ label: 'Analytics', path: preserveDemoParam('/analytics', location.search) });
-          break;
         case 'goals':
           // Add Forecasting as parent
           if (!breadcrumbs.some(b => b.path.includes('/forecasting'))) {
