@@ -47,15 +47,14 @@ describe('computeExpenseCategoryNetTotals', () => {
     expect(totals).toEqual([]);
   });
 
-  it("buckets 'both'-typed and uncategorized rows by transaction direction", () => {
+  it("uncategorized rows never reach the spending breakdown; a real 'both' category counts by its row's direction", () => {
     const totals = computeExpenseCategoryNetTotals([
-      txn({ type: 'expense', category: 'cat-adjust', amount: -20 }),
-      txn({ type: 'income', category: 'cat-adjust', amount: 5 }),   // income side — excluded
-      txn({ type: 'expense', category: '', amount: -30 }),
+      txn({ type: 'expense', category: 'cat-adjust', amount: -20 }), // 'both' + outgoing → spend
+      txn({ type: 'income', category: 'cat-adjust', amount: 5 }),    // 'both' + incoming → income side, not spend
+      txn({ type: 'expense', category: '', amount: -30 }),           // NO category → excluded entirely
     ], categories);
 
     expect(totals).toEqual([
-      { key: 'uncategorized', name: 'Uncategorized', value: 30 },
       { key: 'cat-adjust', name: 'Account Adjustments', value: 20 },
     ]);
   });

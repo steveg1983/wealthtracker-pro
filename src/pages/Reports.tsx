@@ -50,7 +50,7 @@ export default function Reports() {
   const picker = usePeriod('reportsPeriod');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
+  const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | 'uncategorized' | null>(null);
   const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
@@ -294,6 +294,27 @@ export default function Reports() {
         </div>
         </div>
 
+        {/* Uncategorised review band — these rows are EXCLUDED from every
+            total above (no category = not income, not an expense). Shown so
+            the data gets cleaned rather than silently miscounted. */}
+        {flows.uncategorizedRows.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setBreakdownType('uncategorized')}
+            className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 px-5 py-3 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+          >
+            <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              {flows.uncategorizedRows.length.toLocaleString()} uncategorised transaction{flows.uncategorizedRows.length === 1 ? '' : 's'} excluded from these totals
+            </span>
+            <span className="text-sm text-amber-700 dark:text-amber-400 tabular-nums">
+              {formatCurrency(flows.uncategorizedIn.toNumber())} in · {formatCurrency(flows.uncategorizedOut.toNumber())} out
+            </span>
+            <span className="ml-auto text-xs text-amber-700 dark:text-amber-400">
+              Click to review and categorise
+            </span>
+          </button>
+        )}
+
         {/* Charts */}
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -451,7 +472,11 @@ export default function Reports() {
       <Modal
         isOpen={breakdownType !== null}
         onClose={() => setBreakdownType(null)}
-        title={breakdownType === 'income' ? 'Income Breakdown' : 'Expense Breakdown'}
+        title={
+          breakdownType === 'income' ? 'Income Breakdown'
+          : breakdownType === 'expense' ? 'Expense Breakdown'
+          : 'Uncategorised Transactions'
+        }
         size="md"
       >
         <ModalBody>
@@ -465,7 +490,10 @@ export default function Reports() {
             </thead>
             <tbody>
               {(() => {
-                const allRows = [...(breakdownType === 'income' ? flows.incomeRows : flows.expenseRows)]
+                const source = breakdownType === 'income' ? flows.incomeRows
+                  : breakdownType === 'expense' ? flows.expenseRows
+                  : flows.uncategorizedRows;
+                const allRows = [...source]
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
                 if (allRows.length === 0) {
@@ -477,27 +505,34 @@ export default function Reports() {
                 const rows = allRows.slice(0, CAP);
 
                 const rendered = rows.map(t => {
-                  const contribution = bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
+                  // Uncategorised rows have no bucket: show their signed
+                  // amount as-is (they count toward NO total until filed).
+                  const value = breakdownType === 'uncategorized'
+                    ? t.amount
+                    : bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
+                  const valueClass = breakdownType === 'income' ? 'text-green-600 dark:text-green-400'
+                    : breakdownType === 'expense' ? 'text-red-600 dark:text-red-400'
+                    : value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
                   return (
                     <tr
                       key={t.id}
                       onClick={() => setEditingBreakdownTxnId(t.splitParentId ?? t.id)}
                       className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
-                      title="Click to view or edit this transaction"
+                      title={breakdownType === 'uncategorized'
+                        ? 'Click to give this transaction a category'
+                        : 'Click to view or edit this transaction'}
                     >
                       <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                       </td>
                       <td className="py-2 text-sm text-gray-900 dark:text-white">
                         {t.description}
-                        {contribution < 0 && (
+                        {breakdownType !== 'uncategorized' && value < 0 && (
                           <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
                         )}
                       </td>
-                      <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
-                        breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {contribution < 0 ? `-${formatCurrency(Math.abs(contribution))}` : formatCurrency(contribution)}
+                      <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${valueClass}`}>
+                        {value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}
                       </td>
                     </tr>
                   );
@@ -518,14 +553,24 @@ export default function Reports() {
               })()}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-gray-200 dark:border-gray-600">
-                <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
-                <td className={`pt-3 text-sm font-bold text-right ${
-                  breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrency(breakdownType === 'income' ? summary.income : summary.expenses)}
-                </td>
-              </tr>
+              {breakdownType === 'uncategorized' ? (
+                <tr className="border-t-2 border-gray-200 dark:border-gray-600">
+                  <td colSpan={3} className="pt-3 text-xs text-gray-500 dark:text-gray-400">
+                    These transactions count toward NO total until they are given a category
+                    ({formatCurrency(flows.uncategorizedIn.toNumber())} in · {formatCurrency(flows.uncategorizedOut.toNumber())} out).
+                    Set up a category like &ldquo;Income : Miscellaneous&rdquo; if you need a catch-all.
+                  </td>
+                </tr>
+              ) : (
+                <tr className="border-t-2 border-gray-200 dark:border-gray-600">
+                  <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
+                  <td className={`pt-3 text-sm font-bold text-right ${
+                    breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatCurrency(breakdownType === 'income' ? summary.income : summary.expenses)}
+                  </td>
+                </tr>
+              )}
             </tfoot>
           </table>
         </ModalBody>
