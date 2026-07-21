@@ -349,3 +349,76 @@ describe('TransactionService (deterministic fallback)', () => {
     });
   });
 });
+
+
+// Regression: audit 2026-07-21 — the local fallback of setTransactionSplits
+// changed the transaction amount when the split total differed but never moved
+// the account balance with it (unlike dataService.setTransactionSplits).
+describe('TransactionService setTransactionSplits — local balance sync', () => {
+  const createKeyedStorage = (initial: Record<string, unknown>) => {
+    const data = new Map<string, unknown>(Object.entries(initial));
+    return {
+      get: vi.fn(async (key: string) => data.get(key) ?? null),
+      set: vi.fn(async (key: string, value: unknown) => {
+        data.set(key, value);
+      }),
+      snapshot: (key: string) => data.get(key)
+    };
+  };
+
+  it('moves the account balance by an exact Decimal delta when the split total changes', async () => {
+    const storage = createKeyedStorage({
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ amount: -70.1 })],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [],
+      [STORAGE_KEYS.ACCOUNTS]: [{ id: 'acct-1', name: 'Checking', type: 'checking', balance: -70.1, currency: 'GBP' }]
+    });
+    const service = createTransactionService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn() },
+      now: vi.fn(() => new Date('2025-05-01T12:00:00.000Z')),
+      uuid: vi.fn(() => 'generated-id')
+    });
+
+    const result = await service.setTransactionSplits(
+      'txn-1',
+      [
+        { category: 'cat-a', amount: -0.2 },
+        { category: 'cat-b', amount: -70.1 }
+      ],
+      null
+    );
+
+    expect(result).toEqual({ isSplit: true, splitCount: 2, amount: -70.3 });
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Array<{ balance: number }>;
+    // Exact ledger movement — no IEEE-754 drift, no missing adjustment.
+    expect(accounts[0].balance).toBe(-70.3);
+  });
+
+  it('leaves the balance untouched when the split total equals the transaction amount', async () => {
+    const storage = createKeyedStorage({
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ amount: -70.3 })],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [],
+      [STORAGE_KEYS.ACCOUNTS]: [{ id: 'acct-1', name: 'Checking', type: 'checking', balance: -70.3, currency: 'GBP' }]
+    });
+    const service = createTransactionService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn() },
+      now: vi.fn(() => new Date('2025-05-01T12:00:00.000Z')),
+      uuid: vi.fn(() => 'generated-id')
+    });
+
+    await service.setTransactionSplits(
+      'txn-1',
+      [
+        { category: 'cat-a', amount: -0.2 },
+        { category: 'cat-b', amount: -70.1 }
+      ],
+      -70.3
+    );
+
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Array<{ balance: number }>;
+    expect(accounts[0].balance).toBe(-70.3);
+  });
+});
