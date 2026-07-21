@@ -17,6 +17,7 @@ import {
 // Dynamic import of XLSX to reduce bundle size
 let XLSX: typeof import('xlsx') | null = null;
 import { toDecimal } from '../utils/decimal';
+import { buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
 import type { Transaction } from '../types';
 import { formatDecimal } from '../utils/decimal-format';
 
@@ -57,6 +58,22 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
   );
   const { getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   const currencySymbol = getCurrencySymbol(displayCurrency);
+
+  // Income/expense by CATEGORY semantics (utils/incomeExpense): a refund
+  // filed under an expense category nets spending down instead of counting
+  // as income. Decimal accumulation throughout — exports are financial
+  // documents.
+  const categoryKinds = useMemo(() => buildCategoryKindLookup(categories), [categories]);
+  const flowTotals = (rows: Transaction[]): { income: number; expenses: number } => {
+    let income = toDecimal(0);
+    let expenses = toDecimal(0);
+    for (const t of rows) {
+      const kind = classifyFlow(t, categoryKinds);
+      if (kind === 'income') income = income.plus(toDecimal(t.amount));
+      else if (kind === 'expense') expenses = expenses.plus(toDecimal(t.amount).negated());
+    }
+    return { income: income.toNumber(), expenses: expenses.toNumber() };
+  };
   const [isExporting, setIsExporting] = useState(false);
   
   const [options, setOptions] = useState<ExportOptions>({
@@ -91,27 +108,18 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
 
   const generateSummaryData = () => {
     const filtered = filterTransactionsByDate(transactions);
-    const income = filtered
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
-    const expenses = filtered
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
-    
+    const { income, expenses } = flowTotals(filtered);
+
     const categoryBreakdown = categories.map(cat => {
-      const catTransactions = filtered.filter(t => t.category === cat.name);
-      const catIncome = catTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
-      const catExpenses = catTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
-      
+      // Transactions store category IDS — the old name match silently
+      // returned nothing for every real category.
+      const catTransactions = filtered.filter(t => t.category === cat.id);
+      const totals = flowTotals(catTransactions);
       return {
         Category: cat.name,
-        Income: catIncome,
-        Expenses: catExpenses,
-        Net: catIncome - catExpenses,
+        Income: totals.income,
+        Expenses: totals.expenses,
+        Net: toDecimal(totals.income).minus(toDecimal(totals.expenses)).toNumber(),
         'Transaction Count': catTransactions.length
       };
     });
@@ -128,7 +136,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       overview: [
         { Metric: 'Total Income', Value: income },
         { Metric: 'Total Expenses', Value: expenses },
-        { Metric: 'Net Income', Value: income - expenses },
+        { Metric: 'Net Income', Value: toDecimal(income).minus(toDecimal(expenses)).toNumber() },
         { Metric: 'Transaction Count', Value: filtered.length },
         { Metric: 'Date Range', Value: `${options.dateRange.start?.toLocaleDateString()} - ${options.dateRange.end?.toLocaleDateString()}` }
       ],
@@ -283,13 +291,8 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
     if (options.accounts) {
       const accountData = accounts.map(acc => {
         const accTransactions = transactions.filter(t => t.accountId === acc.id);
-        const income = accTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
-        const expenses = accTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
-        
+        const { income, expenses } = flowTotals(accTransactions);
+
         return {
           Name: acc.name,
           Type: acc.type,
@@ -298,7 +301,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           Institution: acc.institution || '',
           'Total Income': income,
           'Total Expenses': expenses,
-          'Net Change': income - expenses,
+          'Net Change': toDecimal(income).minus(toDecimal(expenses)).toNumber(),
           'Transaction Count': accTransactions.length,
           'Last Updated': (acc.lastUpdated instanceof Date ? acc.lastUpdated : new Date(acc.lastUpdated)).toLocaleDateString()
         };
@@ -328,16 +331,20 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
     // Budgets Sheet
     if (options.budgets) {
       const budgetData = budgets.map(budget => {
-        const spent = transactions
+        const now = new Date();
+        // Money-style netting: a refund filed to the budget's category
+        // reduces spend (never a type filter — refunds arrive as income-typed
+        // rows). Clamped at zero if refunds exceed spending this month.
+        const netSpent = transactions
           .filter(t => {
             const tDate = t.date instanceof Date ? t.date : new Date(t.date);
-            return t.type === 'expense' &&
+            return t.type !== 'transfer' &&
               t.category === budget.categoryId &&
-              tDate.getMonth() === new Date().getMonth() &&
-              tDate.getFullYear() === new Date().getFullYear();
+              tDate.getMonth() === now.getMonth() &&
+              tDate.getFullYear() === now.getFullYear();
           })
-          // Expenses are stored signed (negative); spent is a positive magnitude.
-          .reduce((sum, t) => sum.plus(toDecimal(t.amount).abs()), toDecimal(0));
+          .reduce((sum, t) => sum.minus(toDecimal(t.amount)), toDecimal(0));
+        const spent = netSpent.isNegative() ? toDecimal(0) : netSpent;
 
         const budgetAmount = toDecimal(budget.amount);
         const remaining = budgetAmount.minus(spent);
@@ -375,26 +382,22 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
     // Categories Sheet
     if (options.categories) {
       const categoryData = categories.map(cat => {
-        const catTransactions = transactions.filter(t => t.category === cat.name);
-        const income = catTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
-        const expenses = catTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + Math.abs(toDecimal(t.amount).toNumber()), 0);
-        
-        const budget = budgets.find(b => b.categoryId === cat.name);
-        
+        // Transactions (and budgets) reference category IDS, not names.
+        const catTransactions = transactions.filter(t => t.category === cat.id);
+        const { income, expenses } = flowTotals(catTransactions);
+
+        const budget = budgets.find(b => b.categoryId === cat.id);
+
         return {
           Name: cat.name,
           Icon: cat.icon,
           Color: cat.color,
           'Total Income': income,
           'Total Expenses': expenses,
-          'Net Amount': income - expenses,
+          'Net Amount': toDecimal(income).minus(toDecimal(expenses)).toNumber(),
           'Transaction Count': catTransactions.length,
           'Budget Amount': budget ? toDecimal(budget.amount).toNumber() : 0,
-          'Budget vs Actual': budget ? expenses - toDecimal(budget.amount).toNumber() : 0
+          'Budget vs Actual': budget ? toDecimal(expenses).minus(toDecimal(budget.amount)).toNumber() : 0
         };
       });
       

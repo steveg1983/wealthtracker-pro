@@ -1,6 +1,7 @@
 import type { CustomReport, ReportComponent } from '../components/CustomReportBuilder';
 import type { Transaction, Account, Budget, Category } from '../types';
 import Decimal from 'decimal.js';
+import { buildCategoryKindLookup, classifyFlow, type FlowKind } from '../utils/incomeExpense';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, parseISO, format } from 'date-fns';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -169,19 +170,24 @@ export class CustomReportService {
     }
   ): Promise<unknown> {
     const { transactions, accounts, budgets, categories, dateRange } = context;
+    // Income/expense by CATEGORY semantics (utils/incomeExpense): every
+    // generator classifies rows through this one lookup, so a refund filed
+    // under an expense category nets spending down instead of counting as
+    // income — in stats, charts and comparisons alike.
+    const kinds = buildCategoryKindLookup(categories);
 
     switch (component.type) {
       case 'summary-stats':
-        return this.generateSummaryStats(transactions, component.config);
-      
+        return this.generateSummaryStats(transactions, component.config, kinds);
+
       case 'line-chart':
-        return this.generateLineChartData(transactions, dateRange, component.config);
-      
+        return this.generateLineChartData(transactions, dateRange, component.config, kinds);
+
       case 'pie-chart':
-        return this.generatePieChartData(transactions, categories, component.config);
-      
+        return this.generatePieChartData(transactions, categories, component.config, kinds);
+
       case 'bar-chart':
-        return this.generateBarChartData(transactions, dateRange, component.config);
+        return this.generateBarChartData(transactions, dateRange, component.config, kinds);
       
       case 'table':
         return this.generateTableData(transactions, accounts, component.config);
@@ -190,10 +196,10 @@ export class CustomReportService {
         return { content: component.config.content || '' };
       
       case 'category-breakdown':
-        return this.generateCategoryBreakdown(transactions, categories, budgets, component.config);
-      
+        return this.generateCategoryBreakdown(transactions, categories, budgets, component.config, kinds);
+
       case 'date-comparison':
-        return this.generateDateComparison(transactions, dateRange, component.config);
+        return this.generateDateComparison(transactions, dateRange, component.config, kinds);
       
       default:
         return null;
@@ -202,16 +208,24 @@ export class CustomReportService {
 
   private generateSummaryStats(
     transactions: Transaction[],
-    config: ReportComponent['config']
+    config: ReportComponent['config'],
+    kinds: Map<string, FlowKind | null>
   ): Record<string, number> {
-    const income = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
-    
-    const expenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
-    
+    let income = new Decimal(0);
+    let expenses = new Decimal(0);
+    let expenseRowCount = 0;
+    for (const t of transactions) {
+      const kind = classifyFlow(t, kinds);
+      if (kind === 'income') {
+        income = income.plus(t.amount);
+      } else if (kind === 'expense') {
+        // Signed convention: spending is negative, so negating accumulates
+        // spend and a refund credit nets it down.
+        expenses = expenses.minus(t.amount);
+        expenseRowCount++;
+      }
+    }
+
     const netIncome = income.minus(expenses);
     const savingsRate = income.gt(0) ? netIncome.div(income).times(100) : new Decimal(0);
 
@@ -221,8 +235,8 @@ export class CustomReportService {
       netIncome: netIncome.toNumber(),
       savingsRate: savingsRate.toNumber(),
       transactionCount: transactions.length,
-      avgTransaction: transactions.length > 0 
-        ? expenses.div(transactions.filter(t => t.type === 'expense').length).toNumber()
+      avgTransaction: expenseRowCount > 0
+        ? expenses.div(expenseRowCount).toNumber()
         : 0
     };
 
@@ -238,9 +252,10 @@ export class CustomReportService {
   }
 
   private generateLineChartData(
-    transactions: Transaction[], 
+    transactions: Transaction[],
     dateRange: { startDate: Date; endDate: Date },
-    config: ReportComponent['config']
+    config: ReportComponent['config'],
+    kinds: Map<string, FlowKind | null>
   ): { labels: string[]; datasets: Array<{ label: string; data: number[]; borderColor: string; backgroundColor: string; borderWidth?: number }> } {
     // Group transactions by month
     const monthlyData = new Map<string, { income: typeof Decimal.prototype; expenses: typeof Decimal.prototype }>();
@@ -256,10 +271,12 @@ export class CustomReportService {
       }
       
       const data = monthlyData.get(monthKey)!;
-      if (t.type === 'income') {
+      const kind = classifyFlow(t, kinds);
+      if (kind === 'income') {
         data.income = data.income.plus(t.amount);
-      } else if (t.type === 'expense') {
-        data.expenses = data.expenses.plus(Math.abs(t.amount));
+      } else if (kind === 'expense') {
+        // Negated signed sum: refunds net the month's spending down.
+        data.expenses = data.expenses.minus(t.amount);
       }
     });
 
@@ -288,17 +305,22 @@ export class CustomReportService {
   private generatePieChartData(
     transactions: Transaction[],
     categories: Category[],
-    config: ReportComponent['config']
+    config: ReportComponent['config'],
+    kinds: Map<string, FlowKind | null>
   ): { labels: string[]; data: number[] } {
-    // Group expenses by category
+    // Net spend per category (refunds subtract); non-positive categories are
+    // dropped — a pie slice cannot represent negative spend.
     const categoryTotals = new Map<string, typeof Decimal.prototype>();
-    
+
     transactions
-      .filter(t => t.type === 'expense')
+      .filter(t => classifyFlow(t, kinds) === 'expense')
       .forEach(t => {
         const current = categoryTotals.get(t.category) || new Decimal(0);
-        categoryTotals.set(t.category, current.plus(Math.abs(t.amount)));
+        categoryTotals.set(t.category, current.minus(t.amount));
       });
+    for (const [key, total] of [...categoryTotals.entries()]) {
+      if (!total.gt(0)) categoryTotals.delete(key);
+    }
 
     // Sort by amount and apply limit
     const sortedCategories = Array.from(categoryTotals.entries())
@@ -328,17 +350,19 @@ export class CustomReportService {
   private generateBarChartData(
     transactions: Transaction[],
     _dateRange: { startDate: Date; endDate: Date },
-    _config: ReportComponent['config']
+    _config: ReportComponent['config'],
+    kinds: Map<string, FlowKind | null>
   ): { labels: string[]; datasets: Array<{ label: string; data: number[]; backgroundColor: string; borderColor: string; borderWidth: number }> } {
-    // Similar to line chart but with bar format
+    // Similar to line chart but with bar format. Net signed spend per month —
+    // refunds filed to expense categories subtract.
     const monthlyExpenses = new Map<string, typeof Decimal.prototype>();
-    
+
     transactions
-      .filter(t => t.type === 'expense')
+      .filter(t => classifyFlow(t, kinds) === 'expense')
       .forEach(t => {
         const monthKey = format(new Date(t.date), 'MMM yyyy');
         const current = monthlyExpenses.get(monthKey) || new Decimal(0);
-        monthlyExpenses.set(monthKey, current.plus(Math.abs(t.amount)));
+        monthlyExpenses.set(monthKey, current.minus(t.amount));
       });
 
     const sortedMonths = Array.from(monthlyExpenses.keys()).sort((a, b) => 
@@ -405,7 +429,8 @@ export class CustomReportService {
     transactions: Transaction[],
     categories: Category[],
     budgets: Budget[],
-    _config: ReportComponent['config']
+    _config: ReportComponent['config'],
+    kinds: Map<string, FlowKind | null>
   ): Array<{
     category: string;
     actual: number;
@@ -421,17 +446,18 @@ export class CustomReportService {
       count: number;
     }>();
 
-    // Calculate actuals
+    // Calculate actuals — net signed spend, so refunds filed to the
+    // category reduce the actual instead of inflating it.
     transactions
-      .filter(t => t.type === 'expense')
+      .filter(t => classifyFlow(t, kinds) === 'expense')
       .forEach(t => {
         const current = categoryData.get(t.category) || {
           actual: new Decimal(0),
           budget: new Decimal(0),
           count: 0
         };
-        
-        current.actual = current.actual.plus(Math.abs(t.amount));
+
+        current.actual = current.actual.minus(t.amount);
         current.count++;
         categoryData.set(t.category, current);
       });
@@ -468,7 +494,8 @@ export class CustomReportService {
   private generateDateComparison(
     transactions: Transaction[],
     dateRange: { startDate: Date; endDate: Date },
-    _config: ReportComponent['config']
+    _config: ReportComponent['config'],
+    kinds: Map<string, FlowKind | null>
   ): {
     current: {
       income: number;
@@ -511,16 +538,17 @@ export class CustomReportService {
       return tDate >= previousStart && tDate <= previousEnd;
     });
 
-    // Calculate metrics for both periods
+    // Calculate metrics for both periods — category semantics, so refunds
+    // net expenses down in both the current and comparison windows.
     const calculateMetrics = (trans: Transaction[]) => {
-      const income = trans
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
-      
-      const expenses = trans
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
-      
+      let income = new Decimal(0);
+      let expenses = new Decimal(0);
+      for (const t of trans) {
+        const kind = classifyFlow(t, kinds);
+        if (kind === 'income') income = income.plus(t.amount);
+        else if (kind === 'expense') expenses = expenses.minus(t.amount);
+      }
+
       return {
         income: income.toNumber(),
         expenses: expenses.toNumber(),

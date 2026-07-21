@@ -92,8 +92,11 @@ export default function BudgetRollover() {
     const endDate = new Date(previousYear, previousMonth + 1, 0);
 
     const categoryNameLookup = new Map(categories.map(category => [category.id, category.name]));
-    const expenseTransactions = transactions
-      .filter(t => t.type === 'expense')
+    // Money-style netting: a refund filed to the budget's category arrives as
+    // an income-typed row and REDUCES spend — so no type filter here, only
+    // transfers are skipped.
+    const nonTransferTransactions = transactions
+      .filter(t => t.type !== 'transfer')
       .map(t => ({
         ...t,
         amount: toDecimal(t.amount)
@@ -104,14 +107,16 @@ export default function BudgetRollover() {
       const categoryName = categoryNameLookup.get(categoryId) ?? categoryId;
       const budgetAmount = toDecimal(budget.amount);
 
-      const spent = expenseTransactions
+      const netSpent = nonTransferTransactions
         .filter(t =>
           t.category === categoryId &&
           t.date >= startDate &&
           t.date <= endDate
         )
-        // Expense amounts are stored signed (negative); sum magnitudes for spend.
-        .reduce((sum, t) => sum.plus(t.amount.abs()), toDecimal(0));
+        // Signed convention: spending is negative, so negate to accumulate
+        // spend; refunds net it down. Clamped at zero for the rollover maths.
+        .reduce((sum, t) => sum.minus(t.amount), toDecimal(0));
+      const spent = netSpent.isNegative() ? toDecimal(0) : netSpent;
 
       const remaining = budgetAmount.minus(spent);
       const isExcluded = exclusionSet.has(categoryId) || exclusionSet.has(categoryName);

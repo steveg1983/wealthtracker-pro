@@ -27,19 +27,19 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from './transa
 
 export type FlowKind = 'income' | 'expense' | 'transfer';
 
+/** A single category's flow kind (null = no categorical signal, e.g. 'both'). */
+export function categoryKindOf(c: Category | undefined): FlowKind | null {
+  if (!c) return null;
+  if (c.isTransferCategory === true || c.id === 'type-transfer' || c.parentId === 'type-transfer') {
+    return 'transfer';
+  }
+  if (c.type === 'income' || c.type === 'expense') return c.type;
+  return null;
+}
+
 /** category id → its flow kind (null = no categorical signal, e.g. 'both'). */
 export function buildCategoryKindLookup(categories: Category[]): Map<string, FlowKind | null> {
-  const lookup = new Map<string, FlowKind | null>();
-  for (const c of categories) {
-    if (c.isTransferCategory === true || c.id === 'type-transfer' || c.parentId === 'type-transfer') {
-      lookup.set(c.id, 'transfer');
-    } else if (c.type === 'income' || c.type === 'expense') {
-      lookup.set(c.id, c.type);
-    } else {
-      lookup.set(c.id, null);
-    }
-  }
-  return lookup;
+  return new Map(categories.map(c => [c.id, categoryKindOf(c)]));
 }
 
 export function classifyFlow(

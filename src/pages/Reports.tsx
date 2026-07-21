@@ -22,6 +22,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { computeExpenseCategoryNetTotals, bucketByCategoryDirection } from '../utils/categoryNetting';
+import { expandSplitTransactions } from '../utils/transactionSplits';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 const reportsLogger = createScopedLogger('ReportsPage');
@@ -32,7 +33,15 @@ const CATEGORY_COLORS = [
 ];
 
 export default function Reports() {
-  const { transactions, accounts, categories } = useApp();
+  const { transactions: rawTransactions, transactionSplits, accounts, categories } = useApp();
+  // Reports work on the split-EXPANDED view (like every other reporting
+  // surface): a split parent becomes one row per line, so each line's spend
+  // lands in ITS category — the pie and summary would otherwise drop split
+  // lines into the uncategorised fallback.
+  const transactions = useMemo(
+    () => expandSplitTransactions(rawTransactions, transactionSplits),
+    [rawTransactions, transactionSplits]
+  );
   const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -311,34 +320,36 @@ export default function Reports() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
-          <p className="text-2xl font-bold text-green-700 dark:text-green-400">
+          {/* div, not p: the loading skeleton renders block elements and a
+              <div> inside <p> is invalid DOM nesting */}
+          <div className="text-2xl font-bold text-green-700 dark:text-green-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
-          </p>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.expenses)}
-          </p>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Net Income</p>
-          <p className={`text-2xl font-bold ${
+          <div className={`text-2xl font-bold ${
             summary.netIncome >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.netIncome)}
-          </p>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
-          <p className={`text-2xl font-bold ${
+          <div className={`text-2xl font-bold ${
             savingsRateValue >= 20 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
           }`}>
             {isLoading ? <SkeletonText className="w-20 h-8" /> : `${savingsRateDisplay}%`}
-          </p>
+          </div>
         </div>
         </div>
 

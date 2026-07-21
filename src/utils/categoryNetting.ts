@@ -1,4 +1,5 @@
 import { toDecimal } from './decimal';
+import { categoryKindOf } from './incomeExpense';
 import type { Transaction, Category } from '../types';
 
 export interface CategoryNetTotal {
@@ -37,10 +38,11 @@ export function bucketByCategoryDirection(
   categoryById: ReadonlyMap<string, Category>
 ): 'income' | 'expense' | 'transfer' {
   if (t.type === 'transfer') return 'transfer';
-  const category = t.category ? categoryById.get(t.category) : undefined;
-  if (category?.type === 'expense') return 'expense';
-  if (category?.type === 'income') return 'income';
-  return t.type;
+  // One shared kind definition (utils/incomeExpense) — this must never drift
+  // from the Dashboard/Analytics classifier. It also treats a To/From
+  // transfer category as 'transfer' whatever the row's own direction says.
+  const kind = categoryKindOf(t.category ? categoryById.get(t.category) : undefined);
+  return kind ?? t.type;
 }
 
 export function computeExpenseCategoryNetTotals(

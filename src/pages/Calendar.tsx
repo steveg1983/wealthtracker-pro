@@ -6,6 +6,7 @@ import { preserveDemoParam } from '../utils/navigation';
 import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
+import { toDecimal } from '../utils/decimal';
 
 interface DayData {
   date: Date;
@@ -49,16 +50,20 @@ export default function Calendar() {
       return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     };
 
-    // Group transactions by date string
+    // Group transactions by date string. The calendar is a CASH-MOVEMENT day
+    // ledger (a bank-statement view): buckets are money in / money out by
+    // direction, transfers included — it is deliberately NOT an income
+    // statement, and its labels must say so (income semantics live in
+    // utils/incomeExpense for the reporting surfaces).
     const txByDate = new Map<string, { income: number; expense: number; count: number }>();
     transactions.forEach(t => {
       const dateKey = toDateKey(t.date);
       const existing = txByDate.get(dateKey) || { income: 0, expense: 0, count: 0 };
       existing.count++;
-      if (t.type === 'income' || (t.type === 'transfer' && t.amount > 0)) {
-        existing.income += Math.abs(t.amount);
+      if (t.amount >= 0) {
+        existing.income = toDecimal(existing.income).plus(toDecimal(t.amount)).toNumber();
       } else {
-        existing.expense += Math.abs(t.amount);
+        existing.expense = toDecimal(existing.expense).plus(toDecimal(t.amount).abs()).toNumber();
       }
       txByDate.set(dateKey, existing);
     });
@@ -150,8 +155,8 @@ export default function Calendar() {
   const monthSummary = useMemo(() => {
     const monthDays = calendarData.filter(d => d.isCurrentMonth);
     return {
-      totalIncome: monthDays.reduce((s, d) => s + d.income, 0),
-      totalExpense: monthDays.reduce((s, d) => s + d.expense, 0),
+      totalIncome: monthDays.reduce((s, d) => s.plus(toDecimal(d.income)), toDecimal(0)).toNumber(),
+      totalExpense: monthDays.reduce((s, d) => s.plus(toDecimal(d.expense)), toDecimal(0)).toNumber(),
       totalTransactions: monthDays.reduce((s, d) => s + d.transactionCount, 0),
     };
   }, [calendarData]);
@@ -176,17 +181,17 @@ export default function Calendar() {
       {/* Month summary bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Income</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Money in</span>
           <p className="text-lg font-semibold text-green-600 dark:text-green-400">{formatCurrency(monthSummary.totalIncome)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Expenses</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Money out</span>
           <p className="text-lg font-semibold text-red-600">{formatCurrency(monthSummary.totalExpense)}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Net</span>
-          <p className={`text-lg font-semibold ${monthSummary.totalIncome - monthSummary.totalExpense >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600'}`}>
-            {formatCurrency(monthSummary.totalIncome - monthSummary.totalExpense)}
+          <p className={`text-lg font-semibold ${toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600'}`}>
+            {formatCurrency(toDecimal(monthSummary.totalIncome).minus(toDecimal(monthSummary.totalExpense)).toNumber())}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 px-4 py-2">
@@ -308,7 +313,7 @@ export default function Calendar() {
       <PageTip
         id="calendar-intro"
         title="Your financial calendar"
-        description="See your income and expenses laid out by day. Click any day with transactions to view the details. Green amounts are income, amounts in parentheses are expenses."
+        description="See money moving in and out laid out by day, like a bank statement — transfers included. Click any day with transactions to view the details. Green amounts are money in, amounts in parentheses are money out."
       />
     </PageWrapper>
   );

@@ -66,8 +66,11 @@ describe('Calendar', () => {
         <Calendar />
       </MemoryRouter>
     );
-    expect(screen.getByText('Income')).toBeInTheDocument();
-    expect(screen.getByText('Expenses')).toBeInTheDocument();
+    // The calendar is a cash-movement day ledger, so its summary deliberately
+    // says money in/out, never "Income"/"Expenses" (those are category
+    // semantics — see utils/incomeExpense).
+    expect(screen.getByText('Money in')).toBeInTheDocument();
+    expect(screen.getByText('Money out')).toBeInTheDocument();
     expect(screen.getByText('Net')).toBeInTheDocument();
     expect(screen.getByText('Transactions')).toBeInTheDocument();
   });
