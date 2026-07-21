@@ -11,6 +11,7 @@ import type { MsMoneyImportResult } from '../../services/import/msMoney/transfor
 import type { ImportProgress } from '../../services/import/msMoney/msMoneyImport';
 
 const MsMoneyImportModal = lazy(() => import('../../components/MsMoneyImportModal'));
+const ArchiveManager = lazy(() => import('../../components/ArchiveManager'));
 
 // Lazy load heavy components to reduce initial bundle size
 const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
@@ -225,6 +226,13 @@ export default function DataManagementSettings() {
           <ActionButton icon={DownloadIcon} title="Quick Export" description="Full data as JSON" onClick={handleExportData} />
           <ActionButton icon={GridIcon} title="Excel Export" description="Spreadsheet format" onClick={() => setShowExcelExport(true)} />
         </div>
+      </Section>
+
+      {/* ── Archive ────────────────────────────────────────────── */}
+      <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
+        <Suspense fallback={<LoadingState />}>
+          <ArchiveManager />
+        </Suspense>
       </Section>
 
       {/* ── Backups ────────────────────────────────────────────── */}

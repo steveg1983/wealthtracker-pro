@@ -29,7 +29,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'createTransferCounterpart'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -329,16 +329,83 @@ class DataServiceImpl {
     this.guardCloudWrite();
 
     const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const cutoffByAccount = new Map(
+      accounts.map(a => [a.id, a.archiveThroughDate ? new Date(a.archiveThroughDate) : null])
+    );
     const idSet = new Set(ids);
     let count = 0;
     const updated = transactions.map(t => {
       if (idSet.has(t.id)) {
         count += 1;
-        return { ...t, cleared };
+        // Reconcile-sweep (mirrors the cloud trigger): a transaction that
+        // becomes reconciled on/before its account's archive cutoff is
+        // archived automatically, so it drops off the live list cleanly.
+        const cutoff = cutoffByAccount.get(t.accountId);
+        const sweep = cleared && !t.archived && cutoff != null && new Date(t.date) <= cutoff;
+        return { ...t, cleared, ...(sweep ? { archived: true } : {}) };
       }
       return t;
     });
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+    return count;
+  }
+
+  /**
+   * Soft-archive an account's reconciled transactions on/before the cutoff and
+   * stamp the account's archive_through_date. Balance-neutral (archiving only
+   * hides rows). Cloud: one atomic RPC. Local: flag the matching transactions
+   * and update the account. Returns the number archived.
+   */
+  async archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.archiveTransactionsBefore(
+        accountId, cutoff.toISOString().slice(0, 10), userId
+      );
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff) {
+        count += 1;
+        return { ...t, archived: true };
+      }
+      return t;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    await this.persistCollection(
+      STORAGE_KEYS.ACCOUNTS,
+      accounts.map(a => (a.id === accountId ? { ...a, archiveThroughDate: cutoff } : a))
+    );
+    return count;
+  }
+
+  /** Bring an account's archived transactions back into the live register. */
+  async unarchiveAccount(accountId: string): Promise<number> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.unarchiveAccount(accountId, userId);
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (t.accountId === accountId && t.archived) { count += 1; return { ...t, archived: false }; }
+      return t;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    await this.persistCollection(
+      STORAGE_KEYS.ACCOUNTS,
+      accounts.map(a => (a.id === accountId ? { ...a, archiveThroughDate: null } : a))
+    );
     return count;
   }
 
@@ -745,6 +812,14 @@ export class DataService {
 
   static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category);
+  }
+
+  static archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {
+    return this.service.archiveTransactionsBefore(accountId, cutoff);
+  }
+
+  static unarchiveAccount(accountId: string): Promise<number> {
+    return this.service.unarchiveAccount(accountId);
   }
 
   static getAllTransactionSplits(): Promise<TransactionSplit[]> {

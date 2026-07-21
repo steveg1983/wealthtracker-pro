@@ -36,6 +36,7 @@ const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
   lastReconciledDate: 'last_reconciled_date',
   lowBalanceAlertEnabled: 'low_balance_alert_enabled',
   lowBalanceThreshold: 'low_balance_threshold',
+  archiveThroughDate: 'archive_through_date',
 };
 
 function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
@@ -62,6 +63,7 @@ function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown>
     lastUpdated: row.last_updated ?? row.updated_at,
     lowBalanceAlertEnabled: row.low_balance_alert_enabled === true,
     lowBalanceThreshold: row.low_balance_threshold != null ? Number(row.low_balance_threshold) : undefined,
+    archiveThroughDate: row.archive_through_date != null ? new Date(String(row.archive_through_date)) : null,
   };
 }
 

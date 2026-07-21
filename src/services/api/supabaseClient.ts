@@ -61,6 +61,14 @@ type Database = {
         Args: { p_user_id: string; p_categories: Record<string, unknown>[] };
         Returns: Record<string, unknown>[];
       };
+      archive_transactions_before: {
+        Args: { p_account_id: string; p_cutoff: string; p_user_id?: string };
+        Returns: Record<string, unknown>;
+      };
+      unarchive_account: {
+        Args: { p_account_id: string; p_user_id?: string };
+        Returns: Record<string, unknown>;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
