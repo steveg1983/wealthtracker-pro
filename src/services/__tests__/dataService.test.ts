@@ -305,3 +305,44 @@ describe('DataService Decimal balance deltas (local mode)', () => {
     expect(accounts[0].balance).toBe(-70.3);
   });
 });
+
+
+// Audit 2026-07-21: cross-currency counterpart creation must refuse loudly —
+// the counterpart is -amount with no conversion, so a USD source would move a
+// GBP ledger by the raw dollar magnitude.
+describe('DataService createTransferCounterpart currency guard (local mode)', () => {
+  it('refuses to create the other side across currencies', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [
+        baseAccount({ id: 'acct-usd', currency: 'USD' }),
+        baseAccount({ id: 'acct-gbp', currency: 'GBP' })
+      ],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({ id: 'txn-x', accountId: 'acct-usd', amount: -1336.25 })
+      ],
+      [STORAGE_KEYS.CATEGORIES]: []
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
+      uuid: vi.fn(() => 'generated-id'),
+      now: vi.fn(() => new Date('2025-09-01T00:00:00.000Z')),
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+      }
+    });
+
+    await expect(
+      service.createTransferCounterpart('txn-x', 'acct-gbp')
+    ).rejects.toThrow(/different currencies.*USD and GBP/);
+
+    // Nothing was written: no counterpart row, no balance movement.
+    const transactions = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(transactions).toHaveLength(1);
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.find(a => a.id === 'acct-gbp')?.balance).toBe(100);
+  });
+});
