@@ -217,3 +217,33 @@ describe('transformMsMoneyExport — transactions', () => {
     expect(computed).toBeCloseTo(2005.51, 2);
   });
 });
+
+describe('transformMsMoneyExport — investment cash pairing (hacctRel)', () => {
+  const invAccounts = [
+    { id: 10, name: 'Rathbones - Share ISA', moneyType: 'investment', relatedAccountId: 11, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
+    { id: 11, name: 'Rathbones - Share ISA (Cash)', moneyType: 'bank', relatedAccountId: 10, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '250.00', closed: false, openDate: null, closeDate: null, comment: null },
+    // hacctRel between two NON-investment accounts (never seen in practice) —
+    // left unpaired rather than guessed at
+    { id: 12, name: 'Bank A', moneyType: 'bank', relatedAccountId: 13, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
+    { id: 13, name: 'Bank B', moneyType: 'bank', relatedAccountId: 12, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
+  ];
+
+  it('nests the cash side under its investment account; the investment side stays top-level', () => {
+    const { accounts, summary } = transformMsMoneyExport(build({ accounts: invAccounts, transactions: [] }), NOW);
+    expect(accounts.find(a => a.id === 'mny-acct-11')!.parentAccountId).toBe('mny-acct-10');
+    expect(accounts.find(a => a.id === 'mny-acct-10')!.parentAccountId).toBeUndefined();
+    expect(summary.accounts.investmentCashPairs).toBe(1);
+  });
+
+  it('ignores hacctRel links that are not investment↔cash', () => {
+    const { accounts } = transformMsMoneyExport(build({ accounts: invAccounts, transactions: [] }), NOW);
+    expect(accounts.find(a => a.id === 'mny-acct-12')!.parentAccountId).toBeUndefined();
+    expect(accounts.find(a => a.id === 'mny-acct-13')!.parentAccountId).toBeUndefined();
+  });
+
+  it('accounts without hacctRel are unaffected', () => {
+    const { accounts, summary } = transformMsMoneyExport(build(), NOW);
+    expect(accounts.every(a => a.parentAccountId === undefined)).toBe(true);
+    expect(summary.accounts.investmentCashPairs).toBe(0);
+  });
+});

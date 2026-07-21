@@ -46,6 +46,8 @@ type DbAccount = {
   credit_limit?: number | null;
   notes?: string | null;
   opening_balance_date?: string | null;
+  archive_through_date?: string | null;
+  parent_account_id?: string | null;
 };
 
 function transformAccountFromDb(row: Record<string, unknown>): Account {
@@ -69,6 +71,8 @@ function transformAccountFromDb(row: Record<string, unknown>): Account {
     creditLimit: dbAccount.credit_limit,
     notes: dbAccount.notes ?? '',
     openingBalanceDate: dbAccount.opening_balance_date ? new Date(dbAccount.opening_balance_date) : undefined,
+    archiveThroughDate: dbAccount.archive_through_date ? new Date(dbAccount.archive_through_date) : null,
+    parentAccountId: dbAccount.parent_account_id ?? null,
   } as Account;
 }
 
@@ -82,6 +86,8 @@ const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
   creditLimit: 'credit_limit',
   lastUpdated: 'updated_at',
   openingBalanceDate: 'opening_balance_date',
+  archiveThroughDate: 'archive_through_date',
+  parentAccountId: 'parent_account_id',
 };
 
 function mapAccountUpdatesToDb(updates: Partial<Account>): Record<string, unknown> {

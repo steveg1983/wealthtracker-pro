@@ -50,6 +50,13 @@ describe.runIf(realFile && existsSync(realFile!))('readMnyExport (real .mny)', (
     expect(exp.accounts.length).toBeGreaterThan(0);
     expect(exp.transactions.length).toBeGreaterThan(0);
 
+    // hacctRel pairing survives extraction: at least one investment account is
+    // linked to a cash account, and the transform nests the cash side.
+    const byId = new Map(exp.accounts.map(a => [a.id, a]));
+    const pairs = exp.accounts.filter(a =>
+      a.moneyType === 'investment' && a.relatedAccountId != null && byId.has(a.relatedAccountId));
+    expect(pairs.length).toBeGreaterThan(0);
+
     // Roles cover every transaction exactly once.
     const roles = exp.transactions.reduce<Record<string, number>>((m, t) => {
       m[t.role] = (m[t.role] ?? 0) + 1; return m;
@@ -60,6 +67,7 @@ describe.runIf(realFile && existsSync(realFile!))('readMnyExport (real .mny)', (
     // The transform must accept the extracted export and every split parent
     // must reconcile to its lines (the core money-safety invariant).
     const out = transformMsMoneyExport(exp, new Date('2020-01-01').toISOString());
+    expect(out.summary.accounts.investmentCashPairs).toBeGreaterThan(0);
     const linesByTxn = new Map<string, number>();
     for (const s of out.transactionSplits) {
       linesByTxn.set(s.transactionId, Math.round(((linesByTxn.get(s.transactionId) ?? 0) + s.amount) * 100) / 100);

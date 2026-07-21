@@ -29,6 +29,14 @@ export interface Account {
    * archived ("keep all"). Balances are unaffected — see soft_archive.
    */
   archiveThroughDate?: Date | null;
+  /**
+   * Investment↔cash pairing (the Microsoft Money model): set on a CASH
+   * account, pointing at the investment account it belongs to. The Accounts
+   * page nests it inside that parent and counts its balance in the parent's
+   * section; the cash account itself stays a full, real account (register,
+   * transfers, reconciliation). NULL/undefined = a normal top-level account.
+   */
+  parentAccountId?: string | null;
   holdings?: Holding[];
   notes?: string;
   isActive?: boolean;
