@@ -11,14 +11,6 @@ import type { Transaction, Account } from '../types';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock the external components and hooks
-vi.mock('./LocalMerchantLogo', () => ({
-  default: ({ description, size }: any) => (
-    <div data-testid="merchant-logo" data-description={description} data-size={size}>
-      Logo
-    </div>
-  )
-}));
-
 vi.mock('./MarkdownNote', () => ({
   default: ({ content }: any) => (
     <div data-testid="markdown-note" data-content={content}>
@@ -238,10 +230,6 @@ describe('TransactionRow', () => {
       const checkIcon = screen.getByTestId('check-icon');
       expect(checkIcon).toHaveAttribute('data-size', '14');
 
-      // Check merchant logo size
-      const merchantLogo = screen.getByTestId('merchant-logo');
-      expect(merchantLogo).toHaveAttribute('data-size', 'sm');
-
       // Check button icon sizes
       const editIcon = screen.getByTestId('edit-icon');
       expect(editIcon).toHaveAttribute('data-size', '14');
@@ -262,10 +250,6 @@ describe('TransactionRow', () => {
 
       const checkIcon = screen.getByTestId('check-icon');
       expect(checkIcon).toHaveAttribute('data-size', '16');
-
-      // Check merchant logo size
-      const merchantLogo = screen.getByTestId('merchant-logo');
-      expect(merchantLogo).toHaveAttribute('data-size', 'md');
     });
   });
 

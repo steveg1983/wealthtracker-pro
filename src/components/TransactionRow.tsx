@@ -2,7 +2,6 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import type { Transaction, Account } from '../types';
 import { TrendingUpIcon, TrendingDownIcon, CheckIcon, EditIcon, DeleteIcon } from './icons';
 import { IconButton } from './icons/IconButton';
-import LocalMerchantLogo from './LocalMerchantLogo';
 import MarkdownNote from './MarkdownNote';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
@@ -164,10 +163,6 @@ export const TransactionRow = memo(function TransactionRow({
             style={{ width: columnWidths.description }}
           >
             <div className="flex items-start gap-3">
-              <LocalMerchantLogo 
-                description={transaction.description} 
-                size={compactView ? 'sm' : 'md'}
-              />
               <div className="flex flex-col flex-1 min-w-0">
                 <span 
                   className={`${compactView ? 'text-sm' : ''} truncate ${onView ? 'cursor-pointer hover:text-primary' : ''}`}

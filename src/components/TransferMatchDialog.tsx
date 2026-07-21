@@ -62,7 +62,10 @@ export default function TransferMatchDialog({
   // z-index beneath the portalled Modal — the dialog existed but never
   // painted on top.
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-lg mx-4 shadow-xl">
         <div className="flex items-center gap-3 mb-3">
           <ArrowRightLeftIcon size={22} className="text-blue-600 dark:text-blue-400" />

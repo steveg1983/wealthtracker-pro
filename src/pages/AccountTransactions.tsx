@@ -5,7 +5,6 @@ import { parseMoneyInput, toDecimal } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon } from '../components/icons';
-import LocalMerchantLogo from '../components/LocalMerchantLogo';
 import DatePicker from '../components/common/DatePicker';
 import EditTransactionModal from '../components/EditTransactionModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
@@ -644,7 +643,6 @@ export default function AccountTransactions() {
       width: undefined, // flex column — uses flex:1 via className
       accessor: (transaction) => (
         <div className="flex items-center gap-2 min-w-0">
-          <LocalMerchantLogo description={transaction.description} size="sm" />
           <span className="text-sm text-gray-900 dark:text-white truncate">
             {transaction.description}
           </span>

@@ -149,16 +149,23 @@ describe('Modal', () => {
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
-    it('calls onClose when backdrop is clicked', () => {
+    it('calls onClose when the area outside the panel is clicked', () => {
       render(
         <Modal isOpen={true} onClose={mockOnClose} title="Test">
           Content
         </Modal>
       );
-      
-      const backdrop = document.querySelector('[aria-hidden="true"]');
-      fireEvent.click(backdrop!);
-      
+
+      // Outside-clicks land on the full-screen CONTAINER (it sits above the
+      // decorative backdrop); the modal closes only when the click target is
+      // the container itself, never something inside the panel.
+      const container = document.querySelector('[role="dialog"]')!.parentElement!;
+      fireEvent.click(container);
+
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+
+      // A click INSIDE the panel must not close.
+      fireEvent.click(document.querySelector('[role="dialog"]')!);
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 

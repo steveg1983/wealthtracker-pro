@@ -229,6 +229,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div 
         ref={modalRef}
