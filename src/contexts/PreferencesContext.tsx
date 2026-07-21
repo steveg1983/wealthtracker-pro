@@ -24,8 +24,6 @@ interface PreferencesContextType {
   setShowBudget: (value: boolean) => void;
   showGoals: boolean;
   setShowGoals: (value: boolean) => void;
-  showAnalytics: boolean;
-  setShowAnalytics: (value: boolean) => void;
   showInvestments: boolean;
   setShowInvestments: (value: boolean) => void;
   showEnhancedInvestments: boolean;
@@ -115,16 +113,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       return saved !== 'false'; // Default to true
     } catch (error) {
       console.error('Error reading showGoals from localStorage:', error);
-      return true;
-    }
-  });
-
-  const [showAnalytics, setShowAnalytics] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_show_analytics');
-      return saved !== 'false'; // Default to true
-    } catch (error) {
-      console.error('Error reading showAnalytics from localStorage:', error);
       return true;
     }
   });
@@ -350,7 +338,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       localStorage.setItem('money_management_first_name', firstName);
       localStorage.setItem('money_management_show_budget', showBudget.toString());
       localStorage.setItem('money_management_show_goals', showGoals.toString());
-      localStorage.setItem('money_management_show_analytics', showAnalytics.toString());
       localStorage.setItem('money_management_show_investments', showInvestments.toString());
       localStorage.setItem('money_management_show_enhanced_investments', showEnhancedInvestments.toString());
       localStorage.setItem('money_management_show_ai_analytics', showAIAnalytics.toString());
@@ -368,7 +355,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     const timeoutId = setTimeout(savePreferences, 300);
     
     return (): void => clearTimeout(timeoutId);
-  }, [compactView, currency, theme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showTaxPlanning, showHousehold, showBusinessFeatures, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
+  }, [compactView, currency, theme, firstName, showBudget, showGoals, showInvestments, showEnhancedInvestments, showAIAnalytics, showTaxPlanning, showHousehold, showBusinessFeatures, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
 
   return (
     <PreferencesContext.Provider value={{
@@ -387,8 +374,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       setShowBudget,
       showGoals,
       setShowGoals,
-      showAnalytics,
-      setShowAnalytics,
       showInvestments,
       setShowInvestments,
       showEnhancedInvestments,

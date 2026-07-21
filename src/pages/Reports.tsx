@@ -3,7 +3,6 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon } from '../components/icons';
 import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
-import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 import {
   ResponsiveContainer,
@@ -22,6 +21,11 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { computeExpenseCategoryNetTotals, bucketByCategoryDirection } from '../utils/categoryNetting';
+import { computeIncomeExpense, bucketContribution } from '../utils/incomeExpense';
+import { usePeriod, PERIOD_LABELS } from '../hooks/usePeriod';
+import PeriodPicker from '../components/PeriodPicker';
+import EditTransactionModal from '../components/EditTransactionModal';
+import { Modal, ModalBody } from '../components/common/Modal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -42,88 +46,49 @@ export default function Reports() {
     () => expandSplitTransactions(rawTransactions, transactionSplits),
     [rawTransactions, transactionSplits]
   );
-  const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
+  // The shared reporting period (same windows and meanings everywhere).
+  const picker = usePeriod('reportsPeriod');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [customStartDate, setCustomStartDate] = useState<string>('');
-  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
+  const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
   const { formatCurrency } = useCurrencyDecimal();
 
-  // Filter transactions based on date range and account
-  const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    let startDate = new Date();
+  // Filter transactions to the shared period + account
+  const filteredTransactions = useMemo(
+    () => transactions.filter(t =>
+      picker.inRange(t.date) &&
+      (selectedAccount === 'all' || t.accountId === selectedAccount)
+    ),
+    [transactions, picker, selectedAccount]
+  );
 
-    switch (dateRange) {
-      case 'month':
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-      case 'quarter':
-        startDate.setMonth(now.getMonth() - 3);
-        break;
-      case 'year':
-        startDate.setFullYear(now.getFullYear() - 1);
-        break;
-      case 'all':
-        startDate = new Date(0);
-        break;
-      case 'custom':
-        if (customStartDate) {
-          startDate = new Date(customStartDate);
-        }
-        break;
-    }
+  // Calculate summary statistics — CATEGORY semantics via the shared
+  // classifier (utils/incomeExpense), so a refund filed under an expense
+  // category reduces Expenses here rather than inflating Income. The rows
+  // ride along to power the click-through breakdown. filteredTransactions is
+  // already split-expanded, so splits are passed empty (no double expansion).
+  const flows = useMemo(
+    () => computeIncomeExpense(filteredTransactions, [], categories),
+    [filteredTransactions, categories]
+  );
 
-    return transactions.filter(t => {
-      const transDate = new Date(t.date);
-      let dateMatch = transDate >= startDate;
-      
-      // For custom date range, also check end date
-      if (dateRange === 'custom' && customEndDate) {
-        const endDate = new Date(customEndDate);
-        endDate.setHours(23, 59, 59, 999); // Include the entire end day
-        dateMatch = dateMatch && transDate <= endDate;
-      }
-      
-      const accountMatch = selectedAccount === 'all' || t.accountId === selectedAccount;
-      return dateMatch && accountMatch;
-    });
-  }, [transactions, dateRange, selectedAccount, customStartDate, customEndDate]);
-
-  // Calculate summary statistics — bucketed by CATEGORY direction (the same
-  // Money-style netting as the pie), so a refund filed under an expense
-  // category reduces Expenses here rather than inflating Income.
   const summary = useMemo(() => {
-    const categoryById = new Map(categories.map(c => [c.id, c]));
-    let incomeDecimal = toDecimal(0);
-    let expensesDecimal = toDecimal(0);
-
-    for (const t of filteredTransactions) {
-      const bucket = bucketByCategoryDirection(t, categoryById);
-      if (bucket === 'income') {
-        // Signed sum: an outgoing filed under an income category nets it down.
-        incomeDecimal = incomeDecimal.plus(t.amount);
-      } else if (bucket === 'expense') {
-        // Spending is negative; negate so refunds net the total down.
-        expensesDecimal = expensesDecimal.minus(t.amount);
-      }
-    }
-
-    const netIncomeDecimal = incomeDecimal.minus(expensesDecimal);
-    const savingsRateDecimal = incomeDecimal.gt(0)
-      ? netIncomeDecimal.dividedBy(incomeDecimal).times(100)
+    const netIncomeDecimal = flows.income.minus(flows.expenses);
+    const savingsRateDecimal = flows.income.gt(0)
+      ? netIncomeDecimal.dividedBy(flows.income).times(100)
       : toDecimal(0);
 
     return {
-      income: incomeDecimal.toNumber(),
-      expenses: expensesDecimal.toNumber(),
+      income: flows.income.toNumber(),
+      expenses: flows.expenses.toNumber(),
       netIncome: netIncomeDecimal.toNumber(),
       savingsRate: savingsRateDecimal.toNumber(),
     };
-  }, [filteredTransactions, categories]);
+  }, [flows]);
 
   const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
     return formatDecimal(value, decimals);
@@ -208,9 +173,7 @@ export default function Reports() {
 
       const reportData = {
         title: 'Financial Report',
-        dateRange: dateRange === 'month' ? 'Last Month' : 
-                   dateRange === 'quarter' ? 'Last Quarter' : 
-                   dateRange === 'year' ? 'Last Year' : 'All Time',
+        dateRange: PERIOD_LABELS[picker.period],
         summary,
         categoryBreakdown,
         topTransactions: filteredTransactions
@@ -259,23 +222,12 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters — the shared period picker + account filter */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
             <CalendarIcon className="text-gray-500" size={20} />
-            <select
-              aria-label="Date range"
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all' | 'custom')}
-              className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-            >
-              <option value="month">Last Month</option>
-              <option value="quarter">Last Quarter</option>
-              <option value="year">Last Year</option>
-              <option value="all">All Time</option>
-              <option value="custom">Custom Range</option>
-            </select>
+            <PeriodPicker picker={picker} />
           </div>
 
           <div className="flex items-center gap-2">
@@ -292,25 +244,6 @@ export default function Reports() {
               ))}
             </select>
           </div>
-
-          {dateRange === 'custom' && (
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-400">From:</label>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              />
-              <label className="text-sm text-gray-600 dark:text-gray-400">To:</label>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              />
-            </div>
-          )}
         </div>
       </div>
 
@@ -318,21 +251,29 @@ export default function Reports() {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <button
+          type="button"
+          onClick={() => setBreakdownType('income')}
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-left cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors"
+        >
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
           {/* div, not p: the loading skeleton renders block elements and a
               <div> inside <p> is invalid DOM nesting */}
           <div className="text-2xl font-bold text-green-700 dark:text-green-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+        <button
+          type="button"
+          onClick={() => setBreakdownType('expense')}
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-left cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+        >
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.expenses)}
           </div>
-        </div>
+        </button>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Net Income</p>
@@ -501,12 +442,103 @@ export default function Reports() {
           </table>
         </div>
         </div>
-        
-        {/* Scheduled Reports */}
-        <div className="mt-8">
-          <ScheduledReports />
-        </div>
       </div>
+
+      {/* Income/Expense Breakdown Modal — the classified rows behind the
+          header figure (category semantics; refunds show as negative
+          credits). Split lines list individually; clicking a row opens the
+          Edit Transaction modal. */}
+      <Modal
+        isOpen={breakdownType !== null}
+        onClose={() => setBreakdownType(null)}
+        title={breakdownType === 'income' ? 'Income Breakdown' : 'Expense Breakdown'}
+        size="md"
+      >
+        <ModalBody>
+          <table className="w-full">
+            <thead>
+              <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left pb-2 font-medium">Date</th>
+                <th className="text-left pb-2 font-medium">Description</th>
+                <th className="text-right pb-2 font-medium">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const allRows = [...(breakdownType === 'income' ? flows.incomeRows : flows.expenseRows)]
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                if (allRows.length === 0) {
+                  return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No transactions</td></tr>;
+                }
+
+                // "All Time" spans decades — cap the DOM, keep the total honest.
+                const CAP = 500;
+                const rows = allRows.slice(0, CAP);
+
+                const rendered = rows.map(t => {
+                  const contribution = bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
+                  return (
+                    <tr
+                      key={t.id}
+                      onClick={() => setEditingBreakdownTxnId(t.splitParentId ?? t.id)}
+                      className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                      title="Click to view or edit this transaction"
+                    >
+                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                      </td>
+                      <td className="py-2 text-sm text-gray-900 dark:text-white">
+                        {t.description}
+                        {contribution < 0 && (
+                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
+                        )}
+                      </td>
+                      <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
+                        breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {contribution < 0 ? `-${formatCurrency(Math.abs(contribution))}` : formatCurrency(contribution)}
+                      </td>
+                    </tr>
+                  );
+                });
+
+                return (
+                  <>
+                    {rendered}
+                    {allRows.length > CAP && (
+                      <tr>
+                        <td colSpan={3} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                          Showing the latest {CAP.toLocaleString()} of {allRows.length.toLocaleString()} rows — the total below covers them all.
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })()}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 dark:border-gray-600">
+                <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
+                <td className={`pt-3 text-sm font-bold text-right ${
+                  breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatCurrency(breakdownType === 'income' ? summary.income : summary.expenses)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </ModalBody>
+      </Modal>
+
+      {/* Edit a transaction straight from the breakdown list */}
+      {editingBreakdownTxnId && (
+        <EditTransactionModal
+          isOpen
+          onClose={() => setEditingBreakdownTxnId(null)}
+          transaction={rawTransactions.find(t => t.id === editingBreakdownTxnId) ?? null}
+        />
+      )}
     </div>
   );
 }

@@ -52,7 +52,6 @@ export default function Layout(): React.JSX.Element {
   const { registration } = useServiceWorker();
   const {
     showGoals,
-    showAnalytics,
     showInvestments,
     showEnhancedInvestments,
   } = usePreferences();
@@ -89,7 +88,7 @@ export default function Layout(): React.JSX.Element {
 
   // Simple page navigation helper
   const getNextPrevPage = (direction: 'next' | 'prev', currentPath: string): string | null => {
-    const pages = ['/dashboard', '/accounts', '/transactions', '/investments', '/analytics'];
+    const pages = ['/dashboard', '/accounts', '/transactions', '/investments', '/reports'];
     const currentIndex = pages.indexOf(currentPath);
     
     if (currentIndex === -1) return null;
@@ -542,8 +541,6 @@ export default function Layout(): React.JSX.Element {
                 
                 <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 <SidebarLink to="/reports" icon={PieChartIcon} label="Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                
                 {/* Settings with Sub-navigation */}
                 <div>
                   <Link

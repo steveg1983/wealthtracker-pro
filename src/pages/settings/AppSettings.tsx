@@ -22,8 +22,6 @@ export default function AppSettings() {
     setShowBudget,
     showGoals,
     setShowGoals,
-    showAnalytics,
-    setShowAnalytics,
     showInvestments,
     setShowInvestments,
     showEnhancedInvestments,
@@ -80,13 +78,6 @@ export default function AppSettings() {
       value: showGoals,
       onChange: setShowGoals,
       icon: showGoals ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Analytics',
-      description: 'Show detailed analytics and insights',
-      value: showAnalytics,
-      onChange: setShowAnalytics,
-      icon: showAnalytics ? EyeIcon : EyeOffIcon
     },
     {
       title: 'Investments',

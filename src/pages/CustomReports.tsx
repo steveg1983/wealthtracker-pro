@@ -3,7 +3,6 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 import { customReportService } from '../services/customReportService';
 import CustomReportBuilder from '../components/CustomReportBuilder';
-import ScheduledCustomReports from '../components/ScheduledCustomReports';
 import type { CustomReport } from '../components/CustomReportBuilder';
 import {
   PlusIcon,
@@ -335,11 +334,6 @@ export default function CustomReports(): React.JSX.Element {
             ))}
           </div>
         )}
-      </div>
-
-      {/* Scheduled Reports Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
-        <ScheduledCustomReports />
       </div>
     </div>
   );
