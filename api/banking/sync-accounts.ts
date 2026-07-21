@@ -6,6 +6,7 @@ import type {
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { applyRateLimit } from '../_lib/rate-limit.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { captureServerError, withSentry } from '../_lib/sentry.js';
 import {
@@ -304,13 +305,19 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  if (await applyRateLimit(req, res, { name: 'sync-accounts', limit: 6, windowMs: 60_000 })) {
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return createErrorResponse(res, 405, 'Method not allowed', 'method_not_allowed');
   }
 
+  let authUserId: string | null = null;
   try {
     const auth = await requireAuth(req);
+    authUserId = auth.userId;
     const supabase = getServiceRoleSupabase();
     const body = req.body as SyncAccountsRequest | undefined;
     if (!body || typeof body.connectionId !== 'string' || !body.connectionId.trim()) {
@@ -387,7 +394,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     await persistAccountsAndLinks(supabase, auth.userId, connection, accounts);
 
-    await markConnectionSyncSuccess(supabase, connection.id);
+    await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
     await supabase.from('sync_history').insert({
       connection_id: connection.id,
       sync_type: 'accounts',
@@ -422,15 +429,21 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       await captureServerError(error, { handler: 'sync-accounts' });
     }
     const body = req.body as SyncAccountsRequest | undefined;
-    if (body?.connectionId) {
-      const sb = getServiceRoleSupabase();
+    // body.connectionId is client-supplied and the service-role client
+    // bypasses RLS — re-validate ownership before persisting any failure
+    // state, or one user could flip another's connection to error/reauth.
+    const sb = getServiceRoleSupabase();
+    const ownedConnection = body?.connectionId && authUserId
+      ? await getUserTrueLayerConnection(sb, authUserId, body.connectionId.trim())
+      : null;
+    if (ownedConnection && authUserId) {
       if (needsReauth) {
-        await markConnectionNeedsReauth(sb, body.connectionId, message);
+        await markConnectionNeedsReauth(sb, ownedConnection.id, authUserId, message);
       } else {
-        await markConnectionSyncFailure(sb, body.connectionId, message);
+        await markConnectionSyncFailure(sb, ownedConnection.id, authUserId, message);
       }
       await sb.from('sync_history').insert({
-        connection_id: body.connectionId,
+        connection_id: ownedConnection.id,
         sync_type: 'accounts',
         status: 'failed',
         records_synced: 0,

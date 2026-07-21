@@ -146,7 +146,8 @@ export const withTrueLayerAccessToken = async <T>(
 
 export const markConnectionSyncSuccess = async (
   supabase: SupabaseClient,
-  connectionId: string
+  connectionId: string,
+  userId: string
 ): Promise<void> => {
   const nowIso = new Date().toISOString();
   await supabase
@@ -157,12 +158,14 @@ export const markConnectionSyncSuccess = async (
       last_sync: nowIso,
       updated_at: nowIso
     })
-    .eq('id', connectionId);
+    .eq('id', connectionId)
+    .eq('user_id', userId);
 };
 
 export const markConnectionSyncFailure = async (
   supabase: SupabaseClient,
   connectionId: string,
+  userId: string,
   errorMessage: string
 ): Promise<void> => {
   const nowIso = new Date().toISOString();
@@ -173,7 +176,8 @@ export const markConnectionSyncFailure = async (
       error: errorMessage.slice(0, 2000),
       updated_at: nowIso
     })
-    .eq('id', connectionId);
+    .eq('id', connectionId)
+    .eq('user_id', userId);
 };
 
 /**
@@ -184,6 +188,7 @@ export const markConnectionSyncFailure = async (
 export const markConnectionNeedsReauth = async (
   supabase: SupabaseClient,
   connectionId: string,
+  userId: string,
   errorMessage: string
 ): Promise<void> => {
   const nowIso = new Date().toISOString();
@@ -195,7 +200,8 @@ export const markConnectionNeedsReauth = async (
       error: errorMessage.slice(0, 2000),
       updated_at: nowIso
     })
-    .eq('id', connectionId);
+    .eq('id', connectionId)
+    .eq('user_id', userId);
 };
 
 /**
@@ -208,7 +214,8 @@ export const markConnectionNeedsReauth = async (
  */
 export const markConnectionSyncNoAccounts = async (
   supabase: SupabaseClient,
-  connectionId: string
+  connectionId: string,
+  userId: string
 ): Promise<void> => {
   const nowIso = new Date().toISOString();
   await supabase
@@ -217,5 +224,6 @@ export const markConnectionSyncNoAccounts = async (
       last_sync: nowIso,
       updated_at: nowIso
     })
-    .eq('id', connectionId);
+    .eq('id', connectionId)
+    .eq('user_id', userId);
 };
