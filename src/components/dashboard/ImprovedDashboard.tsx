@@ -70,13 +70,19 @@ export function ImprovedDashboard() {
   // Calculate key metrics — all money sums use Decimal arithmetic (float math
   // is banned on currency values; IEEE-754 drifts on long sums).
   const metrics = useMemo(() => {
-    // Compute real balance from openingBalance + sum of transactions per account
-    const effectiveBalance = (acc: typeof accounts[0]): number => {
-      const txnTotal = transactions
-        .filter(t => t.accountId === acc.id)
-        .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
-      return toDecimal(acc.openingBalance ?? 0).plus(txnTotal).toNumber();
-    };
+    // Real balance = openingBalance + Σ transactions, computed in ONE pass
+    // over the whole transaction set. The previous per-account filters were
+    // O(accounts × transactions) and ran up to five times per account —
+    // ~50 MILLION Decimal operations per render on a 50k-row dataset.
+    const txnTotals = new Map<string, ReturnType<typeof toDecimal>>();
+    for (const t of transactions) {
+      txnTotals.set(t.accountId, (txnTotals.get(t.accountId) ?? toDecimal(0)).plus(toDecimal(t.amount)));
+    }
+    const balances = new Map<string, number>();
+    for (const acc of accounts) {
+      balances.set(acc.id, toDecimal(acc.openingBalance ?? 0).plus(txnTotals.get(acc.id) ?? toDecimal(0)).toNumber());
+    }
+    const effectiveBalance = (acc: typeof accounts[0]): number => balances.get(acc.id) ?? 0;
 
     const totalAssets = accounts
       .filter(acc => effectiveBalance(acc) > 0)
@@ -203,13 +209,15 @@ export function ImprovedDashboard() {
   
   // Pre-compute real balances per account (openingBalance + sum of transactions)
   const accountBalanceMap = useMemo(() => {
+    // Single pass over transactions (Decimal — float sums drift on 50k-row
+    // histories), then one lookup per account. Was O(accounts × transactions).
+    const txnTotals = new Map<string, ReturnType<typeof toDecimal>>();
+    for (const t of transactions) {
+      txnTotals.set(t.accountId, (txnTotals.get(t.accountId) ?? toDecimal(0)).plus(toDecimal(t.amount)));
+    }
     const map = new Map<string, number>();
     accounts.forEach(acc => {
-      const opening = acc.openingBalance ?? 0;
-      const txnTotal = transactions
-        .filter(t => t.accountId === acc.id)
-        .reduce((sum, t) => sum + t.amount, 0);
-      map.set(acc.id, opening + txnTotal);
+      map.set(acc.id, toDecimal(acc.openingBalance ?? 0).plus(txnTotals.get(acc.id) ?? toDecimal(0)).toNumber());
     });
     return map;
   }, [accounts, transactions]);

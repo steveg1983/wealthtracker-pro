@@ -65,6 +65,11 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     open: false,
+    // Enables the JS Self-Profiling API in dev, so performance work can
+    // attribute main-thread time to real functions instead of guessing.
+    headers: {
+      'Document-Policy': 'js-profiling'
+    },
     proxy: {
       '/api': {
         target: 'https://wealthtracker-web.vercel.app',
