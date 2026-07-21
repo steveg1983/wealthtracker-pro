@@ -74,7 +74,8 @@ const dateOnly = (d: Date | string): string =>
   (d instanceof Date ? d.toISOString() : String(d)).slice(0, 10);
 
 interface CloudPlan {
-  accounts: Record<string, unknown>[];
+  accounts: Record<string, unknown>[];       // inserted WITHOUT parent_account_id
+  accountParents: { id: string; parent_account_id: string }[];
   categories: Record<string, unknown>[];
   transactions: Record<string, unknown>[];   // inserted WITHOUT linked_transfer_id
   transferLinks: { id: string; linked_transfer_id: string }[];
@@ -109,6 +110,13 @@ export function planCloudImport(
     is_active: a.isActive !== false,
     notes: a.notes ?? null,
   }));
+
+  // Investment↔cash pairings reference other account rows, so they go in as a
+  // second pass once every account exists (insert batching makes same-batch
+  // FK ordering unreliable).
+  const accountParents = result.accounts
+    .filter(a => a.parentAccountId && acctId.has(a.parentAccountId))
+    .map(a => ({ id: acctId.get(a.id)!, parent_account_id: acctId.get(a.parentAccountId!)! }));
 
   const categories = result.categories
     // System categories (type/transfer roots) already exist per-user; only the
@@ -163,7 +171,7 @@ export function planCloudImport(
     .filter(t => t.linkedTransferSplitId && splitId.has(t.linkedTransferSplitId))
     .map(t => ({ id: txnId.get(t.id)!, linked_transfer_split_id: splitId.get(t.linkedTransferSplitId!)! }));
 
-  return { accounts, categories, transactions, transferLinks, splits, splitLegPins };
+  return { accounts, accountParents, categories, transactions, transferLinks, splits, splitLegPins };
 }
 
 /**
@@ -230,6 +238,13 @@ export async function importToCloud(
   };
 
   await insert('accounts', plan.accounts, 'accounts', 0.05, 0.1);
+
+  for (const p of plan.accountParents) {
+    const { error } = await supabase.from('accounts')
+      .update({ parent_account_id: p.parent_account_id }).eq('id', p.id);
+    if (error) fail('pairing investment cash accounts', error.message);
+  }
+
   await insert('categories', plan.categories, 'categories', 0.15, 0.1);
   await insert('transactions', plan.transactions, 'transactions', 0.25, 0.45);
 

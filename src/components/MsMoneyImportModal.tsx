@@ -156,6 +156,13 @@ export default function MsMoneyImportModal({ isOpen, onClose, onBackup, onExecut
                   <Stat label="Categories" value={`${s.categories.subs + s.categories.details}`} sub={`${s.categories.subs} groups`} />
                   <Stat label="Split transactions" value={`${s.transactions.splitTransactions}`} sub={`${s.transactions.splitLines} lines`} />
                   <Stat label="Standalone" value={s.transactions.standalone.toLocaleString()} />
+                  {s.accounts.investmentCashPairs > 0 && (
+                    <Stat
+                      label="Investment cash pairs"
+                      value={`${s.accounts.investmentCashPairs}`}
+                      sub="cash accounts nested inside their investment account"
+                    />
+                  )}
                 </div>
               </div>
 

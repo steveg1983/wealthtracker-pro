@@ -14,9 +14,12 @@
  * to decimal strings; the transform is the single place money maths happens.
  */
 // Installs Buffer + process shims BEFORE mdb-reader's dependency subtree
-// evaluates — must stay the first import in this file.
+// evaluates — must stay the first import in this file. Buffer is then used as
+// a GLOBAL (never imported from 'buffer'): mdb-reader validates its input
+// against the runtime's own Buffer class — Node's real one under tests, the
+// shim-installed polyfill in the browser — and the 'buffer' package import
+// would pin the polyfill even in Node, which mdb-reader rejects.
 import './nodeGlobalsShim';
-import { Buffer } from 'buffer';
 import MDBReader from 'mdb-reader';
 import { decryptMny } from './mnyDecrypt';
 import type {
@@ -175,6 +178,10 @@ function extractAccounts(
       id,
       name: str(a.szFull) ?? str(a.szAls) ?? `Account ${id}`,
       moneyType: AT_TO_MONEYTYPE[num(a.at) ?? -1] ?? 'other',
+      // Money pairs every investment account with its "(Cash)" account via
+      // ACCT.hacctRel (bidirectional). The transform uses it to nest the cash
+      // side inside its investment account.
+      relatedAccountId: num(a.hacctRel) ?? null,
       currencyCode: isoByCrnc.get(num(a.hcrnc)!) ?? null,
       openingBalance: (open / 100).toFixed(2),
       reconstructedBalance: (reconstructed / 100).toFixed(2),

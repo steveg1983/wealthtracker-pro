@@ -37,6 +37,7 @@ const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
   lowBalanceAlertEnabled: 'low_balance_alert_enabled',
   lowBalanceThreshold: 'low_balance_threshold',
   archiveThroughDate: 'archive_through_date',
+  parentAccountId: 'parent_account_id',
 };
 
 function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
@@ -64,6 +65,7 @@ function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown>
     lowBalanceAlertEnabled: row.low_balance_alert_enabled === true,
     lowBalanceThreshold: row.low_balance_threshold != null ? Number(row.low_balance_threshold) : undefined,
     archiveThroughDate: row.archive_through_date != null ? new Date(String(row.archive_through_date)) : null,
+    parentAccountId: row.parent_account_id ?? null,
   };
 }
 

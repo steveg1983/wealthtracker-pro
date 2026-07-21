@@ -7,6 +7,9 @@ function sampleResult(): MsMoneyImportResult {
     accounts: [
       { id: 'mny-acct-1', name: 'Current', type: 'current', balance: 100, openingBalance: 0, currency: 'GBP', isActive: true, lastUpdated: new Date('2020-01-01') },
       { id: 'mny-acct-2', name: 'Savings', type: 'savings', balance: 50, openingBalance: 0, currency: 'GBP', isActive: false, lastUpdated: new Date('2020-01-01') },
+      // investment↔cash pair (Money's hacctRel): the cash side carries the parent ref
+      { id: 'mny-acct-3', name: 'Broker', type: 'investment', balance: 0, openingBalance: 0, currency: 'GBP', isActive: true, lastUpdated: new Date('2020-01-01') },
+      { id: 'mny-acct-4', name: 'Broker (Cash)', type: 'current', parentAccountId: 'mny-acct-3', balance: 25, openingBalance: 0, currency: 'GBP', isActive: true, lastUpdated: new Date('2020-01-01') },
     ],
     categories: [
       { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
@@ -25,7 +28,7 @@ function sampleResult(): MsMoneyImportResult {
       { id: 'mny-split-300-1', transactionId: 'mny-txn-300', category: 'mny-cat-10', amount: -50, sortOrder: 1 },
     ],
     summary: {
-      accounts: { total: 2, open: 1, closed: 1 },
+      accounts: { total: 4, open: 3, closed: 1, investmentCashPairs: 1 },
       categories: { subs: 0, details: 2, hidden: 0 },
       transactions: { imported: 4, standalone: 1, transfers: 2, splitTransactions: 1, splitLines: 1 },
       simplifications: [],
@@ -61,6 +64,14 @@ describe('planCloudImport', () => {
       expect(l.linked_transfer_id.startsWith('new-')).toBe(true);
     }
 
+    // Accounts insert WITHOUT parent_account_id; the investment↔cash pairing
+    // is staged as a second pass against the remapped ids.
+    expect(plan.accounts.every(a => !('parent_account_id' in a))).toBe(true);
+    expect(plan.accountParents).toHaveLength(1);
+    const broker = plan.accounts.find(a => a.name === 'Broker')!;
+    const brokerCash = plan.accounts.find(a => a.name === 'Broker (Cash)')!;
+    expect(plan.accountParents[0]).toEqual({ id: brokerCash.id, parent_account_id: broker.id });
+
     // Split parent keeps is_split + blank category; its line references the remapped parent + category.
     const splitParent = plan.transactions.find(t => t.is_split === true)!;
     expect(splitParent.category).toBe('');
@@ -87,7 +98,7 @@ describe('importToLocalStorage', () => {
     const onProgress = vi.fn();
     await importToLocalStorage(sampleResult(), KEYS, { onProgress });
 
-    expect(JSON.parse(window.localStorage.getItem('a')!)).toHaveLength(2);
+    expect(JSON.parse(window.localStorage.getItem('a')!)).toHaveLength(4);
     expect(JSON.parse(window.localStorage.getItem('t')!)).toHaveLength(4);
     expect(JSON.parse(window.localStorage.getItem('c')!)).toHaveLength(3);
     expect(JSON.parse(window.localStorage.getItem('s')!)).toHaveLength(1);
