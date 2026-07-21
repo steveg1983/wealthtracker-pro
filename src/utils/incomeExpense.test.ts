@@ -34,10 +34,14 @@ describe('classifyFlow', () => {
     expect(classifyFlow(txn({ type: 'expense', amount: -50, category: 'cat-salary' }), kinds)).toBe('income');
   });
 
-  it('falls back to the stored direction when the category gives no signal', () => {
-    expect(classifyFlow(txn({ type: 'expense', category: '' }), kinds)).toBe('expense');
+  it('NO category (or a dangling id) → uncategorized, never a direction guess', () => {
+    expect(classifyFlow(txn({ type: 'expense', category: '' }), kinds)).toBe('uncategorized');
+    expect(classifyFlow(txn({ type: 'income', category: 'nonexistent' }), kinds)).toBe('uncategorized');
+  });
+
+  it("a REAL direction-neutral ('both') category was deliberately filed — direction decides its side, never the review list", () => {
     expect(classifyFlow(txn({ type: 'income', category: 'cat-both' }), kinds)).toBe('income');
-    expect(classifyFlow(txn({ type: 'income', category: 'nonexistent' }), kinds)).toBe('income');
+    expect(classifyFlow(txn({ type: 'expense', category: 'cat-both' }), kinds)).toBe('expense');
   });
 
   it('transfers never count, by type or by transfer category', () => {
@@ -74,6 +78,22 @@ describe('computeIncomeExpense', () => {
     const { income, expenses } = computeIncomeExpense(transactions, splits, CATEGORIES);
     expect(expenses.toNumber()).toBe(100);
     expect(income.toNumber()).toBe(10);
+  });
+
+  it('uncategorised rows hit NO total and are listed for review', () => {
+    const transactions: Transaction[] = [
+      txn({ id: 'a', type: 'income', amount: 2500, category: 'cat-salary' }),
+      // a £250k "Adjustment" credit with no category must NOT be income
+      txn({ id: 'b', type: 'income', amount: 250000, category: '' }),
+      txn({ id: 'c', type: 'expense', amount: -75, category: '' }),
+    ];
+    const { income, expenses, uncategorizedRows, uncategorizedIn, uncategorizedOut } =
+      computeIncomeExpense(transactions, [], CATEGORIES);
+    expect(income.toNumber()).toBe(2500);
+    expect(expenses.toNumber()).toBe(0);
+    expect(uncategorizedRows.map(r => r.id)).toEqual(['b', 'c']);
+    expect(uncategorizedIn.toNumber()).toBe(250000);
+    expect(uncategorizedOut.toNumber()).toBe(75);
   });
 
   it('bounds by date when from/to given', () => {

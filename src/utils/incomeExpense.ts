@@ -18,14 +18,18 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from './transa
  *  - transfers never count (neither the type nor transfer categories);
  *  - a category from the income tree → income; expense tree → expense —
  *    regardless of the money's direction;
- *  - no category / an unknown or direction-neutral ('both') category → fall
- *    back to the stored direction, the only signal left.
+ *  - NO category (or an unknown / direction-neutral one) → the row does NOT
+ *    hit the report at all. Direction is never guessed: an uncategorised
+ *    credit is not income and an uncategorised debit is not spending — it is
+ *    unclassified data the user needs to file (Steve: "no category shouldn't
+ *    be tagged as income or expense in a report — forces people to keep
+ *    their data clean"). Reports surface these rows separately for review.
  *
  * Split transactions classify PER LINE (a split can mix categories), with the
  * parent never double-counted.
  */
 
-export type FlowKind = 'income' | 'expense' | 'transfer';
+export type FlowKind = 'income' | 'expense' | 'transfer' | 'uncategorized';
 
 /** A single category's flow kind (null = no categorical signal, e.g. 'both'). */
 export function categoryKindOf(c: Category | undefined): FlowKind | null {
@@ -47,8 +51,13 @@ export function classifyFlow(
   categoryKinds: Map<string, FlowKind | null>
 ): FlowKind {
   if (row.type === 'transfer') return 'transfer';
-  const kind = row.category ? categoryKinds.get(row.category) : undefined;
+  // 'uncategorized' means STRICTLY that: no category at all, or a dangling
+  // id. A row with any real category never lands in the review list.
+  if (!row.category || !categoryKinds.has(row.category)) return 'uncategorized';
+  const kind = categoryKinds.get(row.category);
   if (kind === 'income' || kind === 'expense' || kind === 'transfer') return kind;
+  // A real but direction-neutral ('both') category: the user DID file it —
+  // the money's direction decides which side of the report it lands on.
   return row.type === 'income' ? 'income' : 'expense';
 }
 
@@ -60,6 +69,14 @@ export interface IncomeExpenseBreakdown {
   /** The rows behind each total (split lines, not their parents). */
   incomeRows: SplitExpandedTransaction[];
   expenseRows: SplitExpandedTransaction[];
+  /**
+   * Rows with no usable category — EXCLUDED from both totals, listed here so
+   * reports can show a "needs a category" review affordance. Money in/out
+   * are the signed sums of these rows (for display only, never totals).
+   */
+  uncategorizedRows: SplitExpandedTransaction[];
+  uncategorizedIn: DecimalInstance;
+  uncategorizedOut: DecimalInstance;
 }
 
 /**
@@ -85,8 +102,11 @@ export function computeIncomeExpense(
 
   let income = toDecimal(0);
   let expenses = toDecimal(0);
+  let uncategorizedIn = toDecimal(0);
+  let uncategorizedOut = toDecimal(0);
   const incomeRows: SplitExpandedTransaction[] = [];
   const expenseRows: SplitExpandedTransaction[] = [];
+  const uncategorizedRows: SplitExpandedTransaction[] = [];
 
   for (const row of rows) {
     const kind = classifyFlow(row, kinds);
@@ -98,10 +118,15 @@ export function computeIncomeExpense(
       // and a positive-amount credit (refund) correctly SUBTRACTS.
       expenses = expenses.plus(toDecimal(row.amount).negated());
       expenseRows.push(row);
+    } else if (kind === 'uncategorized') {
+      const amount = toDecimal(row.amount);
+      if (amount.greaterThanOrEqualTo(0)) uncategorizedIn = uncategorizedIn.plus(amount);
+      else uncategorizedOut = uncategorizedOut.plus(amount.abs());
+      uncategorizedRows.push(row);
     }
   }
 
-  return { income, expenses, incomeRows, expenseRows };
+  return { income, expenses, incomeRows, expenseRows, uncategorizedRows, uncategorizedIn, uncategorizedOut };
 }
 
 /**

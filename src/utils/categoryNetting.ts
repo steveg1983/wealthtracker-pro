@@ -3,7 +3,7 @@ import { categoryKindOf } from './incomeExpense';
 import type { Transaction, Category } from '../types';
 
 export interface CategoryNetTotal {
-  /** Category id, or 'uncategorized'. */
+  /** Category id. */
   key: string;
   /** Display name (resolved from the category; ids never leak into charts). */
   name: string;
@@ -36,13 +36,17 @@ export interface CategoryNetTotal {
 export function bucketByCategoryDirection(
   t: Transaction,
   categoryById: ReadonlyMap<string, Category>
-): 'income' | 'expense' | 'transfer' {
+): 'income' | 'expense' | 'transfer' | 'uncategorized' {
   if (t.type === 'transfer') return 'transfer';
   // One shared kind definition (utils/incomeExpense) — this must never drift
   // from the Dashboard/Analytics classifier. It also treats a To/From
   // transfer category as 'transfer' whatever the row's own direction says.
-  const kind = categoryKindOf(t.category ? categoryById.get(t.category) : undefined);
-  return kind ?? t.type;
+  // 'uncategorized' is STRICT: no category, or a dangling id — such rows
+  // never hit an income/expense report. A real direction-neutral ('both')
+  // category was deliberately filed, so direction decides its side.
+  const category = t.category ? categoryById.get(t.category) : undefined;
+  if (!category) return 'uncategorized';
+  return categoryKindOf(category) ?? t.type;
 }
 
 export function computeExpenseCategoryNetTotals(
@@ -53,21 +57,21 @@ export function computeExpenseCategoryNetTotals(
   const totals = new Map<string, ReturnType<typeof toDecimal>>();
 
   for (const t of transactions) {
+    // Only rows with a real expense category count — an uncategorised row
+    // never reaches the spending breakdown (it can't: 'expense' requires the
+    // category to have resolved to the expense tree).
     if (bucketByCategoryDirection(t, categoryById) !== 'expense') continue;
 
-    const key = t.category && t.category.trim() !== '' ? t.category : 'uncategorized';
-    const previous = totals.get(key) ?? toDecimal(0);
+    const previous = totals.get(t.category) ?? toDecimal(0);
     // Signed convention: spending is negative, so negate to accumulate spend;
     // an income-row refund (+) filed under this category nets the total down.
-    totals.set(key, previous.minus(toDecimal(t.amount)));
+    totals.set(t.category, previous.minus(toDecimal(t.amount)));
   }
 
   const entries = [...totals.entries()]
     .map(([key, total]) => ({
       key,
-      name: key === 'uncategorized'
-        ? 'Uncategorized'
-        : categoryById.get(key)?.name ?? key,
+      name: categoryById.get(key)?.name ?? key,
       value: total.toNumber(),
     }))
     .filter(entry => entry.value > 0);
@@ -80,7 +84,7 @@ export function computeExpenseCategoryNetTotals(
 
   return entries
     .map(entry => {
-      if ((nameCounts.get(entry.name) ?? 0) > 1 && entry.key !== 'uncategorized') {
+      if ((nameCounts.get(entry.name) ?? 0) > 1) {
         const category = categoryById.get(entry.key);
         const parent = category?.parentId ? categoryById.get(category.parentId) : undefined;
         if (parent) {
