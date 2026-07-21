@@ -26,6 +26,11 @@ export interface MnyAccount {
   id: number;
   name: string;
   moneyType: 'bank' | 'credit' | 'cash' | 'asset' | 'liability' | 'investment' | string;
+  /**
+   * ACCT.hacctRel — Money's investment↔cash pairing, set on BOTH sides.
+   * The transform nests the cash side under its investment account.
+   */
+  relatedAccountId?: number | null;
   currencyCode: string | null;
   openingBalance: string;
   reconstructedBalance: string;
@@ -94,7 +99,7 @@ export interface MsMoneyImportResult {
 }
 
 export interface MsMoneyImportSummary {
-  accounts: { total: number; open: number; closed: number };
+  accounts: { total: number; open: number; closed: number; investmentCashPairs: number };
   categories: { subs: number; details: number; hidden: number };
   transactions: {
     imported: number;
@@ -144,17 +149,32 @@ const isoToDate = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
-function transformAccounts(mny: MnyAccount[], nowIso: string): Account[] {
-  return mny.map((a): Account => {
+function transformAccounts(mny: MnyAccount[], nowIso: string): { accounts: Account[]; cashPairs: number } {
+  // Money's hacctRel pairing is bidirectional; the CHILD of the pair is the
+  // non-investment (cash) side, nested under its investment account. Any other
+  // hacctRel combination (it only ever links investment↔cash in practice) is
+  // left unpaired rather than guessed at.
+  const byId = new Map<number, MnyAccount>(mny.map(a => [a.id, a]));
+  const parentOf = (a: MnyAccount): number | null => {
+    if (a.relatedAccountId == null || a.moneyType === 'investment') return null;
+    const related = byId.get(a.relatedAccountId);
+    return related && related.moneyType === 'investment' ? related.id : null;
+  };
+  let cashPairs = 0;
+
+  const accounts = mny.map((a): Account => {
     // The app computes running balance as openingBalance + Σtransactions — the
     // SAME invariant Money uses. Money's opening is authoritative; its stored
     // "current" balance is a dead cache (uninitialised memory) so we never use
     // it. The reconstructed balance rides along as the display `balance`; the
     // ledger recomputes it from the imported transactions and must agree.
+    const parent = parentOf(a);
+    if (parent != null) cashPairs++;
     return {
       id: acctId(a.id),
       name: a.name,
       type: mapAccountType(a.moneyType),
+      parentAccountId: parent != null ? acctId(parent) : undefined,
       balance: toNumber(a.reconstructedBalance),
       openingBalance: toNumber(a.openingBalance),
       openingBalanceDate: a.openDate ? isoToDate(a.openDate) : undefined,
@@ -166,6 +186,7 @@ function transformAccounts(mny: MnyAccount[], nowIso: string): Account[] {
       updatedAt: new Date(nowIso),
     };
   });
+  return { accounts, cashPairs };
 }
 
 // ── Categories (Money's 3-level tree → the app's type/sub/detail) ───────────
@@ -461,7 +482,7 @@ function buildTransferCategories(
 }
 
 export function transformMsMoneyExport(exp: MnyExport, nowIso: string): MsMoneyImportResult {
-  const accounts = transformAccounts(exp.accounts, nowIso);
+  const { accounts, cashPairs } = transformAccounts(exp.accounts, nowIso);
   const { categories, hiddenCount } = transformCategories(exp.categories);
   const transfer = buildTransferCategories(exp.accounts, exp.transactions);
   categories.push(...transfer.categories);
@@ -472,6 +493,7 @@ export function transformMsMoneyExport(exp: MnyExport, nowIso: string): MsMoneyI
       total: accounts.length,
       open: accounts.filter(a => a.isActive !== false).length,
       closed: accounts.filter(a => a.isActive === false).length,
+      investmentCashPairs: cashPairs,
     },
     categories: {
       subs: categories.filter(c => c.level === 'sub').length,

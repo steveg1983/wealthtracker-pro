@@ -61,6 +61,29 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // the Closed Accounts section below (the Microsoft Money model — closing
   // hides an account without touching its history, and it can be reopened).
   const openAccounts = useMemo(() => accounts.filter(a => a.isActive !== false), [accounts]);
+
+  // Investment↔cash pairing (the Microsoft Money model): a cash account whose
+  // parentAccountId points at another OPEN account renders nested inside that
+  // parent's card instead of as a top-level card, and its balance counts
+  // toward the parent's group total. It stays a full account — own register,
+  // transfers, reconciliation — only its placement here changes.
+  const nestedByParent = useMemo(() => {
+    const ids = new Set(openAccounts.map(a => a.id));
+    const map = new Map<string, Account[]>();
+    openAccounts.forEach(a => {
+      if (a.parentAccountId && ids.has(a.parentAccountId)) {
+        const list = map.get(a.parentAccountId);
+        if (list) list.push(a);
+        else map.set(a.parentAccountId, [a]);
+      }
+    });
+    return map;
+  }, [openAccounts]);
+
+  const topLevelAccounts = useMemo(() => {
+    const ids = new Set(openAccounts.map(a => a.id));
+    return openAccounts.filter(a => !(a.parentAccountId && ids.has(a.parentAccountId)));
+  }, [openAccounts]);
   const [closedAccounts, setClosedAccounts] = useState<Account[]>([]);
   const [showClosedAccounts, setShowClosedAccounts] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
@@ -115,9 +138,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     })) : undefined
   })), [openAccounts]);
 
-  // Group accounts by type (memoized)
+  // Group accounts by type (memoized) — nested cash accounts are not
+  // top-level cards, so they don't group here.
   const accountsByType = useMemo(() =>
-    openAccounts.reduce((groups, account) => {
+    topLevelAccounts.reduce((groups, account) => {
       const type = account.type;
       if (!groups[type]) {
         groups[type] = [];
@@ -125,7 +149,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       groups[type].push(account);
       return groups;
     }, {} as Record<string, typeof accounts>),
-    [openAccounts]
+    [topLevelAccounts]
   );
 
   // Set loading to false when accounts are loaded
@@ -141,27 +165,30 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     amount: toDecimal(t.amount),
   })), [transactions]);
 
-  // Group decimal accounts by type for calculations
-  const decimalAccountsByType = useMemo(() =>
-    decimalAccounts.reduce((groups, account) => {
-      const type = account.type;
+  // Group decimal accounts by their EFFECTIVE type for the section totals: a
+  // nested cash account counts toward its PARENT's section (Investments), not
+  // its own type (Current Accounts).
+  const decimalAccountsByType = useMemo(() => {
+    const typeById = new Map(openAccounts.map(a => [a.id, a.type]));
+    return decimalAccounts.reduce((groups, account) => {
+      const type = (account.parentAccountId && typeById.get(account.parentAccountId)) || account.type;
       if (!groups[type]) {
         groups[type] = [];
       }
       groups[type].push(account);
       return groups;
-    }, {} as Record<string, typeof decimalAccounts>),
-    [decimalAccounts]
-  );
+    }, {} as Record<string, typeof decimalAccounts>);
+  }, [decimalAccounts, openAccounts]);
 
   // The shared account-type sections (same groupings everywhere).
   const accountTypes = ACCOUNT_TYPE_SECTIONS;
 
 
-  // Group accounts by institution
+  // Group accounts by institution (nested cash accounts ride with their
+  // parent's card, so only top-level accounts group here)
   const accountsByInstitution = useMemo(() => {
     const groups: Record<string, typeof accounts> = {};
-    openAccounts.forEach(account => {
+    topLevelAccounts.forEach(account => {
       const institution = account.institution || 'Other Accounts';
       if (!groups[institution]) {
         groups[institution] = [];
@@ -176,7 +203,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       return a.localeCompare(b);
     }).forEach(key => { sorted[key] = groups[key]; });
     return sorted;
-  }, [openAccounts]);
+  }, [topLevelAccounts]);
 
   const handleGroupByChange = (value: 'type' | 'institution') => {
     setGroupBy(value);
@@ -427,6 +454,51 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                             </div>
                       </div>
                     </div>
+
+                    {/* Nested cash accounts (investment↔cash pairing): the
+                        Money model shows the pair as one account, cash inside. */}
+                    {(nestedByParent.get(account.id) ?? []).map(child => {
+                      const childName = child.name === `${account.name} (Cash)` ? 'Cash' : child.name;
+                      const childUnreconciled = getUnreconciledCount(child.id);
+                      return (
+                        <div
+                          key={child.id}
+                          className="mt-3 ml-6 sm:ml-9 flex items-center gap-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 px-3 py-2.5 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if ((e.target as HTMLElement).closest('button, input')) return;
+                            if (onAccountClick) {
+                              onAccountClick(child.id);
+                            } else {
+                              navigate(preserveDemoParam(`/accounts/${child.id}`, location.search));
+                            }
+                          }}
+                        >
+                          <WalletIcon className="text-teal-600 dark:text-teal-400 flex-shrink-0" size={14} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{childName}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">Cash account</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Bal</p>
+                            <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                              {formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Unreconciled</p>
+                            <p className={`text-sm font-semibold tabular-nums ${
+                              childUnreconciled > 0
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-blue-600 dark:text-blue-400'
+                            }`}>
+                              {childUnreconciled}
+                            </p>
+                          </div>
+                          <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
+                        </div>
+                      );
+                    })}
                   </div>
     );
   };
@@ -582,10 +654,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         ) : groupBy === 'institution' ? (
           /* Institution grouping view */
           Object.entries(accountsByInstitution).map(([institution, instAccounts]) => {
-            const instDecimalAccounts = decimalAccounts.filter(da => {
-              const original = instAccounts.find(a => a.id === da.id);
-              return !!original;
-            });
+            // Nested cash accounts count toward their parent's institution
+            // total, wherever the cash account itself claims to live.
+            const instIds = new Set(instAccounts.map(a => a.id));
+            const instDecimalAccounts = decimalAccounts.filter(da =>
+              instIds.has(da.id) || (da.parentAccountId != null && instIds.has(da.parentAccountId))
+            );
             const instTotal = calculateTotalBalance(instDecimalAccounts, decimalTransactions);
 
             return (
