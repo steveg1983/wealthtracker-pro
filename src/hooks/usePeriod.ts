@@ -79,34 +79,91 @@ export interface UsePeriodResult {
   range: PeriodRange;
   /** True when the date falls inside the current range (inclusive). */
   inRange: (date: Date | string) => boolean;
+  /**
+   * True when the current period is the user's own choice rather than a
+   * default this surface applied for them. A choice is never overridden.
+   */
+  isExplicit: boolean;
+  /**
+   * Ask for a surface's preferred period. Honoured only while the user has
+   * made no choice of their own, and never counts as a choice itself.
+   */
+  applyDefaultPeriod: (key: PeriodKey) => void;
+}
+
+/** Where the "the user picked this themselves" flag lives, per surface. */
+const explicitStorageKey = (storageKey: string): string => `${storageKey}Explicit`;
+
+/** Storage holds whatever an older build (or the user) put there. */
+const isPeriodKey = (value: string): value is PeriodKey => value in PERIOD_LABELS;
+
+interface PeriodSelection {
+  period: PeriodKey;
+  explicit: boolean;
+}
+
+function readStoredSelection(storageKey: string, defaultKey: PeriodKey): PeriodSelection {
+  const stored = localStorage.getItem(storageKey);
+  if (stored === null || !isPeriodKey(stored)) return { period: defaultKey, explicit: false };
+
+  // The flag postdates the period itself. Before it existed the picker was the
+  // only writer, so a stored period with no flag is a choice the user made
+  // under an older build and must be honoured.
+  const flag = localStorage.getItem(explicitStorageKey(storageKey));
+  if (flag === 'false') {
+    // Stored, but only ever as a default — the caller's current default wins,
+    // so a report's preferred window applies on first paint with no flicker.
+    return { period: defaultKey, explicit: false };
+  }
+  return { period: stored, explicit: true };
 }
 
 /**
  * Period selection persisted per surface (storageKey), defaulting to
  * this-month. All consumers get identical window semantics.
+ *
+ * `defaultKey` is read once, when the surface mounts. To change the default
+ * afterwards — as the reports hub does when a report with its own preferred
+ * window opens — call `applyDefaultPeriod`.
  */
 export function usePeriod(storageKey: string, defaultKey: PeriodKey = 'this-month'): UsePeriodResult {
-  const [period, setPeriodState] = useState<PeriodKey>(() => {
-    const stored = localStorage.getItem(storageKey);
-    return stored && stored in PERIOD_LABELS ? (stored as PeriodKey) : defaultKey;
-  });
+  const [selection, setSelection] = useState<PeriodSelection>(() => readStoredSelection(storageKey, defaultKey));
   const [customStart, setCustomStart] = useState<string>(() => localStorage.getItem(`${storageKey}CustomStart`) ?? '');
   const [customEnd, setCustomEnd] = useState<string>(() => localStorage.getItem(`${storageKey}CustomEnd`) ?? '');
+  const { period, explicit } = selection;
 
-  const setPeriod = useCallback((key: PeriodKey) => {
-    setPeriodState(key);
+  const persist = useCallback((key: PeriodKey, isExplicit: boolean) => {
     localStorage.setItem(storageKey, key);
+    localStorage.setItem(explicitStorageKey(storageKey), String(isExplicit));
   }, [storageKey]);
 
+  const setPeriod = useCallback((key: PeriodKey) => {
+    setSelection({ period: key, explicit: true });
+    persist(key, true);
+  }, [persist]);
+
+  const applyDefaultPeriod = useCallback((key: PeriodKey) => {
+    // A choice the user made outranks any surface's preference, and re-applying
+    // the window already showing would only churn the reports below it.
+    if (explicit || period === key) return;
+    setSelection({ period: key, explicit: false });
+    persist(key, false);
+  }, [explicit, period, persist]);
+
+  // Editing the bounds of a custom range is as deliberate as picking one.
   const setCustomStartPersisted = useCallback((v: string) => {
     setCustomStart(v);
     localStorage.setItem(`${storageKey}CustomStart`, v);
-  }, [storageKey]);
+    setSelection({ period, explicit: true });
+    persist(period, true);
+  }, [storageKey, persist, period]);
 
   const setCustomEndPersisted = useCallback((v: string) => {
     setCustomEnd(v);
     localStorage.setItem(`${storageKey}CustomEnd`, v);
-  }, [storageKey]);
+    setSelection({ period, explicit: true });
+    persist(period, true);
+  }, [storageKey, persist, period]);
 
   const range = useMemo(
     () => resolvePeriod(period, customStart, customEnd),
@@ -129,5 +186,7 @@ export function usePeriod(storageKey: string, defaultKey: PeriodKey = 'this-mont
     setCustomEnd: setCustomEndPersisted,
     range,
     inRange,
+    isExplicit: explicit,
+    applyDefaultPeriod,
   };
 }

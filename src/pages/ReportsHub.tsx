@@ -1,13 +1,16 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { ArrowLeftIcon, CalendarIcon } from '../components/icons';
 import PageTip from '../components/PageTip';
 import PeriodPicker from '../components/PeriodPicker';
 import { SkeletonCard } from '../components/loading/Skeleton';
-import { usePeriod } from '../hooks/usePeriod';
+import { usePeriod, type PeriodKey } from '../hooks/usePeriod';
 import { preserveDemoParam } from '../utils/navigation';
 import ReportGallery from './reports/ReportGallery';
 import { findReport } from './reports/reportRegistry';
+
+/** The window a report gets when it states no preference of its own. */
+const HUB_DEFAULT_PERIOD: PeriodKey = 'this-month';
 
 /**
  * The reports hub — a gallery of named reports (Microsoft Money's model)
@@ -19,15 +22,30 @@ import { findReport } from './reports/reportRegistry';
  * of resetting each time. Each report lives at its own /reports/<id> URL and
  * is code-split, so opening the gallery never loads eight reports' worth of
  * charts.
+ *
+ * Until the user picks a period, each report opens on the window it is worth
+ * reading over (net worth over time on ALL of it, not this month). The moment
+ * they pick one, that choice wins everywhere and is never overridden.
  */
 export default function ReportsHub(): React.JSX.Element {
   const { reportId } = useParams<{ reportId?: string }>();
   const location = useLocation();
-  // One period for the whole hub (storage key shared with the Dashboard's
-  // pinned reports, so the two agree about the window as well).
-  const picker = usePeriod('reportsPeriod');
 
   const report = findReport(reportId);
+  const preferredPeriod = report?.defaultPeriod ?? HUB_DEFAULT_PERIOD;
+
+  // One period for the whole hub (storage key shared with the Dashboard's
+  // pinned reports, so the two agree about the window as well). The report's
+  // preference seeds it on the first paint...
+  const picker = usePeriod('reportsPeriod', preferredPeriod);
+  const { applyDefaultPeriod } = picker;
+
+  // ...and takes effect again when a different report opens without the hub
+  // remounting. Both are no-ops once the user has chosen for themselves.
+  useEffect(() => {
+    applyDefaultPeriod(preferredPeriod);
+  }, [applyDefaultPeriod, preferredPeriod]);
+
   // An unknown id (an old bookmark, a typo) returns to the gallery rather
   // than showing an empty frame.
   if (reportId !== undefined && report === null) {

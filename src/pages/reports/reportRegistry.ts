@@ -10,6 +10,7 @@ import {
   UsersIcon,
   WalletIcon,
 } from '../../components/icons';
+import type { PeriodKey } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 
 /**
@@ -60,6 +61,13 @@ export interface ReportDefinition {
    * hides the hub's period picker rather than showing an inert control.
    */
   usesPeriod: boolean;
+  /**
+   * The window this report is worth reading over — a trend over one month is
+   * barely a trend. Applied ONLY until the user picks a period themselves;
+   * from then on their choice follows them from report to report. Unset means
+   * the hub's own default (this month).
+   */
+  defaultPeriod?: PeriodKey;
   component: LazyExoticComponent<ComponentType<ReportViewProps>>;
 }
 
@@ -80,6 +88,9 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: TrendingUpIcon,
     usesPeriod: true,
+    // The whole history is the point of this one — a month of net worth is a
+    // dot, and even a year says little about the direction of travel.
+    defaultPeriod: 'all',
     component: lazy(() => import('../NetWorthReport')),
   },
   {
@@ -116,6 +127,9 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: BarChart3Icon,
     usesPeriod: true,
+    // Month-by-month bars need enough months to compare, and a year covers the
+    // seasonal swings (Christmas, holidays, annual bills) exactly once.
+    defaultPeriod: 'last-12-months',
     component: lazy(() => import('./IncomeSpendingOverTimeReport')),
   },
   {
