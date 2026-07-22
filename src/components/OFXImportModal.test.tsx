@@ -520,9 +520,19 @@ describe('OFXImportModal', () => {
       );
       
       fireEvent.click(importButton);
-      
+
       expect(importButton).toHaveAttribute('data-loading', 'true');
       expect(importButton).toHaveTextContent('Loading...');
+
+      // The mocked import resolves ~100ms later — wait for the async work to
+      // settle inside the test (otherwise the finally-block setState fires
+      // after environment teardown: "window is not defined", an intermittent
+      // whole-file failure). On completion the button either stops loading or
+      // is replaced by the result view; both mean the promise chain finished.
+      await waitFor(() => {
+        const btn = screen.queryByTestId('loading-button');
+        expect(btn === null || btn.getAttribute('data-loading') === 'false').toBe(true);
+      });
     });
   });
 

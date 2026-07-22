@@ -99,19 +99,20 @@ describe('EncryptedStorageService', () => {
       );
     });
 
-    it('compresses large data', async () => {
-      const largeData = { content: 'x'.repeat(15000) };
+    it('never compresses on write — large unicode values store as-is', async () => {
+      // The old btoa() "compression" expanded data ~33% and threw
+      // InvalidCharacterError on non-Latin-1 (Money-imported category names
+      // hit it in production). Writes now store the value untouched.
+      const largeData = { content: 'Children’s savings — £'.repeat(1000) };
 
-      await service.setItem('large-data', largeData, {
-        encrypted: false,
-        compress: true
-      });
+      await service.setItem('large-data', largeData, { encrypted: false });
 
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
         expect.objectContaining({
           key: 'large-data',
-          compressed: true
+          data: largeData,
+          compressed: false
         })
       );
     });

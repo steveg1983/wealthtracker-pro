@@ -197,7 +197,6 @@ export class SecureStorageAdapter implements StorageAdapter {
       await encryptedStorage.setItem(key, value, {
         encrypted: isFinancialData,
         expiryDays: isFinancialData ? undefined : 30, // Financial data doesn't expire
-        compress: JSON.stringify(value).length > 10240 // Compress large data
       });
 
       // Remove from localStorage if migration is complete
