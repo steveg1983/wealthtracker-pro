@@ -40,6 +40,7 @@ import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
+import { computeAccountBalances } from '../../utils/accountBalances';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -50,7 +51,7 @@ import { computeIncomeExpense } from '../../utils/incomeExpense';
  * 4. Mobile-optimized - works great on all screen sizes
  */
 export function ImprovedDashboard() {
-  const { accounts, transactions, transactionSplits, budgets, categories } = useApp();
+  const { accounts, transactions, transactionSplits, budgets, categories, serverBalances } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
@@ -102,22 +103,21 @@ export function ImprovedDashboard() {
     setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
   }, [accounts]);
 
+  // Real balance = openingBalance + Σ transactions, computed in ONE pass over
+  // the whole transaction set. The previous per-account filters were
+  // O(accounts × transactions) and ran up to five times per account —
+  // ~50 MILLION Decimal operations per render on a 50k-row dataset. While the
+  // transaction pages are still streaming in, the server's one-round-trip
+  // balances stand in (see computeAccountBalances).
+  const accountBalanceMap = useMemo(
+    () => computeAccountBalances(accounts, transactions, serverBalances),
+    [accounts, transactions, serverBalances]
+  );
+
   // Calculate key metrics — all money sums use Decimal arithmetic (float math
   // is banned on currency values; IEEE-754 drifts on long sums).
   const metrics = useMemo(() => {
-    // Real balance = openingBalance + Σ transactions, computed in ONE pass
-    // over the whole transaction set. The previous per-account filters were
-    // O(accounts × transactions) and ran up to five times per account —
-    // ~50 MILLION Decimal operations per render on a 50k-row dataset.
-    const txnTotals = new Map<string, ReturnType<typeof toDecimal>>();
-    for (const t of transactions) {
-      txnTotals.set(t.accountId, (txnTotals.get(t.accountId) ?? toDecimal(0)).plus(toDecimal(t.amount)));
-    }
-    const balances = new Map<string, number>();
-    for (const acc of accounts) {
-      balances.set(acc.id, toDecimal(acc.openingBalance ?? 0).plus(txnTotals.get(acc.id) ?? toDecimal(0)).toNumber());
-    }
-    const effectiveBalance = (acc: typeof accounts[0]): number => balances.get(acc.id) ?? 0;
+    const effectiveBalance = (acc: typeof accounts[0]): number => accountBalanceMap.get(acc.id) ?? 0;
 
     const totalAssets = accounts
       .filter(acc => effectiveBalance(acc) > 0)
@@ -208,7 +208,7 @@ export function ImprovedDashboard() {
       netWorthChange: 0, // Will be calculated from actual historical data when available
       netWorthChangePercent: 0 // Will be calculated from actual historical data when available
     };
-  }, [accounts, transactions, transactionSplits, budgets]);
+  }, [accounts, accountBalanceMap, transactions, transactionSplits, budgets]);
 
   // Performance figures for the SELECTED period. Income/expenses come from
   // CATEGORY SEMANTICS (utils/incomeExpense): a refund filed under an expense
@@ -244,21 +244,6 @@ export function ImprovedDashboard() {
     }];
   }, [metrics.netWorth]);
   
-  // Pre-compute real balances per account (openingBalance + sum of transactions)
-  const accountBalanceMap = useMemo(() => {
-    // Single pass over transactions (Decimal — float sums drift on 50k-row
-    // histories), then one lookup per account. Was O(accounts × transactions).
-    const txnTotals = new Map<string, ReturnType<typeof toDecimal>>();
-    for (const t of transactions) {
-      txnTotals.set(t.accountId, (txnTotals.get(t.accountId) ?? toDecimal(0)).plus(toDecimal(t.amount)));
-    }
-    const map = new Map<string, number>();
-    accounts.forEach(acc => {
-      map.set(acc.id, toDecimal(acc.openingBalance ?? 0).plus(txnTotals.get(acc.id) ?? toDecimal(0)).toNumber());
-    });
-    return map;
-  }, [accounts, transactions]);
-
   const getAccountBalance = useCallback((acc: typeof accounts[0]) => accountBalanceMap.get(acc.id) ?? 0, [accountBalanceMap]);
 
   // Generate pie chart data for account distribution

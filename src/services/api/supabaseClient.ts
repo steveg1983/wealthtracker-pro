@@ -69,6 +69,13 @@ type Database = {
         Args: { p_account_id: string; p_user_id?: string };
         Returns: Record<string, unknown>;
       };
+      // No arguments by design: the function reads the caller's identity from
+      // the JWT. numeric/bigint columns can arrive as strings, so the rows stay
+      // loosely typed and are narrowed at the call site.
+      account_balances: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

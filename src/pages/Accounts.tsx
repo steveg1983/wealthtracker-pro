@@ -31,7 +31,7 @@ import { toDecimal } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, transactions, updateAccount, deleteAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
+  const { accounts, transactions, serverBalances, updateAccount, deleteAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
   const { showError } = useToast();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
@@ -53,7 +53,18 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       : 'default';
   });
 
-  const { getUnreconciledCount, computeAccountBalance } = useReconciliation(accounts, transactions);
+  const { getUnreconciledCount, computeAccountBalance: computeLedgerBalance } = useReconciliation(accounts, transactions);
+
+  // The transaction pages take seconds to arrive on a long history, and until
+  // the first one lands every ledger sum is just the opening balance. The
+  // server's one-round-trip figures (same invariant, summed in Postgres) stand
+  // in for that window only — the ledger computation is the source of truth
+  // and takes over the moment any transaction is present.
+  const seededBalances = transactions.length === 0 ? serverBalances : null;
+  const computeAccountBalance = useCallback(
+    (accountId: string): number => seededBalances?.get(accountId)?.balance ?? computeLedgerBalance(accountId),
+    [seededBalances, computeLedgerBalance]
+  );
   // Per-account bank connection metadata + one-click "pull fresh bank data".
   const { getAccountLink, isAccountSyncing, syncAccount } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
 

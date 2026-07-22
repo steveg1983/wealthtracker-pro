@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createTransactionService, TransactionService } from '../api/transactionService';
+import { createTransactionService, TransactionService, toAccountBalanceMap } from '../api/transactionService';
 import type { Transaction } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
@@ -420,5 +420,49 @@ describe('TransactionService setTransactionSplits — local balance sync', () =>
 
     const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Array<{ balance: number }>;
     expect(accounts[0].balance).toBe(-70.3);
+  });
+});
+
+describe('toAccountBalanceMap', () => {
+  it('reads numeric balances that arrive as strings without float drift', () => {
+    const balances = toAccountBalanceMap([
+      { account_id: 'acc-1', balance: '1234.56', txn_count: '3' },
+      { account_id: 'acc-2', balance: -99.99, txn_count: 1 }
+    ]);
+
+    expect(balances.get('acc-1')).toEqual({ balance: 1234.56, txnCount: 3 });
+    expect(balances.get('acc-2')).toEqual({ balance: -99.99, txnCount: 1 });
+  });
+
+  it('skips unusable rows instead of failing the whole load', () => {
+    const balances = toAccountBalanceMap([
+      null,
+      'nonsense',
+      { account_id: '', balance: 5 },
+      { account_id: 'acc-2', balance: 'not-a-number' },
+      { account_id: 'acc-3' },
+      { account_id: 'acc-4', balance: 10 }
+    ]);
+
+    expect(balances.size).toBe(1);
+    expect(balances.get('acc-4')).toEqual({ balance: 10, txnCount: 0 });
+  });
+
+  it('returns an empty map for a payload that is not a row array', () => {
+    expect(toAccountBalanceMap(null).size).toBe(0);
+    expect(toAccountBalanceMap(undefined).size).toBe(0);
+    expect(toAccountBalanceMap({ account_id: 'acc-1', balance: 1 }).size).toBe(0);
+  });
+});
+
+describe('TransactionService.getAccountBalances', () => {
+  it('returns an empty map without the cloud connection — it is only an optimisation', async () => {
+    const service = createTransactionService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: createStorage(),
+      logger: { error: vi.fn() }
+    });
+
+    await expect(service.getAccountBalances()).resolves.toEqual(new Map());
   });
 });

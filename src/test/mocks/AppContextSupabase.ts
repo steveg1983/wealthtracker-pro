@@ -38,6 +38,7 @@ const baseValue = {
   setTransactionsCleared: asyncNoop,
   applyCategoryToUncategorized: async () => 0,
   transactionSplits: [],
+  serverBalances: new Map<string, { balance: number; txnCount: number }>(),
   getTransactionSplits: async () => [],
   setTransactionSplits: async () => ({ isSplit: false, splitCount: 0, amount: 0 }),
   linkTransferPair: async () => { throw new Error('not available in mock'); },
