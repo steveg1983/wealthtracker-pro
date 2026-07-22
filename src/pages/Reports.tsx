@@ -27,6 +27,7 @@ import { usePeriod, PERIOD_LABELS } from '../hooks/usePeriod';
 import PeriodPicker from '../components/PeriodPicker';
 import EditTransactionModal from '../components/EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../components/IncomeExpenseBreakdownModal';
+import TransferSweepModal from '../components/TransferSweepModal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -61,6 +62,7 @@ export default function Reports() {
     total: number;
   } | null>(null);
   const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
+  const [showTransferSweep, setShowTransferSweep] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
@@ -342,6 +344,18 @@ export default function Reports() {
           </button>
         )}
 
+        {/* Bulk transfer matching — the biggest single cause of uncategorised
+            rows is bank-feed transfer legs that were never linked. */}
+        {flows.uncategorizedRows.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowTransferSweep(true)}
+            className="text-sm text-blue-700 dark:text-blue-400 hover:underline text-left"
+          >
+            Or match transfers automatically — find equal-and-opposite pairs and link them in one go
+          </button>
+        )}
+
         {/* Charts */}
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -556,6 +570,11 @@ export default function Reports() {
         total={chartDrill?.total ?? 0}
         categories={categories}
         onEditTransaction={setEditingBreakdownTxnId}
+      />
+
+      <TransferSweepModal
+        isOpen={showTransferSweep}
+        onClose={() => setShowTransferSweep(false)}
       />
 
       {/* Edit a transaction straight from the breakdown list */}
