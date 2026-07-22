@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 import { customReportService } from '../services/customReportService';
 import CustomReportBuilder from '../components/CustomReportBuilder';
+import CustomReportViewer, { type GeneratedReport } from '../components/CustomReportViewer';
 import type { CustomReport } from '../components/CustomReportBuilder';
 import {
   PlusIcon,
@@ -23,7 +24,7 @@ export default function CustomReports(): React.JSX.Element {
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingReport, setEditingReport] = useState<CustomReport | undefined>();
   const [generatingReport, setGeneratingReport] = useState<string | null>(null);
-  const [_generatedData, setGeneratedData] = useState<unknown>(null);
+  const [generatedData, setGeneratedData] = useState<GeneratedReport | null>(null);
 
   useEffect(() => {
     loadReports();
@@ -92,15 +93,9 @@ export default function CustomReports(): React.JSX.Element {
         categories
       });
       
+      // Show the report itself — "generated" used to mean a toast and
+      // nothing to look at.
       setGeneratedData(data);
-      
-      // Navigate to report viewer
-      // For now, just show a success message
-      addNotification({
-        type: 'success',
-        title: 'Report Generated',
-        message: 'Your report has been generated successfully'
-      });
     } catch {
       addNotification({
         type: 'error',
@@ -111,6 +106,15 @@ export default function CustomReports(): React.JSX.Element {
       setGeneratingReport(null);
     }
   };
+
+  if (generatedData) {
+    return (
+      <CustomReportViewer
+        generated={generatedData}
+        onClose={() => setGeneratedData(null)}
+      />
+    );
+  }
 
   if (showBuilder || editingReport) {
     return (

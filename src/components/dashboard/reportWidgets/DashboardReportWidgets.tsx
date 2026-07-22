@@ -180,7 +180,7 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
         <p className="text-center py-10 text-sm text-gray-400">No categorised spending in this period</p>
       ) : (
         <div className="flex items-center gap-3 h-44">
-          <div className="h-full flex-1 min-w-0">
+          <div className="h-full flex-1 basis-0 min-w-[120px]">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie data={data} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="88%" strokeWidth={0} isAnimationActive={false}>
