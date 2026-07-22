@@ -19,6 +19,7 @@ import { Modal, ModalBody } from '../components/common/Modal';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
+import { buildNetWorthSnapshots } from '../utils/netWorthSeries';
 import { CalendarIcon, TrendingUpIcon, ChevronRightIcon } from '../components/icons';
 
 /**
@@ -33,13 +34,6 @@ import { CalendarIcon, TrendingUpIcon, ChevronRightIcon } from '../components/ic
  * click an account to open its register.
  */
 
-interface Snapshot {
-  date: Date;
-  label: string;
-  netWorth: number;
-  assets: number;
-  liabilities: number;
-}
 
 const compactTick = (value: number): string => {
   const abs = Math.abs(value);
@@ -82,66 +76,10 @@ export default function NetWorthReport(): React.JSX.Element {
     [transactions]
   );
 
-  const snapshots = useMemo<Snapshot[]>(() => {
-    if (accounts.length === 0) return [];
-
-    const now = new Date();
-    const firstTxnDate = sortedTransactions.length > 0 ? new Date(sortedTransactions[0].date) : now;
-    const start = picker.range.from ?? firstTxnDate;
-    const end = picker.range.to ?? now;
-    if (start > end) return [];
-
-    // Point cadence: daily for short windows, month-end beyond ~3 months
-    // (Money's cadence), always ending on the window's final day.
-    const spanDays = (end.getTime() - start.getTime()) / 86_400_000;
-    const points: Date[] = [];
-    if (spanDays <= 92) {
-      for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        points.push(new Date(d));
-      }
-    } else {
-      // End of each month from the start month onward.
-      const cursor = new Date(start.getFullYear(), start.getMonth() + 1, 0);
-      while (cursor < end) {
-        points.push(new Date(cursor));
-        cursor.setMonth(cursor.getMonth() + 2, 0);
-      }
-      points.push(new Date(end));
-    }
-
-    // One forward walk: balances accumulate from the very beginning (a
-    // point's balance includes ALL history before it, not just the window).
-    const balances = new Map(accounts.map(a => [a.id, toDecimal(a.openingBalance ?? 0)]));
-    const monthly = spanDays > 92;
-    let i = 0;
-    const out: Snapshot[] = [];
-    for (const point of points) {
-      const cutoff = new Date(point);
-      cutoff.setHours(23, 59, 59, 999);
-      while (i < sortedTransactions.length && new Date(sortedTransactions[i].date) <= cutoff) {
-        const t = sortedTransactions[i];
-        const bal = balances.get(t.accountId);
-        if (bal !== undefined) balances.set(t.accountId, bal.plus(toDecimal(t.amount)));
-        i++;
-      }
-      let assets = toDecimal(0);
-      let liabilities = toDecimal(0);
-      for (const b of balances.values()) {
-        if (b.greaterThan(0)) assets = assets.plus(b);
-        else liabilities = liabilities.plus(b.abs());
-      }
-      out.push({
-        date: point,
-        label: point.toLocaleDateString('en-GB', monthly
-          ? { month: 'short', year: '2-digit' }
-          : { day: '2-digit', month: 'short' }),
-        assets: assets.toNumber(),
-        liabilities: liabilities.toNumber(),
-        netWorth: assets.minus(liabilities).toNumber(),
-      });
-    }
-    return out;
-  }, [accounts, sortedTransactions, picker.range]);
+  const snapshots = useMemo(
+    () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range),
+    [accounts, sortedTransactions, picker.range]
+  );
 
   // Per-account balances at the drilled date (same cumulative rule).
   const drillBalances = useMemo(() => {

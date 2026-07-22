@@ -23,6 +23,18 @@ import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
 import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
+import { Modal, ModalBody } from '../common/Modal';
+import PeriodPicker from '../../components/PeriodPicker';
+import { usePeriod } from '../../hooks/usePeriod';
+import { customReportService } from '../../services/customReportService';
+import {
+  BUILT_IN_REPORTS,
+  NetWorthWidget,
+  IncomeExpenseTrendWidget,
+  ExpenseCategoriesWidget,
+  CustomReportWidget,
+  type PinnableReportId,
+} from './reportWidgets/DashboardReportWidgets';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
@@ -50,6 +62,26 @@ export function ImprovedDashboard() {
   // category — and the list re-derives live, so a re-categorised transaction
   // drops out of it immediately.
   const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
+  // Pinned reports: the user chooses which live reports show on the
+  // Dashboard (built-ins + their custom reports). What matters is different
+  // to different users.
+  const [pinnedReports, setPinnedReports] = useState<PinnableReportId[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('dashboardPinnedReports') ?? 'null');
+      if (Array.isArray(stored)) return stored as PinnableReportId[];
+    } catch { /* fall through to the default */ }
+    return ['net-worth'];
+  });
+  const [showReportPicker, setShowReportPicker] = useState(false);
+  const reportsPeriod = usePeriod('dashboardReports', 'last-12-months');
+
+  const togglePinnedReport = (id: PinnableReportId): void => {
+    setPinnedReports(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      localStorage.setItem('dashboardPinnedReports', JSON.stringify(next));
+      return next;
+    });
+  };
   
   // Load saved preferences from localStorage
   useEffect(() => {
@@ -374,6 +406,93 @@ export function ImprovedDashboard() {
           </button>
         </div>
       </section>
+
+      {/* Pinned reports: the user's choice of live reports, at a glance.
+          Same shared maths as the full Reports hub — the glance and the full
+          view can never disagree. */}
+      <section
+        aria-labelledby="pinned-reports-heading"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
+      >
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <h3 id="pinned-reports-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <BarChart3Icon size={24} className="text-gray-500" />
+            Your Reports
+          </h3>
+          <div className="ml-auto flex items-center gap-2">
+            {pinnedReports.length > 0 && <PeriodPicker picker={reportsPeriod} />}
+            <button
+              type="button"
+              onClick={() => setShowReportPicker(true)}
+              className="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="Choose which reports appear here"
+              aria-label="Choose reports"
+            >
+              <SettingsIcon size={18} />
+            </button>
+          </div>
+        </div>
+
+        {pinnedReports.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowReportPicker(true)}
+            className="w-full justify-center py-8 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          >
+            No reports pinned — click to choose the reports you want at a glance
+          </button>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {pinnedReports.map(id => {
+              if (id === 'net-worth') return <NetWorthWidget key={id} range={reportsPeriod.range} />;
+              if (id === 'income-expense-trend') return <IncomeExpenseTrendWidget key={id} range={reportsPeriod.range} />;
+              if (id === 'expense-categories') return <ExpenseCategoriesWidget key={id} range={reportsPeriod.range} />;
+              if (id.startsWith('custom:')) return <CustomReportWidget key={id} reportId={id.slice('custom:'.length)} />;
+              return null;
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Report picker */}
+      <Modal
+        isOpen={showReportPicker}
+        onClose={() => setShowReportPicker(false)}
+        title="Choose your dashboard reports"
+        size="sm"
+      >
+        <ModalBody>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Pick the reports you want at a glance. They stay live and click through to the full report.
+          </p>
+          <div className="space-y-1">
+            {BUILT_IN_REPORTS.map(({ id, label, icon: Icon }) => (
+              <label key={id} className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pinnedReports.includes(id)}
+                  onChange={() => togglePinnedReport(id)}
+                  className="rounded border-gray-300"
+                />
+                <Icon size={16} className="text-gray-500" />
+                <span className="text-sm text-gray-800 dark:text-gray-200">{label}</span>
+              </label>
+            ))}
+            {customReportService.getCustomReports().map(report => (
+              <label key={report.id} className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pinnedReports.includes(`custom:${report.id}`)}
+                  onChange={() => togglePinnedReport(`custom:${report.id}`)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-800 dark:text-gray-200 truncate">{report.name}</span>
+                <span className="ml-auto text-xs text-gray-400">custom</span>
+              </label>
+            ))}
+          </div>
+        </ModalBody>
+      </Modal>
 
       {/* Income/Expense breakdown — the shared component (category sections,
           sortable headings, click-to-edit) also used by the Reports page. */}
