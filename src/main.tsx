@@ -1,3 +1,6 @@
+// FIRST import: configures zod before any module-scope schema is built.
+// See the file for why (it removes a per-load CSP violation).
+import './lib/zodConfig'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/clerk-react'
