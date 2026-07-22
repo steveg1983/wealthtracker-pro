@@ -1,0 +1,50 @@
+{
+  "id": "wealth-tracker-pwa",
+  "name": "WealthTracker - Personal Finance Manager",
+  "short_name": "WealthTracker",
+  "description": "Track your finances, manage budgets, and achieve your financial goals with WealthTracker",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "lang": "en-GB",
+  "theme_color": "#1a2332",
+  "background_color": "#f8fafc",
+  "categories": ["finance", "productivity", "business"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your financial dashboard",
+      "url": "/dashboard"
+    },
+    {
+      "name": "Accounts",
+      "short_name": "Accounts",
+      "description": "See every account and balance",
+      "url": "/accounts"
+    },
+    {
+      "name": "Reports",
+      "short_name": "Reports",
+      "description": "Income, expenses and net worth over time",
+      "url": "/reports"
+    }
+  ]
+}
