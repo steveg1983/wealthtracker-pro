@@ -20,7 +20,8 @@ import {
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
-import { computeExpenseCategoryNetTotals, bucketByCategoryDirection } from '../utils/categoryNetting';
+import { computeExpenseCategoryNetTotals } from '../utils/categoryNetting';
+import { buildMonthlyTrend } from '../utils/monthlyTrend';
 import { computeIncomeExpense } from '../utils/incomeExpense';
 import { usePeriod, PERIOD_LABELS } from '../hooks/usePeriod';
 import PeriodPicker from '../components/PeriodPicker';
@@ -163,37 +164,12 @@ export default function Reports() {
       }
     };
 
-  // Prepare data for monthly trend — same category-direction netting as the
-  // summary and the pie, so all three views on this page agree.
-  const monthlyTrendData = useMemo(() => {
-    const monthlyData: Record<string, { income: DecimalInstance; expenses: DecimalInstance }> = {};
-    const categoryById = new Map(categories.map(c => [c.id, c]));
-
-    filteredTransactions.forEach(t => {
-      const bucket = bucketByCategoryDirection(t, categoryById);
-      if (bucket === 'transfer') return;
-      const monthKey = new Date(t.date).toISOString().slice(0, 7);
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { income: toDecimal(0), expenses: toDecimal(0) };
-      }
-
-      if (bucket === 'income') {
-        monthlyData[monthKey].income = monthlyData[monthKey].income.plus(t.amount);
-      } else {
-        // Spending is negative; negate so refunds net the month down.
-        monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.minus(t.amount);
-      }
-    });
-
-    const sortedMonths = Object.keys(monthlyData).sort();
-
-    return sortedMonths.map(month => ({
-      monthKey: month, // raw YYYY-MM, drives the click-to-drill filter
-      month: new Date(month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
-      income: monthlyData[month].income.toNumber(),
-      expenses: monthlyData[month].expenses.toNumber()
-    }));
-  }, [filteredTransactions, categories]);
+  // Monthly trend via the shared builder (also drives the Dashboard's pinned
+  // trend widget — one implementation, no drift).
+  const monthlyTrendData = useMemo(
+    () => buildMonthlyTrend(filteredTransactions, categories),
+    [filteredTransactions, categories]
+  );
 
   const exportToCSV = () => {
     const csv = exportTransactionsToCSV(filteredTransactions, accounts);
