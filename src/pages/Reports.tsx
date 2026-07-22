@@ -51,6 +51,14 @@ export default function Reports() {
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | 'uncategorized' | null>(null);
+  // Chart drill-in: a clicked trend point (one series, one month) or pie
+  // slice (one category) opens the same breakdown modal, scoped to it.
+  const [chartDrill, setChartDrill] = useState<{
+    title: string;
+    bucket: 'income' | 'expense';
+    rows: typeof transactions;
+    total: number;
+  } | null>(null);
   const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
@@ -109,12 +117,51 @@ export default function Reports() {
   // CATEGORY's direction and net signed amounts, so a refund filed under an
   // expense category reduces that category instead of inflating income —
   // and slice labels show category NAMES, never raw ids.
+  // The category id rides along so a clicked slice can list its own
+  // transactions — as `categoryId`, NOT `key`: recharts spreads datum fields
+  // onto React elements, and a `key` field collides with React's reserved
+  // prop and silently breaks sector rendering. Re-mapped to plain literals
+  // because recharts' data prop needs index-signature rows.
   const categoryData = useMemo(
     () => computeExpenseCategoryNetTotals(filteredTransactions, categories)
       .slice(0, 8)
-      .map(({ name, value }) => ({ name, value })),
+      .map(({ key, name, value }) => ({ categoryId: key, name, value })),
     [filteredTransactions, categories]
   );
+
+  const drillIntoCategory = (key: string, name: string, value: number): void => {
+    setChartDrill({
+      title: `${name} — Expenses`,
+      bucket: 'expense',
+      rows: flows.expenseRows.filter(t => t.category === key),
+      total: value,
+    });
+  };
+
+  const drillIntoMonth = (monthKey: string, label: string, bucket: 'income' | 'expense', total: number): void => {
+    const source = bucket === 'income' ? flows.incomeRows : flows.expenseRows;
+    setChartDrill({
+      title: `${bucket === 'income' ? 'Income' : 'Expenses'} — ${label}`,
+      bucket,
+      rows: source.filter(t => new Date(t.date).toISOString().slice(0, 7) === monthKey),
+      total,
+    });
+  };
+
+  // recharts calls activeDot onClick with (props, event) — but the argument
+  // order has differed across versions, so scan for whichever carries the
+  // datum payload.
+  const handleTrendDotClick = (series: 'income' | 'expenses') =>
+    (...args: unknown[]): void => {
+      for (const arg of args) {
+        const payload = (arg as { payload?: { monthKey?: string; month?: string; income?: number; expenses?: number } } | null)?.payload;
+        if (payload?.monthKey && payload.month) {
+          const bucket = series === 'income' ? 'income' : 'expense';
+          drillIntoMonth(payload.monthKey, payload.month, bucket, payload[series] ?? 0);
+          return;
+        }
+      }
+    };
 
   // Prepare data for monthly trend — same category-direction netting as the
   // summary and the pie, so all three views on this page agree.
@@ -141,6 +188,7 @@ export default function Reports() {
     const sortedMonths = Object.keys(monthlyData).sort();
 
     return sortedMonths.map(month => ({
+      monthKey: month, // raw YYYY-MM, drives the click-to-drill filter
       month: new Date(month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
       income: monthlyData[month].income.toNumber(),
       expenses: monthlyData[month].expenses.toNumber()
@@ -251,10 +299,13 @@ export default function Reports() {
       <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* flex-col: buttons lay children out in a ROW by default, which put
+            the figure beside the label — every stat card stacks label OVER
+            figure, matching the Dashboard. */}
         <button
           type="button"
           onClick={() => setBreakdownType('income')}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-left cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors"
+          className="flex flex-col items-start bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-left cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors"
         >
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
           {/* div, not p: the loading skeleton renders block elements and a
@@ -267,7 +318,7 @@ export default function Reports() {
         <button
           type="button"
           onClick={() => setBreakdownType('expense')}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-left cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+          className="flex flex-col items-start bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-left cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
         >
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
@@ -346,8 +397,30 @@ export default function Reports() {
                     }
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="income" name="Income" stroke="#10B981" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#EF4444" strokeWidth={2} dot={false} />
+                  {/* Hover shows the active dot; clicking it opens that
+                      month's transactions for THAT series. The handler scans
+                      its args for the datum because recharts' activeDot
+                      onClick argument order differs across versions. */}
+                  <Line
+                    type="monotone"
+                    dataKey="income"
+                    name="Income"
+                    stroke="#10B981"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                    activeDot={{ r: 6, cursor: 'pointer', onClick: handleTrendDotClick('income') }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="expenses"
+                    name="Expenses"
+                    stroke="#EF4444"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                    activeDot={{ r: 6, cursor: 'pointer', onClick: handleTrendDotClick('expenses') }}
+                  />
                 </RechartsLineChart>
               </ResponsiveContainer>
             )}
@@ -366,6 +439,7 @@ export default function Reports() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart>
+                  {/* Click a slice to open that category's transactions */}
                   <Pie
                     data={categoryData}
                     dataKey="value"
@@ -373,6 +447,11 @@ export default function Reports() {
                     innerRadius="55%"
                     outerRadius="85%"
                     strokeWidth={0}
+                    isAnimationActive={false}
+                    onClick={(entry) => {
+                      const datum = ((entry as { payload?: typeof categoryData[number] })?.payload ?? entry) as typeof categoryData[number];
+                      if (datum?.categoryId) drillIntoCategory(datum.categoryId, datum.name, datum.value);
+                    }}
                   >
                     {categoryData.map((entry, index) => (
                       <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
@@ -486,6 +565,19 @@ export default function Reports() {
           : breakdownType === 'expense' ? summary.expenses
           : null
         }
+        categories={categories}
+        onEditTransaction={setEditingBreakdownTxnId}
+      />
+
+      {/* Chart drill-ins (a trend point or a pie slice) share the same
+          breakdown modal, scoped to the clicked month/category. */}
+      <IncomeExpenseBreakdownModal
+        isOpen={chartDrill !== null}
+        onClose={() => setChartDrill(null)}
+        title={chartDrill?.title ?? ''}
+        bucket={chartDrill?.bucket ?? 'expense'}
+        rows={chartDrill?.rows ?? []}
+        total={chartDrill?.total ?? 0}
         categories={categories}
         onEditTransaction={setEditingBreakdownTxnId}
       />
