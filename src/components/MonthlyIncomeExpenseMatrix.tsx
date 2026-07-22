@@ -67,6 +67,9 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
   };
 
   const { months } = matrix;
+  // A Total column that repeats the single month it sums is just noise, so it
+  // only earns its place once there is more than one period to add up.
+  const showTotal = months.length > 1;
 
   const money = (value: number): string =>
     value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value);
@@ -173,9 +176,11 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
             {figure(value, months[index].key)}
           </td>
         ))}
-        <td className={`${CELL} ${valueClass(row.total)} border-l border-gray-200 dark:border-gray-600`}>
-          {figure(row.total, null)}
-        </td>
+        {showTotal && (
+          <td className={`${CELL} ${valueClass(row.total)} border-l border-gray-200 dark:border-gray-600`}>
+            {figure(row.total, null)}
+          </td>
+        )}
       </tr>
     );
   };
@@ -184,7 +189,7 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
     <tr className="bg-[#1a2332] dark:bg-gray-900">
       <th
         scope="colgroup"
-        colSpan={months.length + 2}
+        colSpan={months.length + (showTotal ? 2 : 1)}
         className="sticky left-0 px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wider text-white"
       >
         {label}
@@ -247,9 +252,11 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
                     {month.label}
                   </th>
                 ))}
-                <th scope="col" className={`${HEAD_CELL} z-20 text-right border-l min-w-[110px]`}>
-                  Total
-                </th>
+                {showTotal && (
+                  <th scope="col" className={`${HEAD_CELL} z-20 text-right border-l min-w-[110px]`}>
+                    Total
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>

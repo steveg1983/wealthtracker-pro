@@ -417,10 +417,6 @@ export default function Reports() {
           </button>
         )}
 
-        {/* The Money-style monthly matrix — the report Steve lives in, so it
-            sits directly under the headline figures it adds up to. */}
-        <MonthlyIncomeExpenseMatrix matrix={matrix} onDrill={handleMatrixDrill} />
-
         {/* Charts */}
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -604,6 +600,10 @@ export default function Reports() {
         </div>
         </div>
         </div>
+
+        {/* The Money-style monthly matrix — the detailed read, so it sits at the
+            bottom under the summary tables and charts rather than ahead of them. */}
+        <MonthlyIncomeExpenseMatrix matrix={matrix} onDrill={handleMatrixDrill} />
       </div>
 
       {/* Income/Expense breakdown — the shared component (category sections,

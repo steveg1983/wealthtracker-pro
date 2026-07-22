@@ -56,6 +56,29 @@ describe('MonthlyIncomeExpenseMatrix', () => {
     expect(screen.getByRole('rowheader', { name: 'Salary' })).toBeInTheDocument();
   });
 
+  it('drops the Total column for a single-month period, where it would just repeat the month', () => {
+    const singleMonth: PeriodRange = { from: new Date(2026, 0, 1), to: new Date(2026, 0, 31, 23, 59, 59, 999) };
+    const flows = computeIncomeExpense(TRANSACTIONS, [], CATEGORIES, {
+      from: singleMonth.from ?? undefined,
+      to: singleMonth.to ?? undefined,
+    });
+    render(
+      <PreferencesProvider>
+        <MonthlyIncomeExpenseMatrix
+          matrix={buildMonthlyCategoryMatrix(flows.incomeRows, flows.expenseRows, CATEGORIES, singleMonth, {
+            now: new Date(2026, 0, 20),
+          })}
+          onDrill={vi.fn()}
+        />
+      </PreferencesProvider>
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Jan 26' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Total' })).not.toBeInTheDocument();
+    // The figures themselves must survive losing the column.
+    expect(screen.getByRole('rowheader', { name: 'Total Expenses' })).toBeInTheDocument();
+  });
+
   it('shows the Money footer rows with income less expenses', () => {
     renderMatrix();
 
