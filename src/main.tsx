@@ -20,6 +20,30 @@ import {
 
 const bootstrapLogger = createScopedLogger('AppBootstrap');
 
+// DEV-ONLY boot profiler: `sessionStorage.bootProfile = '1'` then reload —
+// the whole boot is sampled (JS Self-Profiling API, enabled by the dev
+// server's Document-Policy header) and the trace parked on
+// `window.__bootTrace` for inspection. No-op in production builds.
+if (import.meta.env.DEV && sessionStorage.getItem('bootProfile') === '1') {
+  try {
+    type ProfilerTrace = { samples: unknown[]; stacks: unknown[]; frames: unknown[] };
+    type ProfilerLike = { stop(): Promise<ProfilerTrace> };
+    type ProfilerCtor = new (opts: { sampleInterval: number; maxBufferSize: number }) => ProfilerLike;
+    const ProfilerClass = (globalThis as { Profiler?: ProfilerCtor }).Profiler;
+    if (ProfilerClass) {
+      const profiler = new ProfilerClass({ sampleInterval: 5, maxBufferSize: 1_000_000 });
+      setTimeout(() => {
+        void profiler.stop().then(trace => {
+          (window as unknown as { __bootTrace?: ProfilerTrace }).__bootTrace = trace;
+          bootstrapLogger.info('Boot profile captured on window.__bootTrace');
+        });
+      }, 20_000);
+    }
+  } catch {
+    // Profiling is best-effort tooling; never let it affect boot.
+  }
+}
+
 // Reduced-motion preference (moved out of index.html so the CSP needs no
 // 'unsafe-inline' for scripts).
 if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

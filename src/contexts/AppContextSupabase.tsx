@@ -204,6 +204,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       setSyncError(null);
 
+      // Boot phase timings — one summary line at the end so a slow load can
+      // be attributed (auth? accounts? categories? transactions?) from the
+      // console of ANY environment, production included.
+      const bootStart = performance.now();
+      const phases: Record<string, number> = {};
+      let phaseStart = bootStart;
+      const markPhase = (name: string): void => {
+        phases[name] = Math.round(performance.now() - phaseStart);
+        phaseStart = performance.now();
+      };
+
       try {
         appLogger.info('Initializing app context', { userId: user?.id });
         // Initialize DataService with user info
@@ -217,6 +228,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             user.firstName || undefined,
             user.lastName || undefined
           );
+          markPhase('auth');
           if (databaseId) {
             appLogger.info('Database user ID resolved', { databaseId });
             
@@ -230,11 +242,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               user.lastName || undefined
             );
             appLogger.info('Loading application data');
-            
+            markPhase('services');
+
             // Use the database ID we just got - no need to fetch it again!
             const accounts = await SimpleAccountService.getAccounts(databaseId);
             appLogger.info('Accounts loaded', { count: accounts.length });
             setAccounts(accounts);
+            markPhase('accounts');
           } else {
             appLogger.warn('Failed to resolve database user ID - no data will be loaded');
             setAccounts([]);
@@ -253,10 +267,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const planningUserId = userIdService.getCurrentDatabaseUserId();
         const loadedCategories = await PlanningService.ensureCategories(planningUserId);
         setCategories(loadedCategories);
+        markPhase('categories');
 
         // Now load transactions, budgets, and goals (post-remap views).
         const data = await DataService.loadAppData();
         setTransactions(data.transactions);
+        markPhase('transactions');
 
         // Split lines ride along with transactions; a failure here must not
         // block the app (split parents then pass through aggregation whole).
@@ -266,6 +282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           appLogger.error('Failed to load transaction splits', splitError);
           setTransactionSplitsState([]);
         }
+        markPhase('splits');
 
         // Without an authenticated user (demo / local-only mode) the
         // SimpleAccountService path above returns nothing — it needs a
@@ -282,9 +299,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         setBudgets(loadedBudgets);
         setGoals(loadedGoals);
+        markPhase('planning');
 
         setIsUsingSupabase(DataService.isUsingSupabase());
         setLastSyncTime(new Date());
+        // The numbers live IN the message so any console (production
+        // included) shows the breakdown without expanding an object.
+        appLogger.info(
+          `Boot data load: ${Math.round(performance.now() - bootStart)}ms total — ` +
+          Object.entries(phases).map(([name, ms]) => `${name} ${ms}ms`).join(' · ') +
+          ` (${data.transactions.length.toLocaleString()} transactions)`
+        );
 
         // Subscribe to real-time updates if using Supabase
         if (DataService.isUsingSupabase() && user) {
