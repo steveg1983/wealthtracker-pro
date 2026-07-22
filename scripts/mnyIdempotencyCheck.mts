@@ -10,6 +10,8 @@
  *   run 2  NO wipe → plan → write         → snapshot B
  *   assert A == B  (row counts, per-table; duplicate-signature counts;
  *                   provenance coverage), and that run 2 planned zero inserts
+ *   assert the category tree is whole — system roots present, and NO category
+ *          left pointing at a parent row that does not exist
  *   then   force a raw duplicate insert   → assert the DATABASE rejects it
  *
  * ── THIS SCRIPT WRITES. IT MUST NEVER POINT AT PRODUCTION. ─────────────────
@@ -27,7 +29,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
-  planCloudImport, executeCloudPlan, wipeCloudData, fetchImportedSourceIds,
+  planCloudImport, executeCloudPlan, wipeCloudData, fetchExistingImportState,
   MS_MONEY_IMPORT_SOURCE,
 } from '../src/services/import/msMoney/msMoneyImport.ts';
 import type { MsMoneyImportResult } from '../src/services/import/msMoney/transform.ts';
@@ -105,6 +107,10 @@ interface Snapshot {
   /** Rows carrying MS Money provenance, and distinct source ids among them. */
   provenancedRows: number;
   distinctSourceIds: number;
+  /** Categories whose parent_id names a row that does not exist. Must be 0. */
+  orphanedCategories: number;
+  /** Categories with is_system = true at level 'type' — the tree's roots. */
+  systemRoots: number;
 }
 
 async function countRows(table: string, userId: string): Promise<number> {
@@ -144,19 +150,39 @@ async function snapshot(userId: string): Promise<Snapshot> {
   let groups = 0, extra = 0;
   for (const n of signatures.values()) if (n > 1) { groups++; extra += n - 1; }
 
+  // Category tree integrity: every parent_id must name a row that exists. The
+  // FK enforces this for rows the database accepted, but the check is cheap and
+  // it is the exact failure this harness exists to catch.
+  const catRows: { id: string; parent_id: string | null; level: string; is_system: boolean | null }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb.from('categories')
+      .select('id,parent_id,level,is_system')
+      .eq('user_id', userId).order('id').range(from, from + PAGE - 1);
+    if (error) die(`snapshotting categories: ${error.message}`);
+    const rows = data ?? [];
+    catRows.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  const catIds = new Set(catRows.map(r => r.id));
+  const orphanedCategories = catRows.filter(r => r.parent_id != null && !catIds.has(r.parent_id)).length;
+  const systemRoots = catRows.filter(r => r.level === 'type' && r.is_system === true).length;
+
   return {
     counts,
     duplicateSignatureGroups: groups,
     duplicateSignatureExtraRows: extra,
     provenancedRows: provenanced,
     distinctSourceIds: sourceIds.size,
+    orphanedCategories,
+    systemRoots,
   };
 }
 
 const show = (label: string, s: Snapshot): void => {
   console.log(`  ${label}: ` + Object.entries(s.counts).map(([k, v]) => `${k}=${v}`).join(' ') +
     ` | dup-signature groups=${s.duplicateSignatureGroups} extra=${s.duplicateSignatureExtraRows}` +
-    ` | provenanced=${s.provenancedRows} distinct-source-ids=${s.distinctSourceIds}`);
+    ` | provenanced=${s.provenancedRows} distinct-source-ids=${s.distinctSourceIds}` +
+    ` | system-roots=${s.systemRoots} orphaned-categories=${s.orphanedCategories}`);
 };
 
 // ── Run ──────────────────────────────────────────────────────────────────────
@@ -172,13 +198,26 @@ const show = (label: string, s: Snapshot): void => {
     die('provenance columns missing — apply supabase/migrations/20260722170000_transaction_import_provenance.sql to the scratch database first.');
   }
 
-  const runOnce = async (label: string): Promise<number> => {
-    const existingBySourceId = await fetchImportedSourceIds(sb as SupabaseClient, userId);
-    const plan = planCloudImport(result, userId, randomUUID, { existingBySourceId });
+  const runOnce = async (label: string): Promise<{ transactions: number; accounts: number; categories: number }> => {
+    // Exactly what importToCloud does: read the user's current state, then plan
+    // against it — so the seed's placeholder category roots resolve onto the
+    // rows the user actually holds instead of onto ids nothing ever writes.
+    const existing = await fetchExistingImportState(sb as SupabaseClient, userId);
+    const plan = planCloudImport(result, userId, randomUUID, existing);
     console.log(`  ${label}: plan → ${plan.transactions.length} transactions to insert, ` +
       `${plan.skippedExisting} already present, ${plan.splits.length} split lines`);
+    console.log(`  ${label}: plan → ${plan.accounts.length} accounts + ${plan.categories.length} categories to insert, ` +
+      `${plan.skippedExistingAccounts} accounts / ${plan.skippedExistingCategories} categories already present, ` +
+      `${plan.categoriesWithUnresolvedParent} with an unresolvable parent`);
+    if (plan.categoriesWithUnresolvedParent > 0) {
+      die(`${label}: ${plan.categoriesWithUnresolvedParent} categories have no resolvable parent — the seed tree is broken`);
+    }
     await executeCloudPlan(plan, sb as SupabaseClient);
-    return plan.transactions.length;
+    return {
+      transactions: plan.transactions.length,
+      accounts: plan.accounts.length,
+      categories: plan.categories.length,
+    };
   };
 
   console.log(`Scratch target: ${new URL(target.VITE_SUPABASE_URL).host} (user ${userId})\n`);
@@ -214,7 +253,15 @@ const show = (label: string, s: Snapshot): void => {
       failures.push(`${table}: ${a.counts[table]} after run 1 but ${b.counts[table]} after run 2`);
     }
   }
-  if (inserted2 !== 0) failures.push(`run 2 planned ${inserted2} inserts; expected 0`);
+  if (inserted2.transactions !== 0) failures.push(`run 2 planned ${inserted2.transactions} transaction inserts; expected 0`);
+  if (inserted2.accounts !== 0) failures.push(`run 2 planned ${inserted2.accounts} account inserts; expected 0`);
+  if (inserted2.categories !== 0) failures.push(`run 2 planned ${inserted2.categories} category inserts; expected 0`);
+  for (const [label, s] of [['run 1', a], ['run 2', b]] as const) {
+    if (s.orphanedCategories !== 0) {
+      failures.push(`after ${label}: ${s.orphanedCategories} categories point at a parent row that does not exist`);
+    }
+    if (s.systemRoots === 0) failures.push(`after ${label}: the category tree has no system type roots`);
+  }
   if (a.duplicateSignatureGroups !== b.duplicateSignatureGroups) {
     failures.push(`duplicate-signature groups moved ${a.duplicateSignatureGroups} → ${b.duplicateSignatureGroups}`);
   }
@@ -224,8 +271,8 @@ const show = (label: string, s: Snapshot): void => {
   if (a.provenancedRows !== a.distinctSourceIds) {
     failures.push(`run 1 wrote ${a.provenancedRows} provenanced rows but only ${a.distinctSourceIds} distinct source ids`);
   }
-  if (inserted1 !== result.transactions.length) {
-    failures.push(`run 1 inserted ${inserted1} of ${result.transactions.length} source transactions`);
+  if (inserted1.transactions !== result.transactions.length) {
+    failures.push(`run 1 inserted ${inserted1.transactions} of ${result.transactions.length} source transactions`);
   }
   if (!guardHeld && victim?.length) failures.push('the unique index did NOT reject a forced duplicate');
 

@@ -16,7 +16,7 @@
  * as the reconstructed final values, so no per-row balance maths runs here.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Account } from '../../../types';
+import type { Account, Category } from '../../../types';
 import type { MsMoneyImportResult } from './transform';
 
 export type ImportPhase =
@@ -94,7 +94,7 @@ const dateOnly = (d: Date | string): string =>
 export interface CloudPlan {
   accounts: Record<string, unknown>[];       // inserted WITHOUT parent_account_id
   accountParents: { id: string; parent_account_id: string }[];
-  categories: Record<string, unknown>[];
+  categories: Record<string, unknown>[];     // ordered parents-first
   transactions: Record<string, unknown>[];   // inserted WITHOUT linked_transfer_id
   transferLinks: { id: string; linked_transfer_id: string }[];
   splits: Record<string, unknown>[];
@@ -103,6 +103,32 @@ export interface CloudPlan {
   skippedExisting: number;
   /** Source rows a bank-feed transaction already covers — not imported. */
   skippedFeedOverlap: number;
+  /** Seed accounts matched onto an account the user already has — not re-inserted. */
+  skippedExistingAccounts: number;
+  /** Seed categories matched onto a category the user already has — not re-inserted. */
+  skippedExistingCategories: number;
+  /**
+   * Seed categories whose parent could not be resolved to a row that will
+   * exist after the import. They are written with `parent_id` NULL — never a
+   * dangling id — and counted here so the caller can report it.
+   */
+  categoriesWithUnresolvedParent: number;
+}
+
+/** The subset of an existing `categories` row the planner needs to match on. */
+export interface ExistingCategoryRow {
+  id: string;
+  name: string;
+  type: string;
+  level: string;
+  parent_id: string | null;
+  is_system: boolean | null;
+}
+
+/** The subset of an existing `accounts` row the planner needs to match on. */
+export interface ExistingAccountRow {
+  id: string;
+  name: string;
 }
 
 export interface CloudPlanOptions {
@@ -118,6 +144,45 @@ export interface CloudPlanOptions {
    * These are dropped entirely: the feed row is the surviving record.
    */
   suppressedSourceIds?: ReadonlySet<string>;
+  /**
+   * The user's current `categories` rows (see `fetchExistingCategories`).
+   * Seed categories are matched onto these instead of being duplicated —
+   * critically the type-level system roots, which the seed carries as the
+   * literal ids `type-income` / `type-expense` / `type-transfer` and the user
+   * holds as UUIDs. Omit (or pass empty) for a virgin database: every root is
+   * then CREATED rather than assumed.
+   */
+  existingCategories?: readonly ExistingCategoryRow[];
+  /**
+   * The user's current `accounts` rows (see `fetchExistingAccounts`). Seed
+   * accounts matching one by name reuse its id rather than inserting a second
+   * copy — accounts carry no provenance columns, so the name is the only
+   * stable identity available.
+   */
+  existingAccounts?: readonly ExistingAccountRow[];
+}
+
+/** Case/whitespace-insensitive key for name matching. */
+const normName = (name: string): string => name.trim().toLowerCase();
+
+/**
+ * Depth of a seed category within the seed's own tree, so the plan can emit
+ * parents before children (a batched insert cannot satisfy a forward FK across
+ * batch boundaries). Broken/cyclic parent chains stop the walk; the child then
+ * simply resolves later and is caught by the unresolved-parent path.
+ */
+function seedDepth(c: Category, bySeedId: ReadonlyMap<string, Category>): number {
+  const seen = new Set<string>([c.id]);
+  let depth = 0;
+  let cursor = c;
+  while (cursor.parentId) {
+    const parent = bySeedId.get(cursor.parentId);
+    if (!parent || seen.has(parent.id)) break;
+    seen.add(parent.id);
+    cursor = parent;
+    depth++;
+  }
+  return depth;
 }
 
 /**
@@ -132,8 +197,134 @@ export function planCloudImport(
 ): CloudPlan {
   const existingBySourceId = options.existingBySourceId ?? new Map<string, string>();
   const suppressed = options.suppressedSourceIds ?? new Set<string>();
-  const acctId = new Map(result.accounts.map(a => [a.id, newId()]));
-  const catId = new Map(result.categories.map(c => [c.id, newId()]));
+
+  // ── Accounts: reuse a row the user already has, else mint one ─────────────
+  // Accounts carry no provenance columns and the table has no natural unique
+  // key, so the name — claimed at most once — is the identity. On the total
+  // migration the wipe leaves nothing to claim and every account is inserted.
+  const unclaimedAccountsByName = new Map<string, string[]>();
+  for (const row of options.existingAccounts ?? []) {
+    const key = normName(row.name);
+    const bucket = unclaimedAccountsByName.get(key);
+    if (bucket) bucket.push(row.id); else unclaimedAccountsByName.set(key, [row.id]);
+  }
+  const acctId = new Map<string, string>();
+  const reusedAccountIds = new Set<string>();
+  for (const a of result.accounts) {
+    const claimed = unclaimedAccountsByName.get(normName(a.name))?.shift();
+    if (claimed) {
+      acctId.set(a.id, claimed);
+      reusedAccountIds.add(a.id);
+    } else {
+      acctId.set(a.id, newId());
+    }
+  }
+
+  const catId = new Map<string, string>();
+  const insertedCategories: Record<string, unknown>[] = [];
+  let categoriesWithUnresolvedParent = 0;
+  let reusedCategories = 0;
+  {
+    // ── Categories: resolve onto the user's own tree ────────────────────────
+    // The seed's type-level roots are placeholders (`type-income`, …) that the
+    // user holds as UUIDs, so they MUST be matched, not minted: a minted root
+    // is never inserted (system rows are the app's, not the importer's) and
+    // every child pointed at it would carry a dangling `parent_id`.
+    //
+    // Root signature: `is_system = true AND level = 'type'` — the two columns
+    // that make a row a root at all — plus the name and `type` (income /
+    // expense / both), which together identify WHICH root. Both are matched:
+    // name and type agreeing is the strongest signature, then the name alone
+    // (a legacy tree can mistype a root), then the type alone (a renamed root
+    // is still structurally itself — the same fallback the database uses in
+    // `create_transfer_category_for_account`, migration 20260708140000).
+    // There is exactly one root per type in both the app's default set and the
+    // Money seed. A user with NO matching root gets one CREATED — the roots
+    // are never assumed to exist.
+    //
+    // Everything below the roots is keyed on (parent_id, name) — the table's
+    // own `categories_user_id_name_parent_id_key`. Matching on the constraint
+    // the database enforces means a row that WOULD collide is reused instead,
+    // so a second import inserts nothing rather than failing.
+    const existingRowIds = new Set((options.existingCategories ?? []).map(r => r.id));
+    const byParentAndName = new Map<string, string>();
+    const childKey = (parentId: string | null, name: string): string =>
+      `${parentId ?? ''}\u0000${normName(name)}`;
+    for (const row of options.existingCategories ?? []) {
+      const key = childKey(row.parent_id, row.name);
+      if (!byParentAndName.has(key)) byParentAndName.set(key, row.id);
+    }
+
+    // Roots are assigned up front, strongest signature first, each existing
+    // root claimed by at most ONE seed root — so a degenerate tree (say, every
+    // root typed 'both') cannot collapse two seed roots onto the same row and
+    // re-file half the categories under the wrong parent.
+    const existingRoots = (options.existingCategories ?? [])
+      .filter(r => r.level === 'type' && r.is_system === true);
+    const claimedRoots = new Set<string>();
+    const rootMatch = new Map<string, string>();
+    const ROOT_SIGNATURES: ((seed: Category, row: ExistingCategoryRow) => boolean)[] = [
+      (s, r) => r.type === s.type && normName(r.name) === normName(s.name),
+      (s, r) => normName(r.name) === normName(s.name),
+      (s, r) => r.type === s.type,
+    ];
+    for (const matches of ROOT_SIGNATURES) {
+      for (const seedRoot of result.categories) {
+        if (seedRoot.level !== 'type' || rootMatch.has(seedRoot.id)) continue;
+        const row = existingRoots.find(r => !claimedRoots.has(r.id) && matches(seedRoot, r));
+        if (row) {
+          rootMatch.set(seedRoot.id, row.id);
+          claimedRoots.add(row.id);
+        }
+      }
+    }
+
+    const bySeedId = new Map(result.categories.map(c => [c.id, c]));
+    const ordered = result.categories
+      .map((c, index) => ({ c, index, depth: seedDepth(c, bySeedId) }))
+      .sort((a, b) => a.depth - b.depth || a.index - b.index);
+
+    for (const { c } of ordered) {
+      // Parent first: only an id that will genuinely exist after the import is
+      // allowed through. Anything else becomes NULL and is counted.
+      let parentId: string | null = null;
+      if (c.parentId) {
+        const resolved = catId.get(c.parentId);
+        if (resolved) parentId = resolved;
+        else categoriesWithUnresolvedParent++;
+      }
+
+      const isRoot = c.level === 'type';
+      const existingId = isRoot
+        ? rootMatch.get(c.id)
+        : byParentAndName.get(childKey(parentId, c.name));
+      if (existingId) {
+        catId.set(c.id, existingId);
+        if (existingRowIds.has(existingId)) reusedCategories++;
+        continue;
+      }
+
+      const id = newId();
+      catId.set(c.id, id);
+      insertedCategories.push({
+        id,
+        user_id: userId,
+        name: c.name,
+        type: c.type,
+        level: c.level,
+        parent_id: parentId,
+        is_system: c.isSystem === true,
+        is_transfer_category: c.isTransferCategory === true,
+        account_id: c.accountId ? acctId.get(c.accountId) ?? null : null,
+        is_active: c.isActive !== false,
+      });
+      // Register it so a later seed row with the same natural key resolves onto
+      // it instead of offering the database a duplicate it would reject.
+      const key = childKey(parentId, c.name);
+      if (!byParentAndName.has(key)) byParentAndName.set(key, id);
+    }
+  }
+
   const txnId = new Map(
     result.transactions
       .filter(t => !suppressed.has(t.id))
@@ -146,18 +337,20 @@ export function planCloudImport(
   // Suppressed rows are never written, so nothing may reference them either.
   const importable = (sourceId: string): boolean => !suppressed.has(sourceId);
 
-  const accounts = result.accounts.map((a): Record<string, unknown> => ({
-    id: acctId.get(a.id),
-    user_id: userId,
-    name: a.name,
-    type: DB_ACCOUNT_TYPE(a.type),
-    balance: a.balance,
-    initial_balance: a.openingBalance ?? 0,
-    opening_balance_date: a.openingBalanceDate ? dateOnly(a.openingBalanceDate) : null,
-    currency: a.currency || 'GBP',
-    is_active: a.isActive !== false,
-    notes: a.notes ?? null,
-  }));
+  const accounts = result.accounts
+    .filter(a => !reusedAccountIds.has(a.id))
+    .map((a): Record<string, unknown> => ({
+      id: acctId.get(a.id),
+      user_id: userId,
+      name: a.name,
+      type: DB_ACCOUNT_TYPE(a.type),
+      balance: a.balance,
+      initial_balance: a.openingBalance ?? 0,
+      opening_balance_date: a.openingBalanceDate ? dateOnly(a.openingBalanceDate) : null,
+      currency: a.currency || 'GBP',
+      is_active: a.isActive !== false,
+      notes: a.notes ?? null,
+    }));
 
   // Investment↔cash pairings reference other account rows, so they go in as a
   // second pass once every account exists (insert batching makes same-batch
@@ -165,22 +358,6 @@ export function planCloudImport(
   const accountParents = result.accounts
     .filter(a => a.parentAccountId && acctId.has(a.parentAccountId))
     .map(a => ({ id: acctId.get(a.id)!, parent_account_id: acctId.get(a.parentAccountId!)! }));
-
-  const categories = result.categories
-    // System categories (type/transfer roots) already exist per-user; only the
-    // Money-derived sub/detail + To/From rows are inserted.
-    .filter(c => c.isSystem !== true)
-    .map((c): Record<string, unknown> => ({
-      id: catId.get(c.id),
-      user_id: userId,
-      name: c.name,
-      type: c.type,
-      level: c.level,
-      parent_id: c.parentId && catId.has(c.parentId) ? catId.get(c.parentId) : c.parentId ?? null,
-      is_transfer_category: c.isTransferCategory === true,
-      account_id: c.accountId ? acctId.get(c.accountId) ?? null : null,
-      is_active: c.isActive !== false,
-    }));
 
   const transactions = result.transactions
     .filter(t => importable(t.id) && !alreadyImported(t.id))
@@ -209,8 +386,11 @@ export function planCloudImport(
     .filter(t => txnId.has(t.id) && t.linkedTransferId && txnId.has(t.linkedTransferId))
     .map(t => ({ id: txnId.get(t.id)!, linked_transfer_id: txnId.get(t.linkedTransferId!)! }));
 
-  const splits = result.transactionSplits
-    .filter(s => importable(s.transactionId) && !alreadyImported(s.transactionId))
+  const writtenSplits = result.transactionSplits
+    .filter(s => importable(s.transactionId) && !alreadyImported(s.transactionId));
+  const writtenSplitIds = new Set(writtenSplits.map(s => s.id));
+
+  const splits = writtenSplits
     .map((s): Record<string, unknown> => ({
       id: splitId.get(s.id),
       transaction_id: txnId.get(s.transactionId),
@@ -223,16 +403,25 @@ export function planCloudImport(
       linked_transfer_id: s.linkedTransferId ? txnId.get(s.linkedTransferId) ?? null : null,
     }));
 
+  // Only pin to a split line THIS plan writes. Split rows carry no provenance,
+  // so an already-imported parent's lines keep database ids the plan cannot
+  // know — minting a fresh one and pinning to it would write a reference to a
+  // row that does not exist (transactions.linked_transfer_split_id is a real
+  // foreign key). Those legs were pinned by the run that created them.
   const splitLegPins = result.transactions
-    .filter(t => txnId.has(t.id) && t.linkedTransferSplitId && splitId.has(t.linkedTransferSplitId))
+    .filter(t => txnId.has(t.id) && t.linkedTransferSplitId && writtenSplitIds.has(t.linkedTransferSplitId))
     .map(t => ({ id: txnId.get(t.id)!, linked_transfer_split_id: splitId.get(t.linkedTransferSplitId!)! }));
 
   const skippedFeedOverlap = result.transactions.filter(t => suppressed.has(t.id)).length;
   const skippedExisting = result.transactions.length - transactions.length - skippedFeedOverlap;
 
   return {
-    accounts, accountParents, categories, transactions, transferLinks, splits, splitLegPins,
+    accounts, accountParents, categories: insertedCategories, transactions, transferLinks,
+    splits, splitLegPins,
     skippedExisting, skippedFeedOverlap,
+    skippedExistingAccounts: reusedAccountIds.size,
+    skippedExistingCategories: reusedCategories,
+    categoriesWithUnresolvedParent,
   };
 }
 
@@ -261,6 +450,64 @@ export async function fetchImportedSourceIds(
     for (const r of rows) if (r.import_source_id) out.set(r.import_source_id, r.id);
     if (rows.length < PAGE) return out;
   }
+}
+
+/** Every category row this user holds, paged like the provenance read. */
+export async function fetchExistingCategories(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<ExistingCategoryRow[]> {
+  const PAGE = 1000;
+  const out: ExistingCategoryRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, type, level, parent_id, is_system')
+      .eq('user_id', userId)
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Failed reading existing categories: ${error.message}`);
+    const rows = (data ?? []) as ExistingCategoryRow[];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
+/** Every account row this user holds, paged like the provenance read. */
+export async function fetchExistingAccounts(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<ExistingAccountRow[]> {
+  const PAGE = 1000;
+  const out: ExistingAccountRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('id, name')
+      .eq('user_id', userId)
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Failed reading existing accounts: ${error.message}`);
+    const rows = (data ?? []) as ExistingAccountRow[];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
+/**
+ * Everything `planCloudImport` needs to know about what the user ALREADY has:
+ * imported provenance, categories, accounts. Read in one place so every caller
+ * (the app's import, the idempotency harness) plans against the same picture.
+ */
+export async function fetchExistingImportState(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Required<Pick<CloudPlanOptions, 'existingBySourceId' | 'existingCategories' | 'existingAccounts'>>> {
+  return {
+    existingBySourceId: await fetchImportedSourceIds(supabase, userId),
+    existingCategories: await fetchExistingCategories(supabase, userId),
+    existingAccounts: await fetchExistingAccounts(supabase, userId),
+  };
 }
 
 /**
@@ -310,17 +557,19 @@ export async function importToCloud(
   onProgress?.({ phase: 'wiping', fraction: 0.02, message: 'Backing out existing data…' });
   await wipeCloudData(supabase, userId);
 
-  // Read provenance AFTER the wipe: whatever survived it (a partial failure, a
-  // narrower wipe) must not be inserted a second time. On a clean wipe this is
-  // empty and the plan is a full import.
+  // Read the existing state AFTER the wipe: whatever survived it (a partial
+  // failure, a narrower wipe) must not be inserted a second time, and the
+  // categories the user still holds are what the seed's placeholder roots have
+  // to resolve onto. On a clean wipe every collection here is empty, so the
+  // plan is a full import that CREATES its own roots.
   //
   // NOTE: this path is the TOTAL migration — `wipeCloudData` removes every
   // transaction including bank-fed ones, so no feed rows survive for
   // `findFeedOverlap` to reconcile against and `suppressedSourceIds` stays
   // empty here. The scoped clear-and-reimport (scripts/mnyReimportPlan.mts)
   // is the path that preserves feed rows, and it supplies the suppression set.
-  const existingBySourceId = await fetchImportedSourceIds(supabase, userId);
-  const plan = planCloudImport(result, userId, newId, { existingBySourceId });
+  const existing = await fetchExistingImportState(supabase, userId);
+  const plan = planCloudImport(result, userId, newId, existing);
   await executeCloudPlan(plan, supabase, opts);
 }
 

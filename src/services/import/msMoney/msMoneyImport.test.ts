@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   planCloudImport, importToLocalStorage, wipeLocalData,
   MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT,
+  type ExistingCategoryRow, type ExistingAccountRow,
 } from './msMoneyImport';
 import type { MsMoneyImportResult } from './transform';
 
@@ -15,7 +16,11 @@ function sampleResult(): MsMoneyImportResult {
       { id: 'mny-acct-4', name: 'Broker (Cash)', type: 'current', parentAccountId: 'mny-acct-3', balance: 25, openingBalance: 0, currency: 'GBP', isActive: true, lastUpdated: new Date('2020-01-01') },
     ],
     categories: [
+      // The transform always emits all three type roots as placeholders; they
+      // are what a real user holds as UUIDs (see transformCategories).
+      { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
       { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
+      { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
       { id: 'mny-cat-10', name: 'Food', type: 'expense', level: 'detail', parentId: 'type-expense' },
       { id: 'mny-tofrom-2', name: 'To/From Savings', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'mny-acct-2' },
     ],
@@ -23,7 +28,8 @@ function sampleResult(): MsMoneyImportResult {
       { id: 'mny-txn-100', date: new Date('2020-02-01'), description: 'Shop', amount: -20, type: 'expense', category: 'mny-cat-10', accountId: 'mny-acct-1' },
       // transfer pair 200↔201
       { id: 'mny-txn-200', date: new Date('2020-02-02'), description: 'To savings', amount: -30, type: 'transfer', category: 'mny-tofrom-2', accountId: 'mny-acct-1', transferAccountId: 'mny-acct-2', linkedTransferId: 'mny-txn-201' },
-      { id: 'mny-txn-201', date: new Date('2020-02-02'), description: 'From current', amount: 30, type: 'transfer', accountId: 'mny-acct-2', transferAccountId: 'mny-acct-1', linkedTransferId: 'mny-txn-200' },
+      // …whose far leg is also pinned to the exact split line it answers.
+      { id: 'mny-txn-201', date: new Date('2020-02-02'), description: 'From current', amount: 30, type: 'transfer', accountId: 'mny-acct-2', transferAccountId: 'mny-acct-1', linkedTransferId: 'mny-txn-200', linkedTransferSplitId: 'mny-split-300-1' },
       // a split parent
       { id: 'mny-txn-300', date: new Date('2020-02-03'), description: 'Split', amount: -50, type: 'expense', category: '', accountId: 'mny-acct-1', isSplit: true },
     ] as MsMoneyImportResult['transactions'],
@@ -44,9 +50,10 @@ describe('planCloudImport', () => {
     let n = 0;
     const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`);
 
-    // System categories are NOT inserted (they exist per-user already).
-    expect(plan.categories).toHaveLength(2);
-    expect(plan.categories.some(c => c.name === 'Expense')).toBe(false);
+    // Nothing exists yet, so the whole tree — roots included — is created.
+    expect(plan.categories).toHaveLength(5);
+    expect(plan.categories.filter(c => c.is_system === true).map(c => c.name).sort())
+      .toEqual(['Expense', 'Income', 'Transfer']);
 
     // account 'current' maps to DB type 'checking'; closed stays is_active:false
     const current = plan.accounts.find(a => a.name === 'Current')!;
@@ -157,6 +164,180 @@ describe('planCloudImport — import provenance / idempotency', () => {
   });
 });
 
+describe('planCloudImport — category tree resolution', () => {
+  /** The three roots a real user holds, as `migrate_categories_atomic` writes them. */
+  const userRoots = (): ExistingCategoryRow[] => [
+    { id: 'db-root-income', name: 'Income', type: 'income', level: 'type', parent_id: null, is_system: true },
+    { id: 'db-root-expense', name: 'Expense', type: 'expense', level: 'type', parent_id: null, is_system: true },
+    { id: 'db-root-transfer', name: 'Transfer', type: 'both', level: 'type', parent_id: null, is_system: true },
+  ];
+
+  /** Every parent_id a plan emits must name a row that exists once it is written. */
+  const assertNoDanglingParents = (
+    plan: ReturnType<typeof planCloudImport>,
+    existing: readonly ExistingCategoryRow[] = []
+  ): void => {
+    const written = new Set<string>([
+      ...existing.map(r => r.id),
+      ...plan.categories.map(c => String(c.id)),
+    ]);
+    for (const c of plan.categories) {
+      if (c.parent_id != null) expect(written.has(String(c.parent_id))).toBe(true);
+    }
+  };
+
+  it('resolves a child of a system root onto the root the user ALREADY has', () => {
+    const existing = userRoots();
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingCategories: existing,
+    });
+
+    // The roots are matched, not minted: only the two Money-derived rows go in.
+    expect(plan.categories).toHaveLength(2);
+    expect(plan.skippedExistingCategories).toBe(3);
+    const food = plan.categories.find(c => c.name === 'Food')!;
+    expect(food.parent_id).toBe('db-root-expense');
+    const toFrom = plan.categories.find(c => c.name === 'To/From Savings')!;
+    expect(toFrom.parent_id).toBe('db-root-transfer');
+    // …and never the seed's placeholder id, which is what used to leak through.
+    expect(plan.categories.map(c => c.parent_id)).not.toContain('type-expense');
+    assertNoDanglingParents(plan, existing);
+  });
+
+  it('CREATES the roots on a virgin database instead of assuming them', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`);
+
+    const roots = plan.categories.filter(c => c.level === 'type');
+    expect(roots.map(c => c.name).sort()).toEqual(['Expense', 'Income', 'Transfer']);
+    expect(roots.every(c => c.is_system === true && c.parent_id === null)).toBe(true);
+    expect(plan.skippedExistingCategories).toBe(0);
+    // Parents are emitted before their children — a batched insert cannot
+    // satisfy a forward foreign key across a batch boundary.
+    const positions = new Map(plan.categories.map((c, i) => [String(c.id), i]));
+    for (const [i, c] of plan.categories.entries()) {
+      if (c.parent_id != null) expect(positions.get(String(c.parent_id))!).toBeLessThan(i);
+    }
+    assertNoDanglingParents(plan);
+  });
+
+  it('matches a renamed root structurally, on its type', () => {
+    // Names no longer match anything, so the roots are identified structurally
+    // — the same fallback the database's own
+    // create_transfer_category_for_account uses.
+    const existing: ExistingCategoryRow[] = [
+      { id: 'db-root-income', name: 'Money In', type: 'income', level: 'type', parent_id: null, is_system: true },
+      { id: 'db-root-expense', name: 'Money Out', type: 'expense', level: 'type', parent_id: null, is_system: true },
+      { id: 'db-root-transfer', name: 'Moves', type: 'both', level: 'type', parent_id: null, is_system: true },
+    ];
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingCategories: existing,
+    });
+
+    expect(plan.categories.filter(c => c.level === 'type')).toHaveLength(0);
+    expect(plan.categories.find(c => c.name === 'Food')!.parent_id).toBe('db-root-expense');
+    assertNoDanglingParents(plan, existing);
+  });
+
+  it('falls back to the name when no root carries the seed root\'s type', () => {
+    const existing: ExistingCategoryRow[] = [
+      // A legacy tree whose roots are all typed 'both' — only the name tells
+      // them apart.
+      { id: 'db-root-income', name: 'Income', type: 'both', level: 'type', parent_id: null, is_system: true },
+      { id: 'db-root-expense', name: 'Expense', type: 'both', level: 'type', parent_id: null, is_system: true },
+    ];
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingCategories: existing,
+    });
+
+    expect(plan.categories.find(c => c.name === 'Food')!.parent_id).toBe('db-root-expense');
+    // The Transfer root has no counterpart at all, so it is created — and the
+    // To/From category hangs off the row that was actually written.
+    const transferRoot = plan.categories.find(c => c.name === 'Transfer' && c.level === 'type')!;
+    expect(transferRoot).toBeDefined();
+    expect(plan.categories.find(c => c.name === 'To/From Savings')!.parent_id).toBe(transferRoot.id);
+    assertNoDanglingParents(plan, existing);
+  });
+
+  it('nulls and COUNTS a parent it cannot resolve, rather than emitting a dangling id', () => {
+    const orphaned = sampleResult();
+    orphaned.categories = [
+      { id: 'mny-cat-99', name: 'Stranded', type: 'expense', level: 'detail', parentId: 'no-such-parent' },
+    ];
+    let n = 0;
+    const plan = planCloudImport(orphaned, 'user-abc', () => `new-${n++}`);
+
+    expect(plan.categoriesWithUnresolvedParent).toBe(1);
+    expect(plan.categories).toHaveLength(1);
+    expect(plan.categories[0].parent_id).toBeNull();
+    assertNoDanglingParents(plan);
+  });
+
+  it('re-running against the tree it just wrote plans nothing', () => {
+    // Snapshot of the database after a first import, as fetchExistingCategories
+    // would return it.
+    let n = 0;
+    const first = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`);
+    const written: ExistingCategoryRow[] = first.categories.map(c => ({
+      id: String(c.id),
+      name: String(c.name),
+      type: String(c.type),
+      level: String(c.level),
+      parent_id: c.parent_id == null ? null : String(c.parent_id),
+      is_system: c.is_system === true,
+    }));
+    const writtenAccounts: ExistingAccountRow[] = first.accounts.map(a => ({
+      id: String(a.id), name: String(a.name),
+    }));
+
+    const second = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingCategories: written,
+      existingAccounts: writtenAccounts,
+      existingBySourceId: new Map(first.transactions.map(t => [String(t.import_source_id), String(t.id)])),
+    });
+
+    expect(second.categories).toHaveLength(0);
+    expect(second.accounts).toHaveLength(0);
+    expect(second.transactions).toHaveLength(0);
+    expect(second.splits).toHaveLength(0);
+    // Nothing may pin a leg to a split line this run does not write: split rows
+    // carry no provenance, so a re-minted id names a row that does not exist —
+    // and transactions.linked_transfer_split_id is a real foreign key.
+    expect(first.splitLegPins).toHaveLength(1);
+    expect(second.splitLegPins).toHaveLength(0);
+    const writtenSplitIds = new Set(second.splits.map(s => String(s.id)));
+    for (const pin of second.splitLegPins) {
+      expect(writtenSplitIds.has(pin.linked_transfer_split_id)).toBe(true);
+    }
+    expect(second.skippedExistingCategories).toBe(5);
+    expect(second.skippedExistingAccounts).toBe(4);
+    // Cross-references still resolve onto the rows already in the database.
+    expect(second.accountParents).toEqual(first.accountParents);
+    expect(second.transferLinks).toEqual(first.transferLinks);
+  });
+
+  it('claims each existing account by name at most once', () => {
+    // Two Money accounts share a name but the user holds only one such row:
+    // the first claims it, the second is inserted rather than merged away.
+    const twins = sampleResult();
+    twins.accounts = [
+      { ...twins.accounts[0] },
+      { ...twins.accounts[0], id: 'mny-acct-9' },
+    ];
+    let n = 0;
+    const plan = planCloudImport(twins, 'user-abc', () => `new-${n++}`, {
+      existingAccounts: [{ id: 'db-acct-1', name: 'current' }],
+    });
+
+    expect(plan.skippedExistingAccounts).toBe(1);
+    expect(plan.accounts).toHaveLength(1);
+    expect(plan.accounts[0].id).not.toBe('db-acct-1');
+  });
+});
+
 describe('planCloudImport — bank-feed overlap suppression', () => {
   it('drops the Money rows the feed already covers, and nothing else', () => {
     let n = 0;
@@ -206,7 +387,7 @@ describe('importToLocalStorage', () => {
 
     expect(JSON.parse(window.localStorage.getItem('a')!)).toHaveLength(4);
     expect(JSON.parse(window.localStorage.getItem('t')!)).toHaveLength(4);
-    expect(JSON.parse(window.localStorage.getItem('c')!)).toHaveLength(3);
+    expect(JSON.parse(window.localStorage.getItem('c')!)).toHaveLength(5);
     expect(JSON.parse(window.localStorage.getItem('s')!)).toHaveLength(1);
     // A total migration replaces — the other collections are emptied.
     expect(window.localStorage.getItem('b')).toBe('[]');
