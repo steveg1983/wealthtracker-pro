@@ -6,6 +6,15 @@ import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { formatDecimal } from './decimal-format';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
+/**
+ * A transaction as it appears in a report table. `categoryLabel` carries the
+ * resolved category NAME — the stored `category` is a UUID and must never be
+ * printed.
+ */
+export interface ReportTransaction extends Transaction {
+  categoryLabel?: string;
+}
+
 interface ReportData {
   title: string;
   dateRange: string;
@@ -20,7 +29,7 @@ interface ReportData {
     amount: number;
     percentage: number;
   }>;
-  topTransactions: Transaction[];
+  topTransactions: ReportTransaction[];
   chartElements?: HTMLElement[];
 }
 
@@ -248,7 +257,8 @@ export async function generatePDFReport(data: ReportData, _accounts: Account[]):
       : transaction.description;
     pdf.text(description, margin + 25, yPosition);
     
-    pdf.text(transaction.category, margin + 100, yPosition);
+    // Never the raw id: the caller resolves the name, blank if it has none.
+    pdf.text(transaction.categoryLabel ?? '', margin + 100, yPosition);
     
     const amountColor = transaction.type === 'income' ? [34, 197, 94] as const : [239, 68, 68] as const;
     pdf.setTextColor(amountColor[0], amountColor[1], amountColor[2]);

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon } from '../components/icons';
+import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon, ChevronDownIcon, ChevronUpIcon } from '../components/icons';
 import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
@@ -23,10 +23,13 @@ import { formatDecimal } from '../utils/decimal-format';
 import { computeExpenseCategoryNetTotals } from '../utils/categoryNetting';
 import { buildMonthlyTrend } from '../utils/monthlyTrend';
 import { computeIncomeExpense } from '../utils/incomeExpense';
+import { buildMonthlyCategoryMatrix, monthKeyOf } from '../utils/monthlyCategoryMatrix';
+import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { usePeriod, PERIOD_LABELS } from '../hooks/usePeriod';
 import PeriodPicker from '../components/PeriodPicker';
 import EditTransactionModal from '../components/EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../components/IncomeExpenseBreakdownModal';
+import MonthlyIncomeExpenseMatrix, { type MatrixDrillTarget } from '../components/MonthlyIncomeExpenseMatrix';
 import TransferSweepModal from '../components/TransferSweepModal';
 import BulkCategorizeModal from '../components/BulkCategorizeModal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
@@ -65,6 +68,17 @@ export default function Reports() {
   const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   const [showTransferSweep, setShowTransferSweep] = useState(false);
   const [showBulkCategorize, setShowBulkCategorize] = useState(false);
+  // Top Transactions is a curiosity next to the monthly matrix, so it starts
+  // hidden; the choice is persisted like the page's other view preferences.
+  const [showTopTransactions, setShowTopTransactions] = useState<boolean>(
+    () => localStorage.getItem('reportsShowTopTransactions') === '1'
+  );
+  const toggleTopTransactions = (): void => {
+    setShowTopTransactions(prev => {
+      localStorage.setItem('reportsShowTopTransactions', prev ? '0' : '1');
+      return !prev;
+    });
+  };
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
@@ -102,6 +116,40 @@ export default function Reports() {
       savingsRate: savingsRateDecimal.toNumber(),
     };
   }, [flows]);
+
+  // Category ids are UUIDs — everything user-facing resolves through this
+  // lookup ("Parent : Child", "Uncategorised" for a dangling id).
+  const categoryName = useMemo(() => buildCategoryNameLookup(categories), [categories]);
+
+  // Biggest movements in the period. A COPY: sorting filteredTransactions in
+  // place would mutate the memoised array on every render.
+  const topTransactions = useMemo(
+    () => [...filteredTransactions]
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+      .slice(0, 10),
+    [filteredTransactions]
+  );
+
+  // The Money-style category × month matrix, built from the SAME classified
+  // rows as the summary cards so the two can never disagree.
+  const matrix = useMemo(
+    () => buildMonthlyCategoryMatrix(flows.incomeRows, flows.expenseRows, categories, picker.range),
+    [flows, categories, picker.range]
+  );
+
+  const handleMatrixDrill = (target: MatrixDrillTarget): void => {
+    const source = target.bucket === 'income' ? flows.incomeRows : flows.expenseRows;
+    const ids = target.categoryIds ? new Set(target.categoryIds) : null;
+    setChartDrill({
+      title: target.label,
+      bucket: target.bucket,
+      rows: source.filter(t =>
+        (ids === null || ids.has(t.category)) &&
+        (target.monthKey === null || monthKeyOf(t.date) === target.monthKey)
+      ),
+      total: target.total,
+    });
+  };
 
   const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
     return formatDecimal(value, decimals);
@@ -176,7 +224,9 @@ export default function Reports() {
   );
 
   const exportToCSV = () => {
-    const csv = exportTransactionsToCSV(filteredTransactions, accounts);
+    // categories resolve the Category column to a name — a UUID in a
+    // spreadsheet is worthless.
+    const csv = exportTransactionsToCSV(filteredTransactions, accounts, categories);
     const filename = `financial-report-${new Date().toISOString().split('T')[0]}.csv`;
     downloadCSV(csv, filename);
   };
@@ -204,9 +254,8 @@ export default function Reports() {
         dateRange: PERIOD_LABELS[picker.period],
         summary,
         categoryBreakdown,
-        topTransactions: filteredTransactions
-          .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-          .slice(0, 10),
+        // categoryLabel: the PDF prints names, never category ids.
+        topTransactions: topTransactions.map(t => ({ ...t, categoryLabel: categoryName(t.category) })),
         chartElements: includeCharts && chartRef1.current && chartRef2.current
           ? [chartRef1.current, chartRef2.current]
           : undefined
@@ -368,6 +417,10 @@ export default function Reports() {
           </button>
         )}
 
+        {/* The Money-style monthly matrix — the report Steve lives in, so it
+            sits directly under the headline figures it adds up to. */}
+        <MonthlyIncomeExpenseMatrix matrix={matrix} onDrill={handleMatrixDrill} />
+
         {/* Charts */}
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -473,23 +526,32 @@ export default function Reports() {
         </div>
         </div>
 
-        {/* Top Transactions */}
+        {/* Top Transactions — collapsed by default (the matrix above is the
+            report that matters); the choice is persisted. */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className={`flex items-center justify-between gap-4 p-6 ${showTopTransactions ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}>
           <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Top Transactions</h2>
+          <button
+            type="button"
+            onClick={toggleTopTransactions}
+            aria-expanded={showTopTransactions}
+            aria-controls="top-transactions-panel"
+            className="flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+          >
+            {showTopTransactions ? 'Hide' : 'Show'}
+            {showTopTransactions ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+          </button>
         </div>
+        <div id="top-transactions-panel" hidden={!showTopTransactions}>
         {/* Mobile card view */}
         <div className="block sm:hidden">
           <div className="space-y-3">
-            {filteredTransactions
-              .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-              .slice(0, 10)
-              .map((transaction) => (
+            {topTransactions.map((transaction) => (
                 <div key={transaction.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{transaction.category}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{categoryName(transaction.category)}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-500">
                         {new Date(transaction.date).toLocaleDateString()}
                       </p>
@@ -518,10 +580,7 @@ export default function Reports() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredTransactions
-                .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-                .slice(0, 10)
-                .map((transaction) => (
+              {topTransactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                       {new Date(transaction.date).toLocaleDateString()}
@@ -530,7 +589,7 @@ export default function Reports() {
                       {transaction.description}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                      {transaction.category}
+                      {categoryName(transaction.category)}
                     </td>
                     <td className={`px-4 py-3 text-sm text-right font-medium ${
                       transaction.type === 'income' ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -542,6 +601,7 @@ export default function Reports() {
                 ))}
             </tbody>
           </table>
+        </div>
         </div>
         </div>
       </div>

@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { planCloudImport, importToLocalStorage, wipeLocalData } from './msMoneyImport';
+import {
+  planCloudImport, importToLocalStorage, wipeLocalData,
+  MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT,
+} from './msMoneyImport';
 import type { MsMoneyImportResult } from './transform';
 
 function sampleResult(): MsMoneyImportResult {
@@ -78,6 +81,109 @@ describe('planCloudImport', () => {
     expect(plan.splits).toHaveLength(1);
     expect(plan.splits[0].transaction_id).toBe(splitParent.id);
     expect(String(plan.splits[0].category).startsWith('new-')).toBe(true);
+  });
+});
+
+describe('planCloudImport — import provenance / idempotency', () => {
+  it('stamps every transaction with its stable source id', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`);
+
+    expect(plan.transactions).toHaveLength(4);
+    for (const t of plan.transactions) {
+      expect(t.import_source).toBe(MS_MONEY_IMPORT_SOURCE);
+      expect(String(t.import_source_id)).toMatch(/^mny-txn-\d+$/);
+    }
+    // The source ids are unique — they are what the unique index keys on, so a
+    // collision here would make the import unrunnable rather than idempotent.
+    const sourceIds = plan.transactions.map(t => String(t.import_source_id));
+    expect(new Set(sourceIds).size).toBe(sourceIds.length);
+    expect(plan.skippedExisting).toBe(0);
+
+    // The conflict target names exactly the unique index's columns.
+    expect(IMPORT_PROVENANCE_CONFLICT).toBe('user_id,import_source,import_source_id');
+  });
+
+  it('re-running against rows already imported inserts nothing and reuses their ids', () => {
+    // Everything the first run wrote, keyed by source id → the id it already has.
+    const existing = new Map([
+      ['mny-txn-100', 'db-100'],
+      ['mny-txn-200', 'db-200'],
+      ['mny-txn-201', 'db-201'],
+      ['mny-txn-300', 'db-300'],
+    ]);
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, { existingBySourceId: existing });
+
+    // Nothing to insert — the second run is a no-op for transactions…
+    expect(plan.transactions).toHaveLength(0);
+    expect(plan.skippedExisting).toBe(4);
+    // …and for the split lines hanging off an already-imported parent.
+    expect(plan.splits).toHaveLength(0);
+
+    // Cross-references still resolve, but to the EXISTING row ids.
+    expect(plan.transferLinks).toEqual([
+      { id: 'db-200', linked_transfer_id: 'db-201' },
+      { id: 'db-201', linked_transfer_id: 'db-200' },
+    ]);
+  });
+
+  it('a partial re-run inserts only the rows that are missing', () => {
+    const existing = new Map([['mny-txn-100', 'db-100'], ['mny-txn-200', 'db-200']]);
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, { existingBySourceId: existing });
+
+    expect(plan.transactions.map(t => t.import_source_id)).toEqual(['mny-txn-201', 'mny-txn-300']);
+    expect(plan.skippedExisting).toBe(2);
+    // The split parent is new, so its line is inserted and points at the new id.
+    expect(plan.splits).toHaveLength(1);
+    const splitParent = plan.transactions.find(t => t.import_source_id === 'mny-txn-300')!;
+    expect(plan.splits[0].transaction_id).toBe(splitParent.id);
+    // The surviving leg still links to the row that is already there.
+    expect(plan.transferLinks).toContainEqual({ id: 'db-200', linked_transfer_id: plan.transactions.find(t => t.import_source_id === 'mny-txn-201')!.id });
+  });
+
+  it('never writes the bank feed\'s provenance columns', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`);
+    // external_transaction_id / external_provider / connection_id belong to the
+    // bank feed; import_bank_transactions_atomic keys its dedupe AND its
+    // backfill-rebase decision off them.
+    for (const t of plan.transactions) {
+      expect('external_transaction_id' in t).toBe(false);
+      expect('external_provider' in t).toBe(false);
+      expect('connection_id' in t).toBe(false);
+    }
+  });
+});
+
+describe('planCloudImport — bank-feed overlap suppression', () => {
+  it('drops the Money rows the feed already covers, and nothing else', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-100']),
+    });
+
+    expect(plan.transactions.map(t => t.import_source_id)).toEqual([
+      'mny-txn-200', 'mny-txn-201', 'mny-txn-300',
+    ]);
+    expect(plan.skippedFeedOverlap).toBe(1);
+    expect(plan.skippedExisting).toBe(0);
+    // The transfer pair is untouched — suppression never strands a leg.
+    expect(plan.transferLinks).toHaveLength(2);
+    // The split parent survived, so its line still goes in.
+    expect(plan.splits).toHaveLength(1);
+  });
+
+  it('drops a suppressed split parent together with its lines', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-300']),
+    });
+    expect(plan.transactions.map(t => t.import_source_id)).not.toContain('mny-txn-300');
+    // No orphaned split line pointing at a row that was never written.
+    expect(plan.splits).toHaveLength(0);
+    expect(plan.skippedFeedOverlap).toBe(1);
   });
 });
 

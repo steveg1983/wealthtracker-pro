@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { bucketContribution } from '../utils/incomeExpense';
+import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { toDecimal } from '../utils/decimal';
 import type { Category } from '../types';
 import type { SplitExpandedTransaction } from '../utils/transactionSplits';
@@ -49,16 +50,8 @@ export default function IncomeExpenseBreakdownModal({
   const [sortKey, setSortKey] = useState<SortKey>('category');
   const [sortDir, setSortDir] = useState<1 | -1>(1);
 
-  const categoryName = useMemo(() => {
-    const byId = new Map(categories.map(c => [c.id, c]));
-    return (id: string | undefined): string => {
-      if (!id) return 'Uncategorised';
-      const c = byId.get(id);
-      if (!c) return 'Uncategorised';
-      const parent = c.parentId ? byId.get(c.parentId) : undefined;
-      return parent && parent.level !== 'type' ? `${parent.name} : ${c.name}` : c.name;
-    };
-  }, [categories]);
+  // One shared definition of a category's display name (utils/categoryNames).
+  const categoryName = useMemo(() => buildCategoryNameLookup(categories), [categories]);
 
   const valueOf = (t: SplitExpandedTransaction): number =>
     bucket === 'uncategorized' ? t.amount : bucketContribution(t, bucket);
