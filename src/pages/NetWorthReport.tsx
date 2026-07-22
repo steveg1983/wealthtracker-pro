@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -55,6 +56,14 @@ export default function NetWorthReport(): React.JSX.Element {
   const location = useLocation();
   const picker = usePeriod('netWorthPeriod', 'last-12-months');
   const [drillDate, setDrillDate] = useState<Date | null>(null);
+  // Line or bar presentation — same data, same drill-in; persisted.
+  const [chartType, setChartType] = useState<'line' | 'bar'>(() =>
+    localStorage.getItem('netWorthChartType') === 'bar' ? 'bar' : 'line'
+  );
+  const handleChartType = (type: 'line' | 'bar'): void => {
+    setChartType(type);
+    localStorage.setItem('netWorthChartType', type);
+  };
 
   // Transactions sorted once; the series walk and the drill both consume it.
   const sortedTransactions = useMemo(
@@ -180,10 +189,28 @@ export default function NetWorthReport(): React.JSX.Element {
 
       {/* Chart */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold mb-1 flex items-center gap-2 text-gray-900 dark:text-white">
-          <TrendingUpIcon size={20} className="text-gray-500" />
-          Net Worth Over Time
-        </h2>
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
+            <TrendingUpIcon size={20} className="text-gray-500" />
+            Net Worth Over Time
+          </h2>
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+            {(['line', 'bar'] as const).map(type => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleChartType(type)}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  chartType === type
+                    ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {type === 'line' ? 'Line' : 'Bar'}
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Computed from your full transaction history. Click any point to see every account's balance on that date.
         </p>
@@ -192,7 +219,7 @@ export default function NetWorthReport(): React.JSX.Element {
         ) : (
           <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
+              <ComposedChart
                 data={snapshots}
                 onClick={(state) => {
                   const label = state?.activeLabel;
@@ -209,10 +236,16 @@ export default function NetWorthReport(): React.JSX.Element {
                   contentStyle={{ borderRadius: '8px' }}
                 />
                 <Legend />
-                <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                {chartType === 'bar' ? (
+                  // Money-style bar view: net worth as bars, assets/liabilities
+                  // as context lines. Same data, same click-to-drill.
+                  <Bar dataKey="netWorth" name="Net Worth" fill="#1a2332" radius={[3, 3, 0, 0]} cursor="pointer" />
+                ) : (
+                  <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                )}
                 <Line type="monotone" dataKey="assets" name="Assets" stroke="#10B981" strokeWidth={1.5} dot={false} />
                 <Line type="monotone" dataKey="liabilities" name="Liabilities" stroke="#EF4444" strokeWidth={1.5} dot={false} />
-              </LineChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         )}

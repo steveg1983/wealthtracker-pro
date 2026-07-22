@@ -16,10 +16,10 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
-// NOTE: merchantLogoService / performanceService / automaticBackupService are
-// dynamically imported in the startup effect below — static imports would pull
-// them (and their dependency graphs) into the main chunk for code that only
-// runs after first paint.
+// NOTE: performanceService / automaticBackupService are dynamically imported
+// in the startup effect below — static imports would pull them (and their
+// dependency graphs) into the main chunk for code that only runs after first
+// paint.
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
@@ -108,10 +108,6 @@ function App(): React.JSX.Element {
     // App starting with clean storage
 
     // Background services load lazily — none are needed for first paint.
-    void import('./services/merchantLogoService').then(({ merchantLogoService }) => {
-      merchantLogoService.preloadCommonLogos();
-    });
-
     void import('./services/performanceService').then(({ performanceService }) => {
       performanceService.init();
     });

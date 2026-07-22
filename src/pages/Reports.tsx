@@ -21,11 +21,11 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { computeExpenseCategoryNetTotals, bucketByCategoryDirection } from '../utils/categoryNetting';
-import { computeIncomeExpense, bucketContribution } from '../utils/incomeExpense';
+import { computeIncomeExpense } from '../utils/incomeExpense';
 import { usePeriod, PERIOD_LABELS } from '../hooks/usePeriod';
 import PeriodPicker from '../components/PeriodPicker';
 import EditTransactionModal from '../components/EditTransactionModal';
-import { Modal, ModalBody } from '../components/common/Modal';
+import IncomeExpenseBreakdownModal from '../components/IncomeExpenseBreakdownModal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -465,11 +465,9 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Income/Expense Breakdown Modal — the classified rows behind the
-          header figure (category semantics; refunds show as negative
-          credits). Split lines list individually; clicking a row opens the
-          Edit Transaction modal. */}
-      <Modal
+      {/* Income/Expense breakdown — the shared component (category sections,
+          sortable headings, click-to-edit) also used by the Dashboard. */}
+      <IncomeExpenseBreakdownModal
         isOpen={breakdownType !== null}
         onClose={() => setBreakdownType(null)}
         title={
@@ -477,104 +475,20 @@ export default function Reports() {
           : breakdownType === 'expense' ? 'Expense Breakdown'
           : 'Uncategorised Transactions'
         }
-        size="md"
-      >
-        <ModalBody>
-          <table className="w-full">
-            <thead>
-              <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                <th className="text-left pb-2 font-medium">Date</th>
-                <th className="text-left pb-2 font-medium">Description</th>
-                <th className="text-right pb-2 font-medium">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                const source = breakdownType === 'income' ? flows.incomeRows
-                  : breakdownType === 'expense' ? flows.expenseRows
-                  : flows.uncategorizedRows;
-                const allRows = [...source]
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                if (allRows.length === 0) {
-                  return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No transactions</td></tr>;
-                }
-
-                // "All Time" spans decades — cap the DOM, keep the total honest.
-                const CAP = 500;
-                const rows = allRows.slice(0, CAP);
-
-                const rendered = rows.map(t => {
-                  // Uncategorised rows have no bucket: show their signed
-                  // amount as-is (they count toward NO total until filed).
-                  const value = breakdownType === 'uncategorized'
-                    ? t.amount
-                    : bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
-                  const valueClass = breakdownType === 'income' ? 'text-green-600 dark:text-green-400'
-                    : breakdownType === 'expense' ? 'text-red-600 dark:text-red-400'
-                    : value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-                  return (
-                    <tr
-                      key={t.id}
-                      onClick={() => setEditingBreakdownTxnId(t.splitParentId ?? t.id)}
-                      className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
-                      title={breakdownType === 'uncategorized'
-                        ? 'Click to give this transaction a category'
-                        : 'Click to view or edit this transaction'}
-                    >
-                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                      </td>
-                      <td className="py-2 text-sm text-gray-900 dark:text-white">
-                        {t.description}
-                        {breakdownType !== 'uncategorized' && value < 0 && (
-                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
-                        )}
-                      </td>
-                      <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${valueClass}`}>
-                        {value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}
-                      </td>
-                    </tr>
-                  );
-                });
-
-                return (
-                  <>
-                    {rendered}
-                    {allRows.length > CAP && (
-                      <tr>
-                        <td colSpan={3} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                          Showing the latest {CAP.toLocaleString()} of {allRows.length.toLocaleString()} rows — the total below covers them all.
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                );
-              })()}
-            </tbody>
-            <tfoot>
-              {breakdownType === 'uncategorized' ? (
-                <tr className="border-t-2 border-gray-200 dark:border-gray-600">
-                  <td colSpan={3} className="pt-3 text-xs text-gray-500 dark:text-gray-400">
-                    These transactions count toward NO total until they are given a category
-                    ({formatCurrency(flows.uncategorizedIn.toNumber())} in · {formatCurrency(flows.uncategorizedOut.toNumber())} out).
-                    Set up a category like &ldquo;Income : Miscellaneous&rdquo; if you need a catch-all.
-                  </td>
-                </tr>
-              ) : (
-                <tr className="border-t-2 border-gray-200 dark:border-gray-600">
-                  <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
-                  <td className={`pt-3 text-sm font-bold text-right ${
-                    breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatCurrency(breakdownType === 'income' ? summary.income : summary.expenses)}
-                  </td>
-                </tr>
-              )}
-            </tfoot>
-          </table>
-        </ModalBody>
-      </Modal>
+        bucket={breakdownType ?? 'income'}
+        rows={
+          breakdownType === 'income' ? flows.incomeRows
+          : breakdownType === 'expense' ? flows.expenseRows
+          : flows.uncategorizedRows
+        }
+        total={
+          breakdownType === 'income' ? summary.income
+          : breakdownType === 'expense' ? summary.expenses
+          : null
+        }
+        categories={categories}
+        onEditTransaction={setEditingBreakdownTxnId}
+      />
 
       {/* Edit a transaction straight from the breakdown list */}
       {editingBreakdownTxnId && (

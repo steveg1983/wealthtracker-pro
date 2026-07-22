@@ -786,7 +786,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
       {/* Bank Connections Modal (badge clicks preset the ops filters) */}
       {bankConnectionsView !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setBankConnectionsView(null); }}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Connections</h2>
@@ -820,7 +823,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         if (!account || !account.holdings) return null;
         
         return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setPortfolioAccountId(null); }}
+          >
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <PortfolioView

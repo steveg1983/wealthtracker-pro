@@ -22,12 +22,12 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
 import EditTransactionModal from '../EditTransactionModal';
-import { Modal, ModalBody } from '../common/Modal';
+import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
-import { computeIncomeExpense, bucketContribution } from '../../utils/incomeExpense';
+import { computeIncomeExpense } from '../../utils/incomeExpense';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -367,75 +367,18 @@ export function ImprovedDashboard() {
         </div>
       </section>
 
-      {/* Income/Expense Breakdown Modal */}
-      <Modal
+      {/* Income/Expense breakdown — the shared component (category sections,
+          sortable headings, click-to-edit) also used by the Reports page. */}
+      <IncomeExpenseBreakdownModal
         isOpen={breakdownType !== null}
         onClose={() => setBreakdownType(null)}
         title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} This Month`}
-        size="md"
-      >
-        <ModalBody>
-          <table className="w-full">
-            <thead>
-              <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                <th className="text-left pb-2 font-medium">Date</th>
-                <th className="text-left pb-2 font-medium">Description</th>
-                <th className="text-right pb-2 font-medium">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                // The classified rows behind the header figure (category
-                // semantics — refunds appear here as negative credits). Split
-                // lines list individually; clicking one edits its parent.
-                const rows = [...(breakdownType === 'income' ? metrics.monthlyIncomeRows : metrics.monthlyExpenseRows)]
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-                if (rows.length === 0) {
-                  return <tr><td colSpan={3} className="text-center py-8 text-gray-400">No {breakdownType} transactions this month</td></tr>;
-                }
-
-                return rows.map(t => {
-                  const contribution = bucketContribution(t, breakdownType === 'income' ? 'income' : 'expense');
-                  return (
-                  <tr
-                    key={t.id}
-                    onClick={() => setEditingBreakdownTxnId(t.splitParentId ?? t.id)}
-                    className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
-                    title="Click to view or edit this transaction"
-                  >
-                    <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                      {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                    </td>
-                    <td className="py-2 text-sm text-gray-900 dark:text-white">
-                      {t.description}
-                      {contribution < 0 && (
-                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
-                      )}
-                    </td>
-                    <td className={`py-2 text-sm font-medium text-right whitespace-nowrap ${
-                      breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {contribution < 0 ? `-${formatCurrencyWithSymbol(Math.abs(contribution))}` : formatCurrencyWithSymbol(contribution)}
-                    </td>
-                  </tr>
-                  );
-                });
-              })()}
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-gray-200 dark:border-gray-600">
-                <td colSpan={2} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
-                <td className={`pt-3 text-sm font-bold text-right ${
-                  breakdownType === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrencyWithSymbol(breakdownType === 'income' ? metrics.monthlyIncome : metrics.monthlyExpenses)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </ModalBody>
-      </Modal>
+        bucket={breakdownType ?? 'income'}
+        rows={breakdownType === 'income' ? metrics.monthlyIncomeRows : metrics.monthlyExpenseRows}
+        total={breakdownType === 'income' ? metrics.monthlyIncome : metrics.monthlyExpenses}
+        categories={categories}
+        onEditTransaction={setEditingBreakdownTxnId}
+      />
 
       {/* Edit a transaction straight from the breakdown list */}
       {editingBreakdownTxnId && (
@@ -741,8 +684,10 @@ export function ImprovedDashboard() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Your top 5 accounts by balance
           </p>
+          {/* Chart takes a fixed column; the legend gets ALL remaining width
+              so account names show as much text as the card allows. */}
           <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <div className="h-64 md:flex-1 min-w-0">
+            <div className="h-64 md:w-72 lg:w-80 md:flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                     <PieChart
                       data={pieData}
@@ -758,7 +703,7 @@ export function ImprovedDashboard() {
               </ResponsiveContainer>
             </div>
             {/* Legend: which slice is which, with values and shares */}
-            <ul className="md:w-80 space-y-2" aria-label="Account distribution legend">
+            <ul className="md:flex-1 md:min-w-0 space-y-2" aria-label="Account distribution legend">
               {(() => {
                 const total = pieData.reduce((sum, d) => sum.plus(toDecimal(d.value)), toDecimal(0));
                 return pieData.map((d, i) => (

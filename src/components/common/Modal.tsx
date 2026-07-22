@@ -9,6 +9,12 @@ interface ModalProps {
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
+  /**
+   * Clicking outside the panel closes the modal (the modern default).
+   * Set false for flows that must not be dismissed mid-action (e.g. a
+   * destructive import in progress).
+   */
+  closeOnBackdrop?: boolean;
   ariaDescribedBy?: string;
   /**
    * Accessible name for modals that intentionally render no visible title
@@ -25,6 +31,7 @@ export function Modal({
   children,
   size = 'md',
   showCloseButton = true,
+  closeOnBackdrop = true,
   ariaDescribedBy,
   ariaLabel
 }: ModalProps): React.JSX.Element | null {
@@ -135,12 +142,17 @@ export function Modal({
       {/* Backdrop with blur and fade animation */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
-        onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal Container - Top-aligned below search bar */}
-      <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-6 overflow-y-auto">
+      {/* Modal Container - Top-aligned below search bar. The container covers
+          the whole screen ABOVE the backdrop, so outside-clicks land here —
+          close only when the click is on the container itself, never on
+          anything inside the panel. */}
+      <div
+        className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-16 pb-6 overflow-y-auto"
+        onClick={closeOnBackdrop ? (e) => { if (e.target === e.currentTarget) onClose(); } : undefined}
+      >
         <div
           ref={modalRef}
           className={`
