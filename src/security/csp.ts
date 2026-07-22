@@ -189,24 +189,51 @@ export const applyCSPMetaTag = (): void => {
 export const setupCSPReporting = (): void => {
   if (typeof window !== 'undefined' && 'SecurityPolicyViolationEvent' in window && typeof document !== 'undefined') {
     document.addEventListener('securitypolicyviolation', (e: SecurityPolicyViolationEvent) => {
-      securityLogger.error('CSP Violation:', {
-        blockedURI: e.blockedURI,
-        violatedDirective: e.violatedDirective,
-        originalPolicy: e.originalPolicy,
-        disposition: e.disposition,
-        documentURI: e.documentURI,
-        effectiveDirective: e.effectiveDirective,
-        lineNumber: e.lineNumber,
-        columnNumber: e.columnNumber,
-        sourceFile: e.sourceFile,
-        statusCode: e.statusCode,
-      });
+      // The WHERE goes in the MESSAGE, not a collapsed object: a violation
+      // whose origin you have to expand a console group to find is a
+      // violation nobody chases. (Chasing a production `eval` block is
+      // exactly how this line earned its keep.)
+      const origin = e.sourceFile
+        ? `${e.sourceFile}:${e.lineNumber}:${e.columnNumber}`
+        : 'unknown source';
+      securityLogger.error(
+        `CSP Violation: "${e.blockedURI}" blocked by ${e.violatedDirective} at ${origin}`,
+        {
+          blockedURI: e.blockedURI,
+          violatedDirective: e.violatedDirective,
+          effectiveDirective: e.effectiveDirective,
+          disposition: e.disposition,
+          documentURI: e.documentURI,
+          sourceFile: e.sourceFile,
+          lineNumber: e.lineNumber,
+          columnNumber: e.columnNumber,
+          statusCode: e.statusCode,
+        }
+      );
 
-      // In production, you might want to send this to a logging service
+      // Report it: a CSP violation in production is either an attack signal
+      // or a broken feature, and both deserve to reach monitoring rather
+      // than living in one user's console. (Sentry ingest itself was blocked
+      // by this very policy until the connect-src fix — hence the guard
+      // against reporting a violation caused by reporting.)
       const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
-      if (isProduction) {
-        // Example: Send to logging service
-        // logService.logCSPViolation({...});
+      if (isProduction && !e.blockedURI.includes('sentry')) {
+        void import('../lib/sentry').then(({ captureMessage }) => {
+          captureMessage(
+            `CSP violation: ${e.blockedURI} blocked by ${e.violatedDirective}`,
+            'warning',
+            {
+              blockedURI: e.blockedURI,
+              violatedDirective: e.violatedDirective,
+              sourceFile: e.sourceFile,
+              lineNumber: e.lineNumber,
+              columnNumber: e.columnNumber,
+              documentURI: e.documentURI,
+            }
+          );
+        }).catch(() => {
+          // Monitoring must never break the app it monitors.
+        });
       }
     });
   }

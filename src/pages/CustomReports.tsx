@@ -157,6 +157,9 @@ export default function CustomReports(): React.JSX.Element {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Quick Start Templates
         </h2>
+        {/* Each card stacks its name over its description: the global
+            `button { display: inline-flex }` (index.css) otherwise lays the
+            two out as a row, running the name straight into the text. */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={() => {
@@ -192,7 +195,7 @@ export default function CustomReports(): React.JSX.Element {
                 updatedAt: new Date()
               });
             }}
-            className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
+            className="flex flex-col items-start p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
           >
             <h3 className="font-medium text-gray-900 dark:text-white">Monthly Summary</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -220,7 +223,7 @@ export default function CustomReports(): React.JSX.Element {
                 updatedAt: new Date()
               });
             }}
-            className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
+            className="flex flex-col items-start p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
           >
             <h3 className="font-medium text-gray-900 dark:text-white">Budget vs Actual</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -248,7 +251,7 @@ export default function CustomReports(): React.JSX.Element {
                 updatedAt: new Date()
               });
             }}
-            className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
+            className="flex flex-col items-start p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 text-left"
           >
             <h3 className="font-medium text-gray-900 dark:text-white">Year-over-Year</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

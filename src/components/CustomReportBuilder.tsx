@@ -472,7 +472,9 @@ export default function CustomReportBuilder({
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
           Report Filters
         </h3>
-        <div className="flex flex-wrap gap-3">
+        {/* items-start keeps the single-choice controls at their natural
+            height instead of stretching them to match the taller lists. */}
+        <div className="flex flex-wrap items-start gap-3">
           <select
             value={filters.dateRange}
             onChange={(e) => handleDateRangeChange(e.target.value as CustomReport['filters']['dateRange'])}
@@ -504,9 +506,10 @@ export default function CustomReportBuilder({
           {accounts.length > 0 && (
             <select
               multiple
+              size={9}
               value={filters.accounts ?? []}
               onChange={handleAccountSelection}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px] max-w-full"
             >
               {accounts.map(account => (
                 <option key={account.id} value={account.id}>
@@ -519,9 +522,10 @@ export default function CustomReportBuilder({
           {categories.length > 0 && (
             <select
               multiple
+              size={9}
               value={filters.categories ?? []}
               onChange={handleCategorySelection}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px] max-w-full"
             >
               {categories.map(category => (
                 <option key={category.id} value={category.id}>
@@ -534,9 +538,10 @@ export default function CustomReportBuilder({
           {tags && tags.length > 0 && (
             <select
               multiple
+              size={9}
               value={filters.tags ?? []}
               onChange={handleTagSelection}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px] max-w-full"
             >
               {tags.map(tag => (
                 <option key={String(tag)} value={String(tag)}>

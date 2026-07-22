@@ -84,13 +84,17 @@ describe('Dashboard Interactions Integration', () => {
       expect(liabilitiesLabel).toBeInTheDocument();
     }, 20000);
 
-    it('should display monthly performance metrics', async () => {
+    it('should display performance metrics for the selected period', async () => {
       renderWithProviders(<Dashboard />);
 
-      const performanceHeading = await screen.findByText(/this month's performance/i);
+      // The section is period-adjustable now, so it is titled "Performance"
+      // with a period picker beside it rather than a fixed "This Month's".
+      const performanceHeading = await screen.findByRole('heading', { name: /^performance$/i });
       expect(performanceHeading).toBeInTheDocument();
       expect(screen.getByText(/income/i)).toBeInTheDocument();
       expect(screen.getByText(/expenses/i)).toBeInTheDocument();
+      // The picker offering the same windows as the rest of the app.
+      expect(screen.getAllByRole('button', { name: /this month/i }).length).toBeGreaterThan(0);
     });
 
     it('should display recent transactions widget', async () => {

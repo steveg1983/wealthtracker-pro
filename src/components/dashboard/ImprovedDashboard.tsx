@@ -25,7 +25,7 @@ import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
 import PeriodPicker from '../../components/PeriodPicker';
-import { usePeriod } from '../../hooks/usePeriod';
+import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { customReportService } from '../../services/customReportService';
 import {
   BUILT_IN_REPORTS,
@@ -74,6 +74,9 @@ export function ImprovedDashboard() {
   });
   const [showReportPicker, setShowReportPicker] = useState(false);
   const reportsPeriod = usePeriod('dashboardReports', 'last-12-months');
+  // Performance keeps its OWN period (and storage key) so changing what the
+  // pinned reports cover never silently rewrites the headline income figure.
+  const performancePeriod = usePeriod('dashboardPerformance', 'this-month');
 
   const togglePinnedReport = (id: PinnableReportId): void => {
     setPinnedReports(prev => {
@@ -128,7 +131,8 @@ export function ImprovedDashboard() {
 
     const netWorth = toDecimal(totalAssets).minus(toDecimal(totalLiabilities)).toNumber();
 
-    // Calculate monthly change (last 30 days)
+    // Budget progress reads the last 30 days — a rolling month of spending,
+    // deliberately independent of the Performance card's chosen period.
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -136,18 +140,6 @@ export function ImprovedDashboard() {
       new Date(t.date) >= thirtyDaysAgo
     );
 
-    // Income/expenses by CATEGORY SEMANTICS (utils/incomeExpense): a refund
-    // filed under an expense category is an expense credit that reduces
-    // spending — direction of movement never decides the bucket.
-    const flows = computeIncomeExpense(recentTransactions, transactionSplits, categories);
-    const monthlyIncome = flows.income.toNumber();
-    const monthlyExpenses = flows.expenses.toNumber();
-
-    const monthlySavings = toDecimal(monthlyIncome).minus(toDecimal(monthlyExpenses)).toNumber();
-    const savingsRate = monthlyIncome > 0
-      ? toDecimal(monthlySavings).dividedBy(toDecimal(monthlyIncome)).times(100).toNumber()
-      : 0;
-    
     // Get recent activity (copy before sort — never mutate the shared context array)
     const recentActivity = [...transactions]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -207,12 +199,6 @@ export function ImprovedDashboard() {
       netWorth,
       totalAssets,
       totalLiabilities,
-      monthlyIncome,
-      monthlyExpenses,
-      monthlyIncomeRows: flows.incomeRows,
-      monthlyExpenseRows: flows.expenseRows,
-      monthlySavings,
-      savingsRate,
       recentActivity,
       accountsNeedingAttention,
       budgetStatus,
@@ -222,8 +208,27 @@ export function ImprovedDashboard() {
       netWorthChange: 0, // Will be calculated from actual historical data when available
       netWorthChangePercent: 0 // Will be calculated from actual historical data when available
     };
-  }, [accounts, transactions, transactionSplits, budgets, categories]);
-  
+  }, [accounts, transactions, transactionSplits, budgets]);
+
+  // Performance figures for the SELECTED period. Income/expenses come from
+  // CATEGORY SEMANTICS (utils/incomeExpense): a refund filed under an expense
+  // category is an expense credit that reduces spending — direction of
+  // movement never decides the bucket. The cards and the breakdown modal read
+  // these same totals, so both always describe one and the same window.
+  const performance = useMemo(() => {
+    const { from, to } = performancePeriod.range;
+    const flows = computeIncomeExpense(transactions, transactionSplits, categories, {
+      from: from ?? undefined,
+      to: to ?? undefined,
+    });
+    return {
+      income: flows.income.toNumber(),
+      expenses: flows.expenses.toNumber(),
+      incomeRows: flows.incomeRows,
+      expenseRows: flows.expenseRows,
+    };
+  }, [transactions, transactionSplits, categories, performancePeriod.range]);
+
   // Generate net worth data for chart - ONLY REAL DATA
   const netWorthData = useMemo(() => {
     // Only show current month's actual data
@@ -367,15 +372,20 @@ export function ImprovedDashboard() {
         </div>
       </section>
 
-      {/* Secondary Focus: This Month's Performance */}
-      <section 
-        aria-labelledby="monthly-performance-heading"
+      {/* Secondary Focus: Performance over the chosen period */}
+      <section
+        aria-labelledby="performance-heading"
         className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
-        <h3 id="monthly-performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          This Month's Performance
-        </h3>
-        
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <h3 id="performance-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
+            Performance
+          </h3>
+          <div className="ml-auto">
+            <PeriodPicker picker={performancePeriod} />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             type="button"
@@ -385,7 +395,7 @@ export function ImprovedDashboard() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
               <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                {formatCurrencyWithSymbol(metrics.monthlyIncome)}
+                {formatCurrencyWithSymbol(performance.income)}
               </p>
             </div>
             <TrendingUpIcon size={24} className="text-green-500" />
@@ -399,7 +409,7 @@ export function ImprovedDashboard() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
               <p className="text-xl font-bold text-red-600 dark:text-red-400">
-                {formatCurrencyWithSymbol(metrics.monthlyExpenses)}
+                {formatCurrencyWithSymbol(performance.expenses)}
               </p>
             </div>
             <TrendingDownIcon size={24} className="text-red-500" />
@@ -499,10 +509,10 @@ export function ImprovedDashboard() {
       <IncomeExpenseBreakdownModal
         isOpen={breakdownType !== null}
         onClose={() => setBreakdownType(null)}
-        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} This Month`}
+        title={`${breakdownType === 'income' ? 'Income' : 'Expenses'} — ${PERIOD_LABELS[performancePeriod.period]}`}
         bucket={breakdownType ?? 'income'}
-        rows={breakdownType === 'income' ? metrics.monthlyIncomeRows : metrics.monthlyExpenseRows}
-        total={breakdownType === 'income' ? metrics.monthlyIncome : metrics.monthlyExpenses}
+        rows={breakdownType === 'income' ? performance.incomeRows : performance.expenseRows}
+        total={breakdownType === 'income' ? performance.income : performance.expenses}
         categories={categories}
         onEditTransaction={setEditingBreakdownTxnId}
       />
