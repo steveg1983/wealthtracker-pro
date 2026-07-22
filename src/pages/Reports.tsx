@@ -28,6 +28,7 @@ import PeriodPicker from '../components/PeriodPicker';
 import EditTransactionModal from '../components/EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../components/IncomeExpenseBreakdownModal';
 import TransferSweepModal from '../components/TransferSweepModal';
+import BulkCategorizeModal from '../components/BulkCategorizeModal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -63,6 +64,7 @@ export default function Reports() {
   } | null>(null);
   const [editingBreakdownTxnId, setEditingBreakdownTxnId] = useState<string | null>(null);
   const [showTransferSweep, setShowTransferSweep] = useState(false);
+  const [showBulkCategorize, setShowBulkCategorize] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
@@ -356,6 +358,16 @@ export default function Reports() {
           </button>
         )}
 
+        {flows.uncategorizedRows.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowBulkCategorize(true)}
+            className="text-sm text-blue-700 dark:text-blue-400 hover:underline text-left"
+          >
+            Or categorise by payee — file a whole merchant at once and teach future imports
+          </button>
+        )}
+
         {/* Charts */}
         <div className="pt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -575,6 +587,11 @@ export default function Reports() {
       <TransferSweepModal
         isOpen={showTransferSweep}
         onClose={() => setShowTransferSweep(false)}
+      />
+
+      <BulkCategorizeModal
+        isOpen={showBulkCategorize}
+        onClose={() => setShowBulkCategorize(false)}
       />
 
       {/* Edit a transaction straight from the breakdown list */}
