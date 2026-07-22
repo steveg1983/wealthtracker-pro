@@ -62,6 +62,9 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       'https://api.stripe.com', // Stripe payments
       'https://*.supabase.co', // Supabase backend
       'https://supabase.co',
+      // Sentry error ingest — without this every production error report is
+      // refused by CSP and monitoring is silently blind.
+      'https://*.sentry.io',
     ],
     
     // Media: self and blob (for generated content)
@@ -170,10 +173,15 @@ export const applyCSPMetaTag = (): void => {
     existingCSP.remove();
   }
 
-  // Create new CSP meta tag
+  // Create new CSP meta tag. frame-ancestors is stripped: browsers IGNORE it
+  // when delivered via <meta> and log a console error saying so — it is
+  // enforced by the real header (vercel.json).
   const meta = document.createElement('meta');
   meta.httpEquiv = 'Content-Security-Policy';
-  meta.content = getCSPHeader();
+  meta.content = getCSPHeader()
+    .split('; ')
+    .filter(directive => !directive.startsWith('frame-ancestors'))
+    .join('; ');
   document.head.appendChild(meta);
 };
 

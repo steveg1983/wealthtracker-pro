@@ -303,9 +303,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         setIsUsingSupabase(DataService.isUsingSupabase());
         setLastSyncTime(new Date());
-        // The numbers live IN the message so any console (production
-        // included) shows the breakdown without expanding an object.
-        appLogger.info(
+        // The numbers live IN the message so any console shows the breakdown
+        // without expanding an object — and via console.info directly, because
+        // the scoped logger's console bridge is DEV-ONLY and this one line is
+        // exactly what a production slowness report needs.
+        console.info(
           `Boot data load: ${Math.round(performance.now() - bootStart)}ms total — ` +
           Object.entries(phases).map(([name, ms]) => `${name} ${ms}ms`).join(' · ') +
           ` (${data.transactions.length.toLocaleString()} transactions)`

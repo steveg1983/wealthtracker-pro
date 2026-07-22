@@ -20,7 +20,6 @@ export interface EncryptedStorageServiceOptions {
 export class EncryptedStorageService {
   private encryptionKey: string;
   private storeName = 'secureData';
-  private compressionThreshold = 10240; // 10KB
   private readonly sessionStorageRef: (StorageWriter & StorageReader) | null;
   private localStorageRef: (StorageWriter & StorageReader) | null;
   private readonly shouldResolveGlobalLocalStorage: boolean;
@@ -143,36 +142,25 @@ export class EncryptedStorageService {
     return JSON.parse(decryptedString) as JsonValue;
   }
 
-  // Compress data using simple LZ compression
-  private compress(data: string): string {
-    // Simple compression for demonstration
-    // In production, consider using lz-string or similar
-    return btoa(data);
-  }
-
-  // Decompress data
+  // READ-ONLY legacy support: old builds "compressed" with btoa — which is
+  // not compression (base64 EXPANDS data ~33%) and throws
+  // InvalidCharacterError on any non-Latin-1 character (Money-imported
+  // category names hit exactly that in production). The write path no longer
+  // compresses; this survives solely to read entries old builds stored.
   private decompress(data: string): string {
     return atob(data);
   }
 
   // Store data in IndexedDB with optional encryption
   async setItem<T>(key: string, value: T, options: StorageOptions = {}): Promise<void> {
-    const { encrypted = true, expiryDays, compress = false } = options;
-    
+    const { encrypted = true, expiryDays } = options;
+
     let processedData: T | string = value;
-    let shouldCompress = false;
 
-    // Check if compression is beneficial
-    const dataSize = JSON.stringify(value).length;
-    if (compress && dataSize > this.compressionThreshold) {
-      shouldCompress = true;
-    }
-
-    // Encrypt if requested
+    // Encrypt if requested (values are otherwise stored as-is — see the
+    // legacy note on decompress()).
     if (encrypted) {
       processedData = this.encrypt(value as JsonValue);
-    } else if (shouldCompress) {
-      processedData = this.compress(JSON.stringify(value));
     }
 
     const now = this.nowProvider();
@@ -180,7 +168,7 @@ export class EncryptedStorageService {
       data: processedData,
       timestamp: now,
       encrypted,
-      compressed: shouldCompress && !encrypted
+      compressed: false
     };
 
     // Add expiry if specified
@@ -280,20 +268,12 @@ export class EncryptedStorageService {
   async setItems<T extends JsonValue = JsonValue>(items: Array<StorageItem<T>>): Promise<void> {
     const processedItems = await Promise.all(
       items.map(async ({ key, value, options }) => {
-        const { encrypted = true, expiryDays, compress = false } = options || {};
-        
-        let processedData: T | string = value;
-        let shouldCompress = false;
+        const { encrypted = true, expiryDays } = options || {};
 
-        const dataSize = JSON.stringify(value).length;
-        if (compress && dataSize > this.compressionThreshold) {
-          shouldCompress = true;
-        }
+        let processedData: T | string = value;
 
         if (encrypted) {
           processedData = this.encrypt(value);
-        } else if (shouldCompress) {
-          processedData = this.compress(JSON.stringify(value));
         }
 
         const now = this.nowProvider();
@@ -301,7 +281,7 @@ export class EncryptedStorageService {
           data: processedData,
           timestamp: now,
           encrypted,
-          compressed: shouldCompress && !encrypted
+          compressed: false
         };
 
         if (expiryDays) {

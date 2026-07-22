@@ -131,40 +131,22 @@ describe('EncryptedStorageService', () => {
   });
 
   describe('Compression', () => {
-    it('compresses large data when requested', async () => {
-      // Create data larger than compression threshold (10KB)
-      const largeData = { content: 'x'.repeat(11000) };
-      
-      await encryptedStorage.setItem('test-key', largeData, { 
-        encrypted: false, 
-        compress: true 
-      });
+    it('never compresses on write — large unicode values store as-is', async () => {
+      // The old btoa() "compression" expanded data ~33% and threw
+      // InvalidCharacterError on non-Latin-1 (Money-imported category names
+      // hit it in production). Writes now store the value untouched.
+      const largeData = { content: 'Children’s savings — £'.repeat(1000) };
+
+      await encryptedStorage.setItem('test-key', largeData, { encrypted: false });
 
       const storedCall = vi.mocked(indexedDBService.put).mock.calls[0];
       const storedData = storedCall[1]; // Second parameter contains the data
-      
-      expect(storedData.compressed).toBe(true);
-      expect(typeof storedData.data).toBe('string');
-      // Compressed data should be base64 encoded
-      expect(storedData.data).toMatch(/^[A-Za-z0-9+/=]+$/);
-    });
 
-    it('does not compress small data even when requested', async () => {
-      const smallData = { content: 'small' };
-      
-      await encryptedStorage.setItem('test-key', smallData, { 
-        encrypted: false, 
-        compress: true 
-      });
-
-      const storedCall = vi.mocked(indexedDBService.put).mock.calls[0];
-      const storedData = storedCall[1]; // Second parameter contains the data
-      
       expect(storedData.compressed).toBe(false);
-      expect(storedData.data).toEqual(smallData);
+      expect(storedData.data).toEqual(largeData);
     });
 
-    it('retrieves and decompresses data correctly', async () => {
+    it('retrieves and decompresses entries written by old builds', async () => {
       const originalData = { content: 'x'.repeat(11000) };
       const compressedData = btoa(JSON.stringify(originalData));
 

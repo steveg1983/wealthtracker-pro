@@ -5,7 +5,6 @@ import type { JsonValue } from './common';
 export interface StorageOptions {
   encrypted?: boolean;
   expiryDays?: number;
-  compress?: boolean;
 }
 
 export interface StoredData<T> extends Record<string, unknown> {
