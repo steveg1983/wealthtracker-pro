@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseC
 import type { Account, Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { toDecimal } from '../../utils/decimal';
+import type { ServerAccountBalance } from '../../utils/accountBalances';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
 type SupabaseClientLike = typeof supabase;
@@ -59,6 +60,40 @@ function mapFromDbFields(row: Record<string, unknown>): Record<string, unknown> 
     result[DB_TO_CAMEL[key] ?? key] = value;
   }
   return result;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+/**
+ * Shape account_balances() rows into a per-account lookup.
+ *
+ * PostgREST renders numeric as a JSON number or a string depending on the
+ * value, so every balance goes through Decimal — never parseFloat, never
+ * float addition. Rows that are not a usable {account_id, balance} pair are
+ * skipped rather than throwing: a malformed row must cost at most one
+ * account's head start, never the whole load.
+ */
+export function toAccountBalanceMap(rows: unknown): Map<string, ServerAccountBalance> {
+  const balances = new Map<string, ServerAccountBalance>();
+  if (!Array.isArray(rows)) {
+    return balances;
+  }
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    const id = row.account_id;
+    const balance = row.balance;
+    if (typeof id !== 'string' || id === '') continue;
+    if (typeof balance !== 'number' && typeof balance !== 'string') continue;
+    // Validity gate only — the value itself is never read as a float.
+    if (!Number.isFinite(Number(balance))) continue;
+    const count = Number(row.txn_count);
+    balances.set(id, {
+      balance: toDecimal(balance).toNumber(),
+      txnCount: Number.isFinite(count) ? count : 0
+    });
+  }
+  return balances;
 }
 
 function mapToDbFields(obj: Record<string, unknown>): Record<string, unknown> {
@@ -193,6 +228,33 @@ class TransactionServiceImpl {
     } catch (error) {
       this.logger.error('TransactionService.getTransactions error:', error as Error);
       return this.readStoredTransactions();
+    }
+  }
+
+  /**
+   * Every account's balance from ONE round trip — Postgres sums
+   * initial_balance + Σ amount, instead of the client paging 50k rows to
+   * derive the same figures.
+   *
+   * Purely an optimisation for the seconds those pages are in flight, so it
+   * never throws and never blocks: any failure (local mode, RPC missing,
+   * network) returns an empty map and the app behaves exactly as it did
+   * before.
+   */
+  async getAccountBalances(): Promise<Map<string, ServerAccountBalance>> {
+    if (!this.isSupabaseReady()) {
+      return new Map();
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('account_balances', {});
+      if (error) {
+        this.logger.error('Error loading account balances:', error);
+        return new Map();
+      }
+      return toAccountBalanceMap(data);
+    } catch (error) {
+      this.logger.error('TransactionService.getAccountBalances error:', error as Error);
+      return new Map();
     }
   }
 
@@ -949,6 +1011,10 @@ export class TransactionService {
 
   static getTransactions(userId: string): Promise<Transaction[]> {
     return this.service.getTransactions(userId);
+  }
+
+  static getAccountBalances(): Promise<Map<string, ServerAccountBalance>> {
+    return this.service.getAccountBalances();
   }
 
   static createTransaction(

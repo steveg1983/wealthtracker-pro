@@ -19,6 +19,8 @@ import {
   toDecimalGoal
 } from '../utils/decimal-converters';
 import { toDecimal } from '../utils/decimal';
+import { TransactionService } from '../services/api/transactionService';
+import type { ServerAccountBalance } from '../utils/accountBalances';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
 import type {
   Account,
@@ -136,6 +138,14 @@ export interface AppContextType extends AppState {
    * parents into these via expandSplitTransactions.
    */
   transactionSplits: TransactionSplit[];
+  /**
+   * Per-account balance summed in Postgres (initial_balance + Σ amount) in one
+   * round trip, loaded alongside the ~52-page transaction fetch. Balance
+   * surfaces read it ONLY while `transactions` is still empty, so the first
+   * paint shows real money instead of zeros; empty map when the cloud call is
+   * unavailable, in which case nothing changes.
+   */
+  serverBalances: Map<string, ServerAccountBalance>;
   /** Splits for one transaction, in display order (empty when not split). */
   getTransactionSplits: (transactionId: string) => Promise<TransactionSplit[]>;
   /**
@@ -183,7 +193,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // surfaces (counters, budgets, analytics, exports) expand split parents
   // into these lines via expandSplitTransactions.
   const [transactionSplits, setTransactionSplitsState] = useState<TransactionSplit[]>([]);
-  
+  const [serverBalances, setServerBalances] = useState<Map<string, ServerAccountBalance>>(new Map());
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -214,6 +225,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         phases[name] = Math.round(performance.now() - phaseStart);
         phaseStart = performance.now();
       };
+      // The balances round trip runs ALONGSIDE the phases below rather than
+      // between two of them, so it times itself instead of going through
+      // markPhase (which measures gaps in the sequential timeline).
+      let serverBalancesLoaded: Promise<void> | null = null;
 
       try {
         appLogger.info('Initializing app context', { userId: user?.id });
@@ -249,6 +264,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             appLogger.info('Accounts loaded', { count: accounts.length });
             setAccounts(accounts);
             markPhase('accounts');
+
+            // One round trip for every account's balance, started here and
+            // deliberately NOT awaited: the paged transaction load must not
+            // wait on it. Those pages are ~77% of the boot, and until they
+            // land every client-side balance is zero — these figures let the
+            // dashboard paint real money in the meantime.
+            const balancesStart = performance.now();
+            serverBalancesLoaded = TransactionService.getAccountBalances().then(balances => {
+              phases.balances = Math.round(performance.now() - balancesStart);
+              setServerBalances(balances);
+            });
           } else {
             appLogger.warn('Failed to resolve database user ID - no data will be loaded');
             setAccounts([]);
@@ -303,6 +329,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         setIsUsingSupabase(DataService.isUsingSupabase());
         setLastSyncTime(new Date());
+        // Settled long ago in practice (it started before the slowest phase) —
+        // awaited only so the summary line below can report its timing.
+        await serverBalancesLoaded;
         // The numbers live IN the message so any console shows the breakdown
         // without expanding an object — and via console.info directly, because
         // the scoped logger's console bridge is DEV-ONLY and this one line is
@@ -1129,6 +1158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     archiveTransactionsBefore,
     unarchiveAccount,
     transactionSplits,
+    serverBalances,
     getTransactionSplits,
     setTransactionSplits,
     linkTransferPair,
