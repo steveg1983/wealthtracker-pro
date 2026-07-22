@@ -64,6 +64,17 @@ export default function NetWorthReport(): React.JSX.Element {
     setChartType(type);
     localStorage.setItem('netWorthChartType', type);
   };
+  // Assets/liabilities context series are OFF by default — the chart is the
+  // net worth line; the detail is an opt-in (persisted).
+  const [showDetail, setShowDetail] = useState<boolean>(() =>
+    localStorage.getItem('netWorthShowDetail') === '1'
+  );
+  const toggleDetail = (): void => {
+    setShowDetail(prev => {
+      localStorage.setItem('netWorthShowDetail', prev ? '0' : '1');
+      return !prev;
+    });
+  };
 
   // Transactions sorted once; the series walk and the drill both consume it.
   const sortedTransactions = useMemo(
@@ -194,21 +205,36 @@ export default function NetWorthReport(): React.JSX.Element {
             <TrendingUpIcon size={20} className="text-gray-500" />
             Net Worth Over Time
           </h2>
-          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
-            {(['line', 'bar'] as const).map(type => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => handleChartType(type)}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                  chartType === type
-                    ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-              >
-                {type === 'line' ? 'Line' : 'Bar'}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleDetail}
+              aria-pressed={showDetail}
+              title={showDetail ? 'Hide the assets and liabilities series' : 'Also show assets and liabilities'}
+              className={`px-3 py-1 text-sm font-medium rounded-lg border transition-colors ${
+                showDetail
+                  ? 'border-[#1a2332] dark:border-blue-500 bg-[#1a2332] dark:bg-blue-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Assets &amp; Liabilities
+            </button>
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+              {(['line', 'bar'] as const).map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => handleChartType(type)}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    chartType === type
+                      ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {type === 'line' ? 'Line' : 'Bar'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -243,8 +269,12 @@ export default function NetWorthReport(): React.JSX.Element {
                 ) : (
                   <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#1a2332" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
                 )}
-                <Line type="monotone" dataKey="assets" name="Assets" stroke="#10B981" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="liabilities" name="Liabilities" stroke="#EF4444" strokeWidth={1.5} dot={false} />
+                {showDetail && (
+                  <Line type="monotone" dataKey="assets" name="Assets" stroke="#10B981" strokeWidth={1.5} dot={false} />
+                )}
+                {showDetail && (
+                  <Line type="monotone" dataKey="liabilities" name="Liabilities" stroke="#EF4444" strokeWidth={1.5} dot={false} />
+                )}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
