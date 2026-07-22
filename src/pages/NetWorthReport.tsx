@@ -13,14 +13,13 @@ import {
 } from 'recharts';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { usePeriod } from '../hooks/usePeriod';
-import PeriodPicker from '../components/PeriodPicker';
 import { Modal, ModalBody } from '../components/common/Modal';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
 import { buildNetWorthSnapshots } from '../utils/netWorthSeries';
-import { CalendarIcon, TrendingUpIcon, ChevronRightIcon } from '../components/icons';
+import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
+import type { ReportViewProps } from './reports/types';
 
 /**
  * Net worth over time — the Microsoft Money report, rebuilt on real data.
@@ -43,12 +42,11 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-export default function NetWorthReport(): React.JSX.Element {
+export default function NetWorthReport({ picker }: ReportViewProps): React.JSX.Element {
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
-  const picker = usePeriod('netWorthPeriod', 'last-12-months');
   const [drillDate, setDrillDate] = useState<Date | null>(null);
   // Line or bar presentation — same data, same drill-in; persisted.
   const [chartType, setChartType] = useState<'line' | 'bar'>(() =>
@@ -106,14 +104,7 @@ export default function NetWorthReport(): React.JSX.Element {
 
   return (
     <div className="max-w-[1400px] mx-auto">
-      {/* Period picker */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="text-gray-500" size={20} />
-          <PeriodPicker picker={picker} />
-        </div>
-      </div>
-
+      {/* The period comes from the hub, so it persists between reports. */}
       {/* Headline */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl p-6 text-white">

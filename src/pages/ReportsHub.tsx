@@ -1,70 +1,89 @@
-import { useState, lazy, Suspense } from 'react';
-import { BarChart3Icon, TrendingUpIcon, FileTextIcon } from '../components/icons';
+import React, { Suspense } from 'react';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { ArrowLeftIcon, CalendarIcon } from '../components/icons';
 import PageTip from '../components/PageTip';
+import PeriodPicker from '../components/PeriodPicker';
 import { SkeletonCard } from '../components/loading/Skeleton';
+import { usePeriod } from '../hooks/usePeriod';
+import { preserveDemoParam } from '../utils/navigation';
+import ReportGallery from './reports/ReportGallery';
+import { findReport } from './reports/reportRegistry';
 
-// Lazy load each report view
-const Reports = lazy(() => import('./Reports'));
-const NetWorthReport = lazy(() => import('./NetWorthReport'));
-const CustomReports = lazy(() => import('./CustomReports'));
+/**
+ * The reports hub — a gallery of named reports (Microsoft Money's model)
+ * rather than a row of tabs, which stops scaling the moment there is more
+ * than a handful of reports.
+ *
+ * The hub owns the shared reporting period and hands it to whichever report
+ * is open, so the period PERSISTS as the user moves between reports instead
+ * of resetting each time. Each report lives at its own /reports/<id> URL and
+ * is code-split, so opening the gallery never loads eight reports' worth of
+ * charts.
+ */
+export default function ReportsHub(): React.JSX.Element {
+  const { reportId } = useParams<{ reportId?: string }>();
+  const location = useLocation();
+  // One period for the whole hub (storage key shared with the Dashboard's
+  // pinned reports, so the two agree about the window as well).
+  const picker = usePeriod('reportsPeriod');
 
-type ReportTab = 'income-expense' | 'net-worth' | 'custom';
+  const report = findReport(reportId);
+  // An unknown id (an old bookmark, a typo) returns to the gallery rather
+  // than showing an empty frame.
+  if (reportId !== undefined && report === null) {
+    return <Navigate to={preserveDemoParam('/reports', location.search)} replace />;
+  }
 
-const tabs: { id: ReportTab; label: string; icon: React.ElementType; description: string }[] = [
-  { id: 'income-expense', label: 'Income & Expense', icon: BarChart3Icon, description: 'Breakdown of earning and spending' },
-  { id: 'net-worth', label: 'Net Worth', icon: TrendingUpIcon, description: 'Assets, liabilities, and trends' },
-  { id: 'custom', label: 'Custom Reports', icon: FileTextIcon, description: 'Build your own reports' },
-];
-
-export default function ReportsHub() {
-  const [activeTab, setActiveTab] = useState<ReportTab>('income-expense');
+  const ReportView = report?.component;
 
   return (
     <div className="space-y-0">
-      {/* Tab navigation */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 -mx-4 md:-mx-6 lg:-mx-8 -mt-4 md:-mt-6 lg:-mt-8 mb-6">
-        <div className="max-w-[1400px] mx-auto">
-          <div className="flex items-center justify-between py-4 px-4 md:px-0">
-            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Reports</h1>
-          </div>
-          {/* role="tab" requires a role="tablist" parent (WCAG 1.3.1 / axe
-              aria-required-parent) */}
-          <div role="tablist" aria-label="Report tabs" className="flex gap-1 px-4 md:px-0 -mb-px overflow-x-auto">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isActive
-                      ? 'border-[#1a2332] text-[#1a2332] dark:border-blue-400 dark:text-blue-400'
-                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
-                  }`}
-                  aria-selected={isActive}
-                  role="tab"
-                >
-                  <Icon size={16} />
-                  {tab.label}
-                </button>
-              );
-            })}
+        <div className="max-w-[1400px] mx-auto py-4 px-4 md:px-0">
+          {report && (
+            <Link
+              to={preserveDemoParam('/reports', location.search)}
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors mb-2"
+            >
+              <ArrowLeftIcon size={16} />
+              All reports
+            </Link>
+          )}
+
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                {report ? report.title : 'Reports'}
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                {report
+                  ? report.description
+                  : 'Choose a report. The period you pick follows you from one to the next.'}
+              </p>
+            </div>
+
+            {(report?.usesPeriod ?? true) && (
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="text-gray-500 flex-shrink-0" size={18} />
+                <PeriodPicker picker={picker} />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Tab content */}
-      <Suspense fallback={<SkeletonCard className="h-96" />}>
-        {activeTab === 'income-expense' && <Reports />}
-        {activeTab === 'net-worth' && <NetWorthReport />}
-        {activeTab === 'custom' && <CustomReports />}
-      </Suspense>
+      {ReportView ? (
+        <Suspense fallback={<SkeletonCard className="h-96" />}>
+          <ReportView picker={picker} />
+        </Suspense>
+      ) : (
+        <ReportGallery />
+      )}
 
       <PageTip
-        id="reports-intro"
+        id="reports-gallery"
         title="Financial reports"
-        description="Switch between Income & Expense, Net Worth, and Custom Reports using the tabs above. Each report can be filtered by date range and account."
+        description="Pick a report from the gallery — net worth, balances, spending by category or payee, and period comparisons. The date range you choose stays put as you move between reports, and every figure clicks through to the transactions behind it."
       />
     </div>
   );

@@ -29,7 +29,10 @@ import { ChevronRightIcon, TrendingUpIcon, PieChartIcon, BarChart3Icon, FileText
  * "pinned reports" section. Each widget computes from the SAME shared maths
  * as its full report (utils/monthlyTrend, utils/netWorthSeries,
  * utils/categoryNetting), so the glance and the full view can never
- * disagree. Every card clicks through to the Reports hub.
+ * disagree.
+ *
+ * Every card clicks through to ITS report in the gallery — the ids below are
+ * the report gallery's stable URL segments (see pages/reports/reportRegistry).
  */
 
 const CATEGORY_COLORS = [
@@ -95,7 +98,7 @@ export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Ele
     <WidgetCard
       title="Net Worth Over Time"
       icon={TrendingUpIcon}
-      onOpen={() => navigate(preserveDemoParam('/reports', location.search))}
+      onOpen={() => navigate(preserveDemoParam('/reports/net-worth-over-time', location.search))}
     >
       <p className="text-xl font-bold text-gray-900 dark:text-white mb-2">
         {latest ? formatCurrency(latest.netWorth) : '—'}
@@ -134,7 +137,7 @@ export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): Rea
     <WidgetCard
       title="Income vs Expenses"
       icon={BarChart3Icon}
-      onOpen={() => navigate(preserveDemoParam('/reports', location.search))}
+      onOpen={() => navigate(preserveDemoParam('/reports/income-and-spending-over-time', location.search))}
     >
       <div className="h-44">
         <ResponsiveContainer width="100%" height="100%">
@@ -174,7 +177,7 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
     <WidgetCard
       title="Expense Categories"
       icon={PieChartIcon}
-      onOpen={() => navigate(preserveDemoParam('/reports', location.search))}
+      onOpen={() => navigate(preserveDemoParam('/reports/spending-by-category', location.search))}
     >
       {data.length === 0 ? (
         <p className="text-center py-10 text-sm text-gray-400">No categorised spending in this period</p>
@@ -220,7 +223,7 @@ export function CustomReportWidget({ reportId }: { reportId: string }): React.JS
     <WidgetCard
       title={report.name}
       icon={FileTextIcon}
-      onOpen={() => navigate(preserveDemoParam('/reports', location.search))}
+      onOpen={() => navigate(preserveDemoParam('/reports/custom-reports', location.search))}
     >
       <p className="text-sm text-gray-500 dark:text-gray-400">
         {report.description || 'Custom report'}
