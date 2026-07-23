@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import Accounts from '../Accounts';
+import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
+import type { Account } from '../../types';
 
 /**
  * These cover the two things the Accounts page adds for someone running ~200
@@ -172,5 +174,44 @@ describe('Accounts page — search', () => {
 
     expect(screen.getByText(/No accounts match/)).toBeInTheDocument();
     expect(screen.getByText('0 of 12 accounts')).toBeInTheDocument();
+  });
+});
+
+describe('Accounts page — no account type vanishes', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    __resetAppContextValue();
+  });
+
+  it('renders every account under type grouping, whatever its type', async () => {
+    // The three union members that had no section of their own. 'assets' is
+    // creatable TODAY (the Add Account modal's "Other Assets") — an account a
+    // user just created must not vanish from the page that lists accounts.
+    const account = (id: string, name: string, type: Account['type']): Account => ({
+      id, name, type, balance: 0, currency: 'GBP', lastUpdated: new Date(), openingBalance: 0,
+    });
+    __setAppContextValue({
+      accounts: [
+        account('m1', 'Chalet Mortgage', 'mortgage'),
+        account('a1', 'Grand Piano', 'assets'),
+        account('o1', 'Box of Mysteries', 'other'),
+      ],
+    });
+
+    renderAccounts();
+
+    // Mortgages file under Loans — the app's own words: "Mortgages, personal
+    // loans". "Other Assets" files under Assets. 'other' lands in the
+    // catch-all section rather than nowhere.
+    expect(await screen.findByRole('heading', { level: 2, name: 'Loans' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Chalet Mortgage' })).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Assets' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Grand Piano' })).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Other Accounts' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Box of Mysteries' })).toBeInTheDocument();
   });
 });

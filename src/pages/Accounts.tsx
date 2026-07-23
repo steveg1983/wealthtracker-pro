@@ -17,7 +17,7 @@ import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
 const BankConnections = lazy(() => import('../components/BankConnections'));
 import type { Account } from '../types';
-import { ACCOUNT_TYPE_SECTIONS } from '../utils/accountSections';
+import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
@@ -178,7 +178,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // top-level cards, so they don't group here.
   const accountsByType = useMemo(() =>
     topLevelAccounts.reduce((groups, account) => {
-      const type = account.type;
+      // Bucket by SECTION type, not the raw type string: the raw string is
+      // exactly how an "Other Assets" ('assets') or 'mortgage' account used to
+      // vanish — bucketed under a key no section ever looked up.
+      const type = sectionTypeForAccount(account.type);
       if (!groups[type]) {
         groups[type] = [];
       }
@@ -207,7 +210,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const decimalAccountsByType = useMemo(() => {
     const typeById = new Map(openAccounts.map(a => [a.id, a.type]));
     return decimalAccounts.reduce((groups, account) => {
-      const type = (account.parentAccountId && typeById.get(account.parentAccountId)) || account.type;
+      const type = sectionTypeForAccount(
+        (account.parentAccountId && typeById.get(account.parentAccountId)) || account.type
+      );
       if (!groups[type]) {
         groups[type] = [];
       }
@@ -216,8 +221,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }, {} as Record<string, typeof decimalAccounts>);
   }, [decimalAccounts, openAccounts]);
 
-  // The shared account-type sections (same groupings everywhere).
-  const accountTypes = ACCOUNT_TYPE_SECTIONS;
+  // The shared account-type sections (same groupings everywhere), catch-all
+  // last — a type without a section renders under "Other Accounts", never
+  // nowhere.
+  const accountTypes = ALL_ACCOUNT_SECTIONS;
 
 
   // Group accounts by institution (nested cash accounts ride with their
@@ -285,12 +292,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
   // Get icon for account type
   const getAccountTypeIcon = (type: string) => {
-    const typeConfig = accountTypes.find(t => t.type === type);
+    const typeConfig = accountTypes.find(t => t.type === sectionTypeForAccount(type));
     return typeConfig?.icon || WalletIcon;
   };
 
   const getAccountTypeColor = (type: string) => {
-    const typeConfig = accountTypes.find(t => t.type === type);
+    const typeConfig = accountTypes.find(t => t.type === sectionTypeForAccount(type));
     return typeConfig?.color || 'text-gray-600';
   };
 
