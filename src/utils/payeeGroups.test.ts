@@ -7,6 +7,7 @@ const CATEGORIES: Category[] = [
   { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
   { id: 'cat-consumables', name: 'Consumables', type: 'expense', level: 'detail', parentId: 'type-expense' },
   { id: 'cat-repairs', name: 'Repairs', type: 'expense', level: 'detail', parentId: 'type-expense' },
+  { id: 'cat-food', name: 'Food', type: 'expense', level: 'detail', parentId: 'type-expense' },
   { id: 'cat-salary', name: 'Salary', type: 'income', level: 'detail', parentId: 'type-income' },
 ];
 
@@ -61,6 +62,43 @@ describe('buildPayeeGroups', () => {
     expect(amazon.transactionIds).toEqual(['new']);
     expect(amazon.suggestedCategoryId).toBe('cat-consumables');
     expect(amazon.suggestionSupport).toBe(2);
+    // 2 of 3 — support is meaningless without what it was chosen from.
+    expect(amazon.suggestionSampleSize).toBe(3);
+  });
+
+  it('reports the whole sample, so a payee that disagrees with itself can be seen', () => {
+    // A generic description — "ADJUSTMENT" and the like — filed every which
+    // way. The most common category is a plurality of a quarter, and a screen
+    // that applies a category to every row at once must be able to tell that
+    // apart from a shop filed the same way every time.
+    const history = [
+      ...Array.from({ length: 3 }, (_, i) =>
+        txn({ id: `a${i}`, description: 'Adjustment', amount: -10, category: 'cat-consumables', date: new Date('2026-01-01') })),
+      ...Array.from({ length: 2 }, (_, i) =>
+        txn({ id: `b${i}`, description: 'Adjustment', amount: -10, category: 'cat-repairs', date: new Date('2026-02-01') })),
+      ...Array.from({ length: 2 }, (_, i) =>
+        txn({ id: `c${i}`, description: 'Adjustment', amount: -10, category: 'cat-food', date: new Date('2026-03-01') })),
+    ];
+
+    const groups = buildPayeeGroups(
+      [...history, txn({ id: 'new', description: 'Adjustment', amount: -5000 })],
+      CATEGORIES
+    );
+
+    const group = groups.find(g => g.payee === 'ADJUSTMENT' && g.direction === 'expense')!;
+    expect(group.suggestedCategoryId).toBe('cat-consumables');
+    expect(group.suggestionSupport).toBe(3);
+    expect(group.suggestionSampleSize).toBe(7);
+    // 3/7 is a plurality, not a habit — the caller is what decides to trust it.
+    expect((group.suggestionSupport ?? 0) / (group.suggestionSampleSize ?? 1)).toBeLessThan(0.8);
+  });
+
+  it('leaves the sample undefined when the payee has no history at all', () => {
+    const groups = buildPayeeGroups([txn({ id: 'new', description: 'Brand New Shop', amount: -30 })], CATEGORIES);
+
+    const group = groups.find(g => g.payee === 'BRAND NEW SHOP')!;
+    expect(group.suggestedCategoryId).toBeUndefined();
+    expect(group.suggestionSampleSize).toBeUndefined();
   });
 
   it('ties in the history break toward the most recent', () => {

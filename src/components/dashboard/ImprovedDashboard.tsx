@@ -28,13 +28,12 @@ import PeriodPicker from '../../components/PeriodPicker';
 import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
 import { customReportService } from '../../services/customReportService';
 import {
-  BUILT_IN_REPORTS,
   NetWorthWidget,
   IncomeExpenseTrendWidget,
   ExpenseCategoriesWidget,
   CustomReportWidget,
-  type PinnableReportId,
 } from './reportWidgets/DashboardReportWidgets';
+import { BUILT_IN_REPORTS, type PinnableReportId } from './reportWidgets/pinnableReports';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
 import { toDecimal } from '../../utils/decimal';

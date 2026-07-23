@@ -19,6 +19,9 @@ export default function PeriodPicker({ picker }: { picker: UsePeriodResult }): R
             key={key}
             type="button"
             onClick={() => setPeriod(key)}
+            // The selection is styling alone otherwise — assistive technology
+            // (and tests) need it stated.
+            aria-pressed={period === key}
             className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
               period === key
                 ? 'bg-[#1a2332] dark:bg-blue-600 text-white'

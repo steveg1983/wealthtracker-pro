@@ -25,11 +25,46 @@ export async function ensureProfile() {
   return data;
 }
 
+/**
+ * Remove the fixture user and everything it owns.
+ *
+ * This runs against a REAL database — the same one that holds real accounts —
+ * so a delete that quietly fails leaves a synthetic user, account and
+ * transactions sitting in production for good. That is exactly what happened
+ * on 2026-07-20: the residue was found three days later during an unrelated
+ * audit, because the three deletes below ignored their errors. Each one is now
+ * checked, and the tables are re-read to confirm the rows are actually gone.
+ */
 export async function cleanupProfile(userId: string) {
   if (!supabaseService) return;
-  await supabaseService.from('transactions').delete().eq('user_id', userId);
-  await supabaseService.from('accounts').delete().eq('user_id', userId);
-  await supabaseService.from('users').delete().eq('id', userId);
+
+  for (const [table, column] of [
+    ['transactions', 'user_id'],
+    ['accounts', 'user_id'],
+    ['users', 'id'],
+  ] as const) {
+    const { error } = await supabaseService.from(table).delete().eq(column, userId);
+    if (error) {
+      throw new Error(`[supabase-smoke] failed to clean up ${table} for ${userId}: ${error.message}`);
+    }
+  }
+
+  for (const [table, column] of [
+    ['transactions', 'user_id'],
+    ['accounts', 'user_id'],
+    ['users', 'id'],
+  ] as const) {
+    const { data, error } = await supabaseService.from(table).select('id').eq(column, userId);
+    if (error) {
+      throw new Error(`[supabase-smoke] could not verify ${table} cleanup for ${userId}: ${error.message}`);
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error(
+        `[supabase-smoke] ${(data ?? []).length} row(s) survived cleanup in ${table} for ${userId} — ` +
+        'left behind in a real database. Remove them before this suite is trusted again.'
+      );
+    }
+  }
 }
 
 export async function createAccount(userId: string) {

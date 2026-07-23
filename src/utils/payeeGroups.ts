@@ -38,6 +38,17 @@ export interface PayeeGroup {
   /** How many existing rows carry that suggestion. */
   suggestionSupport?: number;
   /**
+   * How many existing rows the suggestion was chosen FROM.
+   *
+   * Support alone cannot be read: "9" means one thing out of 10 filings and
+   * something else entirely out of 36. Measuring the production review band
+   * found the payees with the largest amounts behind them are the generic ones
+   * — "ACCOUNT ADJUSTMENT", "UPDATE ON PORTFOLIO VALUE" — filed a dozen
+   * different ways, where the most common category is a plurality of a quarter
+   * and applying it in bulk would invent data rather than recover it.
+   */
+  suggestionSampleSize?: number;
+  /**
    * The category used MOST RECENTLY for this payee, when it differs from the
    * suggestion — so a deliberate recent change is one click away instead of
    * being buried under an old habit.
@@ -102,6 +113,7 @@ export function buildPayeeGroups(
     const byCategory = history.get(key);
     let suggestedCategoryId: string | undefined;
     let suggestionSupport: number | undefined;
+    let suggestionSampleSize: number | undefined;
     let lastUsedCategoryId: string | undefined;
     if (byCategory && byCategory.size > 0) {
       const entries = [...byCategory.entries()];
@@ -110,6 +122,7 @@ export function buildPayeeGroups(
       )[0];
       suggestedCategoryId = bestId;
       suggestionSupport = best.count;
+      suggestionSampleSize = entries.reduce((sum, [, e]) => sum + e.count, 0);
       const [recentId] = [...entries].sort((a, b) => b[1].latest - a[1].latest)[0];
       if (recentId !== bestId) lastUsedCategoryId = recentId;
     }
@@ -126,6 +139,7 @@ export function buildPayeeGroups(
       accountIds: [t.accountId],
       suggestedCategoryId,
       suggestionSupport,
+      suggestionSampleSize,
       lastUsedCategoryId,
     });
   }

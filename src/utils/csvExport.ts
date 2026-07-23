@@ -1,18 +1,25 @@
-import type { Transaction, Account } from '../types';
+import type { Transaction, Account, Category } from '../types';
 import type { DecimalTransaction, DecimalAccount } from '../types/decimal-types';
 import { toDecimal } from './decimal';
 import { formatDecimal } from './decimal-format';
+import { buildCategoryNameLookup } from './categoryNames';
 
 /**
  * Export transactions to CSV format
  * Handles both regular and decimal transactions
+ *
+ * Pass `categories` so the Category column carries the human name
+ * ("Parent : Child") — a raw category id is a UUID and means nothing in a
+ * spreadsheet. Without it the stored value is written through unchanged.
  */
 export function exportTransactionsToCSV(
   transactions: Transaction[] | DecimalTransaction[],
-  accounts: Account[] | DecimalAccount[]
+  accounts: Account[] | DecimalAccount[],
+  categories?: Category[]
 ): string {
   const headers = ['Date', 'Description', 'Category', 'Type', 'Amount', 'Account', 'Tags', 'Notes', 'Cleared'];
-  
+  const categoryName = categories ? buildCategoryNameLookup(categories) : null;
+
   const rows = transactions.map(t => {
     const account = accounts.find(a => a.id === t.accountId);
     const amountDecimal = typeof t.amount === 'number' ? toDecimal(t.amount) : toDecimal(t.amount);
@@ -20,7 +27,7 @@ export function exportTransactionsToCSV(
     return [
       new Date(t.date).toISOString().split('T')[0], // YYYY-MM-DD format
       t.description,
-      t.category,
+      categoryName ? categoryName(t.category) : t.category,
       t.type,
       formatDecimal(amountDecimal, 2), // Always export with 2 decimal places
       account?.name || 'Unknown',

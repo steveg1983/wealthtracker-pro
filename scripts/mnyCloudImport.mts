@@ -95,6 +95,11 @@ console.log(`Seed: ${seed.accounts.length} accounts, ${seed.categories.length} c
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fail = (msg: string): never => { console.error(`\nABORT: ${msg}`); process.exit(1); };
 
+// Kept in step with src/services/import/msMoney/msMoneyImport.ts (not imported:
+// this script runs standalone under tsx, outside the app's module graph).
+const MS_MONEY_IMPORT_SOURCE = 'ms-money';
+const IMPORT_PROVENANCE_CONFLICT = 'user_id,import_source,import_source_id';
+
 async function fetchAll(table: string, filter?: { col: string; val: string }): Promise<Record<string, unknown>[]> {
   const PAGE = 1000;
   const rows: Record<string, unknown>[] = [];
@@ -108,10 +113,17 @@ async function fetchAll(table: string, filter?: { col: string; val: string }): P
   }
 }
 
-async function insertAll(table: string, rows: Record<string, unknown>[]): Promise<void> {
+async function insertAll(
+  table: string, rows: Record<string, unknown>[], onConflict?: string
+): Promise<void> {
   const BATCH = 500;
   for (let i = 0; i < rows.length; i += BATCH) {
-    const { error } = await sb.from(table).insert(rows.slice(i, i + BATCH));
+    const slice = rows.slice(i, i + BATCH);
+    // With a conflict target this becomes ON CONFLICT DO NOTHING — the
+    // database refuses a duplicate instead of the script creating one.
+    const { error } = onConflict
+      ? await sb.from(table).upsert(slice, { onConflict, ignoreDuplicates: true })
+      : await sb.from(table).insert(slice);
     if (error) fail(`inserting into ${table} (batch at ${i}): ${error.message}`);
     process.stdout.write(`\r  ${table}: ${Math.min(i + BATCH, rows.length)}/${rows.length}`);
   }
@@ -129,6 +141,14 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
   if (probe.error || probe2.error) {
     const msg = 'split-leg columns missing — apply ' +
       'supabase/migrations/20260720120000_split_leg_transfers.sql first.';
+    if (EXECUTE) fail(msg);
+    console.log(`\nPREFLIGHT (dry run continues): ${msg}`);
+  }
+  const probe3 = await sb.from('transactions').select('import_source_id').limit(1);
+  if (probe3.error) {
+    const msg = 'import-provenance columns missing — apply ' +
+      'supabase/migrations/20260722170000_transaction_import_provenance.sql first ' +
+      '(without them the import is not idempotent).';
     if (EXECUTE) fail(msg);
     console.log(`\nPREFLIGHT (dry run continues): ${msg}`);
   }
@@ -260,8 +280,14 @@ const dbAccountType = (t: string): string => (t === 'current' ? 'checking' : t);
     linked_transfer_id: withLink && t.linkedTransferId ? txnMap.get(t.linkedTransferId) : null,
     is_recurring: false,
     metadata: t.bankReference ? { bankReference: t.bankReference } : {},
+    // Import provenance (migration 20260722170000): the transform's stable
+    // per-source id, so a second run is refused by the unique index instead of
+    // duplicating the file. NOT external_transaction_id — that is the bank
+    // feed's column and its dedupe/backfill logic keys off it.
+    import_source: MS_MONEY_IMPORT_SOURCE,
+    import_source_id: t.id,
   });
-  await insertAll('transactions', seed.transactions.map(t => txnRow(t, false)));
+  await insertAll('transactions', seed.transactions.map(t => txnRow(t, false)), IMPORT_PROVENANCE_CONFLICT);
 
   const linkedTxns = seed.transactions.filter(t => t.linkedTransferId);
   {

@@ -268,6 +268,7 @@ function transformTransactions(
   let remainderLines = 0;    // "Unassigned" lines added to genuinely-partial splits
   let signFlipped = 0;       // liability-account splits with inverted child signs
   let splitLegTransfers = 0; // transfer legs whose partner is a line inside a split
+  let zeroLines = 0;         // split lines Money recorded as worth nothing
 
   const resolveCategory = (categoryId: number | null): string =>
     categoryId != null && emittedCatIds.has(categoryId) ? catId(categoryId) : '';
@@ -296,10 +297,20 @@ function transformTransactions(
 
   // A split LINE's category: a transfer line → the destination account's
   // To/From category; otherwise its own mapped category.
-  const lineCategory = (k: MnyTransaction): string =>
-    k.isTransferLine && k.linkAccountId != null
-      ? (toFromByAccount.get(k.linkAccountId) ?? '')
-      : resolveCategory(k.categoryId);
+  //
+  // Unlike a transaction, a split line may NOT be blank — transaction_splits
+  // requires a non-null, non-empty category, and rightly so: a blank line in a
+  // split is money that belongs to no category yet still has to sum to the
+  // parent total. Money leaves 128 of these uncategorised, so they land in the
+  // same "Unassigned (MS Money import)" bucket the partial-remainder lines use,
+  // where they are visible and re-categorisable rather than silently blank.
+  const lineCategory = (k: MnyTransaction): string => {
+    const resolved =
+      k.isTransferLine && k.linkAccountId != null
+        ? (toFromByAccount.get(k.linkAccountId) ?? '')
+        : resolveCategory(k.categoryId);
+    return resolved.trim() ? resolved : UNASSIGNED_CAT_ID;
+  };
 
   for (const t of exp.transactions) {
     if (t.role === 'splitChild') continue; // consumed by their parent below
@@ -361,6 +372,14 @@ function transformTransactions(
 
       let seq = 0;
       kids.forEach((k, i) => {
+        // Money sometimes records a split line worth nothing at all. It moves no
+        // money, the schema forbids it (transaction_splits_amount_nonzero), and
+        // dropping it cannot change what the split sums to — adding zero never
+        // did. Counted, not silently swallowed.
+        if (childAmounts[i].isZero()) {
+          zeroLines++;
+          return;
+        }
         // A transfer line links to its counterpart transaction — but only when
         // that counterpart is a real top-level row (never another split line).
         const isLinkedLeg =
@@ -433,6 +452,11 @@ function transformTransactions(
   if (splitLegTransfers > 0) {
     simplifications.push(
       `${splitLegTransfers} transfer(s) whose counterpart is a line inside a split are fully linked — the split line and the opposite transaction reference each other bidirectionally.`
+    );
+  }
+  if (zeroLines > 0) {
+    simplifications.push(
+      `${zeroLines} split line(s) worth £0.00 were dropped — they move no money, so every split still sums to its exact total.`
     );
   }
 

@@ -233,6 +233,13 @@ function App(): React.JSX.Element {
                               <ReportsHub />
                             </ProtectedSuspense>
                           } />
+                          {/* Each report in the gallery has its own URL, so it
+                              can be bookmarked and pinned to the Dashboard. */}
+                          <Route path="reports/:reportId" element={
+                            <ProtectedSuspense>
+                              <ReportsHub />
+                            </ProtectedSuspense>
+                          } />
                           <Route path="goals" element={
                             <ProtectedSuspense>
                               <Goals />

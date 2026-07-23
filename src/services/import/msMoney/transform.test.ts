@@ -135,6 +135,28 @@ describe('transformMsMoneyExport — transactions', () => {
     expect(summary.transactions.splitLines).toBe(4);
   });
 
+  it('files an uncategorised split LINE under Unassigned — never blank, which the schema forbids', () => {
+    // A split child Money left with no category at all. transaction_splits
+    // requires a non-null, non-empty category, so a blank here is not merely
+    // untidy — it is rejected by the database, and the whole import dies.
+    const exp = build();
+    exp.transactions.push(
+      { id: 1030, accountId: 1, date: '2020-09-01', amount: '-50.00', categoryId: null, payeeId: 51, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitParent' },
+      { id: 1031, accountId: 1, date: '2020-09-01', amount: '-20.00', categoryId: 201, payeeId: null, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitChild', splitParentId: 1030 },
+      { id: 1032, accountId: 1, date: '2020-09-01', amount: '-30.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitChild', splitParentId: 1030 },
+    );
+
+    const { transactionSplits } = transformMsMoneyExport(exp, NOW);
+    const lines = transactionSplits.filter(s => s.transactionId === 'mny-txn-1030');
+
+    expect(lines).toHaveLength(2);
+    expect(lines.map(l => l.category)).toEqual(['mny-cat-201', 'mny-unassigned']);
+    // No split line anywhere may be blank.
+    expect(transactionSplits.filter(s => !String(s.category ?? '').trim())).toHaveLength(0);
+    // The money still adds up — routing to Unassigned must not alter amounts.
+    expect(lines.reduce((s, l) => s + l.amount, 0)).toBe(-50);
+  });
+
   it('imports a PARTIAL split as a split whose lines (incl. an Unassigned remainder) sum to the exact total', () => {
     const { transactions, transactionSplits, categories } = transformMsMoneyExport(build(), NOW);
     const parent = transactions.find(x => x.id === 'mny-txn-1020')!;
@@ -215,6 +237,77 @@ describe('transformMsMoneyExport — transactions', () => {
     const computed = (acct1.openingBalance ?? 0) + sum;
     // -42.50 + 2500 - 100 (transfer out) - 100 (split) - 251.99 (partial) = 2005.51
     expect(computed).toBeCloseTo(2005.51, 2);
+  });
+});
+
+describe('transformMsMoneyExport — no-duplication invariants', () => {
+  // These lock the properties a duplicated-rows investigation (2026-07-22)
+  // checked the transform against. Money stores one transfer as TWO TRN rows,
+  // one in each account; the failure mode worth guarding is either leg landing
+  // in the same account twice, or any source row being emitted more than once.
+
+  it('emits exactly one transaction per source row and never repeats an id', () => {
+    const exp = build();
+    const { transactions } = transformMsMoneyExport(exp, NOW);
+    const emitted = exp.transactions.filter(t => t.role !== 'splitChild');
+    expect(transactions).toHaveLength(emitted.length);
+    expect(new Set(transactions.map(t => t.id)).size).toBe(transactions.length);
+    // Every emitted id traces back to exactly one Money htrn.
+    expect(transactions.map(t => t.id).sort()).toEqual(emitted.map(t => `mny-txn-${t.id}`).sort());
+  });
+
+  it('puts the two legs of a transfer in DIFFERENT accounts — never both in one', () => {
+    const { transactions } = transformMsMoneyExport(build(), NOW);
+    const byId = new Map(transactions.map(t => [t.id, t]));
+    const legs = transactions.filter(t => t.type === 'transfer');
+    expect(legs.length).toBeGreaterThan(0);
+    for (const leg of legs) {
+      const partner = byId.get(leg.linkedTransferId as string)!;
+      expect(partner).toBeDefined();
+      // Same-account pairing would double-count the transfer inside one ledger.
+      expect(partner.accountId).not.toBe(leg.accountId);
+      // A leg never points at its own account either.
+      expect(leg.transferAccountId).not.toBe(leg.accountId);
+      expect(partner.linkedTransferId).toBe(leg.id);
+    }
+  });
+
+  it('keeps two genuinely identical Money rows as two transactions', () => {
+    // Money's TRN can legitimately hold repeated same-day charges (subscription
+    // batches, standing orders). They share account/date/amount/payee and differ
+    // only by htrn — collapsing them would silently delete real money.
+    const exp = build({
+      transactions: [
+        { id: 5000, accountId: 1, date: '2021-03-01', amount: '-7.99', categoryId: 201, payeeId: 50, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'standalone' },
+        { id: 5001, accountId: 1, date: '2021-03-01', amount: '-7.99', categoryId: 201, payeeId: 50, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'standalone' },
+      ],
+    });
+    const { transactions } = transformMsMoneyExport(exp, NOW);
+    expect(transactions).toHaveLength(2);
+    expect(transactions.map(t => t.id)).toEqual(['mny-txn-5000', 'mny-txn-5001']);
+    expect(transactions.reduce((s, t) => s + t.amount, 0)).toBeCloseTo(-15.98, 2);
+  });
+
+  it('keeps two identical transfers as two independent, correctly-paired legs', () => {
+    // Two same-day transfers of the same amount between the same accounts:
+    // four TRN rows, two pairs. Each leg must pair with its OWN partner.
+    const exp = build({
+      transactions: [
+        { id: 6000, accountId: 1, date: '2021-04-01', amount: '-250.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: 3, role: 'transfer', transferPairTxnId: 6002 },
+        { id: 6001, accountId: 1, date: '2021-04-01', amount: '-250.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: 3, role: 'transfer', transferPairTxnId: 6003 },
+        { id: 6002, accountId: 3, date: '2021-04-01', amount: '250.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: 1, role: 'transfer', transferPairTxnId: 6000 },
+        { id: 6003, accountId: 3, date: '2021-04-01', amount: '250.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: 1, role: 'transfer', transferPairTxnId: 6001 },
+      ],
+    });
+    const { transactions } = transformMsMoneyExport(exp, NOW);
+    expect(transactions).toHaveLength(4);
+    // Two legs per account, not four in one.
+    expect(transactions.filter(t => t.accountId === 'mny-acct-1')).toHaveLength(2);
+    expect(transactions.filter(t => t.accountId === 'mny-acct-3')).toHaveLength(2);
+    expect(transactions.find(t => t.id === 'mny-txn-6000')!.linkedTransferId).toBe('mny-txn-6002');
+    expect(transactions.find(t => t.id === 'mny-txn-6001')!.linkedTransferId).toBe('mny-txn-6003');
+    // Both accounts net to zero against each other.
+    expect(transactions.reduce((s, t) => s + t.amount, 0)).toBe(0);
   });
 });
 

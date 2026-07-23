@@ -308,7 +308,7 @@ export default function Layout(): React.JSX.Element {
                   '/transactions': 'View, filter, and edit all transactions. Right-click for quick actions. Click categories or amounts to edit inline.',
                   '/budget': 'Set and track budgets by category. Try envelope budgeting or zero-based budgeting.',
                   '/calendar': 'See your income and expenses laid out by day on a monthly calendar.',
-                  '/reports': 'Income & expense analysis, net worth tracking, and custom report builder.',
+                  '/reports': 'A gallery of reports — net worth, account balances, spending by category or payee, period comparisons, and your own custom reports. The period you choose follows you between them.',
                   '/goals': 'Track savings targets, debt payoff goals, and investment milestones.',
                   '/investments': 'Portfolio overview with holdings, performance, and allocation analysis.',
                   '/settings': 'App preferences, data management, security, and account configuration.',
