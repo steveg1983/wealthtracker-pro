@@ -6,6 +6,8 @@ import { expandSplitTransactions, splitsByTransaction } from '../../utils/transa
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
+import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
+import { computeCategoryHealth } from '../../utils/categoryHealth';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon } from '../../components/icons';
 import { PlusIcon, XIcon, CheckIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
 import { IconButton } from '../../components/icons/IconButton';
@@ -196,6 +198,14 @@ export default function CategoriesSettings() {
     }
     return counts;
   }, [expandedTransactions]);
+
+  // Where the category data is weak — uncategorised rows, import buckets,
+  // dangling references, empty categories. Shares the reports' classifier and
+  // split expansion so the numbers agree with the report band this points at.
+  const categoryHealth = useMemo(
+    () => computeCategoryHealth(transactions, transactionSplits, categories),
+    [transactions, transactionSplits, categories]
+  );
 
   // The type-level ids are user-specific UUIDs after cloud migration — the old
   // hardcoded 'type-income'/'type-expense'/'type-transfer' anchors matched
@@ -762,6 +772,9 @@ export default function CategoriesSettings() {
           </button>
         </div>
       )}
+
+      {/* Data health — where the category data is weak (renders nothing when clean) */}
+      <CategoryDataHealthPanel health={categoryHealth} />
 
       {/* Categories Tree — the scrolling region on desktop */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
