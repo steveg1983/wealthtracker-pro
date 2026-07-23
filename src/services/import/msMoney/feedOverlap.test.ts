@@ -106,16 +106,6 @@ describe('findFeedOverlap', () => {
     expect(byDescription.matches[0].importSourceId).toBe('mny-txn-b');
   });
 
-  it('never suppresses a transfer leg, and reports the overlap it left alone', () => {
-    const money = [
-      txn({ id: 'mny-txn-1', amount: -500, type: 'transfer', transferAccountId: 'mny-acct-2', linkedTransferId: 'mny-txn-2' }),
-    ];
-    const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -500, description: 'TRANSFER' })]);
-    expect(result.suppressedSourceIds.size).toBe(0);
-    expect(result.keptDespiteOverlap.transfers).toBe(1);
-    expect(result.unmatchedFeedIds).toEqual(['feed-1']);
-  });
-
   it('never suppresses a split parent (its lines would be orphaned)', () => {
     const money = [txn({ id: 'mny-txn-1', amount: -80, isSplit: true, category: '' })];
     const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -80 })]);
@@ -144,5 +134,147 @@ describe('findFeedOverlap', () => {
     const money = [txn({ id: 'mny-txn-1', amount: 0.1 + 0.2 })];
     const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: '0.30' })]);
     expect(result.matches).toHaveLength(1);
+  });
+});
+
+// ── Transfer-leg handover ────────────────────────────────────────────────────
+// The shapes below are the two the real data holds: a leg whose counterpart is
+// in an account the bank does NOT feed (its Money row survives and has to be
+// re-pointed), and a pair where BOTH accounts are fed (each leg hands over, and
+// the two feed rows end up pointing at each other). Every value is invented.
+
+/** A transfer leg: `mny-acct-1` ⇄ `far`, linked to `counterpart`. */
+const leg = (over: Partial<Transaction> & Pick<Transaction, 'id' | 'amount'>): Transaction => txn({
+  type: 'transfer',
+  description: 'Card payment',
+  transferAccountId: 'mny-acct-2',
+  ...over,
+});
+
+describe('findFeedOverlap — transfer-leg handover', () => {
+  it('suppresses a fed transfer leg and names the feed row that takes its place', () => {
+    const money = [leg({ id: 'mny-txn-out', amount: -1500, linkedTransferId: 'mny-txn-in' })];
+    // Nothing in common with the Money side's wording — description is a
+    // ranking signal, never a gate, and the handover must not need it.
+    const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -1500, description: 'BANK TRANSFER OUT' })]);
+
+    expect([...result.suppressedSourceIds]).toEqual(['mny-txn-out']);
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].isTransferHandover).toBe(true);
+    expect(result.transferHandovers).toEqual([{
+      importSourceId: 'mny-txn-out',
+      feedTransactionId: 'feed-1',
+      accountId: 'mny-acct-1',
+      transferAccountId: 'mny-acct-2',
+      counterpartSourceId: 'mny-txn-in',
+      counterpartSplitSourceId: null,
+      dayGap: 0,
+      descriptionSimilarity: 0,
+    }]);
+    // The feed row is USED, so it is no longer "spending the file never had",
+    // and nothing is left in the kept-despite-overlap residual.
+    expect(result.unmatchedFeedIds).toEqual([]);
+    expect(result.keptDespiteOverlap).toEqual({ transfers: 0, splitParents: 0 });
+  });
+
+  it('hands over BOTH legs when both accounts are fed', () => {
+    const money = [
+      leg({ id: 'mny-txn-out', amount: -1500, accountId: 'mny-acct-1', transferAccountId: 'mny-acct-2', linkedTransferId: 'mny-txn-in' }),
+      leg({ id: 'mny-txn-in', amount: 1500, accountId: 'mny-acct-2', transferAccountId: 'mny-acct-1', linkedTransferId: 'mny-txn-out' }),
+    ];
+    const result = findFeedOverlap(money, [
+      feed({ id: 'feed-out', amount: -1500, accountId: 'mny-acct-1' }),
+      feed({ id: 'feed-in', amount: 1500, accountId: 'mny-acct-2' }),
+    ]);
+
+    expect(result.suppressedSourceIds).toEqual(new Set(['mny-txn-out', 'mny-txn-in']));
+    expect(result.transferHandovers.map(h => [h.importSourceId, h.feedTransactionId, h.counterpartSourceId]))
+      .toEqual([
+        ['mny-txn-out', 'feed-out', 'mny-txn-in'],
+        ['mny-txn-in', 'feed-in', 'mny-txn-out'],
+      ]);
+    expect(result.unmatchedFeedIds).toEqual([]);
+  });
+
+  it('carries the split line across when the far side is a split leg', () => {
+    const money = [leg({ id: 'mny-txn-out', amount: -75, linkedTransferId: 'mny-txn-parent', linkedTransferSplitId: 'mny-split-9' })];
+    const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -75 })]);
+    expect(result.transferHandovers[0]).toMatchObject({
+      counterpartSourceId: 'mny-txn-parent',
+      counterpartSplitSourceId: 'mny-split-9',
+    });
+  });
+
+  it('hands over a leg with no counterpart at all — there is nothing to strand', () => {
+    const money = [leg({ id: 'mny-txn-out', amount: -75, linkedTransferId: undefined, transferAccountId: undefined })];
+    const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -75 })]);
+    expect(result.transferHandovers[0]).toMatchObject({
+      transferAccountId: null, counterpartSourceId: null, counterpartSplitSourceId: null,
+    });
+  });
+
+  it('does not widen the gate: same account, exact pence, within tolerance, or no handover', () => {
+    const money = [leg({ id: 'mny-txn-out', amount: -1500, date: new Date('2026-05-10T00:00:00.000Z') })];
+    const nothing = { transferHandovers: [], suppressed: 0 };
+    const measure = (f: ExistingFeedTransaction) => {
+      const r = findFeedOverlap(money, [f]);
+      return { transferHandovers: r.transferHandovers, suppressed: r.suppressedSourceIds.size };
+    };
+    expect(measure(feed({ id: 'f', amount: -1500, accountId: 'mny-acct-9' }))).toEqual(nothing);
+    expect(measure(feed({ id: 'f', amount: -1500.01 }))).toEqual(nothing);
+    expect(measure(feed({ id: 'f', amount: -1500, date: '2026-05-20' }))).toEqual(nothing);
+    // …and one that DOES qualify, so the assertions above mean something.
+    expect(measure(feed({ id: 'f', amount: -1500, date: '2026-05-13' })).suppressed).toBe(1);
+  });
+
+  it('lets an ordinary row claim the feed row before any transfer leg can', () => {
+    const money = [
+      txn({ id: 'mny-txn-ordinary', amount: -1500, description: 'Corner Shop' }),
+      leg({ id: 'mny-txn-transfer', amount: -1500 }),
+    ];
+    const one = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -1500 })]);
+    expect([...one.suppressedSourceIds]).toEqual(['mny-txn-ordinary']);
+    expect(one.transferHandovers).toEqual([]);
+
+    // A second feed row, and the transfer leg gets one too — still strictly 1:1.
+    const two = findFeedOverlap(money, [
+      feed({ id: 'feed-1', amount: -1500 }),
+      feed({ id: 'feed-2', amount: -1500 }),
+    ]);
+    expect(two.suppressedSourceIds).toEqual(new Set(['mny-txn-ordinary', 'mny-txn-transfer']));
+    expect(two.transferHandovers.map(h => h.importSourceId)).toEqual(['mny-txn-transfer']);
+  });
+
+  it('is strictly 1:1 under handover — one feed row takes exactly one leg', () => {
+    const money = [
+      leg({ id: 'mny-txn-a', amount: -1500 }),
+      leg({ id: 'mny-txn-b', amount: -1500 }),
+    ];
+    const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -1500 })]);
+    expect(result.transferHandovers).toHaveLength(1);
+    expect(result.suppressedSourceIds.size).toBe(1);
+  });
+
+  it('refuses the handover when the feed row could not honestly become a transfer', () => {
+    const money = [leg({ id: 'mny-txn-out', amount: -1500, linkedTransferId: 'mny-txn-in' })];
+
+    // A split feed row: the database's own trigger forbids re-typing one.
+    const split = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -1500, isSplit: true })]);
+    expect(split.suppressedSourceIds.size).toBe(0);
+    expect(split.transferHandovers).toEqual([]);
+    expect(split.keptDespiteOverlap.transfers).toBe(1);
+    expect(split.unmatchedFeedIds).toEqual(['feed-1']);
+
+    // A feed row already half of someone else's transfer.
+    const linked = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -1500, linkedTransferId: 'other-row' })]);
+    expect(linked.suppressedSourceIds.size).toBe(0);
+    expect(linked.keptDespiteOverlap.transfers).toBe(1);
+  });
+
+  it('treats a split parent as a split parent even when it is typed transfer', () => {
+    const money = [leg({ id: 'mny-txn-out', amount: -1500, isSplit: true })];
+    const result = findFeedOverlap(money, [feed({ id: 'feed-1', amount: -1500 })]);
+    expect(result.suppressedSourceIds.size).toBe(0);
+    expect(result.keptDespiteOverlap).toEqual({ transfers: 0, splitParents: 1 });
   });
 });

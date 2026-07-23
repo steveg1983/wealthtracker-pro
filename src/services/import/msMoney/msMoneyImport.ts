@@ -17,6 +17,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Account, Category } from '../../../types';
+import { toDecimal } from '../../../utils/decimal';
+import type { TransferHandover } from './feedOverlap';
 import type { MsMoneyImportResult } from './transform';
 
 export type ImportPhase =
@@ -170,6 +172,35 @@ export interface CloudPlan {
    */
   accountParentRows: Record<string, unknown>[];
   linkRows: Record<string, unknown>[];
+  /**
+   * Bank-feed rows taking over a suppressed Money transfer leg — what the
+   * promotion IS, in database ids, for reporting and for tests.
+   */
+  feedPromotions: FeedTransferPromotion[];
+  /**
+   * The same promotions as COMPLETE rows for the batched merge — the feed row
+   * exactly as it is in the database, with only the transfer columns changed.
+   * A row whose transfer columns are already right is left out, so a second run
+   * writes nothing.
+   */
+  feedPromotionRows: Record<string, unknown>[];
+  /**
+   * Handovers that could NOT be executed — no complete feed row was supplied
+   * for them. Their Money leg is imported as normal rather than dropped (a
+   * suppressed leg with nothing taking its place would delete a real transfer),
+   * so the plan stays safe; the caller is expected to treat any entry here as a
+   * failure, because the count it reviewed will no longer match.
+   */
+  unpromotableHandovers: TransferHandover[];
+  /**
+   * Reused accounts whose stored `initial_balance` disagrees with the file's.
+   * ALWAYS reported, never silently corrected: a reused account may have been
+   * hand-edited, and the file is only authoritative if the operator says so
+   * (`rebaseOpeningBalances`).
+   */
+  openingBalanceMismatches: OpeningBalanceMismatch[];
+  /** Complete rows for the mismatches above, when a rebase was asked for. */
+  accountOpeningBalanceRows: Record<string, unknown>[];
   /** Source rows already present under this user's provenance — not re-inserted. */
   skippedExisting: number;
   /** Source rows a bank-feed transaction already covers — not imported. */
@@ -184,6 +215,32 @@ export interface CloudPlan {
    * dangling id — and counted here so the caller can report it.
    */
   categoriesWithUnresolvedParent: number;
+}
+
+/** A bank-feed row inheriting a suppressed Money transfer leg, in database ids. */
+export interface FeedTransferPromotion {
+  /** The feed row being promoted. */
+  id: string;
+  /** The Money leg it replaces (`mny-txn-…`) — reporting only. */
+  importSourceId: string;
+  /** The account on the other side of the transfer. */
+  transfer_account_id: string | null;
+  /** The other leg. Null when the Money leg had no linked counterpart. */
+  linked_transfer_id: string | null;
+  /** The split LINE the other side is, when the counterpart is a split leg. */
+  linked_transfer_split_id: string | null;
+}
+
+/** A reused account whose stored opening balance is not the file's. */
+export interface OpeningBalanceMismatch {
+  /** Database id of the account (the reused row). */
+  accountId: string;
+  accountName: string;
+  /** Both as fixed-2 strings, formatted through Decimal — never a float. */
+  fileValue: string;
+  storedValue: string;
+  /** True when this plan will correct it (see `rebaseOpeningBalances`). */
+  rebased: boolean;
 }
 
 /** The subset of an existing `categories` row the planner needs to match on. */
@@ -202,6 +259,13 @@ export interface ExistingAccountRow {
   name: string;
   /** Current investment↔cash pairing, so an already-paired account is left alone. */
   parent_account_id?: string | null;
+  /**
+   * Current opening balance. Supplied ⇒ the plan reports every reused account
+   * whose opening balance disagrees with the file's (and, on request, corrects
+   * it). Omitted ⇒ no opinion is formed, which is what every caller that has
+   * wiped the database first wants.
+   */
+  initial_balance?: string | number | null;
 }
 
 /** The link columns an already-imported transaction currently carries. */
@@ -251,6 +315,42 @@ export interface CloudPlanOptions {
    * NOT match, so the next run picks up exactly those.
    */
   existingTransactionLinks?: ReadonlyMap<string, ExistingTransactionLinks>;
+  /**
+   * Suppressed TRANSFER legs and the feed rows that inherit their place
+   * (see feedOverlap.ts). Every entry must also appear in
+   * `suppressedSourceIds` — a handover is a suppression with a successor.
+   *
+   * Supplying these is what stops a suppressed leg from silently unlinking its
+   * counterpart: the feed row is promoted into the transfer and every reference
+   * to the leg is re-pointed at it.
+   */
+  transferHandovers?: readonly TransferHandover[];
+  /**
+   * COMPLETE database rows for the bank-feed transactions named by
+   * `transferHandovers`, keyed by id (`select *`).
+   *
+   * Complete because the promotion goes out through the same batched merge as
+   * the link pass, and that merge sends whole rows: Postgres builds the
+   * candidate tuple — evaluating every NOT NULL column — before it resolves ON
+   * CONFLICT. Rows the plan does not need are ignored; a handover with no row
+   * here is refused rather than guessed at (see `unpromotableHandovers`).
+   */
+  feedTransactionRowsById?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
+  /**
+   * COMPLETE database rows for the user's accounts, keyed by id — required only
+   * to REBASE an opening balance, and for the same reason as above.
+   */
+  existingAccountRowsById?: ReadonlyMap<string, Readonly<Record<string, unknown>>>;
+  /**
+   * Correct a reused account's `initial_balance` to the file's value.
+   *
+   * OPT-IN, always. A reused account is one the importer did not create, so its
+   * opening balance may be the user's own considered figure; overwriting that
+   * silently on every re-import would be indefensible. Off, the disagreement is
+   * still REPORTED (`openingBalanceMismatches`) — which is what stops a
+   * re-import claiming success while a fabricated opening balance survives it.
+   */
+  rebaseOpeningBalances?: boolean;
 }
 
 /** Case/whitespace-insensitive key for name matching. */
@@ -287,7 +387,27 @@ export function planCloudImport(
   options: CloudPlanOptions = {}
 ): CloudPlan {
   const existingBySourceId = options.existingBySourceId ?? new Map<string, string>();
-  const suppressed = options.suppressedSourceIds ?? new Set<string>();
+  const requestedSuppression = options.suppressedSourceIds ?? new Set<string>();
+
+  // ── Transfer handovers: a suppression only counts if a successor exists ────
+  // A handover names the feed row that inherits the leg. Without the complete
+  // feed row the promotion cannot be written, and dropping the leg anyway would
+  // delete a real transfer and quietly unlink its counterpart — so that leg is
+  // NOT suppressed at all. It comes back as an ordinary import, and the caller
+  // learns about it through `unpromotableHandovers`.
+  const feedRowsById = options.feedTransactionRowsById ?? new Map<string, Readonly<Record<string, unknown>>>();
+  const handovers = options.transferHandovers ?? [];
+  const unpromotableHandovers: TransferHandover[] = [];
+  const handoverBySourceId = new Map<string, TransferHandover>();
+  for (const h of handovers) {
+    if (!requestedSuppression.has(h.importSourceId)) continue; // not a suppression: nothing to hand over
+    if (!feedRowsById.has(h.feedTransactionId)) { unpromotableHandovers.push(h); continue; }
+    handoverBySourceId.set(h.importSourceId, h);
+  }
+  const refused = new Set(unpromotableHandovers.map(h => h.importSourceId));
+  const suppressed: ReadonlySet<string> = refused.size === 0
+    ? requestedSuppression
+    : new Set([...requestedSuppression].filter(id => !refused.has(id)));
 
   // ── Accounts: reuse a row the user already has, else mint one ─────────────
   // Accounts carry no provenance columns and the table has no natural unique
@@ -423,6 +543,15 @@ export function planCloudImport(
   );
   const splitId = new Map(result.transactionSplits.map(s => [s.id, newId()]));
   const cat = (id?: string): string | null => (id && catId.get(id)) || null;
+  /**
+   * The database id a seed transaction id refers to AFTER the import.
+   *
+   * Normally the row's own id. For a handed-over transfer leg the row is never
+   * written, and the answer is the FEED row that took its place — which is what
+   * keeps the counterpart linked to something real instead of being unlinked.
+   */
+  const linkTarget = (sourceId: string): string | null =>
+    txnId.get(sourceId) ?? handoverBySourceId.get(sourceId)?.feedTransactionId ?? null;
   // A transaction already in the database brings its split lines with it.
   const alreadyImported = (sourceId: string): boolean => existingBySourceId.has(sourceId);
   // Suppressed rows are never written, so nothing may reference them either.
@@ -468,6 +597,43 @@ export function planCloudImport(
     .filter(a => !reusedAccountIds.has(a.id))
     .map(accountRow);
 
+  // ── Opening balances on REUSED accounts ───────────────────────────────────
+  // A reused account is filtered out of the insert above, so `initial_balance`
+  // is never rewritten — which is exactly how a fabricated opening balance
+  // survives every re-import, silently absorbing whatever discrepancy the
+  // ledger had at the moment somebody "repaired" it.
+  //
+  // The disagreement is always REPORTED. It is only CORRECTED when the caller
+  // asks (`rebaseOpeningBalances`), because the stored figure may be the user's
+  // own and the importer is not entitled to assume otherwise.
+  const existingAccountById = new Map((options.existingAccounts ?? []).map(r => [r.id, r]));
+  const existingAccountRowsById =
+    options.existingAccountRowsById ?? new Map<string, Readonly<Record<string, unknown>>>();
+  const openingBalanceMismatches: OpeningBalanceMismatch[] = [];
+  const accountOpeningBalanceRows: Record<string, unknown>[] = [];
+  for (const a of result.accounts) {
+    if (!reusedAccountIds.has(a.id)) continue;
+    const id = acctId.get(a.id)!;
+    const existing = existingAccountById.get(id);
+    if (!existing || existing.initial_balance === undefined) continue; // no opinion offered
+    const fileValue = toDecimal(String(a.openingBalance ?? 0));
+    const storedValue = toDecimal(String(existing.initial_balance ?? 0));
+    if (fileValue.equals(storedValue)) continue;
+    const base = existingAccountRowsById.get(id);
+    const rebased = options.rebaseOpeningBalances === true && base != null;
+    openingBalanceMismatches.push({
+      accountId: id,
+      accountName: a.name,
+      fileValue: fileValue.toFixed(2),
+      storedValue: storedValue.toFixed(2),
+      rebased,
+    });
+    // Complete row, only `initial_balance` moved: the stored balance, the name
+    // and every other column the user may have edited are written back as they
+    // are. The ledger invariant is a separate repair and stays separate.
+    if (rebased && base) accountOpeningBalanceRows.push({ ...base, initial_balance: fileValue.toNumber() });
+  }
+
   // Investment↔cash pairings reference other account rows, so they go in as a
   // second pass once every account exists (insert batching makes same-batch
   // FK ordering unreliable).
@@ -504,7 +670,7 @@ export function planCloudImport(
       memo: s.memo ?? null,
       sort_order: s.sortOrder,
       transfer_account_id: s.transferAccountId ? acctId.get(s.transferAccountId) ?? null : null,
-      linked_transfer_id: s.linkedTransferId ? txnId.get(s.linkedTransferId) ?? null : null,
+      linked_transfer_id: s.linkedTransferId ? linkTarget(s.linkedTransferId) : null,
     }));
 
   // ── The second pass: transfer links and split-leg pins ────────────────────
@@ -523,8 +689,7 @@ export function planCloudImport(
   for (const t of result.transactions) {
     const id = txnId.get(t.id);
     if (!id) continue;
-    const linkedTransferId = t.linkedTransferId && txnId.has(t.linkedTransferId)
-      ? txnId.get(t.linkedTransferId)! : null;
+    const linkedTransferId = t.linkedTransferId ? linkTarget(t.linkedTransferId) : null;
     const linkedTransferSplitId = t.linkedTransferSplitId && writtenSplitIds.has(t.linkedTransferSplitId)
       ? splitId.get(t.linkedTransferSplitId)! : null;
     if (!linkedTransferId && !linkedTransferSplitId) continue;
@@ -539,6 +704,54 @@ export function planCloudImport(
     linkRows.push({ ...transactionRow(t), linked_transfer_id: linkedTransferId, linked_transfer_split_id: linkedTransferSplitId });
   }
 
+  // ── Promoting the feed rows that took over a transfer leg ─────────────────
+  // The leg is gone; the feed row becomes the transfer in its place. It is
+  // re-typed (a transfer counted as spending is the double-count in another
+  // costume), files under the leg's To/From category, faces the same account,
+  // and points at the same counterpart — which itself now points back here.
+  //
+  // The row goes out COMPLETE, exactly as the database holds it, with only
+  // those columns changed: `is_split`, `amount`, `external_transaction_id` and
+  // everything else are written back unchanged, so nothing about the feed row's
+  // own identity moves. A row whose columns are already right is left out, so a
+  // second run of the same plan writes nothing at all.
+  const legBySourceId = new Map(result.transactions.map(t => [t.id, t]));
+  const feedPromotions: FeedTransferPromotion[] = [];
+  const feedPromotionRows: Record<string, unknown>[] = [];
+  for (const [sourceId, handover] of handoverBySourceId) {
+    const base = feedRowsById.get(handover.feedTransactionId);
+    if (!base) continue; // impossible: handoverBySourceId only holds rows we have
+    const leg = legBySourceId.get(sourceId);
+    const promotion: FeedTransferPromotion = {
+      id: handover.feedTransactionId,
+      importSourceId: sourceId,
+      transfer_account_id: handover.transferAccountId
+        ? acctId.get(handover.transferAccountId) ?? null : null,
+      linked_transfer_id: handover.counterpartSourceId
+        ? linkTarget(handover.counterpartSourceId) : null,
+      linked_transfer_split_id: handover.counterpartSplitSourceId
+        && writtenSplitIds.has(handover.counterpartSplitSourceId)
+        ? splitId.get(handover.counterpartSplitSourceId)! : null,
+    };
+    feedPromotions.push(promotion);
+
+    // The leg's To/From category, if it resolves; otherwise leave the feed
+    // row's own category alone rather than blanking a real one.
+    const currentCategory = typeof base.category === 'string' ? base.category : '';
+    const changed: Record<string, string | null> = {
+      type: 'transfer',
+      category: (leg ? cat(leg.category) : null) ?? currentCategory,
+      transfer_account_id: promotion.transfer_account_id,
+      linked_transfer_id: promotion.linked_transfer_id,
+      linked_transfer_split_id: promotion.linked_transfer_split_id,
+    };
+    const comparable = (value: unknown): string | null => (value == null ? null : String(value));
+    const alreadyRight = Object.keys(changed)
+      .every(key => comparable(base[key]) === changed[key]);
+    if (alreadyRight) continue;
+    feedPromotionRows.push({ ...base, ...changed });
+  }
+
   const skippedFeedOverlap = result.transactions.filter(t => suppressed.has(t.id)).length;
   const skippedExisting = result.transactions.length - transactions.length - skippedFeedOverlap;
 
@@ -546,6 +759,8 @@ export function planCloudImport(
     accounts, accountParents, accountParentRows,
     categories: insertedCategories, transactions, transferLinks,
     splits, splitLegPins, linkRows,
+    feedPromotions, feedPromotionRows, unpromotableHandovers,
+    openingBalanceMismatches, accountOpeningBalanceRows,
     skippedExisting, skippedFeedOverlap,
     skippedExistingAccounts: reusedAccountIds.size,
     skippedExistingCategories: reusedCategories,
@@ -630,7 +845,11 @@ export async function fetchExistingAccounts(
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('accounts')
-      .select('id, name, parent_account_id')
+      // `initial_balance` comes along so the plan can SAY when a reused
+      // account's opening balance disagrees with the file (see
+      // CloudPlan.openingBalanceMismatches). Reading it costs nothing; not
+      // reading it is how the disagreement stayed invisible.
+      .select('id, name, parent_account_id, initial_balance')
       .eq('user_id', userId)
       .order('id')
       .range(from, from + PAGE - 1);
@@ -819,7 +1038,10 @@ export async function executeCloudPlan(
   // Accounts carry no provenance columns, so the primary key is the only
   // conflict target available — and every one of these rows was just written.
   await merge('accounts', plan.accountParentRows, 'id',
-    'pairing investment cash accounts', 'accounts', 0.13, 0.02, 'Pairing investment cash accounts');
+    'pairing investment cash accounts', 'accounts', 0.13, 0.01, 'Pairing investment cash accounts');
+  // Opt-in, and empty unless the caller asked for it (see rebaseOpeningBalances).
+  await merge('accounts', plan.accountOpeningBalanceRows, 'id',
+    'correcting opening balances', 'accounts', 0.14, 0.01, 'Correcting opening balances');
 
   await insert('categories', plan.categories, 'categories', 0.15, 0.1);
   await insert('transactions', plan.transactions, 'transactions', 0.25, 0.37, IMPORT_PROVENANCE_CONFLICT);
@@ -829,7 +1051,14 @@ export async function executeCloudPlan(
   await insert('transaction_splits', plan.splits, 'splits', 0.62, 0.16);
 
   await merge('transactions', plan.linkRows, IMPORT_PROVENANCE_CONFLICT,
-    'linking transfers', 'links', 0.78, 0.2, 'Linking transfers');
+    'linking transfers', 'links', 0.78, 0.16, 'Linking transfers');
+
+  // The feed rows that took over a suppressed transfer leg. Last, because each
+  // one points at rows the passes above have just written — and keyed on the
+  // primary key, because a feed row carries no import provenance to conflict on.
+  await merge('transactions', plan.feedPromotionRows, 'id',
+    'promoting bank-feed rows into transfers', 'links', 0.94, 0.04,
+    'Promoting bank-feed rows into transfers');
 
   onProgress?.({ phase: 'done', fraction: 1, message: 'Import complete.' });
 }

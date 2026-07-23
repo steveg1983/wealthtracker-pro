@@ -90,6 +90,7 @@ const baseline: PlanBaseline = {
   deleteSplitIds: ['s1'],
   feedTransactionIds: ['f1', 'f2'],
   suppressedSourceIds: ['mny-txn-2'],
+  transferHandovers: ['mny-txn-2>f1'],
   expectedImportCount: 3,
   expectedNetCount: 5,
 };
@@ -256,7 +257,11 @@ describe('mapFeedRowsToSeedNamespace', () => {
     const { rows, unmapped, duplicateNames } = mapFeedRowsToSeedNamespace(seedAccounts, dbAccounts, [
       { id: 'f1', account_id: 'uuid-a', date: '2026-05-01', amount: '-9.99', description: 'SHOP' },
     ]);
-    expect(rows).toEqual([{ id: 'f1', accountId: 'mny-acct-1', date: '2026-05-01', amount: '-9.99', description: 'SHOP' }]);
+    expect(rows).toEqual([{
+      id: 'f1', accountId: 'mny-acct-1', date: '2026-05-01', amount: '-9.99', description: 'SHOP',
+      // Carried through for the handover gates, defaulted when the read omits them.
+      isSplit: false, linkedTransferId: null,
+    }]);
     expect(unmapped).toEqual([]);
     expect(duplicateNames).toEqual([]);
   });

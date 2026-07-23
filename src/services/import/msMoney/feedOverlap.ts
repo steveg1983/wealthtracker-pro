@@ -29,14 +29,34 @@
  * bank's raw strings ("AMZNMktplace ..."), Money's are payee names ("Amazon");
  * requiring them to agree would miss most true duplicates.
  *
- * WHAT IS NEVER SUPPRESSED
- * ------------------------
- *  - transfers: dropping one leg would strand its counterpart and break the
- *    linked pair. Overlapping transfer legs are reported, not removed.
+ * TRANSFER LEGS: HANDOVER, NOT EXEMPTION
+ * --------------------------------------
+ * A transfer leg used to be exempt outright, on the reasoning that dropping one
+ * leg strands its counterpart. In a fed account that reasoning left the LARGEST
+ * rows in the overlap window — card payments, standing transfers — duplicated,
+ * because the feed reports them exactly like any other movement.
+ *
+ * So a transfer leg is not exempt; it is HANDED OVER. When the feed already
+ * covers it, the Money leg is suppressed and the feed row TAKES ITS PLACE in
+ * the transfer: typed `transfer`, carrying the leg's `transfer_account_id` and
+ * transfer category, linked to the counterpart — and the counterpart's own link
+ * is re-pointed at the feed row. Nothing is stranded, and the payment exists
+ * exactly once.
+ *
+ * The handover NEVER widens the match. It fires only on a pairing that already
+ * qualifies — same account, exact pence, within tolerance, strictly 1:1 — and
+ * only after every ordinary row has had its chance to claim that feed row
+ * (see the two passes below). It is refused, and the leg kept as before, when
+ * the feed row could not honestly become a transfer: a split parent (the
+ * database's own trigger forbids re-typing one) or a row already half of some
+ * other linked pair.
+ *
+ * WHAT IS STILL NEVER SUPPRESSED
+ * ------------------------------
  *  - split parents: their category breakdown lives in child rows the feed has
  *    no equivalent for; dropping the parent would orphan the split.
- * Both exclusions are counted in the result so the residual is visible rather
- * than silent.
+ *  - transfer legs whose handover was refused, for the reasons above.
+ * Both are counted in the result so the residual is visible rather than silent.
  *
  * WHY THE FEED ROW IS THE ONE KEPT
  * --------------------------------
@@ -58,6 +78,17 @@ export interface ExistingFeedTransaction {
   /** Signed amount; parsed through Decimal, never float. */
   amount: string | number;
   description: string;
+  /**
+   * Is this feed row a split parent? One cannot be re-typed as a transfer —
+   * `protect_split_transaction_fields` (migration 20260713100000) rejects it —
+   * so it is never handed a transfer leg. Omitted ⇒ not a split.
+   */
+  isSplit?: boolean;
+  /**
+   * Is this feed row already one side of a linked transfer? Then it belongs to
+   * that pair and is never re-pointed at another. Omitted ⇒ unlinked.
+   */
+  linkedTransferId?: string | null;
 }
 
 export interface FeedOverlapOptions {
@@ -70,9 +101,37 @@ export interface FeedOverlapMatch {
   importSourceId: string;
   /** Database id of the feed row that covers it. */
   feedTransactionId: string;
+  /** The account both sides share, in the Money side's namespace. */
+  accountId: string;
   /** Whole days between the two dates (0 = same day). */
   dayGap: number;
   /** 0–1 token overlap of the two descriptions; ranking only. */
+  descriptionSimilarity: number;
+  /** True when the suppressed row was a transfer leg (see `transferHandovers`). */
+  isTransferHandover: boolean;
+}
+
+/**
+ * A suppressed transfer leg and the feed row that inherits its place in the
+ * transfer. Everything the importer needs to rebuild the pair without the leg:
+ * which account the transfer faced, and which row (or split line) the other
+ * side is — still in the SEED's namespace, because the importer is the only
+ * thing that knows what database ids those become.
+ */
+export interface TransferHandover {
+  /** `mny-txn-<htrn>` of the Money transfer leg being suppressed. */
+  importSourceId: string;
+  /** Database id of the feed row that takes its place. */
+  feedTransactionId: string;
+  /** The account the leg sits in, in the Money side's namespace. */
+  accountId: string;
+  /** The account on the OTHER side of the transfer (seed namespace), if any. */
+  transferAccountId: string | null;
+  /** The other leg (seed namespace), if the pair was linked. */
+  counterpartSourceId: string | null;
+  /** The split LINE the other side is, when the counterpart is a split leg. */
+  counterpartSplitSourceId: string | null;
+  dayGap: number;
   descriptionSimilarity: number;
 }
 
@@ -85,6 +144,13 @@ export interface FeedOverlapResult {
   unmatchedFeedIds: string[];
   /** Overlaps found but deliberately left in place, by reason. */
   keptDespiteOverlap: { transfers: number; splitParents: number };
+  /**
+   * The subset of `matches` that suppressed a TRANSFER leg, with the link
+   * columns the feed row must inherit. Every entry's `importSourceId` is in
+   * `suppressedSourceIds`; acting on them is not optional, because the
+   * counterpart's link now points at a row that will not be imported.
+   */
+  transferHandovers: TransferHandover[];
 }
 
 const DEFAULT_TOLERANCE_DAYS = 3;
@@ -120,8 +186,47 @@ export function descriptionSimilarity(a: string, b: string): number {
 
 interface Candidate {
   sourceId: string;
+  accountId: string;
   day: number;
   description: string;
+}
+
+interface TransferCandidate extends Candidate {
+  transferAccountId: string | null;
+  counterpartSourceId: string | null;
+  counterpartSplitSourceId: string | null;
+}
+
+/** Append into a bucketed index without re-reading it twice. */
+function push<T>(index: Map<string, T[]>, key: string, entry: T): void {
+  const list = index.get(key);
+  if (list) list.push(entry);
+  else index.set(key, [entry]);
+}
+
+/** The best unclaimed candidate for a feed row: nearest date, description breaks ties. */
+function pickBest<T extends Candidate>(
+  pool: readonly T[],
+  claimed: ReadonlySet<string>,
+  feedDay: number,
+  feedDescription: string,
+  tolerance: number
+): { candidate: T; gap: number; similarity: number } | null {
+  let best: T | null = null;
+  let bestGap = Number.POSITIVE_INFINITY;
+  let bestSimilarity = -1;
+  for (const c of pool) {
+    if (claimed.has(c.sourceId)) continue;
+    const gap = Math.abs(c.day - feedDay) / MS_PER_DAY;
+    if (gap > tolerance) continue;
+    const similarity = descriptionSimilarity(c.description, feedDescription);
+    if (gap < bestGap || (gap === bestGap && similarity > bestSimilarity)) {
+      best = c;
+      bestGap = gap;
+      bestSimilarity = similarity;
+    }
+  }
+  return best ? { candidate: best, gap: bestGap, similarity: bestSimilarity } : null;
 }
 
 /**
@@ -130,6 +235,17 @@ interface Candidate {
  * `transactions` are the app-shaped rows from `transformMsMoneyExport`;
  * `feedRows` are the user's existing bank-fed transactions with their account
  * ids translated into the import's namespace. Neither input is mutated.
+ *
+ * Two passes, in this order and for this reason:
+ *
+ *   1. ORDINARY rows. Unchanged, and it runs first so that adding the second
+ *      pass cannot move a single pairing it used to make: a feed row only
+ *      reaches the transfer pool once nothing ordinary wanted it.
+ *   2. TRANSFER legs, over the feed rows pass 1 left unclaimed — the very rows
+ *      that used to be written off as "an overlap we chose to keep". Matching
+ *      is identical (same account, exact pence, ≤ tolerance, 1:1 against the
+ *      same `claimed` set); the difference is what happens afterwards, which is
+ *      a handover rather than a plain drop.
  */
 export function findFeedOverlap(
   transactions: readonly Transaction[],
@@ -138,78 +254,105 @@ export function findFeedOverlap(
 ): FeedOverlapResult {
   const tolerance = Math.max(0, options.dateToleranceDays ?? DEFAULT_TOLERANCE_DAYS);
 
-  // Index the importable Money rows by account + exact pence. Transfers and
-  // split parents are indexed separately: they are never suppressed, but an
-  // overlap involving one is still worth reporting.
+  // Index the Money rows by account + exact pence, in three pools: ordinary
+  // rows (suppressible outright), transfer legs (suppressible only by handover)
+  // and split parents (never suppressed at all). A transfer that is ALSO a
+  // split parent counts as a split parent — the stricter rule wins.
   const byKey = new Map<string, Candidate[]>();
-  const excludedByKey = new Map<string, (Candidate & { kind: 'transfer' | 'splitParent' })[]>();
+  const transferByKey = new Map<string, TransferCandidate[]>();
+  const splitParentByKey = new Map<string, Candidate[]>();
   const kept = { transfers: 0, splitParents: 0 };
 
   for (const t of transactions) {
     const key = `${t.accountId}|${pence(t.amount)}`;
-    const entry: Candidate = { sourceId: t.id, day: dayOf(t.date), description: t.description ?? '' };
-    if (t.type === 'transfer' || t.isSplit === true) {
-      const kind = t.type === 'transfer' ? 'transfer' : 'splitParent';
-      const list = excludedByKey.get(key);
-      if (list) list.push({ ...entry, kind });
-      else excludedByKey.set(key, [{ ...entry, kind }]);
-      continue;
-    }
-    const list = byKey.get(key);
-    if (list) list.push(entry);
-    else byKey.set(key, [entry]);
+    const entry: Candidate = {
+      sourceId: t.id, accountId: t.accountId, day: dayOf(t.date), description: t.description ?? '',
+    };
+    if (t.isSplit === true) push(splitParentByKey, key, entry);
+    else if (t.type === 'transfer') {
+      push(transferByKey, key, {
+        ...entry,
+        transferAccountId: t.transferAccountId ?? null,
+        counterpartSourceId: t.linkedTransferId ?? null,
+        counterpartSplitSourceId: t.linkedTransferSplitId ?? null,
+      });
+    } else push(byKey, key, entry);
   }
 
   const matches: FeedOverlapMatch[] = [];
+  const transferHandovers: TransferHandover[] = [];
   const claimed = new Set<string>();
-  const unmatchedFeedIds: string[] = [];
+  const matchedFeedIds = new Set<string>();
 
   // Oldest feed row first, so a run of same-amount rows pairs off in order.
   const ordered = [...feedRows].sort((a, b) => dayOf(a.date) - dayOf(b.date));
+  const keyOf = (feed: ExistingFeedTransaction): string => `${feed.accountId}|${pence(feed.amount)}`;
 
+  // ── Pass 1: ordinary rows ──────────────────────────────────────────────────
   for (const feed of ordered) {
-    const key = `${feed.accountId}|${pence(feed.amount)}`;
-    const feedDay = dayOf(feed.date);
+    const hit = pickBest(byKey.get(keyOf(feed)) ?? [], claimed, dayOf(feed.date), feed.description, tolerance);
+    if (!hit) continue;
+    claimed.add(hit.candidate.sourceId);
+    matchedFeedIds.add(feed.id);
+    matches.push({
+      importSourceId: hit.candidate.sourceId,
+      feedTransactionId: feed.id,
+      accountId: hit.candidate.accountId,
+      dayGap: hit.gap,
+      descriptionSimilarity: hit.similarity,
+      isTransferHandover: false,
+    });
+  }
 
-    const pool = (byKey.get(key) ?? []).filter(c => !claimed.has(c.sourceId));
-    let best: Candidate | null = null;
-    let bestGap = Number.POSITIVE_INFINITY;
-    let bestSimilarity = -1;
+  // ── Pass 2: transfer legs, handed over to the feed row ─────────────────────
+  for (const feed of ordered) {
+    if (matchedFeedIds.has(feed.id)) continue;
+    const hit = pickBest(transferByKey.get(keyOf(feed)) ?? [], claimed, dayOf(feed.date), feed.description, tolerance);
+    if (!hit) continue;
 
-    for (const c of pool) {
-      const gap = Math.abs(c.day - feedDay) / MS_PER_DAY;
-      if (gap > tolerance) continue;
-      const similarity = descriptionSimilarity(c.description, feed.description);
-      // Nearest date wins; description breaks ties.
-      if (gap < bestGap || (gap === bestGap && similarity > bestSimilarity)) {
-        best = c;
-        bestGap = gap;
-        bestSimilarity = similarity;
-      }
-    }
-
-    if (!best) {
-      unmatchedFeedIds.push(feed.id);
-      // A transfer leg or split parent within the same window and amount is an
-      // overlap we deliberately chose to keep — count it once, so the residual
-      // is visible instead of silent.
-      const excludedMatch = (excludedByKey.get(key) ?? []).find(
-        c => !claimed.has(c.sourceId) && Math.abs(c.day - feedDay) / MS_PER_DAY <= tolerance
-      );
-      if (excludedMatch) {
-        claimed.add(excludedMatch.sourceId);
-        if (excludedMatch.kind === 'transfer') kept.transfers++; else kept.splitParents++;
-      }
+    // The pairing qualifies. Can the feed row honestly BECOME the transfer?
+    // A split parent cannot be re-typed (the database's trigger refuses it) and
+    // a row already half of another pair is not ours to re-point. Either way the
+    // leg stays exactly as it was before handovers existed, and is counted.
+    if (feed.isSplit === true || (feed.linkedTransferId ?? null) !== null) {
+      claimed.add(hit.candidate.sourceId);
+      kept.transfers++;
       continue;
     }
 
-    claimed.add(best.sourceId);
+    claimed.add(hit.candidate.sourceId);
+    matchedFeedIds.add(feed.id);
     matches.push({
-      importSourceId: best.sourceId,
+      importSourceId: hit.candidate.sourceId,
       feedTransactionId: feed.id,
-      dayGap: bestGap,
-      descriptionSimilarity: bestSimilarity,
+      accountId: hit.candidate.accountId,
+      dayGap: hit.gap,
+      descriptionSimilarity: hit.similarity,
+      isTransferHandover: true,
     });
+    transferHandovers.push({
+      importSourceId: hit.candidate.sourceId,
+      feedTransactionId: feed.id,
+      accountId: hit.candidate.accountId,
+      transferAccountId: hit.candidate.transferAccountId,
+      counterpartSourceId: hit.candidate.counterpartSourceId,
+      counterpartSplitSourceId: hit.candidate.counterpartSplitSourceId,
+      dayGap: hit.gap,
+      descriptionSimilarity: hit.similarity,
+    });
+  }
+
+  // ── Pass 3: bookkeeping for the overlaps left standing ─────────────────────
+  // A split parent the feed also covers is a real overlap that will not be
+  // removed. Counting it keeps the residual visible instead of silent.
+  const unmatchedFeedIds: string[] = [];
+  for (const feed of ordered) {
+    if (matchedFeedIds.has(feed.id)) continue;
+    unmatchedFeedIds.push(feed.id);
+    const hit = pickBest(splitParentByKey.get(keyOf(feed)) ?? [], claimed, dayOf(feed.date), feed.description, tolerance);
+    if (!hit) continue;
+    claimed.add(hit.candidate.sourceId);
+    kept.splitParents++;
   }
 
   return {
@@ -217,5 +360,6 @@ export function findFeedOverlap(
     suppressedSourceIds: new Set(matches.map(m => m.importSourceId)),
     unmatchedFeedIds,
     keptDespiteOverlap: kept,
+    transferHandovers,
   };
 }

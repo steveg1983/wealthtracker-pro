@@ -6,6 +6,7 @@ import {
   type ExistingCategoryRow, type ExistingAccountRow, type CloudPlan,
   type CloudWriteClient, type WriteOutcome,
 } from './msMoneyImport';
+import type { TransferHandover } from './feedOverlap';
 import type { MsMoneyImportResult } from './transform';
 
 function sampleResult(): MsMoneyImportResult {
@@ -52,6 +53,8 @@ describe('executeCloudPlan write path', () => {
     accounts: [], accountParents: [], categories: [], transactions: [],
     transferLinks: [], splits: [], splitLegPins: [],
     accountParentRows: [], linkRows: [],
+    feedPromotions: [], feedPromotionRows: [], unpromotableHandovers: [],
+    openingBalanceMismatches: [], accountOpeningBalanceRows: [],
     skippedExisting: 0, skippedFeedOverlap: 0, skippedExistingAccounts: 0,
     skippedExistingCategories: 0, categoriesWithUnresolvedParent: 0,
     ...over,
@@ -60,8 +63,8 @@ describe('executeCloudPlan write path', () => {
   /** Records every write, and answers with whatever the script dictates. */
   const clientRecording = (
     answers: WriteOutcome[] = []
-  ): { client: CloudWriteClient; calls: { table: string; rows: number; merge?: boolean }[] } => {
-    const calls: { table: string; rows: number; merge?: boolean }[] = [];
+  ): { client: CloudWriteClient; calls: { table: string; rows: number; merge?: boolean; onConflict?: string }[] } => {
+    const calls: { table: string; rows: number; merge?: boolean; onConflict?: string }[] = [];
     let i = 0;
     const next = (): WriteOutcome => answers[i++] ?? { error: null, status: 201 };
     const client: CloudWriteClient = {
@@ -71,7 +74,7 @@ describe('executeCloudPlan write path', () => {
           return Promise.resolve(next());
         },
         upsert: (rows: Record<string, unknown>[], options: { onConflict: string; ignoreDuplicates: boolean }) => {
-          calls.push({ table, rows: rows.length, merge: !options.ignoreDuplicates });
+          calls.push({ table, rows: rows.length, merge: !options.ignoreDuplicates, onConflict: options.onConflict });
           return Promise.resolve(next());
         },
       }),
@@ -102,6 +105,36 @@ describe('executeCloudPlan write path', () => {
     await executeCloudPlan(emptyPlan({ transactions: [{ id: 't1' }] }), client);
     // The insert happens; no second pass follows it.
     expect(calls.filter(c => c.merge)).toHaveLength(0);
+  });
+
+  it('promotes bank-feed rows through the SAME batched merge, keyed on the primary key', async () => {
+    // A feed row carries no import provenance, so the provenance conflict
+    // target cannot address it — and there are only ever a handful, but they
+    // still go through the batched path rather than a request each.
+    const feedPromotionRows = Array.from({ length: IMPORT_BATCH_SIZE + 3 }, (_, n) => ({
+      id: `feed-${n}`, user_id: 'u1', account_id: 'a1', amount: -1, date: '2026-01-01',
+      type: 'transfer', linked_transfer_id: `txn-${n}`,
+    }));
+    const { client, calls } = clientRecording();
+
+    await executeCloudPlan(emptyPlan({ feedPromotionRows }), client);
+
+    const promotionCalls = calls.filter(c => c.table === 'transactions');
+    expect(promotionCalls.map(c => c.rows)).toEqual([IMPORT_BATCH_SIZE, 3]);
+    expect(promotionCalls.every(c => c.merge && c.onConflict === 'id')).toBe(true);
+  });
+
+  it('writes an opening-balance correction only when the plan carries one', async () => {
+    const bare = clientRecording();
+    await executeCloudPlan(emptyPlan({ accounts: [{ id: 'a1' }] }), bare.client);
+    expect(bare.calls.filter(c => c.table === 'accounts' && c.merge)).toHaveLength(0);
+
+    const rebasing = clientRecording();
+    await executeCloudPlan(
+      emptyPlan({ accountOpeningBalanceRows: [{ id: 'a1', user_id: 'u1', name: 'A', initial_balance: 0 }] }),
+      rebasing.client
+    );
+    expect(rebasing.calls).toEqual([{ table: 'accounts', rows: 1, merge: true, onConflict: 'id' }]);
   });
 
   it('retries a transient failure and then succeeds', async () => {
@@ -467,6 +500,248 @@ describe('planCloudImport — bank-feed overlap suppression', () => {
     // No orphaned split line pointing at a row that was never written.
     expect(plan.splits).toHaveLength(0);
     expect(plan.skippedFeedOverlap).toBe(1);
+  });
+});
+
+// ── Transfer-leg handover ────────────────────────────────────────────────────
+// The two real shapes, on the sample's own transfer pair (200 in `Current`
+// ⇄ 201 in `Savings`): one leg fed, and both legs fed. All ids invented.
+
+/** The id the plan gave a freshly-inserted account / category, by name. */
+const idOfAccount = (plan: CloudPlan, name: string): string =>
+  String(plan.accounts.find(a => a.name === name)?.id);
+const idOfCategory = (plan: CloudPlan, name: string): string =>
+  String(plan.categories.find(c => c.name === name)?.id);
+
+describe('planCloudImport — transfer-leg handover', () => {
+  /** A complete `transactions` row as `select *` returns it. */
+  const feedRow = (over: Record<string, unknown>): Record<string, unknown> => ({
+    id: 'feed-out', user_id: 'user-abc', account_id: 'db-acct-1', description: 'CARD PAYMENT',
+    amount: -30, type: 'expense', date: '2020-02-02', category: '', notes: null,
+    is_cleared: true, is_split: false, transfer_account_id: null, linked_transfer_id: null,
+    linked_transfer_split_id: null, external_transaction_id: 'bank-ref-1',
+    import_source: null, import_source_id: null,
+    ...over,
+  });
+
+  const handover = (over: Partial<TransferHandover> = {}): TransferHandover => ({
+    importSourceId: 'mny-txn-200',
+    feedTransactionId: 'feed-out',
+    accountId: 'mny-acct-1',
+    transferAccountId: 'mny-acct-2',
+    counterpartSourceId: 'mny-txn-201',
+    counterpartSplitSourceId: null,
+    dayGap: 0,
+    descriptionSimilarity: 0,
+    ...over,
+  });
+
+  it('promotes the feed row into the transfer and re-points the surviving counterpart', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-200']),
+      transferHandovers: [handover()],
+      feedTransactionRowsById: new Map([['feed-out', feedRow({})]]),
+    });
+
+    // The Money leg is gone…
+    expect(plan.transactions.map(t => t.import_source_id)).not.toContain('mny-txn-200');
+    expect(plan.unpromotableHandovers).toEqual([]);
+
+    // …and the feed row is the transfer now.
+    expect(plan.feedPromotions).toHaveLength(1);
+    const promotion = plan.feedPromotions[0];
+    expect(promotion.id).toBe('feed-out');
+    expect(promotion.transfer_account_id).toBe(idOfAccount(plan, 'Savings'));
+    const counterpartId = plan.transactions.find(t => t.import_source_id === 'mny-txn-201')?.id;
+    expect(promotion.linked_transfer_id).toBe(counterpartId);
+
+    const [row] = plan.feedPromotionRows;
+    expect(row).toMatchObject({
+      id: 'feed-out',
+      type: 'transfer',
+      linked_transfer_id: counterpartId,
+      // Untouched: this is still the bank's row, with the bank's own identity.
+      external_transaction_id: 'bank-ref-1',
+      amount: -30,
+      is_split: false,
+    });
+    // It files under the leg's own To/From category, like any other transfer.
+    expect(row.category).toBe(idOfCategory(plan, 'To/From Savings'));
+
+    // The surviving counterpart points at the FEED row, not at a row that will
+    // never exist — the whole reason a handover is not just a suppression.
+    const counterpartLink = plan.linkRows.find(r => r.import_source_id === 'mny-txn-201');
+    expect(counterpartLink?.linked_transfer_id).toBe('feed-out');
+    expect(plan.transferLinks).toContainEqual({ id: counterpartId, linked_transfer_id: 'feed-out' });
+  });
+
+  it('re-points a split LINE that pointed at the suppressed leg', () => {
+    const withSplitLeg = sampleResult();
+    withSplitLeg.transactionSplits[0] = {
+      ...withSplitLeg.transactionSplits[0],
+      linkedTransferId: 'mny-txn-200',
+      transferAccountId: 'mny-acct-1',
+    };
+    let n = 0;
+    const plan = planCloudImport(withSplitLeg, 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-200']),
+      transferHandovers: [handover()],
+      feedTransactionRowsById: new Map([['feed-out', feedRow({})]]),
+    });
+    // Without the handover this would be NULL — the line would quietly stop
+    // being half of a transfer.
+    expect(plan.splits[0].linked_transfer_id).toBe('feed-out');
+  });
+
+  it('links the two feed rows to each other when both legs are fed', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-200', 'mny-txn-201']),
+      transferHandovers: [
+        handover(),
+        handover({
+          importSourceId: 'mny-txn-201', feedTransactionId: 'feed-in',
+          accountId: 'mny-acct-2', transferAccountId: 'mny-acct-1',
+          counterpartSourceId: 'mny-txn-200', counterpartSplitSourceId: 'mny-split-300-1',
+        }),
+      ],
+      feedTransactionRowsById: new Map([
+        ['feed-out', feedRow({})],
+        ['feed-in', feedRow({ id: 'feed-in', account_id: 'db-acct-2', amount: 30, type: 'income', external_transaction_id: 'bank-ref-2' })],
+      ]),
+    });
+
+    expect(plan.transactions.map(t => t.import_source_id)).toEqual(['mny-txn-100', 'mny-txn-300']);
+    const byId = new Map(plan.feedPromotions.map(p => [p.id, p]));
+    expect(byId.get('feed-out')?.linked_transfer_id).toBe('feed-in');
+    expect(byId.get('feed-in')?.linked_transfer_id).toBe('feed-out');
+    // The far leg was pinned to a split LINE; that pin moves across too.
+    expect(byId.get('feed-in')?.linked_transfer_split_id).toBe(plan.splits[0].id);
+    expect(plan.feedPromotionRows).toHaveLength(2);
+  });
+
+  it('writes nothing when the feed row is already the transfer (a second run)', () => {
+    let n = 0;
+    const first = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-200']),
+      transferHandovers: [handover()],
+      feedTransactionRowsById: new Map([['feed-out', feedRow({})]]),
+    });
+    const [written] = first.feedPromotionRows;
+
+    // Replay against the database exactly as that first run left it: the same
+    // accounts, the same categories, the same rows, the same links.
+    const existing = new Map(first.transactions.map(t => [String(t.import_source_id), String(t.id)]));
+    const counterpartId = existing.get('mny-txn-201');
+    let m = 0;
+    const second = planCloudImport(sampleResult(), 'user-abc', () => `again-${m++}`, {
+      suppressedSourceIds: new Set(['mny-txn-200']),
+      transferHandovers: [handover()],
+      feedTransactionRowsById: new Map([['feed-out', written]]),
+      existingBySourceId: existing,
+      existingAccounts: first.accounts.map(a => ({ id: String(a.id), name: String(a.name) })),
+      existingCategories: first.categories.map(c => ({
+        id: String(c.id), name: String(c.name), type: String(c.type), level: String(c.level),
+        parent_id: c.parent_id == null ? null : String(c.parent_id), is_system: c.is_system === true,
+      })),
+      existingTransactionLinks: new Map([
+        ['mny-txn-201', { linkedTransferId: counterpartId ? 'feed-out' : null, linkedTransferSplitId: null }],
+      ]),
+    });
+
+    expect(second.transactions).toEqual([]);
+    expect(second.accounts).toEqual([]);
+    expect(second.categories).toEqual([]);
+    expect(second.feedPromotions).toHaveLength(1);       // still known…
+    expect(second.feedPromotionRows).toEqual([]);        // …but nothing to write
+    expect(second.linkRows.map(r => r.import_source_id)).not.toContain('mny-txn-201');
+  });
+
+  it('imports the leg rather than dropping it when the feed row was not supplied', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      suppressedSourceIds: new Set(['mny-txn-200']),
+      transferHandovers: [handover()],
+      // …and no feedTransactionRowsById at all.
+    });
+    // Losing a real transfer is worse than leaving a duplicate: the leg goes in.
+    expect(plan.transactions.map(t => t.import_source_id)).toContain('mny-txn-200');
+    expect(plan.unpromotableHandovers.map(h => h.importSourceId)).toEqual(['mny-txn-200']);
+    expect(plan.feedPromotionRows).toEqual([]);
+    expect(plan.skippedFeedOverlap).toBe(0);
+  });
+
+  it('ignores a handover for a row that is not being suppressed', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      transferHandovers: [handover()],
+      feedTransactionRowsById: new Map([['feed-out', feedRow({})]]),
+    });
+    expect(plan.transactions.map(t => t.import_source_id)).toContain('mny-txn-200');
+    expect(plan.feedPromotions).toEqual([]);
+    expect(plan.unpromotableHandovers).toEqual([]);
+  });
+});
+
+describe('planCloudImport — opening balances on reused accounts', () => {
+  const reused = (initial: number | null): ExistingAccountRow[] => [
+    { id: 'db-acct-1', name: 'Current', initial_balance: initial },
+  ];
+  /** The file says 0 for every sample account; this row says otherwise. */
+  const completeAccountRow = { id: 'db-acct-1', user_id: 'user-abc', name: 'Current',
+    type: 'checking', balance: -26727.29, initial_balance: -26727.29, currency: 'GBP',
+    is_active: true, notes: null, parent_account_id: null };
+
+  it('reports a reused account whose opening balance disagrees with the file', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingAccounts: reused(-26727.29),
+    });
+    expect(plan.skippedExistingAccounts).toBe(1);
+    expect(plan.openingBalanceMismatches).toEqual([{
+      accountId: 'db-acct-1', accountName: 'Current',
+      fileValue: '0.00', storedValue: '-26727.29', rebased: false,
+    }]);
+    // Reported, never silently corrected.
+    expect(plan.accountOpeningBalanceRows).toEqual([]);
+  });
+
+  it('corrects it only when asked, and only with the complete row to write back', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingAccounts: reused(-26727.29),
+      existingAccountRowsById: new Map([['db-acct-1', completeAccountRow]]),
+      rebaseOpeningBalances: true,
+    });
+    expect(plan.openingBalanceMismatches[0].rebased).toBe(true);
+    expect(plan.accountOpeningBalanceRows).toEqual([{
+      ...completeAccountRow,
+      initial_balance: 0,
+    }]);
+    // The stored balance is NOT touched — that is a separate repair.
+    expect(plan.accountOpeningBalanceRows[0].balance).toBe(-26727.29);
+  });
+
+  it('says nothing when the two agree, or when no opening balance was offered', () => {
+    let n = 0;
+    expect(planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingAccounts: reused(0),
+      rebaseOpeningBalances: true,
+    }).openingBalanceMismatches).toEqual([]);
+    expect(planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingAccounts: [{ id: 'db-acct-1', name: 'Current' }],
+    }).openingBalanceMismatches).toEqual([]);
+  });
+
+  it('asks for a rebase but cannot write one without the complete row', () => {
+    let n = 0;
+    const plan = planCloudImport(sampleResult(), 'user-abc', () => `new-${n++}`, {
+      existingAccounts: reused(-26727.29),
+      rebaseOpeningBalances: true,
+    });
+    expect(plan.openingBalanceMismatches[0].rebased).toBe(false);
+    expect(plan.accountOpeningBalanceRows).toEqual([]);
   });
 });
 

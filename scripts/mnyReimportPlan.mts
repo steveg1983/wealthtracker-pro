@@ -91,6 +91,7 @@ import Decimal from 'decimal.js';
 import { findFeedOverlap, type ExistingFeedTransaction, type FeedOverlapResult } from '../src/services/import/msMoney/feedOverlap.ts';
 import {
   planCloudImport, executeCloudPlan, fetchExistingImportState, MS_MONEY_IMPORT_SOURCE,
+  type CloudPlan,
 } from '../src/services/import/msMoney/msMoneyImport.ts';
 import {
   splitPopulations, findFeedRowsInDeleteSet, compareToBaseline, verifyBackupContents,
@@ -115,10 +116,21 @@ const seedPath = flag('seed');
 const planPath = flag('plan');
 const envPath = flag('env') ?? '.env.local';
 const toleranceDays = Number(flag('tolerance') ?? 3);
+/**
+ * Correct a reused account's `initial_balance` to the file's value.
+ *
+ * OPT-IN and never implied. `planCloudImport` reuses an account by name and
+ * then leaves it out of the insert, so its opening balance survives every
+ * re-import untouched — including one somebody fabricated by "repairing" a
+ * balance discrepancy into it. Without this flag the disagreement is reported
+ * and the apply pass REFUSES to call itself successful; with it, the file wins.
+ */
+const REBASE_OPENING_BALANCES = args.includes('--rebase-opening-balances');
 
 const USAGE = 'usage: tsx scripts/mnyReimportPlan.mts --out <dir outside the repo> ' +
   '[--seed seed.json] [--env .env.local] [--tolerance 3]\n' +
   '       …--apply --seed <seed.json> --plan <plan from the dry run> ' +
+  '[--rebase-opening-balances] ' +
   '(--i-understand-this-deletes-production-rows | --i-know-this-is-a-scratch-database)';
 
 // ── Where the run got to, for the message it prints if it dies ──────────────
@@ -326,6 +338,35 @@ interface LivePlan {
   hasProvenanceColumns: boolean;
 }
 
+/**
+ * Suppression BY ACCOUNT, with the transfer handovers called out separately.
+ *
+ * The totals hide the thing worth seeing: before handovers existed, the rows
+ * left behind in a fed account were the transfers — and the transfers are the
+ * biggest rows in the window. Per account, "233 suppressed (3 handed over)"
+ * says both that the window is covered and how much of it needed a handover.
+ */
+function suppressionByAccount(
+  overlap: FeedOverlapResult,
+  nameOf: (accountId: string) => string
+): string[] {
+  const totals = new Map<string, { suppressed: number; handovers: number }>();
+  for (const m of overlap.matches) {
+    const entry = totals.get(m.accountId) ?? { suppressed: 0, handovers: 0 };
+    entry.suppressed++;
+    if (m.isTransferHandover) entry.handovers++;
+    totals.set(m.accountId, entry);
+  }
+  return [...totals.entries()]
+    .sort((a, b) => b[1].suppressed - a[1].suppressed || a[0].localeCompare(b[0]))
+    .map(([id, e]) => `${nameOf(id)}: ${e.suppressed} suppressed` +
+      (e.handovers ? ` (${e.handovers} transfer leg${e.handovers === 1 ? '' : 's'} handed to the feed row)` : ''));
+}
+
+/** `sourceId>feedId`, the pairing the baseline compares — order-independent. */
+const handoverKeys = (overlap: FeedOverlapResult | null): string[] =>
+  (overlap?.transferHandovers ?? []).map(h => `${h.importSourceId}>${h.feedTransactionId}`).sort();
+
 async function computeLivePlan(seed: LoadedSeed | null): Promise<LivePlan> {
   const { data: users, error: uerr } = await sb.from('users').select('id, email');
   if (uerr || !users?.length) fail(`cannot read users: ${uerr?.message ?? 'none'}`);
@@ -424,20 +465,28 @@ async function computeLivePlan(seed: LoadedSeed | null): Promise<LivePlan> {
     date: t.date,
     amount: String(t.amount),
     description: t.description ?? '',
+    // Both are handover gates, not match gates: a split parent cannot be
+    // re-typed as a transfer, and a row already in a linked pair is not ours.
+    isSplit: t.is_split === true,
+    linkedTransferId: t.linked_transfer_id,
   }));
 
   const dbOverlap = findFeedOverlap(asImportShape, asFeedShape, { dateToleranceDays: toleranceDays });
+
+  const dbAccounts = await fetchAll<{ id: string; name: string }>('accounts', 'id,name', userId);
+  const dbAccountName = new Map(dbAccounts.map(a => [a.id, a.name]));
+  const seedAccountName = new Map((seed?.result.accounts ?? []).map(a => [a.id, a.name]));
 
   let seedOverlap: FeedOverlapResult | null = null;
   let unmappedFeedRows = 0;
   let duplicateAccountNames: string[] = [];
   if (seed) {
-    const dbAccounts = await fetchAll<{ id: string; name: string }>('accounts', 'id,name', userId);
     const mapped = mapFeedRowsToSeedNamespace(
       seed.result.accounts.map(a => ({ id: a.id, name: a.name })),
       dbAccounts,
       populations.feed.map(t => ({
         id: t.id, account_id: t.account_id, date: t.date, amount: t.amount, description: t.description,
+        is_split: t.is_split, linked_transfer_id: t.linked_transfer_id,
       }))
     );
     unmappedFeedRows = mapped.unmapped.length;
@@ -460,9 +509,24 @@ async function computeLivePlan(seed: LoadedSeed | null): Promise<LivePlan> {
   const strongDesc = dbOverlap.matches.filter(m => m.descriptionSimilarity > 0).length;
   console.log(`  match quality: ${sameDay}/${dbOverlap.matches.length} same-day, ` +
     `${strongDesc}/${dbOverlap.matches.length} with overlapping description text`);
+
+  const handoverRows = dbOverlap.transferHandovers
+    .map(h => suppressedById.get(h.importSourceId))
+    .filter((t): t is DbTxn => t != null);
+  const handoverValue = handoverRows.reduce((s, t) => s.plus(money(t.amount)), new Decimal(0));
+  console.log(`  transfer legs handed over to their feed row: ${dbOverlap.transferHandovers.length} ` +
+    `(${gbp(handoverValue)} gross) — the feed row becomes the transfer, the counterpart is re-linked to it`);
+  console.log('  measured in the DATABASE\'s namespace, by account:');
+  for (const line of suppressionByAccount(dbOverlap, id => dbAccountName.get(id) ?? id)) {
+    console.log(`    ${line}`);
+  }
+
   if (seedOverlap) {
     console.log(`  same measurement against the SEED itself: ${seedOverlap.matches.length} suppressed ` +
-      `(this is the number the re-import uses)`);
+      `(this is the number the re-import uses), ${seedOverlap.transferHandovers.length} handed over`);
+    for (const line of suppressionByAccount(seedOverlap, id => seedAccountName.get(id) ?? id)) {
+      console.log(`    ${line}`);
+    }
     if (seedOverlap.matches.length !== dbOverlap.matches.length) {
       console.log('  NOTE: the two measurements differ. That means the rows in the database are not row-for-row');
       console.log('        the rows in this seed (edited, partially imported, or a different export).');
@@ -535,9 +599,84 @@ function buildBaseline(plan: LivePlan, seed: LoadedSeed, counts: { importCount: 
     deleteSplitIds: plan.splitsUnderDelete.map(s => s.id),
     feedTransactionIds: plan.feedRows.map(t => t.id),
     suppressedSourceIds: [...(plan.seedOverlap?.suppressedSourceIds ?? new Set<string>())],
+    transferHandovers: handoverKeys(plan.seedOverlap),
     expectedImportCount: counts.importCount,
     expectedNetCount: counts.netCount,
   };
+}
+
+// ── The import plan itself, built identically in both modes ─────────────────
+
+/** Complete rows (`select *`) for a named set of ids. Batched to keep URLs sane. */
+async function fetchRowsByIds(table: string, ids: readonly string[]): Promise<Map<string, Record<string, unknown>>> {
+  const out = new Map<string, Record<string, unknown>>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = ids.slice(i, i + 100);
+    const { data, error } = await sb.from(table).select('*').in('id', batch);
+    if (error) fail(`reading ${table} rows: ${error.message}`);
+    for (const row of (data ?? []) as Record<string, unknown>[]) out.set(String(row.id), row);
+  }
+  return out;
+}
+
+/**
+ * Build the importer's plan — the same call in the dry run and in apply, so the
+ * numbers reviewed are the numbers executed.
+ *
+ * The two extra inputs are what make a transfer handover possible: the
+ * handovers themselves (which leg, which feed row), and the COMPLETE feed rows
+ * they name, because promoting one goes out through the batched whole-row merge.
+ * Reading the accounts whole does the same job for `--rebase-opening-balances`.
+ */
+async function buildImportPlan(
+  seed: LoadedSeed,
+  plan: LivePlan,
+  /**
+   * PREVIEW the plan apply would build AFTER its delete pass.
+   *
+   * The dry run necessarily reads a database that still holds every file row,
+   * so planning against it honestly yields "nothing to insert — it is all
+   * already there". Dropping the provenance the delete is about to remove is
+   * what makes the preview describe the run being previewed. Accounts and
+   * categories are NOT dropped: the delete does not touch them.
+   */
+  simulatePostDelete = false
+): Promise<CloudPlan> {
+  const suppressed = plan.seedOverlap?.suppressedSourceIds ?? new Set<string>();
+  const handovers = plan.seedOverlap?.transferHandovers ?? [];
+  const existing = await fetchExistingImportState(sb, plan.userId);
+  const feedTransactionRowsById = await fetchRowsByIds('transactions', handovers.map(h => h.feedTransactionId));
+  const existingAccountRowsById = await fetchRowsByIds(
+    'accounts', (existing.existingAccounts ?? []).map(a => a.id));
+  return planCloudImport(seed.result, plan.userId, randomUUID, {
+    ...existing,
+    ...(simulatePostDelete
+      ? { existingBySourceId: new Map<string, string>(), existingTransactionLinks: new Map() }
+      : {}),
+    suppressedSourceIds: suppressed,
+    transferHandovers: handovers,
+    feedTransactionRowsById,
+    existingAccountRowsById,
+    rebaseOpeningBalances: REBASE_OPENING_BALANCES,
+  });
+}
+
+/** The plan's opinion of the opening balances, printed identically in both modes. */
+function printOpeningBalances(importPlan: CloudPlan): void {
+  console.log('\nOPENING BALANCES on reused accounts');
+  if (!importPlan.openingBalanceMismatches.length) {
+    console.log('  every reused account\'s initial_balance already agrees with the file.');
+    return;
+  }
+  for (const m of importPlan.openingBalanceMismatches) {
+    console.log(`  ${m.accountName}: stored ${m.storedValue} → file ${m.fileValue}` +
+      (m.rebased ? '   [WILL BE CORRECTED]' : '   [left alone]'));
+  }
+  if (!REBASE_OPENING_BALANCES) {
+    console.log('  These are NOT corrected by default — a reused account may hold a figure the user meant.');
+    console.log('  Re-run with --rebase-opening-balances to make the file authoritative. Until then the');
+    console.log('  apply pass will refuse to report success while any of them disagrees.');
+  }
 }
 
 const stamp = (): string => new Date().toISOString().replace(/[:.]/g, '-');
@@ -548,6 +687,27 @@ async function dryRun(seed: LoadedSeed | null): Promise<void> {
   const plan = await computeLivePlan(seed);
   if (!plan.toDelete.length) { console.log('\nNothing to re-import — no file-import rows found.'); return; }
   const counts = printPlan(plan, seed);
+
+  // Build the REAL import plan, read-only, so the numbers about to be written
+  // into the baseline have already been through the importer once.
+  if (seed) {
+    const importPlan = await buildImportPlan(seed, plan, true);
+    console.log('\nIMPORTER PLAN (built read-only, as apply would build it once the delete has run)');
+    console.log(`  ${importPlan.transactions.length} transactions, ${importPlan.splits.length} split lines, ` +
+      `${importPlan.accounts.length} new accounts, ${importPlan.categories.length} new categories`);
+    console.log(`  ${importPlan.linkRows.length} transfer link rows, ` +
+      `${importPlan.feedPromotionRows.length} bank-feed rows promoted into transfers ` +
+      `(${importPlan.feedPromotions.length} handovers resolved)`);
+    if (importPlan.transactions.length !== counts.importCount) {
+      console.log(`  MISMATCH: the importer plans ${importPlan.transactions.length} inserts, this plan says ` +
+        `${counts.importCount}. Apply would refuse. Investigate before applying.`);
+    }
+    if (importPlan.unpromotableHandovers.length) {
+      console.log(`  ${importPlan.unpromotableHandovers.length} handover(s) could not be resolved to a feed row; ` +
+        'those legs would be imported as ordinary rows.');
+    }
+    printOpeningBalances(importPlan);
+  }
 
   mkdirSync(outResolved, { recursive: true });
   const planFile = join(outResolved, `mny-reimport-plan-${stamp()}.json`);
@@ -561,6 +721,7 @@ async function dryRun(seed: LoadedSeed | null): Promise<void> {
     wouldDeleteSplits: plan.splitsUnderDelete,
     feedOverlapMatches: plan.dbOverlap.matches,
     seedOverlapMatches: plan.seedOverlap?.matches ?? null,
+    seedTransferHandovers: plan.seedOverlap?.transferHandovers ?? null,
     feedRowsKept: plan.feedRows.map(t => t.id),
   }, null, 1));
   console.log(`\nPLAN + BACKUP of every row this plan would delete: ${planFile}`);
@@ -661,6 +822,7 @@ async function apply(seed: LoadedSeed): Promise<void> {
     deleteSplitIds: plan.splitsUnderDelete.map(s => s.id),
     feedTransactionIds: plan.feedRows.map(t => t.id),
     suppressedSourceIds: [...suppressed],
+    transferHandovers: handoverKeys(plan.seedOverlap),
     expectedImportCount: counts.importCount,
     expectedNetCount: counts.netCount,
   };
@@ -736,15 +898,18 @@ async function apply(seed: LoadedSeed): Promise<void> {
 
   // ── 4. Re-import through the real importer ────────────────────────────────
   console.log('\nRE-IMPORTING (planCloudImport + executeCloudPlan — the same path the app uses)');
-  const existing = await fetchExistingImportState(sb, plan.userId);
-  const importPlan = planCloudImport(seed.result, plan.userId, randomUUID, {
-    ...existing,
-    suppressedSourceIds: suppressed,
-  });
+  const importPlan = await buildImportPlan(seed, plan);
   console.log(`  plan: ${importPlan.transactions.length} transactions, ${importPlan.splits.length} split lines, ` +
     `${importPlan.accounts.length} new accounts, ${importPlan.categories.length} new categories`);
   console.log(`  skipped: ${importPlan.skippedFeedOverlap} covered by the feed, ${importPlan.skippedExisting} already present, ` +
     `${importPlan.skippedExistingAccounts} accounts / ${importPlan.skippedExistingCategories} categories reused`);
+  console.log(`  handovers: ${importPlan.feedPromotions.length} feed row(s) become the transfer leg they replace ` +
+    `(${importPlan.feedPromotionRows.length} need writing)`);
+  printOpeningBalances(importPlan);
+  if (importPlan.unpromotableHandovers.length) {
+    fail(`${importPlan.unpromotableHandovers.length} transfer handover(s) name a feed row that could not be read, ` +
+      'so their legs would be imported instead of handed over. The delete has already run; see the state report.');
+  }
   if (importPlan.categoriesWithUnresolvedParent > 0) {
     fail(`${importPlan.categoriesWithUnresolvedParent} categories have no resolvable parent — the seed tree is broken. ` +
       'The delete has already run; see the state report.');
@@ -825,6 +990,43 @@ async function apply(seed: LoadedSeed): Promise<void> {
   for (const t of after) seen.set(signature(t), (seen.get(signature(t)) ?? 0) + 1);
   const dupGroups = [...seen.values()].filter(n => n > 1).length;
   console.log(`  duplicate (account, date, pence, description) groups remaining: ${dupGroups}`);
+
+  // (f) every handed-over feed row really did become the transfer, and its
+  //     counterpart really does point back at it. A handover that half-happened
+  //     is worse than no handover: the payment exists once and links to nothing.
+  const afterById = new Map(after.map(t => [t.id, t]));
+  let promotionsOk = 0;
+  for (const promotion of importPlan.feedPromotions) {
+    const row = afterById.get(promotion.id);
+    if (!row) { failures.push(`promoted feed row ${promotion.id} is not in the database`); continue; }
+    if (row.external_transaction_id == null) {
+      failures.push(`promoted row ${promotion.id} lost its bank-feed id`);
+    }
+    if (row.type !== 'transfer') {
+      failures.push(`promoted row ${promotion.id} is typed '${row.type}', not 'transfer'`);
+    }
+    if ((row.linked_transfer_id ?? null) !== promotion.linked_transfer_id) {
+      failures.push(`promoted row ${promotion.id} is not linked to the counterpart the plan named`);
+      continue;
+    }
+    if (promotion.linked_transfer_id) {
+      const counterpart = afterById.get(promotion.linked_transfer_id);
+      if (!counterpart) failures.push(`the counterpart of promoted row ${promotion.id} is missing`);
+      else if (counterpart.linked_transfer_id !== promotion.id) {
+        failures.push(`the counterpart of promoted row ${promotion.id} points somewhere else`);
+      }
+    }
+    promotionsOk++;
+  }
+  console.log(`  transfer handovers: ${promotionsOk}/${importPlan.feedPromotions.length} feed rows are the ` +
+    'transfer leg they replaced, linked both ways');
+
+  // (g) a fabricated opening balance must not survive a "successful" re-import.
+  const unfixedOpeningBalances = importPlan.openingBalanceMismatches.filter(m => !m.rebased);
+  if (unfixedOpeningBalances.length) {
+    failures.push(`${unfixedOpeningBalances.length} reused account(s) still hold an initial_balance the file ` +
+      'disagrees with — re-run with --rebase-opening-balances, or correct them by hand');
+  }
 
   progress.verified = failures.length === 0;
 

@@ -16,8 +16,14 @@
  */
 import type { ExistingFeedTransaction } from './feedOverlap';
 
-/** Bumped whenever the plan file's shape changes; apply refuses an older one. */
-export const REIMPORT_PLAN_VERSION = 1;
+/**
+ * Bumped whenever the plan file's shape changes; apply refuses an older one.
+ *
+ * 2 — transfer-leg handover. A version-1 plan was taken when a transfer leg the
+ *     feed already covered was left in place; applying it now would import a
+ *     different set of rows from the one its operator reviewed.
+ */
+export const REIMPORT_PLAN_VERSION = 2;
 
 /** Ids per PostgREST request on the delete pass — small enough to keep the URL well under any proxy's header limit. */
 export const DELETE_BATCH_SIZE = 100;
@@ -103,6 +109,12 @@ export interface PlanBaseline {
   feedTransactionIds: string[];
   /** `mny-txn-…` ids the feed already covers — not re-imported. */
   suppressedSourceIds: string[];
+  /**
+   * `mny-txn-…>feed-uuid` for every transfer leg handed over to a feed row.
+   * The PAIRING is compared, not just the count: the same legs suppressed
+   * against different feed rows would leave the transfers pointing elsewhere.
+   */
+  transferHandovers: string[];
   expectedImportCount: number;
   expectedNetCount: number;
 }
@@ -156,6 +168,7 @@ export function compareToBaseline(baseline: PlanBaseline, live: LivePlanState): 
   lines.push(...diffSets('split lines to delete', baseline.deleteSplitIds, live.deleteSplitIds));
   lines.push(...diffSets('bank-feed rows to keep', baseline.feedTransactionIds, live.feedTransactionIds));
   lines.push(...diffSets('feed-covered source ids', baseline.suppressedSourceIds, live.suppressedSourceIds));
+  lines.push(...diffSets('transfer handovers', baseline.transferHandovers, live.transferHandovers));
   if (baseline.expectedImportCount !== live.expectedImportCount) {
     lines.push(`rows to import changed: ${baseline.expectedImportCount} → ${live.expectedImportCount}`);
   }
@@ -311,6 +324,10 @@ export interface FeedRowInDb {
   date: string;
   amount: string | number;
   description: string | null;
+  /** Carried through so the matcher can refuse to promote a split parent. */
+  is_split?: boolean | null;
+  /** Carried through so a row already in a linked pair is never re-pointed. */
+  linked_transfer_id?: string | null;
 }
 
 /** Case/whitespace-insensitive, exactly as planCloudImport matches accounts. */
@@ -359,6 +376,8 @@ export function mapFeedRowsToSeedNamespace(
       date: feed.date,
       amount: feed.amount,
       description: feed.description ?? '',
+      isSplit: feed.is_split === true,
+      linkedTransferId: feed.linked_transfer_id ?? null,
     });
   }
   return { rows, unmapped, duplicateNames };
