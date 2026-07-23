@@ -106,15 +106,23 @@ function readStoredSelection(storageKey: string, defaultKey: PeriodKey): PeriodS
   const stored = localStorage.getItem(storageKey);
   if (stored === null || !isPeriodKey(stored)) return { period: defaultKey, explicit: false };
 
-  // The flag postdates the period itself. Before it existed the picker was the
-  // only writer, so a stored period with no flag is a choice the user made
-  // under an older build and must be honoured.
+  // Only a value this build flagged is a choice this build can trust.
+  //
+  // The flag postdates the period itself, and it is tempting to reason that an
+  // older build wrote the key only from the picker, so an unflagged value must
+  // be a deliberate choice. That is true about where the value came from and
+  // wrong about what it meant: it was chosen for ONE tabbed reports page, and
+  // reading it as a standing instruction makes it outrank the preferred window
+  // of eight reports that did not exist when it was set — so every returning
+  // user opens "Net worth over time" on last month's dot, permanently, and the
+  // preference never gets a chance to apply. Found by opening the page; the
+  // tests could not see it, because they start from an empty localStorage.
+  //
+  // So an unflagged value is treated as a default, not a decision: the report's
+  // window applies, and the next period the user picks is flagged and honoured
+  // for good. The cost is one reset, once, for someone who had chosen before.
   const flag = localStorage.getItem(explicitStorageKey(storageKey));
-  if (flag === 'false') {
-    // Stored, but only ever as a default — the caller's current default wins,
-    // so a report's preferred window applies on first paint with no flicker.
-    return { period: defaultKey, explicit: false };
-  }
+  if (flag !== 'true') return { period: defaultKey, explicit: false };
   return { period: stored, explicit: true };
 }
 

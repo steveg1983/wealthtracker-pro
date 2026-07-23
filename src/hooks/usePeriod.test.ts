@@ -105,14 +105,32 @@ describe('usePeriod defaults vs the user’s own choice', () => {
     expect(third.result.current.isExplicit).toBe(true);
   });
 
-  it('treats a period stored before the flag existed as the user’s choice', () => {
-    // Older builds only ever wrote the key from the picker itself.
+  it('lets a report’s window override a period stored before the flag existed', () => {
+    // An older build wrote this key from the picker — but for one tabbed
+    // reports page, not as a standing instruction for reports that did not
+    // exist yet. Honouring it as a choice meant a returning user could never
+    // see a report's preferred window, which is the whole point of the
+    // feature. So it seeds nothing and the caller's default wins.
     localStorage.setItem(KEY, 'last-month');
 
     const { result } = renderHook(() => usePeriod(KEY, 'all'));
 
-    expect(result.current.period).toBe('last-month');
-    expect(result.current.isExplicit).toBe(true);
+    expect(result.current.period).toBe('all');
+    expect(result.current.isExplicit).toBe(false);
+  });
+
+  it('honours the very next choice the user makes after that reset', () => {
+    localStorage.setItem(KEY, 'last-month');
+
+    const first = renderHook(() => usePeriod(KEY, 'all'));
+    act(() => first.result.current.setPeriod('tax-year'));
+
+    const second = renderHook(() => usePeriod(KEY, 'all'));
+    expect(second.result.current.period).toBe('tax-year');
+    expect(second.result.current.isExplicit).toBe(true);
+
+    act(() => second.result.current.applyDefaultPeriod('all'));
+    expect(second.result.current.period).toBe('tax-year');
   });
 
   it('ignores a stored value that is not a period', () => {
