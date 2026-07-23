@@ -15,6 +15,7 @@ import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
+import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
 import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -23,6 +24,9 @@ interface OpeningBalanceRow {
   id: 'opening-balance';
   isOpeningBalance: true;
   date: Date;
+  /** True when no date could be resolved — the row shows "no date set" rather
+   *  than a fabricated one (see the shared opening-date resolver). */
+  noDateSet?: boolean;
   description: string;
   amount: number;
   balance: number;
@@ -177,6 +181,31 @@ export default function AccountTransactions() {
   );
   const hasArchivedHere = useMemo(() => fullAccountTransactions.some(t => t.archived), [fullAccountTransactions]);
 
+  // When the opening balance takes effect, via the SAME resolver the net-worth
+  // walks and the drill use — so the register can never disagree with them.
+  // undefined = no datable signal at all: the row shows "no date set" instead
+  // of a fabricated today.
+  const openingEffectiveDate = useMemo<Date | undefined>(() => {
+    if (!account) return undefined;
+    let ownFirst: Date | undefined;
+    for (const t of fullAccountTransactions) {
+      const d = new Date(t.date);
+      if (!ownFirst || d < ownFirst) ownFirst = d;
+    }
+    // The paired "(Cash)" sibling's first activity — a position account whose
+    // money lives in its cash sibling has no transactions of its own.
+    const sibling = findSiblingAccount(account, accounts);
+    let siblingFirst: Date | undefined;
+    if (sibling) {
+      for (const t of transactions) {
+        if (t.accountId !== sibling.id) continue;
+        const d = new Date(t.date);
+        if (!siblingFirst || d < siblingFirst) siblingFirst = d;
+      }
+    }
+    return effectiveOpeningDate(account, ownFirst, siblingFirst);
+  }, [account, accounts, transactions, fullAccountTransactions]);
+
   // Get account-specific transactions
   const accountTransactions = useMemo<Transaction[]>(() => {
     if (!account) return [];
@@ -272,25 +301,23 @@ export default function AccountTransactions() {
       : fullBalance;
     const isBroughtForward = Math.abs(leadBalance - openingBalance) > 0.005;
 
-    // Date: cutoff/earliest-visible for a brought-forward line, else the
-    // opening date, else a day before the oldest, else today.
-    let obDate: Date;
+    // Date: a "Brought forward" lead line is a carried-forward figure dated to
+    // the cutoff (a different thing from the opening balance). A real "Opening
+    // Balance" line uses the shared resolver's effective date; when that has no
+    // signal at all the row shows "no date set" rather than a fabricated today.
+    let obDate: Date | null;
     if (isBroughtForward && earliestVisible) {
       obDate = new Date(earliestVisible.date);
       obDate.setDate(obDate.getDate() - 1);
-    } else if (account.openingBalanceDate) {
-      obDate = new Date(account.openingBalanceDate);
-    } else if (earliestVisible) {
-      obDate = new Date(earliestVisible.date);
-      obDate.setDate(obDate.getDate() - 1);
     } else {
-      obDate = new Date();
+      obDate = openingEffectiveDate ?? null;
     }
 
     const openingBalanceRow: OpeningBalanceRow = {
       id: 'opening-balance',
       isOpeningBalance: true,
-      date: obDate,
+      date: obDate ?? new Date(),
+      noDateSet: obDate === null,
       description: isBroughtForward ? 'Brought forward' : 'Opening Balance',
       amount: leadBalance,
       balance: leadBalance,
@@ -306,7 +333,7 @@ export default function AccountTransactions() {
       return [...transactionsWithBalance, openingBalanceRow];
     }
     return [openingBalanceRow, ...transactionsWithBalance];
-  }, [account, transactionsWithBalance, fullAccountTransactions, sortField, sortDirection]);
+  }, [account, transactionsWithBalance, fullAccountTransactions, openingEffectiveDate, sortField, sortDirection]);
 
   // Calculate unreconciled total
   const unreconciledTotal = useMemo(() => {
@@ -618,7 +645,9 @@ export default function AccountTransactions() {
       width: '100px',
       accessor: (transaction) => (
         <span className="text-sm text-gray-900 dark:text-white">
-          {new Date(transaction.date).toLocaleDateString('en-GB')}
+          {isOpeningBalanceRow(transaction) && transaction.noDateSet
+            ? <span className="italic text-gray-400">no date set</span>
+            : new Date(transaction.date).toLocaleDateString('en-GB')}
         </span>
       ),
       className: 'text-center',

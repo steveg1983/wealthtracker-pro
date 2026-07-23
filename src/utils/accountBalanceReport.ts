@@ -1,6 +1,7 @@
 import type { Account, Transaction } from '../types';
 import type { PeriodRange } from '../hooks/usePeriod';
 import { toDecimal } from './decimal';
+import { resolveEffectiveOpeningDates } from './openingDates';
 
 /**
  * "Account balances" and "Net worth" — the two Microsoft Money statements,
@@ -100,14 +101,39 @@ export function buildAccountBalanceReport(
   const fromTime = range.from ? range.from.getTime() : null;
   const toTime = asOf.getTime();
 
+  const openingDates = resolveEffectiveOpeningDates(accounts, transactions);
   const totals = new Map<string, Accumulator>();
   for (const account of accounts) {
     totals.set(account.id, {
-      opening: toDecimal(account.openingBalance ?? 0),
+      opening: toDecimal(0),
       moneyIn: toDecimal(0),
       moneyOut: toDecimal(0),
       count: 0,
     });
+  }
+
+  // An opening balance folds into the column that matches WHEN it takes effect:
+  // effective before the window (or an open-started window, whose "opening" IS
+  // the all-time start) → the opening balance; effective inside the window →
+  // period movement (money appearing), so net worth before the account's real
+  // opening date is no longer overstated in the opening column; effective after
+  // the as-of date → nothing yet. An undated lump (rung 4) counts from the
+  // beginning of time, as before.
+  for (const account of accounts) {
+    const accumulator = totals.get(account.id);
+    if (!accumulator) continue;
+    const opening = toDecimal(account.openingBalance ?? 0);
+    if (opening.isZero()) continue;
+    const eff = openingDates.get(account.id);
+    const effTime = eff ? eff.getTime() : null; // null = beginning of time (rung 4)
+    if (effTime !== null && effTime > toTime) continue; // not yet effective
+    const insideWindow = fromTime !== null && effTime !== null && effTime >= fromTime;
+    if (insideWindow) {
+      if (opening.greaterThanOrEqualTo(0)) accumulator.moneyIn = accumulator.moneyIn.plus(opening);
+      else accumulator.moneyOut = accumulator.moneyOut.plus(opening.abs());
+    } else {
+      accumulator.opening = accumulator.opening.plus(opening);
+    }
   }
 
   // One pass: everything before the window seeds the opening balance,

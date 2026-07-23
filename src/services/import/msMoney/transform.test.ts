@@ -59,6 +59,50 @@ describe('transformMsMoneyExport — accounts', () => {
   });
 });
 
+describe('transformMsMoneyExport — opening-balance dates', () => {
+  it('keeps an explicit Money open date', () => {
+    const { accounts } = transformMsMoneyExport(build(), NOW);
+    const hsbc = accounts.find(a => a.id === 'mny-acct-1')!;
+    expect(hsbc.openingBalanceDate?.toISOString()).toBe('2010-01-01T00:00:00.000Z');
+  });
+
+  it('defaults a null open date to the account’s earliest transaction', () => {
+    // Behaviour change: a null dtOpen used to leave openingBalanceDate undefined
+    // (the lump then seeded at the dawn of time); it now dates to first activity.
+    const base = build();
+    const exp = { ...base, accounts: base.accounts.map(a => (a.id === 1 ? { ...a, openDate: null } : a)) };
+    const { accounts } = transformMsMoneyExport(exp, NOW);
+    const hsbc = accounts.find(a => a.id === 'mny-acct-1')!;
+    expect(hsbc.openingBalanceDate?.toISOString()).toBe('2020-05-01T00:00:00.000Z');
+  });
+
+  it('falls back to the cash sibling’s earliest transaction for a position account with no activity of its own', () => {
+    const invAccounts = [
+      { id: 10, name: 'ISA', moneyType: 'investment', relatedAccountId: 11, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
+      { id: 11, name: 'ISA (Cash)', moneyType: 'bank', relatedAccountId: 10, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '250.00', closed: false, openDate: null, closeDate: null, comment: null },
+    ];
+    const { accounts } = transformMsMoneyExport(
+      build({
+        accounts: invAccounts,
+        transactions: [
+          { id: 2000, accountId: 11, date: '2019-04-04', amount: '250.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 0, linkAccountId: null, role: 'standalone' },
+        ],
+      }),
+      NOW
+    );
+    // Investment side has no transactions → borrows the cash sibling's first.
+    expect(accounts.find(a => a.id === 'mny-acct-10')!.openingBalanceDate?.toISOString()).toBe('2019-04-04T00:00:00.000Z');
+    expect(accounts.find(a => a.id === 'mny-acct-11')!.openingBalanceDate?.toISOString()).toBe('2019-04-04T00:00:00.000Z');
+  });
+
+  it('leaves the opening date undefined when there is no open date and no activity anywhere', () => {
+    const base = build({ transactions: [] });
+    const exp = { ...base, accounts: base.accounts.map(a => ({ ...a, openDate: null })) };
+    const { accounts } = transformMsMoneyExport(exp, NOW);
+    expect(accounts.every(a => a.openingBalanceDate === undefined)).toBe(true);
+  });
+});
+
 describe('transformMsMoneyExport — categories', () => {
   it('maps Money 3-level tree onto type/sub/detail with the system type parents', () => {
     const { categories } = transformMsMoneyExport(build(), NOW);

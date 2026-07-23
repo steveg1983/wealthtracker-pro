@@ -60,6 +60,10 @@ function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown>
     bankBalance: row.bank_balance ?? null,
     lastReconciledDate: row.last_reconciled_date ?? null,
     openingBalance: row.initial_balance ?? row.opening_balance,
+    // Without this the fallback load path silently dropped the opening-balance
+    // date, so every balance walk seeded the lump at time-zero (see
+    // openingDates.ts). Mirrors simpleAccountService's mapping.
+    openingBalanceDate: row.opening_balance_date != null ? new Date(String(row.opening_balance_date)) : undefined,
     isActive: row.is_active,
     lastUpdated: row.last_updated ?? row.updated_at,
     lowBalanceAlertEnabled: row.low_balance_alert_enabled === true,
