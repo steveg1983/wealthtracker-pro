@@ -48,15 +48,6 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-/** Everything a pinned report can be. Custom reports use `custom:<id>`. */
-export type PinnableReportId = 'net-worth' | 'income-expense-trend' | 'expense-categories' | `custom:${string}`;
-
-export const BUILT_IN_REPORTS: Array<{ id: PinnableReportId; label: string; icon: React.ElementType }> = [
-  { id: 'net-worth', label: 'Net Worth Over Time', icon: TrendingUpIcon },
-  { id: 'income-expense-trend', label: 'Income vs Expenses Trend', icon: BarChart3Icon },
-  { id: 'expense-categories', label: 'Expense Categories', icon: PieChartIcon },
-];
-
 function WidgetCard({ title, icon: Icon, onOpen, children }: {
   title: string;
   icon: React.ElementType;
