@@ -9,6 +9,7 @@ interface Category {
   color?: string;
   icon?: string;
   isSystem?: boolean;
+  isRevaluationCategory?: boolean;
 }
 
 export function getMinimalSystemCategories(): Category[] {
@@ -21,6 +22,10 @@ export function getMinimalSystemCategories(): Category[] {
     // Transfer detail categories (required for transfers to work)
     { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
     { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
+
+    // Revaluation: a change in an account's VALUE, neither income nor expense
+    { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
+    { id: 'revaluation-market', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
   ];
 }
 
@@ -51,6 +56,10 @@ export function getDefaultCategories(): Category[] {
     // Transfer categories
     { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
     { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
+
+    // Revaluation categories (portfolio value changes — not income/expense/transfer)
+    { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
+    { id: 'revaluation-market', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
   ];
 
   for (const group of MS_MONEY_CATEGORY_SET) {
