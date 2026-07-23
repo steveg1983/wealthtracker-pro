@@ -52,7 +52,7 @@ const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
 
 interface DbCategory {
   id: string; name: string; type: string | null; parent_id: string | null;
-  level: string | null; is_transfer_category: boolean | null;
+  level: string | null; is_transfer_category: boolean | null; is_unassigned_bucket: boolean | null;
 }
 interface DbTransaction {
   id: string; date: string; description: string | null; account_id: string;
@@ -85,7 +85,7 @@ async function pageAll<T>(build: (from: number) => PromiseLike<{ data: T[] | nul
 }
 
 const cats = await pageAll<DbCategory>(from => sb.from('categories')
-  .select('id,name,type,parent_id,level,is_transfer_category')
+  .select('id,name,type,parent_id,level,is_transfer_category,is_unassigned_bucket')
   .eq('user_id', USER).order('id').range(from, from + PAGE - 1).returns<DbCategory[]>());
 const accounts = await pageAll<DbAccount>(from => sb.from('accounts')
   .select('id,name').eq('user_id', USER).order('id').range(from, from + PAGE - 1).returns<DbAccount[]>());
@@ -105,6 +105,7 @@ const categories: Category[] = cats.map(c => ({
   level: (c.level === 'type' || c.level === 'sub' || c.level === 'detail') ? c.level : 'detail',
   parentId: c.parent_id ?? undefined,
   isTransferCategory: c.is_transfer_category ?? undefined,
+  isUnassignedBucket: c.is_unassigned_bucket ?? undefined,
 }));
 const kinds = buildCategoryKindLookup(categories);
 const accountName = new Map(accounts.map(a => [a.id, a.name]));

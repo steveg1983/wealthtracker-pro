@@ -43,9 +43,11 @@ export function bucketByCategoryDirection(
   // transfer category as 'transfer' whatever the row's own direction says, and
   // a revaluation category as 'revaluation' — neither is spending, so both are
   // filtered out by the callers below.
-  // 'uncategorized' is STRICT: no category, or a dangling id — such rows
-  // never hit an income/expense report. A real direction-neutral ('both')
-  // category was deliberately filed, so direction decides its side.
+  // 'uncategorized' is STRICT: no category, a dangling id, or an unassigned
+  // bucket (a category whose OWN kind is 'uncategorized' — the importer's
+  // schema-forced "Unassigned") — such rows never hit an income/expense report.
+  // A real direction-neutral ('both') category was deliberately filed, so
+  // direction decides its side.
   const category = t.category ? categoryById.get(t.category) : undefined;
   if (!category) return 'uncategorized';
   return categoryKindOf(category) ?? t.type;

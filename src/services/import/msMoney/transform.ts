@@ -196,8 +196,12 @@ function transformCategories(mny: MnyCategory[]): { categories: Category[]; hidd
     { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
     { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
     { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
-    // Holds the uncategorised remainder of Money's partial splits.
-    { id: UNASSIGNED_CAT_ID, name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense' },
+    // Holds the uncategorised remainder of Money's partial splits. Flagged an
+    // unassigned bucket so the classifier declassifies its lines back to the
+    // review band: a split line cannot be blank by schema, but "the importer had
+    // to file it somewhere" is not the same as the user choosing a category, so
+    // its money-in lines must not count as income.
+    { id: UNASSIGNED_CAT_ID, name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense', isUnassignedBucket: true },
   ];
   let hiddenCount = 0;
 

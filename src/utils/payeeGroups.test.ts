@@ -11,6 +11,7 @@ const CATEGORIES: Category[] = [
   { id: 'cat-salary', name: 'Salary', type: 'income', level: 'detail', parentId: 'type-income' },
   { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
   { id: 'cat-reval', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
+  { id: 'cat-unassigned', name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense', isUnassignedBucket: true },
 ];
 
 const txn = (over: Partial<Transaction> & { id: string }): Transaction => ({
@@ -147,6 +148,22 @@ describe('buildPayeeGroups', () => {
 
     const group = groups.find(g => g.payee === 'PORTFOLIO VALUE' && g.direction === 'income')!;
     expect(group.transactionIds).toEqual(['new']);
+    expect(group.suggestedCategoryId).toBeUndefined();
+    expect(group.suggestionSampleSize).toBeUndefined();
+  });
+
+  it('an unassigned bucket row needs a decision and never suggests itself', () => {
+    // The importer parked these lines in a real "Unassigned" category only
+    // because a split line cannot be blank — that was not a decision, so the
+    // rows must still surface as a group to file, and their own filing must
+    // never be proposed back as a suggestion.
+    const groups = buildPayeeGroups([
+      txn({ id: 'b1', description: 'Portfolio Value', amount: 5000, type: 'income', category: 'cat-unassigned', date: new Date('2026-01-01') }),
+      txn({ id: 'b2', description: 'Portfolio Value', amount: 3000, type: 'income', category: 'cat-unassigned', date: new Date('2026-02-01') }),
+    ], CATEGORIES);
+
+    const group = groups.find(g => g.payee === 'PORTFOLIO VALUE' && g.direction === 'income')!;
+    expect(group.transactionIds).toEqual(['b1', 'b2']);
     expect(group.suggestedCategoryId).toBeUndefined();
     expect(group.suggestionSampleSize).toBeUndefined();
   });

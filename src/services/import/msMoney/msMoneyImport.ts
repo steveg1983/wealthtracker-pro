@@ -526,6 +526,7 @@ export function planCloudImport(
         parent_id: parentId,
         is_system: c.isSystem === true,
         is_transfer_category: c.isTransferCategory === true,
+        is_unassigned_bucket: c.isUnassignedBucket === true,
         account_id: c.accountId ? acctId.get(c.accountId) ?? null : null,
         is_active: c.isActive !== false,
       });

@@ -27,7 +27,15 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from './transa
  *    credit is not income and an uncategorised debit is not spending — it is
  *    unclassified data the user needs to file (Steve: "no category shouldn't
  *    be tagged as income or expense in a report — forces people to keep
- *    their data clean"). Reports surface these rows separately for review.
+ *    their data clean"). Reports surface these rows separately for review;
+ *  - an UNASSIGNED BUCKET category → treated exactly like NO category. The MS
+ *    Money importer files split lines under a real "Unassigned" category ONLY
+ *    because the splits schema forbids a blank one; that filing was the
+ *    importer's, not the user's. Left as an ordinary 'both' category its
+ *    money-in lines would count as income by the direction fallback above —
+ *    the very guess the no-category rule exists to stop, wearing a category id
+ *    as a disguise (Steve: "if it was unassigned, it isn't income"). The
+ *    is_unassigned_bucket flag DECLASSIFIES the row back to uncategorised.
  *
  * Split transactions classify PER LINE (a split can mix categories), with the
  * parent never double-counted.
@@ -45,6 +53,12 @@ export function categoryKindOf(c: Category | undefined): FlowKind | null {
     return 'transfer';
   }
   if (c.isRevaluationCategory === true) return 'revaluation';
+  // An unassigned bucket is not a classification: its OWN kind IS
+  // 'uncategorized'. The importer parks Money's uncategorised remainder here
+  // because a split line cannot be blank; classifyFlow then passes this kind
+  // straight through, keeping the row OUT of the 'both' direction fallback that
+  // would otherwise read a money-in line as income.
+  if (c.isUnassignedBucket === true) return 'uncategorized';
   if (c.type === 'income' || c.type === 'expense') return c.type;
   return null;
 }
@@ -63,7 +77,15 @@ export function classifyFlow(
   // id. A row with any real category never lands in the review list.
   if (!row.category || !categoryKinds.has(row.category)) return 'uncategorized';
   const kind = categoryKinds.get(row.category);
-  if (kind === 'income' || kind === 'expense' || kind === 'transfer' || kind === 'revaluation') return kind;
+  // A category that declares its OWN kind is taken at its word, never overridden
+  // by the money's direction — including 'uncategorized', which an unassigned
+  // bucket returns to declassify itself back into the review band.
+  if (
+    kind === 'income' || kind === 'expense' || kind === 'transfer' ||
+    kind === 'revaluation' || kind === 'uncategorized'
+  ) {
+    return kind;
+  }
   // A real but direction-neutral ('both') category: the user DID file it —
   // the money's direction decides which side of the report it lands on.
   return row.type === 'income' ? 'income' : 'expense';

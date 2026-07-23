@@ -13,6 +13,9 @@ const CATEGORIES: Category[] = [
   { id: 'tofrom-savings', name: 'To/From Savings', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'acc-2' },
   { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
   { id: 'cat-reval', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
+  // The MS Money importer's bucket: a real 'both' category, but flagged so its
+  // rows declassify to the review band instead of counting by direction.
+  { id: 'cat-unassigned', name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense', isUnassignedBucket: true },
 ];
 
 const txn = (over: Partial<Transaction>): Transaction => ({
@@ -56,6 +59,13 @@ describe('classifyFlow', () => {
     expect(classifyFlow(txn({ type: 'income', amount: 5000, category: 'cat-reval' }), kinds)).toBe('revaluation');
     // Portfolio down: money "out" (negative) — still a revaluation, never spending.
     expect(classifyFlow(txn({ type: 'expense', amount: -3000, category: 'cat-reval' }), kinds)).toBe('revaluation');
+  });
+
+  it('an unassigned bucket declassifies the row — money in or out, never a direction guess', () => {
+    // The importer had to file this line somewhere; the classifier must not read
+    // that as the user choosing 'both'. Money in is NOT income here.
+    expect(classifyFlow(txn({ type: 'income', amount: 5000, category: 'cat-unassigned' }), kinds)).toBe('uncategorized');
+    expect(classifyFlow(txn({ type: 'expense', amount: -75, category: 'cat-unassigned' }), kinds)).toBe('uncategorized');
   });
 });
 
@@ -132,6 +142,39 @@ describe('computeIncomeExpense', () => {
     expect(expenses.toNumber()).toBe(0);
     expect(expenseRows).toHaveLength(0);
     expect(revaluation.toNumber()).toBe(-4000);
+  });
+
+  it('an unassigned bucket is not income or spending — it goes to the review band', () => {
+    const transactions: Transaction[] = [
+      txn({ id: 'a', type: 'income', amount: 2500, category: 'cat-salary' }),
+      // a large credit the importer parked in the bucket must NOT be income
+      txn({ id: 'in', type: 'income', amount: 9000, category: 'cat-unassigned' }),
+      txn({ id: 'out', type: 'expense', amount: -60, category: 'cat-unassigned' }),
+    ];
+    const { income, expenses, uncategorizedRows, uncategorizedIn, uncategorizedOut } =
+      computeIncomeExpense(transactions, [], CATEGORIES);
+    expect(income.toNumber()).toBe(2500);          // the +9000 bucket line is NOT income
+    expect(expenses.toNumber()).toBe(0);           // the −60 bucket line is NOT spending
+    expect(uncategorizedRows.map(r => r.id)).toEqual(['in', 'out']);
+    expect(uncategorizedIn.toNumber()).toBe(9000);
+    expect(uncategorizedOut.toNumber()).toBe(60);
+  });
+
+  it('a split LINE carrying the bucket is uncategorised too, never income', () => {
+    const transactions: Transaction[] = [
+      txn({ id: 'p', type: 'expense', amount: -90, category: '', isSplit: true }),
+    ];
+    const splits: TransactionSplit[] = [
+      { id: 's1', transactionId: 'p', category: 'cat-groceries', amount: -100, sortOrder: 1 },
+      // the remainder Money left unassigned, parked in the bucket by the importer
+      { id: 's2', transactionId: 'p', category: 'cat-unassigned', amount: 10, sortOrder: 2 },
+    ];
+    const { income, expenses, uncategorizedRows, uncategorizedIn } =
+      computeIncomeExpense(transactions, splits, CATEGORIES);
+    expect(expenses.toNumber()).toBe(100);
+    expect(income.toNumber()).toBe(0);             // the +10 bucket line is not income
+    expect(uncategorizedRows.map(r => r.id)).toEqual(['p::split::s2']);
+    expect(uncategorizedIn.toNumber()).toBe(10);
   });
 
   it('bounds by date when from/to given', () => {
