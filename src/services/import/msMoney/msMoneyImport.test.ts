@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  planCloudImport, importToLocalStorage, wipeLocalData,
-  MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT,
-  type ExistingCategoryRow, type ExistingAccountRow,
+  planCloudImport, importToLocalStorage, wipeLocalData, executeCloudPlan,
+  MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT, IMPORT_BATCH_SIZE,
+  isRetryableWriteStatus,
+  type ExistingCategoryRow, type ExistingAccountRow, type CloudPlan,
+  type CloudWriteClient, type WriteOutcome,
 } from './msMoneyImport';
 import type { MsMoneyImportResult } from './transform';
 
@@ -44,6 +46,106 @@ function sampleResult(): MsMoneyImportResult {
     },
   };
 }
+
+describe('executeCloudPlan write path', () => {
+  const emptyPlan = (over: Partial<CloudPlan> = {}): CloudPlan => ({
+    accounts: [], accountParents: [], categories: [], transactions: [],
+    transferLinks: [], splits: [], splitLegPins: [],
+    accountParentRows: [], linkRows: [],
+    skippedExisting: 0, skippedFeedOverlap: 0, skippedExistingAccounts: 0,
+    skippedExistingCategories: 0, categoriesWithUnresolvedParent: 0,
+    ...over,
+  });
+
+  /** Records every write, and answers with whatever the script dictates. */
+  const clientRecording = (
+    answers: WriteOutcome[] = []
+  ): { client: CloudWriteClient; calls: { table: string; rows: number; merge?: boolean }[] } => {
+    const calls: { table: string; rows: number; merge?: boolean }[] = [];
+    let i = 0;
+    const next = (): WriteOutcome => answers[i++] ?? { error: null, status: 201 };
+    const client: CloudWriteClient = {
+      from: (table: string) => ({
+        insert: (rows: Record<string, unknown>[]) => {
+          calls.push({ table, rows: rows.length });
+          return Promise.resolve(next());
+        },
+        upsert: (rows: Record<string, unknown>[], options: { onConflict: string; ignoreDuplicates: boolean }) => {
+          calls.push({ table, rows: rows.length, merge: !options.ignoreDuplicates });
+          return Promise.resolve(next());
+        },
+      }),
+    };
+    return { client, calls };
+  };
+
+  it('writes the link pass in batches, not one request per row', async () => {
+    // The bug this replaced issued ONE http request per link — 11,218 of them
+    // for the real file — and died partway through with no way to resume.
+    const linkRows = Array.from({ length: IMPORT_BATCH_SIZE + 20 }, (_, n) => ({
+      id: `txn-${n}`, user_id: 'u1', account_id: 'a1', amount: -1, date: '2026-01-01',
+      linked_transfer_id: `txn-partner-${n}`,
+    }));
+    const { client, calls } = clientRecording();
+
+    await executeCloudPlan(emptyPlan({ linkRows }), client);
+
+    const linkCalls = calls.filter(c => c.table === 'transactions');
+    expect(linkCalls).toHaveLength(2);                       // 520 rows → 2 batches, not 520 calls
+    expect(linkCalls.map(c => c.rows)).toEqual([IMPORT_BATCH_SIZE, 20]);
+    // Merge semantics: the row already exists, so the conflict must UPDATE it.
+    expect(linkCalls.every(c => c.merge)).toBe(true);
+  });
+
+  it('writes nothing for the link pass when no row needs linking', async () => {
+    const { client, calls } = clientRecording();
+    await executeCloudPlan(emptyPlan({ transactions: [{ id: 't1' }] }), client);
+    // The insert happens; no second pass follows it.
+    expect(calls.filter(c => c.merge)).toHaveLength(0);
+  });
+
+  it('retries a transient failure and then succeeds', async () => {
+    const slept: number[] = [];
+    const { client, calls } = clientRecording([
+      { error: { message: 'fetch failed' }, status: 0 },   // the failure seen for real
+      { error: null, status: 201 },
+    ]);
+
+    await executeCloudPlan(
+      emptyPlan({ transactions: [{ id: 't1' }] }),
+      client,
+      { retry: { sleep: (ms: number) => { slept.push(ms); return Promise.resolve(); } } }
+    );
+
+    expect(calls).toHaveLength(2);        // failed once, retried once
+    expect(slept).toHaveLength(1);        // and backed off in between
+  });
+
+  it('does NOT retry a constraint violation — it fails immediately with the real message', async () => {
+    // Retrying a genuine data error just wastes the user's time and buries the
+    // message that explains what is actually wrong.
+    const slept: number[] = [];
+    const { client, calls } = clientRecording([
+      { error: { message: 'violates check constraint "transaction_splits_amount_nonzero"' }, status: 400 },
+    ]);
+
+    await expect(
+      executeCloudPlan(
+        emptyPlan({ transactions: [{ id: 't1' }] }),
+        client,
+        { retry: { sleep: (ms: number) => { slept.push(ms); return Promise.resolve(); } } }
+      )
+    ).rejects.toThrow(/transaction_splits_amount_nonzero/);
+
+    expect(calls).toHaveLength(1);        // one attempt only
+    expect(slept).toHaveLength(0);        // never backed off
+  });
+
+  it('classifies which statuses are worth retrying', () => {
+    for (const s of [0, 408, 425, 429, 500, 503]) expect(isRetryableWriteStatus(s)).toBe(true);
+    for (const s of [400, 401, 403, 404, 409, 422]) expect(isRetryableWriteStatus(s)).toBe(false);
+  });
+});
 
 describe('planCloudImport', () => {
   it('remaps every cross-reference onto fresh ids and stages links separately', () => {

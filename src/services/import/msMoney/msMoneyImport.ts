@@ -31,10 +31,63 @@ export interface ImportProgress {
 
 export interface ImportOptions {
   onProgress?: (p: ImportProgress) => void;
+  /**
+   * Transient-failure policy for the cloud write path. A 50,000-row import over
+   * a domestic connection WILL meet a dropped socket sooner or later; the
+   * defaults below are what ships. Tests override them to run without timers.
+   */
+  retry?: {
+    /** Total attempts per write, first included. Default {@link WRITE_ATTEMPTS}. */
+    attempts?: number;
+    /** First backoff in ms; doubles each attempt. Default {@link RETRY_BASE_MS}. */
+    baseDelayMs?: number;
+    /** How the backoff waits. Defaults to a real timer. */
+    sleep?: (ms: number) => Promise<void>;
+  };
 }
 
-const BATCH = 500;
-const chunk = <T>(arr: T[], size = BATCH): T[][] => {
+/** Attempts per write, the first included: 1 try + 4 retries. */
+export const WRITE_ATTEMPTS = 5;
+/** First backoff, doubling each attempt: 0.5s, 1s, 2s, 4s — ~7.5s in total. */
+export const RETRY_BASE_MS = 500;
+
+/**
+ * Is this failure worth trying again?
+ *
+ * Only the network and the far end's own distress qualify: a dropped socket
+ * (supabase-js reports a failed fetch as status 0), a timeout, a rate limit, or
+ * a 5xx. Everything else — a unique violation, a null in a NOT NULL column, a
+ * failed CHECK — is a genuine data error that will fail identically forever, so
+ * retrying it only wastes the user's time and buries the real message.
+ */
+export function isRetryableWriteStatus(status: number): boolean {
+  return status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+/** The part of a PostgREST response the write path cares about. */
+export interface WriteOutcome {
+  error: { message: string } | null;
+  status: number;
+}
+
+/**
+ * The slice of the Supabase client `executeCloudPlan` actually uses. Narrow
+ * enough that a test can supply a real implementation of it — no cast, no
+ * mocking of a client that would then prove nothing about the batching.
+ */
+export interface CloudWriteClient {
+  from(table: string): {
+    insert(rows: Record<string, unknown>[]): PromiseLike<WriteOutcome>;
+    upsert(
+      rows: Record<string, unknown>[],
+      options: { onConflict: string; ignoreDuplicates: boolean }
+    ): PromiseLike<WriteOutcome>;
+  };
+}
+
+/** Rows per HTTP request on every batched write. */
+export const IMPORT_BATCH_SIZE = 500;
+const chunk = <T>(arr: T[], size = IMPORT_BATCH_SIZE): T[][] => {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
@@ -99,6 +152,24 @@ export interface CloudPlan {
   transferLinks: { id: string; linked_transfer_id: string }[];
   splits: Record<string, unknown>[];
   splitLegPins: { id: string; linked_transfer_split_id: string }[];
+  /**
+   * The second pass, as rows the database can take in BATCHES.
+   *
+   * `transferLinks` / `splitLegPins` above say what the links ARE; these say
+   * how they are written. Each entry is a COMPLETE account/transaction row —
+   * every column the insert would have carried — plus the link columns, offered
+   * as an upsert that merges onto the row already there. Complete because it
+   * has to be: Postgres builds the candidate tuple, and therefore evaluates
+   * every NOT NULL column, BEFORE it resolves ON CONFLICT, so an
+   * id-plus-one-column payload is rejected outright.
+   *
+   * A row whose link is already exactly right in the database is left out
+   * entirely (see `existingAccounts` / `existingTransactionLinks`), so a second
+   * import writes nothing here rather than rewriting rows the user may since
+   * have edited.
+   */
+  accountParentRows: Record<string, unknown>[];
+  linkRows: Record<string, unknown>[];
   /** Source rows already present under this user's provenance — not re-inserted. */
   skippedExisting: number;
   /** Source rows a bank-feed transaction already covers — not imported. */
@@ -129,6 +200,14 @@ export interface ExistingCategoryRow {
 export interface ExistingAccountRow {
   id: string;
   name: string;
+  /** Current investment↔cash pairing, so an already-paired account is left alone. */
+  parent_account_id?: string | null;
+}
+
+/** The link columns an already-imported transaction currently carries. */
+export interface ExistingTransactionLinks {
+  linkedTransferId: string | null;
+  linkedTransferSplitId: string | null;
 }
 
 export interface CloudPlanOptions {
@@ -160,6 +239,18 @@ export interface CloudPlanOptions {
    * stable identity available.
    */
   existingAccounts?: readonly ExistingAccountRow[];
+  /**
+   * `import_source_id` → the link columns that row already holds. Purely an
+   * optimisation of the second pass: a transfer already linked exactly as the
+   * plan would link it is not rewritten. Omit it and every link is written,
+   * which is correct but does needless work — and, on a row the user has since
+   * edited, needless work that would overwrite the edit.
+   *
+   * It is also what makes a resumed import self-healing: a run that died after
+   * inserting transactions but before linking them leaves rows whose links do
+   * NOT match, so the next run picks up exactly those.
+   */
+  existingTransactionLinks?: ReadonlyMap<string, ExistingTransactionLinks>;
 }
 
 /** Case/whitespace-insensitive key for name matching. */
@@ -337,54 +428,67 @@ export function planCloudImport(
   // Suppressed rows are never written, so nothing may reference them either.
   const importable = (sourceId: string): boolean => !suppressed.has(sourceId);
 
+  // The full DB row for an account / a transaction, in ONE place: the insert
+  // and the linking pass must send byte-identical column sets, because the
+  // linking pass is an upsert of the whole row (see CloudPlan.linkRows).
+  const accountRow = (a: Account): Record<string, unknown> => ({
+    id: acctId.get(a.id),
+    user_id: userId,
+    name: a.name,
+    type: DB_ACCOUNT_TYPE(a.type),
+    balance: a.balance,
+    initial_balance: a.openingBalance ?? 0,
+    opening_balance_date: a.openingBalanceDate ? dateOnly(a.openingBalanceDate) : null,
+    currency: a.currency || 'GBP',
+    is_active: a.isActive !== false,
+    notes: a.notes ?? null,
+  });
+
+  const transactionRow = (t: MsMoneyImportResult['transactions'][number]): Record<string, unknown> => ({
+    id: txnId.get(t.id),
+    user_id: userId,
+    account_id: acctId.get(t.accountId),
+    description: t.description,
+    amount: t.amount,
+    type: t.type,
+    date: dateOnly(t.date),
+    category: t.isSplit ? '' : (cat(t.category) ?? ''),
+    notes: t.notes ?? null,
+    is_cleared: t.cleared === true,
+    is_split: t.isSplit === true,
+    transfer_account_id: t.transferAccountId ? acctId.get(t.transferAccountId) ?? null : null,
+    is_recurring: false,
+    // Provenance: stable per-source id, so a re-import skips instead of
+    // duplicating (see MS_MONEY_IMPORT_SOURCE).
+    import_source: MS_MONEY_IMPORT_SOURCE,
+    import_source_id: t.id,
+  });
+
   const accounts = result.accounts
     .filter(a => !reusedAccountIds.has(a.id))
-    .map((a): Record<string, unknown> => ({
-      id: acctId.get(a.id),
-      user_id: userId,
-      name: a.name,
-      type: DB_ACCOUNT_TYPE(a.type),
-      balance: a.balance,
-      initial_balance: a.openingBalance ?? 0,
-      opening_balance_date: a.openingBalanceDate ? dateOnly(a.openingBalanceDate) : null,
-      currency: a.currency || 'GBP',
-      is_active: a.isActive !== false,
-      notes: a.notes ?? null,
-    }));
+    .map(accountRow);
 
   // Investment↔cash pairings reference other account rows, so they go in as a
   // second pass once every account exists (insert batching makes same-batch
   // FK ordering unreliable).
-  const accountParents = result.accounts
-    .filter(a => a.parentAccountId && acctId.has(a.parentAccountId))
-    .map(a => ({ id: acctId.get(a.id)!, parent_account_id: acctId.get(a.parentAccountId!)! }));
+  const existingParentById = new Map(
+    (options.existingAccounts ?? []).map(r => [r.id, r.parent_account_id ?? null])
+  );
+  const accountParents: { id: string; parent_account_id: string }[] = [];
+  const accountParentRows: Record<string, unknown>[] = [];
+  for (const a of result.accounts) {
+    if (!a.parentAccountId || !acctId.has(a.parentAccountId)) continue;
+    const id = acctId.get(a.id)!;
+    const parentAccountId = acctId.get(a.parentAccountId)!;
+    accountParents.push({ id, parent_account_id: parentAccountId });
+    // Already paired exactly this way — leave the row alone.
+    if (existingParentById.get(id) === parentAccountId) continue;
+    accountParentRows.push({ ...accountRow(a), parent_account_id: parentAccountId });
+  }
 
   const transactions = result.transactions
     .filter(t => importable(t.id) && !alreadyImported(t.id))
-    .map((t): Record<string, unknown> => ({
-      id: txnId.get(t.id),
-      user_id: userId,
-      account_id: acctId.get(t.accountId),
-      description: t.description,
-      amount: t.amount,
-      type: t.type,
-      date: dateOnly(t.date),
-      category: t.isSplit ? '' : (cat(t.category) ?? ''),
-      notes: t.notes ?? null,
-      is_cleared: t.cleared === true,
-      is_split: t.isSplit === true,
-      transfer_account_id: t.transferAccountId ? acctId.get(t.transferAccountId) ?? null : null,
-      is_recurring: false,
-      // Provenance: stable per-source id, so a re-import skips instead of
-      // duplicating (see MS_MONEY_IMPORT_SOURCE).
-      import_source: MS_MONEY_IMPORT_SOURCE,
-      import_source_id: t.id,
-    }));
-
-  // Transfer pairs reference each other, so links go in as a second pass.
-  const transferLinks = result.transactions
-    .filter(t => txnId.has(t.id) && t.linkedTransferId && txnId.has(t.linkedTransferId))
-    .map(t => ({ id: txnId.get(t.id)!, linked_transfer_id: txnId.get(t.linkedTransferId!)! }));
+    .map(transactionRow);
 
   const writtenSplits = result.transactionSplits
     .filter(s => importable(s.transactionId) && !alreadyImported(s.transactionId));
@@ -403,21 +507,45 @@ export function planCloudImport(
       linked_transfer_id: s.linkedTransferId ? txnId.get(s.linkedTransferId) ?? null : null,
     }));
 
-  // Only pin to a split line THIS plan writes. Split rows carry no provenance,
-  // so an already-imported parent's lines keep database ids the plan cannot
-  // know — minting a fresh one and pinning to it would write a reference to a
-  // row that does not exist (transactions.linked_transfer_split_id is a real
-  // foreign key). Those legs were pinned by the run that created them.
-  const splitLegPins = result.transactions
-    .filter(t => txnId.has(t.id) && t.linkedTransferSplitId && writtenSplitIds.has(t.linkedTransferSplitId))
-    .map(t => ({ id: txnId.get(t.id)!, linked_transfer_split_id: splitId.get(t.linkedTransferSplitId!)! }));
+  // ── The second pass: transfer links and split-leg pins ────────────────────
+  // Transfer pairs reference each other, so neither side can carry its link at
+  // insert time. Split legs pin to a split LINE, which is written later still.
+  //
+  // A pin only ever points at a split line THIS plan writes. Split rows carry
+  // no provenance, so an already-imported parent's lines keep database ids the
+  // plan cannot know — minting a fresh one and pinning to it would write a
+  // reference to a row that does not exist (transactions.linked_transfer_split_id
+  // is a real foreign key). Those legs were pinned by the run that created them.
+  const currentLinks = options.existingTransactionLinks;
+  const transferLinks: { id: string; linked_transfer_id: string }[] = [];
+  const splitLegPins: { id: string; linked_transfer_split_id: string }[] = [];
+  const linkRows: Record<string, unknown>[] = [];
+  for (const t of result.transactions) {
+    const id = txnId.get(t.id);
+    if (!id) continue;
+    const linkedTransferId = t.linkedTransferId && txnId.has(t.linkedTransferId)
+      ? txnId.get(t.linkedTransferId)! : null;
+    const linkedTransferSplitId = t.linkedTransferSplitId && writtenSplitIds.has(t.linkedTransferSplitId)
+      ? splitId.get(t.linkedTransferSplitId)! : null;
+    if (!linkedTransferId && !linkedTransferSplitId) continue;
+
+    if (linkedTransferId) transferLinks.push({ id, linked_transfer_id: linkedTransferId });
+    if (linkedTransferSplitId) splitLegPins.push({ id, linked_transfer_split_id: linkedTransferSplitId });
+
+    const current = currentLinks?.get(t.id);
+    if (current
+      && current.linkedTransferId === linkedTransferId
+      && current.linkedTransferSplitId === linkedTransferSplitId) continue;
+    linkRows.push({ ...transactionRow(t), linked_transfer_id: linkedTransferId, linked_transfer_split_id: linkedTransferSplitId });
+  }
 
   const skippedFeedOverlap = result.transactions.filter(t => suppressed.has(t.id)).length;
   const skippedExisting = result.transactions.length - transactions.length - skippedFeedOverlap;
 
   return {
-    accounts, accountParents, categories: insertedCategories, transactions, transferLinks,
-    splits, splitLegPins,
+    accounts, accountParents, accountParentRows,
+    categories: insertedCategories, transactions, transferLinks,
+    splits, splitLegPins, linkRows,
     skippedExisting, skippedFeedOverlap,
     skippedExistingAccounts: reusedAccountIds.size,
     skippedExistingCategories: reusedCategories,
@@ -425,29 +553,48 @@ export function planCloudImport(
   };
 }
 
+/** An already-imported row, keyed in the map below by its `import_source_id`. */
+export interface ImportedTransactionRow extends ExistingTransactionLinks {
+  id: string;
+}
+
 /**
- * Every `import_source_id` this user already holds for a given importer →
- * the transaction id it already has. Paged, because a full Money file is tens
- * of thousands of rows and PostgREST caps a single response.
+ * Every `import_source_id` this user already holds for a given importer → the
+ * transaction id it already has, and the transfer links it already carries.
+ * Paged, because a full Money file is tens of thousands of rows and PostgREST
+ * caps a single response.
+ *
+ * The links come along on the same read precisely because it is free: the plan
+ * uses them to leave already-linked rows out of the second pass entirely.
  */
-export async function fetchImportedSourceIds(
+export async function fetchImportedTransactions(
   supabase: SupabaseClient,
   userId: string,
   importSource: string = MS_MONEY_IMPORT_SOURCE
-): Promise<Map<string, string>> {
+): Promise<Map<string, ImportedTransactionRow>> {
   const PAGE = 1000;
-  const out = new Map<string, string>();
+  const out = new Map<string, ImportedTransactionRow>();
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, import_source_id')
+      .select('id, import_source_id, linked_transfer_id, linked_transfer_split_id')
       .eq('user_id', userId)
       .eq('import_source', importSource)
       .order('id')
       .range(from, from + PAGE - 1);
     if (error) throw new Error(`Failed reading import provenance: ${error.message}`);
-    const rows = (data ?? []) as { id: string; import_source_id: string | null }[];
-    for (const r of rows) if (r.import_source_id) out.set(r.import_source_id, r.id);
+    const rows = (data ?? []) as {
+      id: string; import_source_id: string | null;
+      linked_transfer_id: string | null; linked_transfer_split_id: string | null;
+    }[];
+    for (const r of rows) {
+      if (!r.import_source_id) continue;
+      out.set(r.import_source_id, {
+        id: r.id,
+        linkedTransferId: r.linked_transfer_id ?? null,
+        linkedTransferSplitId: r.linked_transfer_split_id ?? null,
+      });
+    }
     if (rows.length < PAGE) return out;
   }
 }
@@ -483,7 +630,7 @@ export async function fetchExistingAccounts(
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('accounts')
-      .select('id, name')
+      .select('id, name, parent_account_id')
       .eq('user_id', userId)
       .order('id')
       .range(from, from + PAGE - 1);
@@ -502,9 +649,12 @@ export async function fetchExistingAccounts(
 export async function fetchExistingImportState(
   supabase: SupabaseClient,
   userId: string
-): Promise<Required<Pick<CloudPlanOptions, 'existingBySourceId' | 'existingCategories' | 'existingAccounts'>>> {
+): Promise<Required<Pick<CloudPlanOptions,
+  'existingBySourceId' | 'existingCategories' | 'existingAccounts' | 'existingTransactionLinks'>>> {
+  const imported = await fetchImportedTransactions(supabase, userId);
   return {
-    existingBySourceId: await fetchImportedSourceIds(supabase, userId),
+    existingBySourceId: new Map([...imported].map(([sourceId, row]) => [sourceId, row.id])),
+    existingTransactionLinks: imported,
     existingCategories: await fetchExistingCategories(supabase, userId),
     existingAccounts: await fetchExistingAccounts(supabase, userId),
   };
@@ -585,12 +735,41 @@ export async function importToCloud(
  */
 export async function executeCloudPlan(
   plan: CloudPlan,
-  supabase: SupabaseClient,
+  supabase: CloudWriteClient,
   opts: ImportOptions = {}
 ): Promise<void> {
   const { onProgress } = opts;
+  const attempts = Math.max(1, opts.retry?.attempts ?? WRITE_ATTEMPTS);
+  const baseDelayMs = opts.retry?.baseDelayMs ?? RETRY_BASE_MS;
+  const wait = opts.retry?.sleep ?? ((ms: number) => new Promise<void>(resolve => { setTimeout(resolve, ms); }));
   const fail = (stage: string, message: string): never => {
     throw new Error(`Import failed while ${stage}: ${message}`);
+  };
+
+  /**
+   * One write, retried through a transient failure and only a transient one.
+   * A dropped connection mid-import used to leave the migration half-finished
+   * with no way back; a constraint violation still fails on the spot, with the
+   * database's own message, because trying it again could only fail again.
+   */
+  const write = async (stage: string, run: () => PromiseLike<WriteOutcome>): Promise<void> => {
+    for (let attempt = 1; ; attempt++) {
+      let outcome: WriteOutcome;
+      try {
+        outcome = await run();
+      } catch (thrown) {
+        // A transport that rejects rather than resolving (a custom fetch, an
+        // aborted socket) — indistinguishable from a network drop, so treated
+        // as one.
+        outcome = { error: { message: thrown instanceof Error ? thrown.message : String(thrown) }, status: 0 };
+      }
+      if (!outcome.error) return;
+      if (!isRetryableWriteStatus(outcome.status)) fail(stage, outcome.error.message);
+      if (attempt >= attempts) {
+        fail(stage, `${outcome.error.message} (gave up after ${attempt} attempts)`);
+      }
+      await wait(baseDelayMs * 2 ** (attempt - 1));
+    }
   };
 
   const insert = async (
@@ -602,44 +781,55 @@ export async function executeCloudPlan(
     for (const b of batches) {
       // With a conflict target the write becomes ON CONFLICT DO NOTHING, so a
       // row the database already holds is skipped rather than duplicated.
-      const { error } = onConflict
-        ? await supabase.from(table).upsert(b, { onConflict, ignoreDuplicates: true })
-        : await supabase.from(table).insert(b);
-      if (error) fail(`inserting ${table}`, error.message);
+      await write(`inserting ${table}`, () => onConflict
+        ? supabase.from(table).upsert(b, { onConflict, ignoreDuplicates: true })
+        : supabase.from(table).insert(b));
       done += b.length;
       onProgress?.({ phase, fraction: base + span * (done / Math.max(rows.length, 1)),
         message: `Importing ${table.replace('_', ' ')}… ${done}/${rows.length}` });
     }
   };
 
-  await insert('accounts', plan.accounts, 'accounts', 0.05, 0.1);
+  /**
+   * The second pass, in BATCHES. `ignoreDuplicates: false` makes the conflict
+   * clause DO UPDATE, so the row already there is updated rather than skipped —
+   * the whole point, since these rows exist by now. Complete rows, because
+   * Postgres evaluates NOT NULL while building the candidate tuple, before it
+   * ever looks at ON CONFLICT: an id-plus-link payload is rejected outright.
+   *
+   * This replaces one HTTP request per link — 11,218 of them on a real Money
+   * file, which is how a home connection came to drop the import halfway.
+   */
+  const merge = async (
+    table: string, rows: Record<string, unknown>[], onConflict: string,
+    stage: string, phase: ImportPhase, base: number, span: number, label: string
+  ) => {
+    if (rows.length === 0) return;
+    onProgress?.({ phase, fraction: base, message: `${label}…` });
+    let done = 0;
+    for (const b of chunk(rows)) {
+      await write(stage, () => supabase.from(table).upsert(b, { onConflict, ignoreDuplicates: false }));
+      done += b.length;
+      onProgress?.({ phase, fraction: base + span * (done / rows.length),
+        message: `${label}… ${done}/${rows.length}` });
+    }
+  };
 
-  for (const p of plan.accountParents) {
-    const { error } = await supabase.from('accounts')
-      .update({ parent_account_id: p.parent_account_id }).eq('id', p.id);
-    if (error) fail('pairing investment cash accounts', error.message);
-  }
+  await insert('accounts', plan.accounts, 'accounts', 0.05, 0.08);
+  // Accounts carry no provenance columns, so the primary key is the only
+  // conflict target available — and every one of these rows was just written.
+  await merge('accounts', plan.accountParentRows, 'id',
+    'pairing investment cash accounts', 'accounts', 0.13, 0.02, 'Pairing investment cash accounts');
 
   await insert('categories', plan.categories, 'categories', 0.15, 0.1);
-  await insert('transactions', plan.transactions, 'transactions', 0.25, 0.45, IMPORT_PROVENANCE_CONFLICT);
+  await insert('transactions', plan.transactions, 'transactions', 0.25, 0.37, IMPORT_PROVENANCE_CONFLICT);
 
-  onProgress?.({ phase: 'links', fraction: 0.72, message: 'Linking transfers…' });
-  for (const b of chunk(plan.transferLinks)) {
-    for (const l of b) {
-      const { error } = await supabase.from('transactions')
-        .update({ linked_transfer_id: l.linked_transfer_id }).eq('id', l.id);
-      if (error) fail('linking transfers', error.message);
-    }
-  }
+  // Splits BEFORE links: a split-leg pin is a foreign key into
+  // transaction_splits, so the line it names has to exist first.
+  await insert('transaction_splits', plan.splits, 'splits', 0.62, 0.16);
 
-  await insert('transaction_splits', plan.splits, 'splits', 0.8, 0.12);
-
-  onProgress?.({ phase: 'splits', fraction: 0.95, message: 'Linking split transfers…' });
-  for (const p of plan.splitLegPins) {
-    const { error } = await supabase.from('transactions')
-      .update({ linked_transfer_split_id: p.linked_transfer_split_id }).eq('id', p.id);
-    if (error) fail('pinning split legs', error.message);
-  }
+  await merge('transactions', plan.linkRows, IMPORT_PROVENANCE_CONFLICT,
+    'linking transfers', 'links', 0.78, 0.2, 'Linking transfers');
 
   onProgress?.({ phase: 'done', fraction: 1, message: 'Import complete.' });
 }
