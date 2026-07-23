@@ -9,6 +9,8 @@ const CATEGORIES: Category[] = [
   { id: 'cat-repairs', name: 'Repairs', type: 'expense', level: 'detail', parentId: 'type-expense' },
   { id: 'cat-food', name: 'Food', type: 'expense', level: 'detail', parentId: 'type-expense' },
   { id: 'cat-salary', name: 'Salary', type: 'income', level: 'detail', parentId: 'type-income' },
+  { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
+  { id: 'cat-reval', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
 ];
 
 const txn = (over: Partial<Transaction> & { id: string }): Transaction => ({
@@ -130,6 +132,23 @@ describe('buildPayeeGroups', () => {
       txn({ id: 'done', description: 'Boots', category: 'cat-consumables' }),
     ], CATEGORIES);
     expect(groups).toHaveLength(0);
+  });
+
+  it('a row filed under a revaluation category never seeds a payee suggestion', () => {
+    // Rows filed under Revaluation are classified (not income/expense), so they
+    // drop out of suggestion history: a change in an account's value is not a
+    // spending habit and must never be proposed to fill an uncategorised row.
+    const groups = buildPayeeGroups([
+      txn({ id: 'r1', description: 'Portfolio Value', amount: 5000, type: 'income', category: 'cat-reval', date: new Date('2026-01-01') }),
+      txn({ id: 'r2', description: 'Portfolio Value', amount: -2000, category: 'cat-reval', date: new Date('2026-02-01') }),
+      // an uncategorised row for the same payee needing a decision
+      txn({ id: 'new', description: 'Portfolio Value', amount: 3000, type: 'income' }),
+    ], CATEGORIES);
+
+    const group = groups.find(g => g.payee === 'PORTFOLIO VALUE' && g.direction === 'income')!;
+    expect(group.transactionIds).toEqual(['new']);
+    expect(group.suggestedCategoryId).toBeUndefined();
+    expect(group.suggestionSampleSize).toBeUndefined();
   });
 
   it('treats a dangling category id as uncategorised', () => {

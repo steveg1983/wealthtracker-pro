@@ -45,6 +45,20 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
       return !prev;
     });
   };
+  // Portfolio gains & losses are net-worth movements, not day-to-day income or
+  // spending — and a paper "gain" is not money received — so on this income &
+  // expenditure report the revaluation line is opt-in and starts hidden. This
+  // controls VISIBILITY only: the classifier keeps revaluations out of the
+  // income/expense/net totals unconditionally, toggle or not.
+  const [showRevaluations, setShowRevaluations] = useState<boolean>(
+    () => localStorage.getItem('reportsShowRevaluations') === '1'
+  );
+  const toggleRevaluations = (): void => {
+    setShowRevaluations(prev => {
+      localStorage.setItem('reportsShowRevaluations', prev ? '0' : '1');
+      return !prev;
+    });
+  };
 
   // Category ids are UUIDs — everything user-facing resolves through this
   // lookup ("Parent : Child", "Uncategorised" for a dangling id).
@@ -81,7 +95,18 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ReportAccountFilter accounts={accounts} filter={filter} />
+        <div className="flex flex-wrap items-center gap-4">
+          <ReportAccountFilter accounts={accounts} filter={filter} />
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showRevaluations}
+              onChange={toggleRevaluations}
+              className="rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary"
+            />
+            Show portfolio gains &amp; losses
+          </label>
+        </div>
         <ReportExportBar
           title="Monthly income and expenses"
           dateRange={PERIOD_LABELS[picker.period]}
@@ -92,7 +117,7 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
         />
       </div>
 
-      <IncomeExpenseSummaryCards flows={flows} categories={categories} />
+      <IncomeExpenseSummaryCards flows={flows} categories={categories} showRevaluations={showRevaluations} />
 
       {/* Rows with no category are EXCLUDED from every figure above — said out
           loud, with the three ways to clear them. */}

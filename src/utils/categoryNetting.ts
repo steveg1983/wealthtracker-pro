@@ -36,11 +36,13 @@ export interface CategoryNetTotal {
 export function bucketByCategoryDirection(
   t: Transaction,
   categoryById: ReadonlyMap<string, Category>
-): 'income' | 'expense' | 'transfer' | 'uncategorized' {
+): 'income' | 'expense' | 'transfer' | 'revaluation' | 'uncategorized' {
   if (t.type === 'transfer') return 'transfer';
   // One shared kind definition (utils/incomeExpense) — this must never drift
   // from the Dashboard/Analytics classifier. It also treats a To/From
-  // transfer category as 'transfer' whatever the row's own direction says.
+  // transfer category as 'transfer' whatever the row's own direction says, and
+  // a revaluation category as 'revaluation' — neither is spending, so both are
+  // filtered out by the callers below.
   // 'uncategorized' is STRICT: no category, or a dangling id — such rows
   // never hit an income/expense report. A real direction-neutral ('both')
   // category was deliberately filed, so direction decides its side.

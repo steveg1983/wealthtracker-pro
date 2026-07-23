@@ -16,6 +16,10 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from './transa
  *
  * Rules:
  *  - transfers never count (neither the type nor transfer categories);
+ *  - revaluation categories never count towards income or expenses either — a
+ *    change in an account's VALUE (a portfolio revaluation) is not money earned
+ *    or spent, it is an increase or decrease to net worth. The balances already
+ *    include it; the classifier only decides which LINE reports it on;
  *  - a category from the income tree → income; expense tree → expense —
  *    regardless of the money's direction;
  *  - NO category (or an unknown / direction-neutral one) → the row does NOT
@@ -29,14 +33,18 @@ import { expandSplitTransactions, type SplitExpandedTransaction } from './transa
  * parent never double-counted.
  */
 
-export type FlowKind = 'income' | 'expense' | 'transfer' | 'uncategorized';
+export type FlowKind = 'income' | 'expense' | 'transfer' | 'revaluation' | 'uncategorized';
 
 /** A single category's flow kind (null = no categorical signal, e.g. 'both'). */
 export function categoryKindOf(c: Category | undefined): FlowKind | null {
   if (!c) return null;
+  // Transfer keeps precedence: it is the older concept and a category can't
+  // sensibly be both. Revaluation is the same shape one rung down — its own
+  // kind, ruled out of income/expense by category semantics.
   if (c.isTransferCategory === true || c.id === 'type-transfer' || c.parentId === 'type-transfer') {
     return 'transfer';
   }
+  if (c.isRevaluationCategory === true) return 'revaluation';
   if (c.type === 'income' || c.type === 'expense') return c.type;
   return null;
 }
@@ -55,7 +63,7 @@ export function classifyFlow(
   // id. A row with any real category never lands in the review list.
   if (!row.category || !categoryKinds.has(row.category)) return 'uncategorized';
   const kind = categoryKinds.get(row.category);
-  if (kind === 'income' || kind === 'expense' || kind === 'transfer') return kind;
+  if (kind === 'income' || kind === 'expense' || kind === 'transfer' || kind === 'revaluation') return kind;
   // A real but direction-neutral ('both') category: the user DID file it —
   // the money's direction decides which side of the report it lands on.
   return row.type === 'income' ? 'income' : 'expense';
@@ -77,6 +85,17 @@ export interface IncomeExpenseBreakdown {
   uncategorizedRows: SplitExpandedTransaction[];
   uncategorizedIn: DecimalInstance;
   uncategorizedOut: DecimalInstance;
+  /**
+   * Net change in VALUE from revaluation-category rows — SIGNED (an upward
+   * revaluation is positive, a downward one negative). Never part of income or
+   * expenses: a portfolio moving up is not income and a portfolio moving down
+   * is not spending, and the account balances already carry the change. The
+   * classification only decides that these rows report on their OWN line, so a
+   * report can show them without ever letting them distort what was earned or
+   * spent.
+   */
+  revaluation: DecimalInstance;
+  revaluationRows: SplitExpandedTransaction[];
 }
 
 /**
@@ -104,9 +123,11 @@ export function computeIncomeExpense(
   let expenses = toDecimal(0);
   let uncategorizedIn = toDecimal(0);
   let uncategorizedOut = toDecimal(0);
+  let revaluation = toDecimal(0);
   const incomeRows: SplitExpandedTransaction[] = [];
   const expenseRows: SplitExpandedTransaction[] = [];
   const uncategorizedRows: SplitExpandedTransaction[] = [];
+  const revaluationRows: SplitExpandedTransaction[] = [];
 
   for (const row of rows) {
     const kind = classifyFlow(row, kinds);
@@ -118,6 +139,12 @@ export function computeIncomeExpense(
       // and a positive-amount credit (refund) correctly SUBTRACTS.
       expenses = expenses.plus(toDecimal(row.amount).negated());
       expenseRows.push(row);
+    } else if (kind === 'revaluation') {
+      // Signed as stored: an upward revaluation (+) and a downward one (−) net
+      // against each other. Deliberately touches NEITHER income nor expenses —
+      // a value change is not money earned or spent.
+      revaluation = revaluation.plus(toDecimal(row.amount));
+      revaluationRows.push(row);
     } else if (kind === 'uncategorized') {
       const amount = toDecimal(row.amount);
       if (amount.greaterThanOrEqualTo(0)) uncategorizedIn = uncategorizedIn.plus(amount);
@@ -126,7 +153,11 @@ export function computeIncomeExpense(
     }
   }
 
-  return { income, expenses, incomeRows, expenseRows, uncategorizedRows, uncategorizedIn, uncategorizedOut };
+  return {
+    income, expenses, incomeRows, expenseRows,
+    uncategorizedRows, uncategorizedIn, uncategorizedOut,
+    revaluation, revaluationRows,
+  };
 }
 
 /**

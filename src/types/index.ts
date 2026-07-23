@@ -255,6 +255,7 @@ export interface Category {
   isSystem?: boolean;
   description?: string;
   isTransferCategory?: boolean; // Indicates this is an account-specific transfer category
+  isRevaluationCategory?: boolean; // Indicates a change in VALUE (portfolio revaluation) — not income, expense or transfer
   accountId?: string; // The account this transfer category is associated with
   isActive?: boolean; // Used for soft-deleting categories (e.g., when account is deleted)
 }

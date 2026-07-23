@@ -11,6 +11,8 @@ const CATEGORIES: Category[] = [
   { id: 'cat-clothing', name: 'Clothing', type: 'expense', level: 'detail', parentId: 'type-expense' },
   { id: 'cat-both', name: 'Ambiguous', type: 'both', level: 'detail', parentId: 'type-expense' },
   { id: 'tofrom-savings', name: 'To/From Savings', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'acc-2' },
+  { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
+  { id: 'cat-reval', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
 ];
 
 const txn = (over: Partial<Transaction>): Transaction => ({
@@ -47,6 +49,13 @@ describe('classifyFlow', () => {
   it('transfers never count, by type or by transfer category', () => {
     expect(classifyFlow(txn({ type: 'transfer', category: 'tofrom-savings' }), kinds)).toBe('transfer');
     expect(classifyFlow(txn({ type: 'income', category: 'tofrom-savings' }), kinds)).toBe('transfer');
+  });
+
+  it('revaluation categories classify as revaluation, whatever the money direction', () => {
+    // Portfolio up: money "in" (positive) filed under a revaluation category.
+    expect(classifyFlow(txn({ type: 'income', amount: 5000, category: 'cat-reval' }), kinds)).toBe('revaluation');
+    // Portfolio down: money "out" (negative) — still a revaluation, never spending.
+    expect(classifyFlow(txn({ type: 'expense', amount: -3000, category: 'cat-reval' }), kinds)).toBe('revaluation');
   });
 });
 
@@ -94,6 +103,35 @@ describe('computeIncomeExpense', () => {
     expect(uncategorizedRows.map(r => r.id)).toEqual(['b', 'c']);
     expect(uncategorizedIn.toNumber()).toBe(250000);
     expect(uncategorizedOut.toNumber()).toBe(75);
+  });
+
+  it('revaluations net signed on their own line — never income, expenses or review', () => {
+    const transactions: Transaction[] = [
+      txn({ id: 'a', type: 'income', amount: 2500, category: 'cat-salary' }),
+      txn({ id: 'b', type: 'expense', amount: -100, category: 'cat-groceries' }),
+      // portfolio up, then partly down — signed, they net against each other
+      txn({ id: 'up', type: 'income', amount: 5000, category: 'cat-reval' }),
+      txn({ id: 'down', type: 'expense', amount: -2000, category: 'cat-reval' }),
+    ];
+    const { income, expenses, revaluation, revaluationRows, uncategorizedRows } =
+      computeIncomeExpense(transactions, [], CATEGORIES);
+    expect(income.toNumber()).toBe(2500);           // the +5000 is NOT income
+    expect(expenses.toNumber()).toBe(100);          // the −2000 is NOT spending
+    expect(revaluation.toNumber()).toBe(3000);      // 5000 − 2000, signed
+    expect(revaluationRows.map(r => r.id)).toEqual(['up', 'down']);
+    // Classified rows leave the review band — a revaluation is not uncategorised.
+    expect(uncategorizedRows).toHaveLength(0);
+  });
+
+  it('a downward revaluation is a fall in value, not spending', () => {
+    const { expenses, revaluation, expenseRows } = computeIncomeExpense(
+      [txn({ id: 'crash', type: 'expense', amount: -4000, category: 'cat-reval' })],
+      [],
+      CATEGORIES
+    );
+    expect(expenses.toNumber()).toBe(0);
+    expect(expenseRows).toHaveLength(0);
+    expect(revaluation.toNumber()).toBe(-4000);
   });
 
   it('bounds by date when from/to given', () => {
