@@ -135,6 +135,28 @@ describe('transformMsMoneyExport — transactions', () => {
     expect(summary.transactions.splitLines).toBe(4);
   });
 
+  it('files an uncategorised split LINE under Unassigned — never blank, which the schema forbids', () => {
+    // A split child Money left with no category at all. transaction_splits
+    // requires a non-null, non-empty category, so a blank here is not merely
+    // untidy — it is rejected by the database, and the whole import dies.
+    const exp = build();
+    exp.transactions.push(
+      { id: 1030, accountId: 1, date: '2020-09-01', amount: '-50.00', categoryId: null, payeeId: 51, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitParent' },
+      { id: 1031, accountId: 1, date: '2020-09-01', amount: '-20.00', categoryId: 201, payeeId: null, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitChild', splitParentId: 1030 },
+      { id: 1032, accountId: 1, date: '2020-09-01', amount: '-30.00', categoryId: null, payeeId: null, memo: null, ref: null, clearedStatus: 2, linkAccountId: null, role: 'splitChild', splitParentId: 1030 },
+    );
+
+    const { transactionSplits } = transformMsMoneyExport(exp, NOW);
+    const lines = transactionSplits.filter(s => s.transactionId === 'mny-txn-1030');
+
+    expect(lines).toHaveLength(2);
+    expect(lines.map(l => l.category)).toEqual(['mny-cat-201', 'mny-unassigned']);
+    // No split line anywhere may be blank.
+    expect(transactionSplits.filter(s => !String(s.category ?? '').trim())).toHaveLength(0);
+    // The money still adds up — routing to Unassigned must not alter amounts.
+    expect(lines.reduce((s, l) => s + l.amount, 0)).toBe(-50);
+  });
+
   it('imports a PARTIAL split as a split whose lines (incl. an Unassigned remainder) sum to the exact total', () => {
     const { transactions, transactionSplits, categories } = transformMsMoneyExport(build(), NOW);
     const parent = transactions.find(x => x.id === 'mny-txn-1020')!;
