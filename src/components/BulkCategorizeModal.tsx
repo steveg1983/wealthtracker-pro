@@ -58,9 +58,32 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
 
   const keyOf = (g: PayeeGroup): string => `${g.payee}|${g.direction}`;
 
+  /**
+   * A suggestion is only pre-filled when the payee AGREES with itself.
+   *
+   * This screen applies a category to every row in a group at once, so a
+   * pre-filled choice is one the user can accept without ever having examined
+   * it. That is safe for a shop filed the same way 125 times out of 130, and
+   * unsafe for a generic description — "ACCOUNT ADJUSTMENT", "UPDATE ON
+   * PORTFOLIO VALUE" — filed a dozen different ways, where the most common
+   * category is a plurality of a quarter and the rows behind it are portfolio
+   * revaluations worth more than a year of real spending.
+   *
+   * Below the threshold the group still appears, still shows what the payee
+   * has been filed as, and simply starts empty: it asks rather than assumes.
+   */
+  const SUGGESTION_MIN_AGREEMENT = 0.8;
+  const suggestionIsTrustworthy = (g: PayeeGroup): boolean => {
+    if (g.suggestedCategoryId === undefined) return false;
+    const support = g.suggestionSupport ?? 0;
+    const sample = g.suggestionSampleSize ?? support;
+    if (sample <= 0) return false;
+    return support / sample >= SUGGESTION_MIN_AGREEMENT;
+  };
+
   // Pre-fill from the payee's own history; the user can change any of them.
   const effectiveChoice = (g: PayeeGroup): string =>
-    choices[keyOf(g)] ?? g.suggestedCategoryId ?? '';
+    choices[keyOf(g)] ?? (suggestionIsTrustworthy(g) ? (g.suggestedCategoryId ?? '') : '');
 
   const setChoice = (g: PayeeGroup, categoryId: string): void => {
     setChoices(prev => ({ ...prev, [keyOf(g)]: categoryId }));
@@ -156,8 +179,17 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             {group.accountIds.length === 1
                               ? ` · ${accountName(group.accountIds[0])}`
                               : ` · ${group.accountIds.length} accounts`}
+                            {/* "9" reads the same out of 10 filings as out of
+                                36, so the sample size is shown beside it and
+                                a payee that disagrees with itself says so. */}
                             {group.suggestedCategoryId && (
-                              <> · usually {categoryName(group.suggestedCategoryId)} ({group.suggestionSupport})</>
+                              suggestionIsTrustworthy(group) ? (
+                                <> · usually {categoryName(group.suggestedCategoryId)}{' '}
+                                  ({group.suggestionSupport} of {group.suggestionSampleSize ?? group.suggestionSupport})</>
+                              ) : (
+                                <> · filed inconsistently — {categoryName(group.suggestedCategoryId)}{' '}
+                                  only {group.suggestionSupport} of {group.suggestionSampleSize ?? group.suggestionSupport} times</>
+                              )
                             )}
                           </span>
                           {/* A deliberate recent change stays one click away
