@@ -4,6 +4,7 @@ import './lib/zodConfig'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/clerk-react'
+import type { Appearance } from '@clerk/types'
 import { ClerkErrorBoundary } from './components/auth/ClerkErrorBoundary'
 import './styles/borders.css'
 import './styles/accessibility-colors.css'
@@ -152,6 +153,60 @@ window.addEventListener('unhandledrejection', (event): void => {
   }
 });
 
+// Clerk's sign-in / sign-up modals and the UserButton menu render on top of the
+// app but in a portal outside its Tailwind scope, so they don't inherit the
+// app's palette on their own — left alone they wear Clerk's default bright blue.
+// This appearance derives every Clerk surface from the app's own slate
+// (#1a2332, with the lighter #2d3a4d for hover) so the modal that opens from the
+// landing page reads as the same product, not a bolted-on third party.
+//
+// No dark-mode variant on purpose: the `baseTheme: dark` swap needs the
+// @clerk/themes package, which is NOT a dependency here and which we don't add.
+// Clerk modals float on their own backdrop, so a light modal over a dark app is
+// legible and is Clerk's own common default — acceptable until a theme package
+// is ever introduced.
+//
+// The "Development mode" strip at the modal's foot is Clerk's *development
+// instance* badge. It cannot be removed by styling — it disappears on its own
+// once the app runs on Clerk production keys. Don't chase it here.
+const clerkAppearance: Appearance = {
+  variables: {
+    // Everything (buttons, links, focus rings) derives from the app slate.
+    colorPrimary: '#1a2332',
+    // White label on #1a2332 is ~15:1 contrast — passes WCAG AA/AAA.
+    colorPrimaryForeground: '#ffffff',
+    // `colorText` is deprecated in this Clerk version; `colorForeground` is its
+    // replacement. Near-black body/heading text, matching the app's gray-900.
+    colorForeground: '#111827',
+    // Muted subtitle grey, matching the app's gray-500.
+    colorMutedForeground: '#6b7280',
+    // Inherit the app's Inter stack (set on <body> in index.html); the modal
+    // renders in a portal on document.body so 'inherit' reaches it.
+    fontFamily: 'inherit',
+    fontFamilyButtons: 'inherit',
+    // rounded-xl (0.75rem), matching the app's own buttons.
+    borderRadius: '0.75rem'
+  },
+  elements: {
+    // Slate primary button whose hover goes *lighter* (#2d3a4d). Clerk would
+    // otherwise darken an already-dark primary toward black; the app's own
+    // hover token is the lighter secondary slate, so we mirror it.
+    formButtonPrimary: {
+      backgroundColor: '#1a2332',
+      color: '#ffffff',
+      '&:hover': { backgroundColor: '#2d3a4d' },
+      '&:focus': { backgroundColor: '#2d3a4d' },
+      '&:active': { backgroundColor: '#1a2332' }
+    },
+    // Match the app's rounded-2xl card surfaces (~1rem).
+    card: { borderRadius: '1rem' },
+    headerTitle: { color: '#111827' },
+    headerSubtitle: { color: '#6b7280' },
+    // Social / secondary buttons stay neutral (near-black label, never blue).
+    socialButtonsBlockButton: { color: '#111827' }
+  }
+};
+
 // Remove any pre-existing dark class on app start
 document.documentElement.classList.remove('dark');
 
@@ -167,11 +222,7 @@ try {
           <ClerkProvider
             publishableKey={PUBLISHABLE_KEY}
             afterSignOutUrl="/"
-            appearance={{
-              variables: {
-                colorPrimary: '#3b82f6'
-              }
-            }}
+            appearance={clerkAppearance}
             allowedRedirectOrigins={[window.location.origin]}
           >
             <App />
