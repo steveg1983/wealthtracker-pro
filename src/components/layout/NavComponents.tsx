@@ -98,6 +98,7 @@ export interface DropdownItem {
 export function TopNavDropdown({
   label,
   icon: Icon,
+  homeTo,
   items,
   activePaths,
   openDropdown,
@@ -105,6 +106,10 @@ export function TopNavDropdown({
 }: {
   label: string;
   icon: React.ElementType;
+  // Where the label itself navigates. A top-level item that only toggled a menu
+  // taught users that clicking navigation does nothing; the label is now a real
+  // link to the menu's home page, and only the chevron toggles the dropdown.
+  homeTo: string;
   items: DropdownItem[];
   activePaths?: string[];
   openDropdown: string | null;
@@ -115,6 +120,7 @@ export function TopNavDropdown({
   const searchParams = new URLSearchParams(location.search);
   const isDemoMode = isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const isOpen = openDropdown === label;
+  const homeLinkTo = isDemoMode ? `${homeTo}?demo=true` : homeTo;
 
   const isActive = activePaths
     ? activePaths.some(p => location.pathname === p || location.pathname.startsWith(p))
@@ -140,21 +146,43 @@ export function TopNavDropdown({
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpenDropdown(isOpen ? null : label)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-          isActive || isOpen
-            ? 'bg-white/20 text-white font-medium'
-            : 'text-white/70 hover:text-white hover:bg-white/10'
+      {/* Split trigger: the label is a link (Enter follows it), the chevron is a
+          separate button that opens the menu (ArrowDown on the label does too).
+          The row carries the highlight so label + chevron read as one control. */}
+      <div
+        className={`flex items-center rounded-lg transition-colors ${
+          isActive || isOpen ? 'bg-white/20' : 'hover:bg-white/10'
         }`}
-        aria-expanded={isOpen ? 'true' : 'false'}
-        aria-haspopup="true"
       >
-        <Icon size={16} />
-        <span>{label}</span>
-        <ChevronDownIcon size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+        <Link
+          to={homeLinkTo}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setOpenDropdown(label);
+            }
+          }}
+          className={`flex items-center gap-1.5 pl-3 pr-1 py-1.5 text-sm rounded-l-lg transition-colors ${
+            isActive || isOpen ? 'text-white font-medium' : 'text-white/70 hover:text-white'
+          }`}
+          aria-current={isActive ? 'page' : undefined}
+        >
+          <Icon size={16} />
+          <span>{label}</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setOpenDropdown(isOpen ? null : label)}
+          className={`flex items-center pl-0.5 pr-2 py-1.5 rounded-r-lg transition-colors ${
+            isActive || isOpen ? 'text-white' : 'text-white/70 hover:text-white'
+          }`}
+          aria-expanded={isOpen ? 'true' : 'false'}
+          aria-haspopup="true"
+          aria-label={`${label} menu`}
+        >
+          <ChevronDownIcon size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
       {isOpen && (
         <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[200px] z-50">
           {items.map(item => {
