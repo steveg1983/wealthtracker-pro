@@ -156,6 +156,53 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }
   }, [reopeningId, updateAccount, refreshAccountsAndTransactions, refreshCategories, loadClosedAccounts, showError]);
 
+  // Closed accounts get the SAME grouping as the open list — by account type
+  // (the shared section definitions) or by institution when the page toggle
+  // says so — so the archive reads the way the live list does. Rows within a
+  // group are alphabetical by name; that was the whole point of this change
+  // (they used to arrive in no order at all). Empty groups don't render.
+  // Kept independent of `sortMode`: the live list's Value/Default sorts are for
+  // triage, but an archive you're scanning for one name always wants A–Z.
+  const closedAccountGroups = useMemo<{ label: string; title: string; accounts: Account[] }[]>(() => {
+    const byName = (a: Account, b: Account) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+    if (groupBy === 'institution') {
+      // Mirror accountsByInstitution: bucket by institution, "Other Accounts"
+      // for the unset ones, sorted alphabetically with that catch-all last.
+      const groups = new Map<string, Account[]>();
+      closedAccounts.forEach(account => {
+        const institution = account.institution || 'Other Accounts';
+        const list = groups.get(institution);
+        if (list) list.push(account);
+        else groups.set(institution, [account]);
+      });
+      return [...groups.keys()]
+        .sort((a, b) => {
+          if (a === 'Other Accounts') return 1;
+          if (b === 'Other Accounts') return -1;
+          return a.localeCompare(b);
+        })
+        .map(institution => ({
+          label: institution,
+          title: institution,
+          accounts: [...(groups.get(institution) ?? [])].sort(byName),
+        }));
+    }
+
+    // Group by account type through the shared section list (catch-all last),
+    // so a closed account files under exactly the section its open twin would.
+    return ALL_ACCOUNT_SECTIONS
+      .map(section => ({
+        label: section.type,
+        title: section.title,
+        accounts: closedAccounts
+          .filter(account => sectionTypeForAccount(account.type) === section.type)
+          .sort(byName),
+      }))
+      .filter(group => group.accounts.length > 0);
+  }, [closedAccounts, groupBy]);
+
   // Convert accounts to decimal for calculations
   const decimalAccounts = useMemo(() => openAccounts.map(a => ({
     ...a,
@@ -642,6 +689,36 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     );
   };
 
+  // ONE quiet row for a closed account: name, institution, balance and a
+  // Reopen button. Deliberately not the full open-account card — the archive
+  // stays subdued (muted text, no sync/reconcile/close actions).
+  const renderClosedAccountRow = (account: Account): ReactNode => (
+    <div key={account.id} className="flex items-center justify-between px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+          {account.name}
+        </p>
+        {account.institution && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+            {account.institution}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-4">
+        <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+          {formatDisplayCurrency(account.balance, account.currency)}
+        </p>
+        <button
+          onClick={() => void handleReopenAccount(account.id)}
+          disabled={reopeningId !== null}
+          className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {reopeningId === account.id ? 'Reopening…' : 'Reopen'}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <PageWrapper
       title="Accounts"
@@ -884,30 +961,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           </button>
 
           {showClosedAccounts && (
-            <div className="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
-              {closedAccounts.map(account => (
-                <div key={account.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                      {account.name}
-                    </p>
-                    {account.institution && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                        {account.institution}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
-                      {formatDisplayCurrency(account.balance, account.currency)}
-                    </p>
-                    <button
-                      onClick={() => void handleReopenAccount(account.id)}
-                      disabled={reopeningId !== null}
-                      className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {reopeningId === account.id ? 'Reopening…' : 'Reopen'}
-                    </button>
+            <div data-testid="closed-accounts" className="border-t border-gray-100 dark:border-gray-700">
+              {/* Grouped like the open list (type or institution), but kept
+                  quiet: a small grey subheading per group, rows alphabetical
+                  within. A subheading is not a semantic <h2> here — it sits
+                  below the open sections' weight on purpose, an archive rather
+                  than the main event. */}
+              {closedAccountGroups.map(group => (
+                <div key={group.label}>
+                  <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    {group.title}
+                  </p>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {group.accounts.map(renderClosedAccountRow)}
                   </div>
                 </div>
               ))}
