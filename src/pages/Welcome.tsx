@@ -1,164 +1,134 @@
+import React, { useEffect } from 'react';
 import { SignInButton, SignUpButton, useAuth } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { BarChart3Icon, ShieldIcon, TrendingUpIcon, UsersIcon, WifiIcon, PhoneIcon } from '../components/icons';
+import { WalletIcon, TagIcon, PieChartIcon, UploadIcon, ArrowRightIcon } from '../components/icons';
+import type { IconProps } from '../components/icons/IconBase';
 
-export default function Welcome() {
+// Plain statements of what the app does — no claims, no counts, no adjectives
+// doing the work a screenshot should. Each maps to a real part of the product.
+const FEATURES: ReadonlyArray<{ Icon: React.FC<IconProps>; title: string; body: string }> = [
+  {
+    Icon: WalletIcon,
+    title: 'All your accounts in one place',
+    body: 'Current accounts, savings, cards and investments, side by side.',
+  },
+  {
+    Icon: TagIcon,
+    title: 'Every transaction categorised',
+    body: 'Sorted and searchable, so you can see where your money goes.',
+  },
+  {
+    Icon: PieChartIcon,
+    title: 'Reports that match reality',
+    body: 'Net worth over time, and income and expenses by month.',
+  },
+  {
+    Icon: UploadIcon,
+    title: 'Bring your history with you',
+    body: 'Import from Microsoft Money, CSV, QIF and OFX, or connect a bank feed.',
+  },
+];
+
+export default function Welcome(): React.JSX.Element {
   const { isSignedIn } = useAuth();
   const { firstName } = usePreferences();
   const navigate = useNavigate();
-  const displayName = firstName || 'there';
 
-  // Redirect to dashboard if already signed in
+  // Signed-in visitors have no business on the landing page — send them home.
   useEffect(() => {
     if (isSignedIn) {
       navigate('/dashboard');
     }
   }, [isSignedIn, navigate]);
 
-  // Show authenticated welcome if signed in
+  // Brief interstitial while the redirect above runs.
   if (isSignedIn) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center">
-        <div className="text-center space-y-8">
-          <h2 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white">
-            Welcome back, {displayName}!
-          </h2>
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 dark:text-white">
-            WealthTracker Pro
-          </h1>
-          <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Redirecting to your dashboard...
-          </p>
-        </div>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Welcome back{firstName ? `, ${firstName}` : ''}
+        </h1>
+        <p className="mt-2 text-gray-500 dark:text-gray-400">Taking you to your dashboard…</p>
       </div>
     );
   }
 
-  // Show landing page for unauthenticated users
+  const year = new Date().getFullYear();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              The #1 Personal Finance App
-              <span className="block text-blue-700 dark:text-blue-400 mt-2">
-                That Just Works
-              </span>
-            </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-              Apple-level quality meets financial excellence. Track, manage, and grow your wealth with the most intuitive finance app ever created.
-            </p>
-            
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <SignUpButton mode="modal">
-                <button className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
-                  Start Free Trial
-                </button>
-              </SignUpButton>
-              <SignInButton mode="modal">
-                <button className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border border-gray-200 dark:border-gray-700">
-                  Sign In
-                </button>
-              </SignInButton>
-            </div>
-
-            {/* Trust Badges */}
-            <div className="mt-8 flex flex-wrap justify-center gap-6 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex items-center gap-2">
-                <ShieldIcon size={20} />
-                <span>Bank-level Security</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <WifiIcon size={20} />
-                <span>Works Offline</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <PhoneIcon size={20} />
-                <span>Touch ID/Face ID</span>
-              </div>
-            </div>
-          </div>
+    <div className="mx-auto max-w-5xl py-2 md:py-6">
+      {/* Hero — the app's own dark slate, so the landing page and the product
+          read as one thing. */}
+      <section
+        aria-labelledby="welcome-heading"
+        className="rounded-2xl bg-primary px-6 py-12 sm:px-10 sm:py-14 text-center shadow-lg"
+      >
+        <div className="flex items-center justify-center gap-2 text-white/70">
+          <WalletIcon size={20} />
+          <span className="text-sm font-semibold uppercase tracking-wider">WealthTracker</span>
         </div>
-      </div>
 
-      {/* Features Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid md:grid-cols-3 gap-8">
-          {/* Feature 1 */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
-              <BarChart3Icon size={24} className="text-blue-700 dark:text-blue-400" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
-              Intelligent Analytics
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              AI-powered insights that actually help you save money and make better financial decisions.
-            </p>
-          </div>
+        <h1
+          id="welcome-heading"
+          className="mt-5 text-3xl sm:text-4xl md:text-5xl font-bold text-white"
+        >
+          Your money, all in one place
+        </h1>
 
-          {/* Feature 2 */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
-              <TrendingUpIcon size={24} className="text-blue-600 dark:text-blue-400" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
-              Investment Tracking
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Real-time portfolio monitoring with automated rebalancing suggestions.
-            </p>
-          </div>
+        <p className="mt-4 mx-auto max-w-2xl text-base sm:text-lg leading-relaxed text-white/75">
+          Every account, every transaction and every report together — a modern take on
+          Microsoft Money.
+        </p>
 
-          {/* Feature 3 */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
-              <UsersIcon size={24} className="text-purple-600 dark:text-purple-400" />
-            </div>
-            <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
-              Multi-User Support
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Securely manage household finances with role-based access control.
-            </p>
-          </div>
+        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+          <SignUpButton mode="modal">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white text-primary font-semibold shadow-sm hover:bg-white/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+            >
+              Get started
+              <ArrowRightIcon size={18} />
+            </button>
+          </SignUpButton>
+          <SignInButton mode="modal">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-white/25 text-white font-semibold hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+            >
+              Sign in
+            </button>
+          </SignInButton>
         </div>
-      </div>
+      </section>
 
-      {/* Pricing Teaser */}
-      <div className="bg-gray-50 dark:bg-gray-900 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Free to Start, Powerful to Scale
-          </h2>
-          <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
-            Start with our free tier and unlock premium features as you grow
-          </p>
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Free</h3>
-              <p className="text-gray-500 dark:text-gray-400">Essential features</p>
-            </div>
-            <div className="border-2 border-blue-500 rounded-xl p-6 transform scale-105 shadow-lg">
-              <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Pro</h3>
-              <p className="text-gray-500 dark:text-gray-400">Advanced analytics</p>
-            </div>
-            <div className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Business</h3>
-              <p className="text-gray-500 dark:text-gray-400">Team collaboration</p>
-            </div>
+      {/* What it does — four plain points, matching the app's card idiom. */}
+      <section aria-label="What WealthTracker does" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {FEATURES.map(({ Icon, title, body }) => (
+          <div
+            key={title}
+            className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm p-5"
+          >
+            {/* Neutral gray, not `text-primary` — the app locks `.text-primary`
+                with `!important`, which would pin the icon to slate on the dark
+                card and swallow it. Gray tokens flip cleanly for dark mode. */}
+            <Icon size={22} className="text-gray-800 dark:text-gray-300" />
+            <h2 className="mt-3 text-sm font-semibold text-gray-900 dark:text-white">{title}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{body}</p>
           </div>
-        </div>
-      </div>
+        ))}
+      </section>
 
-      {/* Footer */}
-      <footer className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-        <p>© 2024 WealthTracker. Built with excellence.</p>
+      <footer className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+        <p>© {year} WealthTracker</p>
+        <nav aria-label="Legal" className="flex gap-4">
+          <a href="/privacy" className="underline-offset-2 hover:underline hover:text-gray-700 dark:hover:text-gray-200">
+            Privacy
+          </a>
+          <a href="/terms" className="underline-offset-2 hover:underline hover:text-gray-700 dark:hover:text-gray-200">
+            Terms
+          </a>
+        </nav>
       </footer>
     </div>
   );
