@@ -1,35 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { exportService } from '../services/exportService';
-import type { ExportOptions, ExportTemplate, ScheduledReport } from '../services/exportService';
+import type { ExportOptions, ExportTemplate } from '../services/exportService';
 import { useApp } from '../contexts/AppContextSupabase';
 import {
   DownloadIcon,
   CalendarIcon,
-  ClockIcon,
   FileTextIcon,
+  FileSpreadsheetIcon,
   PlusIcon,
   TrashIcon,
   PlayIcon,
-  StopIcon,
   RefreshCwIcon,
   CheckIcon
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
+import { LoadingState } from '../components/loading/LoadingState';
 import type { Investment } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
+// The advanced report builder (templated PDF/Excel/CSV) and the dedicated Excel
+// exporter both used to live under Settings ▸ Data Management. They move here so
+// every way OUT of the app is on one page. Kept lazy — moving a component must
+// not turn its chunk into an always-loaded static import.
+const EnhancedExportManager = lazy(() => import('../components/EnhancedExportManager'));
+const ExcelExport = lazy(() => import('../components/ExcelExport'));
+
 const exportManagerLogger = createScopedLogger('ExportManagerPage');
 
-type ActiveTab = 'export' | 'templates' | 'scheduled' | 'history';
+// Scheduled exports were removed. The "Schedule Report" control only wrote a row
+// to localStorage — nothing server-side ever ran, so no report was ever
+// delivered. A control that pretends to schedule erodes trust in the controls
+// that DO work, so it was cut rather than carried across, and the orphaned
+// scheduled-report methods were deleted from exportService with it.
+type ActiveTab = 'export' | 'templates' | 'history';
 
 export default function ExportManager() {
   const { transactions, accounts, budgets, goals, categories, tags, recurringTransactions } = useApp();
   const investments: Investment[] = []; // TODO: Add investments to AppContext
   const [activeTab, setActiveTab] = useState<ActiveTab>('export');
   const [templates, setTemplates] = useState<ExportTemplate[]>([]);
-  const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showExcelExport, setShowExcelExport] = useState(false);
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     endDate: new Date(),
@@ -48,7 +60,6 @@ export default function ExportManager() {
 
   const loadData = () => {
     setTemplates(exportService.getTemplates());
-    setScheduledReports(exportService.getScheduledReports());
   };
 
   const handleExport = async () => {
@@ -138,59 +149,20 @@ export default function ExportManager() {
     if (!name) return;
 
     const description = prompt('Enter template description (optional):') || '';
-    
+
     exportService.createTemplate({
       name,
       description,
       options: exportOptions,
       isDefault: false
     });
-    
+
     loadData();
   };
 
   const handleDeleteTemplate = (id: string) => {
     if (confirm('Are you sure you want to delete this template?')) {
       exportService.deleteTemplate(id);
-      loadData();
-    }
-  };
-
-  const handleCreateScheduledReport = () => {
-    const name = prompt('Enter report name:');
-    if (!name) return;
-
-    const email = prompt('Enter email address:');
-    if (!email) return;
-
-    const frequency = prompt('Enter frequency (daily, weekly, monthly, quarterly):') as ScheduledReport['frequency'];
-    if (!['daily', 'weekly', 'monthly', 'quarterly'].includes(frequency)) {
-      alert('Invalid frequency');
-      return;
-    }
-
-    exportService.createScheduledReport({
-      name,
-      email,
-      frequency,
-      options: exportOptions,
-      isActive: true
-    });
-
-    loadData();
-  };
-
-  const handleToggleScheduledReport = (id: string) => {
-    const report = scheduledReports.find(r => r.id === id);
-    if (report) {
-      exportService.updateScheduledReport(id, { isActive: !report.isActive });
-      loadData();
-    }
-  };
-
-  const handleDeleteScheduledReport = (id: string) => {
-    if (confirm('Are you sure you want to delete this scheduled report?')) {
-      exportService.deleteScheduledReport(id);
       loadData();
     }
   };
@@ -203,26 +175,16 @@ export default function ExportManager() {
     });
   };
 
-  const formatDateTime = (date: Date) => {
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   return (
-    <PageWrapper title="Export Manager">
+    <PageWrapper title="Export Data">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-[#1a2332] dark:bg-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Export Manager</h1>
+              <h1 className="text-3xl font-bold mb-2">Export Data</h1>
               <p className="text-white/70">
-                Generate reports, schedule exports, and manage templates
+                Generate reports, export to Excel, and save reusable export templates
               </p>
             </div>
             <DownloadIcon size={48} className="text-white/80" />
@@ -260,19 +222,6 @@ export default function ExportManager() {
                 </div>
               </button>
               <button
-                onClick={() => setActiveTab('scheduled')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'scheduled'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <ClockIcon size={16} />
-                  Scheduled ({scheduledReports.filter(r => r.isActive).length})
-                </div>
-              </button>
-              <button
                 onClick={() => setActiveTab('history')}
                 className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'history'
@@ -296,7 +245,7 @@ export default function ExportManager() {
             <div className="lg:col-span-2 space-y-6">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
-                
+
                 {/* Date Range */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
@@ -337,6 +286,11 @@ export default function ExportManager() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Format
                     </label>
+                    {/* Only the formats this quick export actually produces. Excel
+                        lives in the Excel Export / Advanced Report tools below, and
+                        full JSON in "Export everything" — offering dead xlsx/json
+                        options here would be the same broken-control problem as the
+                        removed scheduler. */}
                     <select
                       aria-label="Export format"
                       value={exportOptions.format}
@@ -348,8 +302,6 @@ export default function ExportManager() {
                     >
                       <option value="pdf">PDF Report</option>
                       <option value="csv">CSV Data</option>
-                      <option value="xlsx">Excel Spreadsheet</option>
-                      <option value="json">JSON Data</option>
                     </select>
                   </div>
 
@@ -416,7 +368,7 @@ export default function ExportManager() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={handleExport}
                   disabled={isLoading}
@@ -424,6 +376,21 @@ export default function ExportManager() {
                 >
                   {isLoading ? <RefreshCwIcon size={16} className="animate-spin" /> : <DownloadIcon size={16} />}
                   {isLoading ? 'Generating...' : 'Export Now'}
+                </button>
+
+                {/* Advanced, templated reports (Monthly Statement, Tax Summary,
+                    Net Worth, …) as PDF/Excel/CSV — the richer builder ExportManager
+                    lacked. Self-contained trigger + modal. */}
+                <Suspense fallback={<LoadingState />}>
+                  <EnhancedExportManager />
+                </Suspense>
+
+                <button
+                  onClick={() => setShowExcelExport(true)}
+                  className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  <FileSpreadsheetIcon size={16} />
+                  Excel Export
                 </button>
 
                 <button
@@ -442,14 +409,8 @@ export default function ExportManager() {
                   <DownloadIcon size={16} />
                   Export everything (JSON)
                 </button>
-
-                <button
-                  onClick={handleCreateScheduledReport}
-                  className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <ClockIcon size={16} />
-                  Schedule Report
-                </button>
+                {/* NOTE: no "Schedule Report" button here by design — see the
+                    scheduled-exports comment at the top of this file. */}
               </div>
             </div>
 
@@ -567,92 +528,6 @@ export default function ExportManager() {
           </div>
         )}
 
-        {/* Scheduled Reports Tab */}
-        {activeTab === 'scheduled' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Scheduled Reports</h3>
-                <button
-                  onClick={() => setActiveTab('export')}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90"
-                >
-                  <PlusIcon size={16} />
-                  Schedule Report
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {scheduledReports.length === 0 ? (
-                <div className="text-center py-8">
-                  <ClockIcon size={48} className="mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500 dark:text-gray-400">No scheduled reports</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {scheduledReports.map((report) => (
-                    <div key={report.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-medium text-gray-900 dark:text-white">{report.name}</h4>
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              report.isActive 
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                            }`}>
-                              {report.isActive ? 'Active' : 'Paused'}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                            <div>
-                              <div className="font-medium">Email</div>
-                              <div>{report.email}</div>
-                            </div>
-                            <div>
-                              <div className="font-medium">Frequency</div>
-                              <div className="capitalize">{report.frequency}</div>
-                            </div>
-                            <div>
-                              <div className="font-medium">Next Run</div>
-                              <div>{formatDateTime(report.nextRun)}</div>
-                            </div>
-                            <div>
-                              <div className="font-medium">Last Run</div>
-                              <div>{report.lastRun ? formatDateTime(report.lastRun) : 'Never'}</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          <button
-                            onClick={() => handleToggleScheduledReport(report.id)}
-                            className={`p-2 rounded ${
-                              report.isActive
-                                ? 'text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-300'
-                                : 'text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300'
-                            }`}
-                            title={report.isActive ? 'Pause report' : 'Resume report'}
-                          >
-                            {report.isActive ? <StopIcon size={16} /> : <PlayIcon size={16} />}
-                          </button>
-                          <button
-                            onClick={() => handleDeleteScheduledReport(report.id)}
-                            className="p-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                            title="Delete report"
-                          >
-                            <TrashIcon size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* History Tab */}
         {activeTab === 'history' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -661,13 +536,25 @@ export default function ExportManager() {
               <CalendarIcon size={48} className="mx-auto mb-4 text-gray-400" />
               <p className="text-gray-500 dark:text-gray-400">Export history will be displayed here</p>
               <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                This feature tracks all generated exports and scheduled report deliveries
+                This feature will track all generated exports
               </p>
             </div>
           </div>
         )}
       </div>
-    <PageTip id="export-intro" title="Export your data" description="Download your transactions, accounts, and reports in CSV or Excel format. Perfect for backups or analysis in spreadsheets." />
+
+      {/* Dedicated Excel exporter (rich formatting, multiple entity sheets).
+          Mounted only while open so its XLSX chunk stays deferred until used. */}
+      {showExcelExport && (
+        <Suspense fallback={<LoadingState />}>
+          <ExcelExport
+            isOpen={showExcelExport}
+            onClose={() => setShowExcelExport(false)}
+          />
+        </Suspense>
+      )}
+
+      <PageTip id="export-intro" title="Export your data" description="Download your transactions, accounts, and reports in PDF, Excel, or CSV format. Perfect for backups or analysis in spreadsheets." />
     </PageWrapper>
   );
 }

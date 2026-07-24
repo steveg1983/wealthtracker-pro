@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ExportService } from '../exportService';
-import type { ScheduledReport, ExportOptions } from '../exportService';
+import type { ExportOptions } from '../exportService';
 
 const createStorage = () => {
   const store = new Map<string, string>();
@@ -61,50 +61,7 @@ describe('ExportService (deterministic)', () => {
     );
   });
 
-  it('creates scheduled reports with deterministic next runs', () => {
-    const service = buildService();
-    const report = service.createScheduledReport({
-      name: 'Weekly Digest',
-      email: 'demo@example.com',
-      frequency: 'weekly',
-      options: baseOptions,
-      isActive: true,
-      lastRun: undefined
-    } as Omit<ScheduledReport, 'id' | 'createdAt' | 'nextRun'>);
-
-    expect(report.id).toBe('id-1');
-    expect(report.createdAt).toEqual(fixedDate);
-    expect(report.nextRun.getDay()).toBe(6); // 7 days after Feb 1 2025 (Saturday)
-    expect(storage.setItem).toHaveBeenCalledWith(
-      'scheduled-reports',
-      expect.stringContaining('Weekly Digest')
-    );
-  });
-
-  it('loads scheduled reports from injected storage', () => {
-    const saved = [
-      {
-        id: 'persisted',
-        name: 'Persisted Report',
-        frequency: 'monthly',
-        email: 'demo@example.com',
-        options: baseOptions,
-        nextRun: fixedDate.toISOString(),
-        isActive: true,
-        createdAt: fixedDate.toISOString()
-      }
-    ];
-    storage.getItem.mockImplementation((key: string) => {
-      if (key === 'scheduled-reports') {
-        return JSON.stringify(saved);
-      }
-      if (key === 'export-templates') {
-        return JSON.stringify([]);
-      }
-      return null;
-    });
-
-    const service = buildService();
-    expect(service.getScheduledReports()[0].id).toBe('persisted');
-  });
+  // Scheduled-report tests were removed with the scheduled-export feature — it
+  // was client-only theatre (nothing ran server-side), so both the UI and the
+  // orphaned exportService methods it exercised are gone.
 });

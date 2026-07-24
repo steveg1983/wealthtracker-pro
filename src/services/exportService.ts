@@ -2,7 +2,7 @@
 let jsPDF: JsPDFClass | null = null;
 const _html2canvas: typeof import('html2canvas').default | null = null;
 import type { Transaction, Account, Investment, Budget } from '../types';
-import type { ExportableData, ChartData, SavedReport, SavedTemplate } from '../types/export';
+import type { ExportableData, ChartData, SavedTemplate } from '../types/export';
 import Decimal from 'decimal.js';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -33,18 +33,6 @@ export interface ExportOptions {
   logoUrl?: string;
 }
 
-export interface ScheduledReport {
-  id: string;
-  name: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly';
-  email: string;
-  options: ExportOptions;
-  nextRun: Date;
-  isActive: boolean;
-  createdAt: Date;
-  lastRun?: Date;
-}
-
 export interface ExportTemplate {
   id: string;
   name: string;
@@ -55,7 +43,6 @@ export interface ExportTemplate {
 }
 
 export class ExportService {
-  private scheduledReports: ScheduledReport[] = [];
   private templates: ExportTemplate[] = [];
   private readonly storage: StorageLike | null;
   private readonly logger: ScopedLogger;
@@ -74,21 +61,6 @@ export class ExportService {
   private loadData() {
     if (!this.storage) return;
     try {
-      const savedReports = this.storage.getItem('scheduled-reports');
-      if (savedReports) {
-        this.scheduledReports = JSON.parse(savedReports).map((report: SavedReport) => ({
-          ...report,
-          nextRun: new Date(report.nextRun),
-          createdAt: new Date(report.createdAt),
-          lastRun: report.lastRun ? new Date(report.lastRun) : undefined,
-          options: {
-            ...report.options,
-            startDate: new Date(report.options.startDate),
-            endDate: new Date(report.options.endDate)
-          }
-        }));
-      }
-
       const savedTemplates = this.storage.getItem('export-templates');
       if (savedTemplates) {
         this.templates = JSON.parse(savedTemplates).map((template: SavedTemplate) => ({
@@ -109,7 +81,6 @@ export class ExportService {
   private saveData() {
     if (!this.storage) return;
     try {
-      this.storage.setItem('scheduled-reports', JSON.stringify(this.scheduledReports));
       this.storage.setItem('export-templates', JSON.stringify(this.templates));
     } catch (error) {
       this.logger.error('Error saving export data', error);
@@ -221,74 +192,6 @@ export class ExportService {
     this.templates.splice(index, 1);
     this.saveData();
     return true;
-  }
-
-  // Scheduled Reports
-  getScheduledReports(): ScheduledReport[] {
-    return this.scheduledReports.sort((a, b) => a.nextRun.getTime() - b.nextRun.getTime());
-  }
-
-  createScheduledReport(report: Omit<ScheduledReport, 'id' | 'createdAt' | 'nextRun'>): ScheduledReport {
-    const nextRun = this.calculateNextRun(report.frequency);
-    const newReport: ScheduledReport = {
-      ...report,
-      id: this.idGenerator(),
-      nextRun,
-      createdAt: this.nowProvider()
-    };
-
-    this.scheduledReports.push(newReport);
-    this.saveData();
-    return newReport;
-  }
-
-  updateScheduledReport(id: string, updates: Partial<ScheduledReport>): ScheduledReport | null {
-    const index = this.scheduledReports.findIndex(r => r.id === id);
-    if (index === -1) return null;
-
-    const updatedReport = { ...this.scheduledReports[index], ...updates };
-    
-    // Recalculate next run if frequency changed
-    if (updates.frequency) {
-      updatedReport.nextRun = this.calculateNextRun(updates.frequency);
-    }
-
-    this.scheduledReports[index] = updatedReport;
-    this.saveData();
-    return updatedReport;
-  }
-
-  deleteScheduledReport(id: string): boolean {
-    const index = this.scheduledReports.findIndex(r => r.id === id);
-    if (index === -1) return false;
-
-    this.scheduledReports.splice(index, 1);
-    this.saveData();
-    return true;
-  }
-
-  private calculateNextRun(frequency: ScheduledReport['frequency']): Date {
-    const now = this.nowProvider();
-    const nextRun = new Date(now);
-
-    switch (frequency) {
-      case 'daily':
-        nextRun.setDate(now.getDate() + 1);
-        break;
-      case 'weekly':
-        nextRun.setDate(now.getDate() + 7);
-        break;
-      case 'monthly':
-        nextRun.setMonth(now.getMonth() + 1);
-        break;
-      case 'quarterly':
-        nextRun.setMonth(now.getMonth() + 3);
-        break;
-    }
-
-    // Set to 9 AM for consistent delivery time
-    nextRun.setHours(9, 0, 0, 0);
-    return nextRun;
   }
 
   // Export Functions
@@ -599,39 +502,6 @@ export class ExportService {
       month: 'short',
       day: 'numeric'
     });
-  }
-
-  // Email scheduling (mock implementation)
-  async sendScheduledReport(reportId: string): Promise<boolean> {
-    const report = this.scheduledReports.find(r => r.id === reportId);
-    if (!report || !report.isActive) return false;
-
-    try {
-      // In a real implementation, this would:
-      // 1. Generate the report using the specified options
-      // 2. Send email via email service (SendGrid, Mailgun, etc.)
-      // 3. Update the lastRun and nextRun dates
-
-      this.logger.info?.(`Sending scheduled report "${report.name}" to ${report.email}`);
-      
-      // Update the report
-      report.lastRun = new Date();
-      report.nextRun = this.calculateNextRun(report.frequency);
-      this.saveData();
-
-      return true;
-    } catch (error) {
-      this.logger.error('Error sending scheduled report', error as Error);
-      return false;
-    }
-  }
-
-  // Check for due reports (would be called by a background service)
-  getDueReports(): ScheduledReport[] {
-    const now = new Date();
-    return this.scheduledReports.filter(report => 
-      report.isActive && report.nextRun <= now
-    );
   }
 
   // Export to QIF format
