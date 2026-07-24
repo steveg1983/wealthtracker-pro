@@ -149,7 +149,13 @@ const isoToDate = (iso: string): Date => new Date(`${iso}T00:00:00.000Z`);
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
-function transformAccounts(mny: MnyAccount[], nowIso: string): { accounts: Account[]; cashPairs: number } {
+function transformAccounts(
+  mny: MnyAccount[],
+  nowIso: string,
+  // accountId → earliest ISO transaction date, used to date opening balances
+  // whose Money dtOpen is null (see below).
+  firstTxnByAccount: Map<number, string>
+): { accounts: Account[]; cashPairs: number } {
   // Money's hacctRel pairing is bidirectional; the CHILD of the pair is the
   // non-investment (cash) side, nested under its investment account. Any other
   // hacctRel combination (it only ever links investment↔cash in practice) is
@@ -170,6 +176,16 @@ function transformAccounts(mny: MnyAccount[], nowIso: string): { accounts: Accou
     // ledger recomputes it from the imported transactions and must agree.
     const parent = parentOf(a);
     if (parent != null) cashPairs++;
+    // Money's dtOpen is often null. Rather than let the opening balance seed at
+    // the dawn of time (openingDates.ts: an undated lump is projected back to
+    // the beginning of history), default its date to the account's earliest
+    // transaction — or, for a position account whose money lives in its cash
+    // sibling (hacctRel is more reliable than name-matching at import time),
+    // that sibling's earliest transaction. An explicit dtOpen wins; the
+    // read-time resolver clamps it to the first transaction if it is later.
+    const ownFirstIso = firstTxnByAccount.get(a.id);
+    const siblingFirstIso = a.relatedAccountId != null ? firstTxnByAccount.get(a.relatedAccountId) : undefined;
+    const openIso = a.openDate ?? ownFirstIso ?? siblingFirstIso;
     return {
       id: acctId(a.id),
       name: a.name,
@@ -177,7 +193,7 @@ function transformAccounts(mny: MnyAccount[], nowIso: string): { accounts: Accou
       parentAccountId: parent != null ? acctId(parent) : undefined,
       balance: toNumber(a.reconstructedBalance),
       openingBalance: toNumber(a.openingBalance),
-      openingBalanceDate: a.openDate ? isoToDate(a.openDate) : undefined,
+      openingBalanceDate: openIso ? isoToDate(openIso) : undefined,
       currency: a.currencyCode || 'GBP',
       isActive: !a.closed,
       notes: a.comment || undefined,
@@ -196,8 +212,12 @@ function transformCategories(mny: MnyCategory[]): { categories: Category[]; hidd
     { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
     { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
     { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
-    // Holds the uncategorised remainder of Money's partial splits.
-    { id: UNASSIGNED_CAT_ID, name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense' },
+    // Holds the uncategorised remainder of Money's partial splits. Flagged an
+    // unassigned bucket so the classifier declassifies its lines back to the
+    // review band: a split line cannot be blank by schema, but "the importer had
+    // to file it somewhere" is not the same as the user choosing a category, so
+    // its money-in lines must not count as income.
+    { id: UNASSIGNED_CAT_ID, name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense', isUnassignedBucket: true },
   ];
   let hiddenCount = 0;
 
@@ -506,7 +526,16 @@ function buildTransferCategories(
 }
 
 export function transformMsMoneyExport(exp: MnyExport, nowIso: string): MsMoneyImportResult {
-  const { accounts, cashPairs } = transformAccounts(exp.accounts, nowIso);
+  // Earliest ISO date per account (yyyy-MM-dd sorts lexically = chronologically).
+  // Split children share their parent's date and are consumed into it, so they
+  // are skipped — matching the transactions the read-time resolver would see.
+  const firstTxnByAccount = new Map<number, string>();
+  for (const t of exp.transactions) {
+    if (t.role === 'splitChild' || t.date == null) continue;
+    const existing = firstTxnByAccount.get(t.accountId);
+    if (existing === undefined || t.date < existing) firstTxnByAccount.set(t.accountId, t.date);
+  }
+  const { accounts, cashPairs } = transformAccounts(exp.accounts, nowIso, firstTxnByAccount);
   const { categories, hiddenCount } = transformCategories(exp.categories);
   const transfer = buildTransferCategories(exp.accounts, exp.transactions);
   categories.push(...transfer.categories);

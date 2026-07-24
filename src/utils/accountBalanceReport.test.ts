@@ -121,4 +121,52 @@ describe('buildAccountBalanceReport', () => {
     const now = new Date(2026, 5, 6);
     expect(buildAccountBalanceReport(ACCOUNTS, [], { from: null, to: null }, now).asOf).toEqual(now);
   });
+
+  it('an opening balance effective before the window sits in the opening column', () => {
+    const report = buildAccountBalanceReport(
+      [account({ id: 'acc-x', name: 'Opened Earlier', type: 'current', openingBalance: 1000, openingBalanceDate: new Date(2026, 0, 1) })],
+      [],
+      RANGE
+    );
+    const row = report.rows.find(r => r.accountId === 'acc-x');
+    expect(row).toMatchObject({ opening: 1000, moneyIn: 0, moneyOut: 0, closing: 1000, count: 0 });
+    expect(report.openingNetWorth).toBe(1000);
+  });
+
+  it('an opening balance that only becomes effective inside the window is period movement, not opening', () => {
+    // The account did not exist at the window start, so its opening net worth is
+    // 0 — the lump appears as money coming in during the period.
+    const report = buildAccountBalanceReport(
+      [account({ id: 'acc-x', name: 'Opened Mid', type: 'current', openingBalance: 1000, openingBalanceDate: new Date(2026, 1, 10) })],
+      [],
+      RANGE
+    );
+    const row = report.rows.find(r => r.accountId === 'acc-x');
+    expect(row).toMatchObject({ opening: 0, moneyIn: 1000, moneyOut: 0, change: 1000, closing: 1000 });
+    expect(report.openingNetWorth).toBe(0);
+    expect(report.netWorth).toBe(1000);
+    expect(report.change).toBe(1000);
+  });
+
+  it('an opening balance not yet effective by the as-of date contributes nothing', () => {
+    const report = buildAccountBalanceReport(
+      [account({ id: 'acc-x', name: 'Opened Later', type: 'current', openingBalance: 1000, openingBalanceDate: new Date(2026, 2, 15) })],
+      [],
+      RANGE
+    );
+    const row = report.rows.find(r => r.accountId === 'acc-x');
+    expect(row).toMatchObject({ opening: 0, moneyIn: 0, closing: 0 });
+    expect(report.netWorth).toBe(0);
+  });
+
+  it('a negative opening balance appearing inside the window counts as money out', () => {
+    const report = buildAccountBalanceReport(
+      [account({ id: 'acc-card', name: 'New Card', type: 'credit', openingBalance: -200, openingBalanceDate: new Date(2026, 1, 10) })],
+      [],
+      RANGE
+    );
+    const row = report.rows.find(r => r.accountId === 'acc-card');
+    expect(row).toMatchObject({ opening: 0, moneyIn: 0, moneyOut: 200, change: -200, closing: -200 });
+    expect(report.liabilities).toBe(200);
+  });
 });

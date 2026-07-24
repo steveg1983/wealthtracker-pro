@@ -547,6 +547,7 @@ const categoryFromDb = (row: Row): Category => ({
   isSystem: row.is_system === true,
   isTransferCategory: row.is_transfer_category === true,
   isRevaluationCategory: row.is_revaluation_category === true,
+  isUnassignedBucket: row.is_unassigned_bucket === true,
   accountId: str(row.account_id) ?? undefined,
   isActive: row.is_active !== false
 });
@@ -563,6 +564,7 @@ const categoryToDb = (c: Partial<Category>, userId?: string): Row => {
   if (c.isSystem !== undefined) row.is_system = c.isSystem;
   if (c.isTransferCategory !== undefined) row.is_transfer_category = c.isTransferCategory;
   if (c.isRevaluationCategory !== undefined) row.is_revaluation_category = c.isRevaluationCategory;
+  if (c.isUnassignedBucket !== undefined) row.is_unassigned_bucket = c.isUnassignedBucket;
   if (c.accountId !== undefined) row.account_id = c.accountId || null;
   if (c.isActive !== undefined) row.is_active = c.isActive;
   return row;
@@ -580,6 +582,7 @@ const categoryToRpcPayload = (c: Category): Record<string, unknown> => ({
   isSystem: c.isSystem ?? false,
   isTransferCategory: c.isTransferCategory ?? false,
   isRevaluationCategory: c.isRevaluationCategory ?? false,
+  isUnassignedBucket: c.isUnassignedBucket ?? false,
   accountId: c.accountId ?? null,
   isActive: c.isActive ?? true
 });

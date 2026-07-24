@@ -52,6 +52,7 @@ const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
 interface DbCategory {
   id: string; name: string; type: string | null; parent_id: string | null;
   level: string | null; is_transfer_category: boolean | null;
+  is_revaluation_category: boolean | null; is_unassigned_bucket: boolean | null;
 }
 interface DbTransaction {
   id: string; date: string; description: string | null; account_id: string;
@@ -88,7 +89,7 @@ async function page<T>(table: string, cols: string, narrow?: (from: number) => P
 }
 
 const PAGE = 1000;
-const cats = await page<DbCategory>('categories', 'id,name,type,parent_id,level,is_transfer_category');
+const cats = await page<DbCategory>('categories', 'id,name,type,parent_id,level,is_transfer_category,is_revaluation_category,is_unassigned_bucket');
 const txns = await page<DbTransaction>('transactions', '', from => sb
   .from('transactions')
   .select('id,date,description,account_id,amount,type,category,is_split')
@@ -105,6 +106,8 @@ const categories: Category[] = cats.map(c => ({
   level: (c.level === 'type' || c.level === 'sub' || c.level === 'detail') ? c.level : 'detail',
   parentId: c.parent_id ?? undefined,
   isTransferCategory: c.is_transfer_category ?? undefined,
+  isRevaluationCategory: c.is_revaluation_category ?? undefined,
+  isUnassignedBucket: c.is_unassigned_bucket ?? undefined,
 }));
 const transactions: Transaction[] = txns.map(t => ({
   id: t.id,

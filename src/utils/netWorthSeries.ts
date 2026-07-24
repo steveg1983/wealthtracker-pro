@@ -1,5 +1,6 @@
 import type { Account, Transaction } from '../types';
 import { toDecimal } from './decimal';
+import { resolveEffectiveOpeningDates } from './openingDates';
 import type { PeriodRange } from '../hooks/usePeriod';
 
 export interface NetWorthSnapshot {
@@ -13,10 +14,17 @@ export interface NetWorthSnapshot {
 /**
  * Net worth over time from first principles: per-account running balance
  * (opening balance + cumulative transactions, Decimal throughout) snapshotted
- * at each point in the period. One forward walk — balances accumulate from
- * the very beginning, so a point inside the window carries ALL history
- * before it. Shared by the Net Worth report and the Dashboard's pinned
- * net-worth widget.
+ * at each point in the period. One forward walk — transactions accumulate from
+ * the very beginning, so a point inside the window carries ALL history before
+ * it. Shared by the Net Worth report and the Dashboard's pinned net-worth
+ * widget.
+ *
+ * An opening balance is a DATED lump, not a figure that has always existed: it
+ * is folded in on its effective date (see openingDates.ts), so an account
+ * opened in 2011 no longer inflates net worth back to 2008. An account with no
+ * datable signal at all still seeds at time-zero — dropping an undated lump
+ * from history silently would be worse than overstating it; the report warns
+ * about those instead.
  *
  * Point cadence: daily for windows under ~3 months, month-end beyond (the
  * Money cadence), always ending on the window's final day.
@@ -53,13 +61,41 @@ export function buildNetWorthSnapshots(
     points.push(new Date(end));
   }
 
-  const balances = new Map(accounts.map(a => [a.id, toDecimal(a.openingBalance ?? 0)]));
+  // Seed every account at zero. An opening balance is a dated lump folded in on
+  // its effective date, NOT a figure present from the start; only accounts with
+  // no datable signal (rung 4) seed at time-zero, preserving today's behaviour.
+  const openingDates = resolveEffectiveOpeningDates(accounts, transactions);
+  const balances = new Map<string, ReturnType<typeof toDecimal>>();
+  const openingEvents: Array<{ accountId: string; time: number; amount: ReturnType<typeof toDecimal> }> = [];
+  for (const a of accounts) {
+    const opening = toDecimal(a.openingBalance ?? 0);
+    const eff = openingDates.get(a.id);
+    if (eff === undefined) {
+      balances.set(a.id, opening);
+    } else {
+      balances.set(a.id, toDecimal(0));
+      if (!opening.isZero()) openingEvents.push({ accountId: a.id, time: eff.getTime(), amount: opening });
+    }
+  }
+  openingEvents.sort((x, y) => x.time - y.time);
+
   const monthly = spanDays > 92;
   let i = 0;
+  let j = 0;
   const out: NetWorthSnapshot[] = [];
   for (const point of points) {
     const cutoff = new Date(point);
     cutoff.setHours(23, 59, 59, 999);
+    const cutoffTime = cutoff.getTime();
+    // Each opening lump appears the moment its effective date is reached — same
+    // chronological walk as the transactions, so a point before an account's
+    // opening date carries none of its balance.
+    while (j < openingEvents.length && openingEvents[j].time <= cutoffTime) {
+      const ev = openingEvents[j];
+      const bal = balances.get(ev.accountId);
+      if (bal !== undefined) balances.set(ev.accountId, bal.plus(ev.amount));
+      j++;
+    }
     while (i < sorted.length && new Date(sorted[i].date) <= cutoff) {
       const t = sorted[i];
       const bal = balances.get(t.accountId);

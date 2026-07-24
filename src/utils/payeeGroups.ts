@@ -62,9 +62,14 @@ export function buildPayeeGroups(
 ): PayeeGroup[] {
   const kinds = buildCategoryKindLookup(categories);
   const categoryIds = new Set(categories.map(c => c.id));
+  // An unassigned bucket carries a real category id, so the id check below would
+  // read it as "already filed" — but it is not: the importer parked it there
+  // only because a split line cannot be blank. Treat it as uncategorised, so its
+  // rows both stay OUT of suggestion history and DO surface as a group to decide.
+  const bucketIds = new Set(categories.filter(c => c.isUnassignedBucket === true).map(c => c.id));
 
   const isUncategorised = (t: Transaction): boolean =>
-    !t.category || !categoryIds.has(t.category);
+    !t.category || !categoryIds.has(t.category) || bucketIds.has(t.category);
 
   // How the user already files each payee+direction (categorised rows only).
   const history = new Map<string, Map<string, { count: number; latest: number }>>();

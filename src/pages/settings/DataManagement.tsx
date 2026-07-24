@@ -1,57 +1,41 @@
-import { useState, lazy, Suspense, useMemo, useCallback } from 'react';
+import { useState, lazy, Suspense, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, type IconProps } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, EditIcon, LinkIcon, WrenchIcon, LightbulbIcon, XCircleIcon, type IconProps } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
 import { DataService } from '../../services/api/dataService';
 import { supabase } from '../../lib/supabase';
 import { STORAGE_KEYS } from '../../services/storageAdapter';
-import type { MsMoneyImportResult } from '../../services/import/msMoney/transform';
-import type { ImportProgress } from '../../services/import/msMoney/msMoneyImport';
 
-const MsMoneyImportModal = lazy(() => import('../../components/MsMoneyImportModal'));
 const ArchiveManager = lazy(() => import('../../components/ArchiveManager'));
 
-// Lazy load heavy components to reduce initial bundle size
-const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
-const EnhancedExportManager = lazy(() => import('../../components/EnhancedExportManager'));
-const ImportDataModal = lazy(() => import('../../components/ImportDataModal'));
-const CSVImportWizard = lazy(() => import('../../components/CSVImportWizard'));
-const OFXImportModal = lazy(() => import('../../components/OFXImportModal'));
-const QIFImportModal = lazy(() => import('../../components/QIFImportModal'));
+// Lazy load heavy components to reduce initial bundle size. Import and export
+// tools moved to the Manage pages (see the link cards below); what remains here
+// is genuine data administration — cleanup tools, backups, and the danger zone.
 const DuplicateDetection = lazy(() => import('../../components/DuplicateDetection'));
-const ExcelExport = lazy(() => import('../../components/ExcelExport'));
 const BulkTransactionEdit = lazy(() => import('../../components/BulkTransactionEdit'));
 const TransactionReconciliation = lazy(() => import('../../components/TransactionReconciliation'));
 const DataValidation = lazy(() => import('../../components/DataValidation'));
 const SmartCategorizationSettings = lazy(() => import('../../components/SmartCategorizationSettings'));
-const BatchImportModal = lazy(() => import('../../components/BatchImportModal'));
-const ImportRulesManager = lazy(() => import('../../components/ImportRulesManager'));
 const BankConnections = lazy(() => import('../../components/BankConnections'));
 const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBackupSettings'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData, isUsingSupabase } = useApp();
+  const { accounts, transactions, budgets, clearAllData, loadTestData, hasTestData, isUsingSupabase } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
-  const [showCSVImportWizard, setShowCSVImportWizard] = useState(false);
-  const [showOFXImportModal, setShowOFXImportModal] = useState(false);
-  const [showQIFImportModal, setShowQIFImportModal] = useState(false);
   const [showDuplicateDetection, setShowDuplicateDetection] = useState(false);
-  const [showExcelExport, setShowExcelExport] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [showDataValidation, setShowDataValidation] = useState(false);
   const [showSmartCategorization, setShowSmartCategorization] = useState(false);
-  const [showBatchImport, setShowBatchImport] = useState(false);
-  const [showImportRules, setShowImportRules] = useState(false);
   const [showBankConnections, setShowBankConnections] = useState(initialBankingOpsUrlState.modalOpen);
   const [showBankConnectionsWithCriticalFilter, setShowBankConnectionsWithCriticalFilter] = useState(initialBankingOpsUrlState.onlyAboveThreshold);
   const [showBankConnectionsWithOpsEventType, setShowBankConnectionsWithOpsEventType] = useState(initialBankingOpsUrlState.eventType);
@@ -60,30 +44,6 @@ export default function DataManagementSettings() {
   const [showBankConnectionsWithAuditStatus, setShowBankConnectionsWithAuditStatus] = useState(initialBankingOpsUrlState.auditStatus);
   const [showBankConnectionsWithAuditScope, setShowBankConnectionsWithAuditScope] = useState(initialBankingOpsUrlState.auditScope);
   const [showBankConnectionsWithAuditDateRangePreset, setShowBankConnectionsWithAuditDateRangePreset] = useState(initialBankingOpsUrlState.auditDateRangePreset);
-  const [showMigrationWizard, setShowMigrationWizard] = useState(false);
-  const [showMsMoneyImport, setShowMsMoneyImport] = useState(false);
-
-  // Run the destructive MS Money import against the right backend: Supabase for
-  // signed-in users (batched inserts under RLS), local storage otherwise. The
-  // modal owns the confirmation + backup gate; this only executes.
-  const executeMsMoneyImport = useCallback(async (
-    result: MsMoneyImportResult,
-    onProgress: (p: ImportProgress) => void
-  ) => {
-    const { importToCloud, importToLocalStorage } = await import('../../services/import/msMoney/msMoneyImport');
-    const databaseUserId = DataService.getUserIds().databaseId;
-    if (isUsingSupabase && supabase && databaseUserId) {
-      await importToCloud(result, supabase, databaseUserId, () => crypto.randomUUID(), { onProgress });
-    } else {
-      await importToLocalStorage(result, STORAGE_KEYS, { onProgress });
-    }
-  }, [isUsingSupabase]);
-
-  // A total migration replaces everything — reload so the app re-reads the new
-  // dataset cleanly rather than reconciling against stale in-memory state.
-  const handleMsMoneyImported = useCallback(() => {
-    window.setTimeout(() => window.location.reload(), 1200);
-  }, []);
 
   const replaceBankingOpsQueryState = (updates: Parameters<typeof withBankingOpsUrlState>[1]) => {
     if (typeof window === 'undefined') {
@@ -91,19 +51,6 @@ export default function DataManagementSettings() {
     }
     const nextSearch = withBankingOpsUrlState(window.location.search, updates);
     replaceBrowserSearch(nextSearch);
-  };
-
-  const handleExportData = () => {
-    const dataStr = exportData();
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `money-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const [isClearing, setIsClearing] = useState(false);
@@ -134,15 +81,6 @@ export default function DataManagementSettings() {
       setIsClearing(false);
     }
   };
-
-  // The wizard routes to the real import tools it recommends.
-  const handleWizardTool = useCallback((tool: 'csv' | 'qif' | 'ofx' | 'msmoney') => {
-    setShowMigrationWizard(false);
-    if (tool === 'csv') setShowCSVImportWizard(true);
-    else if (tool === 'qif') setShowQIFImportModal(true);
-    else if (tool === 'ofx') setShowOFXImportModal(true);
-    else setShowMsMoneyImport(true);
-  }, []);
 
   const handleLoadTestData = () => {
     loadTestData();
@@ -181,52 +119,34 @@ export default function DataManagementSettings() {
         </div>
       )}
 
+      {/* ── Import & Export moved to Manage ─────────────────────────
+          Bringing data in and getting it out are data-admin tasks, so they now
+          live under Manage where all data tools sit together. These signposts
+          keep muscle memory from dead-ending here. */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import &amp; export moved to Manage</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Every way to bring data in or get it out now lives in one place under Manage.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <LinkCard
+            to="/enhanced-import"
+            icon={UploadIcon}
+            title="Import Data"
+            description="Microsoft Money, bank files (CSV/OFX/QIF), other apps and import rules"
+          />
+          <LinkCard
+            to="/export-manager"
+            icon={DownloadIcon}
+            title="Export Data"
+            description="Reports, Excel, templates and a full machine-readable backup"
+          />
+        </div>
+      </div>
+
       {/* Bank connection MANAGEMENT lives on the Accounts page now; this page
           keeps only the URL-driven modal below so ops alert deep links
           (banking incident emails) keep working. */}
-
-      {/* ── Import ─────────────────────────────────────────────── */}
-      <Section title="Import" description="Bring data in from other apps, files, or a full Microsoft Money migration.">
-        {/* Microsoft Money — a first-class total-migration flow */}
-        <button
-          onClick={() => setShowMsMoneyImport(true)}
-          className="w-full mb-4 text-left rounded-xl border border-[#1a2332]/15 dark:border-blue-500/30 bg-[#1a2332]/[0.03] dark:bg-blue-500/10 hover:bg-[#1a2332]/[0.06] dark:hover:bg-blue-500/20 transition-colors p-4 flex items-center gap-4"
-        >
-          <span className="shrink-0 grid place-items-center h-11 w-11 rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white">
-            <DatabaseIcon size={22} />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-semibold text-gray-900 dark:text-white">Import from Microsoft Money</span>
-            <span className="block text-sm text-gray-500 dark:text-gray-400">
-              Migrate your entire <code>.mny</code> file — every account, transaction and transfer. Replaces all current data.
-            </span>
-          </span>
-        </button>
-
-        <ActionButton icon={DatabaseIcon} title="Data Migration Wizard"
-          description="Guided import from Mint, Quicken, YNAB and more" onClick={() => setShowMigrationWizard(true)} />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ActionButton icon={FileTextIcon} title="CSV Import" description="Bank statement files" onClick={() => setShowCSVImportWizard(true)} />
-          <ActionButton icon={CreditCardIcon} title="OFX Import" description="Auto-matched bank data" onClick={() => setShowOFXImportModal(true)} />
-          <ActionButton icon={DatabaseIcon} title="QIF Import" description="Quicken export files" onClick={() => setShowQIFImportModal(true)} />
-          <ActionButton icon={FolderIcon} title="Batch Import" description="Several files at once" onClick={() => setShowBatchImport(true)} />
-          <ActionButton icon={UploadIcon} title="Legacy Import" description="Older MNY / MBF files" onClick={() => setShowImportModal(true)} />
-        </div>
-      </Section>
-
-      {/* ── Export ─────────────────────────────────────────────── */}
-      <Section title="Export" description="Download your data for backup or use elsewhere.">
-        <div className="mb-4">
-          <Suspense fallback={<LoadingState />}>
-            <EnhancedExportManager />
-          </Suspense>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ActionButton icon={DownloadIcon} title="Quick Export" description="Full data as JSON" onClick={handleExportData} />
-          <ActionButton icon={GridIcon} title="Excel Export" description="Spreadsheet format" onClick={() => setShowExcelExport(true)} />
-        </div>
-      </Section>
 
       {/* ── Archive ────────────────────────────────────────────── */}
       <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
@@ -246,7 +166,6 @@ export default function DataManagementSettings() {
       <Section title="Tools" description="Tidy up, reconcile, and improve your data.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <ActionButton icon={LightbulbIcon} title="Smart Categorization" description="Auto-categorize with AI" onClick={() => setShowSmartCategorization(true)} />
-          <ActionButton icon={WrenchIcon} title="Import Rules" description="Transformations on import" onClick={() => setShowImportRules(true)} />
           <ActionButton icon={SearchIcon} title="Find Duplicates" description="Detect repeated transactions" onClick={() => setShowDuplicateDetection(true)} />
           <ActionButton icon={EditIcon} title="Bulk Edit" description="Change many at once" onClick={() => setShowBulkEdit(true)} />
           <ActionButton icon={LinkIcon} title="Reconcile Accounts" description="Match against statements" onClick={() => setShowReconciliation(true)} />
@@ -379,97 +298,12 @@ export default function DataManagementSettings() {
           this page. Gating on the show-flag defers chunk + work to first open
           (the Suspense fallback covers the brief load). */}
 
-      {/* Microsoft Money Import */}
-      {showMsMoneyImport && (
-        <Suspense fallback={<LoadingState />}>
-          <MsMoneyImportModal
-            isOpen={showMsMoneyImport}
-            onClose={() => setShowMsMoneyImport(false)}
-            onBackup={handleExportData}
-            onExecute={executeMsMoneyImport}
-            onImported={handleMsMoneyImported}
-          />
-        </Suspense>
-      )}
-
-      {/* Data Migration Wizard — routes to the real importers */}
-      {showMigrationWizard && (
-        <Suspense fallback={<LoadingState />}>
-          <DataMigrationWizard
-            isOpen={showMigrationWizard}
-            onClose={() => setShowMigrationWizard(false)}
-            onOpenTool={handleWizardTool}
-          />
-        </Suspense>
-      )}
-
-      {/* Import Modal */}
-      {showImportModal && (
-        <Suspense fallback={<LoadingState />}>
-          <ImportDataModal
-            isOpen={showImportModal}
-            onClose={() => setShowImportModal(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* Batch Import Modal */}
-      {showBatchImport && (
-        <Suspense fallback={<LoadingState />}>
-          <BatchImportModal
-            isOpen={showBatchImport}
-            onClose={() => setShowBatchImport(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* CSV Import Wizard */}
-      {showCSVImportWizard && (
-        <Suspense fallback={<LoadingState />}>
-          <CSVImportWizard
-            isOpen={showCSVImportWizard}
-            onClose={() => setShowCSVImportWizard(false)}
-            type="transaction"
-          />
-        </Suspense>
-      )}
-
-      {/* OFX Import Modal */}
-      {showOFXImportModal && (
-        <Suspense fallback={<LoadingState />}>
-          <OFXImportModal
-            isOpen={showOFXImportModal}
-            onClose={() => setShowOFXImportModal(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* QIF Import Modal */}
-      {showQIFImportModal && (
-        <Suspense fallback={<LoadingState />}>
-          <QIFImportModal
-            isOpen={showQIFImportModal}
-            onClose={() => setShowQIFImportModal(false)}
-          />
-        </Suspense>
-      )}
-
       {/* Duplicate Detection */}
       {showDuplicateDetection && (
         <Suspense fallback={<LoadingState />}>
           <DuplicateDetection
             isOpen={showDuplicateDetection}
             onClose={() => setShowDuplicateDetection(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* Excel Export */}
-      {showExcelExport && (
-        <Suspense fallback={<LoadingState />}>
-          <ExcelExport
-            isOpen={showExcelExport}
-            onClose={() => setShowExcelExport(false)}
           />
         </Suspense>
       )}
@@ -520,28 +354,6 @@ export default function DataManagementSettings() {
             <Suspense fallback={<LoadingState />}>
               <SmartCategorizationSettings />
             </Suspense>
-          </div>
-        </div>
-      )}
-
-      {/* Import Rules Modal */}
-      {showImportRules && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Import Rules & Transformations</h2>
-              <button
-                onClick={() => setShowImportRules(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <XCircleIcon size={24} />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
-              <Suspense fallback={<LoadingState />}>
-                <ImportRulesManager />
-              </Suspense>
-            </div>
           </div>
         </div>
       )}
@@ -612,5 +424,25 @@ function ActionButton({ icon: Icon, title, description, onClick }: {
         <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
       </span>
     </button>
+  );
+}
+
+/** Signpost to a page that used to live here — same shape as ActionButton but navigates. */
+function LinkCard({ to, icon: Icon, title, description }: {
+  to: string; icon: React.ComponentType<IconProps>; title: string; description: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="w-full text-left rounded-xl border border-[#1a2332]/15 dark:border-blue-500/30 bg-[#1a2332]/[0.03] dark:bg-blue-500/10 hover:bg-[#1a2332]/[0.06] dark:hover:bg-blue-500/20 transition-colors p-4 flex items-center gap-3"
+    >
+      <span className="shrink-0 grid place-items-center h-10 w-10 rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white">
+        <Icon size={20} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-gray-900 dark:text-white">{title}</span>
+        <span className="block text-xs text-gray-500 dark:text-gray-400">{description}</span>
+      </span>
+    </Link>
   );
 }

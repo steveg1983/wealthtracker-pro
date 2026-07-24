@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
 import { useReconciliation } from '../hooks/useReconciliation';
 import ReconciliationAccountList, { type ReconciliationGroup } from '../components/reconciliation/ReconciliationAccountList';
-import { ACCOUNT_TYPE_SECTIONS } from '../utils/accountSections';
+import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 import ReconciliationBalanceBar from '../components/reconciliation/ReconciliationBalanceBar';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
@@ -86,13 +86,16 @@ export default function Reconciliation() {
         .map(([title, summaries]) => ({ title, summaries: sortSummaries(summaries) }));
     }
 
-    const groups: ReconciliationGroup[] = ACCOUNT_TYPE_SECTIONS.map(section => ({
+    // Same aliasing as the Accounts page (sectionTypeForAccount), so a
+    // 'mortgage' account reconciles under Loans there AND here — this page's
+    // old local catch-all put it under "Other" while Accounts showed it under
+    // Loans, and the module exists precisely so the two cannot diverge.
+    const groups: ReconciliationGroup[] = ALL_ACCOUNT_SECTIONS.map(section => ({
       title: section.title,
-      summaries: sortSummaries(reconciliationDetails.filter(s => s.account.type === section.type)),
-    }));
-    const known = new Set(ACCOUNT_TYPE_SECTIONS.map(s => s.type));
-    const other = reconciliationDetails.filter(s => !known.has(s.account.type));
-    if (other.length > 0) groups.push({ title: 'Other', summaries: sortSummaries(other) });
+      summaries: sortSummaries(
+        reconciliationDetails.filter(s => sectionTypeForAccount(s.account.type) === section.type)
+      ),
+    })).filter(g => g.summaries.length > 0);
     return groups;
   }, [reconciliationDetails, groupBy, sortMode]);
 

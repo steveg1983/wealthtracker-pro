@@ -18,6 +18,7 @@ import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
 import { buildNetWorthSnapshots } from '../utils/netWorthSeries';
+import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
 import type { ReportViewProps } from './reports/types';
 
@@ -79,22 +80,57 @@ export default function NetWorthReport({ picker }: ReportViewProps): React.JSX.E
     [accounts, sortedTransactions, picker.range]
   );
 
-  // Per-account balances at the drilled date (same cumulative rule).
+  // One resolver drives both the drill and the warning note, so the "balances
+  // on a date" figures and the caveat about them can never disagree.
+  const openingDates = useMemo(
+    () => resolveEffectiveOpeningDates(accounts, sortedTransactions),
+    [accounts, sortedTransactions]
+  );
+
+  // Per-account balances at the drilled date (same cumulative rule as the
+  // series walk: an opening balance counts only once its effective date has
+  // arrived; a dateless lump behaves as today).
   const drillBalances = useMemo(() => {
     if (!drillDate) return [];
     const cutoff = new Date(drillDate);
     cutoff.setHours(23, 59, 59, 999);
-    const balances = new Map(accounts.map(a => [a.id, toDecimal(a.openingBalance ?? 0)]));
+    const cutoffTime = cutoff.getTime();
+    const balances = new Map(accounts.map(a => {
+      const opening = toDecimal(a.openingBalance ?? 0);
+      const eff = openingDates.get(a.id);
+      if (eff === undefined) return [a.id, opening] as const;
+      return [a.id, eff.getTime() <= cutoffTime ? opening : toDecimal(0)] as const;
+    }));
     for (const t of sortedTransactions) {
       if (new Date(t.date) > cutoff) break;
       const bal = balances.get(t.accountId);
       if (bal !== undefined) balances.set(t.accountId, bal.plus(toDecimal(t.amount)));
     }
+    // A zero balance with no activity yet (opening date not reached) drops out,
+    // exactly as an empty account always has.
     return accounts
       .map(a => ({ account: a, balance: balances.get(a.id) ?? toDecimal(0) }))
       .filter(e => !e.balance.isZero())
       .sort((a, b) => b.balance.comparedTo(a.balance));
-  }, [drillDate, accounts, sortedTransactions]);
+  }, [drillDate, accounts, sortedTransactions, openingDates]);
+
+  // Opening balances whose date the chart cannot trust: undated lumps count
+  // from the beginning of time (net worth before their real opening date is
+  // overstated), and inferred dates are a guess from first activity. Only
+  // NONZERO opening balances matter — a zero opening contributes nothing to
+  // overstate. Both lists are empty in the common case, so the note renders
+  // nothing at all.
+  const openingDateWarnings = useMemo(() => {
+    const undated: string[] = [];
+    const inferred: string[] = [];
+    for (const a of accounts) {
+      if (toDecimal(a.openingBalance ?? 0).isZero()) continue;
+      const eff = openingDates.get(a.id);
+      if (eff === undefined) undated.push(a.name);
+      else if (!a.openingBalanceDate) inferred.push(a.name);
+    }
+    return { undated, inferred };
+  }, [accounts, openingDates]);
 
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
   const earliest = snapshots.length > 0 ? snapshots[0] : null;
@@ -126,6 +162,27 @@ export default function NetWorthReport({ picker }: ReportViewProps): React.JSX.E
           </p>
         </div>
       </div>
+
+      {/* Opening-date caveat — shown right above the chart it qualifies, and
+          only when there is something to qualify. */}
+      {(openingDateWarnings.undated.length > 0 || openingDateWarnings.inferred.length > 0) && (
+        <div className="rounded-2xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 px-5 py-3 mb-6 space-y-1.5">
+          {openingDateWarnings.undated.length > 0 && (
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              <span className="font-semibold">
+                {openingDateWarnings.undated.length} account{openingDateWarnings.undated.length === 1 ? "'s" : "s'"} opening balance{openingDateWarnings.undated.length === 1 ? ' counts' : 's count'} from the beginning of time — net worth before {openingDateWarnings.undated.length === 1 ? 'its' : 'their'} real opening date is overstated. Set the date in Account Settings.
+              </span>{' '}
+              <span className="text-amber-700 dark:text-amber-400">{openingDateWarnings.undated.join(', ')}</span>
+            </p>
+          )}
+          {openingDateWarnings.inferred.length > 0 && (
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              {openingDateWarnings.inferred.length} account{openingDateWarnings.inferred.length === 1 ? "'s" : "s'"} opening date{openingDateWarnings.inferred.length === 1 ? ' is' : 's are'} inferred from {openingDateWarnings.inferred.length === 1 ? 'its' : 'their'} first activity — set the real date to be exact.{' '}
+              <span className="text-amber-600 dark:text-amber-500">{openingDateWarnings.inferred.join(', ')}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Chart */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">

@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 
 const AddTransactionModal = lazy(() => import('./AddTransactionModal'));
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, LineChartIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -37,7 +37,7 @@ export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
-  const [forecastingExpanded, setForecastingExpanded] = useState(false);
+  const [planExpanded, setPlanExpanded] = useState(false);
   // advancedExpanded removed — Advanced section now uses TopNavDropdown on desktop and direct links on mobile
   const [investmentsExpanded, setInvestmentsExpanded] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -227,6 +227,7 @@ export default function Layout(): React.JSX.Element {
             <TopNavDropdown
               label="Accounts"
               icon={WalletIcon}
+              homeTo="/accounts"
               items={[
                 { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
                 { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
@@ -237,24 +238,39 @@ export default function Layout(): React.JSX.Element {
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
-            <TopNavItem to="/budget" icon={BarChart3Icon} label="Budget" />
-            <TopNavItem to="/calendar" icon={CalendarIcon} label="Calendar" />
+            {/* Plan groups the forward-looking pages the way Money did. Budget
+                and Goals were never data admin, which is what Manage is — each
+                menu means one thing: what I have, what I plan, what happened,
+                my data, the app. */}
+            <TopNavDropdown
+              label="Plan"
+              icon={TargetIcon}
+              homeTo="/budget"
+              items={[
+                { to: '/budget', icon: BarChart3Icon, label: 'Budget' },
+                { to: '/calendar', icon: CalendarIcon, label: 'Calendar' },
+                { to: '/goals', icon: GoalIcon, label: 'Goals' },
+              ]}
+              activePaths={['/budget', '/calendar', '/goals']}
+              openDropdown={openDropdown}
+              setOpenDropdown={setOpenDropdown}
+            />
 
             <TopNavItem to="/reports" icon={PieChartIcon} label="Reports" />
 
             <TopNavDropdown
               label="Manage"
               icon={SettingsIcon}
+              homeTo="/settings/categories"
               items={[
                 { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
                 { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
                 { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
                 { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
                 { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
-                { to: '/goals', icon: GoalIcon, label: 'Goals' },
                 { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/settings/categories', '/settings/tags', '/enhanced-import', '/export-manager', '/documents', '/investments', '/goals']}
+              activePaths={['/settings/categories', '/settings/tags', '/enhanced-import', '/export-manager', '/documents', '/investments']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -262,6 +278,7 @@ export default function Layout(): React.JSX.Element {
             <TopNavDropdown
               label="Settings"
               icon={Settings2Icon}
+              homeTo="/settings"
               items={[
                 { to: '/settings', icon: SettingsIcon, label: 'General' },
                 { to: '/settings/app', icon: Settings2Icon, label: 'App Settings' },
@@ -513,33 +530,35 @@ export default function Layout(): React.JSX.Element {
                   </div>
                 )}
                 
-                {/* Forecasting with Sub-navigation */}
-                {showGoals && (
-                  <div>
-                    <Link
-                      to={isDemoModeRoutingEnabled ? '/forecasting?demo=true' : '/forecasting'}
-                      onClick={() => {
-                        setForecastingExpanded(!forecastingExpanded);
-                        toggleMobileMenu();
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
-                    >
-                      <LineChartIcon size={18} />
-                      <span className="flex-1 text-sm text-left">Forecasting</span>
-                      <ChevronRightIcon 
-                        size={14} 
-                        className={`text-gray-400 transition-transform duration-200 ${forecastingExpanded ? 'rotate-90' : ''}`} 
-                      />
-                    </Link>
-                    {forecastingExpanded && (
-                      <div className="mt-1 space-y-1">
-                        <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                {/* Plan with Sub-navigation — mirrors the desktop Plan menu.
+                    This replaced the Forecasting section, which was the only
+                    route to a Budget on mobile: there wasn't one. Forecasting
+                    and Goals ride inside it, keeping their feature gate. */}
+                <div>
+                  <Link
+                    to={isDemoModeRoutingEnabled ? '/budget?demo=true' : '/budget'}
+                    onClick={() => {
+                      setPlanExpanded(!planExpanded);
+                      toggleMobileMenu();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  >
+                    <TargetIcon size={18} />
+                    <span className="flex-1 text-sm text-left">Plan</span>
+                    <ChevronRightIcon
+                      size={14}
+                      className={`text-gray-400 transition-transform duration-200 ${planExpanded ? 'rotate-90' : ''}`}
+                    />
+                  </Link>
+                  {planExpanded && (
+                    <div className="mt-1 space-y-1">
+                      <SidebarLink to="/budget" icon={BarChart3Icon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                      {showGoals && <SidebarLink to="/forecasting" icon={LineChartIcon} label="Forecasting" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                    </div>
+                  )}
+                </div>
                 <SidebarLink to="/reports" icon={PieChartIcon} label="Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 {/* Settings with Sub-navigation */}
                 <div>

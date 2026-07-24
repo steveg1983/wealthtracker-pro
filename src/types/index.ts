@@ -256,6 +256,7 @@ export interface Category {
   description?: string;
   isTransferCategory?: boolean; // Indicates this is an account-specific transfer category
   isRevaluationCategory?: boolean; // Indicates a change in VALUE (portfolio revaluation) — not income, expense or transfer
+  isUnassignedBucket?: boolean; // Rows here are NOT classified — they carry a category id only because the splits schema forbids blank; treated as uncategorised (the MS Money importer's "Unassigned" bucket)
   accountId?: string; // The account this transfer category is associated with
   isActive?: boolean; // Used for soft-deleting categories (e.g., when account is deleted)
 }

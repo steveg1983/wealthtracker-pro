@@ -175,3 +175,80 @@ describe('Layout', () => {
     }
   });
 });
+
+describe('Layout — the Plan menu and split triggers', () => {
+  const originalMatchMedia = window.matchMedia;
+
+  beforeAll(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  // The desktop nav's dropdown triggers: the LABEL is a link to the menu's
+  // home; the chevron beside it is the button that opens the menu.
+  const navLink = (name: string) =>
+    within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('link', { name });
+  const menuButton = (label: string) =>
+    within(screen.getByRole('navigation', { name: 'Main navigation' })).getByRole('button', { name: `${label} menu` });
+
+  it('groups the forward-looking pages under Plan, not as top-level items', () => {
+    renderWithProviders(<Layout />);
+
+    // Plan's label navigates to Budget, its menu holds all three.
+    expect(navLink('Plan')).toHaveAttribute('href', '/budget');
+    fireEvent.click(menuButton('Plan'));
+    expect(navLink('Budget')).toHaveAttribute('href', '/budget');
+    expect(navLink('Calendar')).toHaveAttribute('href', '/calendar');
+    expect(navLink('Goals')).toHaveAttribute('href', '/goals');
+  });
+
+  it('no longer lists Goals under Manage — Manage is data admin', () => {
+    renderWithProviders(<Layout />);
+
+    fireEvent.click(menuButton('Manage'));
+    const nav = screen.getByRole('navigation', { name: 'Main navigation' });
+    expect(within(nav).getByRole('link', { name: 'Categories' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Goals' })).not.toBeInTheDocument();
+  });
+
+  it('clicking a trigger label navigates instead of only toggling a menu', () => {
+    renderWithProviders(<Layout />);
+
+    // Each label is a real link to its menu's home page…
+    expect(navLink('Accounts')).toHaveAttribute('href', '/accounts');
+    expect(navLink('Manage')).toHaveAttribute('href', '/settings/categories');
+    expect(navLink('Settings')).toHaveAttribute('href', '/settings');
+  });
+
+  it('the chevron opens the menu without navigating, and ArrowDown on the label does too', () => {
+    renderWithProviders(<Layout />);
+
+    const chevron = menuButton('Accounts');
+    expect(chevron).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(chevron);
+    expect(chevron).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(chevron);
+    expect(chevron).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.keyDown(navLink('Accounts'), { key: 'ArrowDown' });
+    expect(chevron).toHaveAttribute('aria-expanded', 'true');
+  });
+});

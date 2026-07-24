@@ -1,6 +1,7 @@
 /**
  * ExportService Tests
- * Validates scheduling and template management flows.
+ * Validates template management and signed-money export (CSV/QIF/OFX) flows.
+ * Scheduled-report coverage was removed with the scheduled-export feature.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -38,69 +39,6 @@ describe('ExportService', () => {
       now: () => new Date(FIXED_NOW),
       idGenerator: () => `id-${Math.random().toString(36).slice(2, 8)}`
     });
-
-  it('creates scheduled reports and persists them with calculated next run', () => {
-    const service = createService();
-    const report = service.createScheduledReport({
-      name: 'Weekly Summary',
-      frequency: 'weekly',
-      email: 'team@example.com',
-      isActive: true,
-      options: {
-        startDate: new Date('2024-12-01'),
-        endDate: new Date('2024-12-31'),
-        format: 'csv',
-        includeTransactions: true,
-        includeCharts: false,
-        includeAccounts: false,
-        includeInvestments: false,
-        includeBudgets: false,
-      }
-    });
-
-    expect(report.id).toMatch(/^id-/);
-    // The service schedules at LOCAL 9am (setHours) — assert in local terms,
-    // computed independently from the same fixed clock, so the test passes in
-    // every timezone instead of only where local == UTC on the test date.
-    const expectedWeekly = new Date(FIXED_NOW);
-    expectedWeekly.setDate(expectedWeekly.getDate() + 7);
-    expectedWeekly.setHours(9, 0, 0, 0);
-    expect(report.nextRun.getTime()).toBe(expectedWeekly.getTime());
-    expect(report.nextRun.getHours()).toBe(9);
-    expect(storage.setItem).toHaveBeenCalledWith(
-      'scheduled-reports',
-      expect.stringContaining('"name":"Weekly Summary"')
-    );
-    expect(service.getScheduledReports()).toHaveLength(1);
-  });
-
-  it('updates scheduled report frequency and recalculates next run', () => {
-    const service = createService();
-    const report = service.createScheduledReport({
-      name: 'Monthly Budget',
-      frequency: 'monthly',
-      email: 'finance@example.com',
-      isActive: true,
-      options: {
-        startDate: new Date('2024-12-01'),
-        endDate: new Date('2024-12-31'),
-        format: 'pdf',
-        includeTransactions: false,
-        includeCharts: true,
-        includeAccounts: true,
-        includeInvestments: false,
-        includeBudgets: true,
-      }
-    });
-
-    const updated = service.updateScheduledReport(report.id, { frequency: 'daily' });
-    expect(updated?.frequency).toBe('daily');
-    // Local-time semantics (see above): next local day at local 9am.
-    const expectedDaily = new Date(FIXED_NOW);
-    expectedDaily.setDate(expectedDaily.getDate() + 1);
-    expectedDaily.setHours(9, 0, 0, 0);
-    expect(updated?.nextRun.getTime()).toBe(expectedDaily.getTime());
-  });
 
   it('manages export templates via storage-backed persistence', () => {
     const service = createService();

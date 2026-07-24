@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -8,7 +8,7 @@ import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon } from '../components/icons';
+import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
 import BankingCriticalIncidentBadge from '../components/BankingCriticalIncidentBadge';
 import { LoadingState } from '../components/loading/LoadingState';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
@@ -17,7 +17,7 @@ import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
 const BankConnections = lazy(() => import('../components/BankConnections'));
 import type { Account } from '../types';
-import { ACCOUNT_TYPE_SECTIONS } from '../utils/accountSections';
+import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
@@ -27,7 +27,7 @@ import { useAccountBankSync } from '../hooks/useAccountBankSync';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
@@ -52,6 +52,31 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       ? stored
       : 'default';
   });
+
+  // Which group sections the user has folded away. With ~200 accounts the list
+  // is unmanageable fully expanded, so a heading can be collapsed down to just
+  // its name, count and running total (that total is the whole point of
+  // collapsing — you still see what a section is worth without its rows).
+  // Keyed by "<groupBy>:<label>" so collapsing "Natwest" under Institution can
+  // never also collapse a same-named section under Account Type.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('accountsCollapsedGroups');
+      const parsed: unknown = stored ? JSON.parse(stored) : null;
+      return Array.isArray(parsed)
+        ? new Set(parsed.filter((key): key is string => typeof key === 'string'))
+        : new Set<string>();
+    } catch {
+      // A corrupt value must never wedge the page — start with nothing collapsed.
+      return new Set<string>();
+    }
+  });
+
+  // Free-text filter over account (and institution) names. Kept out of
+  // localStorage: it's a transient lens, not a saved preference — clearing it
+  // returns the full grouped view. No debounce: the list is in memory and this
+  // is a substring test over a couple of hundred rows.
+  const [accountSearch, setAccountSearch] = useState('');
 
   const { getUnreconciledCount, computeAccountBalance: computeLedgerBalance } = useReconciliation(accounts, transactions);
 
@@ -153,7 +178,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // top-level cards, so they don't group here.
   const accountsByType = useMemo(() =>
     topLevelAccounts.reduce((groups, account) => {
-      const type = account.type;
+      // Bucket by SECTION type, not the raw type string: the raw string is
+      // exactly how an "Other Assets" ('assets') or 'mortgage' account used to
+      // vanish — bucketed under a key no section ever looked up.
+      const type = sectionTypeForAccount(account.type);
       if (!groups[type]) {
         groups[type] = [];
       }
@@ -182,7 +210,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const decimalAccountsByType = useMemo(() => {
     const typeById = new Map(openAccounts.map(a => [a.id, a.type]));
     return decimalAccounts.reduce((groups, account) => {
-      const type = (account.parentAccountId && typeById.get(account.parentAccountId)) || account.type;
+      const type = sectionTypeForAccount(
+        (account.parentAccountId && typeById.get(account.parentAccountId)) || account.type
+      );
       if (!groups[type]) {
         groups[type] = [];
       }
@@ -191,8 +221,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }, {} as Record<string, typeof decimalAccounts>);
   }, [decimalAccounts, openAccounts]);
 
-  // The shared account-type sections (same groupings everywhere).
-  const accountTypes = ACCOUNT_TYPE_SECTIONS;
+  // The shared account-type sections (same groupings everywhere), catch-all
+  // last — a type without a section renders under "Other Accounts", never
+  // nowhere.
+  const accountTypes = ALL_ACCOUNT_SECTIONS;
 
 
   // Group accounts by institution (nested cash accounts ride with their
@@ -226,6 +258,18 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     localStorage.setItem('accountsSortMode', value);
   };
 
+  // Fold a group open/closed and persist the whole collapsed set, so the choice
+  // survives a reload. Takes the fully-qualified "<groupBy>:<label>" key.
+  const toggleGroupCollapsed = useCallback((key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      localStorage.setItem('accountsCollapsedGroups', JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+
   // Order accounts WITHIN each group. 'default' keeps insertion order (as
   // loaded); balance sorts use Decimal comparison on the computed ledger
   // balance — ordering only, never arithmetic.
@@ -248,12 +292,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
   // Get icon for account type
   const getAccountTypeIcon = (type: string) => {
-    const typeConfig = accountTypes.find(t => t.type === type);
+    const typeConfig = accountTypes.find(t => t.type === sectionTypeForAccount(type));
     return typeConfig?.icon || WalletIcon;
   };
 
   const getAccountTypeColor = (type: string) => {
-    const typeConfig = accountTypes.find(t => t.type === type);
+    const typeConfig = accountTypes.find(t => t.type === sectionTypeForAccount(type));
     return typeConfig?.color || 'text-gray-600';
   };
 
@@ -514,8 +558,92 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     );
   };
 
+  // Search matching. An empty query matches nothing here on purpose — the
+  // caller only filters while `isSearching`, so the full grouped view is what
+  // shows when the box is clear.
+  const normalizedSearch = accountSearch.trim().toLowerCase();
+  const isSearching = normalizedSearch.length > 0;
+  const accountMatchesSearch = (account: Account): boolean =>
+    account.name.toLowerCase().includes(normalizedSearch) ||
+    (account.institution?.toLowerCase().includes(normalizedSearch) ?? false);
+  // A nested cash account rides inside its parent's card, never as a card of its
+  // own, so a hit on the child keeps the parent in the results (the child still
+  // shows nested inside it) rather than vanishing with nowhere to appear.
+  const accountOrChildMatches = (account: Account): boolean =>
+    accountMatchesSearch(account) ||
+    (nestedByParent.get(account.id) ?? []).some(accountMatchesSearch);
+  const matchedTopLevelCount = isSearching
+    ? topLevelAccounts.filter(accountOrChildMatches).length
+    : topLevelAccounts.length;
+
+  // The collapsed-set key and the region id both key off the same label, per
+  // grouping mode — see `collapsedGroups` for why the mode is part of the key.
+  const collapseKeyFor = (label: string) => `${groupBy}:${label}`;
+  const groupRegionId = (label: string) =>
+    `account-group-${groupBy}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+
+  // ONE section renderer for both grouping views: a heading that toggles the
+  // section, and — when open — the account cards. The heading always shows the
+  // full group's name, count and total, so a collapsed section still tells you
+  // what it is worth. `label` is the stable key (account type id / institution
+  // name); `title` is what the heading reads.
+  const renderAccountGroup = (
+    label: string,
+    headingIcon: ReactNode,
+    title: string,
+    groupTopLevelAccounts: Account[],
+    groupTotal: DecimalInstance | number,
+  ): ReactNode => {
+    const displayedAccounts = isSearching
+      ? groupTopLevelAccounts.filter(accountOrChildMatches)
+      : groupTopLevelAccounts;
+    // A search that hides its own hits would be worse than no search, so a
+    // group with no match drops out entirely instead of showing an empty card.
+    if (isSearching && displayedAccounts.length === 0) return null;
+
+    // While searching, collapse is deliberately ignored: a folded section must
+    // not swallow a result the user is actively looking for.
+    const isExpanded = isSearching || !collapsedGroups.has(collapseKeyFor(label));
+    const regionId = groupRegionId(label);
+
+    return (
+      <div key={label} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleGroupCollapsed(collapseKeyFor(label))}
+          aria-expanded={isExpanded}
+          aria-controls={regionId}
+          className="w-full bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-gray-100/70 dark:hover:bg-gray-800 transition-colors"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2 md:gap-3">
+              <ChevronRightIcon
+                size={16}
+                className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+              />
+              {headingIcon}
+              <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                ({groupTopLevelAccounts.length} {groupTopLevelAccounts.length === 1 ? 'account' : 'accounts'})
+              </span>
+            </div>
+            <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
+              {formatDisplayCurrency(groupTotal)}
+            </p>
+          </div>
+        </button>
+
+        {isExpanded && (
+          <div id={regionId} className="p-3 sm:p-4 space-y-3">
+            {sortAccounts(displayedAccounts).map(renderAccountCard)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <PageWrapper 
+    <PageWrapper
       title="Accounts"
       rightContent={
         <button
@@ -638,6 +766,26 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             </button>
           </div>
         </div>
+        {/* Search — the way to find one account among two hundred. */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="account-search" className="sr-only">Search accounts by name or institution</label>
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+            <input
+              id="account-search"
+              type="search"
+              value={accountSearch}
+              onChange={(e) => setAccountSearch(e.target.value)}
+              placeholder="Search accounts…"
+              className="w-56 max-w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          {isSearching && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" aria-live="polite">
+              {matchedTopLevelCount} of {topLevelAccounts.length} accounts
+            </span>
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <BankingCriticalIncidentBadge onClick={() => setBankConnectionsView('critical')} />
           <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={() => setBankConnectionsView('jwks')} />
@@ -673,26 +821,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             );
             const instTotal = calculateTotalBalance(instDecimalAccounts, decimalTransactions);
 
-            return (
-            <div key={institution} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{institution}</h2>
-                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                      ({instAccounts.length} {instAccounts.length === 1 ? 'account' : 'accounts'})
-                    </span>
-                  </div>
-                  <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatDisplayCurrency(instTotal)}
-                  </p>
-                </div>
-              </div>
-              <div className="p-3 sm:p-4 space-y-3">
-                {sortAccounts(instAccounts).map(renderAccountCard)}
-              </div>
-            </div>
+            return renderAccountGroup(
+              institution,
+              <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />,
+              institution,
+              instAccounts,
+              instTotal,
             );
           })
         ) : (
@@ -704,31 +838,26 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             const decimalTypeAccounts = decimalAccountsByType[type] || [];
             const typeTotal = calculateTotalBalance(decimalTypeAccounts, decimalTransactions);
 
-            return (
-            <div key={type} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2 md:gap-3">
-                    <Icon className={color} size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                      ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
-                    </span>
-                  </div>
-                  <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatDisplayCurrency(typeTotal)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 sm:p-4 space-y-3">
-                {sortAccounts(typeAccounts).map(renderAccountCard)}
-              </div>
-            </div>
-          );
-        })
+            return renderAccountGroup(
+              type,
+              <Icon className={color} size={20} />,
+              title,
+              typeAccounts,
+              typeTotal,
+            );
+          })
         )}
       </div>
+
+      {/* An active search that matches nothing gets a plain-spoken empty state
+          rather than a blank frame — the count above already reads "0 of N". */}
+      {!isLoading && isSearching && matchedTopLevelCount === 0 && openAccounts.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400">
+            No accounts match “{accountSearch.trim()}”.
+          </p>
+        </div>
+      )}
 
       {openAccounts.length === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 text-center">

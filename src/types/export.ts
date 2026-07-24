@@ -41,26 +41,6 @@ export interface ChartData {
   }>;
 }
 
-export interface SavedReport {
-  nextRun: string;
-  createdAt: string;
-  lastRun?: string;
-  options: {
-    startDate: string;
-    endDate: string;
-    format: string;
-    includeCharts: boolean;
-    includeTransactions: boolean;
-    includeAccounts: boolean;
-    includeInvestments: boolean;
-    includeBudgets: boolean;
-    groupBy?: string;
-    customTitle?: string;
-    logoUrl?: string;
-  };
-  [key: string]: unknown;
-}
-
 export interface SavedTemplate {
   createdAt: string;
   options: {
