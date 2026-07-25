@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
@@ -310,5 +310,109 @@ describe('Accounts page — closed accounts ordering', () => {
     // The catch-all subheading for the account with no institution renders too
     // (unique: no closed row carries "Other Accounts" as its institution).
     expect(within(closedSection).getByText('Other Accounts')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Settings on a closed account, without reopening it. Reopen–edit–close was
+ * three steps to check or correct one fact (its name, its opening date), so
+ * every closed row carries its own settings button. The archive still stays an
+ * archive: the modal edits details only — the transaction list is reachable
+ * only by actually reopening the account.
+ */
+describe('Accounts page — closed account settings', () => {
+  const closedAccount = (id: string, name: string, type: Account['type']): Account => ({
+    id, name, type, balance: 0, currency: 'GBP', lastUpdated: new Date(),
+    openingBalance: 0, isActive: false,
+  });
+
+  const closed: Account[] = [
+    closedAccount('c1', 'Alpha Current', 'current'),
+    closedAccount('c2', 'Nimbus Card', 'credit'),
+  ];
+
+  // The context's real updateAccount is what a reopen (or a settings save)
+  // goes through, so spying on it is how "no reopen happened" is proved.
+  const updateAccount = vi.fn();
+
+  // Opens the Closed Accounts section and hands back its container. Finding
+  // the toggle by its count also waits out the async closed-accounts load.
+  const openClosedSection = async (): Promise<HTMLElement> => {
+    fireEvent.click(await screen.findByRole('button', { name: /Closed Accounts \(2\)/ }));
+    return screen.getByTestId('closed-accounts');
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    updateAccount.mockClear();
+    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue(closed);
+    __setAppContextValue({ updateAccount });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    __resetAppContextValue();
+  });
+
+  it('gives every closed row its own settings button', async () => {
+    renderAccounts();
+    const closedSection = await openClosedSection();
+
+    // Named per account, so two rows never present the same control.
+    expect(within(closedSection).getByRole('button', { name: 'Account settings for Alpha Current' })).toBeInTheDocument();
+    expect(within(closedSection).getByRole('button', { name: 'Account settings for Nimbus Card' })).toBeInTheDocument();
+  });
+
+  it('opens settings for that account without reopening it', async () => {
+    renderAccounts();
+    const closedSection = await openClosedSection();
+
+    fireEvent.click(within(closedSection).getByRole('button', { name: 'Account settings for Alpha Current' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Account Settings' });
+    // It is THAT account's settings, loaded from the closed list (a closed
+    // account is absent from the app-context accounts the modal used to read).
+    expect(within(dialog).getByLabelText('Account name')).toHaveValue('Alpha Current');
+    // Editing details is not reopening: nothing was written, and the row still
+    // offers Reopen as the only way back to the live list.
+    expect(updateAccount).not.toHaveBeenCalled();
+    expect(within(closedSection).getAllByRole('button', { name: 'Reopen' })).toHaveLength(2);
+    // The archive stays an archive — no route out of this modal into the
+    // account's register.
+    expect(within(dialog).queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('saves an edit and leaves the account closed', async () => {
+    renderAccounts();
+    const closedSection = await openClosedSection();
+
+    fireEvent.click(within(closedSection).getByRole('button', { name: 'Account settings for Alpha Current' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Account Settings' });
+    fireEvent.change(within(dialog).getByLabelText('Account name'), { target: { value: 'Alpha Renamed' } });
+    fireEvent.click(within(dialog).getByText('Save Changes'));
+
+    // The save carries the account's OWN status back — a rename must never
+    // quietly reopen what it edited.
+    await waitFor(() => {
+      expect(updateAccount).toHaveBeenCalledWith('c1', expect.objectContaining({
+        name: 'Alpha Renamed',
+        isActive: false,
+      }));
+    });
+    // …and the closed list is re-pulled, so the row shows the new name at once.
+    await waitFor(() => {
+      expect(DataService.getClosedAccounts).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('leaves Reopen working', async () => {
+    renderAccounts();
+    const closedSection = await openClosedSection();
+
+    const rows = within(closedSection).getAllByRole('button', { name: 'Reopen' });
+    fireEvent.click(rows[0]);
+
+    await waitFor(() => {
+      expect(updateAccount).toHaveBeenCalledWith('c1', { isActive: true });
+    });
   });
 });

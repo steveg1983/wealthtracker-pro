@@ -5,21 +5,18 @@ import PageLoader from '../PageLoader';
 interface ProtectedSuspenseProps {
   children: ReactNode;
   requirePremium?: boolean;
-  requiredRole?: string;
   fallbackPath?: string;
 }
 
 // Helper component that combines ProtectedRoute with Suspense
-export function ProtectedSuspense({ 
-  children, 
+export function ProtectedSuspense({
+  children,
   requirePremium,
-  requiredRole,
   fallbackPath
 }: ProtectedSuspenseProps) {
   return (
-    <ProtectedRoute 
+    <ProtectedRoute
       requirePremium={requirePremium}
-      requiredRole={requiredRole}
       fallbackPath={fallbackPath}
     >
       <Suspense fallback={<PageLoader />}>

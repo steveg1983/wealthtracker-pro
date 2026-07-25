@@ -689,35 +689,51 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     );
   };
 
-  // ONE quiet row for a closed account: name, institution, balance and a
-  // Reopen button. Deliberately not the full open-account card — the archive
-  // stays subdued (muted text, no sync/reconcile/close actions).
-  const renderClosedAccountRow = (account: Account): ReactNode => (
-    <div key={account.id} className="flex items-center justify-between px-4 py-3">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-          {account.name}
-        </p>
-        {account.institution && (
-          <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
-            {account.institution}
+  // ONE quiet row for a closed account: name, institution, balance, a settings
+  // button and a Reopen button. Deliberately not the full open-account card —
+  // the archive stays subdued (muted text, no sync/reconcile/close actions).
+  const renderClosedAccountRow = (account: Account): ReactNode => {
+    // Settings without reopening: checking (or correcting) a closed account's
+    // name or opening date used to cost a reopen–edit–close round trip for one
+    // fact. Deliberately NOT a route into the register — the archive stays an
+    // archive, so seeing its transactions still means reopening the account.
+    const settingsLabel = `Account settings for ${account.name}`;
+    return (
+      <div key={account.id} className="flex items-center justify-between px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+            {account.name}
           </p>
-        )}
+          {account.institution && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
+              {account.institution}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
+            {formatDisplayCurrency(account.balance, account.currency)}
+          </p>
+          <IconButton
+            onClick={() => setSettingsAccountId(account.id)}
+            icon={<SettingsIcon size={16} />}
+            variant="ghost"
+            size="sm"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            title={settingsLabel}
+            aria-label={settingsLabel}
+          />
+          <button
+            onClick={() => void handleReopenAccount(account.id)}
+            disabled={reopeningId !== null}
+            className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {reopeningId === account.id ? 'Reopening…' : 'Reopen'}
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-4">
-        <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400">
-          {formatDisplayCurrency(account.balance, account.currency)}
-        </p>
-        <button
-          onClick={() => void handleReopenAccount(account.id)}
-          disabled={reopeningId !== null}
-          className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {reopeningId === account.id ? 'Reopening…' : 'Reopen'}
-        </button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <PageWrapper
@@ -1048,13 +1064,26 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         );
       })()}
       
-      {/* Account Settings Modal */}
+      {/* Account Settings Modal — serves the open cards AND the closed rows, so
+          the account can come from either list. A closed account is not in
+          context state (it is loaded separately), hence the second lookup. */}
       <AccountSettingsModal
         isOpen={!!settingsAccountId}
         onClose={() => setSettingsAccountId(null)}
-        account={accounts.find(a => a.id === settingsAccountId) || null}
+        account={
+          accounts.find(a => a.id === settingsAccountId)
+          ?? closedAccounts.find(a => a.id === settingsAccountId)
+          ?? null
+        }
         onSave={async (accountId, updates) => {
+          // A closed account isn't in context state, so the context's in-place
+          // patch lands on nothing — reopening one from here only reaches the
+          // live list after a re-pull.
+          const wasClosed = closedAccounts.some(a => a.id === accountId);
           await updateAccount(accountId, updates);
+          if (wasClosed && updates.isActive === true) {
+            await refreshAccountsAndTransactions();
+          }
           // Closing/reopening (or renaming) via settings also updates the
           // account's transfer category via the DB trigger — keep the Closed
           // Accounts section and category dropdowns in sync without a reload.

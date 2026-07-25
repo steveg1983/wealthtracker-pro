@@ -23,9 +23,12 @@ export function getMinimalSystemCategories(): Category[] {
     { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
     { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
 
-    // Revaluation: a change in an account's VALUE, neither income nor expense
+    // Revaluation: a change in an account's VALUE, neither income nor expense.
+    // A balance adjustment is the same kind of movement as a market swing —
+    // net worth changes, nothing was earned or spent — so it files here too.
     { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
     { id: 'revaluation-market', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
+    { id: 'revaluation-adjustment', name: 'Account Adjustment', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
   ];
 }
 
@@ -57,9 +60,12 @@ export function getDefaultCategories(): Category[] {
     { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
     { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
 
-    // Revaluation categories (portfolio value changes — not income/expense/transfer)
+    // Revaluation categories (value changes — not income/expense/transfer):
+    // a market swing, or a balance correction, both of which move net worth
+    // without any money being earned or spent.
     { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
     { id: 'revaluation-market', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
+    { id: 'revaluation-adjustment', name: 'Account Adjustment', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
   ];
 
   for (const group of MS_MONEY_CATEGORY_SET) {

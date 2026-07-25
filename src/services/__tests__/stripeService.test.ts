@@ -86,3 +86,84 @@ describe('StripeService (deterministic)', () => {
     expect(premium?.stripePriceId).toBe('price_premium');
   });
 });
+
+describe('StripeService feature limits', () => {
+  afterEach(() => {
+    StripeService.resetForTesting();
+  });
+
+  it('gives each tier its own limits instead of handing everyone the free ones', () => {
+    // The regression this pins: getFeatureLimits read `plan.maxAccounts` etc.,
+    // which no plan ever set, so premium and pro silently received Free's
+    // numbers through the fallbacks.
+    const free = StripeService.getFeatureLimits('free');
+    const premium = StripeService.getFeatureLimits('premium');
+    const pro = StripeService.getFeatureLimits('pro');
+
+    expect(free).toEqual({
+      accounts: 5,
+      transactions: 100,
+      budgets: 3,
+      goals: 3,
+      customReports: 0,
+      apiCalls: 0
+    });
+    expect(premium).not.toEqual(free);
+    expect(pro).not.toEqual(free);
+  });
+
+  it.each<'accounts' | 'transactions' | 'budgets' | 'goals'>([
+    'accounts',
+    'transactions',
+    'budgets',
+    'goals'
+  ])('sells the paid tiers unlimited %s', (quota) => {
+    expect(StripeService.getFeatureLimits('premium')[quota]).toBe(-1);
+    expect(StripeService.getFeatureLimits('pro')[quota]).toBe(-1);
+    expect(StripeService.getFeatureLimits('free')[quota]).toBeGreaterThan(0);
+  });
+
+  it('reports exactly what each plan declares, so the two cannot drift apart', () => {
+    const plans = StripeService.getSubscriptionPlans();
+
+    for (const plan of plans) {
+      const limits = StripeService.getFeatureLimits(plan.tier);
+      expect(limits.accounts).toBe(plan.accounts);
+      expect(limits.transactions).toBe(plan.transactions);
+      expect(limits.budgets).toBe(plan.budgets);
+      expect(limits.goals).toBe(plan.goals);
+    }
+  });
+
+  it('separates the tiers on capability features too', () => {
+    // Free's advertised "Basic reporting" and Premium's lack of API access are
+    // what make hasFeatureAccess discriminate at all; every tier has *some*
+    // accounts, so the quota keys alone can never tell the tiers apart.
+    expect(StripeService.hasFeatureAccess('free', 'customReports')).toBe(false);
+    expect(StripeService.hasFeatureAccess('premium', 'customReports')).toBe(true);
+    expect(StripeService.hasFeatureAccess('pro', 'customReports')).toBe(true);
+
+    expect(StripeService.hasFeatureAccess('free', 'apiCalls')).toBe(false);
+    expect(StripeService.hasFeatureAccess('premium', 'apiCalls')).toBe(false);
+    expect(StripeService.hasFeatureAccess('pro', 'apiCalls')).toBe(true);
+  });
+
+  it('treats an unlimited allowance as access, not as zero', () => {
+    // -1 is the unlimited sentinel; a naive `limit > 0` reads it as "none".
+    expect(StripeService.getFeatureLimits('pro').accounts).toBe(-1);
+    expect(StripeService.hasFeatureAccess('pro', 'accounts')).toBe(true);
+  });
+
+  it('never runs a paid tier out of an unlimited allowance', () => {
+    const hugeUsage = 1_000_000;
+
+    expect(StripeService.isWithinLimits('premium', hugeUsage, 'transactions')).toBe(true);
+    expect(StripeService.isWithinLimits('pro', hugeUsage, 'accounts')).toBe(true);
+  });
+
+  it('stops the free tier exactly at its limit', () => {
+    expect(StripeService.isWithinLimits('free', 4, 'accounts')).toBe(true);
+    expect(StripeService.isWithinLimits('free', 5, 'accounts')).toBe(false);
+    expect(StripeService.isWithinLimits('free', 6, 'accounts')).toBe(false);
+  });
+});

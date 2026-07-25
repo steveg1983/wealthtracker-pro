@@ -170,6 +170,11 @@ export default function AccountTransactions() {
     notes: ''
   });
   const [quickAddError, setQuickAddError] = useState('');
+  // Money-style cross-type filing, the same affordance the edit modal offers:
+  // browse the OTHER direction's categories (a refund is money IN but belongs
+  // under the expense category it refunds). The type toggle still decides which
+  // way the money moves; the category decides which total it lands in.
+  const [crossTypeCategories, setCrossTypeCategories] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
@@ -587,6 +592,7 @@ export default function AccountTransactions() {
 
       // Reset form and error
       setQuickAddError('');
+      setCrossTypeCategories(false);
       setQuickAddForm({
         date: new Date().toISOString().split('T')[0],
         description: '',
@@ -1208,10 +1214,15 @@ export default function AccountTransactions() {
       {/* Quick Add Transaction (the dock's default mode) */}
       {!tableExpanded && !(quickEditTarget && !isEditModalOpen) && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3">
-        <form onSubmit={handleQuickAdd}>
+        {/* max-w: the dock is as wide as the register, and a description box
+            stretched across it left Amount and Add squeezed into the corner.
+            Capping the form makes both rows end at the same edge, so the wide
+            fields stop hogging and the small ones get room. flex-wrap keeps
+            the fields stacking instead of overflowing on narrow screens. */}
+        <form onSubmit={handleQuickAdd} className="max-w-3xl">
           {/* Row 1: Date | Type | Description */}
-          <div className="flex items-end gap-3">
-            <div className="w-[160px] shrink-0">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-[150px] shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
               <DatePicker
                 value={quickAddForm.date}
@@ -1232,7 +1243,14 @@ export default function AccountTransactions() {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, type: value }); }}
+                    onClick={() => {
+                      // Clearing the category is not tidiness: it may belong to
+                      // the tree the picker no longer shows, and on 'transfer'
+                      // the same field means the TARGET ACCOUNT.
+                      setQuickAddError('');
+                      setCrossTypeCategories(false);
+                      setQuickAddForm({ ...quickAddForm, type: value, category: '' });
+                    }}
                     className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                       quickAddForm.type === value
                         ? `bg-white dark:bg-gray-600 shadow-sm ${activeColor}`
@@ -1245,7 +1263,7 @@ export default function AccountTransactions() {
               </div>
             </div>
 
-            <div className="flex-1 min-w-[150px]">
+            <div className="flex-1 min-w-[200px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
               <input
                 type="text"
@@ -1259,8 +1277,8 @@ export default function AccountTransactions() {
           </div>
 
           {/* Row 2: Category | Amount | Add */}
-          <div className="flex items-end gap-3 mt-2">
-            <div className="flex-1 min-w-[180px]">
+          <div className="flex flex-wrap items-end gap-3 mt-2">
+            <div className="flex-1 min-w-[200px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
@@ -1280,17 +1298,28 @@ export default function AccountTransactions() {
                     ))}
                 </select>
               ) : (
+                /* Which direction's tree it lists is this row's own, flipped by
+                   the cross-type checkbox below — the same control the edit
+                   modal offers, so both surfaces teach the same model. The
+                   picker also offers the direction-neutral Revaluation
+                   categories (Account Adjustment) either way round. */
                 <CategorySelector
                   selectedCategory={quickAddForm.category}
                   onCategoryChange={(categoryId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: categoryId }); }}
-                  transactionType={quickAddForm.type}
+                  transactionType={
+                    crossTypeCategories
+                      ? (quickAddForm.type === 'income' ? 'expense' : 'income')
+                      : quickAddForm.type
+                  }
                   placeholder="Category..."
                   allowCreate={false}
                 />
               )}
             </div>
 
-            <div className="w-[120px] shrink-0">
+            {/* Wide enough for a five-figure sum with its pennies without the
+                digits scrolling out of view. */}
+            <div className="w-[150px] shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
               <input
                 type="number"
@@ -1305,13 +1334,37 @@ export default function AccountTransactions() {
 
             <button
               type="submit"
-              className="shrink-0 px-4 py-1.5 h-[32px] text-xs bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
+              className="shrink-0 px-5 py-1.5 h-[32px] min-w-[92px] text-xs bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors flex items-center justify-center gap-1"
               title="Add Transaction"
             >
               <PlusIcon size={14} />
               Add
             </button>
           </div>
+
+          {/* Cross-type filing — identical wording to the edit transaction
+              modal, deliberately: a refund files under the expense category it
+              refunds, and the register and the modal must not teach two
+              different models of the same idea. */}
+          {(quickAddForm.type === 'income' || quickAddForm.type === 'expense') && (
+            <label className="mt-2 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={crossTypeCategories}
+                onChange={(e) => {
+                  setQuickAddError('');
+                  setCrossTypeCategories(e.target.checked);
+                  setQuickAddForm({ ...quickAddForm, category: '' });
+                }}
+                className="mt-0.5"
+              />
+              <span>
+                {quickAddForm.type === 'income'
+                  ? 'Categorise as an expense — e.g. a refund files under the expense category it refunds, reducing that category’s total.'
+                  : 'Categorise as income — file this outgoing under an income category, reducing that category’s total.'}
+              </span>
+            </label>
+          )}
 
           {quickAddError && (
             <p className="text-xs text-red-600 dark:text-red-400 mt-1">{quickAddError}</p>

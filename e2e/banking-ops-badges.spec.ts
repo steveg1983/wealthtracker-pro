@@ -117,13 +117,7 @@ const setupBankingApiStubs = async (page: Page): Promise<{ authHeaders: string[]
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({
-        env_check: {
-          has_truelayer_client_id: true,
-          has_truelayer_secret: true,
-          has_redirect_uri: true
-        }
-      })
+      body: JSON.stringify({ status: 'ok' })
     });
   });
 

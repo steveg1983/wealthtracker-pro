@@ -17,6 +17,7 @@ import type {
   SyncAccountsResponse,
   SyncTransactionsResponse
 } from '../types/banking-api';
+import { isRuntimeBypassAllowed } from '../utils/runtimeMode';
 
 export interface BankConnection {
   id: string;
@@ -135,8 +136,18 @@ export class BankConnectionService {
     if (typeof window === 'undefined') {
       return false;
     }
-    const e2eAuthEnabled = typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_E2E_TEST_MODE_AUTH === 'true';
+    const env = typeof import.meta !== 'undefined' ? import.meta.env : undefined;
+
+    // Every other bypass in the app defers to isRuntimeBypassAllowed, which
+    // refuses to unlock anything in a production build. Without it, a
+    // production deploy that inherited VITE_E2E_TEST_MODE_AUTH=true (the flag
+    // is baked into the bundle at build time) would send a hard-coded bearer
+    // token for anyone who set ?testMode=true.
+    if (!env || !isRuntimeBypassAllowed(env)) {
+      return false;
+    }
+
+    const e2eAuthEnabled = env.VITE_E2E_TEST_MODE_AUTH === 'true';
     if (!e2eAuthEnabled) {
       return false;
     }
@@ -506,21 +517,17 @@ export class BankConnectionService {
 
   async refreshConfigStatus(): Promise<{ plaid: boolean; trueLayer: boolean }> {
     try {
-      const data = await this.request<{ env_check?: { has_truelayer_client_id?: boolean; has_truelayer_secret?: boolean; has_redirect_uri?: boolean } }>(
+      // The health endpoint answers with a verdict, not an inventory: which
+      // banking secrets are present is ops detail reserved for the ops-admin
+      // allowlist. 'ok' means every var the connect flow needs is configured.
+      const data = await this.request<{ status?: string }>(
         '/api/banking/health',
         { method: 'GET' }
       );
 
-      const envCheck = data.env_check;
-      const trueLayerConfigured = Boolean(
-        envCheck?.has_truelayer_client_id &&
-        envCheck?.has_truelayer_secret &&
-        envCheck?.has_redirect_uri
-      );
-
       this.configStatus = {
         plaid: false,
-        trueLayer: trueLayerConfigured
+        trueLayer: data.status === 'ok'
       };
     } catch (error) {
       this.logger.warn('Failed to load banking config status', error as Error);

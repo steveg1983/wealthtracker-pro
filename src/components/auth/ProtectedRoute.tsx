@@ -2,29 +2,27 @@ import { useAuth } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
 import { Skeleton } from '../loading/Skeleton';
+import { PremiumGate } from './PremiumGate';
 import { isAuthBypassRuntimeAllowed as isAuthBypassRuntimeAllowedFromRuntimeMode } from '../../utils/runtimeMode';
 
 export interface ProtectedRouteProps {
   children: ReactNode;
+  /** Additionally require a paid tier. Enforced by PremiumGate. */
   requirePremium?: boolean;
-  requiredRole?: string;
   fallbackPath?: string;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- Utility function closely related to ProtectedRoute component
 export const isAuthBypassRuntimeAllowed = isAuthBypassRuntimeAllowedFromRuntimeMode;
 
-const ProtectedRoute = ({ 
-  children, 
+const ProtectedRoute = ({
+  children,
   requirePremium = false,
-  requiredRole,
   fallbackPath = '/'
 }: ProtectedRouteProps): React.ReactElement | null => {
   const { isLoaded, isSignedIn } = useAuth();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  void requirePremium;
-  void requiredRole;
 
   const bypassAllowed = isAuthBypassRuntimeAllowed(import.meta.env);
   const queryTestModeEnabled = queryParams.get('testMode') === 'true';
@@ -54,9 +52,13 @@ const ProtectedRoute = ({
     return <Navigate to={fallbackPath} replace />;
   }
 
-  // TODO: Add premium and role checks when subscription system is implemented
-  // For now, just check authentication
-  
+  // Demo/test sessions have no signed-in user and therefore no subscription, so
+  // gating them would show the paywall instead of the app. Both flags are
+  // already refused in production builds by isAuthBypassRuntimeAllowed.
+  if (requirePremium && !isTestMode && !isDemoMode) {
+    return <PremiumGate>{children}</PremiumGate>;
+  }
+
   return <>{children}</>;
 };
 

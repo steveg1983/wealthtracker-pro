@@ -282,18 +282,23 @@ export function useUsageLimit(
   const { canUseFeature, getRemainingUsage, limits, usage } = useSubscription();
   
   const currentUsage = usage?.usage?.[feature] || 0;
-  const canAdd = canUseFeature(feature, currentUsage + 1);
+  // isWithinLimits answers "is there still room at this usage", so the current
+  // count is what it wants. Passing currentUsage + 1 refused the last item the
+  // plan actually allows — the 5th account on a limit of 5.
+  const canAdd = canUseFeature(feature, currentUsage);
   const remaining = getRemainingUsage(feature);
-  const limitKey = `max${feature.charAt(0).toUpperCase() + feature.slice(1)}` as keyof FeatureLimits;
-  const limit = limits[limitKey] as number;
+  const limit = limits[feature];
   const isUnlimited = limit === -1;
-  
+
   return {
     canAdd,
     remaining,
     limit,
     isUnlimited,
     currentUsage,
-    percentUsed: isUnlimited ? 0 : (currentUsage / limit) * 100
+    // A zero allowance is fully used the moment the tier has it: dividing by it
+    // would yield NaN, which renders as an empty progress bar and compares
+    // false against every warning threshold.
+    percentUsed: isUnlimited ? 0 : limit > 0 ? (currentUsage / limit) * 100 : 100
   };
 }

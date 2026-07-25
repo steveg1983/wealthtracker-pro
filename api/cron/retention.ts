@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { getRequiredEnv, getOptionalEnv } from '../_lib/env.js';
 import { captureServerError, withSentry } from '../_lib/sentry.js';
+import { timingSafeStringEqual } from '../_lib/timing-safe.js';
 
 /**
  * Weekly data-retention enforcement (GDPR Art. 5(1)(e)).
@@ -18,8 +19,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = Array.isArray(req.headers.authorization)
     ? req.headers.authorization[0]
     : req.headers.authorization ?? '';
+  // getRequiredEnv throws when CRON_SECRET is unset, so an unconfigured deploy
+  // rejects every request rather than accepting an empty secret.
   const cronSecret = getRequiredEnv('CRON_SECRET');
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!timingSafeStringEqual(authHeader, `Bearer ${cronSecret}`)) {
     return res.status(401).json({ error: 'Unauthorized', code: 'unauthorized' });
   }
 

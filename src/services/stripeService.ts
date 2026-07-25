@@ -236,23 +236,22 @@ export class StripeService {
    */
   static getFeatureLimits(tier: SubscriptionPlan): FeatureLimits {
     const plans = this.getSubscriptionPlans();
-    const plan = plans.find(p => p.tier === tier);
-    
-    if (!plan) {
-      // Default to free tier limits
-      return {
-        accounts: 5,
-        transactions: 100,
-        budgets: 3,
-        goals: 3
-      };
-    }
+    // getSubscriptionPlans always lists Free first, so an unrecognised tier
+    // fails closed onto it. Falling back to the plan itself rather than a
+    // second copy of Free's numbers keeps one source of truth — the duplicate
+    // fallbacks that used to live here are what hid the bug for so long.
+    const plan = plans.find(p => p.tier === tier) ?? plans[0];
 
     return {
-      accounts: plan.maxAccounts || 5,
-      transactions: plan.transactions || 100,
-      budgets: plan.maxBudgets || 3,
-      goals: plan.maxGoals || 3
+      accounts: plan.accounts,
+      transactions: plan.transactions,
+      budgets: plan.budgets,
+      goals: plan.goals,
+      // The plans express their paid-only capabilities as booleans; restating
+      // them as allowances lets one gate answer for quota features and
+      // capability features alike.
+      customReports: plan.advancedReports ? -1 : 0,
+      apiCalls: plan.apiAccess ? -1 : 0
     };
   }
 
@@ -263,8 +262,9 @@ export class StripeService {
     userTier: SubscriptionPlan,
     feature: keyof FeatureLimits
   ): boolean {
-    const limits = this.getFeatureLimits(userTier);
-    return limits[feature] === -1 || (limits[feature] as number) > 0;
+    const limit = this.getFeatureLimits(userTier)[feature];
+    // -1 is unlimited; 0 is "this tier does not include the feature".
+    return limit === -1 || limit > 0;
   }
 
   /**

@@ -1,6 +1,26 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getOptionalEnv } from './env.js';
 
+/**
+ * True only on a developer's own machine — never on a deployed Vercel runtime.
+ *
+ * Preview deployments are NOT local development: they run against the LIVE
+ * Supabase project, so trusting `http://localhost` there let any page served
+ * from a developer's (or an attacker's) local server both call the API
+ * cross-origin and be used as an open-redirect target for the checkout/portal
+ * flows. Vercel sets VERCEL_ENV on every deployment — 'production' and
+ * 'preview' are both remote; only `vercel dev` reports 'development'. With no
+ * VERCEL_ENV at all we are outside Vercel entirely (local vite / CI), so fall
+ * back to NODE_ENV.
+ */
+const isLocalDevelopment = (): boolean => {
+  const vercelEnv = (getOptionalEnv('VERCEL_ENV') ?? '').toLowerCase();
+  if (vercelEnv) {
+    return vercelEnv === 'development';
+  }
+  return (getOptionalEnv('NODE_ENV') ?? '').toLowerCase() !== 'production';
+};
+
 const parseAllowedOrigins = (): Set<string> => {
   const origins = new Set<string>();
   const explicit = getOptionalEnv('BANKING_ALLOWED_ORIGINS');
@@ -17,8 +37,7 @@ const parseAllowedOrigins = (): Set<string> => {
     origins.add(`https://${vercelUrl}`);
   }
 
-  const env = (getOptionalEnv('VERCEL_ENV') ?? getOptionalEnv('NODE_ENV') ?? '').toLowerCase();
-  if (env !== 'production') {
+  if (isLocalDevelopment()) {
     origins.add('http://localhost:5173');
     origins.add('http://localhost:3000');
   }

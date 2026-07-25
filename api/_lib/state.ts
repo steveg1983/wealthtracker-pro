@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { getOptionalEnv } from './env.js';
+import { timingSafeStringEqual } from './timing-safe.js';
 
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -45,9 +46,11 @@ export const decodeStateToken = (token: string): StatePayload | null => {
     return null;
   }
 
+  // getStateSecret throws when neither secret env var is set, so an
+  // unconfigured deploy rejects every state token instead of forging one.
   const secret = getStateSecret();
   const expectedSignature = createHmac('sha256', secret).update(encoded).digest('base64url');
-  if (expectedSignature !== signature) {
+  if (!timingSafeStringEqual(expectedSignature, signature)) {
     return null;
   }
 

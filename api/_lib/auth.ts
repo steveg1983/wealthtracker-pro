@@ -1,6 +1,6 @@
 import type { VercelRequest } from '@vercel/node';
 import { verifyToken } from '@clerk/backend';
-import { getRequiredEnv } from './env.js';
+import { getRequiredEnv, getOptionalEnv } from './env.js';
 import { getServiceRoleSupabase } from './supabase.js';
 
 export interface AuthContext {
@@ -18,6 +18,40 @@ export class AuthError extends Error {
     this.status = status;
   }
 }
+
+let hasWarnedAboutMissingAuthorizedParties = false;
+
+/**
+ * Origins whose Clerk session tokens this API will accept, from
+ * CLERK_AUTHORIZED_PARTIES (comma-separated, e.g.
+ * "https://app.example.com,http://localhost:5173").
+ *
+ * Without it, verifyToken ignores the token's `azp` claim, so ANY token minted
+ * by this Clerk instance is accepted — including one issued to a different
+ * front end sharing the instance. We cannot fail closed on an unset value
+ * because existing deploys do not set it yet and every API route would go dark;
+ * instead we warn on each cold start until it is configured.
+ */
+const getAuthorizedParties = (): string[] | undefined => {
+  const parties = (getOptionalEnv('CLERK_AUTHORIZED_PARTIES') ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (parties.length > 0) {
+    return parties;
+  }
+
+  if (!hasWarnedAboutMissingAuthorizedParties) {
+    hasWarnedAboutMissingAuthorizedParties = true;
+    console.warn(
+      '[auth] CLERK_AUTHORIZED_PARTIES is not set — the token `azp` claim is NOT being verified. ' +
+        'Any token from this Clerk instance is accepted regardless of which origin requested it. ' +
+        'Set it to the comma-separated list of front-end origins allowed to call this API.'
+    );
+  }
+  return undefined;
+};
 
 const getBearerToken = (req: VercelRequest): string | null => {
   const header = Array.isArray(req.headers.authorization)
@@ -39,7 +73,7 @@ export const requireAuth = async (req: VercelRequest): Promise<AuthContext> => {
   let clerkUserId: string | undefined;
 
   try {
-    const payload = await verifyToken(token, { secretKey });
+    const payload = await verifyToken(token, { secretKey, authorizedParties: getAuthorizedParties() });
     clerkUserId = payload.sub;
   } catch {
     throw new AuthError('Invalid authentication token', 'invalid_auth', 401);

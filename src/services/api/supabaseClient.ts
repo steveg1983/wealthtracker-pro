@@ -20,20 +20,27 @@ type Database = {
         Args: { p: Record<string, unknown> };
         Returns: Record<string, unknown>;
       };
+      // p_user_id is REQUIRED on every RPC below that takes one, even where the
+      // SQL gives it a NULL default. NULL there does not mean "me": it means
+      // the statement names no owner at all and falls back to RLS alone, so the
+      // defence-in-depth IDOR guard quietly disappears and a mis-routed id gets
+      // one fewer chance to fail closed. Requiring it here means no call site
+      // can drop it by accident. (archive_transactions_before and
+      // unarchive_account already require it in SQL — only the type was loose.)
       update_transaction_atomic: {
-        Args: { p_id: string; p: Record<string, unknown>; p_user_id?: string };
+        Args: { p_id: string; p: Record<string, unknown>; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       delete_transaction_atomic: {
-        Args: { p_id: string; p_user_id?: string };
+        Args: { p_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       set_transactions_cleared: {
-        Args: { p_ids: string[]; p_cleared: boolean; p_user_id?: string };
+        Args: { p_ids: string[]; p_cleared: boolean; p_user_id: string };
         Returns: number;
       };
       apply_category_to_uncategorized: {
-        Args: { p_ids: string[]; p_category: string; p_user_id?: string };
+        Args: { p_ids: string[]; p_category: string; p_user_id: string };
         Returns: number;
       };
       set_transaction_splits: {
@@ -41,20 +48,20 @@ type Database = {
           p_transaction_id: string;
           p_splits: { category: string; amount: number; memo?: string }[];
           p_expected_amount: number | null;
-          p_user_id?: string;
+          p_user_id: string;
         };
         Returns: Record<string, unknown>;
       };
       link_transfer_pair: {
-        Args: { p_id_a: string; p_id_b: string; p_user_id?: string };
+        Args: { p_id_a: string; p_id_b: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       create_transfer_counterpart: {
-        Args: { p_id: string; p_target_account_id: string; p_user_id?: string };
+        Args: { p_id: string; p_target_account_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       delete_unused_categories: {
-        Args: { p_ids: string[]; p_user_id?: string };
+        Args: { p_ids: string[]; p_user_id: string };
         Returns: number;
       };
       migrate_categories_atomic: {
@@ -62,11 +69,11 @@ type Database = {
         Returns: Record<string, unknown>[];
       };
       archive_transactions_before: {
-        Args: { p_account_id: string; p_cutoff: string; p_user_id?: string };
+        Args: { p_account_id: string; p_cutoff: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       unarchive_account: {
-        Args: { p_account_id: string; p_user_id?: string };
+        Args: { p_account_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       // No arguments by design: the function reads the caller's identity from

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from '../icons';
 
 interface DatePickerProps {
@@ -42,9 +42,35 @@ function toYMD(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+// A typed date, UK order, one separator kind per date: 14/04/2025, 14/4/2025,
+// 14-04-2025, 14.4.2025. The year must be four digits so a half-typed "14/04/20"
+// is never mistaken for a finished date and committed under the user.
+const TYPED_DATE = /^(\d{1,2})([/\-.])(\d{1,2})\2(\d{4})$/;
+
+function parseTypedDate(input: string): string | null {
+  const match = TYPED_DATE.exec(input.trim());
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[3]);
+  const year = Number(match[4]);
+  // Two-digit years land here as 0025 and would sail through Date's 1900 window,
+  // so anything below a real four-digit year is a typo, not a date.
+  if (year < 1000) return null;
+  if (month < 1 || month > 12) return null;
+  // Impossible days are rejected rather than rolled over: 31/02 is a slip of the
+  // finger, not the 3rd of March.
+  if (day < 1 || day > getDaysInMonth(year, month - 1)) return null;
+  return toYMD(year, month - 1, day);
+}
+
 export default function DatePicker({ value, onChange, className = '', 'aria-label': ariaLabel, id }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // What the user is currently typing, or null when the field just mirrors
+  // `value`. Holding the raw string means we never reformat under the caret
+  // half-way through "14/4/2025".
+  const [draft, setDraft] = useState<string | null>(null);
 
   // Parse value into viewMonth/viewYear
   const parsed = value ? value.split('-').map(Number) : null;
@@ -65,6 +91,13 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
       setViewMonth(selectedMonth);
     }
   }, [selectedYear, selectedMonth]);
+
+  // A value arriving from outside (Today, Clear, a parent form reset) has to show
+  // in the field — but it must never yank the string out from under someone
+  // who is mid-type, which is why the focused field keeps its draft.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) setDraft(null);
+  }, [value]);
 
   // Close on outside click
   useEffect(() => {
@@ -99,8 +132,56 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
   }, []);
 
   const selectDay = (day: number) => {
+    setDraft(null);
     onChange(toYMD(viewYear, viewMonth, day));
     setIsOpen(false);
+  };
+
+  // Typing is the fast path: parse every keystroke, and the moment the string is
+  // a complete valid date move the calendar to it and commit down the same
+  // onChange a day click uses. Anything short of complete just sits in the draft.
+  const handleTyping = (text: string) => {
+    setDraft(text);
+    const ymd = parseTypedDate(text);
+    if (!ymd) return;
+    const [year, month] = ymd.split('-').map(Number);
+    setViewYear(year);
+    setViewMonth(month - 1);
+    setView('days');
+    if (ymd !== value) onChange(ymd);
+  };
+
+  // Blur and Enter are the "I'm done" points: a complete date commits, an emptied
+  // field clears, and anything else falls back to the last valid value rather
+  // than committing garbage.
+  const settleDraft = () => {
+    if (draft === null) return;
+    const text = draft.trim();
+    const ymd = parseTypedDate(text);
+    if (ymd) {
+      if (ymd !== value) onChange(ymd);
+    } else if (text === '' && value !== '') {
+      onChange('');
+    }
+    setDraft(null);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      // Only swallow Enter while we have something of our own to accept; once the
+      // calendar is closed and the draft settled, a second Enter belongs to the
+      // form the field sits in.
+      if (!isOpen && draft === null) return;
+      e.preventDefault();
+      settleDraft();
+      setIsOpen(false);
+    } else if (e.key === 'Escape') {
+      if (!isOpen && draft === null) return;
+      // Escape dismisses the calendar first; a modal above us gets the next one.
+      e.stopPropagation();
+      setDraft(null);
+      setIsOpen(false);
+    }
   };
 
   // Header drill-down picks a month/year to VIEW (not the value) and steps back
@@ -117,6 +198,7 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
 
   const selectToday = () => {
     const now = new Date();
+    setDraft(null);
     onChange(toYMD(now.getFullYear(), now.getMonth(), now.getDate()));
     setViewYear(now.getFullYear());
     setViewMonth(now.getMonth());
@@ -125,6 +207,7 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
   };
 
   const clear = () => {
+    setDraft(null);
     onChange('');
     setIsOpen(false);
   };
@@ -172,9 +255,13 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
   const nowYear = new Date().getFullYear();
   const nowMonth = new Date().getMonth();
 
+  // Focusing or clicking the field opens the calendar and leaves it open: the
+  // field is typeable now, so a second click is someone placing the caret, not
+  // asking for the calendar to go away. Escape and outside clicks close it.
   const openPicker = () => {
+    if (isOpen) return;
     setView('days');
-    setIsOpen(o => !o);
+    setIsOpen(true);
   };
 
   return (
@@ -182,13 +269,18 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
       <div className="relative">
         <input
           id={id}
+          ref={inputRef}
           type="text"
-          readOnly
-          value={formatDisplayDate(value)}
+          value={draft ?? formatDisplayDate(value)}
+          onChange={(e) => handleTyping(e.target.value)}
+          onFocus={openPicker}
           onClick={openPicker}
+          onBlur={settleDraft}
+          onKeyDown={handleKeyDown}
           placeholder="dd/mm/yyyy"
           aria-label={ariaLabel}
-          className={`w-full px-3 py-2 pr-10 cursor-pointer ${className}`}
+          autoComplete="off"
+          className={`w-full px-3 py-2 pr-10 ${className}`}
         />
         <CalendarIcon
           size={16}

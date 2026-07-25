@@ -276,13 +276,13 @@ export default function PricingPlans({
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-gray-900 dark:text-white">
-                          {plan.maxBudgets}
+                          {plan.budgets}
                         </div>
                         <div className="text-gray-600 dark:text-gray-400">Budgets</div>
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-gray-900 dark:text-white">
-                          {plan.maxGoals}
+                          {plan.goals}
                         </div>
                         <div className="text-gray-600 dark:text-gray-400">Goals</div>
                       </div>

@@ -134,10 +134,24 @@ export default function AccountSettingsModal({
 
   if (!account) return null;
 
+  // A closed account reaches this modal from the Closed Accounts list, and
+  // everything here works on it: the fields load from the account itself and
+  // the save is a plain row update that carries the account's own status back
+  // (so editing a closed account never quietly reopens it).
+  const isClosedAccount = account.isActive === false;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Account Settings" size="md">
       <form onSubmit={handleSubmit}>
         <ModalBody className="space-y-4">
+          {isClosedAccount && (
+            <p className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 px-3 py-2 text-xs text-gray-600 dark:text-gray-300">
+              This account is closed. Its details can be edited from here and it
+              stays closed; its transactions are only reachable once you set
+              Account Status back to Open.
+            </p>
+          )}
+
           {/* Account Name */}
           <div>
             <label htmlFor="account-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -286,10 +300,20 @@ export default function AccountSettingsModal({
               <ToggleSwitch
                 checked={!!formData.lowBalanceAlertEnabled}
                 onChange={v => updateField('lowBalanceAlertEnabled', v)}
+                // The only setting here that a closed account cannot honour:
+                // low-balance alerts are raised from the live accounts list,
+                // which a closed account has left. Say so rather than let the
+                // user arm an alert that can never fire.
+                disabled={!formData.isActive}
                 aria-label="Toggle low balance alert"
               />
             </div>
-            {formData.lowBalanceAlertEnabled && (
+            {!formData.isActive && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Low balance alerts only run on open accounts.
+              </p>
+            )}
+            {formData.isActive && formData.lowBalanceAlertEnabled && (
               <div className="mt-1">
                 <label htmlFor="low-balance-threshold" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                   Alert when balance falls below

@@ -2,10 +2,16 @@
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import type { Account, Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
+import { transactionCache, newestUpdatedAt, type TransactionSnapshot } from '../transactionCache';
 import { toDecimal } from '../../utils/decimal';
 import type { ServerAccountBalance } from '../../utils/accountBalances';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
+type TransactionCacheLike = {
+  read(userId: string, columns: string): Promise<TransactionSnapshot | null>;
+  write(userId: string, columns: string, rows: Transaction[]): Promise<void>;
+  clear(): Promise<void>;
+};
 type SupabaseClientLike = typeof supabase;
 type SupabaseConfiguredChecker = () => boolean;
 type Logger = Pick<Console, 'error'>;
@@ -23,6 +29,89 @@ export interface TransactionServiceOptions {
   uuid?: UuidGenerator;
   fetchImpl?: FetchLike;
   authTokenProvider?: AuthTokenProvider;
+  transactionCache?: TransactionCacheLike;
+}
+
+/**
+ * How the boot got its transactions — reported on the boot-timing console line
+ * so a slow (or a wrongly-fast) load can still be diagnosed from a screenshot
+ * of a production console.
+ */
+export interface TransactionLoadStats {
+  /** Rows served from the local snapshot; 0 when everything came over the wire. */
+  cached: number;
+  /** Rows this load pulled over the network. */
+  fetched: number;
+  /** Rows handed to the app. */
+  total: number;
+  /** Why the snapshot was not used, or null when it was. */
+  fullFetchReason: string | null;
+}
+
+export interface TransactionLoadResult {
+  transactions: Transaction[];
+  stats: TransactionLoadStats;
+}
+
+/**
+ * Supabase caps responses at 1000 rows (a hard server-side max-rows, not a
+ * client default — asking for a larger range still returns only 1000).
+ */
+const PAGE_SIZE = 1000;
+/**
+ * The transfer is bandwidth-bound, so raising this buys nothing (measured).
+ */
+const PAGE_CONCURRENCY = 6;
+
+/**
+ * How far BEFORE the stored high-water mark the delta query reaches back.
+ *
+ * WHY: updated_at is stamped by a BEFORE UPDATE trigger with NOW(), which in
+ * Postgres is the writing transaction's START time. A transaction that began
+ * before our last snapshot but committed after it therefore lands with a
+ * timestamp we have already read past, and a strict `> highWaterMark` delta
+ * would never see it. Re-reading the last few minutes costs a handful of rows
+ * and closes that window; anything longer-running than this is a bulk import,
+ * whose INSERTs the row-count check below catches regardless.
+ */
+const DELTA_OVERLAP_MS = 10 * 60 * 1000;
+
+/** The oldest updated_at the delta query must ask for. */
+export function deltaFloor(highWaterMark: string): string {
+  const ms = Date.parse(highWaterMark);
+  if (!Number.isFinite(ms)) return highWaterMark;
+  return new Date(ms - DELTA_OVERLAP_MS).toISOString();
+}
+
+/** A transaction's date as a lexicographically comparable string. */
+function sortableDate(transaction: Transaction): string {
+  const raw: unknown = transaction.date;
+  if (typeof raw === 'string') return raw;
+  if (raw instanceof Date && Number.isFinite(raw.getTime())) return raw.toISOString();
+  return '';
+}
+
+/**
+ * Fold freshly-changed rows into a cached snapshot, restoring the server's
+ * ordering (date DESC, id DESC — the same tiebreak the paged fetch uses, so
+ * cached and freshly-fetched sets are indistinguishable to every consumer).
+ *
+ * A delta row REPLACES the cached row with the same id; ids the cache has never
+ * seen are additions. Deletions cannot appear here — they are handled by the
+ * row-count check in loadTransactionsForBoot.
+ */
+export function mergeTransactionDelta(cached: Transaction[], delta: Transaction[]): Transaction[] {
+  const byId = new Map<string, Transaction>();
+  for (const row of cached) byId.set(row.id, row);
+  for (const row of delta) byId.set(row.id, row);
+
+  return Array.from(byId.values()).sort((a, b) => {
+    const dateA = sortableDate(a);
+    const dateB = sortableDate(b);
+    if (dateA !== dateB) return dateA < dateB ? 1 : -1;
+    if (a.id === b.id) return 0;
+    return a.id < b.id ? 1 : -1;
+  });
 }
 
 /** Map camelCase Transaction fields to snake_case DB columns */
@@ -143,8 +232,10 @@ class TransactionServiceImpl {
   private readonly uuid: UuidGenerator;
   private readonly fetchImpl: FetchLike | null;
   private readonly authTokenProvider: AuthTokenProvider | null;
+  private readonly cache: TransactionCacheLike;
 
   constructor(options: TransactionServiceOptions = {}) {
+    this.cache = options.transactionCache ?? transactionCache;
     this.supabaseClient = options.supabaseClient ?? supabase;
     this.supabaseChecker = options.isSupabaseConfigured ?? isSupabaseConfigured;
     this.storage = options.storageAdapter ?? storageAdapter;
@@ -178,6 +269,22 @@ class TransactionServiceImpl {
     return new Date(now.getTime());
   }
 
+  /**
+   * Every atomic RPC takes the owner id, and most of them default it to NULL in
+   * SQL. NULL there does not mean "me" — it means the statement names no owner
+   * at all, so it leans on RLS alone and the defence-in-depth IDOR guard
+   * silently disappears. Refuse instead: callers reach these through
+   * DataService, which only takes the cloud branch once
+   * getCurrentDatabaseUserId() has resolved, so a missing owner is a wiring
+   * mistake and should be loud rather than quietly less safe.
+   */
+  private requireOwnerId(userId: string | undefined, operation: string): string {
+    if (!userId) {
+      throw new Error(`${operation} requires a user id when writing directly via Supabase`);
+    }
+    return userId;
+  }
+
   private async readStoredTransactions(): Promise<Transaction[]> {
     const stored = await this.storage.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
     return stored || [];
@@ -187,78 +294,207 @@ class TransactionServiceImpl {
     await this.storage.set(STORAGE_KEYS.TRANSACTIONS, transactions);
   }
 
+  /**
+   * PostgREST rows → Transaction[]. The cast lives in exactly ONE place so
+   * every fetch path (full load, delta) converts identically: mapFromDbFields
+   * renames keys but cannot prove the result satisfies Transaction, and
+   * Transaction is an interface, so it has no index signature to bridge back.
+   */
+  private toTransactions(rows: Record<string, unknown>[]): Transaction[] {
+    return rows.map(row => mapFromDbFields(row)) as unknown as Transaction[];
+  }
+
+  /**
+   * One page of the boot column set, optionally restricted to rows changed at
+   * or after `since`. Only BOOT_TRANSACTION_COLUMNS are selected, not '*': the
+   * transfer, not the round trips, is what dominates the boot, and the wide
+   * table's unused columns were ~38% of the bytes.
+   */
+  private async fetchTransactionPage(
+    userId: string,
+    from: number,
+    since?: string
+  ): Promise<Record<string, unknown>[]> {
+    const client = this.supabaseClient!;
+    const base = client
+      .from('transactions')
+      .select(BOOT_TRANSACTION_COLUMNS)
+      .eq('user_id', userId);
+    const scoped = since ? base.gte('updated_at', since) : base;
+    const { data, error } = await scoped
+      .order('date', { ascending: false })
+      .order('id', { ascending: false }) // stable tiebreak for paging
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      this.logger.error('Error fetching transactions:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    return (data || []) as Record<string, unknown>[];
+  }
+
+  /**
+   * How many transactions the server holds for this user — the same predicate
+   * the full fetch uses, so it doubles as the integrity check that tells a
+   * delta sync a row was deleted (see loadTransactionsForBoot).
+   */
+  async countTransactions(userId: string): Promise<number> {
+    const client = this.supabaseClient!;
+    const { count, error } = await client
+      .from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if (error) {
+      this.logger.error('Error counting transactions:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    return count ?? 0;
+  }
+
+  /**
+   * Rows changed at or after `since`. An unconditional BEFORE UPDATE trigger
+   * stamps updated_at = NOW() on every write, so this cannot miss an edit — but
+   * it can never report a DELETE, which is why the caller pairs it with a count.
+   *
+   * Paged sequentially rather than in parallel: a delta is normally a handful of
+   * rows, and the count-first trick the full load uses would cost an extra round
+   * trip to discover that.
+   */
+  async getTransactionsSince(userId: string, since: string): Promise<Transaction[]> {
+    const rows: Record<string, unknown>[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const page = await this.fetchTransactionPage(userId, from, since);
+      rows.push(...page);
+      if (page.length < PAGE_SIZE) break;
+    }
+    return this.toTransactions(rows);
+  }
+
   async getTransactions(userId: string): Promise<Transaction[]> {
     if (!this.isSupabaseReady()) {
       return this.readStoredTransactions();
     }
 
     try {
-      const client = this.supabaseClient!;
-
-      // Supabase caps responses at 1000 rows (a hard server-side max-rows, not
-      // a client default — asking for a larger range still returns only 1000),
-      // so a full Money-era history of 50k+ rows is 50+ pages. Pages are fetched
+      // A full Money-era history of 50k+ rows is 50+ pages. Pages are fetched
       // IN PARALLEL (count first, bounded concurrency); sequential paging made
-      // every app load a ~50-round-trip wait. Concurrency stays at 6 — the
-      // transfer is bandwidth-bound, so raising it buys nothing (measured).
-      // Only BOOT_TRANSACTION_COLUMNS are selected, not '*': the transfer, not
-      // the round trips, is what dominates the boot, and the wide table's unused
-      // columns were ~38% of the bytes.
-      const PAGE_SIZE = 1000;
-      const CONCURRENCY = 6;
+      // every app load a ~50-round-trip wait.
+      const count = await this.countTransactions(userId);
 
-      const fetchPage = async (from: number): Promise<Record<string, unknown>[]> => {
-        const { data, error } = await client
-          .from('transactions')
-          .select(BOOT_TRANSACTION_COLUMNS)
-          .eq('user_id', userId)
-          .order('date', { ascending: false })
-          .order('id', { ascending: false }) // stable tiebreak for paging
-          .range(from, from + PAGE_SIZE - 1);
-        if (error) {
-          this.logger.error('Error fetching transactions:', error);
-          throw new Error(handleSupabaseError(error));
-        }
-        return (data || []) as Record<string, unknown>[];
-      };
-
-      const { count, error: countError } = await client
-        .from('transactions')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      if (countError) {
-        this.logger.error('Error counting transactions:', countError);
-        throw new Error(handleSupabaseError(countError));
-      }
-
-      const pages = Math.ceil((count ?? 0) / PAGE_SIZE);
+      const pages = Math.ceil(count / PAGE_SIZE);
       const results: Record<string, unknown>[][] = new Array<Record<string, unknown>[]>(pages);
       let nextPage = 0;
       const worker = async (): Promise<void> => {
         for (;;) {
           const i = nextPage++;
           if (i >= pages) return;
-          results[i] = await fetchPage(i * PAGE_SIZE);
+          results[i] = await this.fetchTransactionPage(userId, i * PAGE_SIZE);
         }
       };
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pages) }, worker));
+      await Promise.all(Array.from({ length: Math.min(PAGE_CONCURRENCY, pages) }, worker));
 
       const rows = results.flat();
       // Rows inserted between the count and the page fetches land past the
       // last page — keep the old sequential tail walk for that (rare) case.
       if (pages > 0 && (results[pages - 1]?.length ?? 0) === PAGE_SIZE) {
         for (let from = pages * PAGE_SIZE; ; from += PAGE_SIZE) {
-          const tail = await fetchPage(from);
+          const tail = await this.fetchTransactionPage(userId, from);
           rows.push(...tail);
           if (tail.length < PAGE_SIZE) break;
         }
       }
 
-      return rows.map(row => mapFromDbFields(row)) as unknown as Transaction[];
+      return this.toTransactions(rows);
     } catch (error) {
       this.logger.error('TransactionService.getTransactions error:', error as Error);
       return this.readStoredTransactions();
     }
+  }
+
+  /**
+   * The boot load: hydrate from the local snapshot and ask the server only for
+   * what changed, falling back to the full download whenever the snapshot
+   * cannot be PROVEN complete.
+   *
+   * The correctness rule, because this is a finance app: a stale cache is
+   * allowed to cost a full refetch, but it is never allowed to serve a wrong
+   * total. Transactions are hard-deleted with no tombstone, so a delta on
+   * updated_at is structurally blind to deletions — the server row count is the
+   * backstop. Let d = rows deleted since the snapshot and i = rows inserted:
+   * the server holds N - d + i while the merge produces N + i (the deleted rows
+   * are still in the cache), so the two agree if and only if d == 0. The same
+   * check also catches an insert the delta somehow missed. Any disagreement
+   * throws the snapshot away and downloads everything.
+   */
+  async loadTransactionsForBoot(userId: string): Promise<TransactionLoadResult> {
+    if (!this.isSupabaseReady()) {
+      const rows = await this.readStoredTransactions();
+      return {
+        transactions: rows,
+        stats: { cached: 0, fetched: 0, total: rows.length, fullFetchReason: 'local mode' }
+      };
+    }
+
+    let fullFetchReason = 'no cache';
+    const snapshot = await this.cache.read(userId, BOOT_TRANSACTION_COLUMNS);
+
+    if (snapshot) {
+      try {
+        const [delta, serverCount] = await Promise.all([
+          this.getTransactionsSince(userId, deltaFloor(snapshot.highWaterMark)),
+          this.countTransactions(userId)
+        ]);
+
+        // The overlap window means the delta is never empty — it always re-reads
+        // the newest rows we already hold. Anything genuinely written since the
+        // snapshot carries a stamp PAST the high-water mark (the trigger sets
+        // updated_at = NOW() on every write, and an insert defaults to it), so
+        // that comparison, not the row count, is what says "something changed".
+        // When nothing has, the cached array is already in server order and is
+        // handed over untouched: no merge, no re-sort, no multi-megabyte
+        // re-write of a snapshot that would come out identical.
+        const deltaHighWaterMark = newestUpdatedAt(delta);
+        const hasNewWrites = deltaHighWaterMark !== null &&
+          // Compared as instants, not as text: PostgREST's "+00:00" offset and a
+          // JS Date's "Z" do not sort against each other. A timestamp that
+          // cannot be parsed counts as new, so the doubt costs a merge rather
+          // than a missed edit.
+          !(Date.parse(deltaHighWaterMark) <= Date.parse(snapshot.highWaterMark));
+        const merged = hasNewWrites
+          ? mergeTransactionDelta(snapshot.rows, delta)
+          : snapshot.rows;
+
+        if (merged.length === serverCount) {
+          if (hasNewWrites) {
+            void this.cache.write(userId, BOOT_TRANSACTION_COLUMNS, merged);
+          }
+          return {
+            transactions: merged,
+            stats: {
+              cached: snapshot.rows.length,
+              fetched: delta.length,
+              total: merged.length,
+              fullFetchReason: null
+            }
+          };
+        }
+
+        fullFetchReason = `cache held ${merged.length} of ${serverCount} rows`;
+      } catch (error) {
+        this.logger.error('TransactionService delta load failed, refetching in full:', error as Error);
+        fullFetchReason = 'delta load failed';
+      }
+    }
+
+    const rows = await this.getTransactions(userId);
+    // Deliberately not awaited: the snapshot write is a structured clone of the
+    // whole history and the app has everything it needs without it. A failure
+    // is swallowed inside the cache — an unwritable cache costs speed, nothing
+    // else.
+    void this.cache.write(userId, BOOT_TRANSACTION_COLUMNS, rows);
+    return {
+      transactions: rows,
+      stats: { cached: 0, fetched: rows.length, total: rows.length, fullFetchReason }
+    };
   }
 
   /**
@@ -361,13 +597,14 @@ class TransactionServiceImpl {
       const dbUpdates = mapToDbFields(updates as unknown as Record<string, unknown>);
 
       // Atomic RPC: updates the row and adjusts balances (including account
-      // moves) in one database transaction with SQL numeric math.
+      // moves) in one database transaction with SQL numeric math. RLS already
+      // scopes the row; naming the owner makes it fail closed on a mis-routed
+      // id, and omitting the owner would throw that guard away (see
+      // requireOwnerId).
       const { data, error } = await client.rpc('update_transaction_atomic', {
         p_id: id,
         p: dbUpdates,
-        // Defence-in-depth IDOR guard: RLS already scopes the row, and passing
-        // the owner makes the RPC fail closed on a mis-routed id.
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'updateTransaction')
       });
 
       if (error) {
@@ -415,7 +652,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('set_transactions_cleared', {
         p_ids: ids,
         p_cleared: cleared,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'setTransactionsCleared')
       });
 
       if (error) {
@@ -461,7 +698,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('apply_category_to_uncategorized', {
         p_ids: ids,
         p_category: category,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'applyCategoryToUncategorized')
       });
 
       if (error) {
@@ -649,7 +886,7 @@ class TransactionServiceImpl {
         p_transaction_id: transactionId,
         p_splits: splits,
         p_expected_amount: expectedAmount,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'setTransactionSplits')
       });
 
       if (error) {
@@ -689,7 +926,7 @@ class TransactionServiceImpl {
       const { data, error } = await this.supabaseClient!.rpc('archive_transactions_before', {
         p_account_id: accountId,
         p_cutoff: cutoffIso,
-        ...(userId ? { p_user_id: userId } : {}),
+        p_user_id: this.requireOwnerId(userId, 'archiveTransactionsBefore'),
       });
       if (error) {
         this.logger.error('Error archiving transactions:', error);
@@ -711,7 +948,7 @@ class TransactionServiceImpl {
     try {
       const { data, error } = await this.supabaseClient!.rpc('unarchive_account', {
         p_account_id: accountId,
-        ...(userId ? { p_user_id: userId } : {}),
+        p_user_id: this.requireOwnerId(userId, 'unarchiveAccount'),
       });
       if (error) {
         this.logger.error('Error unarchiving account:', error);
@@ -738,7 +975,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('link_transfer_pair', {
         p_id_a: idA,
         p_id_b: idB,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'linkTransferPair')
       });
       if (error) {
         this.logger.error('Error linking transfer pair:', error);
@@ -773,7 +1010,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('create_transfer_counterpart', {
         p_id: id,
         p_target_account_id: targetAccountId,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'createTransferCounterpart')
       });
       if (error) {
         this.logger.error('Error creating transfer counterpart:', error);
@@ -808,10 +1045,12 @@ class TransactionServiceImpl {
 
       // Atomic RPC: deletes the row and reverses the balance in one database
       // transaction. RLS scopes the delete to the requesting user; passing the
-      // owner adds a defence-in-depth IDOR guard so a mis-routed id fails closed.
+      // owner adds a defence-in-depth IDOR guard so a mis-routed id fails closed
+      // (see requireOwnerId). The API path above needs no userId: the server
+      // derives it from the Clerk token.
       const { error } = await client.rpc('delete_transaction_atomic', {
         p_id: id,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'deleteTransaction')
       });
 
       if (error) {
@@ -1041,6 +1280,18 @@ export class TransactionService {
 
   static getTransactions(userId: string): Promise<Transaction[]> {
     return this.service.getTransactions(userId);
+  }
+
+  static loadTransactionsForBoot(userId: string): Promise<TransactionLoadResult> {
+    return this.service.loadTransactionsForBoot(userId);
+  }
+
+  static countTransactions(userId: string): Promise<number> {
+    return this.service.countTransactions(userId);
+  }
+
+  static getTransactionsSince(userId: string, since: string): Promise<Transaction[]> {
+    return this.service.getTransactionsSince(userId, since);
   }
 
   static getAccountBalances(): Promise<Map<string, ServerAccountBalance>> {

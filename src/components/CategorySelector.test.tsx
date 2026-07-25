@@ -14,7 +14,9 @@ import { __setAppContextValue, __resetAppContextValue } from '../test/mocks/AppC
 import type { Category } from '../types';
 
 // A minimal two-direction category tree: one income detail (Payslip) and one
-// expense detail (Groceries), each under its own sub/type parents.
+// expense detail (Groceries), each under its own sub/type parents — plus the
+// Revaluation tree, which is one rung shallower (root → detail, no sub level)
+// and direction-neutral.
 const tree: Category[] = [
   { id: 'type-income', name: 'Income', type: 'income', level: 'type' },
   { id: 'type-expense', name: 'Expenses', type: 'expense', level: 'type' },
@@ -22,6 +24,8 @@ const tree: Category[] = [
   { id: 'sub-food', name: 'Food', type: 'expense', level: 'sub', parentId: 'type-expense' },
   { id: 'det-payslip', name: 'Payslip', type: 'income', level: 'detail', parentId: 'sub-salary' },
   { id: 'det-groceries', name: 'Groceries', type: 'expense', level: 'detail', parentId: 'sub-food' },
+  { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isRevaluationCategory: true },
+  { id: 'rev-adjustment', name: 'Account Adjustment', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
 ];
 
 const PLACEHOLDER = 'Pick a category';
@@ -168,6 +172,35 @@ describe('CategorySelector', () => {
       expect(options.length).toBeGreaterThanOrEqual(2);
       const payslip = options.find(o => o.textContent?.includes('Payslip'));
       expect(payslip).toHaveAttribute('aria-selected', 'true');
+    });
+  });
+
+  describe('revaluation categories (the third kind of movement)', () => {
+    it('offers them whichever direction the transaction points', () => {
+      renderOpen({ transactionType: 'income' });
+      expect(screen.getByText('Account Adjustment')).toBeInTheDocument();
+      cleanup();
+      renderOpen({ transactionType: 'expense' });
+      expect(screen.getByText('Account Adjustment')).toBeInTheDocument();
+    });
+
+    it('lists them under their own heading, after the everyday groups', () => {
+      renderOpen({ includeAllTypes: true });
+      const headings = screen.getAllByText(/^(Salary|Food|Revaluation)$/).map(el => el.textContent);
+      expect(headings[headings.length - 1]).toBe('Revaluation');
+    });
+
+    it('reports the chosen revaluation category id', () => {
+      const { onCategoryChange } = renderOpen();
+      fireEvent.click(screen.getByText('Account Adjustment'));
+      expect(onCategoryChange).toHaveBeenCalledWith('rev-adjustment');
+    });
+
+    it('filters with the search term like any other option', () => {
+      renderOpen();
+      fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), { target: { value: 'adjust' } });
+      expect(screen.getByText('Account Adjustment')).toBeInTheDocument();
+      expect(screen.queryByText('Payslip')).not.toBeInTheDocument();
     });
   });
 
