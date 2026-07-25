@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createTransactionService, TransactionService, toAccountBalanceMap } from '../api/transactionService';
+import {
+  createTransactionService,
+  TransactionService,
+  toAccountBalanceMap,
+  mergeTransactionDelta
+} from '../api/transactionService';
 import type { Transaction } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
@@ -215,6 +220,290 @@ describe('TransactionService (deterministic fallback)', () => {
       for (const dropped of ['metadata', 'plaid_transaction_id', 'merchant_name', 'location_city', 'import_source']) {
         expect(cols).not.toContain(dropped);
       }
+    });
+  });
+
+  describe('loadTransactionsForBoot (local snapshot + delta)', () => {
+    type DbRow = Record<string, unknown>;
+
+    const dbRow = (id: string, date: string, updatedAt: string, description = id): DbRow => ({
+      id,
+      account_id: 'acct-1',
+      amount: 10,
+      type: 'expense',
+      date,
+      description,
+      updated_at: updatedAt
+    });
+
+    /**
+     * Chainable PostgREST stand-in that understands the delta filter: a query
+     * with .gte('updated_at', X) returns only the rows at or after X, so the
+     * test data IS the server's truth. `count` is passed separately so a
+     * deletion (server holds fewer rows than the cache) can be simulated.
+     */
+    const makeClient = (rows: DbRow[], count = rows.length) => {
+      const deltaFloors: string[] = [];
+      const pageFetches: { since: string | null }[] = [];
+      const from = vi.fn(() => {
+        const builder: Record<string, unknown> = {};
+        let isCount = false;
+        let since: string | null = null;
+        let range: [number, number] | null = null;
+        builder.select = vi.fn((_cols: unknown, opts: unknown) => {
+          isCount = Boolean(opts && (opts as { head?: boolean }).head);
+          return builder;
+        });
+        builder.eq = vi.fn(() => builder);
+        builder.gte = vi.fn((_column: string, value: string) => {
+          since = value;
+          deltaFloors.push(value);
+          return builder;
+        });
+        builder.order = vi.fn(() => builder);
+        builder.range = vi.fn((from_: number, to: number) => {
+          range = [from_, to];
+          return builder;
+        });
+        builder.then = (resolve: (value: unknown) => unknown) => {
+          if (isCount) return resolve({ count, error: null });
+          pageFetches.push({ since });
+          const scoped = since === null
+            ? rows
+            : rows.filter(r => String(r.updated_at) >= since);
+          const [f, t] = range ?? [0, scoped.length - 1];
+          return resolve({ data: scoped.slice(f, t + 1), error: null });
+        };
+        return builder;
+      });
+      return { client: { from }, deltaFloors, pageFetches };
+    };
+
+    const createCache = (snapshot: { rows: Transaction[]; highWaterMark: string } | null) => {
+      const writes: { userId: string; rows: Transaction[] }[] = [];
+      return {
+        cache: {
+          read: vi.fn(async () => snapshot),
+          write: vi.fn(async (userId: string, _columns: string, rows: Transaction[]) => {
+            writes.push({ userId, rows });
+          }),
+          clear: vi.fn(async () => {})
+        },
+        writes
+      };
+    };
+
+    /** A cached row in the shape the boot path holds (ISO strings, camelCase). */
+    const cachedRow = (id: string, date: string, updatedAt: string, description = id): Transaction => {
+      const base: Transaction = {
+        id,
+        date: new Date(date),
+        amount: 10,
+        description,
+        category: '',
+        accountId: 'acct-1',
+        type: 'expense',
+        updatedAt: new Date(updatedAt)
+      };
+      return JSON.parse(JSON.stringify(base));
+    };
+
+    const build = (
+      client: { from: unknown },
+      cache: ReturnType<typeof createCache>['cache']
+    ) => createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now,
+      uuid,
+      transactionCache: cache,
+      supabaseClient: client as never
+    });
+
+    it('downloads everything and stores a snapshot when there is no cache', async () => {
+      const { client } = makeClient([
+        dbRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z'),
+        dbRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z')
+      ]);
+      const { cache, writes } = createCache(null);
+
+      const result = await build(client, cache).loadTransactionsForBoot('user-1');
+
+      expect(result.transactions.map(t => t.id)).toEqual(['a', 'b']);
+      expect(result.stats).toEqual({ cached: 0, fetched: 2, total: 2, fullFetchReason: 'no cache' });
+      expect(writes).toHaveLength(1);
+      expect(writes[0].userId).toBe('user-1');
+      expect(writes[0].rows).toHaveLength(2);
+    });
+
+    it('serves the snapshot untouched when nothing has been written since', async () => {
+      // The delta still returns the newest rows (the overlap window re-reads
+      // them), but none is newer than the high-water mark, so no merge, no
+      // re-sort and — critically — no multi-megabyte rewrite of the snapshot.
+      const rows = [
+        dbRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z'),
+        dbRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z')
+      ];
+      const { client, pageFetches } = makeClient(rows);
+      const cached = [
+        cachedRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z'),
+        cachedRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z')
+      ];
+      const { cache, writes } = createCache({ rows: cached, highWaterMark: '2026-07-02T00:00:00.000Z' });
+
+      const result = await build(client, cache).loadTransactionsForBoot('user-1');
+
+      expect(result.transactions).toBe(cached);
+      expect(result.stats.cached).toBe(2);
+      expect(result.stats.total).toBe(2);
+      expect(result.stats.fullFetchReason).toBeNull();
+      expect(writes).toHaveLength(0);
+      // Every page request carried the delta filter — the full history was
+      // never asked for.
+      expect(pageFetches.every(f => f.since !== null)).toBe(true);
+    });
+
+    it('folds in changed and newly-inserted rows, keeps server order, and re-caches', async () => {
+      const { client } = makeClient([
+        dbRow('c', '2026-07-05', '2026-07-05T09:00:00.000Z', 'brand new'),
+        dbRow('a', '2026-07-02', '2026-07-04T08:00:00.000Z', 'edited'),
+        dbRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z')
+      ]);
+      const cached = [
+        cachedRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z', 'original'),
+        cachedRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z')
+      ];
+      const { cache, writes } = createCache({ rows: cached, highWaterMark: '2026-07-02T00:00:00.000Z' });
+
+      const result = await build(client, cache).loadTransactionsForBoot('user-1');
+
+      expect(result.transactions.map(t => t.id)).toEqual(['c', 'a', 'b']);
+      expect(result.transactions[1].description).toBe('edited');
+      expect(result.stats).toEqual({ cached: 2, fetched: 2, total: 3, fullFetchReason: null });
+      expect(writes).toHaveLength(1);
+      expect(writes[0].rows.map(t => t.id)).toEqual(['c', 'a', 'b']);
+    });
+
+    it('refetches everything when the server row count disagrees — a deletion is invisible to a delta', async () => {
+      // The cache holds three rows; the server holds two. updated_at can never
+      // report the missing one, so the count is what catches it. A finance app
+      // may pay for a refetch, but must never serve a wrong total.
+      const { client } = makeClient([
+        dbRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z'),
+        dbRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z')
+      ]);
+      const cached = [
+        cachedRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z'),
+        cachedRow('b', '2026-07-01', '2026-07-01T00:00:00.000Z'),
+        cachedRow('gone', '2026-06-30', '2026-06-30T00:00:00.000Z')
+      ];
+      const { cache, writes } = createCache({ rows: cached, highWaterMark: '2026-07-02T00:00:00.000Z' });
+
+      const result = await build(client, cache).loadTransactionsForBoot('user-1');
+
+      expect(result.transactions.map(t => t.id)).toEqual(['a', 'b']);
+      expect(result.stats.cached).toBe(0);
+      expect(result.stats.total).toBe(2);
+      expect(result.stats.fullFetchReason).toBe('cache held 3 of 2 rows');
+      // The refetched truth replaces the stale snapshot.
+      expect(writes).toHaveLength(1);
+      expect(writes[0].rows.map(t => t.id)).toEqual(['a', 'b']);
+    });
+
+    it('refetches everything when the delta query fails', async () => {
+      const rows = [dbRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z')];
+      const { client } = makeClient(rows);
+      let firstCall = true;
+      const failingOnce = {
+        from: vi.fn((table: string) => {
+          if (firstCall) {
+            firstCall = false;
+            const builder: Record<string, unknown> = {};
+            builder.select = vi.fn(() => builder);
+            builder.eq = vi.fn(() => builder);
+            builder.gte = vi.fn(() => builder);
+            builder.order = vi.fn(() => builder);
+            builder.range = vi.fn(() => builder);
+            builder.then = (resolve: (value: unknown) => unknown) =>
+              resolve({ data: null, error: { message: 'delta exploded' } });
+            return builder;
+          }
+          return client.from(table);
+        })
+      };
+      const cached = [cachedRow('a', '2026-07-02', '2026-07-02T00:00:00.000Z')];
+      const { cache } = createCache({ rows: cached, highWaterMark: '2026-07-02T00:00:00.000Z' });
+
+      const result = await build(failingOnce, cache).loadTransactionsForBoot('user-1');
+
+      expect(result.transactions.map(t => t.id)).toEqual(['a']);
+      expect(result.stats.fullFetchReason).toBe('delta load failed');
+      expect(logger.error).toHaveBeenCalled();
+    });
+
+    it('asks for a window that reaches back before the high-water mark', async () => {
+      // updated_at is stamped with the writing transaction's START time, so a
+      // strict "newer than the mark" filter would miss a write that began
+      // before the snapshot and committed after it.
+      const { client, deltaFloors } = makeClient([dbRow('a', '2026-07-02', '2026-07-02T12:00:00.000Z')]);
+      const cached = [cachedRow('a', '2026-07-02', '2026-07-02T12:00:00.000Z')];
+      const { cache } = createCache({ rows: cached, highWaterMark: '2026-07-02T12:00:00.000Z' });
+
+      await build(client, cache).loadTransactionsForBoot('user-1');
+
+      expect(deltaFloors[0]).toBe('2026-07-02T11:50:00.000Z');
+    });
+
+    it('reads local storage and never touches the cache in local mode', async () => {
+      const storage = createStorage([baseTransaction({ id: 'local-1' })]);
+      const { cache } = createCache(null);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid,
+        transactionCache: cache
+      });
+
+      const result = await service.loadTransactionsForBoot('user-1');
+
+      expect(result.transactions.map(t => t.id)).toEqual(['local-1']);
+      expect(result.stats.fullFetchReason).toBe('local mode');
+      expect(cache.read).not.toHaveBeenCalled();
+      expect(cache.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mergeTransactionDelta', () => {
+    const at = (id: string, date: string, description = id): Transaction => ({
+      id,
+      date: new Date(date),
+      amount: 1,
+      description,
+      category: '',
+      accountId: 'acct-1',
+      type: 'expense'
+    });
+
+    it('replaces cached rows by id and appends new ones', () => {
+      const merged = mergeTransactionDelta(
+        [at('a', '2026-07-02', 'old'), at('b', '2026-07-01')],
+        [at('a', '2026-07-02', 'new'), at('c', '2026-07-03')]
+      );
+
+      expect(merged.map(t => t.id)).toEqual(['c', 'a', 'b']);
+      expect(merged.find(t => t.id === 'a')?.description).toBe('new');
+    });
+
+    it('restores the server ordering — date descending, id descending as the tiebreak', () => {
+      const merged = mergeTransactionDelta(
+        [at('b1', '2026-07-01'), at('a9', '2026-07-01')],
+        [at('m5', '2026-07-01')]
+      );
+
+      expect(merged.map(t => t.id)).toEqual(['m5', 'b1', 'a9']);
     });
   });
 

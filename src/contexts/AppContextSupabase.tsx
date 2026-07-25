@@ -9,6 +9,7 @@ import { useUser } from '@clerk/clerk-react';
 import { DataService } from '../services/api/dataService';
 import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
+import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';
 import { PlanningService } from '../services/api/planningService';
 import { getDefaultCategories } from '../data/defaultCategories';
@@ -283,6 +284,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // No user logged in
           appLogger.info('No user logged in');
           setAccounts([]);
+          // Signed out (this effect re-runs when Clerk's user goes away, however
+          // the sign-out was triggered): the cached history belongs to whoever
+          // was signed in and must not survive on a shared browser.
+          void transactionCache.clear();
         }
         
         // Categories MUST resolve before transactions/budgets are read:
@@ -336,10 +341,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // without expanding an object — and via console.info directly, because
         // the scoped logger's console bridge is DEV-ONLY and this one line is
         // exactly what a production slowness report needs.
+        // The transaction figure must stay honest about WHERE the rows came
+        // from: a 200ms boot that hydrated a stale snapshot and a 200ms boot
+        // that fetched nothing because nothing changed look identical
+        // otherwise, and the next slowness report would start from a lie.
+        const txnStats = data.transactionStats;
+        const txnSummary = txnStats && txnStats.fullFetchReason === null
+          ? `${txnStats.total.toLocaleString()} transactions ` +
+            `(${txnStats.cached.toLocaleString()} from cache + ${txnStats.fetched.toLocaleString()} delta)`
+          : `${data.transactions.length.toLocaleString()} transactions ` +
+            `(full fetch — ${txnStats?.fullFetchReason ?? 'no cache'})`;
         console.info(
           `Boot data load: ${Math.round(performance.now() - bootStart)}ms total — ` +
           Object.entries(phases).map(([name, ms]) => `${name} ${ms}ms`).join(' · ') +
-          ` (${data.transactions.length.toLocaleString()} transactions)`
+          ` (${txnSummary})`
         );
 
         // Subscribe to real-time updates if using Supabase
@@ -1120,6 +1135,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [goals]);
 
   const clearAllData = useCallback(async () => {
+    // The local snapshot describes a history that is about to stop existing —
+    // drop it here rather than making the next boot discover the mismatch and
+    // pay for a full refetch to find out.
+    await transactionCache.clear();
     setAccounts([]);
     setTransactions([]);
     setBudgets([]);

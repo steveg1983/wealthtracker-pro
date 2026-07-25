@@ -7,7 +7,7 @@
 
 import { UserService } from './userService';
 import { AccountService } from './accountService';
-import { TransactionService } from './transactionService';
+import { TransactionService, type TransactionLoadResult, type TransactionLoadStats } from './transactionService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
@@ -21,6 +21,12 @@ export interface AppData {
   budgets: Budget[];
   goals: Goal[];
   categories: Category[];
+  /**
+   * Where the transactions came from (local snapshot vs network). Reported on
+   * the boot-timing console line so the next diagnosis can tell a fast boot
+   * from a cached one.
+   */
+  transactionStats?: TransactionLoadStats;
 }
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
@@ -31,6 +37,11 @@ type AccountServiceLike = Pick<typeof AccountService,
 type TransactionServiceLike = Pick<typeof TransactionService,
   'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
+  /**
+   * Optional so an injected test double stays a partial stand-in; without it
+   * the boot simply takes the uncached full-fetch path.
+   */
+  loadTransactionsForBoot?: (userId: string) => Promise<TransactionLoadResult>;
 };
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
@@ -152,15 +163,22 @@ class DataServiceImpl {
     }
 
     try {
-      const [accounts, transactions, budgets, goals, categories] = await Promise.all([
+      const [accounts, transactionLoad, budgets, goals, categories] = await Promise.all([
         this.getAccounts(),
-        this.getTransactions(),
+        this.loadTransactionsForBoot(),
         this.getBudgets(),
         this.getGoals(),
         this.getCategories()
       ]);
 
-      return { accounts, transactions, budgets, goals, categories };
+      return {
+        accounts,
+        transactions: transactionLoad.transactions,
+        budgets,
+        goals,
+        categories,
+        transactionStats: transactionLoad.stats
+      };
     } catch (error) {
       this.logger.error('Error loading app data:', error as Error);
       return {
@@ -171,6 +189,33 @@ class DataServiceImpl {
         categories: []
       };
     }
+  }
+
+  /**
+   * The boot's transaction read. Unlike getTransactions (used by the bank-sync
+   * and real-time refreshes, which always want a straight re-pull) this goes
+   * through the local snapshot + delta path, and reports which it used.
+   */
+  private async loadTransactionsForBoot(): Promise<TransactionLoadResult> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      if (this.transactionService.loadTransactionsForBoot) {
+        return this.transactionService.loadTransactionsForBoot(userId);
+      }
+      const rows = await this.transactionService.getTransactions(userId);
+      return {
+        transactions: rows,
+        stats: { cached: 0, fetched: rows.length, total: rows.length, fullFetchReason: 'no cache' }
+      };
+    }
+
+    const rows = this.isCloudSessionPending()
+      ? []
+      : await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    return {
+      transactions: rows,
+      stats: { cached: 0, fetched: 0, total: rows.length, fullFetchReason: 'local mode' }
+    };
   }
 
   async getAccounts(): Promise<Account[]> {
