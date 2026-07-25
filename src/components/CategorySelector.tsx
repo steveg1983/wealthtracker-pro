@@ -142,6 +142,27 @@ export default function CategorySelector({
       : [];
   };
 
+  // Revaluation roots ("Revaluation") hold their leaves DIRECTLY — root →
+  // detail, one rung shallower than income/expense's type → sub → detail —
+  // so the walk below cannot see them and they are gathered separately.
+  const getRevaluationRoots = (): Category[] =>
+    categories.filter(c => c.level === 'type' && c.isRevaluationCategory === true);
+
+  /**
+   * Revaluation leaves (Market Value Change, Account Adjustment…), offered
+   * whichever way the money points and whatever `transactionType` says: a
+   * change in what an account is WORTH is neither income nor expense, so
+   * direction has no bearing on whether it is the right filing.
+   */
+  const getRevaluationDetails = (): Category[] => {
+    const details = getRevaluationRoots()
+      .flatMap(root => getDetailCategories(root.id))
+      .filter(c => c.isActive !== false);
+    return excludeIds && excludeIds.length > 0
+      ? details.filter(c => !excludeIds.includes(c.id))
+      : details;
+  };
+
   // Get all detail categories for the transaction type
   const getAllDetailCategories = (): Category[] => {
     const subCategories = getSubCategoriesForType();
@@ -153,6 +174,8 @@ export default function CategorySelector({
       const details = getDetailCategories(subCat.id).filter(d => d.isActive !== false);
       detailCategories.push(...details);
     });
+
+    detailCategories.push(...getRevaluationDetails());
 
     return excludeIds && excludeIds.length > 0
       ? detailCategories.filter(c => !excludeIds.includes(c.id))
@@ -178,13 +201,23 @@ export default function CategorySelector({
   // titled sections instead of a flat list, while search still filters items.
   const getGroupedOptions = (): Array<{ id: string; name: string; items: Category[] }> => {
     const matchedIds = new Set(getFilteredOptions().map(c => c.id));
-    return getSubCategoriesForType()
+    const groups = getSubCategoriesForType()
       .map(sub => ({
         id: sub.id,
         name: sub.name,
         items: getDetailCategories(sub.id).filter(d => matchedIds.has(d.id)),
       }))
       .filter(group => group.items.length > 0);
+    // Revaluation last, under its own heading: the third kind of movement,
+    // read after the everyday ones rather than mixed in with them.
+    const revaluationGroups = getRevaluationRoots()
+      .map(root => ({
+        id: root.id,
+        name: root.name,
+        items: getDetailCategories(root.id).filter(d => matchedIds.has(d.id)),
+      }))
+      .filter(group => group.items.length > 0);
+    return [...groups, ...revaluationGroups];
   };
 
   // Get parent category name for display

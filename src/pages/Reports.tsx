@@ -45,8 +45,8 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
       return !prev;
     });
   };
-  // Portfolio gains & losses are net-worth movements, not day-to-day income or
-  // spending — and a paper "gain" is not money received — so on this income &
+  // Gains, losses & adjustments are net-worth movements, not day-to-day income
+  // or spending — and a paper "gain" is not money received — so on this income &
   // expenditure report the revaluation line is opt-in and starts hidden. This
   // controls VISIBILITY only: the classifier keeps revaluations out of the
   // income/expense/net totals unconditionally, toggle or not.
@@ -104,7 +104,7 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
               onChange={toggleRevaluations}
               className="rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary"
             />
-            Show portfolio gains &amp; losses
+            Show gains, losses &amp; adjustments
           </label>
         </div>
         <ReportExportBar

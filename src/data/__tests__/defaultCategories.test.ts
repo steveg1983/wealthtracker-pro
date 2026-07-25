@@ -13,13 +13,15 @@ describe('getDefaultCategories (Microsoft Money default set)', () => {
   it('keeps every system category the app depends on', () => {
     for (const required of ['type-income', 'type-expense', 'type-transfer',
       'transfer-in', 'transfer-out', 'sub-adjustments', 'account-adjustments',
-      'type-revaluation', 'revaluation-market']) {
+      'type-revaluation', 'revaluation-market', 'revaluation-adjustment']) {
       expect(defaults.some(c => c.id === required)).toBe(true);
     }
   });
 
   it('flags the revaluation categories so the classifier rules them out of spending', () => {
-    for (const id of ['type-revaluation', 'revaluation-market']) {
+    // Account Adjustment carries the flag too: correcting a balance moves net
+    // worth without earning or spending, exactly like a market swing.
+    for (const id of ['type-revaluation', 'revaluation-market', 'revaluation-adjustment']) {
       expect(defaults.find(c => c.id === id)?.isRevaluationCategory).toBe(true);
     }
   });
@@ -54,7 +56,7 @@ describe('getDefaultCategories (Microsoft Money default set)', () => {
   it('minimal system set carries the type anchors, transfers and revaluation', () => {
     expect(getMinimalSystemCategories().map(c => c.id)).toEqual([
       'type-income', 'type-expense', 'type-transfer', 'transfer-in', 'transfer-out',
-      'type-revaluation', 'revaluation-market',
+      'type-revaluation', 'revaluation-market', 'revaluation-adjustment',
     ]);
   });
 });

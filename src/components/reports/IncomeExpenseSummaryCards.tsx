@@ -17,7 +17,8 @@ import type { IncomeExpenseBreakdown } from '../../utils/incomeExpense';
  * Income and Expenses are buttons: both drill into the transactions behind
  * them.
  *
- * Portfolio gains & losses (revaluations) are a SEPARATE, opt-in line below
+ * Gains, losses & adjustments (revaluations — a market swing, a corrected
+ * balance) are a SEPARATE, opt-in line below
  * the cards. They are never part of the income/expense/net totals — the
  * classifier rules them out unconditionally — because a change in an account's
  * value is not money earned or spent, and on this day-to-day report a paper
@@ -121,7 +122,7 @@ export default function IncomeExpenseSummaryCards({
         <button
           type="button"
           onClick={() => setDrill({
-            title: 'Portfolio gains & losses',
+            title: 'Gains, losses & adjustments',
             bucket: 'neutral',
             rows: flows.revaluationRows,
             total: summary.revaluation,
@@ -130,7 +131,7 @@ export default function IncomeExpenseSummaryCards({
         >
           <div className="flex w-full items-baseline justify-between gap-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Portfolio gains &amp; losses
+              Gains, losses &amp; adjustments
               <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
                 {summary.revaluationCount} {summary.revaluationCount === 1 ? 'revaluation' : 'revaluations'}
               </span>
