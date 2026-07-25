@@ -148,8 +148,12 @@ export class SupabaseSubscriptionService {
 
   /**
    * Get subscription usage for a user
+   *
+   * Returns counts only. The allowances belong to the tier, not to the usage
+   * row, so they are left to the caller that knows which plan the user is on —
+   * this used to fill them with zeroes, which reads as "nothing is allowed".
    */
-  static async getSubscriptionUsage(userId: string): Promise<SubscriptionUsage> {
+  static async getSubscriptionUsage(userId: string): Promise<Omit<SubscriptionUsage, 'limits'>> {
     try {
       const { data, error } = await supabase!
         .from('subscription_usage')
@@ -187,7 +191,6 @@ export class SupabaseSubscriptionService {
             goals: newData.goals_count,
             storage: 0
           },
-          limits: { accounts: 0, transactions: 0, budgets: 0, goals: 0 },
           percentageUsed: {
             accounts: 0,
             transactions: 0,
@@ -208,7 +211,6 @@ export class SupabaseSubscriptionService {
           goals: data.goals_count,
           storage: 0
         },
-        limits: { accounts: 0, transactions: 0, budgets: 0, goals: 0 },
         percentageUsed: {
           accounts: 0,
             transactions: 0,

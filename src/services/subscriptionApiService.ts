@@ -9,6 +9,7 @@
  */
 
 import SupabaseSubscriptionService from './supabaseSubscriptionService';
+import StripeService from './stripeService';
 import type {
   CreateSubscriptionRequest,
   CreateSubscriptionResponse,
@@ -273,10 +274,13 @@ export class SubscriptionApiService {
         this.supabaseService.getSubscriptionUsage(userProfile.id)
       ]);
 
+      const tier = subscription?.tier ?? subscription?.plan ?? 'free';
+
       return {
         subscription,
-        usage,
-        tier: subscription?.tier || 'free'
+        // The usage row knows the counts; only the tier knows the allowances.
+        usage: { ...usage, limits: StripeService.getFeatureLimits(tier) },
+        tier
       };
     } catch (error) {
       this.logger.error('Error getting usage info:', error as Error);

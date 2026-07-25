@@ -58,31 +58,38 @@ export interface SubscriptionProduct {
   stripePriceId?: string;
   features: string[];
   isPopular?: boolean;
-  accounts?: number;
-  maxAccounts?: number;
-  transactions?: number;
-  budgets?: number;
-  maxBudgets?: number;
-  goals?: number;
-  maxGoals?: number;
-  advancedReports?: boolean;
-  csvExport?: boolean;
-  apiAccess?: boolean;
-  prioritySupport?: boolean;
+  // What the plan actually grants. -1 means unlimited.
+  //
+  // These are required, and there is deliberately no `maxAccounts`/`maxBudgets`/
+  // `maxGoals` alias. Two names for one concept is precisely what broke this:
+  // the plans only ever set `accounts`/`budgets`/`goals`, while
+  // getFeatureLimits read the optional `max*` spellings, got `undefined` from
+  // every plan, and fell back to Free's numbers for paying customers.
+  accounts: number;
+  transactions: number;
+  budgets: number;
+  goals: number;
+  advancedReports: boolean;
+  csvExport: boolean;
+  apiAccess: boolean;
+  prioritySupport: boolean;
 }
 
-// Feature limits for each plan
+// What a tier allows, one entry per gateable feature.
+//
+// -1 means unlimited; 0 means the tier does not include the feature at all.
+// Every key is required on purpose: an optional key here is a gate that
+// answers `undefined`, and whichever way the caller reads that it is wrong —
+// either it locks a paying customer out of what they bought, or it waves a
+// free user through. If a new gateable feature is added, every tier must say
+// what it allows.
 export interface FeatureLimits {
   accounts: number;
   transactions: number;
   budgets: number;
   goals: number;
-  categories?: number;
-  tags?: number;
-  attachments?: number;
-  customReports?: number;
-  apiCalls?: number;
-  teamMembers?: number;
+  customReports: number;
+  apiCalls: number;
 }
 
 // Billing history entry
