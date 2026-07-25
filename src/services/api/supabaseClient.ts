@@ -24,8 +24,11 @@ type Database = {
         Args: { p_id: string; p: Record<string, unknown>; p_user_id?: string };
         Returns: Record<string, unknown>;
       };
+      // p_user_id is REQUIRED here even though SQL defaults it to NULL: a NULL
+      // owner makes the delete unscoped, so TypeScript must not let a call site
+      // leave it off by accident.
       delete_transaction_atomic: {
-        Args: { p_id: string; p_user_id?: string };
+        Args: { p_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       set_transactions_cleared: {

@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AuthError, requireAuth } from '../_lib/auth.js';
 import { requireBankingOpsAdmin } from '../_lib/banking-ops.js';
 import { setCorsHeaders } from '../_lib/cors.js';
+import { escapeCsv } from '../_lib/csv.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { getServiceRoleSupabase } from '../_lib/supabase.js';
 import { withSentry } from '../_lib/sentry.js';
@@ -74,13 +75,6 @@ const isBeforeCursor = (row: DeadLetterAuditDbRow, cursor: { createdAt: string; 
     return false;
   }
   return row.id < cursor.id;
-};
-
-const escapeCsv = (value: string): string => {
-  if (!/[",\n]/.test(value)) {
-    return value;
-  }
-  return `"${value.replace(/"/g, '""')}"`;
 };
 
 const toCsv = (rows: DeadLetterAuditDbRow[]): string => {

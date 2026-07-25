@@ -99,15 +99,7 @@ describe('BankConnectionService', () => {
 
   it('loads TrueLayer configuration status from backend health endpoint', async () => {
     const fetchMock = createFetchMock();
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        env_check: {
-          has_truelayer_client_id: true,
-          has_truelayer_secret: true,
-          has_redirect_uri: true
-        }
-      })
-    );
+    fetchMock.mockResolvedValueOnce(jsonResponse({ status: 'ok' }));
     const { service } = createService(fetchMock);
 
     const status = await service.refreshConfigStatus();
@@ -117,6 +109,18 @@ describe('BankConnectionService', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/banking/health');
     expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET');
     expect(getRequestHeader(fetchMock.mock.calls[0]?.[1], 'Authorization')).toBe('Bearer test-token');
+  });
+
+  it('treats a degraded health verdict as TrueLayer not configured', async () => {
+    // The endpoint no longer discloses WHICH banking secret is missing to a
+    // non-admin caller, so the client must act on the verdict alone.
+    const fetchMock = createFetchMock();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ status: 'degraded' }));
+    const { service } = createService(fetchMock);
+
+    const status = await service.refreshConfigStatus();
+
+    expect(status).toEqual({ plaid: false, trueLayer: false });
   });
 
   it('builds a TrueLayer connection URL by calling create-link-token endpoint', async () => {

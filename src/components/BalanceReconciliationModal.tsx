@@ -60,17 +60,6 @@ export default function BalanceReconciliationModal({
                 but your transactions sum to {formatCurrency(calculatedBalance)}.
                 The difference is {formatCurrency(adjustmentAmount)}.
               </p>
-              {/* Debug info */}
-              {(() => {
-                console.log('BalanceReconciliationModal Debug:', {
-                  accountName,
-                  currentBalance,
-                  calculatedBalance,
-                  difference,
-                  adjustmentAmount
-                });
-                return null;
-              })()}
             </div>
           </div>
         </div>

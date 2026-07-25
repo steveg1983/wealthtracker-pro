@@ -809,9 +809,16 @@ class TransactionServiceImpl {
       // Atomic RPC: deletes the row and reverses the balance in one database
       // transaction. RLS scopes the delete to the requesting user; passing the
       // owner adds a defence-in-depth IDOR guard so a mis-routed id fails closed.
+      // The RPC's p_user_id defaults to NULL — i.e. UNSCOPED — so refuse to call
+      // it without an owner rather than fall back to RLS alone. (The API path
+      // above needs no userId: the server derives it from the Clerk token.)
+      if (!userId) {
+        throw new Error('deleteTransaction requires a user id when deleting directly via Supabase');
+      }
+
       const { error } = await client.rpc('delete_transaction_atomic', {
         p_id: id,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: userId
       });
 
       if (error) {
