@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import Accounts from '../Accounts';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
+import { DataService } from '../../services/api/dataService';
 import type { Account } from '../../types';
 
 /**
@@ -213,5 +214,101 @@ describe('Accounts page — no account type vanishes', () => {
 
     expect(screen.getByRole('heading', { level: 2, name: 'Other Accounts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Box of Mysteries' })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Closed accounts are the archive (the Microsoft Money model: closing hides an
+ * account and keeps its history, never deletes it). They load from
+ * DataService.getClosedAccounts — NOT the app-context accounts list, which
+ * carries only the open ones — so the synthetic closed accounts are injected by
+ * spying on that call rather than through __setAppContextValue. They used to
+ * arrive in no order at all; now they group exactly like the open list (by
+ * account type, or by institution when the page toggle flips) with rows
+ * alphabetical by name within each group.
+ */
+describe('Accounts page — closed accounts ordering', () => {
+  const closedAccount = (
+    id: string,
+    name: string,
+    type: Account['type'],
+    institution?: string,
+  ): Account => ({
+    id, name, type, balance: 0, currency: 'GBP', lastUpdated: new Date(),
+    openingBalance: 0, isActive: false, ...(institution ? { institution } : {}),
+  });
+
+  // Interleaved types and out-of-order names on purpose: a passing test then
+  // proves BOTH the type grouping and the A–Z sort inside a group.
+  const closed: Account[] = [
+    closedAccount('c1', 'Zephyr Current', 'current', 'Barclays'),
+    closedAccount('c2', 'Nimbus Card', 'credit'),
+    closedAccount('c3', 'Alpha Current', 'current', 'Barclays'),
+    closedAccount('c4', 'Beacon Savings', 'savings', 'Aldermore'),
+  ];
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue(closed);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // True when `earlier` sits before `later` in document order.
+  const precedes = (earlier: HTMLElement, later: HTMLElement): boolean =>
+    Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  it('groups closed accounts by type, in section order, alphabetical within', async () => {
+    renderAccounts();
+
+    // The toggle only appears once the closed list has loaded (its count is in
+    // the label), so finding it also waits out the async load. It starts folded.
+    fireEvent.click(await screen.findByRole('button', { name: /Closed Accounts \(4\)/ }));
+
+    const closedSection = screen.getByTestId('closed-accounts');
+    // Subheadings ("Current Accounts" etc.) are scoped to the closed section, so
+    // they never clash with the identically-named OPEN section headings above.
+    const seq = [
+      within(closedSection).getByText('Current Accounts'),
+      within(closedSection).getByText('Alpha Current'),
+      within(closedSection).getByText('Zephyr Current'),
+      within(closedSection).getByText('Savings Accounts'),
+      within(closedSection).getByText('Beacon Savings'),
+      within(closedSection).getByText('Credit Cards'),
+      within(closedSection).getByText('Nimbus Card'),
+    ];
+    // Each item strictly follows the previous — proving the section order
+    // (Current → Savings → Credit) and A–Z names inside Current Accounts.
+    for (let i = 1; i < seq.length; i += 1) {
+      expect(precedes(seq[i - 1], seq[i])).toBe(true);
+    }
+  });
+
+  it('regroups closed accounts by institution when the page toggle flips', async () => {
+    renderAccounts();
+
+    // Switch the whole page — open and closed alike — to institution grouping.
+    fireEvent.click(await screen.findByRole('button', { name: 'Institution' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Closed Accounts \(4\)/ }));
+
+    const closedSection = screen.getByTestId('closed-accounts');
+    // Institution names double as both a subheading and each row's subtext, so
+    // assert on the unique account names instead: their order alone proves the
+    // grouping (Aldermore → Barclays → Other) and the A–Z sort inside Barclays.
+    // The flip is unmistakable — under type grouping Alpha/Zephyr came before
+    // Beacon; under institution grouping Beacon (Aldermore) now leads.
+    const seq = [
+      within(closedSection).getByText('Beacon Savings'),
+      within(closedSection).getByText('Alpha Current'),
+      within(closedSection).getByText('Zephyr Current'),
+      within(closedSection).getByText('Nimbus Card'),
+    ];
+    for (let i = 1; i < seq.length; i += 1) {
+      expect(precedes(seq[i - 1], seq[i])).toBe(true);
+    }
+    // The catch-all subheading for the account with no institution renders too
+    // (unique: no closed row carries "Other Accounts" as its institution).
+    expect(within(closedSection).getByText('Other Accounts')).toBeInTheDocument();
   });
 });

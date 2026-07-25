@@ -54,6 +54,32 @@ const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
   Object.entries(CAMEL_TO_DB).map(([camel, db]) => [db, camel])
 );
 
+/**
+ * The columns the boot load actually needs — NOT `select('*')`.
+ *
+ * Every row PostgREST returns carries a key for EVERY column even when null, so
+ * the wide table (32 columns) makes the boot payload ~46 MB across 51k rows and
+ * that transfer is bandwidth-bound — measured ~38% of the whole boot. The
+ * columns omitted below are never read off the in-memory transactions: the
+ * jsonb `metadata`, `merchant_name`, `location_*`, `plaid_*`, `payment_channel`
+ * and `external_*` have no consumer, and the MS-Money re-import provenance
+ * (`import_source`/`import_source_id`) is re-queried straight from the database
+ * by the importer (msMoneyImport.ts) rather than taken from this array. Dropping
+ * them (plus the redundant `user_id` we already filter on) takes the payload to
+ * ~29 MB — a proportional ~38% cut to the transactions phase — while keeping
+ * every field the register, edit modal, sort, export, tag counts and reports
+ * read, including the user-visible `notes` and `tags`.
+ *
+ * Anything new the UI needs off a transaction MUST be added here or it will be
+ * silently undefined in state.
+ *
+ * A string LITERAL (`as const`), not a joined/concatenated string: supabase-js
+ * parses the select list at the type level, and only a literal engages that
+ * parser — a widened `string` (which `+` concatenation or `[].join` produces)
+ * degrades the result to an untyped error type.
+ */
+const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
+
 function mapFromDbFields(row: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
@@ -169,18 +195,22 @@ class TransactionServiceImpl {
     try {
       const client = this.supabaseClient!;
 
-      // Supabase caps responses at 1000 rows by default — without explicit
-      // paging, users with more transactions silently lose data from view.
-      // A full Money-era history is 50k+ rows (50+ pages), so pages are
-      // fetched IN PARALLEL (count first, bounded concurrency) — sequential
-      // paging made every app load a ~50-round-trip wait.
+      // Supabase caps responses at 1000 rows (a hard server-side max-rows, not
+      // a client default — asking for a larger range still returns only 1000),
+      // so a full Money-era history of 50k+ rows is 50+ pages. Pages are fetched
+      // IN PARALLEL (count first, bounded concurrency); sequential paging made
+      // every app load a ~50-round-trip wait. Concurrency stays at 6 — the
+      // transfer is bandwidth-bound, so raising it buys nothing (measured).
+      // Only BOOT_TRANSACTION_COLUMNS are selected, not '*': the transfer, not
+      // the round trips, is what dominates the boot, and the wide table's unused
+      // columns were ~38% of the bytes.
       const PAGE_SIZE = 1000;
       const CONCURRENCY = 6;
 
       const fetchPage = async (from: number): Promise<Record<string, unknown>[]> => {
         const { data, error } = await client
           .from('transactions')
-          .select('*')
+          .select(BOOT_TRANSACTION_COLUMNS)
           .eq('user_id', userId)
           .order('date', { ascending: false })
           .order('id', { ascending: false }) // stable tiebreak for paging

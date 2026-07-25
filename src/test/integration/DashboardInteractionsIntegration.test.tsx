@@ -97,17 +97,22 @@ describe('Dashboard Interactions Integration', () => {
       expect(screen.getAllByRole('button', { name: /this month/i }).length).toBeGreaterThan(0);
     });
 
-    it('should display recent transactions widget', async () => {
+    it('no longer shows a Recent Transactions card', async () => {
+      // The dashboard used to carry a Recent Transactions list; Steve found it
+      // pointless on a dashboard (the Transactions page is one click away) so
+      // the card and its data slice were removed. Wait for the dashboard body
+      // to actually render before asserting absence, otherwise the check could
+      // pass on a page that simply hadn't painted the card yet.
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
+      // The Performance section always renders once the dashboard body is up.
+      await screen.findByRole('heading', { name: /^performance$/i }, { timeout: 15000 });
 
-      // Should have recent transactions section - might be multiple
-      const recentTransactionsElements = await screen.findAllByText(/recent transactions/i);
-      expect(recentTransactionsElements.length).toBeGreaterThan(0);
-    });
+      expect(screen.queryByText(/recent transactions/i)).not.toBeInTheDocument();
+    }, 20000);
 
     it('should show account distribution chart', async () => {
       renderWithProviders(<Dashboard />);

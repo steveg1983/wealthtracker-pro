@@ -151,6 +151,73 @@ describe('TransactionService (deterministic fallback)', () => {
     });
   });
 
+  describe('getTransactions (Supabase paged load)', () => {
+    // A minimal chainable stand-in for the PostgREST query builder: the count
+    // query ends at .eq() with { head: true }; a page query ends at .range().
+    const makeClient = (rows: Record<string, unknown>[]) => {
+      const selectArgs: { cols: unknown; opts: unknown }[] = [];
+      const from = vi.fn(() => {
+        const builder: Record<string, unknown> = {};
+        let isCount = false;
+        let range: [number, number] | null = null;
+        builder.select = vi.fn((cols: unknown, opts: unknown) => {
+          selectArgs.push({ cols, opts });
+          isCount = Boolean(opts && (opts as { head?: boolean }).head);
+          return builder;
+        });
+        builder.eq = vi.fn(() => builder);
+        builder.order = vi.fn(() => builder);
+        builder.range = vi.fn((from_: number, to: number) => {
+          range = [from_, to];
+          return builder;
+        });
+        builder.then = (resolve: (value: unknown) => unknown) => {
+          if (isCount) return resolve({ count: rows.length, error: null });
+          const [f, t] = range ?? [0, rows.length - 1];
+          return resolve({ data: rows.slice(f, t + 1), error: null });
+        };
+        return builder;
+      });
+      return { client: { from }, selectArgs };
+    };
+
+    it('fetches only the trimmed boot columns — keeps notes/tags, drops the heavy unused ones, never *', async () => {
+      const { client, selectArgs } = makeClient([
+        { id: 'db-1', account_id: 'acct-1', amount: 10, type: 'expense', date: '2025-04-01', is_cleared: true }
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: client as unknown as never
+      });
+
+      const transactions = await service.getTransactions('user-1');
+
+      // Rows still map correctly through the narrowed select (is_cleared → cleared).
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0].id).toBe('db-1');
+      expect(transactions[0].cleared).toBe(true);
+
+      // The page select (the one without the count head option) carries the
+      // trimmed column list, not '*'.
+      const pageSelect = selectArgs.find(a => !(a.opts as { head?: boolean } | undefined)?.head);
+      const cols = pageSelect?.cols;
+      expect(typeof cols).toBe('string');
+      expect(cols).not.toBe('*');
+      // User-visible columns MUST survive the trim.
+      expect(cols).toContain('notes');
+      expect(cols).toContain('tags');
+      // The heavy, unconsumed columns MUST be gone (this is where the payload
+      // saving comes from; re-adding one silently re-inflates the boot).
+      for (const dropped of ['metadata', 'plaid_transaction_id', 'merchant_name', 'location_city', 'import_source']) {
+        expect(cols).not.toContain(dropped);
+      }
+    });
+  });
+
   describe('setTransactionsCleared', () => {
     it('bulk-sets cleared on matching ids in local mode and returns the count', async () => {
       const storage = createStorage([

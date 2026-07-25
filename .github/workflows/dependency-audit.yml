@@ -32,9 +32,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      # npm audit reads the lockfile; full install not required.
-      - name: Audit production dependencies (high+)
-        run: npm audit --omit=dev --audit-level=high
+      # npm audit reads the lockfile; full install not required. The wrapper
+      # fails on exactly what `npm audit --audit-level=high` would, minus the
+      # explicit, expiring exceptions documented in scripts/audit-prod-deps.mjs
+      # — because the alternative to an exception mechanism is `|| true`, and
+      # that is how gates die.
+      - name: Audit production dependencies (high+, allowlisted)
+        run: node scripts/audit-prod-deps.mjs
 
       # Informational only — full-tree view including dev tooling.
       - name: Full-tree audit (report only)
