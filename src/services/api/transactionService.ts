@@ -178,6 +178,22 @@ class TransactionServiceImpl {
     return new Date(now.getTime());
   }
 
+  /**
+   * Every atomic RPC takes the owner id, and most of them default it to NULL in
+   * SQL. NULL there does not mean "me" — it means the statement names no owner
+   * at all, so it leans on RLS alone and the defence-in-depth IDOR guard
+   * silently disappears. Refuse instead: callers reach these through
+   * DataService, which only takes the cloud branch once
+   * getCurrentDatabaseUserId() has resolved, so a missing owner is a wiring
+   * mistake and should be loud rather than quietly less safe.
+   */
+  private requireOwnerId(userId: string | undefined, operation: string): string {
+    if (!userId) {
+      throw new Error(`${operation} requires a user id when writing directly via Supabase`);
+    }
+    return userId;
+  }
+
   private async readStoredTransactions(): Promise<Transaction[]> {
     const stored = await this.storage.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
     return stored || [];
@@ -361,13 +377,14 @@ class TransactionServiceImpl {
       const dbUpdates = mapToDbFields(updates as unknown as Record<string, unknown>);
 
       // Atomic RPC: updates the row and adjusts balances (including account
-      // moves) in one database transaction with SQL numeric math.
+      // moves) in one database transaction with SQL numeric math. RLS already
+      // scopes the row; naming the owner makes it fail closed on a mis-routed
+      // id, and omitting the owner would throw that guard away (see
+      // requireOwnerId).
       const { data, error } = await client.rpc('update_transaction_atomic', {
         p_id: id,
         p: dbUpdates,
-        // Defence-in-depth IDOR guard: RLS already scopes the row, and passing
-        // the owner makes the RPC fail closed on a mis-routed id.
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'updateTransaction')
       });
 
       if (error) {
@@ -415,7 +432,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('set_transactions_cleared', {
         p_ids: ids,
         p_cleared: cleared,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'setTransactionsCleared')
       });
 
       if (error) {
@@ -461,7 +478,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('apply_category_to_uncategorized', {
         p_ids: ids,
         p_category: category,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'applyCategoryToUncategorized')
       });
 
       if (error) {
@@ -649,7 +666,7 @@ class TransactionServiceImpl {
         p_transaction_id: transactionId,
         p_splits: splits,
         p_expected_amount: expectedAmount,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'setTransactionSplits')
       });
 
       if (error) {
@@ -689,7 +706,7 @@ class TransactionServiceImpl {
       const { data, error } = await this.supabaseClient!.rpc('archive_transactions_before', {
         p_account_id: accountId,
         p_cutoff: cutoffIso,
-        ...(userId ? { p_user_id: userId } : {}),
+        p_user_id: this.requireOwnerId(userId, 'archiveTransactionsBefore'),
       });
       if (error) {
         this.logger.error('Error archiving transactions:', error);
@@ -711,7 +728,7 @@ class TransactionServiceImpl {
     try {
       const { data, error } = await this.supabaseClient!.rpc('unarchive_account', {
         p_account_id: accountId,
-        ...(userId ? { p_user_id: userId } : {}),
+        p_user_id: this.requireOwnerId(userId, 'unarchiveAccount'),
       });
       if (error) {
         this.logger.error('Error unarchiving account:', error);
@@ -738,7 +755,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('link_transfer_pair', {
         p_id_a: idA,
         p_id_b: idB,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'linkTransferPair')
       });
       if (error) {
         this.logger.error('Error linking transfer pair:', error);
@@ -773,7 +790,7 @@ class TransactionServiceImpl {
       const { data, error } = await client.rpc('create_transfer_counterpart', {
         p_id: id,
         p_target_account_id: targetAccountId,
-        ...(userId ? { p_user_id: userId } : {})
+        p_user_id: this.requireOwnerId(userId, 'createTransferCounterpart')
       });
       if (error) {
         this.logger.error('Error creating transfer counterpart:', error);
@@ -808,17 +825,12 @@ class TransactionServiceImpl {
 
       // Atomic RPC: deletes the row and reverses the balance in one database
       // transaction. RLS scopes the delete to the requesting user; passing the
-      // owner adds a defence-in-depth IDOR guard so a mis-routed id fails closed.
-      // The RPC's p_user_id defaults to NULL — i.e. UNSCOPED — so refuse to call
-      // it without an owner rather than fall back to RLS alone. (The API path
-      // above needs no userId: the server derives it from the Clerk token.)
-      if (!userId) {
-        throw new Error('deleteTransaction requires a user id when deleting directly via Supabase');
-      }
-
+      // owner adds a defence-in-depth IDOR guard so a mis-routed id fails closed
+      // (see requireOwnerId). The API path above needs no userId: the server
+      // derives it from the Clerk token.
       const { error } = await client.rpc('delete_transaction_atomic', {
         p_id: id,
-        p_user_id: userId
+        p_user_id: this.requireOwnerId(userId, 'deleteTransaction')
       });
 
       if (error) {

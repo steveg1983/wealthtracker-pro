@@ -311,7 +311,7 @@ describe('TransactionService (deterministic fallback)', () => {
         supabaseClient: { rpc } as unknown as never
       });
 
-      await expect(service.setTransactionsCleared(['a'], true)).rejects.toThrow();
+      await expect(service.setTransactionsCleared(['a'], true, 'user-1')).rejects.toThrow();
       expect(logger.error).toHaveBeenCalled();
     });
   });
@@ -411,8 +411,69 @@ describe('TransactionService (deterministic fallback)', () => {
         supabaseClient: { rpc } as unknown as never
       });
 
-      await expect(service.applyCategoryToUncategorized(['a'], 'cat-x')).rejects.toThrow();
+      await expect(service.applyCategoryToUncategorized(['a'], 'cat-x', 'user-1')).rejects.toThrow();
       expect(logger.error).toHaveBeenCalled();
+    });
+  });
+});
+
+// Audit finding L10: the atomic RPCs default p_user_id to NULL, and NULL means
+// the statement names no owner at all — it falls back to RLS alone and the
+// defence-in-depth IDOR guard silently disappears. Every owner-scoped path must
+// therefore refuse rather than call the RPC unscoped. These tests exist to make
+// a future "userId is optional here" edit fail loudly.
+describe('TransactionService — owner id cannot be silently omitted', () => {
+  const logger = { error: vi.fn() };
+
+  /** Supabase-mode service whose rpc must never be reached without an owner. */
+  const createOwnerlessService = () => {
+    const rpc = vi.fn(async () => ({ data: null, error: null }));
+    const service = createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now: () => new Date(fixedNow),
+      uuid: () => 'generated-id',
+      supabaseClient: { rpc } as unknown as never
+    });
+    return { service, rpc };
+  };
+
+  beforeEach(() => {
+    logger.error.mockReset();
+  });
+
+  const cases: [string, (service: ReturnType<typeof createOwnerlessService>['service']) => Promise<unknown>][] = [
+    ['updateTransaction', s => s.updateTransaction('txn-1', { description: 'edited' })],
+    ['setTransactionsCleared', s => s.setTransactionsCleared(['txn-1'], true)],
+    ['applyCategoryToUncategorized', s => s.applyCategoryToUncategorized(['txn-1'], 'cat-1')],
+    ['setTransactionSplits', s => s.setTransactionSplits('txn-1', [
+      { category: 'cat-1', amount: 10 },
+      { category: 'cat-2', amount: 15 }
+    ], 25)],
+    ['linkTransferPair', s => s.linkTransferPair('txn-1', 'txn-2')],
+    ['createTransferCounterpart', s => s.createTransferCounterpart('txn-1', 'acct-2')],
+    ['archiveTransactionsBefore', s => s.archiveTransactionsBefore('acct-1', '2025-01-31')],
+    ['unarchiveAccount', s => s.unarchiveAccount('acct-1')],
+    ['deleteTransaction', s => s.deleteTransaction('txn-1')]
+  ];
+
+  it.each(cases)('%s refuses to reach the RPC without an owner id', async (operation, call) => {
+    const { service, rpc } = createOwnerlessService();
+
+    await expect(call(service)).rejects.toThrow(`${operation} requires a user id`);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('still calls the RPC once the owner id is supplied', async () => {
+    const { service, rpc } = createOwnerlessService();
+
+    await service.setTransactionsCleared(['txn-1'], true, 'user-1');
+
+    expect(rpc).toHaveBeenCalledWith('set_transactions_cleared', {
+      p_ids: ['txn-1'],
+      p_cleared: true,
+      p_user_id: 'user-1'
     });
   });
 });
