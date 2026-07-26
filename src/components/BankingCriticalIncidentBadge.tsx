@@ -4,8 +4,10 @@ import { AlertTriangleIcon } from './icons';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 import { bankConnectionService, type BankingApiError } from '../services/bankConnectionService';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { isOpsStatsForbidden, markOpsStatsForbidden } from '../utils/opsStatsAccess';
 
 const POLL_INTERVAL_MS = 30000;
+
 const MAX_DISPLAY_COUNT = 99;
 type BankingIncidentBadgeMode = 'all' | 'truelayer_jwks';
 
@@ -28,7 +30,7 @@ export default function BankingCriticalIncidentBadge({
   mode = 'all'
 }: BankingCriticalIncidentBadgeProps) {
   const [incidentCount, setIncidentCount] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(() => !isOpsStatsForbidden());
   const logger = useMemo(() => createScopedLogger('BankingCriticalIncidentBadge'), []);
   const { getToken } = useClerkAuth();
 
@@ -55,6 +57,7 @@ export default function BankingCriticalIncidentBadge({
       setIncidentCount(response.summary.rowsAboveThreshold);
     } catch (loadError) {
       if (isBankingApiError(loadError) && (loadError.status === 403 || loadError.code === 'forbidden')) {
+        markOpsStatsForbidden();
         setIncidentCount(0);
         setIsVisible(false);
         return;
