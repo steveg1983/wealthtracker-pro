@@ -289,9 +289,9 @@ export default function Reconciliation() {
 
         {/* Group + sort controls — mirrors the Accounts page */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Group by:</span>
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Group by:</span>
+            <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
               {([['type', 'Account Type'], ['institution', 'Institution']] as const).map(([value, label]) => (
                 <button key={value} onClick={() => handleGroupByChange(value)}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -304,9 +304,9 @@ export default function Reconciliation() {
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Sort:</span>
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+          <div className="w-full sm:w-auto flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Sort:</span>
+            <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
               <button onClick={() => handleSortChange('default')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   sortMode === 'default' ? 'bg-[#1a2332] dark:bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
