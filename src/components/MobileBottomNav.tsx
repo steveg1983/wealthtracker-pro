@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { HomeIcon, WalletIcon, TrendingUpIcon, BarChart3Icon, SettingsIcon, PlusIcon, XIcon } from './icons';
+import { HomeIcon, WalletIcon, BarChart3Icon, CheckCircleIcon, TagIcon, TrendingUpIcon, SettingsIcon, PlusIcon, XIcon } from './icons';
 
 interface MobileNavItem {
   to: string;
@@ -9,12 +9,24 @@ interface MobileNavItem {
   badge?: number;
 }
 
+/**
+ * Five slots for the things you do on a phone. Budget and Goals used to hold
+ * two of them: both are desk work — you sit down to plan, you don't plan in a
+ * queue — and neither is something you reach for while standing in a shop.
+ * Reconcile and Review are the opposite: they are the two chores that decide
+ * whether the numbers can be trusted, and they are made of small decisions
+ * that suit a phone. Budget and Goals keep their places in the menu.
+ *
+ * Home pointed at "/" until now, which is the public welcome page — a signed-in
+ * user tapping Home got the marketing pitch. It points at the dashboard, which
+ * is what the desktop nav has always meant by Home.
+ */
 const mobileNavItems: MobileNavItem[] = [
-  { to: '/', icon: HomeIcon, label: 'Home' },
+  { to: '/dashboard', icon: HomeIcon, label: 'Home' },
   { to: '/accounts', icon: WalletIcon, label: 'Accounts' },
   { to: '/transactions', icon: BarChart3Icon, label: 'Transactions' },
-  { to: '/budget', icon: TrendingUpIcon, label: 'Budget' },
-  { to: '/goals', icon: SettingsIcon, label: 'Goals' },
+  { to: '/reconciliation', icon: CheckCircleIcon, label: 'Reconcile' },
+  { to: '/categorisation', icon: TagIcon, label: 'Review' },
 ];
 
 export default function MobileBottomNav(): React.JSX.Element {

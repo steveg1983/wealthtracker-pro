@@ -231,9 +231,10 @@ export default function Layout(): React.JSX.Element {
                 { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
                 { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
                 { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
+                { to: '/categorisation', icon: TagIcon, label: 'Categorisation' },
                 { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
               ]}
-              activePaths={['/accounts', '/transactions', '/reconciliation', '/open-banking']}
+              activePaths={['/accounts', '/transactions', '/reconciliation', '/categorisation', '/open-banking']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -498,6 +499,7 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/categorisation" icon={TagIcon} label="Categorisation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
