@@ -23,7 +23,7 @@ describe('MobileBottomNav', () => {
     const nav = screen.getByRole('navigation', { name: 'Mobile navigation' });
     const labels = Array.from(nav.querySelectorAll('a')).map(a => a.textContent?.trim());
 
-    expect(labels).toEqual(['Home', 'Accounts', 'Transactions', 'Reconcile', 'Review']);
+    expect(labels).toEqual(['Home', 'Accounts', 'Transactions', 'Reconcile', 'Categorise']);
   });
 
   it('sends Home to the dashboard, not the public welcome page', () => {
@@ -38,13 +38,13 @@ describe('MobileBottomNav', () => {
     renderAt('/dashboard');
 
     expect(screen.getByRole('link', { name: 'Reconcile' })).toHaveAttribute('href', '/reconciliation');
-    expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/categorisation');
+    expect(screen.getByRole('link', { name: 'Categorise' })).toHaveAttribute('href', '/categorisation');
   });
 
   it('marks only the current destination as the current page', () => {
     renderAt('/categorisation');
 
-    expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Categorise' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
   });
 

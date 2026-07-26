@@ -20,13 +20,20 @@ interface MobileNavItem {
  * Home pointed at "/" until now, which is the public welcome page — a signed-in
  * user tapping Home got the marketing pitch. It points at the dashboard, which
  * is what the desktop nav has always meant by Home.
+ *
+ * Labels are 11px with no slot padding because that is what measurement said,
+ * not taste: at 375px each of five slots gives the text 63px at 12px type, and
+ * "Transactions" needs 72px — it has been rendering as "Transactio…" all
+ * along. At 11px with the padding removed every label fits whole. The full
+ * word "Categorisation" does not fit at any size tried (83px), hence the verb,
+ * which also matches "Reconcile".
  */
 const mobileNavItems: MobileNavItem[] = [
   { to: '/dashboard', icon: HomeIcon, label: 'Home' },
   { to: '/accounts', icon: WalletIcon, label: 'Accounts' },
   { to: '/transactions', icon: BarChart3Icon, label: 'Transactions' },
   { to: '/reconciliation', icon: CheckCircleIcon, label: 'Reconcile' },
-  { to: '/categorisation', icon: TagIcon, label: 'Review' },
+  { to: '/categorisation', icon: TagIcon, label: 'Categorise' },
 ];
 
 export default function MobileBottomNav(): React.JSX.Element {
@@ -118,7 +125,7 @@ export default function MobileBottomNav(): React.JSX.Element {
             <Link
               key={item.to}
               to={item.to}
-              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] flex-1 py-2 px-1 rounded-lg transition-colors ${
+              className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] flex-1 py-2 rounded-lg transition-colors ${
                 active 
                   ? 'text-primary bg-[#1a2332]/10' 
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -134,7 +141,7 @@ export default function MobileBottomNav(): React.JSX.Element {
                   </span>
                 )}
               </div>
-              <span className={`text-xs mt-1 truncate max-w-full ${
+              <span className={`text-[11px] mt-1 truncate max-w-full ${
                 active ? 'font-medium' : 'font-normal'
               }`}>
                 {item.label}
