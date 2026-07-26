@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { XIcon } from './icons';
 import { pageTipStorageKey } from '../utils/pageTips';
+import { CONSENT_CHANGED_EVENT, getConsent } from '../utils/consent';
 
 interface PageTipProps {
   id: string;
@@ -28,7 +29,20 @@ export default function PageTip({ id, title, description }: PageTipProps): React
     return localStorage.getItem(storageKey) === 'true';
   });
 
-  if (dismissed) return null;
+  // One decision at a time. The consent banner is also fixed to the bottom of
+  // the viewport and, on a phone, is tall enough that a tip sitting above it
+  // covers the very text explaining what is being consented to. Consent is the
+  // more important — and legally the more consequential — of the two, so a tip
+  // waits until it has been answered.
+  const [consentPending, setConsentPending] = useState(() => getConsent() === null);
+  useEffect(() => {
+    if (!consentPending) return;
+    const onChange = () => setConsentPending(getConsent() === null);
+    window.addEventListener(CONSENT_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(CONSENT_CHANGED_EVENT, onChange);
+  }, [consentPending]);
+
+  if (dismissed || consentPending) return null;
 
   const handleDismiss = () => {
     localStorage.setItem(storageKey, 'true');

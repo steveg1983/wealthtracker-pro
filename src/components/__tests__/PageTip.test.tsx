@@ -2,11 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PageTip from '../PageTip';
 import { resetDismissedPageTips } from '../../utils/pageTips';
+import { CONSENT_CHANGED_EVENT, setConsent } from '../../utils/consent';
 
 describe('PageTip', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    // A tip stands down until the consent banner has been answered — see the
+    // dedicated tests at the end. Every other test here is about the tip
+    // itself, so it starts from a browser that has already chosen.
+    setConsent('essential');
   });
 
   it('renders the tip with title and description', () => {
@@ -118,6 +123,32 @@ describe('PageTip', () => {
     expect(resetDismissedPageTips()).toBe(1);
 
     render(<PageTip id="test-tip" title="Test Title" description="Test description" />);
+    expect(screen.getByText('Test Title')).toBeInTheDocument();
+  });
+
+  // ── Deferring to the consent banner ──────────────────────────────────────
+  // Both are fixed to the bottom of the viewport, and on a phone the banner is
+  // tall enough that a tip above it covers the text explaining what is being
+  // consented to. Consent is the more consequential decision, so it goes first.
+
+  it('shows nothing while a consent choice is still outstanding', () => {
+    localStorage.clear();
+    render(<PageTip id="test-tip" title="Test Title" description="Test description" />);
+    expect(screen.queryByText('Test Title')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Dismiss tip')).not.toBeInTheDocument();
+  });
+
+  it('appears as soon as consent is answered, without a reload', () => {
+    localStorage.clear();
+    render(<PageTip id="test-tip" title="Test Title" description="Test description" />);
+    expect(screen.queryByText('Test Title')).not.toBeInTheDocument();
+
+    // setConsent dispatches the event; a `storage` event would not fire in the
+    // tab that made the choice, which is exactly the tab that needs to react.
+    fireEvent(window, new CustomEvent(CONSENT_CHANGED_EVENT));
+    setConsent('essential');
+    fireEvent(window, new CustomEvent(CONSENT_CHANGED_EVENT));
+
     expect(screen.getByText('Test Title')).toBeInTheDocument();
   });
 });
