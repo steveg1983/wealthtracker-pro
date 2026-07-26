@@ -883,8 +883,11 @@ export default function AccountTransactions() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
+        {/* One pill per row on a phone, all the same width, label left and
+            figure right — they used to wrap into ragged rows of unequal
+            pills. From lg they sit inline beside the title as before. */}
+        <div className="grid grid-cols-1 gap-2 w-full lg:w-auto lg:flex lg:flex-wrap lg:items-center">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Account Balance</span>
             <span className={`text-sm font-bold whitespace-nowrap ${
               computedAccountBalance >= 0
@@ -895,7 +898,7 @@ export default function AccountTransactions() {
             </span>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Bank Balance</span>
             <span className={`text-sm font-bold whitespace-nowrap ${
               bankBalance != null
@@ -908,14 +911,14 @@ export default function AccountTransactions() {
             </span>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Unreconciled</span>
             <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
               {formatCurrency(unreconciledTotal, account.currency)}
             </span>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3 justify-between lg:justify-normal">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Difference</span>
             {bankBalance != null ? (() => {
               const difference = bankBalance - computedAccountBalance;
@@ -937,15 +940,22 @@ export default function AccountTransactions() {
       
       {/* Main content — single-viewport layout: toolbar, table, bottom dock */}
       <div className="flex flex-col gap-3">
-      {/* Toolbar: filter toggle + table size toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Toolbar: filter toggle + table size toggle. On a phone the three
+          buttons share the row in equal thirds with short labels — the full
+          wording wrapped inside the buttons and gave each a different
+          height. */}
+      <div className="grid grid-cols-3 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+        {/* display:contents on phones dissolves this wrapper so all three
+            buttons are equal grid cells; from sm it is the left cluster
+            again. */}
+        <div className="contents sm:flex sm:items-center sm:gap-2">
         <button
           onClick={() => setShowFilters(prev => !prev)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
           <FilterIcon size={14} />
-          Search &amp; filters
+          <span className="sm:hidden">Filters</span>
+          <span className="hidden sm:inline">Search &amp; filters</span>
           {(searchTerm || typeFilter !== 'all' || dateFrom || dateTo) && (
             <span className="w-2 h-2 rounded-full bg-blue-500" title="Filters active" />
           )}
@@ -969,10 +979,10 @@ export default function AccountTransactions() {
         )}
 
         {/* View: choose which columns to show, and how far back to list */}
-        <div className="relative" ref={viewRef}>
+        <div className="relative flex" ref={viewRef}>
           <button
             onClick={() => setShowView(prev => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             <EyeIcon size={14} />
             View
@@ -1040,11 +1050,12 @@ export default function AccountTransactions() {
         </div>
         <button
           onClick={() => setTableExpanded(prev => !prev)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           title={tableExpanded ? 'Shrink the table and show the add/edit bar' : 'Expand the table over the add/edit bar'}
         >
           {tableExpanded ? <MinimizeIcon size={14} /> : <MaximizeIcon size={14} />}
-          {tableExpanded ? 'Standard view' : 'Expand table'}
+          <span className="sm:hidden">{tableExpanded ? 'Shrink' : 'Expand'}</span>
+          <span className="hidden sm:inline">{tableExpanded ? 'Standard view' : 'Expand table'}</span>
         </button>
       </div>
 
@@ -1249,8 +1260,12 @@ export default function AccountTransactions() {
               squashed the fields into the left half and left the rest of the
               register empty; letting Description and Category share the slack
               equally keeps either from hogging it. */}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-[150px] shrink-0">
+          {/* Phones: a 2-column grid — Date | Type, then Description and
+              Category full-width, then Amount | Add. The free-wrapping row
+              produced a different ragged layout at every width. From sm up
+              it is the same single wrapping row as before. */}
+          <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+            <div className="w-full sm:w-[150px] sm:shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
               <DatePicker
                 value={quickAddForm.date}
@@ -1260,9 +1275,9 @@ export default function AccountTransactions() {
               />
             </div>
 
-            <div className="shrink-0">
+            <div className="sm:shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Type</label>
-              <div className="flex gap-0.5 items-center h-[32px] bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+              <div className="grid grid-flow-col auto-cols-fr sm:flex gap-0.5 items-center h-[38px] sm:h-[32px] bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
                 {([
                   { value: 'expense', label: 'Exp', activeColor: 'text-red-600 dark:text-red-400' },
                   { value: 'income', label: 'Inc', activeColor: 'text-green-600 dark:text-green-400' },
@@ -1291,19 +1306,19 @@ export default function AccountTransactions() {
               </div>
             </div>
 
-            <div className="flex-1 min-w-[180px]">
+            <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
               <input
                 type="text"
                 placeholder="Description"
                 value={quickAddForm.description}
                 onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, description: e.target.value }); }}
-                className="w-full px-2.5 py-1.5 h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 required
               />
             </div>
 
-            <div className="flex-1 min-w-[180px]">
+            <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
@@ -1311,7 +1326,7 @@ export default function AccountTransactions() {
                 <select
                   value={quickAddForm.category}
                   onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: e.target.value }); }}
-                  className="w-full px-2.5 py-1.5 h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                  className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 >
                   <option value="">Select account...</option>
                   {accounts
@@ -1344,7 +1359,7 @@ export default function AccountTransactions() {
 
             {/* Wide enough for a five-figure sum with its pennies without the
                 digits scrolling out of view. */}
-            <div className="w-[150px] shrink-0">
+            <div className="w-full sm:w-[150px] sm:shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
               <input
                 type="number"
@@ -1352,14 +1367,14 @@ export default function AccountTransactions() {
                 placeholder="0.00"
                 value={quickAddForm.amount}
                 onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: e.target.value }); }}
-                className="w-full px-2.5 py-1.5 h-[32px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 required
               />
             </div>
 
             <button
               type="submit"
-              className="shrink-0 px-5 py-1.5 h-[32px] min-w-[92px] text-xs bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors flex items-center justify-center gap-1"
+              className="w-full sm:w-auto sm:shrink-0 px-5 py-2 sm:py-1.5 h-auto sm:h-[32px] min-w-[92px] text-sm sm:text-xs bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors flex items-center justify-center gap-1"
               title="Add Transaction"
             >
               <PlusIcon size={14} />
