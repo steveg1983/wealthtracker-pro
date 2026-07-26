@@ -184,7 +184,13 @@ export default function Layout(): React.JSX.Element {
   // }, []);
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fb] dark:bg-gray-900">
+    // A block, not a flex row. The row layout served a sidebar that no longer
+    // exists, and it made <main> share its width with EVERY in-flow sibling:
+    // on a real iPhone something rendered a 56px box beside it (measured on
+    // device: main W384 R56 on a 440pt screen while html/body were full
+    // width), pinning every page 56px left of centre. In a block layout a
+    // stray sibling costs nothing — it falls below instead of beside.
+    <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-900">
       <DemoModeIndicator />
       <EnhancedSkipLinks />
       <FocusIndicator />
@@ -600,18 +606,11 @@ export default function Layout(): React.JSX.Element {
       <main
         ref={swipeRef.ref}
         id="main-content"
-        // min-w-0 is load-bearing, not tidiness. A flex child defaults to
-        // min-width:auto and refuses to shrink below its content, so one
-        // non-wrapping row (the period selector) held the document open to
-        // 664px inside a 375px viewport. The browser answers a horizontal
-        // overflow by inflating the LAYOUT viewport — 812px became 1438px —
-        // and every position:fixed element pins to that box instead of the
-        // screen. The mobile bottom nav therefore rendered 548px below the
-        // bottom of the phone: not obscured, absent. Measured before/after.
-        // No -webkit-overflow-scrolling here: this element has no overflow, so
-        // it is not a scroll container — the document is. The property did
-        // nothing but ask iOS for a compositing layer around the whole app.
-        className="flex-1 min-w-0 mt-16 md:mt-12"
+        // A plain block child now — flex-1/min-w-0 died with the parent's
+        // flex row. (Their history: min-w-0 once stopped a non-wrapping row
+        // from inflating the layout viewport to 1438px; as a block, main is
+        // simply the container's width and cannot be squeezed by siblings.)
+        className="mt-16 md:mt-12"
         role="main"
         aria-label="Main content"
         tabIndex={-1}
