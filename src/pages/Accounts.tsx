@@ -774,8 +774,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           })
           .reduce((sum, a) => sum + Math.abs(computeAccountBalance(a.id)), 0);
 
+        // One column on a phone: these are eight-digit figures at text-2xl,
+        // and a grid cell will not shrink below an unbreakable number — three
+        // abreast forced the whole page to scroll sideways at 375px.
         return (
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
             <div className="bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white">
               <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth</p>
               <p className="text-2xl font-bold mt-1">{formatDisplayCurrency(totalBalance)}</p>
