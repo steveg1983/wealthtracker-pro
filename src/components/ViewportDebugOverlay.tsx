@@ -33,12 +33,27 @@ export default function ViewportDebugOverlay(): React.JSX.Element | null {
           widest = { name: `${n.tagName}.${String(n.className).slice(0, 30)}`, right: Math.round(r.right) };
         }
       });
+      // The content chain: on the affected device the page-level numbers are
+      // all clean (440 wide, scale 1.0, no overflow) yet the visible content
+      // column stops ~55pt short of the right edge — so whichever of these
+      // boxes is narrower than its parent is the culprit.
+      const box = (sel: string): string => {
+        const el = document.querySelector(sel);
+        if (!el) return `${sel}: none`;
+        const r = el.getBoundingClientRect();
+        return `${sel}: L${Math.round(r.left)} W${Math.round(r.width)} R${Math.round(window.innerWidth - r.right)}`;
+      };
       setLines([
         `innerW ${window.innerWidth} · clientW ${doc.clientWidth}`,
         `docScrollW ${doc.scrollWidth} · bodyScrollW ${document.body.scrollWidth}`,
         vv ? `visualVp w ${Math.round(vv.width)} · scale ${vv.scale.toFixed(3)} · offL ${Math.round(vv.offsetLeft)}` : 'no visualViewport',
         `screen ${window.screen.width}x${window.screen.height} · dpr ${window.devicePixelRatio}`,
         `widest right-edge: ${widest.right}px (${widest.name})`,
+        box('main'),
+        box('main > div'),
+        box('.page-transition'),
+        box('.page-transition > *'),
+        `html ${box('html')} · body ${box('body')}`,
       ]);
     };
 
