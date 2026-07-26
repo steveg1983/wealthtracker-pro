@@ -348,8 +348,8 @@ export default function Reconciliation() {
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={handleBack}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
@@ -357,7 +357,7 @@ export default function Reconciliation() {
             <ArrowLeftIcon size={20} />
             Back
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">
             {selectedAccount?.name ?? 'Account'}
           </h1>
         </div>

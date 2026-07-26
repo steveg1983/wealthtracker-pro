@@ -53,12 +53,15 @@ export default function ReconciliationAccountList({
                     hasDifference
                       ? 'border-amber-400 dark:border-amber-500'
                       : 'border-gray-200 dark:border-gray-700 hover:border-primary'
-                  } p-5`}
+                  } p-4 md:p-5`}
                 >
                   {/* w-full so the columns spread edge-to-edge and the icons
                       line up in a straight rail down the page */}
-                  <div className="w-full flex items-center gap-4">
-                    <div className="flex items-center gap-3 min-w-[200px]">
+                  {/* The min-widths below add up to 660px, which is what
+                      kept this card off the edge of a phone. They only apply
+                      from md up now; under that the row wraps. */}
+                  <div className="w-full flex flex-wrap items-end md:items-center gap-3 md:gap-4">
+                    <div className="flex items-center gap-3 min-w-0 basis-full md:basis-auto md:min-w-[200px]">
                       <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex-shrink-0">
                         <Building2Icon size={20} className="text-gray-600 dark:text-gray-400" />
                       </div>
@@ -70,7 +73,7 @@ export default function ReconciliationAccountList({
                       </div>
                     </div>
 
-                    <div className="min-w-[120px]">
+                    <div className="basis-full md:basis-auto md:min-w-[120px]">
                       {unreconciledCount > 0 ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                           {unreconciledCount} unreconciled
@@ -82,9 +85,9 @@ export default function ReconciliationAccountList({
                       )}
                     </div>
 
-                    <div className="flex-1" />
+                    <div className="hidden md:block flex-1" />
 
-                    <div className="text-right min-w-[120px]">
+                    <div className="text-right flex-1 min-w-[84px] md:flex-none md:min-w-[120px]">
                       <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Balance</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
                         {bankBalance != null
@@ -92,13 +95,13 @@ export default function ReconciliationAccountList({
                           : 'N/A'}
                       </p>
                     </div>
-                    <div className="text-right min-w-[120px]">
+                    <div className="text-right flex-1 min-w-[84px] md:flex-none md:min-w-[120px]">
                       <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Balance</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
                         {formatCurrency(accountBalance, account.currency)}
                       </p>
                     </div>
-                    <div className="text-right min-w-[100px]">
+                    <div className="text-right flex-1 min-w-[84px] md:flex-none md:min-w-[100px]">
                       <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Difference</p>
                       <p className={`text-sm font-bold tabular-nums ${
                         difference == null
