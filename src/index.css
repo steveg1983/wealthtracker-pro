@@ -658,3 +658,18 @@ button.rounded-full:focus-visible,
   }
 }
 /* Force deployment Sun Aug  3 21:32:13 BST 2025 */
+
+/* iOS Safari zooms the whole page when a form control under 16px gains focus,
+   and routinely leaves it zoomed after — content cut off at the edges, fixed
+   bars adrift, white bands while scrolling. Seen on device 2026-07-26. On
+   phones every text-entry control renders at 16px; the !important is the
+   point — it must beat every text-sm/text-xs utility on every input in the
+   app, which is exactly the bug. Checkboxes and radios don't take focus for
+   typing, so they keep their size. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 1rem !important;
+  }
+}

@@ -721,6 +721,7 @@ const Transactions = React.memo(function Transactions() {
                 <InfiniteScrollTransactionList
                   transactions={filteredAndSortedTransactions} // Use all filtered transactions, not paginated
                   accounts={accounts}
+                  categories={categories}
                   formatCurrency={formatCurrency}
                   onEdit={handleEdit}
                   onDelete={handleDelete}

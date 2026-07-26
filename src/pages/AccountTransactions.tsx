@@ -12,6 +12,7 @@ import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
+import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
 import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
@@ -850,8 +851,10 @@ export default function AccountTransactions() {
         <span className="text-sm">Back to Accounts</span>
       </button>
 
-      {/* Compact header with inline stat boxes */}
-      <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl shadow px-4 py-3 mb-4 flex items-center justify-between gap-4">
+      {/* Compact header with inline stat boxes. flex-wrap: the three stat
+          pills need ~450px, so on a phone they used to paint straight over
+          the account name — wrapped, they take their own rows beneath it. */}
+      <div className="bg-[#1a2332] dark:bg-gray-700 rounded-2xl shadow px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 lg:gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <div>
             <div className="flex items-center gap-2">
@@ -880,7 +883,7 @@ export default function AccountTransactions() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 flex items-center gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Account Balance</span>
             <span className={`text-sm font-bold whitespace-nowrap ${
@@ -1153,11 +1156,31 @@ export default function AccountTransactions() {
       {/* Transactions Table — measured to keep the whole page in one viewport;
           the table scrolls internally. Expanded mode trades the bottom dock
           for more visible rows. */}
+      {/* Phones get the same card list as the Transactions page. The
+          register table's columns are fixed-width flex cells with visible
+          overflow — at 375px they shrink into each other and the headers
+          paint on top of one another. A register is also read differently on
+          a phone: tap a row to see or change everything. */}
+      <div className="lg:hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <InfiniteScrollTransactionList
+          transactions={transactionsWithBalance}
+          accounts={[]}
+          categories={categories}
+          formatCurrency={(n) => formatCurrency(n, account.currency)}
+          onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
+          onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
+          onDelete={(id) => {
+            const target = transactionsWithBalance.find(t => t.id === id);
+            if (target) setDeleteConfirmTransaction(target);
+          }}
+        />
+      </div>
+
       <div
         ref={tableWrapRef}
         data-transaction-table
         style={{ height: tableHeight }}
-        className="overflow-hidden"
+        className="hidden lg:block overflow-hidden"
       >
         <VirtualizedTable
           items={displayRows}

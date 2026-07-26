@@ -8,6 +8,8 @@ import { useFormattedDate } from '../hooks/useFormattedValues';
 interface SwipeableTransactionRowProps {
   transaction: Transaction;
   account?: Account;
+  /** The category's display name; the transaction itself holds only its id. */
+  categoryName?: string;
   formatCurrency: (amount: number) => string;
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
@@ -22,6 +24,7 @@ interface SwipeableTransactionRowProps {
 export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
   transaction,
   account,
+  categoryName,
   formatCurrency,
   onEdit,
   onDelete,
@@ -188,21 +191,19 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
         {/* Main content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-900 dark:text-white truncate">
                 {transaction.description}
               </p>
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <span>{formattedDate}</span>
-                <span>•</span>
-                <span>{transaction.category}</span>
-                {account && (
-                  <>
-                    <span>•</span>
-                    <span className="truncate">{account.name}</span>
-                  </>
-                )}
-              </div>
+              {/* One truncating line, and the category by NAME — the raw
+                  field is the category's id, which on a phone read as a
+                  jumble of letters and numbers. */}
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                {formattedDate}
+                {' · '}
+                {categoryName ?? <span className="italic">Uncategorised</span>}
+                {account ? ` · ${account.name}` : ''}
+              </p>
             </div>
             
             <div className="text-right">

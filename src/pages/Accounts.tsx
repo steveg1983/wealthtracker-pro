@@ -443,8 +443,14 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         )}
                       </div>
                       
-                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
-                            <div className="flex items-center gap-4">
+                      {/* flex-wrap is what keeps this inside the card on a
+                          phone: three stat columns plus the action buttons
+                          need ~420px, the card offers ~330, and items-end
+                          right-aligns the excess OUT of the card's left edge.
+                          Wrapped, the stats take one row and the buttons the
+                          next, both right-aligned, both inside the card. */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
                               {/* Balance info columns */}
                               <div className="text-right">
                                 <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Bal</p>
@@ -862,10 +868,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             </button>
           </div>
         </div>
-        {/* Search — the way to find one account among two hundred. */}
-        <div className="flex items-center gap-2">
+        {/* Search — the way to find one account among two hundred. On a
+            phone it takes the first row, full width; the pills follow. */}
+        <div className="order-first basis-full sm:order-none sm:basis-auto flex items-center gap-2">
           <label htmlFor="account-search" className="sr-only">Search accounts by name or institution</label>
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
             <input
               id="account-search"
@@ -873,7 +880,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
               value={accountSearch}
               onChange={(e) => setAccountSearch(e.target.value)}
               placeholder="Search accounts…"
-              className="w-56 max-w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full sm:w-56 pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           {isSearching && (
@@ -882,12 +889,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             </span>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="basis-full sm:basis-auto sm:ml-auto flex items-center gap-2">
           <BankingCriticalIncidentBadge onClick={() => setBankConnectionsView('critical')} />
           <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={() => setBankConnectionsView('jwks')} />
           <button
             onClick={() => setBankConnectionsView('plain')}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <BankIcon size={16} />
             Bank Connections
