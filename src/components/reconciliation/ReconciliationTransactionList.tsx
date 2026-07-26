@@ -125,9 +125,9 @@ export default function ReconciliationTransactionList({
   return (
     <div className="flex flex-col gap-3">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {/* Search */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 basis-full sm:basis-auto">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
@@ -186,7 +186,7 @@ export default function ReconciliationTransactionList({
       {/* Transaction table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[100px_50px_1fr_180px_120px_120px] gap-2 px-4 py-2 bg-secondary dark:bg-gray-700 text-white text-xs font-medium">
+        <div className="hidden md:grid grid-cols-[100px_50px_1fr_180px_120px_120px] gap-2 px-4 py-2 bg-secondary dark:bg-gray-700 text-white text-xs font-medium">
           <div>Date</div>
           <div className="text-center">R</div>
           <div>Description</div>
@@ -209,7 +209,7 @@ export default function ReconciliationTransactionList({
                 <div
                   key={t.id}
                   onClick={() => onRowClick(t)}
-                  className="grid grid-cols-[100px_50px_1fr_180px_120px_120px] gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-750 items-center text-sm cursor-pointer"
+                  className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 md:grid-cols-[100px_50px_1fr_180px_120px_120px] md:gap-2 px-4 py-3 md:py-2 hover:bg-gray-50 dark:hover:bg-gray-750 md:items-center text-sm cursor-pointer"
                   title="Click to edit this transaction"
                 >
                   {/* Date */}
@@ -218,7 +218,7 @@ export default function ReconciliationTransactionList({
                   </div>
 
                   {/* R/U checkbox */}
-                  <div className="text-center">
+                  <div className="flex justify-end md:block md:text-center">
                     <button
                       onClick={(e) => {
                         // The row itself opens the edit modal; keep the toggle isolated.
@@ -238,7 +238,7 @@ export default function ReconciliationTransactionList({
                   </div>
 
                   {/* Description */}
-                  <div className="text-gray-900 dark:text-white truncate">
+                  <div className="col-span-2 md:col-span-1 text-gray-900 dark:text-white truncate">
                     {t.description}
                   </div>
 
@@ -261,11 +261,15 @@ export default function ReconciliationTransactionList({
                   </div>
 
                   {/* Running Balance */}
-                  <div className={`text-right font-medium ${
+                  <div className={`col-span-2 md:col-span-1 text-right font-medium ${
                     runningBal < 0
                       ? 'text-red-600 dark:text-red-400'
                       : 'text-gray-900 dark:text-white'
                   }`}>
+                    {/* The column heading is gone on a phone, and a bare
+                        second figure under the amount reads as a second
+                        amount. */}
+                    <span className="md:hidden text-xs font-normal text-gray-400 dark:text-gray-500 mr-1">Balance</span>
                     {formatCurrency(runningBal, currency)}
                   </div>
                 </div>

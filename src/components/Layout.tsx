@@ -16,7 +16,6 @@ import PWAInstallPrompt from './PWAInstallPrompt';
 import ServiceWorkerUpdateNotification from './ServiceWorkerUpdateNotification';
 import { useServiceWorker } from '../hooks/useServiceWorker';
 import { OfflineIndicator as PWAOfflineIndicator } from './pwa/OfflineIndicator';
-import { MobilePullToRefreshWrapper } from './MobilePullToRefreshWrapper';
 import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
 import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
 import { useConflictResolution } from '../hooks/useConflictResolution';
@@ -232,9 +231,10 @@ export default function Layout(): React.JSX.Element {
                 { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
                 { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
                 { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
+                { to: '/categorisation', icon: TagIcon, label: 'Categorisation' },
                 { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
               ]}
-              activePaths={['/accounts', '/transactions', '/reconciliation', '/open-banking']}
+              activePaths={['/accounts', '/transactions', '/reconciliation', '/categorisation', '/open-banking']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -499,6 +499,7 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/categorisation" icon={TagIcon} label="Categorisation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/open-banking" icon={BankIcon} label="Bank Feeds" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
@@ -606,8 +607,10 @@ export default function Layout(): React.JSX.Element {
         // and every position:fixed element pins to that box instead of the
         // screen. The mobile bottom nav therefore rendered 548px below the
         // bottom of the phone: not obscured, absent. Measured before/after.
+        // No -webkit-overflow-scrolling here: this element has no overflow, so
+        // it is not a scroll container — the document is. The property did
+        // nothing but ask iOS for a compositing layer around the whole app.
         className="flex-1 min-w-0 mt-16 md:mt-12"
-        style={{ WebkitOverflowScrolling: 'touch' }}
         role="main"
         aria-label="Main content"
         tabIndex={-1}
@@ -617,16 +620,14 @@ export default function Layout(): React.JSX.Element {
         {/* Desktop search bar moved into top nav */}
         
         <MobileBreadcrumb />
-        <MobilePullToRefreshWrapper>
-          <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto pb-20 md:pb-8">
-            <div className="hidden sm:block">
-              <Breadcrumbs />
-            </div>
-            <PageTransition>
-              <Outlet />
-            </PageTransition>
+        <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto pb-20 md:pb-8">
+          <div className="hidden sm:block">
+            <Breadcrumbs />
           </div>
-        </MobilePullToRefreshWrapper>
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
+        </div>
       </main>
       
       {/* Offline Indicator */}

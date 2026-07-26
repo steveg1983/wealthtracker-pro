@@ -39,6 +39,7 @@ const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard",
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
 const Transactions = lazyWithPreload(() => import(/* webpackChunkName: "transactions", webpackPreload: true */ './pages/Transactions'));
 const Reconciliation = lazyWithPreload(() => import(/* webpackChunkName: "reconciliation" */ './pages/Reconciliation'));
+const Categorisation = lazyWithPreload(() => import(/* webpackChunkName: "categorisation" */ './pages/Categorisation'));
 const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ './pages/Investments'));
 const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpackPreload: true */ './pages/Budget'));
 const Calendar = lazyWithPreload(() => import(/* webpackChunkName: "calendar" */ './pages/Calendar'));
@@ -206,6 +207,11 @@ function App(): React.JSX.Element {
                           <Route path="reconciliation" element={
                             <ProtectedSuspense>
                               <Reconciliation />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="categorisation" element={
+                            <ProtectedSuspense>
+                              <Categorisation />
                             </ProtectedSuspense>
                           } />
                           <Route path="investments" element={

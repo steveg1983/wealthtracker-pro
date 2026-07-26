@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { OpsAlertStatsResponse } from '../types/banking-api';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 import BankingCriticalIncidentBadge from './BankingCriticalIncidentBadge';
+import { resetOpsStatsAccess } from '../utils/opsStatsAccess';
 
 const { mockGetOpsAlertStats, mockSetAuthTokenProvider, mockGetToken } = vi.hoisted(() => ({
   mockGetOpsAlertStats: vi.fn(),
@@ -66,6 +67,9 @@ const createResponse = (overrides?: Partial<OpsAlertStatsResponse>): OpsAlertSta
 
 describe('BankingCriticalIncidentBadge', () => {
   beforeEach(() => {
+    // The forbidden-access cache lives at module scope so it survives a
+    // remount; that means it survives a test too unless cleared here.
+    resetOpsStatsAccess();
     vi.clearAllMocks();
   });
 

@@ -71,8 +71,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
     onLongPress: handleLongPress,
     onDoubleTap: () => onToggleFavorite?.(transaction)
   }, {
-    threshold: 50,
-    preventScrollOnSwipe: true
+    threshold: 50
   });
 
   const amountClass = transaction.amount < 0 

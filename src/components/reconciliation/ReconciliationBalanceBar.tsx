@@ -50,7 +50,9 @@ export default function ReconciliationBalanceBar({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 p-4">
-      <div className="grid grid-cols-4 gap-4">
+      {/* Four figures side by side needs ~90px each; a 375px phone has room
+          for two. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {/* Bank Balance */}
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Bank Balance</p>
