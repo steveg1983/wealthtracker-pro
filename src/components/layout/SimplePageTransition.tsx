@@ -5,31 +5,27 @@ interface PageTransitionProps {
   children: ReactNode;
 }
 
+/**
+ * A short entrance fade on navigation, and NOTHING between navigations.
+ *
+ * The previous version kept the outgoing page in state and cross-faded on an
+ * effect keyed by `children` — but `children` is a fresh ReactNode on every
+ * parent render, so ANY re-render of the layout (a notification arriving, a
+ * sync dot changing) faded the whole page to opacity 0 for 200ms and slid it
+ * 10px sideways. On a phone that read as the screen blinking white while
+ * scrolling. It also held a stale snapshot of the page during the window, and
+ * added 200ms of deliberate delay to every navigation.
+ *
+ * Keying the element by pathname gets the same visual (fresh page fades in)
+ * from CSS alone: no timers, no stale snapshot, no work at all unless the
+ * route actually changed. Reduced-motion users get no animation via the
+ * global reduce-motion rules.
+ */
 export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
-  const [displayChildren, setDisplayChildren] = useState(children);
-  const [transitionStage, setTransitionStage] = useState('fadeIn');
-
-  useEffect(() => {
-    setTransitionStage('fadeOut');
-    const timer = setTimeout(() => {
-      setDisplayChildren(children);
-      setTransitionStage('fadeIn');
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [children, location.pathname]);
-
   return (
-    <div
-      className={`page-transition ${transitionStage}`}
-      style={{
-        opacity: transitionStage === 'fadeIn' ? 1 : 0,
-        transform: transitionStage === 'fadeIn' ? 'translateX(0)' : 'translateX(10px)',
-        transition: 'opacity 200ms ease-out, transform 200ms ease-out'
-      }}
-    >
-      {displayChildren}
+    <div key={location.pathname} className="page-transition animate-pageEnter">
+      {children}
     </div>
   );
 }

@@ -804,7 +804,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       {/* Group + sort controls, with bank connections on the right */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Group by:</span>
+          {/* Same width as the Sort label below, so the two pill groups
+              start at the same x and read as one aligned control block. */}
+          <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Group by:</span>
           <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
             <button
               onClick={() => handleGroupByChange('type')}
@@ -829,7 +831,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Sort:</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Sort:</span>
           <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
             <button
               onClick={() => handleSortChange('default')}

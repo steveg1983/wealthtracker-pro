@@ -402,24 +402,29 @@ export function ImprovedDashboard() {
         aria-labelledby="pinned-reports-heading"
         className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
-        <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* The gear lives on the title row so the period picker below gets
+            the card's full width — beside the picker it was stealing the
+            exact space the wrapped pill needed on a phone. */}
+        <div className="flex items-center justify-between gap-3 mb-3">
           <h3 id="pinned-reports-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <BarChart3Icon size={24} className="text-gray-500" />
             Your Reports
           </h3>
-          <div className="ml-auto flex items-center gap-2">
-            {pinnedReports.length > 0 && <PeriodPicker picker={reportsPeriod} />}
-            <button
-              type="button"
-              onClick={() => setShowReportPicker(true)}
-              className="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="Choose which reports appear here"
-              aria-label="Choose reports"
-            >
-              <SettingsIcon size={18} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowReportPicker(true)}
+            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="Choose which reports appear here"
+            aria-label="Choose reports"
+          >
+            <SettingsIcon size={18} />
+          </button>
         </div>
+        {pinnedReports.length > 0 && (
+          <div className="mb-4">
+            <PeriodPicker picker={reportsPeriod} />
+          </div>
+        )}
 
         {pinnedReports.length === 0 ? (
           <button
@@ -575,7 +580,7 @@ export function ImprovedDashboard() {
             <WalletIcon size={24} className="text-gray-500" />
             Key Account Balances
             {displayedAccounts.length > 0 && (
-              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap">
                 ({displayedAccounts.length} of {accounts.length})
               </span>
             )}
