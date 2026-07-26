@@ -29,7 +29,14 @@ export default function ConsentBanner(): React.JSX.Element | null {
     <div
       role="region"
       aria-label="Cookie and privacy choices"
-      className="fixed bottom-0 inset-x-0 z-50 bg-[#1a2332] text-white shadow-2xl border-t border-white/10"
+      // Above the mobile bottom navigation, which also sits at bottom-0 with
+      // z-50 and — rendering later in the tree — was painting over these
+      // buttons on a phone. A tap on "Essential only" landed on the nav link
+      // behind it, so declining was impossible on mobile while accepting by
+      // scrolling past was not: the exact asymmetry PECR forbids. The banner
+      // covers the nav only until a choice is made, and either button is one
+      // tap, so nothing is trapped behind it.
+      className="fixed bottom-0 inset-x-0 z-[60] bg-[#1a2332] text-white shadow-2xl border-t border-white/10"
     >
       <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
         <p className="text-sm flex-1 text-white/90">

@@ -1219,8 +1219,13 @@ export default function AccountTransactions() {
             Capping the form makes both rows end at the same edge, so the wide
             fields stop hogging and the small ones get room. flex-wrap keeps
             the fields stacking instead of overflowing on narrow screens. */}
-        <form onSubmit={handleQuickAdd} className="max-w-3xl">
-          {/* Row 1: Date | Type | Description */}
+        <form onSubmit={handleQuickAdd}>
+          {/* One line across the full width — Date, Type, Description,
+              Category, Amount, Add — wrapping only when the window is too
+              narrow to hold it. Capping the form instead (an earlier attempt)
+              squashed the fields into the left half and left the rest of the
+              register empty; letting Description and Category share the slack
+              equally keeps either from hogging it. */}
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-[150px] shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
@@ -1263,7 +1268,7 @@ export default function AccountTransactions() {
               </div>
             </div>
 
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[180px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
               <input
                 type="text"
@@ -1274,11 +1279,8 @@ export default function AccountTransactions() {
                 required
               />
             </div>
-          </div>
 
-          {/* Row 2: Category | Amount | Add */}
-          <div className="flex flex-wrap items-end gap-3 mt-2">
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[180px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>

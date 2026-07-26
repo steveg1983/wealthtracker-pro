@@ -98,10 +98,13 @@ export default function ReportsHub(): React.JSX.Element {
         <ReportGallery />
       )}
 
+      {/* One tip per page is the pattern, so the gallery's tip also carries the
+          rule people otherwise read as missing money. id bumped from
+          `reports-gallery` because that second half is new. */}
       <PageTip
-        id="reports-gallery"
-        title="Financial reports"
-        description="Pick a report from the gallery — net worth, balances, spending by category or payee, and period comparisons. The date range you choose stays put as you move between reports, and every figure clicks through to the transactions behind it."
+        id="reports-gallery-2"
+        title="Reports, and what they leave out"
+        description="Pick a report — net worth, balances, spending by category or payee, period comparisons — and the period you choose follows you from one to the next. A transaction with no category is left out of income and expense totals altogether, so nothing is counted under the wrong heading; the amber band on each report lists those rows for filing."
       />
     </div>
   );

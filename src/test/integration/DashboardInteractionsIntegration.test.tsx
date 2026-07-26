@@ -91,8 +91,16 @@ describe('Dashboard Interactions Integration', () => {
       // with a period picker beside it rather than a fixed "This Month's".
       const performanceHeading = await screen.findByRole('heading', { name: /^performance$/i });
       expect(performanceHeading).toBeInTheDocument();
-      expect(screen.getByText(/income/i)).toBeInTheDocument();
-      expect(screen.getByText(/expenses/i)).toBeInTheDocument();
+      // Scoped to the Performance section: the page tip's copy now mentions
+      // income and expenses too, so a page-wide /income/i matched twice. What
+      // this test is actually about is the section's own two figures.
+      const performanceSection = performanceHeading.closest('section');
+      if (performanceSection === null) {
+        throw new Error('Performance heading is not inside a section');
+      }
+      const performance = within(performanceSection);
+      expect(performance.getByText('Income')).toBeInTheDocument();
+      expect(performance.getByText('Expenses')).toBeInTheDocument();
       // The picker offering the same windows as the rest of the app.
       expect(screen.getAllByRole('button', { name: /this month/i }).length).toBeGreaterThan(0);
     });

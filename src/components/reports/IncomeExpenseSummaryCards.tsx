@@ -147,9 +147,26 @@ export default function IncomeExpenseSummaryCards({
             </div>
           </div>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-            A change in what your accounts are worth — not counted in income or expenses.
+            A portfolio moving in value, or a corrected balance — what your accounts are worth
+            changed, but no money was earned or spent, so it is kept out of the figures above.
           </p>
         </button>
+      )}
+
+      {/* The same explanation for the reader who has NOT ticked the box — who
+          is the one actually at risk of thinking a market gain went missing.
+          A note rather than a page tip: it belongs beside the figures it
+          explains, and only in a period that has revaluations in it. */}
+      {!showRevaluations && flows.revaluationRows.length > 0 && (
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          {summary.revaluationCount === 1
+            ? '1 revaluation in this period is not in the figures above.'
+            : `${summary.revaluationCount.toLocaleString()} revaluations in this period are not in the figures above.`}
+          {' '}
+          A portfolio moving in value, or a corrected balance, changes what your accounts are
+          worth without being money earned or spent. Tick “Show gains, losses &amp; adjustments”
+          to see them on their own line.
+        </p>
       )}
 
       <ReportDrillModal target={drill} onClose={() => setDrill(null)} categories={categories} />

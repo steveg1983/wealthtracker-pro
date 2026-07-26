@@ -5,6 +5,7 @@ import PageWrapper from '../../components/PageWrapper';
 import BudgetAlertSettings from '../../components/BudgetAlertSettings';
 import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
 import LocaleSelector from '../../components/settings/LocaleSelector';
+import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 export default function AppSettings() {
@@ -348,6 +349,9 @@ export default function AppSettings() {
           />
         </div>
       </div>
+
+      {/* Page Tips */}
+      <ShowTipsAgain />
     </PageWrapper>
   );
 }

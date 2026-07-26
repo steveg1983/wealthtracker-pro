@@ -138,7 +138,13 @@ export default function Settings() {
           ))}
         </div>
       </div>
-    <PageTip id="settings-intro" title="App settings" description="Customise your WealthTracker experience — themes, currency, notifications, data management, and security settings." />
+    {/* id bumped from `settings-intro`: import and export moved out to Manage,
+        so the old copy sent people here for something that is no longer here. */}
+    <PageTip
+      id="settings-intro-2"
+      title="App settings"
+      description="Your name, currency, theme and which pages appear in the sidebar, plus categories, tags and notifications. Data Management here covers archiving, backups and cleaning up — bringing data in and getting it out now lives under Manage."
+    />
     </PageWrapper>
   );
 }

@@ -97,10 +97,13 @@ export default function Dashboard() {
         </Suspense>
       </LazyErrorBoundary>
 
+      {/* id bumped from `dashboard-welcome`: the old copy promised a recent
+          activity list that no longer exists, so anyone who dismissed it needs
+          to see the corrected version once. */}
       <PageTip
-        id="dashboard-welcome"
-        title="Welcome to your financial dashboard"
-        description="Your dashboard shows your net worth, monthly performance, account balances, and recent activity. Click any section to drill down into the details."
+        id="dashboard-welcome-2"
+        title="What's on your dashboard"
+        description="Net worth first, then income and expenses over whichever period you choose, the reports you pin here, your key accounts and how the budgets are going. Income, expenses and the account cards all open the transactions behind them."
       />
 
       {/* Test Data Warning Modal */}

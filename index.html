@@ -3,7 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <!-- iOS ignores the manifest's icons and reads this tag alone. Without it
+         a home-screen install uses a SCREENSHOT of the page as the app icon,
+         which is the first thing anyone sees and says "website" immediately. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- Launch without Safari chrome, and let content run under the status bar
+         so the app's own slate meets the top of the screen rather than a white
+         band. Pairs with viewport-fit=cover below and the safe-area insets in
+         index.css — translucent means WE owe the padding. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WealthTracker" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1a2332" />
     <meta name="description" content="Personal finance tracking application" />

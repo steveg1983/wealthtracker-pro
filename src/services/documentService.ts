@@ -333,7 +333,10 @@ export class DocumentService {
       const img = new Image();
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      
+      // Assigned below, once the object URL exists; revoked on every exit path
+      // so a failed or errored decode does not leak the blob.
+      let revoke = (): void => {};
+
       img.onload = () => {
         try {
           // Calculate thumbnail dimensions (max 200px)
@@ -358,20 +361,28 @@ export class DocumentService {
           
           ctx?.drawImage(img, 0, 0, width, height);
           canvas.toBlob((blob) => {
+            revoke();
             resolve(blob);
           }, 'image/jpeg', 0.7);
         } catch (error) {
+          revoke();
           reject(error);
         }
       };
-      
-      img.onerror = () => resolve(null);
-      const url = URL.createObjectURL(file);
-      img.src = url;
-      // Clean up the object URL after loading
-      img.onload = function() {
-        URL.revokeObjectURL(url);
+
+      img.onerror = () => {
+        revoke();
+        resolve(null);
       };
+      const url = URL.createObjectURL(file);
+      revoke = () => URL.revokeObjectURL(url);
+      img.src = url;
+      // The object URL is revoked inside the onload handler above, once the
+      // thumbnail has been drawn. It was previously revoked by a SECOND
+      // img.onload assigned here, which silently replaced the first — so the
+      // handler that resolves the promise never ran and every image upload
+      // hung forever, leaving an orphaned blob behind. One assignment wins;
+      // it has to be the one that does the work.
     });
   }
 

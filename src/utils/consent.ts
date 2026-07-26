@@ -21,12 +21,21 @@ export function getConsent(): ConsentLevel | null {
   }
 }
 
+/**
+ * Fired when a consent choice is made, so surfaces that defer to the banner
+ * can appear the moment it goes rather than waiting for a navigation.
+ * `storage` events do not fire in the tab that wrote the value, so this is
+ * the only in-tab signal available.
+ */
+export const CONSENT_CHANGED_EVENT = 'wealthtracker:consent-changed';
+
 export function setConsent(level: ConsentLevel): void {
   try {
     localStorage.setItem(CONSENT_KEY, level);
   } catch {
     // Private-browsing storage failures: treat as session-only consent.
   }
+  window.dispatchEvent(new CustomEvent(CONSENT_CHANGED_EVENT));
 }
 
 export function hasAnalyticsConsent(): boolean {

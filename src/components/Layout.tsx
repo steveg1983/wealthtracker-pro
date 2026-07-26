@@ -320,7 +320,7 @@ export default function Layout(): React.JSX.Element {
               </button>
               {openDropdown === 'help' && (() => {
                 const pageHelp: Record<string, string> = {
-                  '/dashboard': 'Your financial overview — net worth, monthly performance, account balances, and recent activity.',
+                  '/dashboard': 'Your financial overview — net worth, income and expenses for the period you choose, your pinned reports, key account balances and budget progress.',
                   '/accounts': 'Manage bank accounts, credit cards, savings, and investments. Toggle between grouping by type or institution.',
                   '/transactions': 'View, filter, and edit all transactions. Right-click for quick actions. Click categories or amounts to edit inline.',
                   '/budget': 'Set and track budgets by category. Try envelope budgeting or zero-based budgeting.',
@@ -598,7 +598,15 @@ export default function Layout(): React.JSX.Element {
       <main
         ref={swipeRef.ref}
         id="main-content"
-        className="flex-1 mt-16 md:mt-12"
+        // min-w-0 is load-bearing, not tidiness. A flex child defaults to
+        // min-width:auto and refuses to shrink below its content, so one
+        // non-wrapping row (the period selector) held the document open to
+        // 664px inside a 375px viewport. The browser answers a horizontal
+        // overflow by inflating the LAYOUT viewport — 812px became 1438px —
+        // and every position:fixed element pins to that box instead of the
+        // screen. The mobile bottom nav therefore rendered 548px below the
+        // bottom of the phone: not obscured, absent. Measured before/after.
+        className="flex-1 min-w-0 mt-16 md:mt-12"
         style={{ WebkitOverflowScrolling: 'touch' }}
         role="main"
         aria-label="Main content"
