@@ -29,6 +29,7 @@ import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import DemoModeIndicator from './DemoModeIndicator';
+import ViewportDebugOverlay from './ViewportDebugOverlay';
 import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
@@ -630,6 +631,8 @@ export default function Layout(): React.JSX.Element {
         </div>
       </main>
       
+      <ViewportDebugOverlay />
+
       {/* Offline Indicator */}
       <OfflineIndicator />
       <OfflineStatus />
