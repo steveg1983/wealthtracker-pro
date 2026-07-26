@@ -320,7 +320,7 @@ export default function Layout(): React.JSX.Element {
               </button>
               {openDropdown === 'help' && (() => {
                 const pageHelp: Record<string, string> = {
-                  '/dashboard': 'Your financial overview — net worth, monthly performance, account balances, and recent activity.',
+                  '/dashboard': 'Your financial overview — net worth, income and expenses for the period you choose, your pinned reports, key account balances and budget progress.',
                   '/accounts': 'Manage bank accounts, credit cards, savings, and investments. Toggle between grouping by type or institution.',
                   '/transactions': 'View, filter, and edit all transactions. Right-click for quick actions. Click categories or amounts to edit inline.',
                   '/budget': 'Set and track budgets by category. Try envelope budgeting or zero-based budgeting.',

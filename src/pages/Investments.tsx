@@ -13,7 +13,6 @@ import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
-import PageTip from '../components/PageTip';
 
 export default function Investments() {
   const { accounts, transactions, updateAccount } = useApp();
@@ -668,7 +667,6 @@ export default function Investments() {
         isOpen={showAddInvestmentModal}
         onClose={() => setShowAddInvestmentModal(false)}
       />
-    <PageTip id="investments-intro" title="Your investment portfolio" description="Track stocks, funds, and other investments. See holdings, performance, and allocation across your portfolio." />
     </PageWrapper>
   );
 }
