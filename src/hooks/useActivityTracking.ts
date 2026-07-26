@@ -1,4 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useUser } from '@clerk/clerk-react';
+
+/**
+ * The keys these notifications used to live under — ONE flat localStorage
+ * entry for whoever happened to use this browser. Signing in as a different
+ * user showed the previous user's alerts: real account names, real balance
+ * movements. Found live 2026-07-26, one user's "HSBC PREMIER balance updated"
+ * visible inside another user's session on the same phone.
+ *
+ * Purged on sight rather than migrated: an unscoped entry cannot prove whose
+ * it is, and for financial alerts the only safe answer to "whose data is
+ * this?" being unanswerable is deletion.
+ */
+const LEGACY_KEYS = ['recentActivities', 'lastActivityCheck'] as const;
 
 export interface ActivityItem {
   id: string;
@@ -24,6 +38,20 @@ interface ActivityCounts {
 }
 
 export function useActivityTracking() {
+  // Keyed by the signed-in user, so alerts can never survive onto someone
+  // else's session on a shared device. No user (public pages, demo mode) →
+  // no persistence: the feed still works, in memory only.
+  const { user } = useUser();
+  const keys = useMemo(
+    () =>
+      user
+        ? {
+            activities: `recentActivities:${user.id}`,
+            lastCheck: `lastActivityCheck:${user.id}`,
+          }
+        : null,
+    [user]
+  );
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [counts, setCounts] = useState<ActivityCounts>({
     total: 0,
@@ -61,7 +89,7 @@ export function useActivityTracking() {
 
     setActivities(prev => {
       const updated = [newActivity, ...prev].slice(0, 100); // Keep last 100 activities
-      localStorage.setItem('recentActivities', JSON.stringify(updated));
+      if (keys) localStorage.setItem(keys.activities, JSON.stringify(updated));
       updateCounts(updated);
       return updated;
     });
@@ -70,42 +98,42 @@ export function useActivityTracking() {
     window.dispatchEvent(new CustomEvent('activity-added', {
       detail: newActivity
     }));
-  }, [updateCounts]);
+  }, [updateCounts, keys]);
 
   const markAsRead = useCallback((activityId: string) => {
     setActivities(prev => {
       const updated = prev.map(a =>
         a.id === activityId ? { ...a, read: true } : a
       );
-      localStorage.setItem('recentActivities', JSON.stringify(updated));
+      if (keys) localStorage.setItem(keys.activities, JSON.stringify(updated));
       updateCounts(updated);
       return updated;
     });
-  }, [updateCounts]);
+  }, [updateCounts, keys]);
 
   const markAllAsRead = useCallback(() => {
     setActivities(prev => {
       const updated = prev.map(a => ({ ...a, read: true }));
-      localStorage.setItem('recentActivities', JSON.stringify(updated));
+      if (keys) localStorage.setItem(keys.activities, JSON.stringify(updated));
       updateCounts(updated);
       return updated;
     });
 
     const now = new Date();
     setLastChecked(now);
-    localStorage.setItem('lastActivityCheck', now.toISOString());
-  }, [updateCounts]);
+    if (keys) localStorage.setItem(keys.lastCheck, now.toISOString());
+  }, [updateCounts, keys]);
 
   const clearActivities = useCallback(() => {
     setActivities([]);
-    localStorage.removeItem('recentActivities');
+    if (keys) localStorage.removeItem(keys.activities);
     updateCounts([]);
-  }, [updateCounts]);
+  }, [updateCounts, keys]);
 
   const checkForNewActivities = useCallback(() => {
     // In production, this would check with the backend
     // For now, we'll simulate by checking localStorage
-    const stored = localStorage.getItem('recentActivities');
+    const stored = keys ? localStorage.getItem(keys.activities) : null;
     if (stored) {
       const parsed = JSON.parse(stored);
       const activities = parsed.map((a: { timestamp: string | Date }) => ({
@@ -115,7 +143,7 @@ export function useActivityTracking() {
       setActivities(activities);
       updateCounts(activities);
     }
-  }, [updateCounts]);
+  }, [updateCounts, keys]);
 
   const getRecentByType = useCallback((type: ActivityItem['type'], limit = 5) => {
     return activities
@@ -136,9 +164,15 @@ export function useActivityTracking() {
     return activities.filter(a => a.timestamp > lastChecked);
   }, [activities, lastChecked]);
 
-  // Load activities from localStorage on mount
+  // Load THIS user's activities; runs again if the signed-in user changes.
   useEffect(() => {
-    const stored = localStorage.getItem('recentActivities');
+    // The unscoped pre-fix entries can belong to anyone who ever used this
+    // browser — delete them wherever found.
+    for (const legacy of LEGACY_KEYS) {
+      localStorage.removeItem(legacy);
+    }
+
+    const stored = keys ? localStorage.getItem(keys.activities) : null;
     if (stored) {
       const parsed = JSON.parse(stored);
       const activities = parsed.map((a: { timestamp: string | Date }) => ({
@@ -147,10 +181,15 @@ export function useActivityTracking() {
       }));
       setActivities(activities);
       updateCounts(activities);
+    } else {
+      // A different user (or none) is signed in now — the previous user's
+      // feed must not linger in React state either.
+      setActivities([]);
+      updateCounts([]);
     }
 
     // Load last checked time
-    const lastCheckedStored = localStorage.getItem('lastActivityCheck');
+    const lastCheckedStored = keys ? localStorage.getItem(keys.lastCheck) : null;
     if (lastCheckedStored) {
       setLastChecked(new Date(lastCheckedStored));
     }
@@ -170,7 +209,7 @@ export function useActivityTracking() {
       window.removeEventListener('activity-logged', handleActivity);
       clearInterval(interval);
     };
-  }, [addActivity, checkForNewActivities, updateCounts]);
+  }, [addActivity, checkForNewActivities, updateCounts, keys]);
 
   return {
     activities,
