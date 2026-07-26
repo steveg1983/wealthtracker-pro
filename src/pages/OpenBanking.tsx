@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import PageWrapper from '../components/PageWrapper';
 import { bankConnectionService } from '../services/bankConnectionService';
@@ -10,6 +11,7 @@ type ConnectStatus = 'idle' | 'connecting' | 'error';
 
 export default function OpenBanking() {
   const { getToken, isLoaded } = useClerkAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [connectStatus, setConnectStatus] = useState<ConnectStatus>('idle');
   const [connectError, setConnectError] = useState('');
@@ -50,6 +52,30 @@ export default function OpenBanking() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [loadConnections]);
+
+  /**
+   * The same hand-off, for the redirect flow rather than the popup one.
+   *
+   * When the bank returns to a POPUP, the callback postMessages its
+   * connectionId and the effect above opens the linking modal. When it returns
+   * by full-page redirect there is no opener to message, so that hand-off was
+   * simply lost: the callback said "you can now link your accounts" and the
+   * user had to come back here and find the link button themselves. The
+   * callback now sends the id in the URL instead, and this picks it up.
+   *
+   * The parameter is consumed immediately (replace, not push) so a refresh or
+   * a back-button press does not re-open the modal for a connection the user
+   * has already dealt with.
+   */
+  useEffect(() => {
+    if (!isLoaded) return;
+    const linkTarget = searchParams.get('link');
+    if (!linkTarget) return;
+    setLinkingConnectionId(linkTarget);
+    const next = new URLSearchParams(searchParams);
+    next.delete('link');
+    setSearchParams(next, { replace: true });
+  }, [isLoaded, searchParams, setSearchParams]);
 
   const handleConnectBank = useCallback(async () => {
     setConnectStatus('connecting');

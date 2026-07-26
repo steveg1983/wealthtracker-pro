@@ -13,6 +13,7 @@ export default function BankingCallback() {
   const navigate = useNavigate();
   const { getToken, isLoaded } = useClerkAuth();
   const [status, setStatus] = useState<Status>('idle');
+  const [connectionId, setConnectionId] = useState<string | null>(null);
   const [message, setMessage] = useState('Preparing to connect your bank...');
 
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -75,7 +76,12 @@ export default function BankingCallback() {
         bankConnectionService.setAuthTokenProvider(() => getToken());
         const connection = await bankConnectionService.handleOAuthCallback(code, state);
         setStatus('success');
-        setMessage('Bank connection successful. You can now link your accounts.');
+        setConnectionId(connection?.id ?? null);
+        setMessage(
+          connection?.id
+            ? 'Bank connection successful. Next, choose which accounts to link.'
+            : 'Bank connection successful.'
+        );
         notifyOpener({ status: 'success', connectionId: connection?.id });
         closeIfPopup(800);
       } catch (err) {
@@ -98,18 +104,28 @@ export default function BankingCallback() {
           {status === 'success' ? 'Connected' : status === 'error' ? 'Connection Issue' : 'Connecting...'}
         </h2>
         <p className="text-gray-600 dark:text-gray-300">{message}</p>
+        {/* The primary action is the NEXT step, not a tour of the app. On
+            success that is choosing which accounts to link — carrying the
+            connection id so Open Banking opens straight into the picker
+            instead of leaving the user to find it. (The popup flow gets there
+            by postMessage; a full-page redirect has no opener, so the id
+            travels in the URL.) The old primary pointed at /settings/data,
+            which stopped managing bank connections when import and export
+            were consolidated. */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={() => navigate('/settings/data')}
+            onClick={() =>
+              navigate(connectionId ? `/open-banking?link=${encodeURIComponent(connectionId)}` : '/open-banking')
+            }
             className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d]"
           >
-            Go to Bank Connections
+            {status === 'success' && connectionId ? 'Choose accounts to link' : 'Go to Open Banking'}
           </button>
           <button
-            onClick={() => navigate('/open-banking')}
+            onClick={() => navigate('/accounts')}
             className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
           >
-            Back to Open Banking
+            Not now
           </button>
         </div>
       </div>
