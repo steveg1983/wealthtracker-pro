@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { logActivity } from './useActivityTracking';
 import { formatDecimal } from '../utils/decimal-format';
@@ -10,28 +10,35 @@ import { toDecimal } from '../utils/decimal';
 export function useActivityLogger() {
   const { transactions, accounts, budgets, goals } = useApp();
 
-  // Track transaction changes
+  // "New transaction" means a row that APPEARED during this session — never
+  // one that merely loaded. The previous check compared the newest row's DATE
+  // against the wall clock, but a date says when the money moved, not when
+  // the row was created: any transaction dated in the future (a standing
+  // order entered ahead of time) made `now - date` negative, which is always
+  // "within the last minute", so the same row was announced as new on every
+  // refresh, forever. Tracked by id instead: the first population is the
+  // baseline and says nothing; only ids not seen before get announced.
+  const seenTransactionIds = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (transactions.length === 0) return;
 
-    // Get the most recent transaction
-    const sorted = [...transactions].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    const latest = sorted[0];
+    if (seenTransactionIds.current === null) {
+      seenTransactionIds.current = new Set(transactions.map(t => t.id));
+      return;
+    }
 
-    // Check if this is a new transaction (added in last minute)
-    const now = Date.now();
-    const transactionTime = new Date(latest.date).getTime();
-    if (now - transactionTime < 60000) { // Within last minute
-      logActivity({
-        type: 'transaction',
-        title: 'New Transaction',
-        description: latest.description,
-        category: latest.category,
-        amount: latest.amount,
-        actionUrl: '/transactions'
-      });
+    for (const t of transactions) {
+      if (!seenTransactionIds.current.has(t.id)) {
+        seenTransactionIds.current.add(t.id);
+        logActivity({
+          type: 'transaction',
+          title: 'New Transaction',
+          description: t.description,
+          category: t.category,
+          amount: t.amount,
+          actionUrl: '/transactions'
+        });
+      }
     }
   }, [transactions]);
 
