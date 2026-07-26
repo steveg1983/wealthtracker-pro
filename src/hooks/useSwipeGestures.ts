@@ -15,11 +15,9 @@ interface SwipeHandlers {
 interface SwipeConfig {
   threshold?: number;
   velocity?: number;
-  preventDefaultTouchmove?: boolean;
   trackMouse?: boolean;
   rotationAngle?: number;
   delta?: number;
-  preventScrollOnSwipe?: boolean;
   longPressDelay?: number;
   doubleTapDelay?: number;
 }
@@ -41,18 +39,21 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
   const {
     threshold = 50,
     velocity = 0.3,
-    preventDefaultTouchmove = false,
     trackMouse = false,
     rotationAngle: _rotationAngle = 0,
     delta = 10,
-    preventScrollOnSwipe = true,
     longPressDelay = 500,
     doubleTapDelay = 300
   } = config;
 
+  // isSwipe is the only gesture fact kept in React state, and it flips at most
+  // once per gesture. Live progress (distance, direction) used to live here
+  // too, and `setSwipeDistance` ran on every touchmove — so every frame of
+  // every finger drag re-rendered whatever component called this hook. Layout
+  // calls it, so that was the entire app shell re-rendering at touch frequency:
+  // the main thread never got to paint, and iOS showed white until the finger
+  // came off. Nothing read that progress except a helper nothing used.
   const [isSwipe, setIsSwipe] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState<string | null>(null);
-  const [swipeDistance, setSwipeDistance] = useState(0);
   
   const touchStart = useRef<TouchPoint | null>(null);
   const touchEnd = useRef<TouchPoint | null>(null);
@@ -102,15 +103,10 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
     }
     
     setIsSwipe(false);
-    setSwipeDirection(null);
   }, [handlers, longPressDelay, getDistance, getAngle]);
 
   // Handle touch move
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (preventDefaultTouchmove) {
-      e.preventDefault();
-    }
-
     // Clear long press timer on move
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
@@ -122,22 +118,11 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
       const dx = touch.clientX - touchStart.current.x;
       const dy = touch.clientY - touchStart.current.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      setSwipeDistance(distance);
-      
+
+      // Setting the same value again is a no-op in React, so this costs one
+      // render per gesture rather than one per frame.
       if (distance > delta) {
         setIsSwipe(true);
-        
-        // Determine direction
-        if (Math.abs(dx) > Math.abs(dy)) {
-          setSwipeDirection(dx > 0 ? 'right' : 'left');
-        } else {
-          setSwipeDirection(dy > 0 ? 'down' : 'up');
-        }
-        
-        if (preventScrollOnSwipe) {
-          e.preventDefault();
-        }
       }
       
     } else if (e.touches.length === 2) {
@@ -160,8 +145,6 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
       e.preventDefault();
     }
   }, [
-    preventDefaultTouchmove,
-    preventScrollOnSwipe,
     delta,
     handlers,
     getDistance,
@@ -236,8 +219,6 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
     initialDistance.current = 0;
     initialAngle.current = 0;
     setIsSwipe(false);
-    setSwipeDirection(null);
-    setSwipeDistance(0);
   }, [
     threshold,
     velocity,
@@ -277,13 +258,6 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
     
     if (distance > delta) {
       setIsSwipe(true);
-      setSwipeDistance(distance);
-      
-      if (Math.abs(dx) > Math.abs(dy)) {
-        setSwipeDirection(dx > 0 ? 'right' : 'left');
-      } else {
-        setSwipeDirection(dy > 0 ? 'down' : 'up');
-      }
     }
   }, [trackMouse, delta]);
 
@@ -321,8 +295,6 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
     
     touchStart.current = null;
     setIsSwipe(false);
-    setSwipeDirection(null);
-    setSwipeDistance(0);
   }, [trackMouse, threshold, delta, handlers]);
 
   // Setup event listeners
@@ -331,8 +303,13 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
     if (!element) return;
 
     // Touch events
-    element.addEventListener('touchstart', handleTouchStart, { passive: !preventDefaultTouchmove });
-    element.addEventListener('touchmove', handleTouchMove, { passive: !preventDefaultTouchmove });
+    // Explicitly passive: this hook only observes. Declaring it lets Safari
+    // scroll on the compositor instead of waiting to see whether JS cancels
+    // the touch. (These were already passive by default, which is why the
+    // preventDefault calls removed above never did anything but log a warning
+    // once a frame.)
+    element.addEventListener('touchstart', handleTouchStart, { passive: true });
+    element.addEventListener('touchmove', handleTouchMove, { passive: true });
     element.addEventListener('touchend', handleTouchEnd);
     
     // Mouse events (optional)
@@ -366,58 +343,14 @@ export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    preventDefaultTouchmove,
     trackMouse
   ]);
 
   return {
     ref: elementRef,
     isSwipe,
-    swipeDirection,
-    swipeDistance,
     bind: {
       ref: elementRef
-    }
-  };
-}
-
-/**
- * Hook for swipeable list items
- */
-export function useSwipeableItem(
-  onSwipeLeft?: () => void,
-  onSwipeRight?: () => void,
-  onTap?: () => void
-) {
-  const [offset, setOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  
-  const { ref, swipeDistance, swipeDirection } = useSwipeGestures({
-    onSwipeLeft,
-    onSwipeRight,
-    onTap
-  }, {
-    threshold: 75,
-    preventScrollOnSwipe: true
-  });
-
-  useEffect(() => {
-    if (swipeDirection === 'left' || swipeDirection === 'right') {
-      setIsDragging(true);
-      setOffset(swipeDirection === 'left' ? -swipeDistance : swipeDistance);
-    } else {
-      setIsDragging(false);
-      setOffset(0);
-    }
-  }, [swipeDistance, swipeDirection]);
-
-  return {
-    ref,
-    offset,
-    isDragging,
-    style: {
-      transform: `translateX(${offset}px)`,
-      transition: isDragging ? 'none' : 'transform 0.3s ease'
     }
   };
 }

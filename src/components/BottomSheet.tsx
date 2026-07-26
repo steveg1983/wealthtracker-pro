@@ -82,8 +82,7 @@ export function BottomSheet({
       }
     }
   }, {
-    threshold: 50,
-    preventScrollOnSwipe: true
+    threshold: 50
   });
 
   // Handle touch drag
