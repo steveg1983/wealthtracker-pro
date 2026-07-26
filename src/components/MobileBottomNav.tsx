@@ -74,7 +74,10 @@ export default function MobileBottomNav(): React.JSX.Element {
       {/* Quick Action Button */}
       <button
         onClick={() => setShowQuickActions(!showQuickActions)}
-        className={`md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary dark:bg-[#1a2332] text-white rounded-full shadow-lg z-50 flex items-center justify-center transition-transform ${
+        // Rides on top of the safe-area inset the nav below now honours,
+        // rather than a bare 5rem: the nav grew by the inset, so a fixed
+        // offset would have put this button through it on any notched phone.
+        className={`md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-primary dark:bg-[#1a2332] text-white rounded-full shadow-lg z-50 flex items-center justify-center transition-transform ${
           showQuickActions ? 'rotate-45' : ''
         }`}
         aria-label="Quick actions"
@@ -82,8 +85,15 @@ export default function MobileBottomNav(): React.JSX.Element {
         {showQuickActions ? <XIcon size={24} /> : <PlusIcon size={24} />}
       </button>
 
-      <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50"
+      {/* safe-padding-bottom keeps the labels clear of the iPhone home
+          indicator. The bar itself still runs to the physical bottom edge —
+          padding, not margin — so the background reaches the screen edge the
+          way a native tab bar does, and only the content is inset. The class
+          has existed in index.css since the beginning and had never been used
+          anywhere; with the status bar now translucent, the insets are ours to
+          honour. */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 safe-padding-bottom"
         role="navigation"
         aria-label="Mobile navigation"
       >
