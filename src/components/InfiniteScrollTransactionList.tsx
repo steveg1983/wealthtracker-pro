@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { SwipeableTransactionRow } from './SwipeableTransactionRow';
-import type { Transaction, Account } from '../types';
+import type { Transaction, Account, Category } from '../types';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface InfiniteScrollTransactionListProps {
   transactions: Transaction[];
   accounts: Account[];
+  categories: Category[];
   formatCurrency: (amount: number) => string;
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
@@ -27,6 +28,7 @@ interface InfiniteScrollTransactionListProps {
 export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransactionList({
   transactions,
   accounts,
+  categories,
   formatCurrency,
   onEdit,
   onDelete,
@@ -37,6 +39,10 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   itemsPerBatch = 20
 }: InfiniteScrollTransactionListProps): React.JSX.Element {
   const [displayedItems, setDisplayedItems] = useState(itemsPerBatch);
+  const categoryNameById = useMemo(
+    () => new Map(categories.map(c => [c.id, c.name])),
+    [categories]
+  );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -152,6 +158,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
               key={transaction.id}
               transaction={transaction}
               account={account}
+              categoryName={transaction.category ? categoryNameById.get(transaction.category) : undefined}
               formatCurrency={formatCurrency}
               onEdit={onEdit}
               onDelete={onDelete}
