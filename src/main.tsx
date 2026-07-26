@@ -224,6 +224,12 @@ try {
             afterSignOutUrl="/"
             appearance={clerkAppearance}
             allowedRedirectOrigins={[window.location.origin]}
+            // Clerk's usage telemetry posts to clerk-telemetry.com, which the
+            // CSP's connect-src deliberately does not list — so every page load
+            // logged a CSP violation for a request we do not need. Widening the
+            // policy to admit an analytics host would be the wrong trade: a
+            // console full of expected errors is where a real one goes unseen.
+            telemetry={{ disabled: true }}
           >
             <App />
           </ClerkProvider>
