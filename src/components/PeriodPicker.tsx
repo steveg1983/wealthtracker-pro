@@ -13,7 +13,10 @@ export default function PeriodPicker({ picker }: { picker: UsePeriodResult }): R
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+      {/* flex-wrap is the phone story: six segments need ~490px and a phone
+          offers ~340, so the pill breaks into two rows there — the options
+          stack rather than run off the screen edge. One row from md up. */}
+      <div className="inline-flex flex-wrap rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
         {ORDER.map(key => (
           <button
             key={key}
