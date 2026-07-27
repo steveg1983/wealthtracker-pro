@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 
 const AddTransactionModal = lazy(() => import('./AddTransactionModal'));
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, LineChartIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -37,7 +37,6 @@ export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
-  const [planExpanded, setPlanExpanded] = useState(false);
   // advancedExpanded removed — Advanced section now uses TopNavDropdown on desktop and direct links on mobile
   const [investmentsExpanded, setInvestmentsExpanded] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -51,7 +50,6 @@ export default function Layout(): React.JSX.Element {
     isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const { registration } = useServiceWorker();
   const {
-    showGoals,
     showInvestments,
     showEnhancedInvestments,
   } = usePreferences();
@@ -538,35 +536,9 @@ export default function Layout(): React.JSX.Element {
                   </div>
                 )}
                 
-                {/* Plan with Sub-navigation — mirrors the desktop Plan menu.
-                    This replaced the Forecasting section, which was the only
-                    route to a Budget on mobile: there wasn't one. Forecasting
-                    and Goals ride inside it, keeping their feature gate. */}
-                <div>
-                  <Link
-                    to={isDemoModeRoutingEnabled ? '/budget?demo=true' : '/budget'}
-                    onClick={() => {
-                      setPlanExpanded(!planExpanded);
-                      toggleMobileMenu();
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
-                  >
-                    <TargetIcon size={18} />
-                    <span className="flex-1 text-sm text-left">Plan</span>
-                    <ChevronRightIcon
-                      size={14}
-                      className={`text-gray-400 transition-transform duration-200 ${planExpanded ? 'rotate-90' : ''}`}
-                    />
-                  </Link>
-                  {planExpanded && (
-                    <div className="mt-1 space-y-1">
-                      <SidebarLink to="/budget" icon={BarChart3Icon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendar" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
-                      {showGoals && <SidebarLink to="/forecasting" icon={LineChartIcon} label="Forecasting" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
-                    </div>
-                  )}
-                </div>
+                {/* Plan (Budget, Goals, Forecasting, Calendar) is desk work
+                    and deliberately absent here — the drawer is the phone's
+                    menu, and the desktop top-nav keeps the full Plan menu. */}
                 <SidebarLink to="/reports" icon={PieChartIcon} label="Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 {/* Settings with Sub-navigation */}
                 <div>

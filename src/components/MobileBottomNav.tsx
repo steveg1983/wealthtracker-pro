@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { HomeIcon, WalletIcon, BarChart3Icon, CheckCircleIcon, TagIcon, TrendingUpIcon, SettingsIcon, PlusIcon, XIcon } from './icons';
+import { HomeIcon, WalletIcon, BarChart3Icon, CheckCircleIcon, TagIcon, PlusIcon, XIcon } from './icons';
 
 interface MobileNavItem {
   to: string;
@@ -70,22 +70,6 @@ export default function MobileBottomNav(): React.JSX.Element {
               <WalletIcon size={20} />
               <span>Add Account</span>
             </Link>
-            <Link
-              to="/budget?action=add"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              onClick={() => setShowQuickActions(false)}
-            >
-              <TrendingUpIcon size={20} />
-              <span>Add Budget</span>
-            </Link>
-            <Link
-              to="/goals?action=add"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              onClick={() => setShowQuickActions(false)}
-            >
-              <SettingsIcon size={20} />
-              <span>Set Goal</span>
-            </Link>
           </div>
         </div>
       )}
@@ -93,12 +77,15 @@ export default function MobileBottomNav(): React.JSX.Element {
       {/* Quick Action Button */}
       <button
         onClick={() => setShowQuickActions(!showQuickActions)}
-        // Rides on top of the safe-area inset the nav below now honours,
-        // rather than a bare 5rem: the nav grew by the inset, so a fixed
-        // offset would have put this button through it on any notched phone.
-        className={`md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-primary dark:bg-[#1a2332] text-white rounded-full shadow-lg z-50 flex items-center justify-center transition-transform ${
+        // Position via inline style, not utility classes: on the actual
+        // device this button rendered at the LEFT edge while the same build
+        // put it bottom-right in every desktop browser. An inline style is
+        // beyond the reach of whatever ate the classes. Bottom rides the
+        // safe-area inset the nav honours.
+        className={`md:hidden fixed w-14 h-14 bg-primary dark:bg-[#1a2332] text-white rounded-full shadow-lg z-50 flex items-center justify-center transition-transform ${
           showQuickActions ? 'rotate-45' : ''
         }`}
+        style={{ right: '1rem', bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
         aria-label="Quick actions"
       >
         {showQuickActions ? <XIcon size={24} /> : <PlusIcon size={24} />}

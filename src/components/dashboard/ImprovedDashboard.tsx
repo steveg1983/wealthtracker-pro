@@ -856,8 +856,9 @@ export function ImprovedDashboard() {
         </section>
       )}
 
-      {/* Quick Actions */}
-      <nav aria-label="Quick actions" className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+      {/* Quick Actions — desktop only: on a phone the + button's menu
+          covers adding, and budgets/goals are desk work. */}
+      <nav aria-label="Quick actions" className="hidden md:grid md:grid-cols-4 gap-6">
         <button
           onClick={() => setShowAddTransactionModal(true)}
           className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"

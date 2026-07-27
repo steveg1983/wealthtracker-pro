@@ -207,7 +207,8 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
       {visibleTransactions.length > 10 && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-20 right-4 z-20 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+          className="fixed z-20 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-shadow"
+          style={{ right: '1rem', bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
           aria-label="Scroll to top"
         >
           <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

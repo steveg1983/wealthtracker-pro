@@ -104,7 +104,8 @@ export default function QuickDateFilters({ onDateRangeSelect, currentFrom, curre
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Date Filters</span>
       </div>
       
-      <div className="flex flex-wrap gap-2">
+      {/* Equal thirds on phones — free wrapping left a ragged edge. */}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
         {quickRanges.map((range) => {
           const value = range.getValue();
           const active = isActive(value);

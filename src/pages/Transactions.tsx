@@ -655,11 +655,13 @@ const Transactions = React.memo(function Transactions() {
             />
           </Suspense>
           
-          {/* Custom Date Range */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Custom Date Range — label on its own line, the two pickers as
+              equal halves beneath it on phones; the single wrapping row from
+              sm up. */}
+          <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
             <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Range:</span>
-            <div className="flex-1 min-w-[150px]">
+            <span className="col-span-2 sm:col-auto text-sm font-medium text-gray-700 dark:text-gray-300">Custom Range:</span>
+            <div className="min-w-0 sm:flex-1 sm:min-w-[150px]">
               <DatePicker
                 id="date-from"
                 value={dateFrom}
@@ -668,8 +670,8 @@ const Transactions = React.memo(function Transactions() {
                 aria-label="Filter from date"
               />
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
-            <div className="flex-1 min-w-[150px]">
+            <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">to</span>
+            <div className="min-w-0 sm:flex-1 sm:min-w-[150px]">
               <DatePicker
                 id="date-to"
                 value={dateTo}
