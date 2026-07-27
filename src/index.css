@@ -22,6 +22,16 @@
   /* Ensure all interactive elements have minimum touch target size.
      .toggle-switch is exempt — it carries its own ≥44px hit area via
      padding while the visible track stays slim. */
+  /* NO position here. This block once set `position: relative` on every
+     button — and `button:not(.toggle-switch)` outranks Tailwind's `.fixed`
+     (a :not() with a class inside scores 0,1,1 against the utility's 0,1,0),
+     so on every TOUCH device each fixed-positioned button in the app fell
+     silently into normal flow. That one line was the floating + button
+     rendering at the LEFT screen edge, the scroll-to-top button sitting
+     mid-page, and the invisible 56px flex sibling that squeezed <main> and
+     pinned every page off-centre — none of it ever reproducible on a
+     desktop, because this media query never matches one. Positioning
+     belongs to components; this block's job is minimum hit areas only. */
   .touch-target,
   button:not(.toggle-switch),
   a,
@@ -32,18 +42,15 @@
   [role="link"],
   [role="menuitem"],
   [role="tab"] {
-    position: relative;
     min-width: 44px;
     min-height: 44px;
   }
-  
-  /* For inline elements that can't be resized, expand touch area */
-  a:not(.touch-target-expanded),
-  button:not(.touch-target-expanded) {
+
+  /* The invisible expanded hit area needs a positioned parent — the ONE
+     place that may set it, on its own opt-in class. */
+  .touch-target-small {
     position: relative;
   }
-  
-  /* Invisible expanded touch area for small elements */
   .touch-target-small::after {
     content: "";
     position: absolute;
