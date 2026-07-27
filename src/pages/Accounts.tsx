@@ -391,9 +391,16 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <TypeIcon className={typeColor} size={16} />
-                          <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                          <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate min-w-0 flex-1">
                             {account.name}
                           </h3>
+                          {/* The figure the card exists to show, where a
+                              banking list puts it: right of the name. The
+                              stats row's copy hides below sm to avoid saying
+                              it twice. */}
+                          <span className="sm:hidden shrink-0 text-base font-semibold tabular-nums text-gray-900 dark:text-white">
+                            {formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
+                          </span>
                         </div>
                         {account.institution && (
                           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
@@ -460,7 +467,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     : 'N/A'}
                                 </p>
                               </div>
-                              <div className="text-right">
+                              <div className="hidden sm:block text-right">
                                 <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Bal</p>
                                 <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
                                   {formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}

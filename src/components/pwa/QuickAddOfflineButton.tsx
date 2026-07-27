@@ -21,7 +21,8 @@ export const QuickAddOfflineButton: React.FC = () => {
     <>
       <button
         onClick={() => setShowForm(true)}
-        className="fixed bottom-20 right-4 z-40 bg-[#1a2332] hover:bg-[#2d3a4d] text-white rounded-full p-4 shadow-lg transition-all transform hover:scale-110"
+        className="fixed z-40 bg-[#1a2332] hover:bg-[#2d3a4d] text-white rounded-full p-4 shadow-lg transition-all transform hover:scale-110"
+        style={{ right: '1rem', bottom: 'calc(9.5rem + env(safe-area-inset-bottom))' }}
         title="Add transaction (offline)"
       >
         <div className="relative">
