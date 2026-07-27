@@ -183,11 +183,12 @@ export default function Layout(): React.JSX.Element {
 
   return (
     // A block, not a flex row. The row layout served a sidebar that no longer
-    // exists, and it made <main> share its width with EVERY in-flow sibling:
-    // on a real iPhone something rendered a 56px box beside it (measured on
-    // device: main W384 R56 on a 440pt screen while html/body were full
-    // width), pinning every page 56px left of centre. In a block layout a
-    // stray sibling costs nothing — it falls below instead of beside.
+    // exists, and it made <main> share its width with EVERY in-flow sibling.
+    // The "invisible 56px sibling" that squeezed main on real iPhones was
+    // later identified: a touch-device CSS rule (index.css) was overriding
+    // position:fixed on every BUTTON, dropping the w-14 floating + into
+    // normal flow beside main. That rule is fixed too — block layout stays
+    // because main's width should never be negotiable in the first place.
     <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-900">
       <DemoModeIndicator />
       <EnhancedSkipLinks />
