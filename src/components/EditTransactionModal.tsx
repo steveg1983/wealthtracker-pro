@@ -593,11 +593,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <CalendarIcon size={16} />
                 Date
               </label>
+              {/* appearance-none + min-w-0: iOS gives a date input an
+                  intrinsic width that ignores w-full, so this box ran past
+                  the modal edge all its siblings stopped at. */}
               <input
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateField('date', e.target.value)}
-                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                className="appearance-none min-w-0 w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
                 required
               />
             </div>

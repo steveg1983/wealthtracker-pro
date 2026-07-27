@@ -147,9 +147,13 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
               pre-filled with the category you use most for them — and whatever you choose
               here is remembered, so future imports and bank feeds categorise themselves.
             </p>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
+            <div className="sm:overflow-x-auto">
+              {/* Below sm the table reflows: each row becomes a grid with the
+                  category picker on its own full-width line beneath the payee
+                  — the four-column row forced sideways scrolling in portrait,
+                  and the field being chosen was the part off-screen. */}
+              <table className="block sm:table w-full">
+                <thead className="hidden sm:table-header-group">
                   <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                     <th className="text-left pb-2 font-medium">Payee</th>
                     <th className="text-right pb-2 font-medium">Rows</th>
@@ -157,13 +161,13 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                     <th className="text-left pb-2 font-medium w-72">Category</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="block sm:table-row-group">
                   {visible.map(group => {
                     const key = keyOf(group);
                     const chosen = effectiveChoice(group);
                     return (
-                      <tr key={key} className="border-b border-gray-50 dark:border-gray-700/50">
-                        <td className="py-2 pr-3">
+                      <tr key={key} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-x-3 py-1 sm:py-0 sm:table-row border-b border-gray-50 dark:border-gray-700/50">
+                        <td className="block sm:table-cell min-w-0 py-2 sm:pr-3">
                           <span className="flex items-center gap-1.5">
                             {group.direction === 'expense'
                               ? <ArrowDownIcon size={12} className="text-red-500 flex-shrink-0" />
@@ -205,13 +209,13 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             </button>
                           )}
                         </td>
-                        <td className="py-2 pr-3 text-sm text-right tabular-nums text-gray-700 dark:text-gray-300">
+                        <td className="block sm:table-cell py-2 sm:pr-3 text-sm text-right tabular-nums text-gray-700 dark:text-gray-300">
                           {group.count.toLocaleString()}
                         </td>
-                        <td className="py-2 pr-3 text-sm text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        <td className="block sm:table-cell py-2 sm:pr-3 text-sm text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
                           {formatCurrency(group.total)}
                         </td>
-                        <td className="py-2">
+                        <td className="block sm:table-cell col-span-3 sm:col-auto pb-3 pt-0 sm:py-2">
                           <CategorySelector
                             selectedCategory={chosen}
                             onCategoryChange={(categoryId) => setChoice(group, categoryId)}
@@ -227,8 +231,8 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                     );
                   })}
                   {groups.length > CAP && (
-                    <tr>
-                      <td colSpan={4} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                    <tr className="block sm:table-row">
+                      <td colSpan={4} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
                         Showing the {CAP} biggest payees of {groups.length.toLocaleString()} —
                         apply these, then reopen for the next batch.
                       </td>
@@ -241,13 +245,15 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
         )}
       </ModalBody>
       <ModalFooter>
-        <div className="flex items-center gap-3">
+        {/* Stacked on phones: message, then two equal buttons. On one flex
+            row the squeezed Cancel rendered its label off-centre. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {applying
               ? `Applying ${progress.toLocaleString()} of ${ready.length.toLocaleString()} payees…`
               : `${ready.length.toLocaleString()} payee${ready.length === 1 ? '' : 's'} ready — ${rowsCovered.toLocaleString()} transaction${rowsCovered === 1 ? '' : 's'}`}
           </p>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:ml-auto">
             <button
               type="button"
               onClick={onClose}
