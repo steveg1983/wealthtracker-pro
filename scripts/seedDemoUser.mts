@@ -16,8 +16,10 @@
  *    first-login bootstrap sees them and does nothing.
  *
  * Transfer legs are linked by direct update (type/category/linked ids on both
- * sides) because the link_transfer_pair RPC is not present in production —
- * probed 2026-07-26. The update mirrors what that RPC does.
+ * sides), mirroring what the link_transfer_pair RPC does. A 2026-07-26 probe
+ * concluded that RPC was absent in production; a later catalog check proved
+ * it exists — the probe hit a stale PostgREST schema cache. The direct
+ * update is kept anyway: it needs no RPC grant and is equally verifiable.
  *
  * Usage:
  *   npx tsx scripts/seedDemoUser.mts --email demo@example.com --password 'S3cret!' [--env .env.local]
