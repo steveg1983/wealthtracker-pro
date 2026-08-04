@@ -157,13 +157,13 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
               <table className="block sm:table w-full">
                 <thead className="hidden sm:table-header-group">
                   <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left pb-2 pr-3 font-medium">Payee</th>
-                    <th className="text-right pb-2 pr-3 font-medium">Rows</th>
-                    {/* pr matches the body cells so each heading ends where
-                        its column ends, instead of "Total" leaning on
-                        "Category". */}
-                    <th className="text-right pb-2 pr-3 font-medium">Total</th>
-                    <th className="text-left pb-2 font-medium w-72 lg:w-96">Category</th>
+                    {/* Headings sit CENTRED over their columns — the app-wide
+                        convention. pr matches the body cells so each heading
+                        centres on its column, not on the gap beside it. */}
+                    <th className="text-center pb-2 pr-3 font-medium">Payee</th>
+                    <th className="text-center pb-2 pr-3 font-medium">Rows</th>
+                    <th className="text-center pb-2 pr-3 font-medium">Total</th>
+                    <th className="text-center pb-2 font-medium w-80 lg:w-[26rem]">Category</th>
                   </tr>
                 </thead>
                 <tbody className="block sm:table-row-group">

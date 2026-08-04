@@ -4,6 +4,45 @@ import { useApp } from '../contexts/AppContextSupabase';
 import type { Category } from '../types';
 import { ChevronDownIcon, TagIcon, PlusIcon, ArrowLeftIcon, CheckIcon } from './icons';
 
+/**
+ * A category name on ONE line, whatever its length: the trigger box is a
+ * fixed height, so a wrapping label was always a layout bug. The text first
+ * shrinks (down to an 11px floor) and only then ellipsises — long
+ * Money-style names like "Household : Other/Misc (Private/Not Seen)" stay
+ * whole and readable instead of breaking onto a second line. Every
+ * categorisation surface uses this selector, so every popup gets the same
+ * pattern for free.
+ */
+function FitLabel({ text, muted }: { text: string; muted: boolean }): JSX.Element {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = (): void => {
+      el.style.fontSize = '';
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth && size > 11) {
+        size -= 0.5;
+        el.style.fontSize = `${size}px`;
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text]);
+  return (
+    <span
+      ref={ref}
+      className={`block whitespace-nowrap overflow-hidden text-ellipsis ${
+        muted ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'
+      }`}
+    >
+      {text}
+    </span>
+  );
+}
+
 /** Fixed-position coordinates for the portaled dropdown (usePortal mode). */
 interface MenuPosition {
   left: number;
@@ -424,8 +463,8 @@ export default function CategorySelector({
           className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm cursor-text flex items-center"
           onClick={handleInputClick}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
+          <div className="flex w-full min-w-0 items-center justify-between gap-1">
+            <div className="flex-1 min-w-0">
               {showDropdown ? (
                 <input
                   type="text"
@@ -441,9 +480,10 @@ export default function CategorySelector({
                   autoFocus
                 />
               ) : (
-                <span className={`block ${selectedCategory ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {selectedCategory ? getSelectedCategoryName() : placeholder}
-                </span>
+                <FitLabel
+                  text={selectedCategory ? getSelectedCategoryName() : placeholder}
+                  muted={!selectedCategory}
+                />
               )}
             </div>
             <ChevronDownIcon
