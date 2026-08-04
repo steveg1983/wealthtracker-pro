@@ -5,7 +5,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { buildPayeeGroups, type PayeeGroup } from '../utils/payeeGroups';
-import { ArrowDownIcon, ArrowUpIcon } from './icons';
+import { ArrowDownIcon, ArrowUpIcon, XIcon } from './icons';
 
 /**
  * Bulk categorise by payee: file a whole merchant in one decision.
@@ -133,7 +133,9 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
       onClose={applying ? () => {} : onClose}
       closeOnBackdrop={!applying}
       title="Categorise by payee"
-      size="xl"
+      // 2xl: the category picker is the working column of this screen, and at
+      // xl it was the cramped one — long "Parent > Child" names need the room.
+      size="2xl"
     >
       <ModalBody>
         {groups.length === 0 ? (
@@ -158,7 +160,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                     <th className="text-left pb-2 font-medium">Payee</th>
                     <th className="text-right pb-2 font-medium">Rows</th>
                     <th className="text-right pb-2 font-medium">Total</th>
-                    <th className="text-left pb-2 font-medium w-72">Category</th>
+                    <th className="text-left pb-2 font-medium w-72 lg:w-96">Category</th>
                   </tr>
                 </thead>
                 <tbody className="block sm:table-row-group">
@@ -172,7 +174,7 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             {group.direction === 'expense'
                               ? <ArrowDownIcon size={12} className="text-red-500 flex-shrink-0" />
                               : <ArrowUpIcon size={12} className="text-green-600 flex-shrink-0" />}
-                            <span className="text-sm text-gray-900 dark:text-white truncate max-w-[220px]">
+                            <span className="text-sm text-gray-900 dark:text-white truncate max-w-[220px] lg:max-w-[340px]">
                               {group.displayName}
                             </span>
                           </span>
@@ -216,16 +218,35 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                           {formatCurrency(group.total)}
                         </td>
                         <td className="block sm:table-cell col-span-3 sm:col-auto pb-3 pt-0 sm:py-2">
-                          <CategorySelector
-                            selectedCategory={chosen}
-                            onCategoryChange={(categoryId) => setChoice(group, categoryId)}
-                            transactionType={group.direction}
-                            includeAllTypes
-                            showHelperText={false}
-                            usePortal
-                            placeholder="Choose a category…"
-                            className="w-full"
-                          />
+                          <span className="flex items-center gap-1.5">
+                            <CategorySelector
+                              selectedCategory={chosen}
+                              onCategoryChange={(categoryId) => setChoice(group, categoryId)}
+                              transactionType={group.direction}
+                              includeAllTypes
+                              showHelperText={false}
+                              usePortal
+                              placeholder="Choose a category…"
+                              className="w-full flex-1 min-w-0"
+                            />
+                            {/* The way OUT of a pre-fill. A suggestion the
+                                user does not trust for a bulk decision must
+                                be clearable — back to "Choose a category…",
+                                which excludes this payee from the apply and
+                                leaves its rows for line-by-line filing. */}
+                            {chosen !== '' && (
+                              <button
+                                type="button"
+                                onClick={() => setChoice(group, '')}
+                                disabled={applying}
+                                className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                title="Clear — leave this payee to categorise line by line"
+                                aria-label={`Clear category for ${group.displayName}`}
+                              >
+                                <XIcon size={14} />
+                              </button>
+                            )}
+                          </span>
                         </td>
                       </tr>
                     );

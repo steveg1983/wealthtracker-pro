@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
+import { useToast } from '../../contexts/ToastContext';
 import IncomeExpenseBreakdownModal, { type BreakdownBucket } from '../IncomeExpenseBreakdownModal';
 import EditTransactionModal from '../EditTransactionModal';
 import type { Category } from '../../types';
@@ -30,8 +31,33 @@ export default function ReportDrillModal({
   onClose: () => void;
   categories: Category[];
 }): React.JSX.Element {
-  const { transactions } = useApp();
+  const { transactions, applyCategoryToUncategorized } = useApp();
+  const { showSuccess, showError } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // The uncategorised drill files rows inline in batches: one call per
+  // distinct category, blanks-only underneath, so a concurrent edit can
+  // never be overwritten. Errors surface AND rethrow — the modal keeps the
+  // user's un-saved choices when a save fails.
+  const handleApplyCategories = useCallback(
+    async (assignments: Map<string, string[]>): Promise<number> => {
+      try {
+        let updated = 0;
+        for (const [categoryId, ids] of assignments) {
+          updated += await applyCategoryToUncategorized(ids, categoryId);
+        }
+        showSuccess(
+          `${updated.toLocaleString()} transaction${updated === 1 ? '' : 's'} categorised.`,
+          'Categories applied'
+        );
+        return updated;
+      } catch (error) {
+        showError(error);
+        throw error;
+      }
+    },
+    [applyCategoryToUncategorized, showSuccess, showError]
+  );
 
   return (
     <>
@@ -44,6 +70,7 @@ export default function ReportDrillModal({
         total={target?.total ?? null}
         categories={categories}
         onEditTransaction={setEditingId}
+        onApplyCategories={target?.bucket === 'uncategorized' ? handleApplyCategories : undefined}
       />
 
       {/* A split line's editor opens its PARENT — that is the real record. */}

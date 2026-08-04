@@ -28,6 +28,7 @@ import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
+import { useAutoBankSync } from '../hooks/useAutoBankSync';
 import DemoModeIndicator from './DemoModeIndicator';
 import ViewportDebugOverlay from './ViewportDebugOverlay';
 import SyncStatusIndicator from './SyncStatusIndicator';
@@ -83,6 +84,10 @@ export default function Layout(): React.JSX.Element {
   
   // Initialize global keyboard shortcuts
   const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
+
+  // Scheduled bank-feed refresh (on sign-in / daily at a set time) — the
+  // schedule itself lives in Settings; signed-out sessions do nothing.
+  useAutoBankSync();
 
   // Simple page navigation helper
   const getNextPrevPage = (direction: 'next' | 'prev', currentPath: string): string | null => {

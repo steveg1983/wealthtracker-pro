@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import CategorySelector from './CategorySelector';
 import { Modal, ModalBody } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { bucketContribution } from '../utils/incomeExpense';
@@ -35,6 +36,15 @@ interface Props {
   total: number | null;
   categories: Category[];
   onEditTransaction: (transactionId: string) => void;
+  /**
+   * Present only on the uncategorised drill: turns the Category column into
+   * an inline picker so rows can be filed WITHOUT opening each one. Choices
+   * accumulate; Save appears in the header once any exist; saved rows leave
+   * the list. Receives categoryId → transaction ids, returns rows updated.
+   * Split lines are excluded — their category lives on the split line, not
+   * the parent this callback fills.
+   */
+  onApplyCategories?: (assignments: Map<string, string[]>) => Promise<number>;
 }
 
 type SortKey = 'category' | 'date' | 'description' | 'amount';
@@ -50,8 +60,60 @@ export default function IncomeExpenseBreakdownModal({
   total,
   categories,
   onEditTransaction,
+  onApplyCategories,
 }: Props): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
+  const inlineFiling = bucket === 'uncategorized' && onApplyCategories !== undefined;
+
+  // Row id → chosen category ('' = choice cleared). Saved rows leave the
+  // list locally the moment the save lands — the upstream recompute follows
+  // on its own time.
+  const [pendingChoices, setPendingChoices] = useState<Record<string, string>>({});
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+
+  // A fresh drill is a fresh slate.
+  useEffect(() => {
+    if (isOpen) {
+      setPendingChoices({});
+      setSavedIds(new Set());
+    }
+  }, [isOpen]);
+
+  const liveRows = useMemo(
+    () => (savedIds.size > 0 ? rows.filter(r => !savedIds.has(r.id)) : rows),
+    [rows, savedIds]
+  );
+
+  const pendingCount = useMemo(
+    () => Object.values(pendingChoices).filter(v => v !== '').length,
+    [pendingChoices]
+  );
+
+  const handleSave = async (): Promise<void> => {
+    if (!onApplyCategories || saving) return;
+    const assignments = new Map<string, string[]>();
+    for (const [rowId, categoryId] of Object.entries(pendingChoices)) {
+      if (categoryId === '') continue;
+      const list = assignments.get(categoryId);
+      if (list) list.push(rowId);
+      else assignments.set(categoryId, [rowId]);
+    }
+    if (assignments.size === 0) return;
+    setSaving(true);
+    try {
+      await onApplyCategories(assignments);
+      setSavedIds(prev => {
+        const next = new Set(prev);
+        assignments.forEach(ids => ids.forEach(id => next.add(id)));
+        return next;
+      });
+      setPendingChoices({});
+    } finally {
+      // On failure the choices stay put — nothing the user picked is lost.
+      setSaving(false);
+    }
+  };
   // Category sections by default — the Money-style view.
   const [sortKey, setSortKey] = useState<SortKey>('category');
   const [sortDir, setSortDir] = useState<1 | -1>(1);
@@ -75,7 +137,7 @@ export default function IncomeExpenseBreakdownModal({
   // Either a flat sorted list, or category sections (each with subtotal),
   // capped so an All-time window can't render tens of thousands of rows.
   const view = useMemo(() => {
-    const sorted = [...rows];
+    const sorted = [...liveRows];
     if (sortKey === 'date') {
       sorted.sort((a, b) => sortDir * (new Date(a.date).getTime() - new Date(b.date).getTime()));
     } else if (sortKey === 'description') {
@@ -117,7 +179,7 @@ export default function IncomeExpenseBreakdownModal({
     }
     return { sections: capped, truncated };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, sortKey, sortDir, categoryName, bucket]);
+  }, [liveRows, sortKey, sortDir, categoryName, bucket]);
 
   const colourClass = bucket === 'income'
     ? 'text-green-600 dark:text-green-400'
@@ -159,9 +221,26 @@ export default function IncomeExpenseBreakdownModal({
             <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
           )}
         </td>
-        <td className="py-2 pr-3 text-sm text-gray-500 dark:text-gray-400">
-          {categoryName(t.category)}
-        </td>
+        {inlineFiling && !t.isSplitLine ? (
+          // Picking is not opening: the cell swallows the click so the row's
+          // click-to-edit stays available everywhere else on the row.
+          <td className="py-1.5 pr-3" onClick={(e) => e.stopPropagation()}>
+            <CategorySelector
+              selectedCategory={pendingChoices[t.id] ?? ''}
+              onCategoryChange={(categoryId) => setPendingChoices(prev => ({ ...prev, [t.id]: categoryId }))}
+              transactionType={t.amount < 0 ? 'expense' : 'income'}
+              includeAllTypes
+              showHelperText={false}
+              usePortal
+              placeholder="Choose a category…"
+              className="w-full min-w-[13rem]"
+            />
+          </td>
+        ) : (
+          <td className="py-2 pr-3 text-sm text-gray-500 dark:text-gray-400">
+            {categoryName(t.category)}
+          </td>
+        )}
         <td className={`py-2 text-sm font-medium text-right whitespace-nowrap tabular-nums ${rowColour}`}>
           {value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}
         </td>
@@ -170,9 +249,26 @@ export default function IncomeExpenseBreakdownModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size={inlineFiling ? 'xl' : 'lg'}
+      headerActions={
+        inlineFiling && pendingCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="px-4 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-wait"
+          >
+            {saving ? 'Saving…' : `Save ${pendingCount}`}
+          </button>
+        ) : undefined
+      }
+    >
       <ModalBody>
-        {rows.length === 0 ? (
+        {liveRows.length === 0 ? (
           <p className="text-center py-8 text-gray-400">No transactions</p>
         ) : (
           <table className="w-full">
@@ -208,7 +304,7 @@ export default function IncomeExpenseBreakdownModal({
               {view.truncated > 0 && (
                 <tr>
                   <td colSpan={4} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                    Showing {CAP.toLocaleString()} of {rows.length.toLocaleString()} rows — the total below covers them all.
+                    Showing {CAP.toLocaleString()} of {liveRows.length.toLocaleString()} rows — the total below covers them all.
                   </td>
                 </tr>
               )}

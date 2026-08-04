@@ -6,6 +6,7 @@ import BudgetAlertSettings from '../../components/BudgetAlertSettings';
 import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
 import LocaleSelector from '../../components/settings/LocaleSelector';
 import ShowTipsAgain from '../../components/settings/ShowTipsAgain';
+import BankFeedRefreshSettings from '../../components/settings/BankFeedRefreshSettings';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 export default function AppSettings() {
@@ -158,6 +159,8 @@ export default function AppSettings() {
         </button>
       }
     >
+
+      <BankFeedRefreshSettings />
 
       {/* Personal Information */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
