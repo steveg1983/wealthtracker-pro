@@ -80,6 +80,17 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // is a substring test over a couple of hundred rows.
   const [accountSearch, setAccountSearch] = useState('');
 
+  // The mobile +'s "Add Account" deep-links /accounts?action=add — open the
+  // modal and consume the param (replace), so back/refresh cannot re-open it.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') === 'add') {
+      setIsAddModalOpen(true);
+      params.delete('action');
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
+
   const { getUnreconciledCount, computeAccountBalance: computeLedgerBalance } = useReconciliation(accounts, transactions);
 
   // The transaction pages take seconds to arrive on a long history, and until

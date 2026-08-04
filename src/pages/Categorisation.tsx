@@ -4,6 +4,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { computeIncomeExpense } from '../utils/incomeExpense';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import { groupUncategorisedByAccount } from '../utils/uncategorisedByAccount';
+import { useAccountNames } from '../hooks/useAccountNames';
 import TransferSweepModal from '../components/TransferSweepModal';
 import BulkCategorizeModal from '../components/BulkCategorizeModal';
 import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/ReportDrillModal';
@@ -28,7 +29,7 @@ import { ArrowRightLeftIcon, TagIcon, ListIcon, CheckCircleIcon, Building2Icon, 
  * it.
  */
 export default function Categorisation(): React.JSX.Element {
-  const { transactions, transactionSplits, accounts, categories } = useApp();
+  const { transactions, transactionSplits, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
@@ -47,10 +48,10 @@ export default function Categorisation(): React.JSX.Element {
   const uncategorised = flows.uncategorizedRows;
   const count = uncategorised.length;
 
-  const accountName = useMemo(() => {
-    const byId = new Map(accounts.map(a => [a.id, a.name]));
-    return (id: string): string => byId.get(id) ?? 'Unknown account';
-  }, [accounts]);
+  // Includes CLOSED accounts — old history is exactly where the
+  // uncategorised backlog lives, and "Unknown account" was just a failure
+  // to look closed accounts up.
+  const accountName = useAccountNames();
 
   /** Where the unfiled rows actually are, worst first. */
   const byAccount = useMemo(

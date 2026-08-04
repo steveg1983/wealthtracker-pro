@@ -128,6 +128,18 @@ export default function Layout(): React.JSX.Element {
     setIsMobileSearchVisible(false);
   }, [location.pathname]);
 
+  // The mobile +'s "Add Transaction" deep-links /transactions?action=add.
+  // The app-wide add modal is Layout's, so Layout honours it — and consumes
+  // the param with a replace, so back or refresh cannot re-open the modal.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (location.pathname === '/transactions' && params.get('action') === 'add') {
+      setShowGlobalAddTransaction(true);
+      params.delete('action');
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
+
   const toggleMobileMenu = useCallback(() => {
     setIsMobileMenuOpen((prev) => !prev);
   }, []);
