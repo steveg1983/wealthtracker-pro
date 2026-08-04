@@ -157,9 +157,12 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
               <table className="block sm:table w-full">
                 <thead className="hidden sm:table-header-group">
                   <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left pb-2 font-medium">Payee</th>
-                    <th className="text-right pb-2 font-medium">Rows</th>
-                    <th className="text-right pb-2 font-medium">Total</th>
+                    <th className="text-left pb-2 pr-3 font-medium">Payee</th>
+                    <th className="text-right pb-2 pr-3 font-medium">Rows</th>
+                    {/* pr matches the body cells so each heading ends where
+                        its column ends, instead of "Total" leaning on
+                        "Category". */}
+                    <th className="text-right pb-2 pr-3 font-medium">Total</th>
                     <th className="text-left pb-2 font-medium w-72 lg:w-96">Category</th>
                   </tr>
                 </thead>
@@ -229,23 +232,27 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                               placeholder="Choose a category…"
                               className="w-full flex-1 min-w-0"
                             />
-                            {/* The way OUT of a pre-fill. A suggestion the
-                                user does not trust for a bulk decision must
-                                be clearable — back to "Choose a category…",
-                                which excludes this payee from the apply and
-                                leaves its rows for line-by-line filing. */}
-                            {chosen !== '' && (
-                              <button
-                                type="button"
-                                onClick={() => setChoice(group, '')}
-                                disabled={applying}
-                                className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                                title="Clear — leave this payee to categorise line by line"
-                                aria-label={`Clear category for ${group.displayName}`}
-                              >
-                                <XIcon size={14} />
-                              </button>
-                            )}
+                            {/* The way OUT of a pre-fill: back to "Choose a
+                                category…", excluding this payee from the
+                                apply so its rows can be filed line by line.
+                                The slot is RESERVED even when empty, so
+                                every picker in the column is one width —
+                                rows with and without a clear button used to
+                                render pickers of different sizes. */}
+                            <span className="w-8 shrink-0 flex justify-center">
+                              {chosen !== '' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setChoice(group, '')}
+                                  disabled={applying}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                                  title="Clear — leave this payee to categorise line by line"
+                                  aria-label={`Clear category for ${group.displayName}`}
+                                >
+                                  <XIcon size={14} />
+                                </button>
+                              )}
+                            </span>
                           </span>
                         </td>
                       </tr>

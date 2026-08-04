@@ -564,6 +564,8 @@ export class BankConnectionService {
       supportsBalance: true
     });
 
+    // Sorted programmatically so a future addition cannot land out of order
+    // (Barclaycard vs Barclays already had, alphabetically, swapped places).
     return [
       uk('amex', 'American Express'),
       uk('barclays', 'Barclays'),
@@ -579,7 +581,7 @@ export class BankConnectionService {
       uk('santander', 'Santander'),
       uk('starling', 'Starling Bank'),
       uk('tsb', 'TSB')
-    ];
+    ].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async connectBank(

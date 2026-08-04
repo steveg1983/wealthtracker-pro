@@ -209,13 +209,13 @@ export default function IncomeExpenseBreakdownModal({
       <tr
         key={t.id}
         onClick={() => onEditTransaction(t.splitParentId ?? t.id)}
-        className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+        className="grid grid-cols-[auto_1fr_auto] gap-x-3 py-1 sm:py-0 sm:table-row border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
         title={bucket === 'uncategorized' ? 'Click to give this transaction a category' : 'Click to view or edit this transaction'}
       >
-        <td className="py-2 pr-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+        <td className="block sm:table-cell py-2 pr-0 sm:pr-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
           {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
         </td>
-        <td className="py-2 pr-3 text-sm text-gray-900 dark:text-white">
+        <td className="block sm:table-cell min-w-0 py-2 pr-0 sm:pr-3 text-sm text-gray-900 dark:text-white">
           {t.description}
           {(bucket === 'income' || bucket === 'expense') && value < 0 && (
             <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(credit)</span>
@@ -224,7 +224,7 @@ export default function IncomeExpenseBreakdownModal({
         {inlineFiling && !t.isSplitLine ? (
           // Picking is not opening: the cell swallows the click so the row's
           // click-to-edit stays available everywhere else on the row.
-          <td className="py-1.5 pr-3" onClick={(e) => e.stopPropagation()}>
+          <td className="block sm:table-cell col-span-3 pb-2 sm:py-1.5 pr-0 sm:pr-3" onClick={(e) => e.stopPropagation()}>
             <CategorySelector
               selectedCategory={pendingChoices[t.id] ?? ''}
               onCategoryChange={(categoryId) => setPendingChoices(prev => ({ ...prev, [t.id]: categoryId }))}
@@ -233,15 +233,18 @@ export default function IncomeExpenseBreakdownModal({
               showHelperText={false}
               usePortal
               placeholder="Choose a category…"
-              className="w-full min-w-[13rem]"
+              // One fixed width for every row from sm up — a fluid picker
+              // sized itself to each row's leftover space and the column
+              // read ragged. Phones get the full row width instead.
+              className="w-full sm:w-72"
             />
           </td>
         ) : (
-          <td className="py-2 pr-3 text-sm text-gray-500 dark:text-gray-400">
+          <td className="block sm:table-cell col-span-3 sm:col-auto py-0 sm:py-2 pr-0 sm:pr-3 text-sm text-gray-500 dark:text-gray-400">
             {categoryName(t.category)}
           </td>
         )}
-        <td className={`py-2 text-sm font-medium text-right whitespace-nowrap tabular-nums ${rowColour}`}>
+        <td className={`block sm:table-cell py-2 text-sm font-medium text-right whitespace-nowrap tabular-nums ${rowColour}`}>
           {value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value)}
         </td>
       </tr>
@@ -253,7 +256,9 @@ export default function IncomeExpenseBreakdownModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      size={inlineFiling ? 'xl' : 'lg'}
+      // 2xl when filing inline: the picker is the working column, and at xl
+      // it was the squeezed one.
+      size={inlineFiling ? '2xl' : 'lg'}
       headerActions={
         inlineFiling && pendingCount > 0 ? (
           <button
@@ -268,11 +273,15 @@ export default function IncomeExpenseBreakdownModal({
       }
     >
       <ModalBody>
+        {/* Below sm the table reflows: each row is a small grid — date,
+            description and amount on one line, the category (or its picker)
+            full-width beneath — because four fixed columns cannot share a
+            phone. From sm up, the table is a table. */}
         {liveRows.length === 0 ? (
           <p className="text-center py-8 text-gray-400">No transactions</p>
         ) : (
-          <table className="w-full">
-            <thead>
+          <table className="block sm:table w-full">
+            <thead className="hidden sm:table-header-group">
               <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                 {headerButton('date', 'Date')}
                 {headerButton('description', 'Description')}
@@ -280,18 +289,18 @@ export default function IncomeExpenseBreakdownModal({
                 {headerButton('amount', 'Amount', 'right')}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="block sm:table-row-group">
               {view.sections.map((section, i) => (
                 <React.Fragment key={section.name ?? `flat-${i}`}>
                   {section.name !== null && (
-                    <tr className="bg-gray-50 dark:bg-gray-800/60">
-                      <td colSpan={3} className="py-1.5 pr-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                    <tr className="flex items-center justify-between sm:table-row bg-gray-50 dark:bg-gray-800/60">
+                      <td colSpan={3} className="block sm:table-cell py-1.5 pr-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                         {section.name}
                         <span className="ml-2 font-normal normal-case text-gray-400 dark:text-gray-500">
                           ({section.rows.length})
                         </span>
                       </td>
-                      <td className={`py-1.5 text-xs font-semibold text-right tabular-nums ${colourClass || 'text-gray-600 dark:text-gray-300'}`}>
+                      <td className={`block sm:table-cell py-1.5 text-xs font-semibold text-right tabular-nums ${colourClass || 'text-gray-600 dark:text-gray-300'}`}>
                         {section.subtotal < 0
                           ? `-${formatCurrency(Math.abs(section.subtotal))}`
                           : formatCurrency(section.subtotal)}
@@ -302,25 +311,25 @@ export default function IncomeExpenseBreakdownModal({
                 </React.Fragment>
               ))}
               {view.truncated > 0 && (
-                <tr>
-                  <td colSpan={4} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                <tr className="block sm:table-row">
+                  <td colSpan={4} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
                     Showing {CAP.toLocaleString()} of {liveRows.length.toLocaleString()} rows — the total below covers them all.
                   </td>
                 </tr>
               )}
             </tbody>
-            <tfoot>
+            <tfoot className="block sm:table-footer-group">
               {bucket === 'uncategorized' ? (
-                <tr className="border-t-2 border-gray-200 dark:border-gray-600">
-                  <td colSpan={4} className="pt-3 text-xs text-gray-500 dark:text-gray-400">
+                <tr className="block sm:table-row border-t-2 border-gray-200 dark:border-gray-600">
+                  <td colSpan={4} className="block sm:table-cell pt-3 text-xs text-gray-500 dark:text-gray-400">
                     These transactions count toward NO total until they are given a category.
                     Set up a category like &ldquo;Income : Miscellaneous&rdquo; if you need a catch-all.
                   </td>
                 </tr>
               ) : (
-                <tr className="border-t-2 border-gray-200 dark:border-gray-600">
-                  <td colSpan={3} className="pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
-                  <td className={`pt-3 text-sm font-bold text-right tabular-nums ${colourClass}`}>
+                <tr className="flex items-center justify-between sm:table-row border-t-2 border-gray-200 dark:border-gray-600">
+                  <td colSpan={3} className="block sm:table-cell pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
+                  <td className={`block sm:table-cell pt-3 text-sm font-bold text-right tabular-nums ${colourClass}`}>
                     {total !== null ? formatCurrency(total) : ''}
                   </td>
                 </tr>

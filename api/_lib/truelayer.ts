@@ -13,6 +13,8 @@ interface AuthUrlOptions {
   enableOpenBanking?: boolean;
   enableOauth?: boolean;
   enableMock?: boolean;
+  /** A single TrueLayer provider id — deep-links past TrueLayer's chooser. */
+  providerId?: string;
 }
 
 interface TokenResponse {
@@ -84,6 +86,35 @@ export const getRedirectUri = (): string => getRequiredEnv('TRUELAYER_REDIRECT_U
 export const isSandboxEnvironment = (): boolean =>
   getEnvironment() !== 'production';
 
+/**
+ * Our institution ids → TrueLayer provider ids, taken from TrueLayer's live
+ * registry (GET https://auth.truelayer.com/api/providers, checked
+ * 2026-08-03) — not guessed. Passing exactly one provider in `providers`
+ * skips TrueLayer's own bank chooser, so clicking "American Express" in our
+ * shortcut list lands directly on the Amex consent screen instead of asking
+ * the user to find Amex a second time. An unmapped id falls back to the full
+ * UK list — a worse journey, never a broken one.
+ */
+const TRUELAYER_PROVIDER_BY_INSTITUTION: Record<string, string> = {
+  amex: 'ob-amex',
+  barclays: 'ob-barclays',
+  barclaycard: 'ob-barclaycard',
+  'first-direct': 'ob-first-direct',
+  halifax: 'ob-halifax',
+  hsbc: 'ob-hsbc',
+  lloyds: 'ob-lloyds',
+  monzo: 'ob-monzo',
+  nationwide: 'ob-nationwide',
+  natwest: 'ob-natwest',
+  revolut: 'ob-revolut',
+  santander: 'ob-santander-personal',
+  starling: 'ob-starling',
+  tsb: 'ob-tsb',
+};
+
+export const providerForInstitution = (institutionId: string | undefined): string | undefined =>
+  institutionId ? TRUELAYER_PROVIDER_BY_INSTITUTION[institutionId] : undefined;
+
 export const buildAuthUrl = (options: AuthUrlOptions): string => {
   const url = new URL(getAuthBaseUrl());
   url.searchParams.set('response_type', 'code');
@@ -94,10 +125,14 @@ export const buildAuthUrl = (options: AuthUrlOptions): string => {
   url.searchParams.set('nonce', options.nonce);
   url.searchParams.set('state', options.state);
 
-  // CRITICAL: TrueLayer requires at least one provider to be specified
-  // In sandbox, use 'mock' provider. In production, use 'uk-ob-all' for all UK banks
+  // CRITICAL: TrueLayer requires at least one provider to be specified.
+  // Sandbox always uses 'mock'. In production a single mapped provider deep
+  // links straight to that bank's consent screen; otherwise the full UK list.
   const isSandbox = isSandboxEnvironment();
-  url.searchParams.set('providers', isSandbox ? 'mock' : 'uk-ob-all');
+  url.searchParams.set(
+    'providers',
+    isSandbox ? 'mock' : (options.providerId ?? 'uk-ob-all')
+  );
 
   if (options.enableMock) {
     url.searchParams.set('enable_mock', 'true');
