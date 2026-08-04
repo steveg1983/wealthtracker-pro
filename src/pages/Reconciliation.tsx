@@ -38,6 +38,19 @@ export default function Reconciliation() {
     setSortMode(value);
     try { localStorage.setItem('reconciliationSortMode', value); } catch { /* storage unavailable */ }
   }, []);
+  // Hide the accounts that are already done — everything cleared AND no bank
+  // balance difference — so the list is only the work. Grouping still applies:
+  // the filter drops accounts within each section, never the sections shape.
+  const [onlyAttention, setOnlyAttention] = useState<boolean>(() =>
+    localStorage.getItem('reconciliationOnlyAttention') === 'true'
+  );
+  const handleOnlyAttentionToggle = useCallback(() => {
+    setOnlyAttention(prev => {
+      const next = !prev;
+      try { localStorage.setItem('reconciliationOnlyAttention', String(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  }, []);
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -65,8 +78,25 @@ export default function Reconciliation() {
     computeClearedSummary,
   } = useReconciliation(accounts, overlaidTransactions);
 
+  // An account needs attention when transactions are still unreconciled, or a
+  // stated bank balance disagrees with the cleared balance. difference is
+  // Decimal-computed, so a balanced account is exactly 0.
+  const attentionCount = useMemo(
+    () =>
+      reconciliationDetails.filter(
+        s => s.unreconciledCount > 0 || (s.difference != null && s.difference !== 0)
+      ).length,
+    [reconciliationDetails]
+  );
+
   // Build the grouped, sorted account list (same sections as the Accounts page).
   const accountGroups = useMemo<ReconciliationGroup[]>(() => {
+    const visibleDetails = onlyAttention
+      ? reconciliationDetails.filter(
+          s => s.unreconciledCount > 0 || (s.difference != null && s.difference !== 0)
+        )
+      : reconciliationDetails;
+
     const sortSummaries = (list: typeof reconciliationDetails) => {
       const sorted = [...list];
       if (sortMode === 'name') sorted.sort((a, b) => a.account.name.localeCompare(b.account.name));
@@ -77,7 +107,7 @@ export default function Reconciliation() {
 
     if (groupBy === 'institution') {
       const byInstitution = new Map<string, typeof reconciliationDetails>();
-      for (const s of reconciliationDetails) {
+      for (const s of visibleDetails) {
         const key = s.account.institution || 'Other Accounts';
         (byInstitution.get(key) ?? byInstitution.set(key, []).get(key)!).push(s);
       }
@@ -93,11 +123,11 @@ export default function Reconciliation() {
     const groups: ReconciliationGroup[] = ALL_ACCOUNT_SECTIONS.map(section => ({
       title: section.title,
       summaries: sortSummaries(
-        reconciliationDetails.filter(s => sectionTypeForAccount(s.account.type) === section.type)
+        visibleDetails.filter(s => sectionTypeForAccount(s.account.type) === section.type)
       ),
     })).filter(g => g.summaries.length > 0);
     return groups;
-  }, [reconciliationDetails, groupBy, sortMode]);
+  }, [reconciliationDetails, groupBy, sortMode, onlyAttention]);
 
   // Selected account data
   const selectedAccount = useMemo(
@@ -333,6 +363,21 @@ export default function Reconciliation() {
                 Value {sortMode === 'balance-asc' ? '↑' : '↓'}
               </button>
             </div>
+          </div>
+          <div className="w-full sm:w-auto flex items-center">
+            <button
+              type="button"
+              onClick={handleOnlyAttentionToggle}
+              aria-pressed={onlyAttention}
+              title="Hide accounts that are fully reconciled with no balance difference"
+              className={`w-full sm:w-auto px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                onlyAttention
+                  ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              Needs attention only{attentionCount > 0 ? ` (${attentionCount})` : ''}
+            </button>
           </div>
         </div>
 

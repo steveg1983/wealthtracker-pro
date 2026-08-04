@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams , useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -28,6 +28,8 @@ import { useDebounce } from '../hooks/useDebounce';
 import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 
 const Transactions = React.memo(function Transactions() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { transactions, accounts, deleteTransaction, updateTransaction, categories, getDecimalTransactions } = useApp();
   const { compactView, setCompactView: _setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView } = useLayout();
@@ -39,6 +41,10 @@ const Transactions = React.memo(function Transactions() {
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
   const [isDetailsViewOpen, setIsDetailsViewOpen] = useState(false);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | 'net' | null>(null);
+  // Sorting for the breakdown popup's headers (house convention: every
+  // drilled-into transaction list sorts by its columns).
+  const [breakdownSortKey, setBreakdownSortKey] = useState<'date' | 'description' | 'account' | 'amount'>('date');
+  const [breakdownSortDir, setBreakdownSortDir] = useState<1 | -1>(-1);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
   const [showArchived, setShowArchived] = useState(false);
@@ -487,6 +493,24 @@ const Transactions = React.memo(function Transactions() {
       }
       rightContent={
         <div className="flex items-center gap-2">
+          {/* Same affordance Accounts has: add from the page header. Opens
+              via the ?action=add deep link Layout already honours, so the
+              header button, the mobile + menu and any future entry point
+              share ONE code path. */}
+          <button
+            onClick={() => {
+              const params = new URLSearchParams(location.search);
+              params.set('action', 'add');
+              navigate({ pathname: '/transactions', search: params.toString() });
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white text-sm font-medium rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+            title="Add Transaction"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Add Transaction
+          </button>
           {/* Compact View Toggle - Hidden but kept in code */}
           {/* <div 
             onClick={() => setCompactView(!compactView)}
@@ -999,10 +1023,26 @@ const Transactions = React.memo(function Transactions() {
           <table className="w-full">
             <thead>
               <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                <th className="text-left pb-2 font-medium">Date</th>
-                <th className="text-left pb-2 font-medium">Description</th>
-                <th className="text-left pb-2 font-medium">Account</th>
-                <th className="text-right pb-2 font-medium">Amount</th>
+                {([
+                  ['date', 'Date'],
+                  ['description', 'Description'],
+                  ['account', 'Account'],
+                  ['amount', 'Amount'],
+                ] as const).map(([key, label]) => (
+                  <th key={key} className="text-center pb-2 font-medium">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (breakdownSortKey === key) setBreakdownSortDir(d => (d === 1 ? -1 : 1));
+                        else { setBreakdownSortKey(key); setBreakdownSortDir(key === 'date' || key === 'amount' ? -1 : 1); }
+                      }}
+                      className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                      title={`Sort by ${label.toLowerCase()}`}
+                    >
+                      {label}{breakdownSortKey === key ? (breakdownSortDir === 1 ? ' ↑' : ' ↓') : ''}
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -1013,7 +1053,15 @@ const Transactions = React.memo(function Transactions() {
                     if (breakdownType === 'expense') return t.type === 'expense';
                     return t.type === 'income' || t.type === 'expense';
                   })
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                  .sort((a, b) => {
+                    const accName = (t: typeof a): string => accounts.find(x => x.id === t.accountId)?.name ?? '';
+                    switch (breakdownSortKey) {
+                      case 'description': return breakdownSortDir * a.description.localeCompare(b.description);
+                      case 'account': return breakdownSortDir * accName(a).localeCompare(accName(b));
+                      case 'amount': return breakdownSortDir * (Math.abs(a.amount) - Math.abs(b.amount));
+                      default: return breakdownSortDir * (new Date(a.date).getTime() - new Date(b.date).getTime());
+                    }
+                  });
 
                 if (txns.length === 0) {
                   return <tr><td colSpan={4} className="text-center py-8 text-gray-400">No transactions</td></tr>;

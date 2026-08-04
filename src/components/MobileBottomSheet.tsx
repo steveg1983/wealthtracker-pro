@@ -146,9 +146,14 @@ export function MobileBottomSheet({
         tabIndex={-1}
       >
         {/* Drag Handle */}
+        {/* The drag overlay is ABSOLUTE, so it paints above the header
+            regardless of DOM order — full-width it sat exactly on top of
+            the close button and silently ate every tap on the X. Stopping
+            it short of the right edge (right-16) leaves the X reachable
+            while the rest of the top strip still drags. */}
         {showHandle && (
           <div
-            className="absolute top-0 left-0 right-0 h-12 cursor-grab active:cursor-grabbing"
+            className="absolute top-0 left-0 right-16 h-12 cursor-grab active:cursor-grabbing"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -167,7 +172,7 @@ export function MobileBottomSheet({
             </h2>
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="relative z-10 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               aria-label="Close bottom sheet"
             >
               <XIcon size={20} />
