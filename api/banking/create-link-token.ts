@@ -8,7 +8,7 @@ import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { applyRateLimit } from '../_lib/rate-limit.js';
 import { createStateToken } from '../_lib/state.js';
-import { buildAuthUrl, getRedirectUri, isSandboxEnvironment } from '../_lib/truelayer.js';
+import { buildAuthUrl, getRedirectUri, isSandboxEnvironment, providerForInstitution } from '../_lib/truelayer.js';
 import { withSentry } from '../_lib/sentry.js';
 
 // 'cards' unlocks credit-card providers (American Express etc.) in the auth
@@ -35,7 +35,15 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
     const state = createStateToken(auth.userId);
     const nonce = randomBytes(12).toString('hex');
+    // The client has always sent which bank was clicked; honouring it is what
+    // makes the shortcut list an actual shortcut. Only ids in our own map
+    // reach the URL — arbitrary input never does.
+    const institutionId =
+      typeof (req.body as { institutionId?: unknown })?.institutionId === 'string'
+        ? (req.body as { institutionId: string }).institutionId
+        : undefined;
     const authUrl = buildAuthUrl({
+      providerId: providerForInstitution(institutionId),
       redirectUri: getRedirectUri(),
       scope: AUTH_SCOPES,
       nonce,

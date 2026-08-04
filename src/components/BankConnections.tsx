@@ -458,12 +458,11 @@ export default function BankConnections({
           </div>
 
           {/* Provider Info */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
-            <p className="text-blue-800 dark:text-blue-200">
-              <strong>Secure Connection:</strong> Your credentials are never stored.
-              Connection is established directly with your bank using OAuth. You&rsquo;ll
-              confirm your exact bank or card provider on TrueLayer&rsquo;s secure page —
-              this list is just a shortcut.
+          <div className="bg-[#1a2332] dark:bg-gray-700 rounded-lg p-3 text-sm">
+            <p className="text-white/80">
+              <strong className="text-white">Secure Connection:</strong> Your credentials are never stored.
+              Connection is established directly with your bank using OAuth on
+              TrueLayer&rsquo;s secure page.
             </p>
           </div>
 

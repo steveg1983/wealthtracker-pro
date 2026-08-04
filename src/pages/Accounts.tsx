@@ -6,6 +6,7 @@ import { DataService } from '../services/api/dataService';
 import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
+import AccountBreakdownModal, { type AccountBreakdownView } from '../components/AccountBreakdownModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
 import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, BankIcon, RefreshCwIcon, AlertTriangleIcon, ChevronRightIcon, ChevronDownIcon, XCircleIcon, SearchIcon } from '../components/icons';
@@ -42,6 +43,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [bankConnectionsView, setBankConnectionsView] = useState<null | 'plain' | 'critical' | 'jwks'>(null);
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
+  const [breakdownView, setBreakdownView] = useState<AccountBreakdownView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() => {
     return (localStorage.getItem('accountsGroupBy') as 'type' | 'institution') || 'type';
@@ -423,12 +425,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                             )}
                           </p>
                         )}
-                        {account.openingBalance !== undefined && (
-                          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
-                            Opening balance: {formatDisplayCurrency(account.openingBalance, account.currency)} 
-                            {account.openingBalanceDate && ` on ${new Date(account.openingBalanceDate).toLocaleDateString()}`}
-                          </p>
-                        )}
+
                         {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                           <div className="text-xs text-gray-500 dark:text-gray-300 mt-1 space-y-1">
                             <p>
@@ -794,20 +791,36 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         // One column on a phone: these are eight-digit figures at text-2xl,
         // and a grid cell will not shrink below an unbreakable number — three
         // abreast forced the whole page to scroll sideways at 375px.
+        // Each figure drills into the accounts behind it.
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <div className="bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white">
+            <button
+              type="button"
+              onClick={() => setBreakdownView('net')}
+              className="bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white text-left hover:bg-[#2d3a4d] dark:hover:bg-gray-600 transition-colors"
+              title="See the accounts behind this figure"
+            >
               <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth</p>
               <p className="text-2xl font-bold mt-1">{formatDisplayCurrency(totalBalance)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+            </button>
+            <button
+              type="button"
+              onClick={() => setBreakdownView('assets')}
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
+              title="See the accounts behind this figure"
+            >
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets</p>
               <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{formatDisplayCurrency(totalAssets)}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+            </button>
+            <button
+              type="button"
+              onClick={() => setBreakdownView('liabilities')}
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
+              title="See the accounts behind this figure"
+            >
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Liabilities</p>
               <p className="text-2xl font-bold mt-1 text-red-600">{formatDisplayCurrency(totalLiabilities)}</p>
-            </div>
+            </button>
           </div>
         );
       })()}
@@ -1105,6 +1118,24 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       {/* Account Settings Modal — serves the open cards AND the closed rows, so
           the account can come from either list. A closed account is not in
           context state (it is loaded separately), hence the second lookup. */}
+            <AccountBreakdownModal
+        view={breakdownView}
+        onClose={() => setBreakdownView(null)}
+        rows={decimalAccounts.map(a => ({
+          id: a.id,
+          name: a.name,
+          institution: a.institution,
+          balance: computeAccountBalance(a.id),
+          formatted: formatDisplayCurrency(computeAccountBalance(a.id), a.currency),
+        }))}
+        formatTotal={(v) => formatDisplayCurrency(v)}
+        onOpenAccount={(accountId) => {
+          setBreakdownView(null);
+          if (onAccountClick) onAccountClick(accountId);
+          else navigate(preserveDemoParam(`/accounts/${accountId}`, location.search));
+        }}
+      />
+
       <AccountSettingsModal
         isOpen={!!settingsAccountId}
         onClose={() => setSettingsAccountId(null)}
