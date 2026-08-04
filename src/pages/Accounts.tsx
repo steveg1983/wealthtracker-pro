@@ -797,7 +797,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             <button
               type="button"
               onClick={() => setBreakdownView('net')}
-              className="bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white text-left hover:bg-[#2d3a4d] dark:hover:bg-gray-600 transition-colors"
+              className="flex flex-col items-start bg-[#1a2332] dark:bg-gray-700 rounded-xl p-4 text-white text-left hover:bg-[#2d3a4d] dark:hover:bg-gray-600 transition-colors"
               title="See the accounts behind this figure"
             >
               <p className="text-xs text-white/60 uppercase tracking-wider font-medium">Net Worth</p>
@@ -806,7 +806,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             <button
               type="button"
               onClick={() => setBreakdownView('assets')}
-              className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
+              className="flex flex-col items-start bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
               title="See the accounts behind this figure"
             >
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Assets</p>
@@ -815,7 +815,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             <button
               type="button"
               onClick={() => setBreakdownView('liabilities')}
-              className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
+              className="flex flex-col items-start bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 text-left hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md transition-all"
               title="See the accounts behind this figure"
             >
               <p className="text-xs text-gray-500 uppercase tracking-wider font-medium">Liabilities</p>
@@ -1125,6 +1125,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           id: a.id,
           name: a.name,
           institution: a.institution,
+          accountType: a.type,
           balance: computeAccountBalance(a.id),
           formatted: formatDisplayCurrency(computeAccountBalance(a.id), a.currency),
         }))}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import CategorySelector from './CategorySelector';
+import { XIcon } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { bucketContribution } from '../utils/incomeExpense';
@@ -189,8 +190,9 @@ export default function IncomeExpenseBreakdownModal({
 
   const arrow = (key: SortKey): string => (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '');
 
-  const headerButton = (key: SortKey, label: string, align: 'left' | 'right' = 'left') => (
-    <th className={`pb-2 font-medium text-${align}`}>
+  // Headings sit CENTRED over their columns — the app-wide convention.
+  const headerButton = (key: SortKey, label: string, _align: 'left' | 'right' = 'left') => (
+    <th className="pb-2 font-medium text-center">
       <button
         type="button"
         onClick={() => handleSort(key)}
@@ -225,19 +227,38 @@ export default function IncomeExpenseBreakdownModal({
           // Picking is not opening: the cell swallows the click so the row's
           // click-to-edit stays available everywhere else on the row.
           <td className="block sm:table-cell col-span-3 pb-2 sm:py-1.5 pr-0 sm:pr-3" onClick={(e) => e.stopPropagation()}>
-            <CategorySelector
-              selectedCategory={pendingChoices[t.id] ?? ''}
-              onCategoryChange={(categoryId) => setPendingChoices(prev => ({ ...prev, [t.id]: categoryId }))}
-              transactionType={t.amount < 0 ? 'expense' : 'income'}
-              includeAllTypes
-              showHelperText={false}
-              usePortal
-              placeholder="Choose a category…"
-              // One fixed width for every row from sm up — a fluid picker
-              // sized itself to each row's leftover space and the column
-              // read ragged. Phones get the full row width instead.
-              className="w-full sm:w-72"
-            />
+            <span className="flex items-center gap-1.5">
+              <CategorySelector
+                selectedCategory={pendingChoices[t.id] ?? ''}
+                onCategoryChange={(categoryId) => setPendingChoices(prev => ({ ...prev, [t.id]: categoryId }))}
+                transactionType={t.amount < 0 ? 'expense' : 'income'}
+                includeAllTypes
+                showHelperText={false}
+                usePortal
+                placeholder="Choose a category…"
+                // One fixed width for every row from sm up — a fluid picker
+                // sized itself to each row's leftover space and the column
+                // read ragged. Phones get the full row width instead.
+                className="w-full sm:w-80"
+              />
+              {/* Same pattern as Categorise by payee: an accidental pick must
+                  be reversible, and the slot is RESERVED so every picker in
+                  the column stays one width. */}
+              <span className="w-8 shrink-0 flex justify-center">
+                {(pendingChoices[t.id] ?? '') !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingChoices(prev => ({ ...prev, [t.id]: '' }))}
+                    disabled={saving}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    title="Clear — back to Choose a category"
+                    aria-label="Clear chosen category"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                )}
+              </span>
+            </span>
           </td>
         ) : (
           <td className="block sm:table-cell col-span-3 sm:col-auto py-0 sm:py-2 pr-0 sm:pr-3 text-sm text-gray-500 dark:text-gray-400">

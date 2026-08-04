@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody } from './common/Modal';
+import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 
 /**
  * The drill-in behind the Accounts page's Net Worth / Assets / Liabilities
@@ -17,6 +18,8 @@ export interface AccountBreakdownRow {
   id: string;
   name: string;
   institution?: string;
+  /** The account's type, for the Group view's sections. */
+  accountType: string;
   /** Signed balance, from the page's own computeAccountBalance. */
   balance: number;
   /** Formatted in the account's own currency by the page's formatter. */
@@ -51,6 +54,8 @@ export default function AccountBreakdownModal({
   // on the liabilities view, not the least negative number.
   const [sortKey, setSortKey] = useState<SortKey>('balance');
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  // Group by account type — the same sections as the main Accounts screen.
+  const [grouped, setGrouped] = useState(false);
 
   const handleSort = (key: SortKey): void => {
     if (key === sortKey) {
@@ -74,13 +79,27 @@ export default function AccountBreakdownModal({
   const liabilities = useMemo(() => rows.filter(r => r.balance < 0), [rows]);
 
   const sections = useMemo(() => {
+    const included = view === 'assets' ? assets : view === 'liabilities' ? liabilities : rows;
+
+    if (grouped) {
+      // The SAME sections, titles and order as the main Accounts screen —
+      // shared definition, so the two can never disagree. The active sort
+      // still applies within each group.
+      return ALL_ACCOUNT_SECTIONS
+        .map(section => ({
+          name: section.title as string | null,
+          rows: sortRows(included.filter(r => sectionTypeForAccount(r.accountType) === section.type)),
+        }))
+        .filter(section => section.rows.length > 0);
+    }
+
     if (view === 'assets') return [{ name: null as string | null, rows: sortRows(assets) }];
     if (view === 'liabilities') return [{ name: null as string | null, rows: sortRows(liabilities) }];
     return [
       { name: 'Assets' as string | null, rows: sortRows(assets) },
       { name: 'Liabilities' as string | null, rows: sortRows(liabilities) },
     ];
-  }, [view, assets, liabilities, sortRows]);
+  }, [view, grouped, rows, assets, liabilities, sortRows]);
 
   const total = useMemo(() => {
     const included = view === 'assets' ? assets : view === 'liabilities' ? liabilities : rows;
@@ -90,12 +109,32 @@ export default function AccountBreakdownModal({
   const arrow = (key: SortKey): string => (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '');
 
   return (
-    <Modal isOpen={view !== null} onClose={onClose} title={view ? TITLES[view] : ''} size="lg">
+    <Modal
+      isOpen={view !== null}
+      onClose={onClose}
+      title={view ? TITLES[view] : ''}
+      size="lg"
+      headerActions={
+        <button
+          type="button"
+          onClick={() => setGrouped(g => !g)}
+          aria-pressed={grouped}
+          className={`px-4 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+            grouped
+              ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+              : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+          title="Group accounts by type, the way the Accounts screen does"
+        >
+          Group
+        </button>
+      }
+    >
       <ModalBody>
         <table className="w-full">
           <thead>
             <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-              <th className="pb-2 font-medium text-left">
+              <th className="pb-2 font-medium text-center">
                 <button
                   type="button"
                   onClick={() => handleSort('name')}
@@ -105,7 +144,7 @@ export default function AccountBreakdownModal({
                   Account{arrow('name')}
                 </button>
               </th>
-              <th className="pb-2 font-medium text-right">
+              <th className="pb-2 font-medium text-center">
                 <button
                   type="button"
                   onClick={() => handleSort('balance')}
@@ -129,7 +168,7 @@ export default function AccountBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-1.5 text-xs font-semibold text-right tabular-nums ${
-                      section.name === 'Liabilities'
+                      section.rows.reduce((s, r) => s + r.balance, 0) < 0
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-green-600 dark:text-green-400'
                     }`}>
@@ -137,7 +176,7 @@ export default function AccountBreakdownModal({
                     </td>
                   </tr>
                 )}
-                {section.rows.length === 0 && (
+                {!grouped && section.rows.length === 0 && (
                   <tr>
                     <td colSpan={2} className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
                       Nothing here — every account stands {view === 'liabilities' ? 'positive' : 'negative'}.
