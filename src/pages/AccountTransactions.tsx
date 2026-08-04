@@ -149,6 +149,32 @@ export default function AccountTransactions() {
 
   const archiveWindow = useMemo(() => computeArchiveWindow(archive.range, archive.from, archive.to), [archive]);
 
+  // Deep link from the categorisation drill: /accounts/:id?txn=<txnId>
+  // selects that transaction (the quick-edit dock shows it in full), widens
+  // the date window to All so it cannot be filtered out of sight, and
+  // scrolls the register to its row. The param is consumed with a replace —
+  // the established pattern — so back/refresh does not re-trigger it.
+  const pendingTxnRef = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const txn = params.get('txn');
+    if (!txn) return;
+    pendingTxnRef.current = txn;
+    setArchive(prev => (prev.range === 'all' ? prev : { range: 'all', from: '', to: '' }));
+    params.delete('txn');
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    const txn = pendingTxnRef.current;
+    if (!txn) return;
+    const target = transactions.find(t => t.id === txn);
+    if (!target) return; // rows may still be loading; retry on next change
+    pendingTxnRef.current = null;
+    setSelectedTransaction(target);
+    setSelectedTransactionId(txn);
+  }, [transactions]);
+
   const toggleColumn = useCallback((key: string) => {
     setHiddenColumns(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
   }, []);
@@ -452,6 +478,25 @@ export default function AccountTransactions() {
 
   // The quick-edit panel always reflects the latest saved state of the
   // selected transaction (context updates flow straight back in).
+  // Scroll the virtualised register to the selected row when it arrived via
+  // the deep link. react-window scrolls via its outer element's scrollTop;
+  // best-effort — a failed lookup simply leaves the dock as the pointer.
+  const scrolledToRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedTransactionId || scrolledToRef.current === selectedTransactionId) return;
+    const index = displayRows.findIndex(row => row.id === selectedTransactionId);
+    if (index < 0) return;
+    scrolledToRef.current = selectedTransactionId;
+    try {
+      const scroller = tableWrapRef.current?.querySelector('div[style*="overflow"]') as HTMLElement | null;
+      if (scroller) {
+        scroller.scrollTop = Math.max(0, index * (compactView ? 36 : 44) - 120);
+      }
+    } catch {
+      // Selection alone still identifies the row via the dock.
+    }
+  }, [selectedTransactionId, displayRows, compactView]);
+
   const quickEditTarget = useMemo(
     () => transactionsWithBalance.find(t => t.id === selectedTransactionId) ?? null,
     [transactionsWithBalance, selectedTransactionId]

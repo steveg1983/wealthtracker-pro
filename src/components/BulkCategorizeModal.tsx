@@ -2,6 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import CategorySelector from './CategorySelector';
 import { useAccountNames } from '../hooks/useAccountNames';
+import { useNavigate, useLocation } from 'react-router-dom';
+import IncomeExpenseBreakdownModal from './IncomeExpenseBreakdownModal';
+import type { SplitExpandedTransaction } from '../utils/transactionSplits';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -33,6 +36,12 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
   const { transactions, categories, applyCategoryToUncategorized } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Drill into ONE payee: its rows in the same inline-filing list the
+  // one-by-one review uses — file a few by hand, save, come back, and bulk
+  // the rest.
+  const [drillGroup, setDrillGroup] = useState<PayeeGroup | null>(null);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -177,9 +186,14 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                             {group.direction === 'expense'
                               ? <ArrowDownIcon size={12} className="text-red-500 flex-shrink-0" />
                               : <ArrowUpIcon size={12} className="text-green-600 flex-shrink-0" />}
-                            <span className="text-sm text-gray-900 dark:text-white truncate max-w-[220px] lg:max-w-[340px]">
+                            <button
+                              type="button"
+                              onClick={() => setDrillGroup(group)}
+                              className="text-sm text-gray-900 dark:text-white truncate max-w-[220px] lg:max-w-[340px] text-left underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600 hover:text-blue-700 dark:hover:text-blue-400"
+                              title={`See the ${group.count.toLocaleString()} transactions behind this payee`}
+                            >
                               {group.displayName}
-                            </span>
+                            </button>
                           </span>
                           <span className="block text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                             {new Date(group.earliest).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
@@ -301,6 +315,48 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
           </div>
         </div>
       </ModalFooter>
+      {/* One payee, opened up: the same inline-filing list as the
+          one-by-one review — pick categories row by row, Save in the
+          header, saved rows leave — scoped to this payee. Clicking a row
+          jumps to the transaction IN ITS ACCOUNT's register (selected and
+          scrolled to), for the times only the surrounding history can say
+          what something was. */}
+      {drillGroup && (
+        <IncomeExpenseBreakdownModal
+          isOpen
+          onClose={() => setDrillGroup(null)}
+          title={`${drillGroup.displayName} — ${drillGroup.count.toLocaleString()} uncategorised`}
+          bucket="uncategorized"
+          rows={drillGroup.transactionIds
+            .map(id => transactions.find(t => t.id === id))
+            .filter((t): t is NonNullable<typeof t> => t !== undefined) as SplitExpandedTransaction[]}
+          total={null}
+          categories={categories}
+          onEditTransaction={(txnId) => {
+            const txn = transactions.find(t => t.id === txnId);
+            if (!txn) return;
+            const params = new URLSearchParams();
+            params.set('txn', txnId);
+            if (new URLSearchParams(location.search).get('demo') === 'true') {
+              params.set('demo', 'true');
+            }
+            setDrillGroup(null);
+            onClose();
+            navigate(`/accounts/${txn.accountId}?${params.toString()}`);
+          }}
+          onApplyCategories={async (assignments) => {
+            let updated = 0;
+            for (const [categoryId, ids] of assignments) {
+              updated += await applyCategoryToUncategorized(ids, categoryId);
+            }
+            showSuccess(
+              `${updated.toLocaleString()} transaction${updated === 1 ? '' : 's'} categorised.`,
+              'Categories applied'
+            );
+            return updated;
+          }}
+        />
+      )}
     </Modal>
   );
 }
