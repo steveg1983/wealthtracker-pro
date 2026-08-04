@@ -24,6 +24,12 @@ export interface UseAccountBankSyncResult {
   isAccountSyncing: (accountId: string) => boolean;
   /** Pull fresh accounts + transactions for the account's whole bank connection. */
   syncAccount: (accountId: string) => Promise<void>;
+  /** Sync every healthy connection, one after another; one summary toast. */
+  syncAllConnections: () => Promise<void>;
+  /** How many connections a refresh-all would touch. */
+  connectedCount: number;
+  /** True while any connection is mid-sync. */
+  isSyncingAny: boolean;
   /** Re-fetch connection metadata (last sync, status) without triggering a sync. */
   reloadConnections: () => Promise<void>;
 }
@@ -153,5 +159,87 @@ export function useAccountBankSync(options?: { onSynced?: () => void | Promise<v
     [linksByAccountId, syncingConnectionIds, onSynced, reloadConnections, showSuccess, showWarning, showError]
   );
 
-  return { getAccountLink, isAccountSyncing, syncAccount, reloadConnections };
+  // One hit for every healthy connection, sequentially — banks rate-limit,
+  // and a burst of parallel token refreshes is how a "refresh all" gets a
+  // whole login temporarily locked. Per-connection toasts are suppressed in
+  // favour of one summary; failures are counted, not fatal, so one broken
+  // connection cannot stop the rest of the round.
+  const syncAllConnections = useCallback(async () => {
+    const targets = connections.filter(
+      (c) => c.status === 'connected' && !syncingConnectionIds.has(c.id)
+    );
+    if (targets.length === 0) {
+      return;
+    }
+
+    setSyncingConnectionIds((prev) => {
+      const next = new Set(prev);
+      targets.forEach((t) => next.add(t.id));
+      return next;
+    });
+
+    let imported = 0;
+    let failed = 0;
+    try {
+      for (const target of targets) {
+        try {
+          const result = await bankConnectionService.syncConnection(target.id);
+          if (result.success) {
+            imported += result.transactionsImported;
+          } else {
+            failed += 1;
+          }
+        } catch (error) {
+          logger.error('Refresh-all: connection sync failed', error as Error);
+          failed += 1;
+        } finally {
+          setSyncingConnectionIds((prev) => {
+            const next = new Set(prev);
+            next.delete(target.id);
+            return next;
+          });
+        }
+      }
+
+      // One reload at the end covers every status flip (incl. reauth_required).
+      await reloadConnections();
+      if (failed === 0 && onSynced) {
+        await onSynced();
+      }
+
+      const done = targets.length - failed;
+      if (failed > 0) {
+        showWarning(
+          `Refreshed ${done} of ${targets.length} connections — ${failed} did not complete. Check Bank Connections.`,
+          'Feed refresh incomplete'
+        );
+      } else {
+        showSuccess(
+          imported > 0
+            ? `Refreshed ${done} connection${done === 1 ? '' : 's'} — ${imported} new transaction${imported === 1 ? '' : 's'}.`
+            : `Refreshed ${done} connection${done === 1 ? '' : 's'} — everything is up to date.`,
+          'Feeds refreshed'
+        );
+      }
+    } catch (error) {
+      logger.error('Refresh-all failed', error as Error);
+      showError(error);
+      await reloadConnections();
+    }
+  }, [connections, syncingConnectionIds, onSynced, reloadConnections, showSuccess, showWarning, showError]);
+
+  const connectedCount = useMemo(
+    () => connections.filter((c) => c.status === 'connected').length,
+    [connections]
+  );
+
+  return {
+    getAccountLink,
+    isAccountSyncing,
+    syncAccount,
+    syncAllConnections,
+    connectedCount,
+    isSyncingAny: syncingConnectionIds.size > 0,
+    reloadConnections,
+  };
 }

@@ -91,7 +91,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     [seededBalances, computeLedgerBalance]
   );
   // Per-account bank connection metadata + one-click "pull fresh bank data".
-  const { getAccountLink, isAccountSyncing, syncAccount } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
+  const { getAccountLink, isAccountSyncing, syncAccount, syncAllConnections, connectedCount, isSyncingAny } = useAccountBankSync({ onSynced: refreshAccountsAndTransactions });
 
   // Only OPEN accounts appear in the main list and totals; closed ones live in
   // the Closed Accounts section below (the Microsoft Money model — closing
@@ -450,14 +450,17 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         )}
                       </div>
                       
-                      {/* flex-wrap is what keeps this inside the card on a
-                          phone: three stat columns plus the action buttons
-                          need ~420px, the card offers ~330, and items-end
-                          right-aligns the excess OUT of the card's left edge.
-                          Wrapped, the stats take one row and the buttons the
-                          next, both right-aligned, both inside the card. */}
+                      {/* Phones: a wrapping row (three stat columns plus the
+                          buttons need ~420px and the card offers ~330, so the
+                          stats take one row and the buttons the next). From sm
+                          up it is a GRID of fixed columns — three stat columns,
+                          then five reserved button slots — so every figure and
+                          every button lands at the same x on every card. An
+                          account without a bank feed keeps an EMPTY feed cell
+                          rather than letting the buttons shuffle left; muscle
+                          memory is the point. */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+                            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 sm:grid sm:grid-cols-[6.5rem_7.5rem_5.5rem_repeat(5,3rem)] sm:justify-items-end sm:items-center sm:gap-x-2 sm:gap-y-0">
                               {/* Balance info columns */}
                               <div className="text-right">
                                 <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Bal</p>
@@ -483,7 +486,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                   {getUnreconciledCount(account.id)}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center justify-end">
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
@@ -497,21 +500,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 )}
                               </div>
-                              {/* Fixed icon positions with better spacing */}
-                              <div className="flex items-center gap-2">
-                                <div className="relative group">
-                                  <IconButton
-                                    onClick={() => setSettingsAccountId(account.id)}
-                                    icon={<SettingsIcon size={20} />}
-                                    variant="ghost"
-                                    size="md"
-                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
-                                    title="Account Settings"
-                                  />
-                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Settings
-                                  </span>
-                                </div>
+                              {/* Feed slot — rendered for every account so
+                                  the three buttons to its right never move. */}
+                              <div className="flex items-center justify-end">
                                 {bankLink && (bankLink.status === 'reauth_required' ? (
                                   <div className="relative group">
                                     <IconButton
@@ -542,6 +533,20 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     </span>
                                   </div>
                                 ))}
+                              </div>
+                                <div className="relative group">
+                                  <IconButton
+                                    onClick={() => setSettingsAccountId(account.id)}
+                                    icon={<SettingsIcon size={20} />}
+                                    variant="ghost"
+                                    size="md"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
+                                    title="Account Settings"
+                                  />
+                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                    Settings
+                                  </span>
+                                </div>
                                 <button
                                   onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}`, location.search))}
                                   className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
@@ -565,7 +570,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     Close
                                   </span>
                                 </div>
-                              </div>
                             </div>
                       </div>
                     </div>
@@ -594,13 +598,13 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                             <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{childName}</p>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400">Cash account</p>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right sm:w-[7.5rem]">
                             <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Bal</p>
                             <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
                               {formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
                             </p>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right sm:w-[5.5rem]">
                             <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Unreconciled</p>
                             <p className={`text-sm font-semibold tabular-nums ${
                               childUnreconciled > 0
@@ -902,6 +906,20 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         <div className="basis-full sm:basis-auto sm:ml-auto flex items-center gap-2">
           <BankingCriticalIncidentBadge onClick={() => setBankConnectionsView('critical')} />
           <BankingCriticalIncidentBadge mode="truelayer_jwks" onClick={() => setBankConnectionsView('jwks')} />
+          {/* One hit for every feed — the per-account buttons remain for a
+              single stubborn connection. Rendered whenever any connection
+              exists so the toolbar's shape stays put. */}
+          {connectedCount > 0 && (
+            <button
+              onClick={() => void syncAllConnections()}
+              disabled={isSyncingAny}
+              className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-60 disabled:cursor-wait"
+              title="Pull fresh data from every connected bank"
+            >
+              <RefreshCwIcon size={16} className={isSyncingAny ? 'animate-spin' : ''} />
+              {isSyncingAny ? 'Refreshing…' : 'Refresh feeds'}
+            </button>
+          )}
           <button
             onClick={() => setBankConnectionsView('plain')}
             className="w-full sm:w-auto justify-center px-3 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors flex items-center gap-2"

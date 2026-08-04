@@ -7,7 +7,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
+  /** Rendered in the header, left of the close button — for a primary action
+   *  that must stay visible while the body scrolls (e.g. a batch Save). */
+  headerActions?: React.ReactNode;
   showCloseButton?: boolean;
   /**
    * Clicking outside the panel closes the modal (the modern default).
@@ -28,6 +31,7 @@ export function Modal({
   isOpen,
   onClose,
   title,
+  headerActions,
   children,
   size = 'md',
   showCloseButton = true,
@@ -134,6 +138,7 @@ export function Modal({
     md: 'max-w-md',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    '2xl': 'max-w-6xl',
     full: 'max-w-full mx-4'
   };
 
@@ -191,6 +196,8 @@ export function Modal({
             ) : (
               <span aria-hidden="true" />
             )}
+            <div className="flex items-center gap-2">
+            {headerActions}
             {showCloseButton && (
               <button
                 onClick={onClose}
@@ -214,6 +221,8 @@ export function Modal({
                 <XIcon size={20} />
               </button>
             )}
+            </div>
+            
           </div>
 
           {/* Children rendered as direct flex children so ModalFooter stays pinned */}
