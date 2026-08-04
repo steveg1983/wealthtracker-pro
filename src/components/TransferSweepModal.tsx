@@ -4,6 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { sweepTransferPairs, type TransferPairSuggestion } from '../utils/transferSweep';
+import { useAccountNames } from '../hooks/useAccountNames';
 import { AlertTriangleIcon, ArrowRightIcon } from './icons';
 
 /**
@@ -23,17 +24,17 @@ interface Props {
 const CAP = 300;
 
 export default function TransferSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
-  const { transactions, categories, accounts, linkTransferPair } = useApp();
+  const { transactions, categories, linkTransferPair } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   const [selected, setSelected] = useState<Set<string> | null>(null);
+  const [inspecting, setInspecting] = useState<TransferPairSuggestion | null>(null);
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const accountName = useMemo(() => {
-    const byId = new Map(accounts.map(a => [a.id, a.name]));
-    return (id: string): string => byId.get(id) ?? 'Unknown account';
-  }, [accounts]);
+  // Closed accounts included — old transfers routinely have one leg in an
+  // account that has since been closed.
+  const accountName = useAccountNames();
 
   const { suggestions } = useMemo(() => {
     if (!isOpen) return { suggestions: [] as TransferPairSuggestion[] };
@@ -151,14 +152,27 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                             <span className="truncate max-w-[140px]">{accountName(s.incoming.accountId)}</span>
                           </span>
                           {s.ambiguous && (
-                            <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                            <button
+                              type="button"
+                              onClick={() => setInspecting(s)}
+                              className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300"
+                              title="Other rows matched this amount equally well — look at both sides before linking"
+                            >
                               <AlertTriangleIcon size={12} />
                               check
-                            </span>
+                            </button>
                           )}
                         </td>
-                        <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
-                          <span className="block truncate max-w-[220px]">{s.outgoing.description}</span>
+                        {/* Any row can be inspected — the description opens
+                            the same both-sides popup the check badge does. */}
+                        <td
+                          className="py-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200"
+                          onClick={() => setInspecting(s)}
+                          title="See both sides of this pair"
+                        >
+                          <span className="block truncate max-w-[220px] underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600">
+                            {s.outgoing.description}
+                          </span>
                         </td>
                         <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
                           {formatCurrency(Math.abs(s.outgoing.amount))}
@@ -207,6 +221,74 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
           </div>
         </div>
       </ModalFooter>
+      {/* The check, made checkable: both legs side by side, in full, with
+          the reason for the flag — and a verdict either way, one tap. */}
+      {inspecting && (
+        <Modal
+          isOpen
+          onClose={() => setInspecting(null)}
+          title="Check this pair"
+          size="lg"
+        >
+          <ModalBody>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Flagged because other rows matched this amount equally well — make sure
+              these two really are the same movement of money.
+              {inspecting.daysApart > 0 && (
+                <> The two sides are <strong>{Math.round(inspecting.daysApart)} day{Math.round(inspecting.daysApart) === 1 ? '' : 's'} apart</strong>.</>
+              )}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                { label: 'Money out', t: inspecting.outgoing, colour: 'text-red-600 dark:text-red-400' },
+                { label: 'Money in', t: inspecting.incoming, colour: 'text-green-600 dark:text-green-400' },
+              ] as const).map(({ label, t, colour }) => (
+                <div key={t.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">{label}</p>
+                  <p className={`text-lg font-bold tabular-nums ${colour}`}>
+                    {formatCurrency(Math.abs(t.amount))}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                    {accountName(t.accountId)}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 break-words">{t.description}</p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new Set(effectiveSelected);
+                  next.delete(keyOf(inspecting));
+                  setSelected(next);
+                  setInspecting(null);
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Not a pair — leave it
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new Set(effectiveSelected);
+                  next.add(keyOf(inspecting));
+                  setSelected(next);
+                  setInspecting(null);
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
+              >
+                Yes — select this pair
+              </button>
+            </div>
+          </ModalFooter>
+        </Modal>
+      )}
     </Modal>
   );
 }

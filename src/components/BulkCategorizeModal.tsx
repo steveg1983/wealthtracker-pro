@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import CategorySelector from './CategorySelector';
+import { useAccountNames } from '../hooks/useAccountNames';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -29,17 +30,16 @@ interface Props {
 const CAP = 100;
 
 export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.JSX.Element {
-  const { transactions, categories, accounts, applyCategoryToUncategorized } = useApp();
+  const { transactions, categories, applyCategoryToUncategorized } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const accountName = useMemo(() => {
-    const byId = new Map(accounts.map(a => [a.id, a.name]));
-    return (id: string): string => byId.get(id) ?? 'Unknown account';
-  }, [accounts]);
+  // Closed accounts included — Money-era payees live in accounts long since
+  // closed, and every one of them has a real name.
+  const accountName = useAccountNames();
 
   const categoryName = useMemo(() => {
     const byId = new Map(categories.map(c => [c.id, c]));

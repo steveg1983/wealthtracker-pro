@@ -160,8 +160,8 @@ export default function AccountBreakdownModal({
             {sections.map((section, i) => (
               <React.Fragment key={section.name ?? `flat-${i}`}>
                 {section.name !== null && (
-                  <tr className="bg-gray-50 dark:bg-gray-800/60">
-                    <td className="py-1.5 pr-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                  <tr className="bg-gray-100 dark:bg-gray-700/70 border-y border-gray-300 dark:border-gray-500">
+                    <td className="py-2 pr-3 text-xs font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-200">
                       {section.name}
                       <span className="ml-2 font-normal normal-case text-gray-400 dark:text-gray-500">
                         ({section.rows.length})
