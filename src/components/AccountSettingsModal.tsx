@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import DatePicker from './common/DatePicker';
+import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import type { Account as BaseAccount } from '../types';
@@ -199,13 +200,12 @@ export default function AccountSettingsModal({
               Opening Balance
             </label>
             <div className="space-y-2">
-              <input
+              <MoneyInput
                 id="opening-balance"
-                type="number"
-                step="0.01"
+                // Credit cards and loans open in the red, so the sign stays.
+                allowNegative
                 value={formData.openingBalance}
-                onChange={(e) => updateField('openingBalance', e.target.value)}
-                placeholder="0.00"
+                onChange={(value) => updateField('openingBalance', value)}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 aria-label="Opening balance amount"
               />
@@ -318,13 +318,10 @@ export default function AccountSettingsModal({
                 <label htmlFor="low-balance-threshold" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                   Alert when balance falls below
                 </label>
-                <input
+                <MoneyInput
                   id="low-balance-threshold"
-                  type="number"
-                  step="1"
-                  min="0"
                   value={formData.lowBalanceThreshold}
-                  onChange={(e) => updateField('lowBalanceThreshold', e.target.value)}
+                  onChange={(value) => updateField('lowBalanceThreshold', value)}
                   placeholder="e.g. 500"
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   aria-label="Low balance threshold amount"

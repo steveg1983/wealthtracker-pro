@@ -256,18 +256,31 @@ describe('AccountSettingsModal', () => {
   describe('Opening Balance', () => {
     it('accepts decimal values', () => {
       render(<AccountSettingsModal {...defaultProps} />);
-      
+
       const balanceInput = screen.getByLabelText('Opening balance amount');
       fireEvent.change(balanceInput, { target: { value: '1234.56' } });
-      
-      expect(balanceInput).toHaveValue(1234.56);
+
+      expect(balanceInput).toHaveValue('1234.56');
     });
 
-    it('has step of 0.01', () => {
+    it('groups thousands once the field is left', () => {
       render(<AccountSettingsModal {...defaultProps} />);
-      
+
       const balanceInput = screen.getByLabelText('Opening balance amount');
-      expect(balanceInput).toHaveAttribute('step', '0.01');
+      fireEvent.change(balanceInput, { target: { value: '1000000' } });
+      fireEvent.blur(balanceInput);
+
+      expect(balanceInput).toHaveValue('1,000,000.00');
+    });
+
+    it('accepts a negative opening balance for accounts that open in the red', () => {
+      render(<AccountSettingsModal {...defaultProps} />);
+
+      const balanceInput = screen.getByLabelText('Opening balance amount');
+      fireEvent.change(balanceInput, { target: { value: '-2500' } });
+      fireEvent.blur(balanceInput);
+
+      expect(balanceInput).toHaveValue('-2,500.00');
     });
 
     it('defaults date to today for accounts without opening balance date', () => {

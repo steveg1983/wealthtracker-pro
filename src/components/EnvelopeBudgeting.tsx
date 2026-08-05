@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import MoneyInput from './common/MoneyInput';
 import { formatDecimal } from '../utils/decimal-format';
 import { toDecimal, toStorageNumber, parseMoneyInput } from '../utils/decimal';
 import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
@@ -401,12 +402,10 @@ export default function EnvelopeBudgeting() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Budgeted Amount
                 </label>
-                <input
-                  type="number"
+                <MoneyInput
                   value={newEnvelope.budgetedAmount}
-                  onChange={(e) => setNewEnvelope({...newEnvelope, budgetedAmount: e.target.value})}
+                  onChange={(value) => setNewEnvelope({...newEnvelope, budgetedAmount: value})}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="0.00"
                 />
               </div>
 
@@ -534,12 +533,10 @@ export default function EnvelopeBudgeting() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Amount
                 </label>
-                <input
-                  type="number"
+                <MoneyInput
                   value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
+                  onChange={setTransferAmount}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="0.00"
                 />
               </div>
 

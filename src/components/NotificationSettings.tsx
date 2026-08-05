@@ -10,6 +10,8 @@ import {
 } from './icons';
 import type { NotificationSettings as NotificationSettingsType } from '../services/mobileService';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import MoneyInput from './common/MoneyInput';
+import { parseMoneyInput } from '../utils/decimal';
 import ToggleSwitch from './ui/ToggleSwitch';
 
 interface NotificationSettingsProps {
@@ -180,19 +182,17 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
 
             {/* Expense Threshold */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="expense-threshold" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Large Expense Alert Threshold
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600 dark:text-gray-400">$</span>
-                <input
-                  type="number"
+                <MoneyInput
+                  id="expense-threshold"
                   value={settings.expenseThreshold}
-                  onChange={(e) => handleSettingChange('expenseThreshold', Number(e.target.value))}
+                  onChange={(value) => handleSettingChange('expenseThreshold', parseMoneyInput(value) ?? 0)}
                   disabled={!settings.enabled}
                   className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-                  min="0"
-                  step="10"
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

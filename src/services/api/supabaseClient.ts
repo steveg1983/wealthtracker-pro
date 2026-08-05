@@ -60,6 +60,24 @@ type Database = {
         Args: { p_id: string; p_target_account_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
+      clear_transfer_links: {
+        Args: { p_ids: string[]; p_user_id: string };
+        Returns: number;
+      };
+      set_transactions_archived: {
+        Args: { p_ids: string[]; p_archived: boolean; p_user_id: string };
+        Returns: number;
+      };
+      repair_claimed_transfer: {
+        Args: {
+          p_stranded_id: string;
+          p_counterpart_id: string;
+          p_partner_id: string;
+          p_adjustment_category_id: string;
+          p_user_id: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       delete_unused_categories: {
         Args: { p_ids: string[]; p_user_id: string };
         Returns: number;

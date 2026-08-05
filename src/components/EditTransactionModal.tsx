@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
@@ -15,12 +16,14 @@ import {
 import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
+import { resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { groupAccountsBySection } from '../utils/accountGrouping';
 import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
@@ -69,6 +72,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   const { showSuccess, showError } = useToast();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
+  const navigate = useNavigate();
+  const location = useLocation();
   const logger = useMemo(() => createScopedLogger('EditTransactionModal'), []);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -604,6 +609,24 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     }
   };
 
+  // Money's "go to the other half of this transfer". Both legs are linked, so
+  // the button appears on each and points back at the other.
+  const otherSide = useMemo(
+    () => resolveTransferOtherSide(transaction, transactions, accounts),
+    [transaction, transactions, accounts]
+  );
+
+  const handleJumpToOtherSide = (): void => {
+    if (!otherSide?.isOpen) return;
+    const params = new URLSearchParams();
+    params.set('txn', otherSide.transactionId);
+    if (new URLSearchParams(location.search).get('demo') === 'true') {
+      params.set('demo', 'true');
+    }
+    onClose();
+    navigate(`/accounts/${otherSide.accountId}?${params.toString()}`);
+  };
+
   const handleDelete = () => {
     if (!transaction) return;
     deleteTransaction(transaction.id);
@@ -818,22 +841,51 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   uncategorised transaction sits in the virtual "Uncategorised"
                   bucket. Transfers still require their target account. */}
               {formData.type === 'transfer' ? (
-                <select
-                  value={formData.category}
-                  onChange={(e) => updateField('category', e.target.value)}
-                  className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
-                  required
-                  aria-label="Transfer destination account"
-                >
-                  <option value="">Select account to transfer to</option>
-                  {groupedCategories.transferAccountSections.map(group => (
-                    <optgroup key={group.label} label={group.title}>
-                      {group.accounts.map(acct => (
-                        <option key={acct.id} value={acct.id}>{acct.name}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => updateField('category', e.target.value)}
+                    className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                    required
+                    aria-label="Transfer destination account"
+                  >
+                    <option value="">Select account to transfer to</option>
+                    {groupedCategories.transferAccountSections.map(group => (
+                      <optgroup key={group.label} label={group.title}>
+                        {group.accounts.map(acct => (
+                          <option key={acct.id} value={acct.id}>{acct.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  {/* Both halves of a linked transfer carry this, so it reads
+                      the same whichever leg is open — and the register's ?txn
+                      deep link selects, centres and docks the row on arrival. */}
+                  {otherSide && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleJumpToOtherSide}
+                        disabled={!otherSide.isOpen}
+                        title={otherSide.isOpen
+                          ? 'Open the matching transaction in its own account'
+                          : 'That account is closed — re-open it from the Accounts page to view this leg'}
+                        className="mt-2 inline-block text-sm font-medium text-primary hover:text-secondary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-primary"
+                      >
+                        {otherSide.accountName
+                          ? `Jump to the other side in ${otherSide.accountName} →`
+                          : 'Jump to the other side →'}
+                      </button>
+                      {/* A disabled button's title is never announced (its
+                          label wins), so the reason is said out loud here. */}
+                      {!otherSide.isOpen && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          That account is closed — re-open it from the Accounts page to view this leg.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </>
               ) : splitActive ? (
                 /* Split editor: one CategorySelector + amount per line. The
                    remainder line is the live "totals must match" indicator —
@@ -862,17 +914,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                               usePortal
                             />
                           </div>
-                          <input
-                            type="text"
-                            inputMode="decimal"
+                          <MoneyInput
                             value={line.amount}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || value === '-' || /^-?[0-9,]*\.?[0-9]{0,2}$/.test(value)) {
-                                updateSplitLine(index, { amount: value });
-                              }
-                            }}
-                            placeholder="0.00"
+                            onChange={(raw) => updateSplitLine(index, { amount: raw })}
+                            // A MINUS line is legitimate here (cashback inside a
+                            // shop reduces the total), so negatives stay enterable.
+                            allowNegative
                             aria-label={`Split line ${index + 1} amount`}
                             className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white"
                           />

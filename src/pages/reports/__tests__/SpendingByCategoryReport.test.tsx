@@ -119,11 +119,14 @@ describe('SpendingByCategoryReport — the accounts the spending is read over', 
     expect(screen.queryByText(/Total spending for the period is/)).not.toBeInTheDocument();
   });
 
-  it('narrows every figure to the ticked accounts', () => {
+  it('narrows every figure to the ticked accounts once saved', () => {
     renderReport();
     openAccounts();
 
+    // Ticks are a draft until Save — the report must not move underneath.
     fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
+    expect(accountTrigger()).toHaveTextContent('All accounts');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(accountTrigger()).toHaveTextContent('2 accounts');
     expect(tableLines()).toEqual([
@@ -138,6 +141,7 @@ describe('SpendingByCategoryReport — the accounts the spending is read over', 
     openAccounts();
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Card' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(tableLines()).toEqual([
       ['Groceries', '2', '100.0%', '£150.00'],
@@ -182,7 +186,7 @@ describe('SpendingByCategoryReport — the accounts the spending is read over', 
     openAccounts();
 
     fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(accountTrigger()).toHaveTextContent('No accounts');
     expect(screen.getAllByText('No categorised spending in this period').length).toBeGreaterThan(0);

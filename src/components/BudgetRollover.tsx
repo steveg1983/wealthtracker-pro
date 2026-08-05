@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import MoneyInput from './common/MoneyInput';
 import { toDecimal, toStorageNumber, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { getEffectiveBudgetAmount, sumBudgetCarry } from '../utils/budgetAmounts';
@@ -645,15 +646,15 @@ export default function BudgetRollover() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="rollover-max-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Maximum Rollover Amount (Optional)
                 </label>
-                <input
-                  type="number"
-                  value={rolloverSettings.maxAmount || ''}
-                  onChange={(e) => setRolloverSettings({
+                <MoneyInput
+                  id="rollover-max-amount"
+                  value={rolloverSettings.maxAmount ?? ''}
+                  onChange={(value) => setRolloverSettings({
                     ...rolloverSettings,
-                    maxAmount: e.target.value ? parseMoneyInput(e.target.value) ?? undefined : undefined
+                    maxAmount: value ? parseMoneyInput(value) ?? undefined : undefined
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="No limit"

@@ -1001,6 +1001,122 @@ class TransactionServiceImpl {
     }
   }
 
+  /**
+   * Break linked transfer pairs: clear linked_transfer_id on the given rows.
+   *
+   * Goes through the clear_transfer_links RPC (migration 20260805145035), not a
+   * table UPDATE: every financial write in this app writes financial_audit_log
+   * in the same database transaction, and an unlink is a financial write. The
+   * RPC keeps the guards the table update carried (owner scope, split-LINE legs
+   * skipped, only the named rows) and adds one the client could not: a named id
+   * that is not an owned row raises rather than quietly shrinking the count.
+   *
+   * Balance-neutral: no amount, account or sign is touched. Returns the number
+   * of rows actually unlinked (rows already unlinked are not counted).
+   */
+  async clearTransferLinks(ids: string[], userId?: string): Promise<number> {
+    if (ids.length === 0) return 0;
+    if (!this.isSupabaseReady()) {
+      throw new Error('clearTransferLinks requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('clear_transfer_links', {
+        p_ids: ids,
+        p_user_id: this.requireOwnerId(userId, 'clearTransferLinks'),
+      });
+      if (error) {
+        this.logger.error('Error clearing transfer links:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      if (typeof data !== 'number') {
+        throw new Error('the database did not report how many rows it unlinked — refusing to assume.');
+      }
+      return data;
+    } catch (error) {
+      this.logger.error('TransactionService.clearTransferLinks error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Soft-archive (or restore) ONE transaction — the per-row counterpart of
+   * archive_transactions_before, which only works by account and cutoff.
+   * Audited through the set_transactions_archived RPC for the same reason as
+   * clearTransferLinks. Balance-neutral, and never a delete: the row stays,
+   * counted in every balance and report, hidden only from the live register.
+   *
+   * A row already in the requested state is a no-op, not an error; a row that
+   * is not there raises transaction_not_found from inside the RPC.
+   */
+  async setTransactionArchived(id: string, archived: boolean, userId?: string): Promise<void> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('setTransactionArchived requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { error } = await this.supabaseClient!.rpc('set_transactions_archived', {
+        p_ids: [id],
+        p_archived: archived,
+        p_user_id: this.requireOwnerId(userId, 'setTransactionArchived'),
+      });
+      if (error) {
+        this.logger.error('Error archiving transaction:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+    } catch (error) {
+      this.logger.error('TransactionService.setTransactionArchived error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Re-pair a counterpart onto the row that really matches it — ONE call, one
+   * database transaction (repair_claimed_transfer, migration 20260805145035).
+   *
+   * The RPC breaks the wrong pairing, files the row that displaces under the
+   * caller's own Account Adjustment category, and links the right pair; it
+   * validates every precondition against the rows as they are NOW, so a stale
+   * list cannot re-pair something that has since moved on. Its errors are
+   * surfaced verbatim — they say exactly which precondition failed, and there
+   * is no half-applied state for the caller to explain away.
+   */
+  async repairClaimedTransfer(
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string,
+    userId?: string
+  ): Promise<{ stranded: Transaction; counterpart: Transaction; partner: Transaction }> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('repairClaimedTransfer requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('repair_claimed_transfer', {
+        p_stranded_id: strandedId,
+        p_counterpart_id: counterpartId,
+        p_partner_id: partnerId,
+        p_adjustment_category_id: adjustmentCategoryId,
+        p_user_id: this.requireOwnerId(userId, 'repairClaimedTransfer'),
+      });
+      if (error) {
+        this.logger.error('Error repairing claimed transfer:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as {
+        stranded?: Record<string, unknown>;
+        counterpart?: Record<string, unknown>;
+        partner?: Record<string, unknown>;
+      };
+      return {
+        stranded: mapFromDbFields(result.stranded ?? {}) as unknown as Transaction,
+        counterpart: mapFromDbFields(result.counterpart ?? {}) as unknown as Transaction,
+        partner: mapFromDbFields(result.partner ?? {}) as unknown as Transaction,
+      };
+    } catch (error) {
+      this.logger.error('TransactionService.repairClaimedTransfer error:', error as Error);
+      throw error;
+    }
+  }
+
   async linkTransferPair(
     idA: string,
     idB: string,
@@ -1365,8 +1481,28 @@ export class TransactionService {
     return this.service.getAllTransactionSplits(userId);
   }
 
+  static clearTransferLinks(ids: string[], userId?: string): Promise<number> {
+    return this.service.clearTransferLinks(ids, userId);
+  }
+
+  static setTransactionArchived(id: string, archived: boolean, userId?: string): Promise<void> {
+    return this.service.setTransactionArchived(id, archived, userId);
+  }
+
   static linkTransferPair(idA: string, idB: string, userId?: string): Promise<{ a: Transaction; b: Transaction }> {
     return this.service.linkTransferPair(idA, idB, userId);
+  }
+
+  static repairClaimedTransfer(
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string,
+    userId?: string
+  ): Promise<{ stranded: Transaction; counterpart: Transaction; partner: Transaction }> {
+    return this.service.repairClaimedTransfer(
+      strandedId, counterpartId, partnerId, adjustmentCategoryId, userId
+    );
   }
 
   static archiveTransactionsBefore(accountId: string, cutoffIso: string, userId?: string): Promise<number> {

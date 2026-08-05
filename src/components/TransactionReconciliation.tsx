@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { CheckCircleIcon, LinkIcon, RefreshCwIcon, CalendarIcon } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
@@ -241,12 +242,13 @@ export default function TransactionReconciliation({
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Statement Balance</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="statement-balance" className="block text-sm font-medium mb-2">Statement Balance</label>
+              <MoneyInput
+                id="statement-balance"
+                // An overdrawn statement ends in the red.
+                allowNegative
                 value={statementBalance}
-                onChange={(e) => setStatementBalance(e.target.value)}
+                onChange={setStatementBalance}
                 placeholder="Enter statement ending balance"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                          bg-white dark:bg-gray-700"

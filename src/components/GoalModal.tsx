@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo } from "react";
 import { useApp } from "../contexts/AppContextSupabase";
 import type { Goal } from "../types";
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 
@@ -186,18 +187,14 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
               <label htmlFor={`${fieldId}-current`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Current Amount (£)
               </label>
-              <input
+              <MoneyInput
                 id={`${fieldId}-current`}
-                type="number"
-                step="0.01"
-                min="0"
                 required={!hasLinkedAccounts}
                 disabled={hasLinkedAccounts}
                 aria-describedby={hasLinkedAccounts ? `${fieldId}-current-note` : undefined}
                 value={formData.currentAmount}
-                onChange={(e) => updateField('currentAmount', e.target.value)}
+                onChange={(value) => updateField('currentAmount', value)}
                 className={`${inputClasses} disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400`}
-                placeholder="0.00"
               />
               {hasLinkedAccounts && (
                 <p id={`${fieldId}-current-note`} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -210,16 +207,12 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
               <label htmlFor={`${fieldId}-target`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Target Amount (£)
               </label>
-              <input
+              <MoneyInput
                 id={`${fieldId}-target`}
-                type="number"
-                step="0.01"
-                min="0"
                 required
                 value={formData.targetAmount}
-                onChange={(e) => updateField('targetAmount', e.target.value)}
+                onChange={(value) => updateField('targetAmount', value)}
                 className={inputClasses}
-                placeholder="0.00"
               />
             </div>
           </div>

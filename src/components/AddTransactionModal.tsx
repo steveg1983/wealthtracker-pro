@@ -5,6 +5,7 @@ import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
 // Import { Modal, ModalBody, ModalFooter } from './common/Modal'; // Unused imports
 import { ResponsiveModal } from './ResponsiveModal';
+import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import MarkdownEditor from './MarkdownEditor';
@@ -221,20 +222,18 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                   return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '(£)';
                 })()}
               </label>
-              <input
+              <MoneyInput
                 id="amount-input"
-                type="number"
-                step="0.01"
                 value={formData.amount}
-                onChange={(e) => {
-                  updateField('amount', e.target.value);
+                // The sign comes from the income/expense toggle, so the field
+                // itself only ever holds a positive amount.
+                onChange={(value) => {
+                  updateField('amount', value);
                   if (validationErrors.amount) {
                     setValidationErrors(prev => ({ ...prev, amount: '' }));
                   }
                 }}
                 className={`w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 ${validationErrors.amount ? 'border-red-500' : 'border-gray-300 dark:border-gray-500'} rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]`}
-                placeholder="0.00"
-                min="0.01"
                 required
                 aria-label="Transaction amount"
                 aria-describedby={validationErrors.amount ? "amount-error" : undefined}

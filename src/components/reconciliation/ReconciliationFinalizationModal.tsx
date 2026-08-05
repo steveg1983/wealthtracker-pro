@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircleIcon, XIcon } from '../icons';
 import CategorySelector from '../CategorySelector';
+import MoneyInput from '../common/MoneyInput';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import { deriveAdjustment } from '../../utils/reconciliation';
@@ -194,14 +195,12 @@ export default function ReconciliationFinalizationModal({
                 <label htmlFor="adjustment-amount" className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
                   Amount ({adjustmentType === 'income' ? 'Income' : 'Expense'})
                 </label>
-                <input
+                <MoneyInput
                   id="adjustment-amount"
-                  type="text"
-                  inputMode="decimal"
                   value={adjustmentAmount}
-                  onChange={(e) => {
+                  onChange={(value) => {
                     setAmountDirty(true);
-                    setAdjustmentAmount(e.target.value);
+                    setAdjustmentAmount(value);
                   }}
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
                 />

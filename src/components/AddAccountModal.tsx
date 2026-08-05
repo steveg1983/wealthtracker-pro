@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { Building2Icon, WalletIcon, CreditCardIcon, TrendingUpIcon, PiggyBankIcon, BanknoteIcon, PackageIcon, AlertCircleIcon } from './icons';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -261,13 +262,12 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
                     {selectedCurrency?.symbol}
                   </span>
-                  <input
-                    type="number"
-                    step="0.01"
+                  <MoneyInput
+                    // Credit cards and loans start negative.
+                    allowNegative
                     value={formData.balance}
-                    onChange={(e) => updateField('balance', e.target.value)}
+                    onChange={(value) => updateField('balance', value)}
                     className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
-                    placeholder="0.00"
                     required
                     disabled={isSubmitting}
                   />

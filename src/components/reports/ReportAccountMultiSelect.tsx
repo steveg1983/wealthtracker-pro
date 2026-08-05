@@ -13,6 +13,13 @@ import type { ReportAccountSelection } from '../../hooks/useReportAccountSelecti
  * inside each), because a household with seventy accounts cannot find one in a
  * flat list. Long lists scroll inside the panel with the section bands pinned.
  *
+ * Ticking is BATCHED: choices collect in a draft while the panel is open and
+ * apply on Save, which closes it. Dismissing any other way (Escape, clicking
+ * away, the trigger) discards the draft. Live-applying re-rendered the whole
+ * report under the open panel on every tick — on heavy pages that could
+ * reshuffle the very surface being clicked — and the owner asked for explicit
+ * Save semantics outright.
+ *
  * The trigger states the whole filter in a few words — "All accounts", the
  * account's own name when it is the only one ticked, otherwise how many — so
  * the figures below it are never unexplained.
@@ -25,6 +32,8 @@ export default function ReportAccountMultiSelect({
   selection: ReportAccountSelection;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  // The draft: account ids ticked right now, only meaningful while open.
+  const [draft, setDraft] = useState<ReadonlySet<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstCheckboxRef = useRef<HTMLInputElement>(null);
@@ -47,8 +56,44 @@ export default function ReportAccountMultiSelect({
     return `${ids.length} accounts`;
   }, [selection, accounts]);
 
-  // Close on a click anywhere else — mousedown, so the click that opens
-  // another control is not swallowed by the panel closing first.
+  const openPanel = (): void => {
+    // Seed the draft from what is currently applied.
+    setDraft(new Set(
+      selection.isAll ? accounts.map(account => account.id) : selection.selectedIds
+    ));
+    setOpen(true);
+  };
+
+  /** Close WITHOUT applying — the draft is discarded. */
+  const cancel = (): void => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  /** Apply the draft to the real selection, then close. */
+  const save = (): void => {
+    if (draft.size === accounts.length && accounts.every(account => draft.has(account.id))) {
+      // Every box ticked collapses to the 'all' sentinel, so an account
+      // opened next month is included rather than silently filtered out.
+      selection.selectAll();
+    } else {
+      selection.replace(draft);
+    }
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const toggleDraft = (accountId: string): void => {
+    setDraft(current => {
+      const next = new Set(current);
+      if (next.has(accountId)) next.delete(accountId);
+      else next.add(accountId);
+      return next;
+    });
+  };
+
+  // Dismissing by clicking anywhere else cancels — mousedown, so the click
+  // that opens another control is not swallowed by the panel closing first.
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (event: MouseEvent): void => {
@@ -64,21 +109,16 @@ export default function ReportAccountMultiSelect({
     if (open) firstCheckboxRef.current?.focus();
   }, [open]);
 
-  const close = (): void => {
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape' && open) {
       event.stopPropagation();
-      close();
+      cancel();
     }
   };
 
   const handleBlur = (event: React.FocusEvent<HTMLDivElement>): void => {
-    // Tabbing out closes the panel; a click on the panel's own padding blurs
-    // to nothing at all, and must NOT.
+    // Tabbing out cancels; a click on the panel's own padding blurs to
+    // nothing at all, and must NOT.
     const next = event.relatedTarget;
     if (next instanceof Node && !containerRef.current?.contains(next)) setOpen(false);
   };
@@ -93,7 +133,7 @@ export default function ReportAccountMultiSelect({
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setOpen(current => !current)}
+          onClick={() => (open ? cancel() : openPanel())}
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
           className="flex items-center gap-2 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300/50 dark:border-gray-600/50 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
@@ -120,10 +160,14 @@ export default function ReportAccountMultiSelect({
                 Accounts
               </span>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={selection.selectAll} className={actionClass}>
+                <button
+                  type="button"
+                  onClick={() => setDraft(new Set(accounts.map(account => account.id)))}
+                  className={actionClass}
+                >
                   Select all
                 </button>
-                <button type="button" onClick={selection.deselectAll} className={actionClass}>
+                <button type="button" onClick={() => setDraft(new Set())} className={actionClass}>
                   Deselect all
                 </button>
               </div>
@@ -151,8 +195,8 @@ export default function ReportAccountMultiSelect({
                         <input
                           ref={account.id === firstAccountId ? firstCheckboxRef : undefined}
                           type="checkbox"
-                          checked={selection.isSelected(account.id)}
-                          onChange={() => selection.toggle(account.id)}
+                          checked={draft.has(account.id)}
+                          onChange={() => toggleDraft(account.id)}
                           className="rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary"
                         />
                         <span className="truncate text-gray-900 dark:text-white">{account.name}</span>
@@ -163,15 +207,21 @@ export default function ReportAccountMultiSelect({
               </div>
             )}
 
-            {/* Every tick has already been applied to the figures behind this
-                panel; Done is the way back to them, not an OK button. */}
-            <div className="flex justify-end px-3 py-2 border-t border-gray-100 dark:border-gray-700">
+            {/* Save applies the draft and closes; anything else discards it. */}
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 dark:border-gray-700">
               <button
                 type="button"
-                onClick={close}
+                onClick={cancel}
+                className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={save}
                 className="px-3 py-1 text-sm font-medium rounded-md bg-[#1a2332] dark:bg-blue-600 text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                Done
+                Save
               </button>
             </div>
           </div>

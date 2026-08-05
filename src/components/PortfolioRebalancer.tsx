@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
 import { parseMoneyInput } from '../utils/decimal';
+import MoneyInput from './common/MoneyInput';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
@@ -346,13 +347,11 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
           
           <div className="mb-4 flex items-center gap-4">
             <label className="flex items-center gap-2">
-              <input
-                type="number"
-                step="100"
+              <MoneyInput
                 value={cashAvailable}
-                onChange={(e) => setCashAvailable(parseMoneyInput(e.target.value) ?? 0)}
+                onChange={(value) => setCashAvailable(parseMoneyInput(value) ?? 0)}
                 className="w-32 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                placeholder="0"
+                aria-label="Cash Available"
               />
               <span className="text-sm">Cash Available</span>
             </label>

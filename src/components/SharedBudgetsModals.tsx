@@ -1,4 +1,5 @@
 import React from 'react';
+import MoneyInput from './common/MoneyInput';
 import type { Category } from '../types';
 
 type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
@@ -61,12 +62,11 @@ export function CreateBudgetModal({ form, setForm, categories, onSubmit, onClose
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="shared-budget-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+              <MoneyInput
+                id="shared-budget-amount"
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                onChange={(value) => setForm({ ...form, amount: value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
               />
@@ -98,12 +98,11 @@ export function CreateBudgetModal({ form, setForm, categories, onSubmit, onClose
           </div>
           {form.approvalRequired && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Approval Threshold</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="shared-budget-approval-threshold" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Approval Threshold</label>
+              <MoneyInput
+                id="shared-budget-approval-threshold"
                 value={form.approvalThreshold}
-                onChange={(e) => setForm({ ...form, approvalThreshold: e.target.value })}
+                onChange={(value) => setForm({ ...form, approvalThreshold: value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               />
             </div>
@@ -144,12 +143,11 @@ export function CreateGoalModal({ form, setForm, categories, onSubmit, onClose }
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Amount</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="shared-goal-target-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Amount</label>
+              <MoneyInput
+                id="shared-goal-target-amount"
                 value={form.targetAmount}
-                onChange={(e) => setForm({ ...form, targetAmount: e.target.value })}
+                onChange={(value) => setForm({ ...form, targetAmount: value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
               />

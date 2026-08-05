@@ -342,8 +342,12 @@ describe('EnvelopeBudgeting', () => {
       fireEvent.change(within(modal).getByPlaceholderText('e.g., Groceries'), {
         target: { value: 'New Envelope' }
       });
-      // A number input accepts exponent notation, which is not money.
-      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '1e5' } });
+      // The money field refuses exponent notation outright, but a half-typed
+      // amount still reaches the handler, and must not be written as NaN.
+      const amountField = within(modal).getByPlaceholderText<HTMLInputElement>('0.00');
+      fireEvent.change(amountField, { target: { value: '1e5' } });
+      expect(amountField.value).toBe('15');
+      fireEvent.change(amountField, { target: { value: '250.' } });
       fireEvent.click(within(modal).getByRole('checkbox', { name: 'Groceries' }));
 
       fireEvent.click(within(modal).getByRole('button', { name: 'Add Envelope' }));
@@ -453,10 +457,14 @@ describe('EnvelopeBudgeting', () => {
       const [fromSelect, toSelect] = within(modal).getAllByRole('combobox');
       fireEvent.change(fromSelect, { target: { value: 'b1' } });
       fireEvent.change(toSelect, { target: { value: 'b2' } });
-      // A number input accepts exponent notation, which is not money. The old
-      // `parseMoneyInput(...) ?? NaN` guard let this through, because NaN <= 0
-      // is false, and NaN reached the budget amount.
-      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '1e5' } });
+      // The money field refuses exponent notation outright, but a half-typed
+      // amount still reaches the handler. The old `parseMoneyInput(...) ?? NaN`
+      // guard let junk through, because NaN <= 0 is false, and NaN reached the
+      // budget amount.
+      const amountField = within(modal).getByPlaceholderText<HTMLInputElement>('0.00');
+      fireEvent.change(amountField, { target: { value: '1e5' } });
+      expect(amountField.value).toBe('15');
+      fireEvent.change(amountField, { target: { value: '250.' } });
 
       fireEvent.click(within(modal).getByRole('button', { name: 'Transfer' }));
 
@@ -533,9 +541,12 @@ describe('EnvelopeBudgeting', () => {
         const nameInput = screen.getByPlaceholderText('e.g., Groceries');
         expect(nameInput).toHaveAttribute('type', 'text');
         
+        // Money fields are text + inputMode="decimal" so amounts can carry
+        // their thousands separators.
         const amountInput = screen.getByPlaceholderText('0.00');
-        expect(amountInput).toHaveAttribute('type', 'number');
-        
+        expect(amountInput).toHaveAttribute('type', 'text');
+        expect(amountInput).toHaveAttribute('inputmode', 'decimal');
+
         // Find priority select by its label
         const priorityLabel = screen.getByText('Priority');
         const prioritySelect = priorityLabel.parentElement?.querySelector('select');

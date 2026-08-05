@@ -426,10 +426,12 @@ describe('DuplicateDetection', () => {
       expect(screen.getByText('Amount Threshold (£)')).toBeInTheDocument();
       expect(screen.getByText('Similarity Threshold (%)')).toBeInTheDocument();
       
-      // Check that the inputs exist
-      const inputs = screen.getAllByRole('spinbutton');
-      expect(inputs.length).toBeGreaterThanOrEqual(2);
-      
+      // Check that the inputs exist. The day count is a spinner; the money
+      // threshold is a text field so it can carry thousands separators.
+      expect(screen.getAllByRole('spinbutton')).toHaveLength(1);
+      expect(screen.getByLabelText('Amount Threshold (£)')).toHaveAttribute('inputmode', 'decimal');
+
+
       const slider = screen.getByRole('slider');
       expect(slider).toBeInTheDocument();
     });

@@ -6,6 +6,7 @@ import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon } from '../components/icons';
 import DatePicker from '../components/common/DatePicker';
+import MoneyInput from '../components/common/MoneyInput';
 import EditTransactionModal from '../components/EditTransactionModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
@@ -1420,13 +1421,12 @@ export default function AccountTransactions() {
                 digits scrolling out of view. */}
             <div className="w-full sm:w-[150px] sm:shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
+              <MoneyInput
                 value={quickAddForm.amount}
-                onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: e.target.value }); }}
+                // The type buttons carry the sign; this field holds the size.
+                onChange={(value) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: value }); }}
                 className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                aria-label="Amount"
                 required
               />
             </div>

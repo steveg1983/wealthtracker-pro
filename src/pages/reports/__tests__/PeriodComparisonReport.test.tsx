@@ -141,16 +141,30 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       expect(screen.getByRole('checkbox', { name: 'Synthetic Savings' })).toBeChecked();
     });
 
-    it('narrows the figures to the ticked accounts, and names the only one left', () => {
+    it('narrows the figures to the ticked accounts once saved, and names the only one left', () => {
       renderReport();
       openAccounts();
 
+      // A tick is a draft: nothing outside the panel moves until Save.
       fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
+      expect(figureOf('Expenses')).toBe('£150.00');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       // The savings account's £50 is out of the figures, and out of the label.
       expect(figureOf('Expenses')).toBe('£100.00');
       expect(figureOf('Income')).toBe('£1,000.00');
       expect(accountTrigger()).toHaveTextContent('Synthetic Current');
+    });
+
+    it('discards the draft when dismissed without saving', () => {
+      renderReport();
+      openAccounts();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
+      fireEvent.keyDown(screen.getByRole('checkbox', { name: 'Synthetic Savings' }), { key: 'Escape' });
+
+      expect(accountTrigger()).toHaveTextContent('All accounts');
+      expect(figureOf('Expenses')).toBe('£150.00');
     });
 
     it('counts them when more than one is ticked and fewer than all', () => {
@@ -161,6 +175,7 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       openAccounts();
 
       fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Spare' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(accountTrigger()).toHaveTextContent('2 accounts');
     });
@@ -170,13 +185,16 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       openAccounts();
 
       fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(accountTrigger()).toHaveTextContent('No accounts');
       expect(figureOf('Income')).toBe('£0.00');
       expect(figureOf('Expenses')).toBe('£0.00');
       expect(screen.getAllByText('Nothing categorised in either period').length).toBeGreaterThan(0);
 
+      openAccounts();
       fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(accountTrigger()).toHaveTextContent('All accounts');
       expect(figureOf('Expenses')).toBe('£150.00');
@@ -201,6 +219,7 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       const first = renderReport();
       openAccounts();
       fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(localStorage.getItem(ACCOUNT_IDS_KEY)).toBe('["acc-1"]');
       expect(localStorage.getItem(LEGACY_ACCOUNT_KEY)).toBeNull();
@@ -227,9 +246,12 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       openAccounts();
 
       fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
       expect(localStorage.getItem(ACCOUNT_IDS_KEY)).toBe('[]');
 
+      openAccounts();
       fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
       expect(localStorage.getItem(ACCOUNT_IDS_KEY)).toBeNull();
     });
 
@@ -246,12 +268,12 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       expect(screen.queryByRole('group', { name: 'Credit Cards' })).not.toBeInTheDocument();
     });
 
-    it('closes on Done, with the ticks already applied', () => {
+    it('closes on Save, with the ticks applied', () => {
       renderReport();
       openAccounts();
 
       fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       expect(screen.queryByRole('checkbox', { name: 'Synthetic Current' })).not.toBeInTheDocument();
       expect(accountTrigger()).toHaveFocus();

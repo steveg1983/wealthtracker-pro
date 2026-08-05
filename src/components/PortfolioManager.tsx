@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import MoneyInput from './common/MoneyInput';
 import { validateSymbol } from '../services/stockPriceService';
 import { 
   PlusIcon, 
@@ -281,16 +282,13 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
 
           {/* Average Cost Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="average-cost-per-share" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Average Cost per Share
             </label>
-            <input
-              type="number"
+            <MoneyInput
+              id="average-cost-per-share"
               value={averageCost}
-              onChange={(e) => setAverageCost(e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
+              onChange={setAverageCost}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
               disabled={isValidating}
             />

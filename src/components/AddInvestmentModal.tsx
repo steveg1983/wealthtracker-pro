@@ -4,6 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { getCurrencySymbol } from '../utils/currency-decimal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
 
@@ -245,14 +246,13 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             
             {/* Price per Unit */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="investment-price-per-unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 {formData.investmentType === 'cash' ? `Price per Unit (${currencySymbol})` : `Price per Unit/Share (${currencySymbol})`}*
               </label>
-              <input
-                type="number"
-                step="0.01"
+              <MoneyInput
+                id="investment-price-per-unit"
                 value={formData.pricePerUnit}
-                onChange={(e) => updateField('pricePerUnit', e.target.value)}
+                onChange={(value) => updateField('pricePerUnit', value)}
                 placeholder={formData.investmentType === 'cash' ? '1.00' : '150.00'}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
@@ -261,30 +261,26 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             
             {/* Transaction Fee */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="investment-fees" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Transaction Fee ({currencySymbol})
               </label>
-              <input
-                type="number"
-                step="0.01"
+              <MoneyInput
+                id="investment-fees"
                 value={formData.fees}
-                onChange={(e) => updateField('fees', e.target.value)}
-                placeholder="0.00"
+                onChange={(value) => updateField('fees', value)}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
             
             {/* Stamp Duty */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="investment-stamp-duty" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Stamp Duty/Levy ({currencySymbol})
               </label>
-              <input
-                type="number"
-                step="0.01"
+              <MoneyInput
+                id="investment-stamp-duty"
                 value={formData.stampDuty}
-                onChange={(e) => updateField('stampDuty', e.target.value)}
-                placeholder="0.00"
+                onChange={(value) => updateField('stampDuty', value)}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>

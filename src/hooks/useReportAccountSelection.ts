@@ -29,6 +29,12 @@ export interface ReportAccountSelection {
   toggle: (accountId: string) => void;
   selectAll: () => void;
   deselectAll: () => void;
+  /**
+   * Apply a whole draft at once — the multi-select's Save button. A draft
+   * covering every account collapses to the 'all' sentinel, same rule as
+   * ticking the last box back on via toggle.
+   */
+  replace: (ids: ReadonlySet<string>) => void;
 }
 
 /** Storage holds whatever an older build (or the user) put there. */
@@ -95,6 +101,11 @@ export function useReportAccountSelection(): ReportAccountSelection {
 
   const selectAll = useCallback(() => apply('all'), [apply]);
   const deselectAll = useCallback(() => apply(new Set<string>()), [apply]);
+  const replace = useCallback((ids: ReadonlySet<string>) => {
+    apply(accountIds.length > 0 && ids.size === accountIds.length && accountIds.every(id => ids.has(id))
+      ? 'all'
+      : new Set(ids));
+  }, [accountIds, apply]);
 
   const selectedIds = useMemo(
     () => (selection === 'all' ? new Set(accountIds) : selection),
@@ -114,5 +125,6 @@ export function useReportAccountSelection(): ReportAccountSelection {
     toggle,
     selectAll,
     deselectAll,
+    replace,
   };
 }

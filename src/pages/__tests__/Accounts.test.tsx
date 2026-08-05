@@ -102,6 +102,140 @@ describe('Accounts page — collapsible groups', () => {
   });
 });
 
+/**
+ * "Group by" is two INDEPENDENT switches, not a choice of one: Account Type and
+ * Institution each on or off, which is four views. Both on nests institution
+ * sub-bands inside the type sections; both off leaves one flat list. The stored
+ * pre-toggle choice migrates, so nobody's page re-bands itself on upgrade.
+ */
+describe('Accounts page — the two Group by switches', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  // True when `earlier` sits before `later` in document order.
+  const precedes = (earlier: HTMLElement, later: HTMLElement): boolean =>
+    Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  // The open section's body, via the heading button's own aria-controls — the
+  // only way to tell one section's "Natwest" sub-band from another's.
+  const sectionBody = (name: RegExp): HTMLElement => {
+    const id = screen.getByRole('button', { name }).getAttribute('aria-controls') ?? '';
+    const body = document.getElementById(id);
+    if (!body) throw new Error(`no expanded section body for ${String(name)}`);
+    return body;
+  };
+
+  it('starts as it always has: Account Type on, Institution off', async () => {
+    renderAccounts();
+
+    expect(await screen.findByRole('button', { name: 'Account Type' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Institution' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('heading', { level: 2, name: 'Current Accounts' })).toBeInTheDocument();
+  });
+
+  it('nests institution sub-bands inside the type sections when both are on', async () => {
+    renderAccounts();
+
+    // Adding Institution to Account Type nests; it does not replace.
+    fireEvent.click(await screen.findByRole('button', { name: 'Institution' }));
+    expect(screen.getByRole('button', { name: 'Account Type' })).toHaveAttribute('aria-pressed', 'true');
+
+    // The type sections are still the bands, still counting the whole section…
+    expect(groupToggle(/Current Accounts/).textContent).toMatch(/2 accounts/);
+
+    // …with an institution sub-band inside, alphabetical, carrying the same
+    // information the section header does: name, count, total.
+    const currentAccounts = sectionBody(/Current Accounts/);
+    const monzo = within(currentAccounts).getByRole('group', { name: /^Monzo, 1 account, total/ });
+    const natwest = within(currentAccounts).getByRole('group', { name: /^Natwest, 1 account, total/ });
+    expect(precedes(monzo, natwest)).toBe(true);
+    expect(within(monzo).getByRole('heading', { level: 3, name: 'Monzo Current Account' })).toBeInTheDocument();
+    expect(within(natwest).getByRole('heading', { level: 3, name: 'Natwest Current Account' })).toBeInTheDocument();
+    expect(within(monzo).getByText('(1 account)')).toBeInTheDocument();
+
+    // Only the sub-bands are new: the account-type headings keep their level.
+    expect(screen.getByRole('heading', { level: 2, name: 'Savings Accounts' })).toBeInTheDocument();
+  });
+
+  it('shows institution bands alone when Account Type is switched off', async () => {
+    renderAccounts();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Institution' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Account Type' }));
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Natwest' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Current Accounts' })).not.toBeInTheDocument();
+    // Institution bands have no sub-bands to nest.
+    expect(screen.queryAllByRole('group')).toHaveLength(0);
+  });
+
+  it('leaves one flat list, with no band chrome at all, when both are off', async () => {
+    renderAccounts();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Account Type' }));
+
+    expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
+    // Every account is still there — one card each, no section between them.
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(12);
+    expect(screen.getByRole('heading', { level: 3, name: 'Primary Residence' })).toBeInTheDocument();
+  });
+
+  it('keeps the search working in every mode', async () => {
+    renderAccounts();
+    await screen.findByRole('heading', { level: 2, name: 'Current Accounts' });
+
+    // Nested: the section survives, the sub-band survives, the miss goes.
+    fireEvent.click(screen.getByRole('button', { name: 'Institution' }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'monzo' } });
+    expect(screen.getByRole('heading', { level: 3, name: 'Monzo Current Account' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: 'Natwest Current Account' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /^Natwest/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Savings Accounts' })).not.toBeInTheDocument();
+
+    // Flat: no bands to drop, just the matching card.
+    fireEvent.click(screen.getByRole('button', { name: 'Account Type' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Institution' }));
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 3, name: 'Monzo Current Account' })).toBeInTheDocument();
+    expect(screen.getByText('1 of 12 accounts')).toBeInTheDocument();
+  });
+
+  it('persists both switches under the versioned key', async () => {
+    renderAccounts();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Institution' }));
+
+    expect(JSON.parse(localStorage.getItem('accountsGroupBy.v2') ?? '{}'))
+      .toEqual({ byType: true, byInstitution: true });
+  });
+
+  it('migrates the pre-toggle choice, so nobody\'s view changes on upgrade', async () => {
+    // v1 stored a single either/or choice. Someone grouped by institution
+    // yesterday must still be grouped by institution — and by institution
+    // ALONE, exactly the view they left.
+    localStorage.setItem('accountsGroupBy', 'institution');
+
+    renderAccounts();
+
+    expect(await screen.findByRole('button', { name: 'Institution' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Account Type' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('heading', { level: 2, name: 'Natwest' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Current Accounts' })).not.toBeInTheDocument();
+  });
+
+  it('keeps a folded type section folded when Institution is added', async () => {
+    renderAccounts();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Current Accounts/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Institution' }));
+
+    // The fold is keyed by what the band groups BY, not by the whole view.
+    expect(groupToggle(/Current Accounts/)).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('heading', { level: 3, name: 'Monzo Current Account' })).not.toBeInTheDocument();
+  });
+});
+
 describe('Accounts page — search', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -285,11 +419,13 @@ describe('Accounts page — closed accounts ordering', () => {
     }
   });
 
-  it('regroups closed accounts by institution when the page toggle flips', async () => {
+  it('regroups closed accounts by institution when the page toggles flip', async () => {
     renderAccounts();
 
-    // Switch the whole page — open and closed alike — to institution grouping.
+    // Switch the whole page — open and closed alike — to institution grouping
+    // ALONE: the two switches are independent, so Account Type comes off too.
     fireEvent.click(await screen.findByRole('button', { name: 'Institution' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Account Type' }));
     fireEvent.click(await screen.findByRole('button', { name: /Closed Accounts \(4\)/ }));
 
     const closedSection = screen.getByTestId('closed-accounts');
@@ -310,6 +446,32 @@ describe('Accounts page — closed accounts ordering', () => {
     // The catch-all subheading for the account with no institution renders too
     // (unique: no closed row carries "Other Accounts" as its institution).
     expect(within(closedSection).getByText('Other Accounts')).toBeInTheDocument();
+  });
+
+  it('nests institution sub-bands in the archive when both toggles are on', async () => {
+    renderAccounts();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Institution' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Closed Accounts \(4\)/ }));
+
+    const closedSection = screen.getByTestId('closed-accounts');
+    // Institution names double as a subheading AND each row's subtext, so the
+    // first occurrence is the subheading the rows sit under.
+    const seq = [
+      within(closedSection).getByText('Current Accounts'),
+      within(closedSection).getAllByText('Barclays')[0],
+      within(closedSection).getByText('Alpha Current'),
+      within(closedSection).getByText('Zephyr Current'),
+      within(closedSection).getByText('Savings Accounts'),
+      within(closedSection).getAllByText('Aldermore')[0],
+      within(closedSection).getByText('Beacon Savings'),
+      within(closedSection).getByText('Credit Cards'),
+      within(closedSection).getByText('Other Accounts'),
+      within(closedSection).getByText('Nimbus Card'),
+    ];
+    for (let i = 1; i < seq.length; i += 1) {
+      expect(precedes(seq[i - 1], seq[i])).toBe(true);
+    }
   });
 });
 
