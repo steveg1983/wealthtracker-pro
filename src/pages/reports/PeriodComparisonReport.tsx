@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useReportDataset } from '../../hooks/useReportDataset';
-import { useReportAccountFilter } from '../../hooks/useReportAccountFilter';
-import ReportAccountFilter from '../../components/reports/ReportAccountFilter';
+import { useReportAccountSelection } from '../../hooks/useReportAccountSelection';
+import ReportAccountMultiSelect from '../../components/reports/ReportAccountMultiSelect';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
@@ -35,6 +35,12 @@ import type { ReportViewProps } from './types';
 
 const BASIS_KEY = 'reportsComparisonBasis';
 
+/** The app's chart colours for the two sides of the money — as on every other report. */
+const INCOME_FILL = '#10B981';
+const EXPENSE_FILL = '#EF4444';
+/** The comparison window is deliberately colourless: it is the yardstick, not the news. */
+const COMPARISON_FILL = '#94A3B8';
+
 const formatWindow = (window: { from: Date; to: Date }): string => {
   const short = (date: Date): string =>
     date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -42,21 +48,38 @@ const formatWindow = (window: { from: Date; to: Date }): string => {
 };
 
 export default function PeriodComparisonReport({ picker }: ReportViewProps): React.JSX.Element {
-  const filter = useReportAccountFilter();
+  const selection = useReportAccountSelection();
   const { accounts, categories, accountTransactions, transactionSplits, rows, flows } =
-    useReportDataset(picker, filter.accountId);
+    useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [basis, setBasis] = useState<ComparisonBasis>(() =>
     localStorage.getItem(BASIS_KEY) === 'same-period-last-year' ? 'same-period-last-year' : 'previous-period'
   );
+
+  /**
+   * A tax year has no "period before" worth reading: the window runs from
+   * 6 April to today, so the equal-length window before it is a rump of the
+   * PREVIOUS tax year — a few months, ending mid-year, that no one filed
+   * anything against. The only honest comparison is the same dates a year
+   * earlier, so that is the only one offered, and the only one used, while
+   * the tax year is the selected period — whatever the user chose before.
+   * Their choice is kept, not overwritten, and applies again the moment they
+   * pick another period.
+   */
+  const taxYearSelected = picker.period === 'tax-year';
+  const effectiveBasis: ComparisonBasis = taxYearSelected ? 'same-period-last-year' : basis;
+
   const handleBasis = (next: ComparisonBasis): void => {
     setBasis(next);
     localStorage.setItem(BASIS_KEY, next);
   };
 
-  const ranges = useMemo(() => resolveComparisonRanges(picker.range, basis), [picker.range, basis]);
+  const ranges = useMemo(
+    () => resolveComparisonRanges(picker.range, effectiveBasis),
+    [picker.range, effectiveBasis]
+  );
 
   // BOTH windows are measured from the resolved bounds, so the two figures
   // are always like for like.
@@ -80,11 +103,27 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
       // elements and a `key` field collides with React's reserved prop.
       categoryId: row.categoryId,
       name: row.name,
+      bucket: row.bucket,
       current: row.current,
       previous: row.previous,
     })) : []),
     [comparison]
   );
+
+  // The legend names only the colours actually on the chart: a bar is green
+  // because it is income and red because it is spending, so a single swatch
+  // for "This period" would be a colour no bar ever has.
+  const legendEntries = useMemo(() => {
+    const entries: Array<{ label: string; colour: string }> = [];
+    if (chartData.some(row => row.bucket === 'income')) {
+      entries.push({ label: 'This period — income', colour: INCOME_FILL });
+    }
+    if (chartData.some(row => row.bucket === 'expense')) {
+      entries.push({ label: 'This period — expenses', colour: EXPENSE_FILL });
+    }
+    entries.push({ label: COMPARISON_BASIS_LABELS[effectiveBasis], colour: COMPARISON_FILL });
+    return entries;
+  }, [chartData, effectiveBasis]);
 
   const drillIntoCategory = (row: ComparisonCategoryRow, window: 'current' | 'previous'): void => {
     const source = window === 'current' ? currentFlows : previousFlows;
@@ -175,23 +214,33 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <ReportAccountFilter accounts={accounts} filter={filter} />
+          <ReportAccountMultiSelect accounts={accounts} selection={selection} />
           <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
-            {(Object.keys(COMPARISON_BASIS_LABELS) as ComparisonBasis[]).map(value => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => handleBasis(value)}
-                aria-pressed={basis === value}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                  basis === value
-                    ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-              >
-                {COMPARISON_BASIS_LABELS[value]}
-              </button>
-            ))}
+            {(Object.keys(COMPARISON_BASIS_LABELS) as ComparisonBasis[]).map(value => {
+              // Left focusable rather than `disabled`, so the reason is
+              // reachable by keyboard and screen reader instead of being a
+              // control that simply stops existing.
+              const unavailable = taxYearSelected && value === 'previous-period';
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => { if (!unavailable) handleBasis(value); }}
+                  aria-pressed={effectiveBasis === value}
+                  aria-disabled={unavailable || undefined}
+                  title={unavailable ? 'Tax year compares with the same period last year' : undefined}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    unavailable
+                      ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                      : effectiveBasis === value
+                        ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {COMPARISON_BASIS_LABELS[value]}
+                </button>
+              );
+            })}
           </div>
         </div>
         <ReportExportBar
@@ -220,6 +269,12 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
             <span className="font-medium text-gray-700 dark:text-gray-300">{formatWindow(ranges.current)}</span>
             {' compared with '}
             <span className="font-medium text-gray-700 dark:text-gray-300">{formatWindow(ranges.previous)}</span>
+            {taxYearSelected && (
+              <span className="block text-xs text-gray-400 dark:text-gray-500 mt-1">
+                A tax year is compared with the same period a year earlier — the months before 6 April
+                belong to a different tax year, so they are not a period to compare against.
+              </span>
+            )}
           </p>
 
           <UncategorisedReviewBand flows={flows} categories={categories} />
@@ -262,9 +317,34 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                       }
                       contentStyle={{ borderRadius: '8px' }}
                     />
-                    <Legend />
-                    <Bar dataKey="current" name="This period" fill="#3B82F6" radius={[0, 3, 3, 0]} isAnimationActive={false} />
-                    <Bar dataKey="previous" name={COMPARISON_BASIS_LABELS[basis]} fill="#94A3B8" radius={[0, 3, 3, 0]} isAnimationActive={false} />
+                    {/* Recharts derives its own legend from each series' single
+                        fill, which this chart does not have — so the legend is
+                        drawn from what the bars actually are. */}
+                    <Legend
+                      content={() => (
+                        <ul className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-2 text-xs text-gray-600 dark:text-gray-300">
+                          {legendEntries.map(entry => (
+                            <li key={entry.label} className="flex items-center gap-1.5">
+                              <span
+                                aria-hidden="true"
+                                className="inline-block w-2.5 h-2.5 rounded-sm"
+                                style={{ backgroundColor: entry.colour }}
+                              />
+                              {entry.label}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    />
+                    <Bar dataKey="current" name="This period" radius={[0, 3, 3, 0]} isAnimationActive={false}>
+                      {chartData.map(entry => (
+                        <Cell
+                          key={entry.categoryId}
+                          fill={entry.bucket === 'income' ? INCOME_FILL : EXPENSE_FILL}
+                        />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="previous" name={COMPARISON_BASIS_LABELS[effectiveBasis]} fill={COMPARISON_FILL} radius={[0, 3, 3, 0]} isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -294,7 +374,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                         This period
                       </th>
                       <th scope="col" className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 min-w-[130px]">
-                        {COMPARISON_BASIS_LABELS[basis]}
+                        {COMPARISON_BASIS_LABELS[effectiveBasis]}
                       </th>
                       <th scope="col" className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         Change

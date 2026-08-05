@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
-import type { Budget } from '../types';
+import CategorySelector from './CategorySelector';
+import type { Budget, Category } from '../types';
 
 interface BudgetModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface BudgetModalProps {
 }
 
 interface FormData {
-  category: string;
+  categoryId: string;
   amount: string;
   period: 'monthly' | 'weekly' | 'yearly' | 'custom' | 'quarterly';
   isActive: boolean;
@@ -20,10 +21,26 @@ interface FormData {
 
 export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProps): React.JSX.Element {
   const { addBudget, updateBudget, categories } = useApp();
-  
+
+  /**
+   * Budgets key on a category ID: that is what `calculateBudgetSpending`
+   * matches against `transaction.category`, and what the recommendation
+   * service writes. This modal's old flat <select> stored the category NAME
+   * instead, so a budget added here matched nothing. Resolve such a legacy
+   * value back to its id on open, so editing an old budget both shows the
+   * right category and heals the stored value on save.
+   */
+  const seededCategoryId = useMemo((): string => {
+    const stored = budget?.categoryId;
+    if (!stored) return '';
+    if (categories.some((c: Category) => c.id === stored)) return stored;
+    const byName = categories.find((c: Category) => c.level === 'detail' && c.name === stored);
+    return byName?.id ?? '';
+  }, [budget?.categoryId, categories]);
+
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
-      category: budget?.categoryId || '',
+      categoryId: seededCategoryId,
       amount: budget?.amount?.toString() || '',
       period: budget?.period || 'monthly',
       isActive: budget?.isActive !== false
@@ -32,7 +49,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
       onSubmit: (data) => {
         const now = new Date();
         const budgetData = {
-          categoryId: data.category,
+          categoryId: data.categoryId,
           amount: parseMoneyInput(data.amount) ?? 0,
           period: data.period,
           isActive: data.isActive,
@@ -50,48 +67,61 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
     }
   );
 
+  // The combobox has no native `required`, so the form guards the field itself.
+  const [categoryError, setCategoryError] = useState('');
+
+  const onFormSubmit = (e: React.FormEvent): void => {
+    if (!formData.categoryId) {
+      e.preventDefault();
+      setCategoryError('Choose a category to budget against.');
+      return;
+    }
+    handleSubmit(e);
+  };
+
+  // Re-seeds on the RESOLVED id, not on `categories`: an unrelated category
+  // refresh while the modal is open must not wipe what the user has typed.
   useEffect(() => {
     if (budget) {
       setFormData({
-        category: budget.categoryId || '',
+        categoryId: seededCategoryId,
         amount: budget.amount?.toString() || '',
         period: budget.period || 'monthly',
         isActive: budget.isActive !== false
       });
     }
-  }, [budget, setFormData]);
+  }, [budget, setFormData, seededCategoryId]);
 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={budget ? 'Edit Budget' : 'Add Budget'} size="md">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={onFormSubmit}>
         <ModalBody className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Category
+              Category <span className="text-red-500" aria-label="required">*</span>
             </label>
-            <select
-              required
-              value={formData.category}
-              onChange={(e) => updateField('category', e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-            >
-              <option value="">Select category</option>
-              {categories
-                .filter(cat => cat.level === 'detail' && (cat.type === 'expense' || cat.type === 'both'))
-                .map(cat => {
-                  // Build the full category path
-                  const parent = categories.find(c => c.id === cat.parentId);
-                  const grandParent = parent ? categories.find(c => c.id === parent.parentId) : null;
-                  const path = grandParent ? `${parent?.name} > ${cat.name}` : cat.name;
-                  
-                  return (
-                    <option key={cat.id} value={cat.name}>
-                      {path}
-                    </option>
-                  );
-                })}
-            </select>
+            {/* The shared searchable picker every categorisation surface uses:
+                grouped under its parent group, alphabetical inside. Budgets are
+                spending limits, so it lists the expense tree. usePortal escapes
+                the modal body's overflow-y-auto clipping. */}
+            <CategorySelector
+              selectedCategory={formData.categoryId}
+              onCategoryChange={(categoryId) => {
+                setCategoryError('');
+                updateField('categoryId', categoryId);
+              }}
+              transactionType="expense"
+              placeholder="Search or select category…"
+              allowCreate={false}
+              showHelperText={false}
+              usePortal
+            />
+            {categoryError && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
+                {categoryError}
+              </p>
+            )}
           </div>
 
           <div>

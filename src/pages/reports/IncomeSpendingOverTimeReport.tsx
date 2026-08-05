@@ -16,10 +16,13 @@ import { useReportAccountFilter } from '../../hooks/useReportAccountFilter';
 import ReportAccountFilter from '../../components/reports/ReportAccountFilter';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
+import ReportCumulativeToggle from '../../components/reports/ReportCumulativeToggle';
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
 import { buildMonthlyTrend } from '../../utils/monthlyTrend';
+import { toCumulativeTrend } from '../../utils/cumulativeSeries';
 import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
+import { useCumulativeReport } from '../../hooks/useCumulativeReport';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
@@ -33,6 +36,8 @@ import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
  * full report cannot disagree. Points on the chart and figures in the table
  * both open the transactions behind them.
  */
+
+const CUMULATIVE_KEY = 'reports.incomeSpendingOverTime.cumulative.v1';
 
 const compactTick = (value: number): string => {
   const abs = Math.abs(value);
@@ -56,9 +61,19 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
     setChartType(type);
     localStorage.setItem('reportsTrendChartType', type);
   };
+  // Month on its own, or the period to date — the chart and the table below it
+  // always agree, because both read the same series.
+  const cumulativeToggle = useCumulativeReport(CUMULATIVE_KEY);
+  const { cumulative } = cumulativeToggle;
 
   const trend = useMemo(() => buildMonthlyTrend(rows, categories), [rows, categories]);
+  const series = useMemo(
+    () => (cumulative ? toCumulativeTrend(trend) : trend),
+    [trend, cumulative]
+  );
 
+  // The period's own totals — the same figures whichever way the months are
+  // read, so they come from the month-by-month series either way.
   const totals = useMemo(() => {
     const income = trend.reduce((sum, point) => sum.plus(toDecimal(point.income)), toDecimal(0));
     const expenses = trend.reduce((sum, point) => sum.plus(toDecimal(point.expenses)), toDecimal(0));
@@ -68,8 +83,18 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
   const netOf = (point: { income: number; expenses: number }): number =>
     toDecimal(point.income).minus(toDecimal(point.expenses)).toNumber();
 
-  const rowsOfMonth = (source: SplitExpandedTransaction[], monthKey: string): SplitExpandedTransaction[] =>
-    source.filter(t => new Date(t.date).toISOString().slice(0, 7) === monthKey);
+  const firstMonthKey = trend[0]?.monthKey ?? null;
+
+  // A cumulative figure is the period up to that month, so its drill-in must
+  // carry every month behind it — the rows have to add up to the figure that
+  // opened them. Month keys are UTC YYYY-MM, as the series builder makes them,
+  // so comparing them as strings compares them as months.
+  const rowsBehindFigure = (source: SplitExpandedTransaction[], monthKey: string): SplitExpandedTransaction[] =>
+    source.filter(t => {
+      const key = new Date(t.date).toISOString().slice(0, 7);
+      if (!cumulative) return key === monthKey;
+      return key <= monthKey && (firstMonthKey === null || key >= firstMonthKey);
+    });
 
   const drillIntoMonth = (
     monthKey: string,
@@ -78,9 +103,9 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
     total: number
   ): void => {
     setDrill({
-      title: `${bucket === 'income' ? 'Income' : 'Expenses'} — ${label}`,
+      title: `${bucket === 'income' ? 'Income' : 'Expenses'} — ${cumulative ? `to ${label}` : label}`,
       bucket,
-      rows: rowsOfMonth(bucket === 'income' ? flows.incomeRows : flows.expenseRows, monthKey),
+      rows: rowsBehindFigure(bucket === 'income' ? flows.incomeRows : flows.expenseRows, monthKey),
       total,
     });
   };
@@ -104,6 +129,11 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
       }
     };
 
+  // The legend and every tooltip read these names, so a running total can
+  // never be presented as a month's own figure.
+  const incomeSeriesName = cumulative ? 'Income (running total)' : 'Income';
+  const expenseSeriesName = cumulative ? 'Expenses (running total)' : 'Expenses';
+
   const figureButton = (
     label: string,
     value: number,
@@ -123,7 +153,10 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ReportAccountFilter accounts={accounts} filter={filter} />
+        <div className="flex flex-wrap items-center gap-4">
+          <ReportAccountFilter accounts={accounts} filter={filter} />
+          <ReportCumulativeToggle toggle={cumulativeToggle} />
+        </div>
         <ReportExportBar
           title="Income and spending over time"
           dateRange={PERIOD_LABELS[picker.period]}
@@ -140,7 +173,7 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
           <h2 className="text-lg font-semibold text-theme-heading dark:text-white">
-            Income against spending
+            {cumulative ? 'Income against spending, running totals' : 'Income against spending'}
           </h2>
           <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
             {(['line', 'bar'] as const).map(type => (
@@ -161,14 +194,16 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
           </div>
         </div>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          {PERIOD_LABELS[picker.period]} — click a point, or any figure in the table, for the transactions behind it.
+          {PERIOD_LABELS[picker.period]}
+          {cumulative && ' — each point is the period so far, not the month on its own'}
+          {' '}— click a point, or any figure in the table, for the transactions behind it.
         </p>
-        {trend.length === 0 ? (
+        {series.length === 0 ? (
           <p className="text-center py-16 text-gray-400">No categorised transactions in this period</p>
         ) : (
           <div className="h-80" ref={chartRef}>
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={trend}>
+              <ComposedChart data={series}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
                 <XAxis dataKey="month" tick={{ fill: '#6B7280', fontSize: 12 }} minTickGap={24} />
                 <YAxis tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={compactTick} width={70} />
@@ -180,12 +215,12 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
                 />
                 <Legend />
                 {chartType === 'bar' ? (
-                  <Bar dataKey="income" name="Income" fill="#10B981" radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('income')} />
+                  <Bar dataKey="income" name={incomeSeriesName} fill="#10B981" radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('income')} />
                 ) : (
                   <Line
                     type="monotone"
                     dataKey="income"
-                    name="Income"
+                    name={incomeSeriesName}
                     stroke="#10B981"
                     strokeWidth={2}
                     dot={false}
@@ -194,12 +229,12 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
                   />
                 )}
                 {chartType === 'bar' ? (
-                  <Bar dataKey="expenses" name="Expenses" fill="#EF4444" radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('expenses')} />
+                  <Bar dataKey="expenses" name={expenseSeriesName} fill="#EF4444" radius={[3, 3, 0, 0]} cursor="pointer" isAnimationActive={false} onClick={handlePointClick('expenses')} />
                 ) : (
                   <Line
                     type="monotone"
                     dataKey="expenses"
-                    name="Expenses"
+                    name={expenseSeriesName}
                     stroke="#EF4444"
                     strokeWidth={2}
                     dot={false}
@@ -216,32 +251,41 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
         <div className="p-6 pb-3">
           <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Month by month</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {cumulative
+              ? 'Running totals: every row is the period up to the end of that month.'
+              : 'Every month on its own.'}
+          </p>
         </div>
-        {trend.length === 0 ? (
+        {series.length === 0 ? (
           <p className="text-center py-16 text-gray-400">No categorised transactions in this period</p>
         ) : (
           /* The table scrolls inside its own box; the page never scrolls sideways. */
           <div className="overflow-x-auto rounded-b-2xl">
             <table className="min-w-full text-sm">
-              <caption className="sr-only">Income, expenses and the balance for each month of the period</caption>
+              <caption className="sr-only">
+                {cumulative
+                  ? 'Income, expenses and the balance for the period up to the end of each month'
+                  : 'Income, expenses and the balance for each month of the period'}
+              </caption>
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th scope="col" className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 min-w-[140px]">
-                    Month
+                    {cumulative ? 'Up to' : 'Month'}
                   </th>
                   <th scope="col" className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Income
+                    {cumulative ? 'Income to date' : 'Income'}
                   </th>
                   <th scope="col" className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Expenses
+                    {cumulative ? 'Expenses to date' : 'Expenses'}
                   </th>
                   <th scope="col" className="px-6 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    Left over
+                    {cumulative ? 'Left over to date' : 'Left over'}
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {trend.map(point => {
+                {series.map(point => {
                   const net = netOf(point);
                   return (
                     <tr key={point.monthKey} className="border-t border-gray-50 dark:border-gray-700/50">
@@ -250,7 +294,7 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
                       </th>
                       <td className="px-3 py-2 text-sm text-right">
                         {figureButton(
-                          `Income, ${point.month}`,
+                          cumulative ? `Income to ${point.month}` : `Income, ${point.month}`,
                           point.income,
                           () => drillIntoMonth(point.monthKey, point.month, 'income', point.income),
                           'text-green-700 dark:text-green-400'
@@ -258,7 +302,7 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
                       </td>
                       <td className="px-3 py-2 text-sm text-right">
                         {figureButton(
-                          `Expenses, ${point.month}`,
+                          cumulative ? `Expenses to ${point.month}` : `Expenses, ${point.month}`,
                           point.expenses,
                           () => drillIntoMonth(point.monthKey, point.month, 'expense', point.expenses),
                           'text-red-600 dark:text-red-400'

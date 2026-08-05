@@ -30,6 +30,12 @@ export interface MatrixDrillTarget {
 interface Props {
   matrix: MonthlyCategoryMatrix;
   onDrill: (target: MatrixDrillTarget) => void;
+  /**
+   * The matrix has already been run through `toCumulativeMatrix` — every
+   * column is the period to date. Wording only: the figures arrive cumulative
+   * either way, and the caller drills into the months behind them.
+   */
+  cumulative?: boolean;
 }
 
 const DETAIL_KEY = 'reportsMatrixSubcategories';
@@ -52,7 +58,11 @@ interface RowSpec {
   drill?: (monthKey: string | null, value: number) => void;
 }
 
-export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): React.JSX.Element {
+export default function MonthlyIncomeExpenseMatrix({
+  matrix,
+  onDrill,
+  cumulative = false,
+}: Props): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
   // Group subtotals only, or every category beneath them — persisted like the
   // page's other view preferences. Groups-only keeps a deep tree readable.
@@ -74,10 +84,14 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
   const money = (value: number): string =>
     value < 0 ? `-${formatCurrency(Math.abs(value))}` : formatCurrency(value);
 
-  const labelOfMonth = (monthKey: string | null): string =>
-    monthKey === null
-      ? 'whole period'
-      : months.find(m => m.key === monthKey)?.label ?? monthKey;
+  // A cumulative column is the period UP TO that month, and its drill-in
+  // carries every month behind it — so the label has to say "to Feb 26",
+  // never "Feb 26".
+  const labelOfMonth = (monthKey: string | null): string => {
+    if (monthKey === null) return 'whole period';
+    const label = months.find(m => m.key === monthKey)?.label ?? monthKey;
+    return cumulative ? `to ${label}` : label;
+  };
 
   const sideRowSpecs = (bucket: 'income' | 'expense', groups: MatrixGroup[]): RowSpec[] => {
     const specs: RowSpec[] = [];
@@ -209,7 +223,9 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
             Monthly Income and Expenses
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Every category by month for the selected period. Click any figure to see the transactions behind it.
+            {cumulative
+              ? 'Running totals: each column is that month plus every month before it in the period. Click any figure to see the transactions behind it.'
+              : 'Every category by month for the selected period. Click any figure to see the transactions behind it.'}
           </p>
         </div>
         <button
@@ -230,7 +246,9 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
       {matrix.omittedMonths > 0 && (
         <p className="px-6 pb-3 text-xs text-amber-700 dark:text-amber-400">
           This period spans {matrix.omittedMonths + months.length} months — the most recent {months.length} are shown
-          as columns, and the Total column still covers all of it. Choose a shorter period to see the earlier months.
+          as columns, and the Total column still covers all of it.
+          {cumulative && ' The running total starts at the first column shown, so it stops short of the Total.'}
+          {' '}Choose a shorter period to see the earlier months.
         </p>
       )}
 
@@ -240,7 +258,9 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
         <div className="overflow-auto max-h-[70vh] rounded-b-2xl">
           <table className="min-w-max text-sm border-separate border-spacing-0">
             <caption className="sr-only">
-              Income and expenses by category and month for the selected period
+              {cumulative
+                ? 'Income and expenses by category, as a running total for the period up to the end of each month'
+                : 'Income and expenses by category and month for the selected period'}
             </caption>
             <thead>
               <tr>
@@ -249,7 +269,7 @@ export default function MonthlyIncomeExpenseMatrix({ matrix, onDrill }: Props): 
                 </th>
                 {months.map(month => (
                   <th key={month.key} scope="col" className={`${HEAD_CELL} z-20 text-right min-w-[96px]`}>
-                    {month.label}
+                    {cumulative ? `to ${month.label}` : month.label}
                   </th>
                 ))}
                 {showTotal && (

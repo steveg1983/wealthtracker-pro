@@ -17,6 +17,7 @@ import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
+import { groupAccountsBySection } from '../utils/accountGrouping';
 import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -490,6 +491,14 @@ export default function AccountTransactions() {
   const quickEditTarget = useMemo(
     () => transactionsWithBalance.find(t => t.id === selectedTransactionId) ?? null,
     [transactionsWithBalance, selectedTransactionId]
+  );
+
+  // Transfer targets for the quick-add dock, banded into the same sections the
+  // Accounts page uses. Which accounts are offered is unchanged — every account
+  // but this one — only the order they read in.
+  const transferTargetSections = useMemo(
+    () => groupAccountsBySection(accounts.filter(acc => acc.id !== account?.id)),
+    [accounts, account?.id]
   );
 
   // Clicking the page background deselects: the row un-highlights and the
@@ -1370,13 +1379,15 @@ export default function AccountTransactions() {
                   className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
                 >
                   <option value="">Select account...</option>
-                  {accounts
-                    .filter(acc => acc.id !== account?.id)
-                    .map(acc => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name} ({formatCurrency(acc.balance)})
-                      </option>
-                    ))}
+                  {transferTargetSections.map(group => (
+                    <optgroup key={group.label} label={group.title}>
+                      {group.accounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name} ({formatCurrency(acc.balance)})
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               ) : (
                 /* Which direction's tree it lists is this row's own, flipped by

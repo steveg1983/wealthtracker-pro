@@ -15,6 +15,7 @@ import {
 import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
+import { groupAccountsBySection } from '../utils/accountGrouping';
 import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
@@ -399,12 +400,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     const incomeGroups = groups.filter(g => g.type === 'income' || g.type === 'both');
     const expenseGroups = groups.filter(g => g.type === 'expense' || g.type === 'both');
 
-    // Transfer accounts: all accounts except the current transaction's account
-    const transferAccounts = accounts
-      .filter(a => a.isActive !== false && a.id !== formData.accountId)
-      .map(a => ({ id: `transfer:${a.id}`, name: a.name }));
+    // Transfer accounts: all accounts except the current transaction's account,
+    // banded into the SAME sections the Accounts page uses (Current, Savings,
+    // Credit Cards…) and alphabetical inside each — one flat unordered list of
+    // every account was unreadable once there were more than a handful.
+    const transferAccountSections = groupAccountsBySection(
+      accounts
+        .filter(a => a.isActive !== false && a.id !== formData.accountId)
+        .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type }))
+    );
 
-    return { incomeGroups, expenseGroups, transferAccounts };
+    return { incomeGroups, expenseGroups, transferAccountSections };
   }, [categories, accounts, formData.accountId]);
 
   // Helper function to format number with commas
@@ -820,8 +826,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   aria-label="Transfer destination account"
                 >
                   <option value="">Select account to transfer to</option>
-                  {groupedCategories.transferAccounts.map(acct => (
-                    <option key={acct.id} value={acct.id}>{acct.name}</option>
+                  {groupedCategories.transferAccountSections.map(group => (
+                    <optgroup key={group.label} label={group.title}>
+                      {group.accounts.map(acct => (
+                        <option key={acct.id} value={acct.id}>{acct.name}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               ) : splitActive ? (

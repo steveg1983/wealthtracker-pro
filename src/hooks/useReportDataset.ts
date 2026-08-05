@@ -6,6 +6,12 @@ import type { UsePeriodResult } from './usePeriod';
 import type { Account, Category, Transaction, TransactionSplit } from '../types';
 
 /**
+ * Which accounts a report covers: 'all', a single account id, or an explicit
+ * set of ids (an empty set covers nothing, and reports honest zeros).
+ */
+export type ReportAccountScope = string | ReadonlySet<string>;
+
+/**
  * The dataset every spending report reads: the selected period and account
  * filter applied once, split transactions expanded once, and the shared
  * income/expense classification run once.
@@ -28,14 +34,16 @@ export interface ReportDataset {
   flows: IncomeExpenseBreakdown;
 }
 
-export function useReportDataset(picker: UsePeriodResult, accountId: string): ReportDataset {
+export function useReportDataset(picker: UsePeriodResult, scope: ReportAccountScope): ReportDataset {
   const { transactions, transactionSplits, accounts, categories } = useApp();
   const { inRange } = picker;
 
-  const accountTransactions = useMemo(
-    () => (accountId === 'all' ? transactions : transactions.filter(t => t.accountId === accountId)),
-    [transactions, accountId]
-  );
+  const accountTransactions = useMemo(() => {
+    if (typeof scope === 'string') {
+      return scope === 'all' ? transactions : transactions.filter(t => t.accountId === scope);
+    }
+    return transactions.filter(t => scope.has(t.accountId));
+  }, [transactions, scope]);
 
   // Split parents become one row per line so each line's value lands in ITS
   // category — the same view every other reporting surface uses.
