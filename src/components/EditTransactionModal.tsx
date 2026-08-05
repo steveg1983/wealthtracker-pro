@@ -585,8 +585,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     [transaction, transactions, accounts]
   );
 
+  // The jump is taken even when that account is CLOSED: the register itself
+  // owns the closed-account offer now (name, explanation, "Re-open and view"),
+  // so the way through arrives where the user asked for it instead of being
+  // described to them. `isOpen` still shapes the label — a closed account's
+  // name isn't in the context list to print.
   const handleJumpToOtherSide = (): void => {
-    if (!otherSide?.isOpen) return;
+    if (!otherSide) return;
     const params = new URLSearchParams();
     params.set('txn', otherSide.transactionId);
     if (new URLSearchParams(location.search).get('demo') === 'true') {
@@ -824,21 +829,20 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                       <button
                         type="button"
                         onClick={handleJumpToOtherSide}
-                        disabled={!otherSide.isOpen}
                         title={otherSide.isOpen
                           ? 'Open the matching transaction in its own account'
-                          : 'That account is closed — re-open it from the Accounts page to view this leg'}
-                        className="mt-2 inline-block text-sm font-medium text-primary hover:text-secondary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-primary"
+                          : 'That account is closed — the register will offer to re-open it'}
+                        className="mt-2 inline-block text-sm font-medium text-primary hover:text-secondary"
                       >
                         {otherSide.accountName
                           ? `Jump to the other side in ${otherSide.accountName} →`
                           : 'Jump to the other side →'}
                       </button>
-                      {/* A disabled button's title is never announced (its
-                          label wins), so the reason is said out loud here. */}
+                      {/* A button's title is not announced (its label wins), so
+                          what to expect on the other end is said out loud. */}
                       {!otherSide.isOpen && (
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          That account is closed — re-open it from the Accounts page to view this leg.
+                          That account is closed — the register will offer to re-open it.
                         </p>
                       )}
                     </>

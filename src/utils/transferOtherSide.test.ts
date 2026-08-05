@@ -69,7 +69,7 @@ describe('resolveTransferOtherSide', () => {
     });
   });
 
-  it('reports a closed other side without a name — its register cannot open', () => {
+  it('reports a closed other side without a name — it is not in the open list', () => {
     expect(resolveTransferOtherSide(OUT, [OUT], [account('acc-a', 'Current Account')])).toEqual({
       transactionId: 'in',
       accountId: 'acc-b',

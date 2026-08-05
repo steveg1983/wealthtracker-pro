@@ -1,4 +1,5 @@
-import React, { useState, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useCallback, Suspense } from 'react';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importRulesService } from '../services/importRulesService';
 import PageWrapper from '../components/PageWrapper';
@@ -28,15 +29,15 @@ import {
 // comment above the modal block). This is the single home for bringing data
 // in, so it pulls in many modals — deferring each chunk (and its hooks) until
 // first use keeps the page itself light.
-const EnhancedImportWizard = lazy(() => import('../components/EnhancedImportWizard'));
-const BatchImportModal = lazy(() => import('../components/BatchImportModal'));
-const ImportRulesManager = lazy(() => import('../components/ImportRulesManager'));
-const MsMoneyImportModal = lazy(() => import('../components/MsMoneyImportModal'));
-const DataMigrationWizard = lazy(() => import('../components/DataMigrationWizard'));
-const ImportDataModal = lazy(() => import('../components/ImportDataModal'));
-const CSVImportWizard = lazy(() => import('../components/CSVImportWizard'));
-const OFXImportModal = lazy(() => import('../components/OFXImportModal'));
-const QIFImportModal = lazy(() => import('../components/QIFImportModal'));
+const EnhancedImportWizard = lazyWithRecovery(() => import('../components/EnhancedImportWizard'));
+const BatchImportModal = lazyWithRecovery(() => import('../components/BatchImportModal'));
+const ImportRulesManager = lazyWithRecovery(() => import('../components/ImportRulesManager'));
+const MsMoneyImportModal = lazyWithRecovery(() => import('../components/MsMoneyImportModal'));
+const DataMigrationWizard = lazyWithRecovery(() => import('../components/DataMigrationWizard'));
+const ImportDataModal = lazyWithRecovery(() => import('../components/ImportDataModal'));
+const CSVImportWizard = lazyWithRecovery(() => import('../components/CSVImportWizard'));
+const OFXImportModal = lazyWithRecovery(() => import('../components/OFXImportModal'));
+const QIFImportModal = lazyWithRecovery(() => import('../components/QIFImportModal'));
 
 const bankFormats = [
   'Barclays', 'HSBC', 'Lloyds', 'NatWest', 'Santander', 'Monzo', 'Starling',

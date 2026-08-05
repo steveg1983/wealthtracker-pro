@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { captureException } from '../lib/sentry';
+import { isChunkLoadError } from '../utils/chunkLoadError';
 
 interface Props {
   children: ReactNode;
@@ -50,16 +51,22 @@ export class DebugErrorBoundary extends Component<Props, State> {
       return this.props.children;
     }
 
+    // Same distinction the inner boundary draws: code that would not download
+    // is a deploy race, not a crash, and saying so turns a scary page into an
+    // obvious one-click fix.
+    const staleChunk = isChunkLoadError(this.state.error);
+
     if (!import.meta.env.DEV) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
           <div className="max-w-md w-full text-center">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-              Something went wrong
+              {staleChunk ? 'WealthTracker has been updated' : 'Something went wrong'}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              The page could not be displayed. Your data has not been changed.
-              Reloading usually fixes it.
+              {staleChunk
+                ? "This tab is still running the older version, so the page couldn't load. Reload to pick up the update — nothing you've saved is affected."
+                : 'The page could not be displayed. Your data has not been changed. Reloading usually fixes it.'}
             </p>
             <button
               onClick={() => window.location.reload()}

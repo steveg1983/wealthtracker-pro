@@ -1,12 +1,12 @@
 import React, {
   Suspense,
-  lazy,
   useEffect,
   useState,
   type ComponentProps,
   type ComponentType
 } from 'react';
 import { Skeleton } from '../loading/Skeleton';
+import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 
 import type { default as PieChartWrapperComponent } from './wrappers/PieChartWrapper';
 import type { default as BarChartWrapperComponent } from './wrappers/BarChartWrapper';
@@ -44,23 +44,23 @@ type ChartComponentKey =
 type ChartComponentProps<K extends ChartComponentKey> = ChartModule[K] extends ComponentType<infer P> ? P : never;
 type ChartComponentType<K extends ChartComponentKey> = ComponentType<ChartComponentProps<K>>;
 
-const LazyPieChartWrapper = lazy(() =>
+const LazyPieChartWrapper = lazyWithRecovery(() =>
   import(/* webpackChunkName: "chart-pie" */ './wrappers/PieChartWrapper')
 );
 
-const LazyBarChartWrapper = lazy(() =>
+const LazyBarChartWrapper = lazyWithRecovery(() =>
   import(/* webpackChunkName: "chart-bar" */ './wrappers/BarChartWrapper')
 );
 
-const LazyLineChartWrapper = lazy(() =>
+const LazyLineChartWrapper = lazyWithRecovery(() =>
   import(/* webpackChunkName: "chart-line" */ './wrappers/LineChartWrapper')
 );
 
-const LazyAreaChartWrapper = lazy(() =>
+const LazyAreaChartWrapper = lazyWithRecovery(() =>
   import(/* webpackChunkName: "chart-area" */ './wrappers/AreaChartWrapper')
 );
 
-const LazyTreemapWrapper = lazy(() =>
+const LazyTreemapWrapper = lazyWithRecovery(() =>
   import(/* webpackChunkName: "chart-treemap" */ './wrappers/TreemapWrapper')
 );
 

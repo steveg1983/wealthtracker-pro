@@ -5,12 +5,13 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 
 // Lazy load heavy modals to improve initial page load
-const EditTransactionModal = lazy(() => import('../components/EditTransactionModal'));
-const TransactionDetailsView = lazy(() => import('../components/TransactionDetailsView'));
-const QuickDateFilters = lazy(() => import('../components/QuickDateFilters'));
+const EditTransactionModal = lazyWithRecovery(() => import('../components/EditTransactionModal'));
+const TransactionDetailsView = lazyWithRecovery(() => import('../components/TransactionDetailsView'));
+const QuickDateFilters = lazyWithRecovery(() => import('../components/QuickDateFilters'));
 import { CalendarIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import DatePicker from '../components/common/DatePicker';
 import { Modal, ModalBody } from '../components/common/Modal';
@@ -22,7 +23,7 @@ import TransactionContextMenu from '../components/TransactionContextMenu';
 import { useToast } from '../contexts/ToastContext';
 import { TransactionRow } from '../components/TransactionRow';
 // Lazy load list components that are conditionally rendered
-const InfiniteScrollTransactionList = lazy(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
+const InfiniteScrollTransactionList = lazyWithRecovery(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
 import { useDebounce } from '../hooks/useDebounce';
 import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';

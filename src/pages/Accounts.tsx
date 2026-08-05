@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useCallback, lazy, Suspense, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useCallback, Suspense, type ReactNode } from 'react';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -16,7 +17,7 @@ import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 
 // Bank connection management lives on this page (the natural home for it);
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
-const BankConnections = lazy(() => import('../components/BankConnections'));
+const BankConnections = lazyWithRecovery(() => import('../components/BankConnections'));
 import type { Account } from '../types';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 import {

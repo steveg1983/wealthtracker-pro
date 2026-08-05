@@ -1,4 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { supabase } from '../lib/supabase';
@@ -9,9 +10,9 @@ import LazyErrorBoundary from '../components/LazyErrorBoundary';
 import PageTip from '../components/PageTip';
 
 // Lazy load only modals and heavy features for better performance
-const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
-const OnboardingModal = lazy(() => import('../components/OnboardingModal'));
-const ImprovedDashboard = lazy(() => import('../components/dashboard/ImprovedDashboard').then(module => ({ default: module.ImprovedDashboard })));
+const TestDataWarningModal = lazyWithRecovery(() => import('../components/TestDataWarningModal'));
+const OnboardingModal = lazyWithRecovery(() => import('../components/OnboardingModal'));
+const ImprovedDashboard = lazyWithRecovery(() => import('../components/dashboard/ImprovedDashboard').then(module => ({ default: module.ImprovedDashboard })));
 
 
 export default function Dashboard() {

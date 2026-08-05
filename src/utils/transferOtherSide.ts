@@ -10,7 +10,9 @@ export interface TransferOtherSide {
   accountName?: string;
   /**
    * False when that account is closed (or otherwise absent from the open
-   * list). Closed accounts have no register, so the jump cannot be taken.
+   * list). The jump is still offered — the register meets a closed account
+   * with the re-open offer — but its name cannot be printed, and the caller
+   * says up front what will happen on arrival.
    */
   isOpen: boolean;
 }

@@ -1,4 +1,5 @@
-import { lazy, type ComponentType, type ElementType, type LazyExoticComponent } from 'react';
+import { type ComponentType, type ElementType, type LazyExoticComponent } from 'react';
+import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import {
   BarChart3Icon,
   CalendarIcon,
@@ -79,7 +80,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: WalletIcon,
     usesPeriod: true,
-    component: lazy(() => import('./NetWorthStatementReport')),
+    component: lazyWithRecovery(() => import('./NetWorthStatementReport')),
   },
   {
     id: 'net-worth-over-time',
@@ -91,7 +92,7 @@ export const REPORTS: ReportDefinition[] = [
     // The whole history is the point of this one — a month of net worth is a
     // dot, and even a year says little about the direction of travel.
     defaultPeriod: 'all',
-    component: lazy(() => import('../NetWorthReport')),
+    component: lazyWithRecovery(() => import('../NetWorthReport')),
   },
   {
     id: 'account-balances',
@@ -100,7 +101,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'what-i-have',
     icon: LandmarkIcon,
     usesPeriod: true,
-    component: lazy(() => import('./AccountBalancesReport')),
+    component: lazyWithRecovery(() => import('./AccountBalancesReport')),
   },
   {
     id: 'monthly-income-expenses',
@@ -109,7 +110,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: CalendarIcon,
     usesPeriod: true,
-    component: lazy(() => import('../Reports')),
+    component: lazyWithRecovery(() => import('../Reports')),
   },
   {
     id: 'spending-by-category',
@@ -118,7 +119,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: PieChartIcon,
     usesPeriod: true,
-    component: lazy(() => import('./SpendingByCategoryReport')),
+    component: lazyWithRecovery(() => import('./SpendingByCategoryReport')),
   },
   {
     id: 'income-and-spending-over-time',
@@ -130,7 +131,7 @@ export const REPORTS: ReportDefinition[] = [
     // Month-by-month bars need enough months to compare, and a year covers the
     // seasonal swings (Christmas, holidays, annual bills) exactly once.
     defaultPeriod: 'last-12-months',
-    component: lazy(() => import('./IncomeSpendingOverTimeReport')),
+    component: lazyWithRecovery(() => import('./IncomeSpendingOverTimeReport')),
   },
   {
     id: 'spending-by-payee',
@@ -139,7 +140,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: UsersIcon,
     usesPeriod: true,
-    component: lazy(() => import('./SpendingByPayeeReport')),
+    component: lazyWithRecovery(() => import('./SpendingByPayeeReport')),
   },
   {
     id: 'period-comparison',
@@ -148,7 +149,7 @@ export const REPORTS: ReportDefinition[] = [
     group: 'spending',
     icon: RepeatIcon,
     usesPeriod: true,
-    component: lazy(() => import('./PeriodComparisonReport')),
+    component: lazyWithRecovery(() => import('./PeriodComparisonReport')),
   },
   {
     id: 'custom-reports',
@@ -158,7 +159,7 @@ export const REPORTS: ReportDefinition[] = [
     icon: FileTextIcon,
     // Custom reports carry their own date and account filters.
     usesPeriod: false,
-    component: lazy(() => import('../CustomReports')),
+    component: lazyWithRecovery(() => import('../CustomReports')),
   },
 ];
 

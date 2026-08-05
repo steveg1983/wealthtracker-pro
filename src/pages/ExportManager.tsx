@@ -1,4 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { exportService } from '../services/exportService';
 import type { ExportOptions, ExportTemplate } from '../services/exportService';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -23,8 +24,8 @@ import { createScopedLogger } from '../loggers/scopedLogger';
 // exporter both used to live under Settings ▸ Data Management. They move here so
 // every way OUT of the app is on one page. Kept lazy — moving a component must
 // not turn its chunk into an always-loaded static import.
-const EnhancedExportManager = lazy(() => import('../components/EnhancedExportManager'));
-const ExcelExport = lazy(() => import('../components/ExcelExport'));
+const EnhancedExportManager = lazyWithRecovery(() => import('../components/EnhancedExportManager'));
+const ExcelExport = lazyWithRecovery(() => import('../components/ExcelExport'));
 
 const exportManagerLogger = createScopedLogger('ExportManagerPage');
 
