@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
-import { MS_MONEY_CATEGORY_SET } from '../../data/msMoneyCategories';
+import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
 import { expandSplitTransactions, splitsByTransaction } from '../../utils/transactionSplits';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import CategorySelector from '../../components/CategorySelector';
@@ -216,16 +216,16 @@ export default function CategoriesSettings() {
     transfer: categories.find(c => c.level === 'type' && c.type === 'both')?.id ?? 'type-transfer',
   }), [categories]);
 
-  const handleImportMoneySet = async () => {
+  const handleImportDefaultSet = async () => {
     if (isImporting) return;
     if (!window.confirm(
-      'Switch to the Microsoft Money category set? The Money tree is imported and unused default categories are removed. Categories that transactions use, transfer categories, and system categories are always kept.'
+      'Switch to the standard starter category set? The default tree is imported and unused default categories are removed. Categories that transactions use, transfer categories, and system categories are always kept.'
     )) {
       return;
     }
     setIsImporting(true);
     try {
-      const result = await importCategoryTree(MS_MONEY_CATEGORY_SET, { pruneOthers: true });
+      const result = await importCategoryTree(DEFAULT_CATEGORY_TREE, { pruneOthers: true });
       const parts: string[] = [];
       if (result.created > 0) parts.push(`added ${result.created}`);
       if (result.pruned > 0) parts.push(`removed ${result.pruned} unused defaults`);
@@ -233,8 +233,8 @@ export default function CategoriesSettings() {
       showSuccess(
         parts.length > 0
           ? `Categories updated: ${parts.join(', ')}.`
-          : 'Your categories already match the Microsoft Money set.',
-        'Money set applied'
+          : 'Your categories already match the standard starter set.',
+        'Starter set applied'
       );
     } catch (error) {
       showError(error);
@@ -756,19 +756,19 @@ export default function CategoriesSettings() {
         <div className="lg:shrink-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-              Microsoft Money category set
+              Standard category set
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Switch to the classic Money (UK) category tree. Unused default categories
+              Switch to the standard starter category tree. Unused default categories
               are removed; anything your transactions use is kept.
             </p>
           </div>
           <button
-            onClick={() => void handleImportMoneySet()}
+            onClick={() => void handleImportDefaultSet()}
             disabled={isImporting}
             className="px-4 py-2 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap self-start sm:self-auto"
           >
-            {isImporting ? 'Importing…' : 'Import Money set'}
+            {isImporting ? 'Importing…' : 'Import starter set'}
           </button>
         </div>
       )}

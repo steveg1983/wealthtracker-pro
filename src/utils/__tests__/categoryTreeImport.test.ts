@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { planCategoryTreeImport, planCategoryPrune, type CategoryTreeGroup } from '../categoryTreeImport';
-import { MS_MONEY_CATEGORY_SET } from '../../data/msMoneyCategories';
+import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
 import type { Category } from '../../types';
 
 const typeCategories: Category[] = [
@@ -118,19 +118,20 @@ describe('planCategoryTreeImport', () => {
       .toThrow(/type categories are not loaded/);
   });
 
-  it('plans the full Microsoft Money set cleanly against a bare tree', () => {
-    const plan = planCategoryTreeImport(typeCategories, MS_MONEY_CATEGORY_SET);
+  it('plans the full default starter set cleanly against a bare tree', () => {
+    const plan = planCategoryTreeImport(typeCategories, DEFAULT_CATEGORY_TREE);
 
-    // 16 groups: 12 expense + 4 income.
-    expect(plan.subsToCreate).toHaveLength(16);
-    // Every detail resolves to a group in the set, and empty groups self-fill.
+    // 13 groups: 10 expense + 3 income (the owner-curated 2026-08 set).
+    expect(plan.subsToCreate).toHaveLength(13);
+    // Every detail resolves to a group in the set.
     const subNames = new Set(plan.subsToCreate.map(s => s.name));
     plan.detailsToCreate.forEach(d => expect(subNames.has(d.subName)).toBe(true));
-    expect(plan.detailsToCreate.map(d => d.category.name)).toContain('Xfer to Deleted Account');
+    expect(plan.detailsToCreate.map(d => d.category.name)).toContain('Coffee Shops');
     expect(plan.skippedCount).toBe(0);
-    // 16 subs + 86 details (84 named children + 2 self-named for empty groups).
-    expect(plan.totalCount).toBe(16 + 86);
-    expect(plan.detailsToCreate).toHaveLength(86);
+    // 13 subs + 54 details, every group ending in an Other/Misc catch-all
+    // (except the self-named Gifts and the fully-enumerated income groups).
+    expect(plan.totalCount).toBe(13 + 54);
+    expect(plan.detailsToCreate).toHaveLength(54);
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getDefaultCategories, getMinimalSystemCategories } from '../defaultCategories';
-import { MS_MONEY_CATEGORY_SET } from '../msMoneyCategories';
+import { DEFAULT_CATEGORY_TREE } from '../defaultCategoryTree';
 
 describe('getDefaultCategories (Microsoft Money default set)', () => {
   const defaults = getDefaultCategories();
@@ -27,7 +27,7 @@ describe('getDefaultCategories (Microsoft Money default set)', () => {
   });
 
   it('contains every Microsoft Money group as a sub under the right anchor', () => {
-    for (const group of MS_MONEY_CATEGORY_SET) {
+    for (const group of DEFAULT_CATEGORY_TREE) {
       const sub = defaults.find(c => c.level === 'sub' && c.name === group.name && c.type === group.type);
       expect(sub, `missing group ${group.name}`).toBeDefined();
       expect(sub!.parentId).toBe(`type-${group.type}`);
@@ -35,7 +35,7 @@ describe('getDefaultCategories (Microsoft Money default set)', () => {
   });
 
   it('contains every Money subcategory as a selectable detail under its group', () => {
-    for (const group of MS_MONEY_CATEGORY_SET) {
+    for (const group of DEFAULT_CATEGORY_TREE) {
       const sub = defaults.find(c => c.level === 'sub' && c.name === group.name && c.type === group.type)!;
       const children = group.children.length > 0 ? group.children : [group.name];
       for (const child of children) {
