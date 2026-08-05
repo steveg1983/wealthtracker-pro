@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
@@ -195,7 +195,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           // is enforced before any write so a lopsided split never half-saves.
           const splitting = isSplitMode && !!transaction && resolvedType !== 'transfer';
           if (splitting) {
-            const splitError = validateSplitDrafts(data.amount, splitLines);
+            const splitError = validateSplitDrafts(data.amount, splitLines, {
+              parentType: resolvedType as 'income' | 'expense',
+              directionFor: splitDirectionFor,
+            });
             if (splitError) {
               throw new Error(splitError);
             }
@@ -291,7 +294,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               });
               await setTransactionSplits(
                 transaction.id,
-                signSplitAmounts(splitLines, resolvedType as 'income' | 'expense'),
+                signSplitAmounts(splitLines, resolvedType as 'income' | 'expense', splitDirectionFor),
                 signedAmount
               );
             } else if (transaction.isSplit) {
@@ -489,6 +492,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     setShowDeleteConfirm(false);
   }, [transaction, accounts, categories, setFormData, defaultAccountId]);
 
+  // A split line's DIRECTION comes from its category's tree: an income
+  // category inside an expense split counts AGAINST the total (a £30,000
+  // payment can be £40,000 of expense and £10,000 of income). Neutral
+  // categories (Revaluation etc., type 'both') follow the parent.
+  // Declared before the splits-loading effect below, which depends on it.
+  const splitDirectionFor = useCallback((categoryId: string): 'income' | 'expense' | null => {
+    const cat = categories.find(c => c.id === categoryId);
+    if (!cat || cat.type === 'both') return null;
+    return cat.type;
+  }, [categories]);
+
   // Load an already-split transaction's lines into the editor (stored signed
   // amounts convert back to the entered domain). Non-split rows reset the
   // split state so batch mode (Save & Next) never leaks lines between rows.
@@ -500,10 +514,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
       getTransactionSplits(transaction.id)
         .then(splits => {
           if (cancelled) return;
-          const direction = transaction.type === 'income' ? 'income' : 'expense';
+          const parentDirection = transaction.type === 'income' ? 'income' : 'expense';
+          // Each line converts back using ITS OWN direction (its category's
+          // tree), so a mixed split round-trips to positive magnitudes.
           setSplitLines(splits.map(s => ({
             category: s.category,
-            amount: displaySplitAmount(s.amount, direction),
+            amount: displaySplitAmount(s.amount, splitDirectionFor(s.category) ?? parentDirection),
             ...(s.memo ? { memo: s.memo } : {}),
           })));
         })
@@ -525,7 +541,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     return () => {
       cancelled = true;
     };
-  }, [transaction, getTransactionSplits, logger]);
+  }, [transaction, getTransactionSplits, logger, splitDirectionFor]);
 
   const handleSplitToggle = (checked: boolean): void => {
     setIsSplitMode(checked);
@@ -554,8 +570,16 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // Save is blocked while the split doesn't balance; the remainder line
   // doubles as the explanation.
   const splitActive = isSplitMode && !!transaction && formData.type !== 'transfer';
-  const splitValidationMessage = splitActive ? validateSplitDrafts(formData.amount, splitLines) : null;
-  const splitRemaining = splitActive ? splitRemainder(formData.amount, splitLines) : null;
+  const splitDirectionOpts = {
+    parentType: (formData.type === 'income' ? 'income' : 'expense') as 'income' | 'expense',
+    directionFor: splitDirectionFor,
+  };
+  const splitValidationMessage = splitActive
+    ? validateSplitDrafts(formData.amount, splitLines, splitDirectionOpts)
+    : null;
+  const splitRemaining = splitActive
+    ? splitRemainder(formData.amount, splitLines, splitDirectionOpts)
+    : null;
 
   // Complete the transfer flow (link or create) and close the editor. A
   // failure keeps the dialog open so the user can retry or cancel.
@@ -682,7 +706,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   );
                 })}
               </div>
-              {(formData.type === 'income' || formData.type === 'expense') && (
+              {/* Hidden in split mode: split lines always offer BOTH trees,
+                  so there is no whole-transaction tree to flip. */}
+              {(formData.type === 'income' || formData.type === 'expense') && !splitActive && (
                 <label className="mt-2 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                   <input
                     type="checkbox"
@@ -813,11 +839,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                             <CategorySelector
                               selectedCategory={line.category}
                               onCategoryChange={(id) => updateSplitLine(index, { category: id })}
-                              transactionType={
-                                crossTypeCategories
-                                  ? (formData.type === 'income' ? 'expense' : 'income')
-                                  : formData.type
-                              }
+                              transactionType={formData.type}
+                              // BOTH trees, per line: a split may mix expense
+                              // and income lines (an income line counts
+                              // against an expense total), so every line
+                              // offers every category and the line's
+                              // direction follows the one chosen.
+                              includeAllTypes
                               placeholder="Search or select category…"
                               allowCreate={false}
                               showHelperText={false}

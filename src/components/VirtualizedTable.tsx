@@ -122,7 +122,7 @@ const TableHeader = memo(function TableHeader<T>({
   }, [onSort, sortColumn, sortDirection]);
 
   return (
-    <div className={`flex items-center border-b border-gray-200 dark:border-gray-700 ${headerClassName || 'bg-gray-50 dark:bg-gray-800'}`}>
+    <div className={`flex items-center border-b border-gray-300 dark:border-gray-500 ${headerClassName || 'bg-gray-100 dark:bg-gray-700'}`}>
       {showCheckbox && (
         <div className="px-4 py-3 w-12">
           <input
@@ -258,8 +258,10 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
 
     const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-colors duration-150';
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
-    // Only apply hover effects if not selected
-    const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:transform hover:scale-[1.01] hover:bg-gray-50 dark:hover:bg-gray-800' : '';
+    // Only apply hover effects if not selected. No scale: these rows sit in
+    // an overflow-clipped table, and a 1.01 scale pushed the rightmost
+    // column's digits past the edge — the shadow and z-lift suffice.
+    const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:bg-gray-50 dark:hover:bg-gray-800' : '';
     // Don't apply stripe classes to selected rows
     const stripeClass = !isSelected && index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : !isSelected ? 'bg-white dark:bg-gray-900' : '';
 
