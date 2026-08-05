@@ -239,7 +239,7 @@ export default function IncomeExpenseBreakdownModal({
                 // One fixed width for every row from sm up — a fluid picker
                 // sized itself to each row's leftover space and the column
                 // read ragged. Phones get the full row width instead.
-                className="w-full sm:w-80"
+                className="w-full sm:w-96 lg:w-[30rem]"
               />
               {/* Same pattern as Categorise by payee: an accidental pick must
                   be reversible, and the slot is RESERVED so every picker in

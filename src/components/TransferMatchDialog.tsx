@@ -40,9 +40,14 @@ export default function TransferMatchDialog({
   onCancel,
 }: TransferMatchDialogProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Seeded at mount, not just in the effect: the effect alone left a frame
+  // where the dialog was visible with "Link as transfer" still disabled — a
+  // click in that window (a fast user, or a slow CI runner) silently no-ops.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => candidates[0]?.transaction.id ?? null
+  );
 
-  // Preselect the best match whenever the dialog (re)opens.
+  // Re-preselect the best match whenever the dialog re-opens.
   useEffect(() => {
     if (isOpen) {
       setSelectedId(candidates[0]?.transaction.id ?? null);

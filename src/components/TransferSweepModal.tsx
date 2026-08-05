@@ -128,8 +128,17 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   {visible.map(s => {
                     const key = keyOf(s);
                     return (
-                      <tr key={key} className="border-b border-gray-50 dark:border-gray-700/50">
-                        <td className="py-2">
+                      /* The WHOLE line drills into the both-sides popup — date,
+                         accounts, description or amount, it makes no difference.
+                         Only the checkbox cell stays out of it, so ticking a
+                         pair never accidentally opens the inspection. */
+                      <tr
+                        key={key}
+                        onClick={() => setInspecting(s)}
+                        className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                        title="See both sides of this pair"
+                      >
+                        <td className="py-2" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={effectiveSelected.has(key)}
@@ -152,24 +161,16 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                             <span className="truncate max-w-[140px]">{accountName(s.incoming.accountId)}</span>
                           </span>
                           {s.ambiguous && (
-                            <button
-                              type="button"
-                              onClick={() => setInspecting(s)}
-                              className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300"
+                            <span
+                              className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2"
                               title="Other rows matched this amount equally well — look at both sides before linking"
                             >
                               <AlertTriangleIcon size={12} />
                               check
-                            </button>
+                            </span>
                           )}
                         </td>
-                        {/* Any row can be inspected — the description opens
-                            the same both-sides popup the check badge does. */}
-                        <td
-                          className="py-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200"
-                          onClick={() => setInspecting(s)}
-                          title="See both sides of this pair"
-                        >
+                        <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
                           <span className="block truncate max-w-[220px] underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600">
                             {s.outgoing.description}
                           </span>
@@ -232,8 +233,9 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         >
           <ModalBody>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Flagged because other rows matched this amount equally well — make sure
-              these two really are the same movement of money.
+              {inspecting.ambiguous
+                ? 'Flagged because other rows matched this amount equally well — make sure these two really are the same movement of money.'
+                : 'Both sides of this suggested pair, in full — make sure these two really are the same movement of money.'}
               {inspecting.daysApart > 0 && (
                 <> The two sides are <strong>{Math.round(inspecting.daysApart)} day{Math.round(inspecting.daysApart) === 1 ? '' : 's'} apart</strong>.</>
               )}

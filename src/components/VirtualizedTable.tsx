@@ -37,6 +37,8 @@ export interface VirtualizedTableProps<T> {
   onColumnReorder?: (fromKey: string, toKey: string) => void;
   /** Opt-in: drag a header's right edge to resize. New width in px. */
   onColumnResize?: (key: string, width: number) => void;
+  /** Key of a row to bring into view, centred — the deep-link jump. */
+  scrollToKey?: string | null;
 }
 
 // Table header component
@@ -215,8 +217,17 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   hasMore = false,
   threshold = 100,
   onColumnReorder,
-  onColumnResize
+  onColumnResize,
+  scrollToKey
 }: VirtualizedTableProps<T>) {
+  // Resolve the deep-link key to its position in the CURRENT row order, so
+  // the list can centre it regardless of sort or filters.
+  const scrollToIndex = useMemo(() => {
+    if (!scrollToKey) return undefined;
+    const index = items.findIndex((item, i) => getItemKey(item, i) === scrollToKey);
+    return index >= 0 ? index : undefined;
+  }, [items, getItemKey, scrollToKey]);
+
   // Memoize row renderer
   const renderRow = useCallback((item: T, index: number, style: React.CSSProperties) => {
     const itemKey = getItemKey(item, index);
@@ -343,6 +354,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         hasMore={hasMore}
         isLoading={isLoading}
         threshold={threshold}
+        scrollToIndex={scrollToIndex}
       />
     </div>
   );

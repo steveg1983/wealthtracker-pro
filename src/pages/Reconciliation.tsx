@@ -154,11 +154,16 @@ export default function Reconciliation() {
     // Preserve demo/testMode so an in-page navigation doesn't drop the flag that
     // keeps a demo/test session alive (which would bounce us to the landing page).
     setSearchParams(prev => preserveRuntimeControlParams(prev, { account: accountId }));
+    // Same route, so the router restores nothing: without this, a scrolled
+    // account list hands its scroll position to the detail view and the page
+    // opens with the header off-screen.
+    window.scrollTo(0, 0);
   }, [setSearchParams]);
 
   const handleBack = useCallback(() => {
     setSelectedAccountId(null);
     setSearchParams(prev => preserveRuntimeControlParams(prev));
+    window.scrollTo(0, 0);
   }, [setSearchParams]);
 
   const applyCleared = useCallback(async (requestedIds: string[], cleared: boolean) => {
@@ -392,40 +397,48 @@ export default function Reconciliation() {
   // Step 2: Transaction Review
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* The header and balance bar stay pinned below the app nav while the
+          transaction list scrolls: reconciliation is done by watching the
+          cleared balance approach the bank's figure, so the numbers — and the
+          way out, Finalize — must never scroll away. The negative margins
+          bleed the strip across the page gutters so passing rows (and their
+          shadows) never peek out at the sides. */}
+      <div className="sticky top-16 md:top-12 z-30 bg-[#f8f9fb] dark:bg-gray-900 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 pb-2 flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              <ArrowLeftIcon size={20} />
+              Back
+            </button>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">
+              {selectedAccount?.name ?? 'Account'}
+            </h1>
+          </div>
+
           <button
-            onClick={handleBack}
-            className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+            type="button"
+            onClick={() => setShowFinalizationModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50"
           >
-            <ArrowLeftIcon size={20} />
-            Back
+            <CheckCircleIcon size={18} />
+            Finalize Reconciliation
           </button>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white truncate">
-            {selectedAccount?.name ?? 'Account'}
-          </h1>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowFinalizationModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50"
-        >
-          <CheckCircleIcon size={18} />
-          Finalize Reconciliation
-        </button>
+        {/* Balance Bar */}
+        <ReconciliationBalanceBar
+          bankBalance={bankBalance}
+          accountBalance={accountBalance}
+          clearedBalance={clearedBalance}
+          currency={selectedAccount?.currency}
+          clearedSummary={clearedSummary}
+          onBankBalanceChange={handleBankBalanceChange}
+        />
       </div>
-
-      {/* Balance Bar */}
-      <ReconciliationBalanceBar
-        bankBalance={bankBalance}
-        accountBalance={accountBalance}
-        clearedBalance={clearedBalance}
-        currency={selectedAccount?.currency}
-        clearedSummary={clearedSummary}
-        onBankBalanceChange={handleBankBalanceChange}
-      />
 
       {/* Transaction List */}
       <ReconciliationTransactionList

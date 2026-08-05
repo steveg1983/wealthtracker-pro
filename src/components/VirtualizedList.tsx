@@ -15,6 +15,13 @@ export interface VirtualizedListProps<T> {
   className?: string;
   estimatedItemSize?: number;
   threshold?: number;
+  /**
+   * Index to bring into view, CENTRED in the viewport — the deep-link "jump
+   * to this row" affordance. Applied whenever the value changes; retried
+   * briefly because AutoSizer's first pass renders at height 0 and a scroll
+   * issued then silently clamps to the top.
+   */
+  scrollToIndex?: number;
   onItemsRendered?: (props: {
     visibleStartIndex: number;
     visibleStopIndex: number;
@@ -61,9 +68,11 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   className = '',
   estimatedItemSize = 80,
   threshold = 100,
+  scrollToIndex,
   onItemsRendered
 }: VirtualizedListProps<T>) {
   const listRef = useRef<List | VariableSizeList | null>(null);
+  const plainContainerRef = useRef<HTMLDivElement | null>(null);
   const itemHeightMap = useRef<Map<number, number>>(new Map());
   
   // Determine if we need variable size list
@@ -115,11 +124,40 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   
   // Determine if we should enable virtual scrolling
   const shouldVirtualize = items.length > threshold;
-  
+
+  // Centre the requested row. react-window owns the maths on the virtual
+  // path; on the plain path it is offsetTop against the scroll container.
+  // Retried at 0/100/300ms: AutoSizer's first pass is zero-height, and a
+  // scroll issued against a zero-height list clamps to the top.
+  useEffect(() => {
+    if (scrollToIndex === undefined || scrollToIndex < 0 || scrollToIndex >= items.length) return;
+    const apply = (): void => {
+      if (listRef.current) {
+        listRef.current.scrollToItem(scrollToIndex, 'center');
+        return;
+      }
+      const container = plainContainerRef.current;
+      const row = container?.children[scrollToIndex] as HTMLElement | undefined;
+      if (container && row) {
+        // offsetTop answers to the nearest POSITIONED ancestor, which the
+        // container is not — rects are unambiguous.
+        const delta = row.getBoundingClientRect().top - container.getBoundingClientRect().top;
+        container.scrollTop = Math.max(
+          0,
+          container.scrollTop + delta - container.clientHeight / 2 + row.clientHeight / 2
+        );
+      }
+    };
+    apply();
+    const timers = [setTimeout(apply, 100), setTimeout(apply, 300)];
+    return () => timers.forEach(clearTimeout);
+  }, [scrollToIndex, items.length]);
+
+
   // Render non-virtualized list for small datasets
   if (!shouldVirtualize) {
     return (
-      <div className={`flex-1 min-h-0 overflow-y-auto ${className}`}>
+      <div ref={plainContainerRef} className={`flex-1 min-h-0 overflow-y-auto ${className}`}>
         {items.map((item, index) => (
           <div key={getItemKey(item, index)}>
             {renderItem(item, index, {})}
