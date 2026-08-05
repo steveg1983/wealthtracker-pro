@@ -160,6 +160,61 @@ describe('ImportRulesService', () => {
     });
   });
 
+  /**
+   * A category merge happens in the database; import rules live in THIS
+   * browser, so they follow it immediately afterwards. A rule left pointing at
+   * a merged-away category would go on matching imports and file them under an
+   * id that no longer exists — worse than either outcome the merge offers.
+   */
+  describe('remapCategory (following a category merge)', () => {
+    it('re-points every setCategory action from the merged-away category', () => {
+      service.addRule({ ...mockRule, name: 'Groceries rule' });
+      storage.setItem.mockClear();
+
+      const changed = service.remapCategory('Shopping', 'Household');
+
+      expect(changed).toBe(1);
+      expect(service.getRules()[0].actions[0].value).toBe('Household');
+      expect(storage.setItem).toHaveBeenCalled();
+    });
+
+    it('leaves other actions and other categories alone', () => {
+      service.addRule({
+        ...mockRule,
+        actions: [
+          { type: 'setCategory', value: 'Shopping' },
+          { type: 'addTag', value: 'Shopping' },
+          { type: 'setCategory', value: 'Travel' }
+        ]
+      });
+
+      service.remapCategory('Shopping', 'Household');
+
+      const actions = service.getRules()[0].actions;
+      expect(actions[0]).toMatchObject({ type: 'setCategory', value: 'Household' });
+      // Same string, different kind of action — a tag is not a category.
+      expect(actions[1]).toMatchObject({ type: 'addTag', value: 'Shopping' });
+      expect(actions[2]).toMatchObject({ type: 'setCategory', value: 'Travel' });
+    });
+
+    it('writes nothing when no rule refers to the merged-away category', () => {
+      service.addRule(mockRule);
+      storage.setItem.mockClear();
+
+      expect(service.remapCategory('Travel', 'Household')).toBe(0);
+      expect(storage.setItem).not.toHaveBeenCalled();
+    });
+
+    it('refuses a no-op remap onto itself', () => {
+      service.addRule(mockRule);
+      storage.setItem.mockClear();
+
+      expect(service.remapCategory('Shopping', 'Shopping')).toBe(0);
+      expect(service.remapCategory('', 'Household')).toBe(0);
+      expect(storage.setItem).not.toHaveBeenCalled();
+    });
+  });
+
   describe('condition matching', () => {
     let transaction: Partial<Transaction>;
 

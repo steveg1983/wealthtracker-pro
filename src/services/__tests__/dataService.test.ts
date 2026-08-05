@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createDataService, DataService } from '../api/dataService';
-import type { Account, Category, Transaction } from '../../types';
+import type { Account, Budget, Category, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
 const createStorage = (initial: Record<string, unknown> = {}) => {
@@ -499,6 +499,222 @@ describe('DataService repairClaimedTransfer (local mode)', () => {
 
     await expect(service.repairClaimedTransfer('stranded', 'counterpart', 'partner', ADJUSTMENT))
       .rejects.toThrow(/Unknown or transfer category/);
+  });
+});
+
+
+// The demo/offline half of the category merge. Cloud mode is one atomic RPC
+// (merge_categories, migration 20260805214322); local mode has no server to be
+// atomic on, so it validates EVERYTHING before its single set of writes — which
+// is what keeps demo mode honest about what the real thing will do.
+//
+// The point of these tests is the SURFACES: the old delete-and-reassign moved
+// transactions and split lines and silently stranded budgets, which is exactly
+// the class of bug that survives a "looks fine" manual check.
+describe('DataService mergeCategories (local mode)', () => {
+  const expenseCategory = (over: Partial<Category> & { id: string }): Category => ({
+    name: over.id,
+    type: 'expense',
+    level: 'detail',
+    parentId: 'sub-food',
+    ...over
+  });
+
+  const SOURCE = expenseCategory({ id: 'cat-food-shopping', name: 'Food Shopping' });
+  const TARGET = expenseCategory({ id: 'cat-groceries', name: 'Groceries' });
+
+  const buildService = (storage: ReturnType<typeof createStorage>) =>
+    createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
+      uuid: vi.fn(() => 'generated-id'),
+      now: vi.fn(() => new Date('2025-09-01T00:00:00.000Z')),
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+      }
+    });
+
+  /** One of every reference surface pointing at the source. */
+  const fullHistory = (extraCategories: Category[] = []) => createStorage({
+    [STORAGE_KEYS.ACCOUNTS]: [baseAccount()],
+    [STORAGE_KEYS.CATEGORIES]: [SOURCE, TARGET, ...extraCategories],
+    [STORAGE_KEYS.TRANSACTIONS]: [
+      baseTransaction({ id: 'txn-a', category: SOURCE.id }),
+      baseTransaction({ id: 'txn-b', category: SOURCE.id }),
+      baseTransaction({ id: 'txn-other', category: TARGET.id }),
+      baseTransaction({ id: 'txn-split', category: '', isSplit: true, amount: 60 })
+    ],
+    [STORAGE_KEYS.TRANSACTION_SPLITS]: [
+      { id: 's1', transactionId: 'txn-split', category: SOURCE.id, amount: 40, sortOrder: 1, memo: 'wine' },
+      { id: 's2', transactionId: 'txn-split', category: 'cat-other', amount: 20, sortOrder: 2 }
+    ],
+    [STORAGE_KEYS.BUDGETS]: [
+      { id: 'bud-1', categoryId: SOURCE.id, amount: 400, period: 'monthly', isActive: true, spent: 0 },
+      { id: 'bud-2', categoryId: 'cat-other', amount: 50, period: 'monthly', isActive: true, spent: 0 }
+    ]
+  });
+
+  it('moves every reference surface — transactions, split lines AND budgets — then removes the source', async () => {
+    const storage = fullHistory();
+    const service = buildService(storage);
+
+    const result = await service.mergeCategories(SOURCE.id, TARGET.id);
+
+    expect(result).toMatchObject({
+      transactions: 2,
+      splitLines: 1,
+      splitTransactions: 1,
+      budgets: 1
+    });
+
+    const transactions = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(transactions.filter(t => t.category === TARGET.id).map(t => t.id))
+      .toEqual(['txn-a', 'txn-b', 'txn-other']);
+    // The split parent's category stays blank — that blank means "split", not
+    // "uncategorised", and filling it in is what the database refuses outright.
+    expect(transactions.find(t => t.id === 'txn-split')?.category).toBe('');
+
+    const splits = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+    expect(splits.find(s => s.id === 's1')).toMatchObject({
+      category: TARGET.id, amount: 40, memo: 'wine'
+    });
+    expect(splits.find(s => s.id === 's2')?.category).toBe('cat-other');
+
+    // The surface the old delete-and-reassign left behind.
+    const budgets = storage.snapshot(STORAGE_KEYS.BUDGETS) as Budget[];
+    expect(budgets.find(b => b.id === 'bud-1')?.categoryId).toBe(TARGET.id);
+    expect(budgets.find(b => b.id === 'bud-2')?.categoryId).toBe('cat-other');
+
+    const categories = storage.snapshot(STORAGE_KEYS.CATEGORIES) as Category[];
+    expect(categories.map(c => c.id)).toEqual([TARGET.id]);
+
+    // Balance-neutral: not one amount moved, so no account did either.
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts[0].balance).toBe(100);
+  });
+
+  it('merges an empty category without touching anything else', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.CATEGORIES]: [SOURCE, TARGET],
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ category: TARGET.id })],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [],
+      [STORAGE_KEYS.BUDGETS]: []
+    });
+    const service = buildService(storage);
+
+    const result = await service.mergeCategories(SOURCE.id, TARGET.id);
+
+    expect(result).toMatchObject({ transactions: 0, splitLines: 0, budgets: 0 });
+    expect((storage.snapshot(STORAGE_KEYS.CATEGORIES) as Category[]).map(c => c.id))
+      .toEqual([TARGET.id]);
+  });
+
+  // Every refusal below must leave browser storage EXACTLY as it was: the
+  // validations all run before the first write, so a rejected merge is not a
+  // partial merge.
+  describe('refusals write nothing at all', () => {
+    const expectUntouched = (storage: ReturnType<typeof createStorage>): void => {
+      const transactions = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+      expect(transactions.filter(t => t.category === SOURCE.id)).toHaveLength(2);
+      const splits = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      expect(splits.find(s => s.id === 's1')?.category).toBe(SOURCE.id);
+      const budgets = storage.snapshot(STORAGE_KEYS.BUDGETS) as Budget[];
+      expect(budgets.find(b => b.id === 'bud-1')?.categoryId).toBe(SOURCE.id);
+      const categories = storage.snapshot(STORAGE_KEYS.CATEGORIES) as Category[];
+      expect(categories.some(c => c.id === SOURCE.id)).toBe(true);
+    };
+
+    it('refuses a category that is not there', async () => {
+      const storage = fullHistory();
+      await expect(buildService(storage).mergeCategories(SOURCE.id, 'nope'))
+        .rejects.toThrow('Category not found');
+      expectUntouched(storage);
+    });
+
+    it('refuses merging a category into itself', async () => {
+      const storage = fullHistory();
+      await expect(buildService(storage).mergeCategories(SOURCE.id, SOURCE.id))
+        .rejects.toThrow(/cannot be merged into itself/);
+      expectUntouched(storage);
+    });
+
+    it('refuses a transfer category on either side', async () => {
+      const transfer = expenseCategory({
+        id: 'cat-transfer', name: 'To/From Joint', type: 'both', isTransferCategory: true
+      });
+      const storage = fullHistory([transfer]);
+      await expect(buildService(storage).mergeCategories(transfer.id, TARGET.id))
+        .rejects.toThrow(/managed automatically from their account/);
+      await expect(buildService(storage).mergeCategories(SOURCE.id, transfer.id))
+        .rejects.toThrow(/invent transfers that never happened/);
+      expectUntouched(storage);
+    });
+
+    it('refuses to merge away a built-in category the app files under itself', async () => {
+      const adjustment = expenseCategory({
+        id: 'cat-adjustment', name: 'Account Adjustment', type: 'both',
+        isSystem: true, isRevaluationCategory: true
+      });
+      const storage = fullHistory([adjustment]);
+      await expect(buildService(storage).mergeCategories(adjustment.id, TARGET.id))
+        .rejects.toThrow(/built-in category/);
+      expectUntouched(storage);
+    });
+
+    it('refuses the import’s unassigned bucket on either side', async () => {
+      const bucket = expenseCategory({
+        id: 'cat-unassigned', name: 'Unassigned (MS Money import)', type: 'both',
+        isUnassignedBucket: true
+      });
+      const storage = fullHistory([bucket]);
+      await expect(buildService(storage).mergeCategories(bucket.id, TARGET.id))
+        .rejects.toThrow(/file them from the review band/);
+      await expect(buildService(storage).mergeCategories(SOURCE.id, bucket.id))
+        .rejects.toThrow(/un-file transactions that are already filed/);
+      expectUntouched(storage);
+    });
+
+    it('refuses a group on either side — v1 is leaf to leaf', async () => {
+      const group = expenseCategory({ id: 'sub-food', name: 'Food', level: 'sub', parentId: 'type-expense' });
+      const storage = fullHistory([group]);
+      await expect(buildService(storage).mergeCategories(group.id, TARGET.id))
+        .rejects.toThrow(/merging a whole group is not supported yet|has categories under it/i);
+      await expect(buildService(storage).mergeCategories(SOURCE.id, group.id))
+        .rejects.toThrow(/is a group/);
+      expectUntouched(storage);
+    });
+
+    it('refuses to merge an expense category into an income one', async () => {
+      const salary = expenseCategory({
+        id: 'cat-salary', name: 'Salary', type: 'income', parentId: 'sub-earnings'
+      });
+      const storage = fullHistory([salary]);
+      await expect(buildService(storage).mergeCategories(SOURCE.id, salary.id))
+        .rejects.toThrow(/wrong side of every report/);
+      expectUntouched(storage);
+    });
+
+    it('accepts a direction-neutral target, which carries no side of its own', async () => {
+      // A revaluation leaf is 'both': "this was a balance correction, not
+      // spending" is a legitimate re-filing of an expense category.
+      const neutral = expenseCategory({ id: 'cat-neutral', name: 'Other', type: 'both', parentId: undefined });
+      const storage = fullHistory([neutral]);
+
+      await expect(buildService(storage).mergeCategories(SOURCE.id, neutral.id)).resolves.toMatchObject({
+        transactions: 2
+      });
+    });
+
+    it('refuses a hidden target', async () => {
+      const closed = expenseCategory({ id: 'cat-closed', name: 'Old Shop', isActive: false });
+      const storage = fullHistory([closed]);
+      await expect(buildService(storage).mergeCategories(SOURCE.id, closed.id))
+        .rejects.toThrow(/is hidden/);
+      expectUntouched(storage);
+    });
   });
 });
 

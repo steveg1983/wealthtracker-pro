@@ -6,6 +6,7 @@ import { getCurrencySymbol } from '../utils/currency';
 // Import { Modal, ModalBody, ModalFooter } from './common/Modal'; // Unused imports
 import { ResponsiveModal } from './ResponsiveModal';
 import MoneyInput from './common/MoneyInput';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import MarkdownEditor from './MarkdownEditor';
@@ -172,21 +173,17 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <label htmlFor="account-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Account
               </label>
-              <select
+              <GroupedAccountSelect
                 id="account-select"
+                accounts={accounts}
                 value={formData.accountId}
-                onChange={(e) => updateField('accountId', e.target.value)}
+                onChange={(accountId) => updateField('accountId', accountId)}
+                placeholder="Select account"
+                formatLabel={(account) => `${account.name} (${account.type})`}
                 className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 required
                 aria-label="Select account for transaction"
-              >
-                <option value="">Select account</option>
-                {accounts.map(account => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} ({account.type})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>

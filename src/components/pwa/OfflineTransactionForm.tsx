@@ -9,6 +9,7 @@ import { useCategories } from '../../contexts/CategoryContext';
 import { useAccounts } from '../../contexts/AccountContext';
 import { formatCurrency } from '../../utils/formatters';
 import MoneyInput from '../common/MoneyInput';
+import GroupedAccountSelect from '../common/GroupedAccountSelect';
 import { toDecimal, parseMoneyInput } from '../../utils/decimal';
 import { 
   WifiOffIcon, 
@@ -251,19 +252,15 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <label className="block text-sm font-medium mb-1">
                 Account <span className="text-red-500">*</span>
               </label>
-              <select
+              <GroupedAccountSelect
+                accounts={accounts}
                 value={formData.accountId}
-                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                onChange={(accountId) => setFormData({ ...formData, accountId })}
+                placeholder="Select an account"
+                formatLabel={(account) => `${account.name} (${formatCurrency(account.balance)})`}
                 className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                 required
-              >
-                <option value="">Select an account</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} ({formatCurrency(account.balance)})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Notes */}

@@ -37,6 +37,13 @@ interface Props {
 const CAP = 300;
 const STRANDED_CAP = 100;
 
+type PairSortKey = 'date' | 'accounts' | 'description' | 'amount';
+type StrandedSortKey = 'date' | 'account' | 'problem' | 'amount';
+
+/** Case-insensitive, so "BARCLAYS" and "Barclays" sit together, not in two blocks. */
+const compareText = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { sensitivity: 'base' });
+
 /** The one-line summary of a finding, in the list. */
 function strandedSummary(finding: StrandedFinding, accountName: (id: string) => string): string {
   const days = (n: number): string => `${Math.round(n)} day${Math.round(n) === 1 ? '' : 's'}`;
@@ -104,6 +111,53 @@ const STRANDED_DONE: Record<StrandedFinding['kind'], string> = {
   'one-sided': 'Filed as Account Adjustment — neither income nor spending.',
 };
 
+/** Both account names, in the order the "From → To" cell reads them. */
+function pairRoute(s: TransferPairSuggestion, accountName: (id: string) => string): string {
+  return `${accountName(s.outgoing.accountId)} → ${accountName(s.incoming.accountId)}`;
+}
+
+/** Ascending by the given column; the caller applies the direction. */
+function comparePairs(
+  a: TransferPairSuggestion,
+  b: TransferPairSuggestion,
+  key: PairSortKey,
+  accountName: (id: string) => string
+): number {
+  switch (key) {
+    case 'accounts':
+      return compareText(pairRoute(a, accountName), pairRoute(b, accountName));
+    case 'description':
+      return compareText(a.outgoing.description, b.outgoing.description);
+    // Magnitude: the two legs are equal and opposite, so the sign carries no
+    // information here — only the size of the movement does.
+    case 'amount':
+      return Math.abs(a.outgoing.amount) - Math.abs(b.outgoing.amount);
+    case 'date':
+      return new Date(a.outgoing.date).getTime() - new Date(b.outgoing.date).getTime();
+  }
+}
+
+/** Ascending by the given column; the caller applies the direction. */
+function compareFindings(
+  a: StrandedFinding,
+  b: StrandedFinding,
+  key: StrandedSortKey,
+  accountName: (id: string) => string
+): number {
+  switch (key) {
+    case 'account':
+      return compareText(accountName(a.row.accountId), accountName(b.row.accountId));
+    // By the badge the row actually shows — duplicate / taken / filed / no
+    // other side — so the column sorts by what the user can read in it.
+    case 'problem':
+      return compareText(STRANDED_BADGES[a.kind], STRANDED_BADGES[b.kind]);
+    case 'amount':
+      return Math.abs(a.row.amount) - Math.abs(b.row.amount);
+    case 'date':
+      return new Date(a.row.date).getTime() - new Date(b.row.date).getTime();
+  }
+}
+
 export default function TransferSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
   const {
     transactions, categories, accounts, linkTransferPair,
@@ -130,6 +184,17 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   // just with the reopen offered where the user actually needs it.
   const [reopenPrompt, setReopenPrompt] = useState<{ accountId: string; txnId: string } | null>(null);
   const [reopening, setReopening] = useState(false);
+  // The clean-pair table starts UNSORTED. The sweep emits its own pairing
+  // order and no column reproduces it: the Date cell shows the OUTGOING leg,
+  // while the sweep ordered by whichever leg it reached first, and a pair's
+  // two legs can fall on different days. So "as the sweep found them" is a
+  // state of its own — nothing moves until a heading is clicked.
+  const [pairSortKey, setPairSortKey] = useState<PairSortKey | null>(null);
+  const [pairSortDir, setPairSortDir] = useState<1 | -1>(1);
+  // The stranded classifier already emits oldest-first, so Date ascending IS
+  // today's order — and Array#sort is stable, so its id tie-break survives.
+  const [strandedSortKey, setStrandedSortKey] = useState<StrandedSortKey>('date');
+  const [strandedSortDir, setStrandedSortDir] = useState<1 | -1>(1);
 
   // Closed accounts included — old transfers routinely have one leg in an
   // account that has since been closed.
@@ -171,11 +236,42 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     setSelected(next);
   };
 
-  const visible = suggestions.slice(0, CAP);
+  const sortPairsBy = (key: PairSortKey): void => {
+    if (pairSortKey === key) {
+      setPairSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setPairSortKey(key);
+      setPairSortDir(key === 'date' || key === 'amount' ? -1 : 1);
+    }
+  };
+  const pairArrow = (key: PairSortKey): string =>
+    pairSortKey === key ? (pairSortDir === 1 ? ' ↑' : ' ↓') : '';
+
+  const sortStrandedBy = (key: StrandedSortKey): void => {
+    if (strandedSortKey === key) {
+      setStrandedSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setStrandedSortKey(key);
+      setStrandedSortDir(key === 'date' || key === 'amount' ? -1 : 1);
+    }
+  };
+  const strandedArrow = (key: StrandedSortKey): string =>
+    strandedSortKey === key ? (strandedSortDir === 1 ? ' ↑' : ' ↓') : '';
+
+  // The cap is applied FIRST and the sort second, so "the first 300 the sweep
+  // found" goes on meaning exactly that whichever column is sorted by. Row
+  // order is presentation only: selection is keyed by the pair's two ids, and
+  // both `effectiveSelected` and `chosen` read the unsorted list.
+  const pairPage = suggestions.slice(0, CAP);
+  const visible = pairSortKey === null
+    ? pairPage
+    : [...pairPage].sort((a, b) => pairSortDir * comparePairs(a, b, pairSortKey, accountName));
   const chosen = suggestions.filter(s => effectiveSelected.has(keyOf(s)));
 
   const liveFindings = findings.filter(f => !dismissed.has(keyOfFinding(f)));
-  const visibleFindings = liveFindings.slice(0, STRANDED_CAP);
+  const visibleFindings = liveFindings.slice(0, STRANDED_CAP).sort(
+    (a, b) => strandedSortDir * compareFindings(a, b, strandedSortKey, accountName)
+  );
   /** The adjustment filing is the ONLY offer for these two kinds — without the category they cannot run. */
   const needsAdjustmentCategory = (f: StrandedFinding): boolean =>
     f.kind === 'claimed' || f.kind === 'one-sided';
@@ -319,10 +415,23 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 <thead>
                   <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                     <th className="pb-2 w-8"></th>
-                    <th className="text-left pb-2 font-medium">Date</th>
-                    <th className="text-left pb-2 font-medium">From → To</th>
-                    <th className="text-left pb-2 font-medium">Description</th>
-                    <th className="text-right pb-2 font-medium">Amount</th>
+                    {([
+                      ['date', 'Date', 'text-center', 'Sort by date'],
+                      ['accounts', 'From → To', 'text-center', 'Sort by account names'],
+                      ['description', 'Description', 'text-center', 'Sort by description'],
+                      ['amount', 'Amount', 'text-center', 'Sort by amount size'],
+                    ] as const).map(([key, label, align, hint]) => (
+                      <th key={key} className={`${align} pb-2 font-medium`}>
+                        <button
+                          type="button"
+                          onClick={() => sortPairsBy(key)}
+                          className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                          title={hint}
+                        >
+                          {label}{pairArrow(key)}
+                        </button>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -423,10 +532,23 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
               <table className="w-full">
                 <thead>
                   <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left pb-2 font-medium">Date</th>
-                    <th className="text-left pb-2 font-medium">Account</th>
-                    <th className="text-left pb-2 font-medium">What is wrong</th>
-                    <th className="text-right pb-2 font-medium">Amount</th>
+                    {([
+                      ['date', 'Date', 'text-center', 'Sort by date'],
+                      ['account', 'Account', 'text-center', 'Sort by account name'],
+                      ['problem', 'What is wrong', 'text-center', 'Sort by what is wrong'],
+                      ['amount', 'Amount', 'text-center', 'Sort by amount size'],
+                    ] as const).map(([key, label, align, hint]) => (
+                      <th key={key} className={`${align} pb-2 font-medium`}>
+                        <button
+                          type="button"
+                          onClick={() => sortStrandedBy(key)}
+                          className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                          title={hint}
+                        >
+                          {label}{strandedArrow(key)}
+                        </button>
+                      </th>
+                    ))}
                     <th className="pb-2 w-24"></th>
                   </tr>
                 </thead>

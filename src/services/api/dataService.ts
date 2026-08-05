@@ -8,13 +8,14 @@
 import { UserService } from './userService';
 import { AccountService } from './accountService';
 import { TransactionService, type TransactionLoadResult, type TransactionLoadStats } from './transactionService';
+import { PlanningService } from './planningService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
-import type { Account, Transaction, TransactionSplit, TransactionSplitInput, Budget, Goal, Category } from '../../types';
+import type { Account, Transaction, TransactionSplit, TransactionSplitInput, Budget, Goal, Category, CategoryMergeResult } from '../../types';
 
 export interface AppData {
   accounts: Account[];
@@ -44,6 +45,7 @@ type TransactionServiceLike = Pick<typeof TransactionService,
    */
   loadTransactionsForBoot?: (userId: string) => Promise<TransactionLoadResult>;
 };
+type PlanningServiceLike = Pick<typeof PlanningService, 'mergeCategories'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
@@ -55,6 +57,7 @@ type UuidGenerator = () => string;
 export interface DataServiceOptions {
   accountService?: AccountServiceLike;
   transactionService?: TransactionServiceLike;
+  planningService?: PlanningServiceLike;
   userService?: typeof UserService;
   userIdService?: UserIdServiceLike;
   storageAdapter?: StorageAdapterLike;
@@ -69,6 +72,7 @@ export interface DataServiceOptions {
 class DataServiceImpl {
   private readonly accountService: AccountServiceLike;
   private readonly transactionService: TransactionServiceLike;
+  private readonly planningService: PlanningServiceLike;
   private readonly userService: typeof UserService;
   private readonly userIdService: UserIdServiceLike;
   private readonly storage: StorageAdapterLike;
@@ -81,6 +85,7 @@ class DataServiceImpl {
   constructor(options: DataServiceOptions = {}) {
     this.accountService = options.accountService ?? AccountService;
     this.transactionService = options.transactionService ?? TransactionService;
+    this.planningService = options.planningService ?? PlanningService;
     this.userService = options.userService ?? UserService;
     this.userIdService = options.userIdService ?? userIdService;
     this.storage = options.storageAdapter ?? storageAdapter;
@@ -898,6 +903,135 @@ class DataServiceImpl {
     return { source: newSource, counterpart };
   }
 
+  /**
+   * Join two categories: every reference moves from source to target, then the
+   * source goes.
+   *
+   * Cloud mode is ONE call — merge_categories does all of it in a single
+   * database transaction, so there is no half-merged state to compensate for
+   * and no audit gap. Local/demo mirrors the RPC's rules and its outcome, and
+   * is likewise all-or-nothing: every validation runs BEFORE the first persist,
+   * so a refusal leaves browser storage exactly as it was.
+   *
+   * Recurring templates have no local writer (nothing persists
+   * STORAGE_KEYS.RECURRING today), so the local count for them is always 0 —
+   * the cloud path moves the real ones.
+   */
+  async mergeCategories(sourceId: string, targetId: string): Promise<CategoryMergeResult> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.mergeCategories(userId, sourceId, targetId);
+    }
+    this.guardCloudWrite();
+
+    if (!sourceId || !targetId) {
+      throw new Error('A merge needs the category to merge away and the category to merge it into');
+    }
+    if (sourceId === targetId) {
+      throw new Error('A category cannot be merged into itself');
+    }
+
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    const source = categories.find(c => c.id === sourceId);
+    const target = categories.find(c => c.id === targetId);
+    if (!source || !target) {
+      throw new Error('Category not found');
+    }
+
+    // The source guards, in the RPC's order and wording.
+    if (source.level === 'type') {
+      throw new Error(`"${source.name}" is a top-level heading, not a category things are filed under`);
+    }
+    if (source.isTransferCategory === true) {
+      throw new Error('Transfer categories are managed automatically from their account — close the account instead');
+    }
+    if (source.isRevaluationCategory === true || source.isSystem === true) {
+      throw new Error(`"${source.name}" is a built-in category the app files transactions under automatically, so it cannot be merged away`);
+    }
+    if (source.isUnassignedBucket === true) {
+      throw new Error(`Rows in "${source.name}" are not categorised at all — file them from the review band rather than merging the whole bucket into a real category`);
+    }
+    if (categories.some(c => c.parentId === sourceId)) {
+      throw new Error(`"${source.name}" has categories under it — merging a whole group is not supported yet; merge its detail categories one at a time`);
+    }
+
+    // The target guards.
+    if (target.level === 'type') {
+      throw new Error(`"${target.name}" is a top-level heading — nothing is filed against one`);
+    }
+    if (target.isTransferCategory === true) {
+      throw new Error(`"${target.name}" belongs to an account's transfer bookkeeping — filing ordinary transactions there would invent transfers that never happened`);
+    }
+    if (target.isUnassignedBucket === true) {
+      throw new Error(`"${target.name}" means "not categorised" — merging into it would un-file transactions that are already filed`);
+    }
+    if (target.isActive === false) {
+      throw new Error(`"${target.name}" is hidden, so nothing can be filed under it — pick a category that is in use`);
+    }
+    if (categories.some(c => c.parentId === targetId)) {
+      throw new Error(`"${target.name}" is a group, and transactions belong to a category inside it — pick one of its detail categories`);
+    }
+
+    // Direction: a 'both' target takes either, because it carries no direction
+    // of its own; nothing else crosses.
+    if (target.type !== 'both' && target.type !== source.type) {
+      throw new Error(
+        `"${source.name}" is an ${source.type} category and "${target.name}" is an ${target.type} one — merging across the two would file money on the wrong side of every report`
+      );
+    }
+
+    const transactions = await this.readLocalTransactions();
+    const splits = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
+    const budgets = await this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
+
+    let movedTransactions = 0;
+    const nextTransactions = transactions.map(t => {
+      if (t.category !== sourceId) return t;
+      movedTransactions += 1;
+      return { ...t, category: targetId };
+    });
+
+    // Split lines keep their amounts and memos: two lines of one transaction
+    // landing on the same target stay two lines, because adding them together
+    // would destroy the user's own breakdown.
+    let movedSplitLines = 0;
+    const touchedParents = new Set<string>();
+    const nextSplits = splits.map(s => {
+      if (s.category !== sourceId) return s;
+      movedSplitLines += 1;
+      touchedParents.add(s.transactionId);
+      return { ...s, category: targetId };
+    });
+
+    let movedBudgets = 0;
+    const nextBudgets = budgets.map(b => {
+      if (b.categoryId !== sourceId) return b;
+      movedBudgets += 1;
+      return { ...b, categoryId: targetId, updatedAt: this.nowProvider() };
+    });
+
+    // Every check has passed, so the writes go together. Categories LAST: if a
+    // write fails part way, references pointing at a category that still exists
+    // is a recoverable state, and the reverse is not.
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, nextTransactions);
+    await this.persistCollection(STORAGE_KEYS.TRANSACTION_SPLITS, nextSplits);
+    await this.persistCollection(STORAGE_KEYS.BUDGETS, nextBudgets);
+    await this.persistCollection(
+      STORAGE_KEYS.CATEGORIES,
+      categories.filter(c => c.id !== sourceId)
+    );
+
+    return {
+      sourceId,
+      targetId,
+      transactions: movedTransactions,
+      splitLines: movedSplitLines,
+      splitTransactions: touchedParents.size,
+      budgets: movedBudgets,
+      recurring: 0
+    };
+  }
+
   // Budgets/goals/categories are local-only here (PlanningService owns the
   // cloud path) — but a signed-in session must still never read them from
   // browser-local storage, so the same pending gate applies.
@@ -1084,6 +1218,10 @@ export class DataService {
     expectedAmount: number | null
   ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
     return this.service.setTransactionSplits(transactionId, splits, expectedAmount);
+  }
+
+  static mergeCategories(sourceId: string, targetId: string): Promise<CategoryMergeResult> {
+    return this.service.mergeCategories(sourceId, targetId);
   }
 
   static getBudgets(): Promise<Budget[]> {

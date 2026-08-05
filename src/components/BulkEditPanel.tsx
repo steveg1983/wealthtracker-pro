@@ -8,6 +8,7 @@ import {
   ArrowRightIcon,
   EyeIcon
 } from './icons';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import type { Transaction, Account, Category } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 
@@ -163,18 +164,14 @@ export default function BulkEditPanel({
               <ArrowRightIcon size={16} className="inline mr-1" />
               Move to Account
             </label>
-            <select
+            <GroupedAccountSelect
+              accounts={accounts}
               value={changes.moveToAccount ?? ''}
-              onChange={(e) => setChanges({ ...changes, moveToAccount: e.target.value || undefined })}
+              onChange={(accountId) => setChanges({ ...changes, moveToAccount: accountId || undefined })}
+              placeholder="Keep in current account"
+              formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
-            >
-              <option value="">Keep in current account</option>
-              {accounts.map(acc => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({formatCurrency(acc.balance)})
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
 

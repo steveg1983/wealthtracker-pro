@@ -261,6 +261,22 @@ export interface Category {
   isActive?: boolean; // Used for soft-deleting categories (e.g., when account is deleted)
 }
 
+/**
+ * What a category merge actually moved — the database's own counts, not the
+ * client's prediction, so the confirmation toast reports what happened rather
+ * than what was expected. `splitTransactions` is the number of split PARENTS
+ * touched; `splitLines` the number of individual lines inside them.
+ */
+export interface CategoryMergeResult {
+  sourceId: string;
+  targetId: string;
+  transactions: number;
+  splitLines: number;
+  splitTransactions: number;
+  budgets: number;
+  recurring: number;
+}
+
 export interface Investment {
   id: string;
   accountId: string;

@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import { CheckCircleIcon, LinkIcon, RefreshCwIcon, CalendarIcon } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
@@ -226,19 +227,15 @@ export default function TransactionReconciliation({
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium mb-2">Account</label>
-              <select
+              <GroupedAccountSelect
+                accounts={accounts}
                 value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
+                onChange={setSelectedAccount}
+                placeholder="Select an account..."
+                formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                          bg-white dark:bg-gray-700"
-              >
-                <option value="">Select an account...</option>
-                {accounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({formatCurrency(acc.balance)})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             
             <div>

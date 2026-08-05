@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importRulesService } from '../services/importRulesService';
 import MoneyInput from './common/MoneyInput';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import { parseMoneyInput } from '../utils/decimal';
 import { 
   PlusIcon, 
@@ -715,16 +716,15 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                     )}
 
                     {action.type === 'setAccount' && (
-                      <select
-                        value={action.value}
-                        onChange={(e) => updateAction(index, { value: e.target.value })}
+                      <GroupedAccountSelect
+                        accounts={accounts}
+                        // An action starts with no value at all; '' is the
+                        // placeholder the select shows for it.
+                        value={action.value ?? ''}
+                        onChange={(accountId) => updateAction(index, { value: accountId })}
+                        placeholder="Select account"
                         className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
-                      >
-                        <option value="">Select account</option>
-                        {accounts.map(acc => (
-                          <option key={acc.id} value={acc.id}>{acc.name}</option>
-                        ))}
-                      </select>
+                      />
                     )}
 
                     <button

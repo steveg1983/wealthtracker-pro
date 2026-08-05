@@ -21,11 +21,15 @@ import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseC
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { getDefaultCategories } from '../../data/defaultCategories';
-import type { Budget, Goal, Category } from '../../types';
+import type { Budget, Goal, Category, CategoryMergeResult } from '../../types';
 
 const logger = createScopedLogger('PlanningService');
 
 type Row = Record<string, unknown>;
+
+/** jsonb counter → number, refusing to invent a figure the database did not send. */
+const count = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0;
 
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -579,6 +583,52 @@ export class PlanningService {
     categories[index] = { ...categories[index], ...updates };
     await this.saveCategories(categories);
     return categories[index];
+  }
+
+  /**
+   * Join two categories: every reference moves from source to target and the
+   * source is removed — in ONE database transaction (merge_categories,
+   * migration 20260805214322).
+   *
+   * The RPC validates every precondition against the rows as they are NOW
+   * (ownership, direction, groups, transfer/system/unassigned categories) and
+   * surfaces its errors verbatim, because each one names the exact rule that
+   * stopped it. There is no half-applied state for the caller to explain away.
+   *
+   * Cloud only: local/demo mode goes through DataService, which mirrors these
+   * rules against browser storage.
+   */
+  static async mergeCategories(
+    userId: string | null,
+    sourceId: string,
+    targetId: string
+  ): Promise<CategoryMergeResult> {
+    if (!this.cloudReady || !userId) {
+      throw new Error('mergeCategories requires the cloud connection (local mode goes through DataService)');
+    }
+
+    const { data, error } = await supabase!.rpc('merge_categories', {
+      p_source_id: sourceId,
+      p_target_id: targetId,
+      p_user_id: userId
+    });
+    if (error) throw new Error(handleSupabaseError(error));
+
+    const result = (data ?? {}) as Row;
+    // The source is gone server-side; drop it from the cache rather than
+    // leaving a category the database no longer has in the offline snapshot.
+    const cache = await this.getCategories();
+    await this.saveCategories(cache.filter(c => c.id !== sourceId));
+
+    return {
+      sourceId,
+      targetId,
+      transactions: count(result.transactions),
+      splitLines: count(result.split_lines),
+      splitTransactions: count(result.split_transactions),
+      budgets: count(result.budgets),
+      recurring: count(result.recurring)
+    };
   }
 
   static async deleteCategory(userId: string | null, id: string): Promise<void> {

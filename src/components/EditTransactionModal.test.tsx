@@ -231,6 +231,27 @@ describe('EditTransactionModal', () => {
       expect(screen.getByText('Notes')).toBeInTheDocument();
     });
 
+    it('bands the account picker into the Accounts page sections', () => {
+      // The owner's complaint: seventy accounts in one flat unsorted list.
+      // Sections in page order, alphabetical inside each, wording unchanged.
+      renderModal(true, null);
+
+      const accountSelect = screen.getByRole('combobox');
+      expect(Array.from(accountSelect.querySelectorAll('optgroup')).map(g => g.label)).toEqual([
+        'Current Accounts', 'Savings Accounts', 'Credit Cards', 'Loans', 'Investments', 'Assets',
+      ]);
+
+      const creditCards = accountSelect.querySelector('optgroup[label="Credit Cards"]');
+      expect(Array.from(creditCards?.querySelectorAll('option') ?? []).map(o => o.textContent)).toEqual([
+        'American Express Gold (credit)', 'Natwest Credit Card (credit)',
+      ]);
+      // A mortgage files under Loans, as it does on the Accounts page.
+      const loans = accountSelect.querySelector('optgroup[label="Loans"]');
+      expect(Array.from(loans?.querySelectorAll('option') ?? []).map(o => o.textContent)).toEqual([
+        'Natwest Mortgage (mortgage)', 'Natwest Personal Loan (loan)',
+      ]);
+    });
+
     it('displays transaction type options', () => {
       renderModal(true, null);
       

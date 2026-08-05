@@ -91,6 +91,48 @@ export class ImportRulesService {
     this.saveRules();
   }
 
+  /**
+   * Re-point every "set category" action from one category to another, and
+   * report how many rules changed.
+   *
+   * Rules are the third place a category id is stored (transactions and budgets
+   * are the others), and the only one that lives in this browser rather than
+   * the database — so a category merge cannot carry them along inside its
+   * transaction. It calls this immediately afterwards instead: a rule left
+   * pointing at a merged-away category would go on matching imports and file
+   * them under an id that no longer exists, which is worse than either
+   * outcome the merge offers.
+   *
+   * Nothing is written when no rule refers to `fromCategoryId`.
+   */
+  remapCategory(fromCategoryId: string, toCategoryId: string): number {
+    if (!fromCategoryId || !toCategoryId || fromCategoryId === toCategoryId) {
+      return 0;
+    }
+
+    let changed = 0;
+    this.rules = this.rules.map(rule => {
+      if (!rule.actions.some(a => a.type === 'setCategory' && a.value === fromCategoryId)) {
+        return rule;
+      }
+      changed += 1;
+      return {
+        ...rule,
+        actions: rule.actions.map(action =>
+          action.type === 'setCategory' && action.value === fromCategoryId
+            ? { ...action, value: toCategoryId }
+            : action
+        ),
+        updatedAt: this.nowProvider()
+      };
+    });
+
+    if (changed > 0) {
+      this.saveRules();
+    }
+    return changed;
+  }
+
   private checkCondition(condition: ImportRuleCondition, transaction: Partial<Transaction>): boolean {
     let fieldValue: string | number | Date | null;
     

@@ -17,7 +17,7 @@ import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
 import { resolveTransferOtherSide } from '../utils/transferOtherSide';
-import { groupAccountsBySection } from '../utils/accountGrouping';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
@@ -377,46 +377,15 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     }
   );
 
-  // Build unified flat category list grouped by parent sub-category
-  const groupedCategories = useMemo(() => {
-    // Inactive categories (a closed account's transfer category) never appear
-    // in transaction dropdowns; reopening the account restores them.
-    const detailCats = categories.filter(c =>
-      c.level === 'detail' && c.id !== 'transfer-in' && c.id !== 'transfer-out' && c.isActive !== false
-    );
-    const subCats = categories.filter(c => c.level === 'sub' && c.isActive !== false);
-
-    // Group detail categories by their parent sub-category
-    const groups: { label: string; type: 'income' | 'expense' | 'both'; items: { id: string; name: string; parentName: string }[] }[] = [];
-    for (const sub of subCats) {
-      const children = detailCats.filter(d => d.parentId === sub.id);
-      if (children.length > 0) {
-        groups.push({
-          label: sub.name,
-          type: sub.type as 'income' | 'expense' | 'both',
-          items: children.map(c => ({ id: c.id, name: c.name, parentName: sub.name }))
-        });
-      }
-    }
-
-    // 'both'-typed groups (e.g. Adjustments) are valid for either direction —
-    // include them on both sides so an income row carrying such a category is
-    // always representable in the select.
-    const incomeGroups = groups.filter(g => g.type === 'income' || g.type === 'both');
-    const expenseGroups = groups.filter(g => g.type === 'expense' || g.type === 'both');
-
-    // Transfer accounts: all accounts except the current transaction's account,
-    // banded into the SAME sections the Accounts page uses (Current, Savings,
-    // Credit Cards…) and alphabetical inside each — one flat unordered list of
-    // every account was unreadable once there were more than a handful.
-    const transferAccountSections = groupAccountsBySection(
-      accounts
-        .filter(a => a.isActive !== false && a.id !== formData.accountId)
-        .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type }))
-    );
-
-    return { incomeGroups, expenseGroups, transferAccountSections };
-  }, [categories, accounts, formData.accountId]);
+  // Transfer targets: every active account except the one this transaction
+  // sits in. The select carries 'transfer:<id>' because the target rides in
+  // the category field until save resolves it.
+  const transferTargetOptions = useMemo(
+    () => accounts
+      .filter(a => a.isActive !== false && a.id !== formData.accountId)
+      .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type })),
+    [accounts, formData.accountId]
+  );
 
   // Helper function to format number with commas
   const formatWithCommas = (value: string | number): string => {
@@ -664,19 +633,15 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <WalletIcon size={16} />
                 Account
               </label>
-              <select
+              <GroupedAccountSelect
+                accounts={accounts}
                 value={formData.accountId}
-                onChange={(e) => updateField('accountId', e.target.value)}
+                onChange={(accountId) => updateField('accountId', accountId)}
+                placeholder="Select account"
+                formatLabel={(acc) => `${acc.name} (${acc.type})`}
                 className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
                 required
-              >
-                <option value="">Select account</option>
-                {accounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({acc.type})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Description */}
@@ -842,22 +807,15 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   bucket. Transfers still require their target account. */}
               {formData.type === 'transfer' ? (
                 <>
-                  <select
+                  <GroupedAccountSelect
+                    accounts={transferTargetOptions}
                     value={formData.category}
-                    onChange={(e) => updateField('category', e.target.value)}
+                    onChange={(target) => updateField('category', target)}
+                    placeholder="Select account to transfer to"
                     className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
                     required
                     aria-label="Transfer destination account"
-                  >
-                    <option value="">Select account to transfer to</option>
-                    {groupedCategories.transferAccountSections.map(group => (
-                      <optgroup key={group.label} label={group.title}>
-                        {group.accounts.map(acct => (
-                          <option key={acct.id} value={acct.id}>{acct.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                  />
                   {/* Both halves of a linked transfer carry this, so it reads
                       the same whichever leg is open — and the register's ?txn
                       deep link selects, centres and docks the row on arrival. */}

@@ -13,6 +13,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
@@ -268,19 +269,15 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                     </div>
                   )}
                   
-                  <select
+                  <GroupedAccountSelect
+                    accounts={accounts}
                     value={selectedAccountId}
-                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                    onChange={setSelectedAccountId}
+                    placeholder="Select an account..."
+                    formatLabel={(account) => `${account.name} (${account.type})`}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                     required
-                  >
-                    <option value="">Select an account...</option>
-                    {accounts.map(account => (
-                      <option key={account.id} value={account.id}>
-                        {account.name} ({account.type})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </>
               )}
             </div>
