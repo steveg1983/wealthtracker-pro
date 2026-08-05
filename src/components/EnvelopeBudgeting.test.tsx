@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EnvelopeBudgeting from './EnvelopeBudgeting';
 import type { Category, DecimalTransaction } from '../types';
@@ -56,12 +56,13 @@ const mockTransactions: DecimalTransaction[] = [
   }
 ];
 
-// Mock budgets
+// Mock budgets — these come from the real app context now; BudgetContext (a
+// plaintext localStorage mirror that left this tab permanently empty for a
+// signed-in user) has been deleted.
 const mockBudgets = [
   {
     id: 'b1',
     categoryId: 'cat1',
-    category: 'cat1',
     amount: 500,
     period: 'monthly' as const,
     isActive: true
@@ -69,7 +70,6 @@ const mockBudgets = [
   {
     id: 'b2',
     categoryId: 'cat2',
-    category: 'cat2',
     amount: 200,
     period: 'monthly' as const,
     isActive: true
@@ -77,7 +77,6 @@ const mockBudgets = [
   {
     id: 'b3',
     categoryId: 'cat3',
-    category: 'cat3',
     amount: 300,
     period: 'monthly' as const,
     isActive: true
@@ -85,24 +84,27 @@ const mockBudgets = [
 ];
 
 // Create mocks that can be updated per test
-let mockAddBudget = vi.fn();
-let mockUpdateBudget = vi.fn();
-let currentMockBudgets = mockBudgets;
+let mockAddBudget = vi.fn(() => Promise.resolve());
+let mockUpdateBudget = vi.fn(() => Promise.resolve());
+let mockShowError = vi.fn();
+let currentMockBudgets: Array<Record<string, unknown>> = mockBudgets;
 
 // Mock hooks
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     categories: mockCategories,
     transactions: mockTransactions,
-    transactionSplits: []
-  })
-}));
-
-vi.mock('../contexts/BudgetContext', () => ({
-  useBudgets: () => ({
+    transactionSplits: [],
     budgets: currentMockBudgets,
     addBudget: mockAddBudget,
     updateBudget: mockUpdateBudget
+  })
+}));
+
+vi.mock('../contexts/ToastContext', () => ({
+  useToast: () => ({
+    showSuccess: vi.fn(),
+    showError: mockShowError
   })
 }));
 
@@ -115,13 +117,23 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   })
 }));
 
+/**
+ * The header and the modals share button labels ("Add Envelope", "Transfer"),
+ * so every modal interaction is scoped to the dialog itself.
+ */
+const openModal = async (heading: string): Promise<HTMLElement> => {
+  const title = await screen.findByText(heading);
+  return title.closest('div') as HTMLElement;
+};
+
 describe('EnvelopeBudgeting', () => {
   const formatUSD = (value: number) => formatCurrencyDecimal(value, 'USD');
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset mocks to defaults
-    mockAddBudget = vi.fn();
-    mockUpdateBudget = vi.fn();
+    mockAddBudget = vi.fn(() => Promise.resolve());
+    mockUpdateBudget = vi.fn(() => Promise.resolve());
+    mockShowError = vi.fn();
     currentMockBudgets = mockBudgets;
   });
 
@@ -290,33 +302,56 @@ describe('EnvelopeBudgeting', () => {
       });
     });
 
-    it.skip('creates new envelope', async () => {
+    it('creates a complete budget row through the app context', async () => {
       render(<EnvelopeBudgeting />);
-      
-      const addButton = screen.getByRole('button', { name: /add envelope/i });
-      fireEvent.click(addButton);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Add New Envelope')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /add envelope/i }));
+
+      const modal = await openModal('Add New Envelope');
+
+      fireEvent.change(within(modal).getByPlaceholderText('e.g., Groceries'), {
+        target: { value: 'New Envelope' }
       });
-      
-      const nameInput = screen.getByPlaceholderText('e.g., Groceries');
-      fireEvent.change(nameInput, { target: { value: 'New Envelope' } });
-      
-      const amountInput = screen.getByPlaceholderText('0.00');
-      fireEvent.change(amountInput, { target: { value: '100' } });
-      
-      const groceriesCheckbox = screen.getByRole('checkbox', { name: 'Groceries' });
-      fireEvent.click(groceriesCheckbox);
-      
-      // Find the Add Envelope button in the modal
-      const modalButtons = screen.getAllByRole('button');
-      const submitButton = modalButtons.find(btn => btn.textContent === 'Add Envelope');
-      fireEvent.click(submitButton!);
-      
+      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '100' } });
+      fireEvent.click(within(modal).getByRole('checkbox', { name: 'Groceries' }));
+
+      fireEvent.click(within(modal).getByRole('button', { name: 'Add Envelope' }));
+
       await waitFor(() => {
-        expect(mockAddBudget).toHaveBeenCalled();
+        expect(mockAddBudget).toHaveBeenCalledTimes(1);
       });
+
+      const created = mockAddBudget.mock.calls[0][0];
+      expect(created).toMatchObject({
+        categoryId: 'cat1',
+        amount: 100,
+        period: 'monthly',
+        isActive: true
+      });
+      // Omit-'id'|'spent' shape — the real store needs both timestamps.
+      expect(created.createdAt).toBeInstanceOf(Date);
+      expect(created.updatedAt).toBeInstanceOf(Date);
+    });
+
+    it('rejects an unparseable amount instead of writing NaN', async () => {
+      render(<EnvelopeBudgeting />);
+
+      fireEvent.click(screen.getByRole('button', { name: /add envelope/i }));
+      const modal = await openModal('Add New Envelope');
+
+      fireEvent.change(within(modal).getByPlaceholderText('e.g., Groceries'), {
+        target: { value: 'New Envelope' }
+      });
+      // A number input accepts exponent notation, which is not money.
+      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '1e5' } });
+      fireEvent.click(within(modal).getByRole('checkbox', { name: 'Groceries' }));
+
+      fireEvent.click(within(modal).getByRole('button', { name: 'Add Envelope' }));
+
+      await waitFor(() => {
+        expect(mockShowError).toHaveBeenCalled();
+      });
+      expect(mockAddBudget).not.toHaveBeenCalled();
     });
   });
 
@@ -387,34 +422,74 @@ describe('EnvelopeBudgeting', () => {
       });
     });
 
-    it.skip('executes transfer', async () => {
+    it('executes transfer through the app context using decimal arithmetic', async () => {
       render(<EnvelopeBudgeting />);
-      
-      const transferButton = screen.getByRole('button', { name: /transfer/i });
-      fireEvent.click(transferButton);
-      
-      await waitFor(() => {
-        expect(screen.getByText('Transfer Funds')).toBeInTheDocument();
-      });
-      
-      // Find selects by their labels
-      const fromLabel = screen.getByText('From Envelope');
-      const fromSelect = fromLabel.parentElement?.querySelector('select');
-      fireEvent.change(fromSelect!, { target: { value: 'b1' } });
-      
-      const toLabel = screen.getByText('To Envelope');
-      const toSelect = toLabel.parentElement?.querySelector('select');
-      fireEvent.change(toSelect!, { target: { value: 'b2' } });
-      
-      const amountInput = screen.getByPlaceholderText('0.00');
-      fireEvent.change(amountInput, { target: { value: '50' } });
-      
-      const submitButton = screen.getAllByRole('button').find(btn => btn.textContent === 'Transfer');
-      fireEvent.click(submitButton!);
-      
+
+      fireEvent.click(screen.getByRole('button', { name: /transfer/i }));
+      const modal = await openModal('Transfer Funds');
+
+      const [fromSelect, toSelect] = within(modal).getAllByRole('combobox');
+      fireEvent.change(fromSelect, { target: { value: 'b1' } });
+      fireEvent.change(toSelect, { target: { value: 'b2' } });
+      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '0.10' } });
+
+      fireEvent.click(within(modal).getByRole('button', { name: 'Transfer' }));
+
       await waitFor(() => {
         expect(mockUpdateBudget).toHaveBeenCalledTimes(2);
       });
+
+      // 500 - 0.10 and 200 + 0.10 with raw floats drift; Decimal does not.
+      expect(mockUpdateBudget).toHaveBeenNthCalledWith(1, 'b1', { amount: 499.9 });
+      expect(mockUpdateBudget).toHaveBeenNthCalledWith(2, 'b2', { amount: 200.1 });
+    });
+
+    it('rejects an unparseable transfer amount instead of writing NaN', async () => {
+      render(<EnvelopeBudgeting />);
+
+      fireEvent.click(screen.getByRole('button', { name: /transfer/i }));
+      const modal = await openModal('Transfer Funds');
+
+      const [fromSelect, toSelect] = within(modal).getAllByRole('combobox');
+      fireEvent.change(fromSelect, { target: { value: 'b1' } });
+      fireEvent.change(toSelect, { target: { value: 'b2' } });
+      // A number input accepts exponent notation, which is not money. The old
+      // `parseMoneyInput(...) ?? NaN` guard let this through, because NaN <= 0
+      // is false, and NaN reached the budget amount.
+      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '1e5' } });
+
+      fireEvent.click(within(modal).getByRole('button', { name: 'Transfer' }));
+
+      await waitFor(() => {
+        expect(mockShowError).toHaveBeenCalled();
+      });
+      expect(mockUpdateBudget).not.toHaveBeenCalled();
+    });
+
+    it('puts the money back when the second leg of a transfer fails', async () => {
+      mockUpdateBudget = vi
+        .fn<(id: string, updates: Record<string, unknown>) => Promise<void>>()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValue(undefined);
+
+      render(<EnvelopeBudgeting />);
+
+      fireEvent.click(screen.getByRole('button', { name: /transfer/i }));
+      const modal = await openModal('Transfer Funds');
+
+      const [fromSelect, toSelect] = within(modal).getAllByRole('combobox');
+      fireEvent.change(fromSelect, { target: { value: 'b1' } });
+      fireEvent.change(toSelect, { target: { value: 'b2' } });
+      fireEvent.change(within(modal).getByPlaceholderText('0.00'), { target: { value: '50' } });
+
+      fireEvent.click(within(modal).getByRole('button', { name: 'Transfer' }));
+
+      await waitFor(() => {
+        expect(mockShowError).toHaveBeenCalled();
+      });
+      // Third call restores the source envelope; budget is never destroyed.
+      expect(mockUpdateBudget).toHaveBeenNthCalledWith(3, 'b1', { amount: 500 });
     });
   });
 

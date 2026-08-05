@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { calculateBudgetSpending, calculateBudgetPercentage } from '../utils/calculations-decimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, toStorageNumber } from '../utils/decimal';
+import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import { toDecimalTransaction } from '../utils/decimal-converters';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { formatDecimal } from '../utils/decimal-format';
@@ -47,7 +47,8 @@ interface Alert {
   id: string;
   configId: string;
   budgetId: string;
-  category: string;
+  /** Category ID. The display name is resolved from `categories` at render. */
+  categoryId: string;
   type: 'warning' | 'critical';
   percentage: number;
   spent: DecimalInstance;
@@ -58,6 +59,108 @@ interface Alert {
   isRead: boolean;
   isDismissed: boolean;
 }
+
+/**
+ * What actually goes into localStorage.
+ *
+ * `useLocalStorage` has no reviver, so a Decimal comes back as the string
+ * decimal.js serialises to (no `.greaterThan()`) and a Date comes back as a
+ * string (no `.getTime()`). Persisting the runtime shape meant this tab crashed
+ * the first time it was reopened after any alert had fired. Plain numbers and
+ * an ISO string go in; everything is rehydrated on read.
+ */
+interface StoredAlert {
+  id: string;
+  configId: string;
+  budgetId: string;
+  categoryId: string;
+  type: 'warning' | 'critical';
+  percentage: number;
+  spent: number;
+  budget: number;
+  remaining: number;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+  isDismissed: boolean;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const readString = (value: unknown): string => {
+  if (typeof value !== 'string') throw new Error('Expected a string');
+  return value;
+};
+
+const readNumber = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('Expected a finite number');
+  }
+  return value;
+};
+
+/** Money, as either a number or the numeric string decimal.js serialises to. */
+const readMoney = (value: unknown): number => {
+  if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return readNumber(value);
+};
+
+const readAlertType = (value: unknown): Alert['type'] => {
+  if (value !== 'warning' && value !== 'critical') throw new Error('Expected an alert type');
+  return value;
+};
+
+/**
+ * Rehydrate one stored alert, or discard it.
+ *
+ * Alerts written before this fix carry `category` rather than `categoryId`, and
+ * their message text names a raw UUID because the category was looked up by
+ * name. They are deliberately dropped: an alert is a re-derivable notice, not a
+ * financial record, and the next sweep raises a correctly-worded one within the
+ * minute if the budget is still over.
+ */
+const reviveAlert = (raw: unknown): Alert | null => {
+  try {
+    if (!isRecord(raw)) return null;
+    const timestamp = new Date(readString(raw.timestamp));
+    if (Number.isNaN(timestamp.getTime())) return null;
+
+    return {
+      id: readString(raw.id),
+      configId: readString(raw.configId),
+      budgetId: readString(raw.budgetId),
+      categoryId: readString(raw.categoryId),
+      type: readAlertType(raw.type),
+      percentage: readMoney(raw.percentage),
+      spent: toDecimal(readMoney(raw.spent)),
+      budget: toDecimal(readMoney(raw.budget)),
+      remaining: toDecimal(readMoney(raw.remaining)),
+      message: readString(raw.message),
+      timestamp,
+      isRead: raw.isRead === true,
+      isDismissed: raw.isDismissed === true
+    };
+  } catch {
+    return null;
+  }
+};
+
+const toStoredAlert = (alert: Alert): StoredAlert => ({
+  id: alert.id,
+  configId: alert.configId,
+  budgetId: alert.budgetId,
+  categoryId: alert.categoryId,
+  type: alert.type,
+  percentage: alert.percentage,
+  spent: toStorageNumber(alert.spent),
+  budget: toStorageNumber(alert.budget),
+  remaining: toStorageNumber(alert.remaining),
+  message: alert.message,
+  timestamp: alert.timestamp.toISOString(),
+  isRead: alert.isRead,
+  isDismissed: alert.isDismissed
+});
 
 interface AlertStats {
   totalAlerts: number;
@@ -105,23 +208,67 @@ const DEFAULT_ALERT_CONFIGS: AlertConfig[] = [
 ];
 
 export default function SpendingAlerts() {
-  const { categories, transactions, transactionSplits } = useApp();
-  const { budgets } = useBudgets();
+  const { categories, transactions, transactionSplits, budgets } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  
+
   const [alertConfigs, setAlertConfigs] = useLocalStorage<AlertConfig[]>('alert-configs', DEFAULT_ALERT_CONFIGS);
-  const [alerts, setAlerts] = useLocalStorage<Alert[]>('spending-alerts', []);
+  // Typed as `unknown`: whatever is on this device may predate the stored
+  // shape, so it is validated on read rather than trusted.
+  const [storedAlerts, setStoredAlerts] = useLocalStorage<unknown>('spending-alerts', []);
   const [showSettings, setShowSettings] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'warning' | 'critical'>('all');
+  /** Category IDs, matching `budget.categoryId`. */
   const [mutedCategories, setMutedCategories] = useState<string[]>([]);
+
+  const storedAlertEntries = useMemo<unknown[]>(
+    () => (Array.isArray(storedAlerts) ? storedAlerts : []),
+    [storedAlerts]
+  );
+
+  const alerts = useMemo<Alert[]>(
+    () => storedAlertEntries.map(reviveAlert).filter((alert): alert is Alert => alert !== null),
+    [storedAlertEntries]
+  );
+
+  const setAlerts = useCallback(
+    (next: Alert[]) => setStoredAlerts(next.map(toStoredAlert)),
+    [setStoredAlerts]
+  );
+
+  // Migrate the payload in place the first time it is read, so the broken
+  // payload is not re-parsed on every render of every session.
+  // `toStoredAlert(revive(x))` is a fixed point, so this settles in one write.
+  useEffect(() => {
+    if (JSON.stringify(alerts.map(toStoredAlert)) !== JSON.stringify(storedAlertEntries)) {
+      setAlerts(alerts);
+    }
+  }, [alerts, storedAlertEntries, setAlerts]);
+
+  // Budgets key on a category ID; the name is for humans only. Comparing a
+  // category NAME against `budget.categoryId` never matched, which is why
+  // alerts used to name a raw UUID.
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach(category => {
+      if (category?.id) map.set(category.id, category.name);
+      if (category?.name) map.set(category.name, category.name);
+    });
+    return map;
+  }, [categories]);
+
+  const getCategoryLabel = useCallback(
+    (categoryId: string) => categoryNameById.get(categoryId) ?? categoryId,
+    [categoryNameById]
+  );
 
   // Check for new alerts
   useEffect(() => {
     const checkAlerts = () => {
-      // Convert regular budgets to decimal budgets
+      // Convert regular budgets to decimal budgets, counting any rollover
+      // carried into this period so an alert matches the spendable amount.
       const decimalBudgets: DecimalBudget[] = budgets.map(b => ({
         ...b,
-        amount: toDecimal(b.amount)
+        amount: getEffectiveBudgetAmount(b)
       }));
       // Split parents expand into per-line rows so split lines alert
       // against THEIR categories' budgets.
@@ -161,21 +308,22 @@ export default function SpendingAlerts() {
           
           let alertType: 'warning' | 'critical' | null = null;
           let message = '';
-          
+          const categoryLabel = getCategoryLabel(budget.categoryId);
+
           if (percentage >= config.thresholds.critical) {
             alertType = 'critical';
-            message = `Critical: ${budget.categoryId} has reached ${formatPercentage(percentage, 0)}% of budget!`;
+            message = `Critical: ${categoryLabel} has reached ${formatPercentage(percentage, 0)}% of budget!`;
           } else if (percentage >= config.thresholds.warning) {
             alertType = 'warning';
-            message = `Warning: ${budget.categoryId} is at ${formatPercentage(percentage, 0)}% of budget`;
+            message = `Warning: ${categoryLabel} is at ${formatPercentage(percentage, 0)}% of budget`;
           }
-          
+
           if (alertType && !existingAlert) {
             const newAlert: Alert = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
               configId: config.id,
               budgetId: budget.id,
-              category: budget.categoryId,
+              categoryId: budget.categoryId,
               type: alertType,
               percentage,
               spent,
@@ -216,20 +364,21 @@ export default function SpendingAlerts() {
     const interval = setInterval(checkAlerts, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [budgets, alertConfigs, mutedCategories, transactions, transactionSplits, alerts, setAlerts]);
+  }, [budgets, alertConfigs, mutedCategories, transactions, transactionSplits, alerts, setAlerts, getCategoryLabel]);
 
   // Calculate alert statistics
   const alertStats = useMemo((): AlertStats => {
     const activeAlerts = alerts.filter(a => !a.isDismissed);
     const categoryCount: Record<string, number> = {};
-    
+
     activeAlerts.forEach(alert => {
-      categoryCount[alert.category] = (categoryCount[alert.category] || 0) + 1;
+      categoryCount[alert.categoryId] = (categoryCount[alert.categoryId] || 0) + 1;
     });
-    
-    const mostAlertedCategory = Object.entries(categoryCount)
-      .sort(([, a], [, b]) => b - a)[0]?.[0] || 'None';
-    
+
+    const mostAlertedCategoryId = Object.entries(categoryCount)
+      .sort(([, a], [, b]) => b - a)[0]?.[0];
+    const mostAlertedCategory = mostAlertedCategoryId ? getCategoryLabel(mostAlertedCategoryId) : 'None';
+
     const avgPercentage = activeAlerts.length > 0
       ? activeAlerts.reduce((sum, a) => sum + a.percentage, 0) / activeAlerts.length
       : 0;
@@ -242,7 +391,7 @@ export default function SpendingAlerts() {
       mostAlertedCategory,
       averageSpendingPercentage: avgPercentage
     };
-  }, [alerts]);
+  }, [alerts, getCategoryLabel]);
 
   // Filter alerts
   const filteredAlerts = useMemo(() => {
@@ -279,11 +428,11 @@ export default function SpendingAlerts() {
     setAlerts(alerts.map(a => ({ ...a, isRead: true })));
   };
 
-  const toggleMuteCategory = (category: string) => {
-    if (mutedCategories.includes(category)) {
-      setMutedCategories(mutedCategories.filter(c => c !== category));
+  const toggleMuteCategory = (categoryId: string) => {
+    if (mutedCategories.includes(categoryId)) {
+      setMutedCategories(mutedCategories.filter(c => c !== categoryId));
     } else {
-      setMutedCategories([...mutedCategories, category]);
+      setMutedCategories([...mutedCategories, categoryId]);
     }
   };
 
@@ -430,7 +579,7 @@ export default function SpendingAlerts() {
                     </p>
                   </div>
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(alert.timestamp).toLocaleString()}
+                    {alert.timestamp.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -472,14 +621,15 @@ export default function SpendingAlerts() {
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {mutedCategories.map(category => (
+            {mutedCategories.map(categoryId => (
               <span
-                key={category}
+                key={categoryId}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs"
               >
-                {category}
+                {getCategoryLabel(categoryId)}
                 <button
-                  onClick={() => toggleMuteCategory(category)}
+                  onClick={() => toggleMuteCategory(categoryId)}
+                  aria-label={`Unmute ${getCategoryLabel(categoryId)}`}
                   className="hover:text-red-500"
                 >
                   <XIcon size={12} />
@@ -617,8 +767,8 @@ export default function SpendingAlerts() {
                   <label key={category.id} className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={mutedCategories.includes(category.name)}
-                      onChange={() => toggleMuteCategory(category.name)}
+                      checked={mutedCategories.includes(category.id)}
+                      onChange={() => toggleMuteCategory(category.id)}
                       className="rounded"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">{category.name}</span>

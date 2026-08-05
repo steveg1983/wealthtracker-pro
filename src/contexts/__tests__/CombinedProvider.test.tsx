@@ -8,10 +8,6 @@ vi.mock('../AccountContext', () => ({
   AccountProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="account-provider">{children}</div>
 }));
 
-vi.mock('../BudgetContext', () => ({
-  BudgetProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="budget-provider">{children}</div>
-}));
-
 vi.mock('../CategoryContext', () => ({
   CategoryProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="category-provider">{children}</div>
 }));
@@ -27,9 +23,6 @@ vi.mock('../LayoutContext', () => ({
 vi.mock('../../data/defaultTestData', () => ({
   getDefaultTestAccounts: vi.fn(() => [
     { id: '1', name: 'Test Account', type: 'checking', balance: 1000, currency: 'GBP' }
-  ]),
-  getDefaultTestBudgets: vi.fn(() => [
-    { id: '1', name: 'Test Budget', amount: 1000, period: 'monthly', categories: ['Food'], startDate: '2024-01-01' }
   ])
 }));
 
@@ -45,14 +38,14 @@ describe('CombinedProvider', () => {
     expect(screen.getByTestId('layout-provider')).toBeInTheDocument();
     expect(screen.getByTestId('category-provider')).toBeInTheDocument();
     expect(screen.getByTestId('account-provider')).toBeInTheDocument();
-    expect(screen.getByTestId('budget-provider')).toBeInTheDocument();
 
     expect(screen.getByText('Test Content')).toBeInTheDocument();
   });
 
-  it('does not mount the removed transaction and goal providers', () => {
-    // These two mirrored financial data into plaintext localStorage and had no
-    // consumers; this pins the removal so they cannot drift back in.
+  it('does not mount the removed transaction, goal and budget providers', () => {
+    // These mirrored financial data into plaintext localStorage. The budget one
+    // also starved the envelope/template/rollover/alert tabs of the real
+    // Supabase budgets; this pins the removal so they cannot drift back in.
     render(
       <CombinedProvider>
         <div>Test Content</div>
@@ -61,6 +54,7 @@ describe('CombinedProvider', () => {
 
     expect(screen.queryByTestId('transaction-provider')).not.toBeInTheDocument();
     expect(screen.queryByTestId('goal-provider')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('budget-provider')).not.toBeInTheDocument();
   });
 
   it('provides test data when useTestData is true', async () => {
@@ -73,7 +67,6 @@ describe('CombinedProvider', () => {
     );
 
     expect(testDataModule.getDefaultTestAccounts).toHaveBeenCalled();
-    expect(testDataModule.getDefaultTestBudgets).toHaveBeenCalled();
   });
 
   it('provides all contexts to deeply nested children', () => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../../contexts/PreferencesContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
@@ -23,7 +23,8 @@ import type { Account, Category, Transaction } from '../../../types';
 
 const PERIOD_KEY = 'test.reportsPeriod';
 const BASIS_KEY = 'reportsComparisonBasis';
-const ACCOUNT_KEY = 'reportsAccountFilter';
+/** The retired one-or-all dropdown's key — read for migration, never written. */
+const LEGACY_ACCOUNT_KEY = 'reportsAccountFilter';
 const ACCOUNT_IDS_KEY = 'reportsAccountFilterIds';
 
 const ACCOUNTS: Account[] = [
@@ -194,19 +195,66 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       expect(screen.queryByRole('checkbox', { name: 'Synthetic Current' })).not.toBeInTheDocument();
     });
 
-    it('remembers the selection, and leaves the one-or-all reports something they can read', () => {
+    it('remembers the selection for the next report, and retires the old key with it', () => {
+      // What the dropdown this control replaced left behind.
+      localStorage.setItem(LEGACY_ACCOUNT_KEY, 'all');
       const first = renderReport();
       openAccounts();
       fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
 
-      // One account is the one thing every report's filter can express.
-      expect(localStorage.getItem(ACCOUNT_KEY)).toBe('acc-1');
       expect(localStorage.getItem(ACCOUNT_IDS_KEY)).toBe('["acc-1"]');
+      expect(localStorage.getItem(LEGACY_ACCOUNT_KEY)).toBeNull();
 
       first.unmount();
       renderReport();
 
       expect(accountTrigger()).toHaveTextContent('Synthetic Current');
+      expect(figureOf('Expenses')).toBe('£100.00');
+    });
+
+    it('carries a choice made before every report went multi-select', () => {
+      // Nothing but the retired dropdown's key: the account it named is still
+      // the answer, not "every account".
+      localStorage.setItem(LEGACY_ACCOUNT_KEY, 'acc-2');
+      renderReport();
+
+      expect(accountTrigger()).toHaveTextContent('Synthetic Savings');
+      expect(figureOf('Expenses')).toBe('£50.00');
+    });
+
+    it('stores every account as no key at all, so a new one is included', () => {
+      renderReport();
+      openAccounts();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }));
+      expect(localStorage.getItem(ACCOUNT_IDS_KEY)).toBe('[]');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
+      expect(localStorage.getItem(ACCOUNT_IDS_KEY)).toBeNull();
+    });
+
+    it('files the accounts under the Accounts page sections', () => {
+      renderReport();
+      openAccounts();
+
+      const current = screen.getByRole('group', { name: 'Current Accounts' });
+      const savings = screen.getByRole('group', { name: 'Savings Accounts' });
+
+      expect(within(current).getByRole('checkbox', { name: 'Synthetic Current' })).toBeInTheDocument();
+      expect(within(savings).getByRole('checkbox', { name: 'Synthetic Savings' })).toBeInTheDocument();
+      // Sections with nothing in them are not printed.
+      expect(screen.queryByRole('group', { name: 'Credit Cards' })).not.toBeInTheDocument();
+    });
+
+    it('closes on Done, with the ticks already applied', () => {
+      renderReport();
+      openAccounts();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Synthetic Savings' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+      expect(screen.queryByRole('checkbox', { name: 'Synthetic Current' })).not.toBeInTheDocument();
+      expect(accountTrigger()).toHaveFocus();
       expect(figureOf('Expenses')).toBe('£100.00');
     });
   });

@@ -1,3 +1,15 @@
+/**
+ * The trophy shelf: which goals have been reached, and the confetti "already
+ * shown" flag.
+ *
+ * It deliberately does NOT decide when a milestone has been passed any more.
+ * It used to, with bands ("25% ≤ progress < 30%"), running alongside
+ * notificationService's threshold-crossing logic — so a goal that stopped
+ * inside a band re-announced its milestone on every recompute, while one that
+ * jumped straight from 20% to 35% announced nothing at all. Milestones and
+ * completion notifications now have exactly one owner: notificationService.
+ */
+
 import type { Goal } from '../types';
 
 interface AchievementData {
@@ -25,11 +37,15 @@ class GoalAchievementService {
   }
 
   /**
-   * Record a goal achievement
+   * Record a goal achievement (idempotent per goal).
+   *
+   * `achievedAt` defaults to now, but callers pass the goal's stored
+   * completion date when it has one — the trophy shelf on a second device
+   * should show WHEN the goal was reached, not when that device first noticed.
    */
-  recordAchievement(goal: Goal): void {
+  recordAchievement(goal: Goal, achievedAt: Date = new Date()): void {
     const achievements = this.getAchievements();
-    
+
     // Check if already recorded
     if (achievements.some(a => a.goalId === goal.id)) {
       return;
@@ -38,12 +54,37 @@ class GoalAchievementService {
     achievements.push({
       goalId: goal.id,
       goalName: goal.name,
-      achievedAt: new Date(),
+      achievedAt,
       type: goal.type,
       targetAmount: goal.targetAmount
     });
 
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(achievements));
+  }
+
+  /**
+   * Forget everything stored about a goal — called when the goal is deleted.
+   *
+   * Without this, the trophy shelf kept showing goals that no longer exist,
+   * and the "already celebrated" flag survived to suppress the confetti for a
+   * NEW goal that happened to reuse the id.
+   */
+  forgetGoal(goalId: string): void {
+    try {
+      const achievements = this.getAchievements().filter(a => a.goalId !== goalId);
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(achievements));
+
+      const celebrated = localStorage.getItem(this.CELEBRATED_KEY);
+      const celebratedIds: unknown = celebrated ? JSON.parse(celebrated) : [];
+      if (Array.isArray(celebratedIds)) {
+        localStorage.setItem(
+          this.CELEBRATED_KEY,
+          JSON.stringify(celebratedIds.filter(id => id !== goalId))
+        );
+      }
+    } catch {
+      // A goal that cannot be forgotten must not stop it being deleted.
+    }
   }
 
   /**
@@ -131,22 +172,6 @@ class GoalAchievementService {
         return achievedDate.getFullYear() === now.getFullYear();
       }).length
     };
-  }
-
-  /**
-   * Get milestone messages for progress
-   */
-  getMilestoneMessage(progress: number): string | null {
-    if (progress >= 25 && progress < 30) {
-      return "Great start! You're 25% of the way there! 🎯";
-    } else if (progress >= 50 && progress < 55) {
-      return "Halfway there! Keep up the momentum! 💪";
-    } else if (progress >= 75 && progress < 80) {
-      return "Almost there! You're 75% complete! 🚀";
-    } else if (progress >= 90 && progress < 95) {
-      return "So close! Just a little more to go! 🌟";
-    }
-    return null;
   }
 }
 

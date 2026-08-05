@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
+import { useToast } from '../contexts/ToastContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal, toStorageNumber } from '../utils/decimal';
 import {
   PlusIcon,
   PlayIcon,
@@ -38,25 +39,24 @@ interface RecurringSettings {
   autoApply: boolean;
   notificationDays: number;
   skipWeekends: boolean;
-  rolloverUnspent: boolean;
 }
 
 export default function RecurringBudgetTemplates() {
-  const { categories } = useApp();
-  const { budgets, addBudget, deleteBudget } = useBudgets();
+  const { categories, budgets, addBudget, updateBudget } = useApp();
+  const { showSuccess, showError } = useToast();
   const { formatCurrency } = useCurrencyDecimal();
-  
+
   const [templates, setTemplates] = useLocalStorage<BudgetTemplate[]>('budget-templates', []);
   const [recurringSettings, setRecurringSettings] = useLocalStorage<RecurringSettings>('recurring-settings', {
     autoApply: false,
     notificationDays: 3,
-    skipWeekends: true,
-    rolloverUnspent: false
+    skipWeekends: true
   });
-  
+
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  
+  const [applyingTemplateId, setApplyingTemplateId] = useState<string | null>(null);
+
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
@@ -79,7 +79,9 @@ export default function RecurringBudgetTemplates() {
       };
     });
 
-    const totalAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
+    const totalAmount = toStorageNumber(
+      budgetItems.reduce((sum, item) => sum.plus(toDecimal(item.amount)), toDecimal(0))
+    );
     const nextApplicationDate = calculateNextDate(newTemplate.frequency);
 
     const template: BudgetTemplate = {
@@ -133,38 +135,62 @@ export default function RecurringBudgetTemplates() {
     return next;
   };
 
-  const applyTemplate = (template: BudgetTemplate) => {
-    // Clear existing budgets if not rolling over
-    if (!recurringSettings.rolloverUnspent) {
-      budgets.forEach(budget => deleteBudget(budget.id));
-    }
+  /**
+   * Apply a template by UPSERTING one budget per category.
+   *
+   * This used to delete every budget first whenever "rollover unspent" was off.
+   * Against the localStorage store that was merely rude; against the real store
+   * it would wipe the owner's budgets — including categories the template has
+   * never heard of — with no undo. A template now sets the amount for the
+   * categories it names and leaves every other budget alone.
+   */
+  const applyTemplate = async (template: BudgetTemplate) => {
+    if (applyingTemplateId !== null) return;
+    setApplyingTemplateId(template.id);
 
-    // Apply template items
     const now = new Date();
-    template.budgetItems.forEach((item) => {
-      // Create a budget for the first category in the item
-      if (item.categoryIds.length > 0) {
-        const newBudget = {
-          categoryId: item.categoryIds[0],
-          category: item.categoryIds[0],
-          amount: item.amount,
-          period: 'monthly' as const,
-          isActive: true,
-          spent: 0,
-          updatedAt: now
-        };
-        addBudget(newBudget);
+
+    try {
+      for (const item of template.budgetItems) {
+        const categoryId = item.categoryIds[0];
+        if (!categoryId) continue;
+
+        const amount = toStorageNumber(toDecimal(item.amount));
+        const existing = budgets.find(budget => budget.categoryId === categoryId);
+
+        if (existing) {
+          if (existing.amount === amount && existing.isActive) continue;
+          // `updatedAt` is stamped by the persistence layer, not passed in.
+          await updateBudget(existing.id, { amount, isActive: true });
+        } else {
+          await addBudget({
+            categoryId,
+            amount,
+            period: 'monthly',
+            isActive: true,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
       }
-    });
 
-    // Update template
-    const updatedTemplate = {
-      ...template,
-      lastApplied: new Date(),
-      nextApplicationDate: calculateNextDate(template.frequency)
-    };
+      // Update template
+      const updatedTemplate = {
+        ...template,
+        lastApplied: new Date(),
+        nextApplicationDate: calculateNextDate(template.frequency)
+      };
 
-    setTemplates(templates.map(t => t.id === template.id ? updatedTemplate : t));
+      setTemplates(templates.map(t => t.id === template.id ? updatedTemplate : t));
+      showSuccess(
+        `${template.budgetItems.length} budget${template.budgetItems.length === 1 ? '' : 's'} set from “${template.name}”`,
+        'Template applied'
+      );
+    } catch (error) {
+      showError(error);
+    } finally {
+      setApplyingTemplateId(null);
+    }
   };
 
   const toggleTemplateActive = (templateId: string) => {
@@ -334,10 +360,15 @@ export default function RecurringBudgetTemplates() {
             <div className="flex gap-2">
               <button
                 onClick={() => applyTemplate(template)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                disabled={applyingTemplateId !== null}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                  applyingTemplateId !== null
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
               >
                 <PlayIcon size={14} />
-                Apply
+                {applyingTemplateId === template.id ? 'Applying…' : 'Apply'}
               </button>
               <button
                 onClick={() => toggleTemplateActive(template.id)}
@@ -442,7 +473,11 @@ export default function RecurringBudgetTemplates() {
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Template Preview</h4>
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  This template will include {budgets.length} budget items with a total of {formatCurrency(budgets.reduce((sum, b) => sum + b.amount, 0))}
+                  This template will include {budgets.length} budget items with a total of {formatCurrency(budgets.reduce((sum, b) => sum.plus(toDecimal(b.amount)), toDecimal(0)))}
+                </p>
+                <p className="mt-2 text-xs text-blue-800 dark:text-blue-200">
+                  Applying a template sets the amount for the categories it names. Budgets for other
+                  categories are left untouched.
                 </p>
               </div>
             </div>
@@ -527,25 +562,6 @@ export default function RecurringBudgetTemplates() {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Rollover unspent amounts
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Keep existing budgets when applying
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={recurringSettings.rolloverUnspent}
-                  onChange={(e) => setRecurringSettings({
-                    ...recurringSettings,
-                    rolloverUnspent: e.target.checked
-                  })}
-                  className="rounded"
-                />
-              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">

@@ -2,8 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useReportDataset } from '../../hooks/useReportDataset';
-import { useReportAccountFilter } from '../../hooks/useReportAccountFilter';
-import ReportAccountFilter from '../../components/reports/ReportAccountFilter';
+import { useReportAccountSelection } from '../../hooks/useReportAccountSelection';
+import ReportAccountMultiSelect from '../../components/reports/ReportAccountMultiSelect';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
 import UncategorisedReviewBand from '../../components/reports/UncategorisedReviewBand';
@@ -32,8 +32,8 @@ const CATEGORY_COLORS = [
 const PIE_SLICES = 8;
 
 export default function SpendingByCategoryReport({ picker }: ReportViewProps): React.JSX.Element {
-  const filter = useReportAccountFilter();
-  const { accounts, categories, rows, flows } = useReportDataset(picker, filter.accountId);
+  const selection = useReportAccountSelection();
+  const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -86,7 +86,7 @@ export default function SpendingByCategoryReport({ picker }: ReportViewProps): R
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ReportAccountFilter accounts={accounts} filter={filter} />
+        <ReportAccountMultiSelect accounts={accounts} selection={selection} />
         <ReportExportBar
           title="Spending by category"
           dateRange={PERIOD_LABELS[picker.period]}

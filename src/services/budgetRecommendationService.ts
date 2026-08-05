@@ -1,6 +1,17 @@
-import type { Transaction, Category, Budget } from '../types';
+import type { Transaction, TransactionSplit, Category, Budget } from '../types';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { formatDecimal } from '../utils/decimal-format';
+import { formatCurrency } from '../utils/currency-decimal';
+import { calculateSpendingByCategory, type DatedDecimalTransaction } from '../utils/calculations-decimal';
+import { calculateBudgetSpend, prepareBudgetTransactions } from '../utils/budgetSpending';
+import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
+import { sumDecimals, toDecimal } from '../utils/decimal';
+
+/** Quoted currency when the caller does not say — the app's own default. */
+const DEFAULT_CURRENCY = 'GBP';
+
+/** One day, for turning a period window into "days left". */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface BudgetRecommendation {
   categoryId: string;
@@ -23,6 +34,28 @@ export interface BudgetAnalysis {
   recommendations: BudgetRecommendation[];
   insights: BudgetInsight[];
   score: number; // 0-100 budget health score
+  /** Currency every figure above is quoted in — the export reads it back. */
+  currency: string;
+}
+
+/**
+ * What the caller knows about the spending behind an analysis.
+ *
+ * WHY: this service used to sum raw expense floats of its own — no split
+ * expansion, no refund netting, dollar signs on sterling figures. It now takes
+ * the same inputs the Budget page holds and runs the same calculation, so a
+ * recommendation cannot contradict the card it is recommending against.
+ */
+export interface BudgetAnalysisOptions {
+  /** Split lines, so a split parent counts against ITS lines' categories. */
+  transactionSplits?: TransactionSplit[];
+  /**
+   * Accounts held in another currency. Their rows are left out entirely — no
+   * rate is invented here — so every figure is in one currency.
+   */
+  foreignAccountIds?: ReadonlySet<string>;
+  /** The currency to quote figures in. Defaults to GBP. */
+  currency?: string;
 }
 
 export interface BudgetInsight {
@@ -119,28 +152,39 @@ export class BudgetRecommendationService {
   analyzeBudgets(
     transactions: Transaction[],
     categories: Category[],
-    budgets: Budget[]
+    budgets: Budget[],
+    options: BudgetAnalysisOptions = {}
   ): BudgetAnalysis {
     const config = this.getConfig();
+    const currency = options.currency ?? DEFAULT_CURRENCY;
     const recommendations: BudgetRecommendation[] = [];
     const insights: BudgetInsight[] = [];
-    
+
+    // Split parents become their per-line rows, decimalised once; rows on
+    // accounts in another currency drop out here so no figure below mixes two.
+    const prepared = prepareBudgetTransactions(transactions, options.transactionSplits ?? []);
+    const foreignAccountIds = options.foreignAccountIds;
+    const rows = foreignAccountIds && foreignAccountIds.size > 0
+      ? prepared.filter(row => !foreignAccountIds.has(row.accountId))
+      : prepared;
+
     // Get historical spending by category
-    const categorySpending = this.analyzeCategorySpending(transactions, config.lookbackMonths);
-    
+    const categorySpending = this.analyzeCategorySpending(rows, config.lookbackMonths);
+
     // Generate recommendations for each category
     categories.forEach(category => {
       const spending = categorySpending.get(category.id);
       if (!spending || spending.months.length < 3) return; // Need at least 3 months of data
-      
+
       const currentBudget = budgets.find(b => b.categoryId === category.id);
       const recommendation = this.generateRecommendation(
         category,
         spending,
         currentBudget,
-        config
+        config,
+        currency
       );
-      
+
       if (recommendation.confidence >= config.minConfidence) {
         recommendations.push(recommendation);
       }
@@ -155,15 +199,16 @@ export class BudgetRecommendationService {
     });
 
     // Generate insights
-    insights.push(...this.generateInsights(transactions, categories, budgets, recommendations));
+    insights.push(...this.generateInsights(rows, categories, budgets, recommendations, currency));
 
-    // Calculate totals
-    const totalCurrentBudget = budgets.reduce((sum, b) => sum + b.amount, 0);
-    const totalRecommendedBudget = recommendations.reduce((sum, r) => sum + r.recommendedBudget, 0);
-    const totalPotentialSavings = recommendations.reduce((sum, r) => sum + (r.potentialSavings || 0), 0);
+    // Calculate totals — summed in Decimal, like every other money total in
+    // the app, so the reported figure carries no accumulated float drift.
+    const totalCurrentBudget = sumDecimals(budgets.map(b => toDecimal(b.amount))).toNumber();
+    const totalRecommendedBudget = sumDecimals(recommendations.map(r => toDecimal(r.recommendedBudget))).toNumber();
+    const totalPotentialSavings = sumDecimals(recommendations.map(r => toDecimal(r.potentialSavings ?? 0))).toNumber();
 
     // Calculate budget health score
-    const score = this.calculateBudgetHealthScore(budgets, transactions, recommendations);
+    const score = this.calculateBudgetHealthScore(budgets, rows, recommendations);
 
     return {
       totalCurrentBudget,
@@ -171,48 +216,48 @@ export class BudgetRecommendationService {
       totalPotentialSavings,
       recommendations,
       insights,
-      score
+      score,
+      currency
     };
   }
 
+  /**
+   * Month-by-month spend per category, from the app's ONE category-spending
+   * calculation: split lines count against their own categories and refunds
+   * net off, exactly as the Budget cards read them.
+   *
+   * The monthly SUMS are Decimal; the statistics built from them below
+   * (percentiles, standard deviation, a regression slope) are forecasting
+   * heuristics and stay in floating point — no money is stored or displayed
+   * from them without passing back through a Decimal sum first.
+   */
   private analyzeCategorySpending(
-    transactions: Transaction[],
+    transactions: DatedDecimalTransaction[],
     lookbackMonths: number
   ): Map<string, CategorySpendingData> {
     const categoryData = new Map<string, CategorySpendingData>();
     const now = this.getCurrentDate();
-    
+
     // Analyze spending for each month
     for (let i = 0; i < lookbackMonths; i++) {
       const monthStart = startOfMonth(subMonths(now, i));
       const monthEnd = endOfMonth(subMonths(now, i));
-      
-      const monthTransactions = transactions.filter(t => {
-        const date = new Date(t.date);
-        return t.type === 'expense' && 
-               date >= monthStart && 
-               date <= monthEnd;
-      });
 
-      // Group by category
-      const monthlySpending = new Map<string, number>();
-      monthTransactions.forEach(t => {
-        const current = monthlySpending.get(t.category) || 0;
-        monthlySpending.set(t.category, current + Math.abs(t.amount));
-      });
+      const monthlySpending = calculateSpendingByCategory(transactions, monthStart, monthEnd);
 
       // Add to category data
-      monthlySpending.forEach((amount, categoryId) => {
+      Object.entries(monthlySpending).forEach(([categoryId, spent]) => {
         const data = categoryData.get(categoryId) || {
           months: [],
           amounts: [],
           total: 0
         };
-        
+
+        const amount = spent.toNumber();
         data.months.push(monthStart);
         data.amounts.push(amount);
         data.total += amount;
-        
+
         categoryData.set(categoryId, data);
       });
     }
@@ -224,7 +269,8 @@ export class BudgetRecommendationService {
     category: Category,
     spending: CategorySpendingData,
     currentBudget: Budget | undefined,
-    config: RecommendationConfig
+    config: RecommendationConfig,
+    currency: string
   ): BudgetRecommendation {
     const amounts = [...spending.amounts].sort((a, b) => a - b);
     const averageSpending = spending.total / spending.amounts.length;
@@ -282,7 +328,8 @@ export class BudgetRecommendationService {
       recommendedBudget,
       averageSpending,
       trend,
-      config
+      config,
+      currency
     );
 
     return {
@@ -360,13 +407,14 @@ export class BudgetRecommendationService {
     recommendedBudget: number,
     averageSpending: number,
     trend: { direction: string; percentage: number },
-    config: RecommendationConfig
+    config: RecommendationConfig,
+    currency: string
   ): string {
     const parts: string[] = [];
-    
+
     // Base reasoning
     if (currentBudget === 0) {
-      parts.push(`Based on your average spending of $${formatDecimal(averageSpending, 0)} in ${categoryName}`);
+      parts.push(`Based on your average spending of ${formatCurrency(averageSpending, currency)} in ${categoryName}`);
     } else if (recommendedBudget > currentBudget) {
       parts.push(`Your current budget may be too restrictive`);
     } else if (recommendedBudget < currentBudget) {
@@ -387,22 +435,22 @@ export class BudgetRecommendationService {
   }
 
   private generateInsights(
-    transactions: Transaction[],
+    transactions: DatedDecimalTransaction[],
     categories: Category[],
     budgets: Budget[],
-    recommendations: BudgetRecommendation[]
+    recommendations: BudgetRecommendation[],
+    currency: string
   ): BudgetInsight[] {
     const insights: BudgetInsight[] = [];
     const now = this.getCurrentDate();
-    const currentMonth = startOfMonth(now);
-    
+
     // Check for categories with no budget but significant spending
     recommendations.forEach(rec => {
       if (!rec.currentBudget && rec.averageSpending > 100) {
         insights.push({
           type: 'unbudgeted',
           title: `Unbudgeted Spending in ${rec.categoryName}`,
-          description: `You're spending an average of $${formatDecimal(rec.averageSpending, 0)} per month in ${rec.categoryName} without a budget.`,
+          description: `You're spending an average of ${formatCurrency(rec.averageSpending, currency)} per month in ${rec.categoryName} without a budget.`,
           impact: 'negative',
           actionable: true,
           categoryId: rec.categoryId,
@@ -415,29 +463,30 @@ export class BudgetRecommendationService {
     budgets.forEach(budget => {
       const category = categories.find(c => c.id === budget.categoryId);
       if (!category) return;
-      
-      const currentMonthSpending = transactions
-        .filter(t =>
-          t.category === budget.categoryId &&
-          t.type === 'expense' &&
-          new Date(t.date) >= currentMonth
-        )
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      
-      const percentSpent = (currentMonthSpending / budget.amount) * 100;
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const daysPassed = now.getDate();
-      const expectedPercent = (daysPassed / daysInMonth) * 100;
-      
+
+      // The budget's OWN period, not "this month" for everything: a quarterly
+      // budget compared against a month of spending flagged nothing.
+      const { spent, window } = calculateBudgetSpend(budget, transactions, { now });
+      const amount = getEffectiveBudgetAmount(budget);
+      if (amount.isZero() || amount.isNegative()) return;
+
+      const percentSpent = spent.dividedBy(amount).times(100).toNumber();
+      const totalDays = Math.max(1, Math.round((window.end.getTime() - window.start.getTime()) / DAY_MS));
+      const daysPassed = Math.min(
+        totalDays,
+        Math.max(1, Math.ceil((now.getTime() - window.start.getTime()) / DAY_MS))
+      );
+      const expectedPercent = (daysPassed / totalDays) * 100;
+
       if (percentSpent > expectedPercent + 20) {
         insights.push({
           type: 'overspend',
           title: `Overspending Alert: ${category.name}`,
-          description: `You've spent ${formatDecimal(percentSpent, 0)}% of your budget with ${daysInMonth - daysPassed} days left in the month.`,
+          description: `You've spent ${formatDecimal(percentSpent, 0)}% of your budget with ${totalDays - daysPassed} days left in this ${window.label.toLowerCase()} period.`,
           impact: 'negative',
           actionable: true,
           categoryId: category.id,
-          amount: currentMonthSpending
+          amount: spent.toNumber()
         });
       }
     });
@@ -446,12 +495,12 @@ export class BudgetRecommendationService {
     const totalSavings = recommendations
       .filter(r => r.potentialSavings)
       .reduce((sum, r) => sum + (r.potentialSavings || 0), 0);
-    
+
     if (totalSavings > 100) {
       insights.push({
         type: 'opportunity',
         title: 'Budget Optimization Available',
-        description: `You could potentially save $${formatDecimal(totalSavings, 0)} per month by adjusting your budgets to match your actual spending patterns.`,
+        description: `You could potentially save ${formatCurrency(totalSavings, currency)} per month by adjusting your budgets to match your actual spending patterns.`,
         impact: 'positive',
         actionable: true,
         amount: totalSavings
@@ -479,13 +528,12 @@ export class BudgetRecommendationService {
 
   private calculateBudgetHealthScore(
     budgets: Budget[],
-    transactions: Transaction[],
+    transactions: DatedDecimalTransaction[],
     recommendations: BudgetRecommendation[]
   ): number {
     let score = 100;
     const now = this.getCurrentDate();
-    const currentMonth = startOfMonth(now);
-    
+
     // Deduct points for unbudgeted categories with significant spending
     const unbudgetedPenalty = recommendations
       .filter(r => !r.currentBudget && r.averageSpending > 50)
@@ -505,18 +553,15 @@ export class BudgetRecommendationService {
       }
     });
     
-    // Deduct points for current overspending
+    // Deduct points for current overspending — measured over each budget's own
+    // period, with split lines counted and refunds netted off.
     budgets.forEach(budget => {
-      const currentSpending = transactions
-        .filter(t =>
-          t.category === budget.categoryId &&
-          t.type === 'expense' &&
-          new Date(t.date) >= currentMonth
-        )
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      
-      if (currentSpending > budget.amount) {
-        const overPercent = ((currentSpending - budget.amount) / budget.amount) * 100;
+      const amount = getEffectiveBudgetAmount(budget);
+      if (amount.isZero() || amount.isNegative()) return;
+
+      const { spent } = calculateBudgetSpend(budget, transactions, { now });
+      if (spent.greaterThan(amount)) {
+        const overPercent = spent.minus(amount).dividedBy(amount).times(100).toNumber();
         score -= Math.min(10, Math.floor(overPercent / 10));
       }
     });
@@ -545,14 +590,18 @@ export class BudgetRecommendationService {
 
   // Export recommendations
   exportRecommendations(analysis: BudgetAnalysis): string {
+    // Every figure is quoted in the currency the analysis was run in — the
+    // export used to stamp a dollar sign on sterling amounts.
+    const currency = analysis.currency || DEFAULT_CURRENCY;
+    const money = (amount: number): string => formatCurrency(amount, currency);
     const lines = [
       'Budget Recommendations Report',
       `Generated: ${format(this.getCurrentDate(), 'MMMM d, yyyy')}`,
       `Budget Health Score: ${analysis.score}/100`,
       '',
-      `Total Current Budget: $${formatDecimal(analysis.totalCurrentBudget, 2)}`,
-      `Total Recommended Budget: $${formatDecimal(analysis.totalRecommendedBudget, 2)}`,
-      `Potential Savings: $${formatDecimal(analysis.totalPotentialSavings, 2)}`,
+      `Total Current Budget: ${money(analysis.totalCurrentBudget)}`,
+      `Total Recommended Budget: ${money(analysis.totalRecommendedBudget)}`,
+      `Potential Savings: ${money(analysis.totalPotentialSavings)}`,
       '',
       'Recommendations:',
       ''
@@ -560,9 +609,9 @@ export class BudgetRecommendationService {
 
     analysis.recommendations.forEach(rec => {
       lines.push(`${rec.categoryName}:`);
-      lines.push(`  Current Budget: $${rec.currentBudget !== undefined ? formatDecimal(rec.currentBudget, 2) : '0.00'}`);
-      lines.push(`  Recommended: $${formatDecimal(rec.recommendedBudget, 2)}`);
-      lines.push(`  Average Spending: $${formatDecimal(rec.averageSpending, 2)}`);
+      lines.push(`  Current Budget: ${money(rec.currentBudget ?? 0)}`);
+      lines.push(`  Recommended: ${money(rec.recommendedBudget)}`);
+      lines.push(`  Average Spending: ${money(rec.averageSpending)}`);
       lines.push(`  Trend: ${rec.spendingTrend} (${formatDecimal(rec.trendPercentage, 0)}%)`);
       lines.push(`  Confidence: ${formatDecimal(rec.confidence * 100, 0)}%`);
       lines.push(`  ${rec.reasoning}`);

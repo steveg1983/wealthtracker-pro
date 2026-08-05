@@ -2,10 +2,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { ReportAccountScope } from './useReportDataset';
 
-/** The cross-report channel: 'all', or ONE account id (see useReportAccountFilter). */
-const STORAGE_KEY = 'reportsAccountFilter';
-/** This control's own channel: the explicit subset, as a JSON array of ids. */
-const IDS_STORAGE_KEY = 'reportsAccountFilterIds';
+/** Where every report remembers which accounts it covers: a JSON array of ids. */
+const STORAGE_KEY = 'reportsAccountFilterIds';
+/**
+ * The retired one-or-all dropdown's key ('all', or a single account id). It is
+ * READ once, so a choice made before every report went multi-select survives
+ * the upgrade, and cleared the first time this control writes — nothing
+ * produces it any more, and a stale id must not outrank a real subset.
+ */
+const LEGACY_STORAGE_KEY = 'reportsAccountFilter';
 
 /**
  * 'all' is a sentinel, never an enumerated list: a report showing every
@@ -28,7 +33,7 @@ export interface ReportAccountSelection {
 
 /** Storage holds whatever an older build (or the user) put there. */
 function readStoredIds(): ReadonlySet<string> | null {
-  const stored = localStorage.getItem(IDS_STORAGE_KEY);
+  const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === null) return null;
   try {
     const parsed: unknown = JSON.parse(stored);
@@ -42,21 +47,22 @@ function readStoredIds(): ReadonlySet<string> | null {
 }
 
 function readStoredSelection(): Selection {
-  // A single-account choice is the one thing EVERY report can express, so a
-  // named account in the shared key is the most recent statement of intent
-  // and outranks a subset this control stored earlier.
-  const single = localStorage.getItem(STORAGE_KEY);
-  if (single !== null && single !== 'all') return new Set([single]);
-  return readStoredIds() ?? 'all';
+  const stored = readStoredIds();
+  if (stored !== null) return stored;
+  // Nothing of this control's own — honour the retired dropdown's last answer
+  // rather than silently widening the report back out to every account.
+  const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+  return legacy !== null && legacy !== 'all' ? new Set([legacy]) : 'all';
 }
 
 /**
- * The reports' account filter as a SET of accounts rather than one-or-all,
- * persisted exactly like the single-account filter it generalises.
+ * The reports' account filter: a SET of accounts, shared by every report in
+ * the gallery and persisted, so moving between reports keeps BOTH halves of
+ * the question ("which money, over what window") rather than resetting one.
  *
- * Both keys are written on every change so the two controls cannot drift: a
- * subset writes 'all' to the shared key, because the reports that still offer
- * one-or-all would otherwise read a single id as a choice the user never made.
+ * 'all' is stored as the ABSENCE of a key, never as an enumerated list — a
+ * report showing every account must keep showing every account when a new one
+ * is opened.
  */
 export function useReportAccountSelection(): ReportAccountSelection {
   const { accounts } = useApp();
@@ -66,14 +72,13 @@ export function useReportAccountSelection(): ReportAccountSelection {
 
   const apply = useCallback((next: Selection) => {
     setSelection(next);
+    // Whatever the retired dropdown left behind is now answered for.
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
     if (next === 'all') {
-      localStorage.setItem(STORAGE_KEY, 'all');
-      localStorage.removeItem(IDS_STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       return;
     }
-    const ids = [...next];
-    localStorage.setItem(STORAGE_KEY, ids.length === 1 ? ids[0] : 'all');
-    localStorage.setItem(IDS_STORAGE_KEY, JSON.stringify(ids));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
   }, []);
 
   const toggle = useCallback((accountId: string) => {

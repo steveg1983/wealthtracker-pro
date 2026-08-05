@@ -133,6 +133,58 @@ describe('TransactionCache', () => {
     expect(records.size).toBe(0);
   });
 
+  // Regression (audit 2026-08): TransactionSnapshot.rows claims Transaction[],
+  // so `date` must be a real Date when it leaves here. Snapshots written before
+  // the date boundary existed hold the raw wire string — and those records are
+  // in users' IndexedDB right now — so they are repaired on read rather than
+  // thrown away (which would cost every existing user a full re-download).
+  it('hands back a real Date even when the stored snapshot holds the wire string', async () => {
+    const { store } = createStore();
+    await store.put('largeData', {
+      key: 'wt-boot-transactions',
+      schemaVersion: 1,
+      userId: 'user-1',
+      columns: COLUMNS,
+      savedAt: '2026-08-01T00:00:00.000Z',
+      highWaterMark: '2026-08-01T00:00:00.000Z',
+      // Exactly what JSON.stringify wrote: a date-only string, as PostgREST
+      // sent it, plus a full ISO one from a locally-created row.
+      rows: [
+        { ...row('a', '2026-08-01T00:00:00.000Z'), date: '2026-08-01' },
+        { ...row('b', '2026-08-01T00:00:00.000Z'), date: '2026-07-15T10:30:00.000Z' }
+      ]
+    });
+    const cache = new TransactionCache({ store, logger });
+
+    const snapshot = await cache.read('user-1', COLUMNS);
+
+    expect(snapshot?.rows).toHaveLength(2);
+    expect(snapshot?.rows[0].date).toBeInstanceOf(Date);
+    expect(snapshot?.rows[0].date.toISOString()).toBe('2026-08-01T00:00:00.000Z');
+    expect(snapshot?.rows[1].date).toBeInstanceOf(Date);
+    expect(snapshot?.rows[1].date.toISOString()).toBe('2026-07-15T10:30:00.000Z');
+    // The rows stay usable rather than being invalidated wholesale.
+    expect(snapshot?.highWaterMark).toBe('2026-08-01T00:00:00.000Z');
+  });
+
+  it('preserves Dates through a real structured clone round trip', async () => {
+    // IndexedDB stores a structured clone, so a snapshot written today comes
+    // back with its Dates intact — no re-parse, nothing to repair.
+    const cache = new TransactionCache({ logger });
+    await cache.clear();
+
+    await cache.write('user-clone', COLUMNS, [
+      { ...row('a', '2026-08-01T00:00:00.000Z'), date: new Date('2026-08-01T00:00:00.000Z') }
+    ]);
+    const snapshot = await cache.read('user-clone', COLUMNS);
+
+    expect(snapshot?.rows[0].date).toBeInstanceOf(Date);
+    expect(snapshot?.rows[0].date.toISOString()).toBe('2026-08-01T00:00:00.000Z');
+
+    // The connection stays open — the real-IndexedDB test below closes it last.
+    await cache.clear();
+  });
+
   it('clears on request', async () => {
     const { store, records } = createStore();
     const cache = new TransactionCache({ store, logger });

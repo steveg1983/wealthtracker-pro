@@ -1,8 +1,11 @@
-import type { Transaction, Budget, Goal, Category } from '../types';
+import type { Transaction, TransactionSplit, Budget, Goal, Category } from '../types';
 import type { Notification } from '../contexts/NotificationContext';
 import type { JsonValue, UnknownObject } from '../types/common';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
+import { calculateBudgetSpend, prepareBudgetTransactions } from '../utils/budgetSpending';
+import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
+import { calculateBudgetPercentage } from '../utils/calculations-decimal';
 
 export interface NotificationRule {
   id: string;
@@ -52,6 +55,22 @@ export interface TransactionAlertConfig {
   duplicateDetectionEnabled: boolean;
   merchantAlertEnabled: boolean;
   foreignTransactionEnabled: boolean;
+}
+
+/**
+ * What the caller knows about the spending behind a budget alert, beyond the
+ * transactions themselves.
+ *
+ * WHY: alerts used to sum raw expense rows, which meant a split shop counted
+ * for nothing, a refund counted for nothing, and euro rows joined a sterling
+ * total. Passing the same two facts the Budget page holds keeps the alert and
+ * the card describing one figure.
+ */
+export interface BudgetAlertContext {
+  /** Split lines, so a split parent spends against ITS lines' categories. */
+  transactionSplits?: TransactionSplit[];
+  /** Accounts in another currency — their rows are left out of the spend. */
+  foreignAccountIds?: ReadonlySet<string>;
 }
 
 export interface GoalCelebrationConfig {
@@ -343,14 +362,36 @@ export class NotificationService {
   }
 
   // Budget Alert Methods
-  checkBudgetAlerts(budgets: Budget[], transactions: Transaction[], categories: Category[]): Notification[] {
+  checkBudgetAlerts(
+    budgets: Budget[],
+    transactions: Transaction[],
+    categories: Category[],
+    context: BudgetAlertContext = {}
+  ): Notification[] {
     const notifications: Notification[] = [];
     const now = this.getCurrentDate();
+    // Expanded and decimalised ONCE for every budget in this pass.
+    const prepared = prepareBudgetTransactions(transactions, context.transactionSplits ?? []);
+
+    // Budgets key on a category ID; matching on the NAME never hit, so every
+    // budget notification named a raw UUID. Keyed both ways so budgets written
+    // before the categoryId column still resolve.
+    const categoryByKey = new Map<string, Category>();
+    categories.forEach(category => {
+      if (category?.id) categoryByKey.set(category.id, category);
+      if (category?.name && !categoryByKey.has(category.name)) categoryByKey.set(category.name, category);
+    });
 
     budgets.forEach(budget => {
-      // Calculate spent amount for this budget
-      const spent = this.calculateBudgetSpent(budget, transactions);
-      const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+      // The Budget page's calculation, not a second one: the budget's OWN
+      // period window, split lines expanded, refunds netted, Decimal throughout.
+      const amount = getEffectiveBudgetAmount(budget);
+      const { spent: spentDecimal } = calculateBudgetSpend(budget, prepared, {
+        now,
+        foreignAccountIds: context.foreignAccountIds
+      });
+      const spent = spentDecimal.toNumber();
+      const percentage = calculateBudgetPercentage({ amount }, spentDecimal);
 
       // Check budget rules
       const applicableRules = this.rules.filter(rule => 
@@ -360,20 +401,21 @@ export class NotificationService {
       );
 
       applicableRules.forEach(rule => {
-        if (this.evaluateConditions(rule.conditions, { 
-          percentage_spent: percentage, 
+        if (this.evaluateConditions(rule.conditions, {
+          percentage_spent: percentage,
           amount_spent: spent,
-          budget_amount: budget.amount,
+          budget_amount: amount.toNumber(),
           category: budget.categoryId,
           period: budget.period
         })) {
-          const category = categories.find(c => c.name === budget.categoryId);
+          const category = categoryByKey.get(budget.categoryId);
           const notification = this.createNotificationFromRule(rule, {
-            categoryName: budget.categoryId,
+            categoryName: category?.name ?? budget.categoryId,
             categoryColor: category?.color || '#6B7280',
             percentage: Math.round(percentage),
             spent,
-            budget: budget.amount,
+            // The limit the Budget card shows: the plan plus any carry.
+            budget: amount.toNumber(),
             period: budget.period
           });
 
@@ -529,31 +571,6 @@ export class NotificationService {
     }
 
     return null;
-  }
-
-  private calculateBudgetSpent(budget: Budget, transactions: Transaction[]): number {
-    const now = this.getCurrentDate();
-    let startDate: Date;
-    let endDate: Date;
-
-    if (budget.period === 'monthly') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    } else {
-      startDate = new Date(now.getFullYear(), 0, 1);
-      endDate = new Date(now.getFullYear(), 11, 31);
-    }
-
-    return transactions
-      .filter(transaction => {
-        const transactionDate = new Date(transaction.date);
-        return transaction.category === budget.categoryId &&
-               transaction.type === 'expense' &&
-               transactionDate >= startDate &&
-               transactionDate <= endDate;
-      })
-      // Expenses are stored as negative signed amounts; abs at the summation point yields the positive "spent" magnitude
-      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
   }
 
   private calculateGoalProgress(goal: Goal): number {

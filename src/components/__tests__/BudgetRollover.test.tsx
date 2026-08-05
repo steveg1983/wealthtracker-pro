@@ -11,9 +11,48 @@ import BudgetRollover from '../BudgetRollover';
 import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import { toDecimal } from '../../utils/decimal';
 
+const mockUpdateBudget = vi.fn(() => Promise.resolve());
+
+// Budgets come from the real app context now — BudgetContext (a plaintext
+// localStorage mirror that left this tab permanently empty) has been deleted.
+const mockBudgets = [
+  {
+    id: 'budget-1',
+    categoryId: 'cat-1',
+    amount: 200,
+    period: 'monthly' as const,
+    isActive: true,
+    spent: 0,
+    createdAt: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+    updatedAt: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+  },
+  {
+    id: 'budget-2',
+    categoryId: 'cat-2',
+    amount: 100,
+    period: 'monthly' as const,
+    isActive: true,
+    spent: 0,
+    createdAt: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+    updatedAt: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+  },
+  {
+    id: 'budget-3',
+    categoryId: 'cat-3',
+    amount: 150,
+    period: 'monthly' as const,
+    isActive: true,
+    spent: 0,
+    createdAt: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+    updatedAt: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+  }
+];
+
 // Mock dependencies
 vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
+    budgets: mockBudgets,
+    updateBudget: mockUpdateBudget,
     categories: [
       { id: 'cat-1', name: 'Food', type: 'expense', level: 'detail', parentId: 'sub-food' },
       { id: 'cat-2', name: 'Transport', type: 'expense', level: 'detail', parentId: 'sub-transport' },
@@ -41,49 +80,25 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
         accountId: 'acc-1',
         cleared: true
       }
-    ],
-    budgets: []
+    ]
   })
 }));
 
-vi.mock('../../contexts/BudgetContext', () => ({
-  useBudgets: () => ({
-    budgets: [
-      {
-        id: 'budget-1',
-        category: 'Food',
-        categoryId: 'cat-1',
-        amount: toDecimal(200),
-        period: 'monthly',
-        startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
-        description: 'Food budget'
-      },
-      {
-        id: 'budget-2',
-        category: 'Transport',
-        categoryId: 'cat-2',
-        amount: toDecimal(100),
-        period: 'monthly',
-        startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
-        description: 'Transport budget'
-      },
-      {
-        id: 'budget-3',
-        category: 'Entertainment',
-        categoryId: 'cat-3',
-        amount: toDecimal(150),
-        period: 'monthly',
-        startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
-        description: 'Entertainment budget'
-      }
-    ],
-    updateBudget: vi.fn()
+vi.mock('../../contexts/ToastContext', () => ({
+  useToast: () => ({
+    showSuccess: vi.fn(),
+    showError: vi.fn()
   })
 }));
+
+// Seeded per test so persisted-payload cases (including the legacy shape that
+// used to crash this tab) can be reproduced.
+const mockStorageSeed: Record<string, unknown> = {};
 
 vi.mock('../../hooks/useLocalStorage', () => ({
-  useLocalStorage: vi.fn((key, defaultValue) => {
-    const [value, setValue] = React.useState(defaultValue);
+  useLocalStorage: vi.fn((key: string, defaultValue: unknown) => {
+    const seeded = Object.prototype.hasOwnProperty.call(mockStorageSeed, key);
+    const [value, setValue] = React.useState(seeded ? mockStorageSeed[key] : defaultValue);
     return [value, setValue];
   })
 }));
@@ -148,9 +163,20 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+const periodsFor = (offsetFromCurrentMonth: number) => {
+  const now = new Date();
+  const to = new Date(now.getFullYear(), now.getMonth() + offsetFromCurrentMonth, 1);
+  const from = new Date(to.getFullYear(), to.getMonth() - 1, 1);
+  return {
+    fromPeriod: { month: from.getMonth(), year: from.getFullYear() },
+    toPeriod: { month: to.getMonth(), year: to.getFullYear() }
+  };
+};
+
 describe('BudgetRollover', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.keys(mockStorageSeed).forEach(key => delete mockStorageSeed[key]);
   });
 
   afterEach(() => {
@@ -330,7 +356,7 @@ describe('BudgetRollover', () => {
       await userEvent.click(screen.getByRole('button', { name: /Preview Rollover/i }));
       
       // Should show categories with rollover amounts
-      expect(screen.getByText(/will be added to your/)).toBeInTheDocument();
+      expect(screen.getByText(/will be carried into your/)).toBeInTheDocument();
     });
 
     it('allows applying rollover from preview', async () => {
@@ -350,11 +376,60 @@ describe('BudgetRollover', () => {
       const applyButton = screen.getByRole('button', { name: /Apply Rollover/i });
       expect(applyButton).toBeInTheDocument();
       await userEvent.click(applyButton);
-      
+
       // The modal should close after applying
       await waitFor(() => {
         expect(screen.queryByText('Rollover Preview')).not.toBeInTheDocument();
       });
+    });
+
+    it('carries the surplus in rolloverAmount and never mutates the planned amount', async () => {
+      render(<BudgetRollover />);
+
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Preview Rollover/i })).not.toBeDisabled();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /Preview Rollover/i }));
+      await userEvent.click(screen.getByRole('button', { name: /Apply Rollover/i }));
+
+      await waitFor(() => {
+        expect(mockUpdateBudget).toHaveBeenCalledWith('budget-1', { rollover: true, rolloverAmount: 50 });
+      });
+      expect(mockUpdateBudget).toHaveBeenCalledWith('budget-2', { rollover: true, rolloverAmount: 50 });
+      expect(mockUpdateBudget).toHaveBeenCalledWith('budget-3', { rollover: true, rolloverAmount: 150 });
+
+      // The plan the user typed is never touched by automation.
+      mockUpdateBudget.mock.calls.forEach(([, updates]) => {
+        expect(updates).not.toHaveProperty('amount');
+      });
+    });
+
+    it('refuses to apply the same period twice', async () => {
+      mockStorageSeed['rollover-history'] = [
+        {
+          id: 'history-1',
+          ...periodsFor(0),
+          rollovers: [],
+          totalRolledOver: 250,
+          appliedAt: new Date().toISOString()
+        }
+      ];
+
+      render(<BudgetRollover />);
+
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/has already been rolled into/)).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: /Preview Rollover/i })).toBeDisabled();
+      expect(mockUpdateBudget).not.toHaveBeenCalled();
     });
   });
 
@@ -397,11 +472,83 @@ describe('BudgetRollover', () => {
   describe('rollover history', () => {
     it('renders without history data', async () => {
       render(<BudgetRollover />);
-      
+
       // Component should render successfully even without history
       expect(screen.getByText('Budget Rollover')).toBeInTheDocument();
-      
+
       // History section should not be visible when no history exists
+      expect(screen.queryByText('Rollover History')).not.toBeInTheDocument();
+    });
+
+    it('renders persisted history after a JSON round trip', () => {
+      const entry = {
+        id: 'history-1',
+        ...periodsFor(-1),
+        rollovers: [
+          {
+            budgetId: 'budget-1',
+            categoryId: 'cat-1',
+            categoryName: 'Food',
+            originalBudget: 200,
+            spent: 150,
+            remaining: 50,
+            rolledOver: 50
+          }
+        ],
+        totalRolledOver: 50,
+        appliedAt: new Date(2026, 6, 2).toISOString()
+      };
+      // Exactly what comes back out of localStorage.
+      mockStorageSeed['rollover-history'] = JSON.parse(JSON.stringify([entry]));
+
+      render(<BudgetRollover />);
+
+      expect(screen.getByText('Rollover History')).toBeInTheDocument();
+      expect(screen.getByText('$50.00')).toBeInTheDocument();
+      expect(screen.getByText(/1 categories/)).toBeInTheDocument();
+    });
+
+    it('recovers legacy entries that stored Decimal instances instead of crashing', () => {
+      // The pre-fix build persisted Decimals and Dates straight through
+      // JSON.stringify. decimal.js serialises to a STRING, so
+      // `entry.totalRolledOver.greaterThan(0)` threw and this tab crashed on
+      // every subsequent load. The figures survived, only their type was lost.
+      const legacyEntry = {
+        id: 'legacy-1',
+        ...periodsFor(-1),
+        rollovers: [
+          {
+            budgetId: 'budget-1',
+            categoryId: 'cat-1',
+            categoryName: 'Food',
+            originalBudget: toDecimal(200),
+            spent: toDecimal(150),
+            remaining: toDecimal(50),
+            rolledOver: toDecimal(50)
+          }
+        ],
+        totalRolledOver: toDecimal(50),
+        appliedAt: new Date(2026, 6, 2)
+      };
+      const persisted = JSON.parse(JSON.stringify([legacyEntry]));
+      expect(typeof persisted[0].totalRolledOver).toBe('string');
+      mockStorageSeed['rollover-history'] = persisted;
+
+      expect(() => render(<BudgetRollover />)).not.toThrow();
+
+      expect(screen.getByText('Rollover History')).toBeInTheDocument();
+      expect(screen.getByText('$50.00')).toBeInTheDocument();
+    });
+
+    it('discards entries that cannot be read back into trustworthy figures', () => {
+      mockStorageSeed['rollover-history'] = [
+        { id: 'corrupt-1', ...periodsFor(-1), rollovers: [], totalRolledOver: {}, appliedAt: 'not-a-date' },
+        'nonsense'
+      ];
+
+      expect(() => render(<BudgetRollover />)).not.toThrow();
+
+      expect(screen.getByText('Budget Rollover')).toBeInTheDocument();
       expect(screen.queryByText('Rollover History')).not.toBeInTheDocument();
     });
   });

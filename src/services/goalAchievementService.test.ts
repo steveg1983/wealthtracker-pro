@@ -158,11 +158,54 @@ describe('GoalAchievementService', () => {
     it('preserves existing achievements', () => {
       goalAchievementService.recordAchievement(mockGoals[0]);
       goalAchievementService.recordAchievement(mockGoals[1]);
-      
+
       const achievements = goalAchievementService.getAchievements();
       expect(achievements).toHaveLength(2);
       expect(achievements.map(a => a.goalId)).toContain('goal1');
       expect(achievements.map(a => a.goalId)).toContain('goal2');
+    });
+
+    it('honours the date the goal was actually reached', () => {
+      // A goal completed on the laptop last week must not appear on the phone
+      // as having been achieved the moment the phone first opened the page.
+      goalAchievementService.recordAchievement(mockGoal, new Date('2025-01-05'));
+
+      const achievements = goalAchievementService.getAchievements();
+      expect(new Date(achievements[0].achievedAt)).toEqual(new Date('2025-01-05'));
+    });
+  });
+
+  describe('forgetGoal', () => {
+    it('removes the trophy when the goal is deleted', () => {
+      goalAchievementService.recordAchievement(mockGoals[0]);
+      goalAchievementService.recordAchievement(mockGoals[1]);
+
+      goalAchievementService.forgetGoal('goal1');
+
+      const achievements = goalAchievementService.getAchievements();
+      expect(achievements.map(a => a.goalId)).toEqual(['goal2']);
+    });
+
+    it('clears the "already celebrated" flag too', () => {
+      goalAchievementService.markAsCelebrated('goal1');
+      expect(goalAchievementService.hasBeenCelebrated('goal1')).toBe(true);
+
+      goalAchievementService.forgetGoal('goal1');
+
+      expect(goalAchievementService.hasBeenCelebrated('goal1')).toBe(false);
+    });
+
+    it('leaves other goals alone', () => {
+      goalAchievementService.markAsCelebrated('goal1');
+      goalAchievementService.markAsCelebrated('goal2');
+
+      goalAchievementService.forgetGoal('goal1');
+
+      expect(goalAchievementService.hasBeenCelebrated('goal2')).toBe(true);
+    });
+
+    it('does not throw when there is nothing to forget', () => {
+      expect(() => goalAchievementService.forgetGoal('never-existed')).not.toThrow();
     });
   });
 
@@ -371,49 +414,4 @@ describe('GoalAchievementService', () => {
     });
   });
 
-  describe('getMilestoneMessage', () => {
-    it('returns 25% milestone message', () => {
-      const message = goalAchievementService.getMilestoneMessage(25);
-      expect(message).toContain('25%');
-      expect(message).toContain('🎯');
-    });
-
-    it('returns 50% milestone message', () => {
-      const message = goalAchievementService.getMilestoneMessage(50);
-      expect(message).toContain('Halfway');
-      expect(message).toContain('💪');
-    });
-
-    it('returns 75% milestone message', () => {
-      const message = goalAchievementService.getMilestoneMessage(75);
-      expect(message).toContain('75%');
-      expect(message).toContain('🚀');
-    });
-
-    it('returns 90% milestone message', () => {
-      const message = goalAchievementService.getMilestoneMessage(90);
-      expect(message).toContain('close');
-      expect(message).toContain('🌟');
-    });
-
-    it('returns null for non-milestone progress', () => {
-      expect(goalAchievementService.getMilestoneMessage(10)).toBeNull();
-      expect(goalAchievementService.getMilestoneMessage(35)).toBeNull();
-      expect(goalAchievementService.getMilestoneMessage(60)).toBeNull();
-      expect(goalAchievementService.getMilestoneMessage(85)).toBeNull();
-      expect(goalAchievementService.getMilestoneMessage(100)).toBeNull();
-    });
-
-    it('only triggers within threshold range', () => {
-      // Just before threshold
-      expect(goalAchievementService.getMilestoneMessage(24.9)).toBeNull();
-      
-      // In threshold range
-      expect(goalAchievementService.getMilestoneMessage(25)).not.toBeNull();
-      expect(goalAchievementService.getMilestoneMessage(29.9)).not.toBeNull();
-      
-      // Just after threshold
-      expect(goalAchievementService.getMilestoneMessage(30)).toBeNull();
-    });
-  });
 });

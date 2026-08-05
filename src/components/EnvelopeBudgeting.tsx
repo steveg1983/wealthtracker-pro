@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatDecimal } from '../utils/decimal-format';
-import { useBudgets } from '../contexts/BudgetContext';
-import { toDecimal, parseMoneyInput } from '../utils/decimal';
+import { toDecimal, toStorageNumber, parseMoneyInput } from '../utils/decimal';
+import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import { toDecimalTransaction } from '../utils/decimal-converters';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import type { DecimalInstance } from '../types/decimal-types';
@@ -31,10 +32,17 @@ interface Envelope {
 }
 
 export default function EnvelopeBudgeting() {
-  const { categories, transactions: rawTransactions, transactionSplits } = useApp();
-  const { budgets, addBudget, updateBudget } = useBudgets();
+  const {
+    categories,
+    transactions: rawTransactions,
+    transactionSplits,
+    budgets,
+    addBudget,
+    updateBudget
+  } = useApp();
+  const { showError } = useToast();
   const { formatCurrency } = useCurrencyDecimal();
-  
+
   const [selectedEnvelope, setSelectedEnvelope] = useState<string | null>(null);
   const [showAddEnvelope, setShowAddEnvelope] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -57,23 +65,33 @@ export default function EnvelopeBudgeting() {
     () => expandSplitTransactions(rawTransactions, transactionSplits).map(toDecimalTransaction),
     [rawTransactions, transactionSplits]
   );
-  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  // Bucketed on the LOCAL calendar, never on toISOString(): during BST a
+  // transaction dated 31 July 23:30 serialises as 30 July 22:30Z and would be
+  // spent against the wrong envelope.
+  const { currentMonth, currentYear } = useMemo(() => {
+    const now = new Date();
+    return { currentMonth: now.getMonth(), currentYear: now.getFullYear() };
+  }, []);
 
   // Create envelopes from existing budgets
   const envelopes = useMemo(() => {
     return budgets.map(budget => {
-      const budgetedAmount = toDecimal(budget.amount);
-      
+      // Includes any rollover carried into this period, so the envelope shows
+      // the same headroom the rollover tab granted.
+      const budgetedAmount = getEffectiveBudgetAmount(budget);
+
       // Calculate spending for this budget's category
       const spentAmount = transactions
-        .filter((t: DecimalTransaction) => 
-          t.type === 'expense' && 
-          t.date.toISOString().startsWith(currentMonth) &&
-          t.category === budget.categoryId
-        )
+        .filter((t: DecimalTransaction) => {
+          if (t.type !== 'expense' || t.category !== budget.categoryId) return false;
+          // Cached/imported rows can arrive as ISO strings rather than Dates.
+          const date = t.date instanceof Date ? t.date : new Date(t.date);
+          return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        })
         // Expense amounts are stored signed (negative); sum magnitudes for spend.
         .reduce((sum: DecimalInstance, t: DecimalTransaction) => sum.plus(t.amount.abs()), toDecimal(0));
-      
+
       const remainingAmount = budgetedAmount.minus(spentAmount);
       const isOverspent = remainingAmount.lessThan(0);
       const fillPercentage = budgetedAmount.greaterThan(0) 
@@ -96,60 +114,92 @@ export default function EnvelopeBudgeting() {
         priority: 'medium' as const
       } as Envelope;
     });
-  }, [budgets, transactions, currentMonth, categories]);
+  }, [budgets, transactions, currentMonth, currentYear, categories]);
 
   const totalBudgeted = envelopes.reduce((sum: DecimalInstance, env: Envelope) => sum.plus(env.budgetedAmount), toDecimal(0));
   const totalSpent = envelopes.reduce((sum: DecimalInstance, env: Envelope) => sum.plus(env.spentAmount), toDecimal(0));
   const totalRemaining = envelopes.reduce((sum: DecimalInstance, env: Envelope) => sum.plus(env.remainingAmount), toDecimal(0));
   const overbudgetEnvelopes = envelopes.filter((env: Envelope) => env.isOverspent);
 
-  const handleAddEnvelope = () => {
+  const handleAddEnvelope = async () => {
     if (!newEnvelope.name || !newEnvelope.budgetedAmount || newEnvelope.categoryIds.length === 0) return;
 
-    // Create a budget for the first selected category
-    const now = new Date();
-    const newBudget = {
-      categoryId: newEnvelope.categoryIds[0], // Use first category
-      category: newEnvelope.categoryIds[0], // Use first category
-      amount: parseMoneyInput(newEnvelope.budgetedAmount) ?? 0,
-      period: 'monthly' as const,
-      isActive: true,
-      spent: 0,
-      updatedAt: now
-    };
+    const amount = parseMoneyInput(newEnvelope.budgetedAmount);
+    if (amount === null) {
+      showError(new Error('Enter a valid budget amount, for example 250.00'));
+      return;
+    }
 
-    addBudget(newBudget);
-    setNewEnvelope({
-      name: '',
-      budgetedAmount: '',
-      categoryIds: [],
-      color: '#3B82F6',
-      priority: 'medium'
-    });
-    setShowAddEnvelope(false);
+    // Envelopes ARE budgets — this writes through to the same store the
+    // traditional tab reads, so the row must be complete.
+    const now = new Date();
+
+    try {
+      await addBudget({
+        categoryId: newEnvelope.categoryIds[0], // Use first category
+        amount,
+        period: 'monthly',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now
+      });
+
+      setNewEnvelope({
+        name: '',
+        budgetedAmount: '',
+        categoryIds: [],
+        color: '#3B82F6',
+        priority: 'medium'
+      });
+      setShowAddEnvelope(false);
+    } catch (error) {
+      showError(error);
+    }
   };
 
-  const handleTransferFunds = () => {
+  const handleTransferFunds = async () => {
     if (!transferFrom || !transferTo || !transferAmount) return;
 
-    const amount = parseMoneyInput(transferAmount) ?? NaN;
-    if (amount <= 0) return;
+    // parseMoneyInput returns null for junk; the old `?? NaN` guard let NaN
+    // through because `NaN <= 0` is false, and NaN then reached the budget.
+    const amount = parseMoneyInput(transferAmount);
+    if (amount === null || amount <= 0) {
+      showError(new Error('Enter a transfer amount greater than zero'));
+      return;
+    }
 
     const fromBudget = budgets.find(b => b.id === transferFrom);
     const toBudget = budgets.find(b => b.id === transferTo);
-    
+
     if (!fromBudget || !toBudget) return;
 
-    // Update budgets
-    updateBudget(fromBudget.id, {
-      ...fromBudget,
-      amount: fromBudget.amount - amount
-    });
-    
-    updateBudget(toBudget.id, {
-      ...toBudget,
-      amount: toBudget.amount + amount
-    });
+    // Decimal throughout: moving £0.10 between envelopes with raw + / - drifts
+    // the plan by fractions of a penny every time.
+    const moved = toDecimal(amount);
+    const fromAmount = toStorageNumber(toDecimal(fromBudget.amount).minus(moved));
+    const toAmount = toStorageNumber(toDecimal(toBudget.amount).plus(moved));
+
+    // Persisted through the app context, i.e. all the way to Supabase.
+    try {
+      await updateBudget(fromBudget.id, { amount: fromAmount });
+    } catch (error) {
+      showError(error);
+      return;
+    }
+
+    try {
+      await updateBudget(toBudget.id, { amount: toAmount });
+    } catch (error) {
+      // Put the money back. There is no cross-row transaction at this layer,
+      // and a half-applied transfer would silently destroy budget.
+      try {
+        await updateBudget(fromBudget.id, { amount: fromBudget.amount });
+      } catch {
+        // The context has already logged this; the toast below is what matters.
+      }
+      showError(error);
+      return;
+    }
 
     // Reset form
     setTransferFrom('');

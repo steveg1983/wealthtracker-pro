@@ -1,6 +1,7 @@
 import type { Budget, Goal, Transaction } from '../types';
 import { householdService } from './householdService';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { toDecimal, toStorageNumber, type DecimalInstance } from '../utils/decimal';
 
 export interface SharedBudget extends Budget {
   householdId: string;
@@ -229,8 +230,8 @@ class SharedFinanceService {
     }
 
     // Check if approval needed for amount changes
-    if (updates.amount && budget.approvalRequired && 
-        Math.abs(updates.amount - budget.amount) > budget.approvalThreshold) {
+    if (updates.amount && budget.approvalRequired &&
+        toDecimal(updates.amount).minus(budget.amount).abs().greaterThan(budget.approvalThreshold)) {
       this.requestBudgetApproval(
         budgetId,
         updates.amount,
@@ -277,17 +278,20 @@ class SharedFinanceService {
       throw new Error('Invalid household');
     }
 
-    // If no contributors specified, create equal distribution
+    // If no contributors specified, create equal distribution. Split with
+    // Decimal and to the penny: £100 across 3 people is 33.33 each, not
+    // 33.33333333333333 stored three times and re-added into £99.99999…
     if (!contributors || contributors.length === 0) {
       const memberCount = household.members.length;
-      const amountPerMember = goal.targetAmount / memberCount;
-      
+      const amountPerMember = toDecimal(goal.targetAmount).dividedBy(memberCount);
+      const sharePercentage = toDecimal(100).dividedBy(memberCount);
+
       contributors = household.members.map(member => ({
         memberId: member.id,
         memberName: member.name,
-        targetAmount: amountPerMember,
+        targetAmount: toStorageNumber(amountPerMember),
         currentAmount: 0,
-        percentage: 100 / memberCount,
+        percentage: sharePercentage.toNumber(),
         lastContribution: undefined
       }));
     }
@@ -335,16 +339,28 @@ class SharedFinanceService {
     const contributor = goal.contributors.find(c => c.memberId === memberId);
     if (!contributor) throw new Error('Member is not a contributor to this goal');
 
-    contributor.currentAmount += contributionAmount;
+    // Every one of these is money accumulating over many contributions, so it
+    // goes through Decimal: 0.1 + 0.2 at £-scale is how a household goal ends
+    // up 1p short of a target it has actually met.
+    contributor.currentAmount = toStorageNumber(
+      toDecimal(contributor.currentAmount).plus(contributionAmount)
+    );
     contributor.lastContribution = new Date();
 
     // Update overall goal progress
-    const totalCurrent = goal.contributors.reduce((sum, c) => sum + c.currentAmount, 0);
+    const totalCurrentDecimal = goal.contributors.reduce(
+      (sum, c) => sum.plus(toDecimal(c.currentAmount)),
+      toDecimal(0)
+    );
+    const targetDecimal = toDecimal(goal.targetAmount);
+    const totalCurrent = toStorageNumber(totalCurrentDecimal);
     goal.currentAmount = totalCurrent;
-    goal.progress = (totalCurrent / goal.targetAmount) * 100;
+    goal.progress = targetDecimal.greaterThan(0)
+      ? totalCurrentDecimal.dividedBy(targetDecimal).times(100).toNumber()
+      : 0;
 
     // Check if goal is achieved
-    if (totalCurrent >= goal.targetAmount && !goal.completedAt) {
+    if (totalCurrentDecimal.greaterThanOrEqualTo(targetDecimal) && !goal.completedAt) {
       goal.completedAt = new Date().toISOString();
       this.logActivity(
         'goal_achieved',
@@ -403,12 +419,15 @@ class SharedFinanceService {
     const budget = this.sharedBudgets.find(b => b.id === budgetId);
     if (!budget) return new Map();
 
-    const spending = new Map<string, number>();
+    // Accumulated in Decimal, handed back as pennies-exact numbers: a month of
+    // grocery shops added with `+=` drifts, and the drift lands in the figure
+    // the household sees against its budget.
+    const spending = new Map<string, DecimalInstance>();
     const startOfPeriod = new Date(period.getFullYear(), period.getMonth(), 1);
     const endOfPeriod = new Date(period.getFullYear(), period.getMonth() + 1, 0);
 
     transactions
-      .filter(t => 
+      .filter(t =>
         t.category === budget.categoryId &&
         t.type === 'expense' &&
         new Date(t.date) >= startOfPeriod &&
@@ -416,11 +435,13 @@ class SharedFinanceService {
       )
       .forEach(t => {
         const memberId = t.addedBy || 'unknown';
-        const current = spending.get(memberId) || 0;
-        spending.set(memberId, current + Math.abs(t.amount));
+        const current = spending.get(memberId) ?? toDecimal(0);
+        spending.set(memberId, current.plus(toDecimal(t.amount).abs()));
       });
 
-    return spending;
+    return new Map(
+      Array.from(spending.entries(), ([memberId, total]) => [memberId, toStorageNumber(total)])
+    );
   }
 
   // Request budget approval

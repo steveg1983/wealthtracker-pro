@@ -4,6 +4,7 @@ import { exportTransactionsToCSV, downloadCSV } from '../../utils/csvExport';
 import { generatePDFReport } from '../../utils/pdfExport';
 import { computeExpenseCategoryNetTotals } from '../../utils/categoryNetting';
 import { buildCategoryNameLookup } from '../../utils/categoryNames';
+import { selectTopTransactions } from '../../utils/topTransactions';
 import { toDecimal } from '../../utils/decimal';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import type { Account, Category } from '../../types';
@@ -82,10 +83,11 @@ export default function ReportExportBar({
               ? toDecimal(value).dividedBy(totalExpenses).times(100).toNumber()
               : 0,
           })),
-          // categoryLabel: the PDF prints names, never category ids.
-          topTransactions: [...rows]
-            .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
-            .slice(0, 10)
+          // The SAME selection the report shows on screen (real income and
+          // spending only — no transfer legs, no revaluations), so the printed
+          // list and the screen can never disagree. categoryLabel: the PDF
+          // prints names, never category ids.
+          topTransactions: selectTopTransactions(rows, categories)
             .map(t => ({ ...t, categoryLabel: categoryName(t.category) })),
           chartElements: chartElements.length > 0 ? chartElements : undefined,
         },

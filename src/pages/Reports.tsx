@@ -1,19 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDownIcon, ChevronUpIcon } from '../components/icons';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReportDataset } from '../hooks/useReportDataset';
-import { useReportAccountFilter } from '../hooks/useReportAccountFilter';
-import ReportAccountFilter from '../components/reports/ReportAccountFilter';
+import { useReportAccountSelection } from '../hooks/useReportAccountSelection';
+import ReportAccountMultiSelect from '../components/reports/ReportAccountMultiSelect';
 import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/ReportDrillModal';
 import ReportExportBar from '../components/reports/ReportExportBar';
 import ReportCumulativeToggle from '../components/reports/ReportCumulativeToggle';
 import IncomeExpenseSummaryCards from '../components/reports/IncomeExpenseSummaryCards';
 import UncategorisedReviewBand from '../components/reports/UncategorisedReviewBand';
+import TopTransactionsTable from '../components/reports/TopTransactionsTable';
 import MonthlyIncomeExpenseMatrix, { type MatrixDrillTarget } from '../components/MonthlyIncomeExpenseMatrix';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { buildMonthlyCategoryMatrix, monthKeyOf } from '../utils/monthlyCategoryMatrix';
 import { toCumulativeMatrix } from '../utils/cumulativeSeries';
-import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { useCumulativeReport } from '../hooks/useCumulativeReport';
 import { PERIOD_LABELS } from '../hooks/usePeriod';
 import type { ReportViewProps } from './reports/types';
@@ -35,22 +33,10 @@ import type { ReportViewProps } from './reports/types';
 const CUMULATIVE_KEY = 'reports.monthlyIncomeExpenses.cumulative.v1';
 
 export default function Reports({ picker }: ReportViewProps): React.JSX.Element {
-  const filter = useReportAccountFilter();
-  const { accounts, categories, rows, flows, allTransactions } = useReportDataset(picker, filter.accountId);
-  const { formatCurrency } = useCurrencyDecimal();
+  const selection = useReportAccountSelection();
+  const { accounts, categories, rows, flows, allTransactions } = useReportDataset(picker, selection.scope);
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  // Top Transactions is a curiosity next to the matrix, so it starts hidden;
-  // the choice is persisted like the report's other view preferences.
-  const [showTopTransactions, setShowTopTransactions] = useState<boolean>(
-    () => localStorage.getItem('reportsShowTopTransactions') === '1'
-  );
-  const toggleTopTransactions = (): void => {
-    setShowTopTransactions(prev => {
-      localStorage.setItem('reportsShowTopTransactions', prev ? '0' : '1');
-      return !prev;
-    });
-  };
   // Gains, losses & adjustments are net-worth movements, not day-to-day income
   // or spending — and a paper "gain" is not money received — so on this income &
   // expenditure report the revaluation line is opt-in and starts hidden. This
@@ -69,17 +55,6 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
   // only; the summary cards above it are whole-period figures either way.
   const cumulativeToggle = useCumulativeReport(CUMULATIVE_KEY);
   const { cumulative } = cumulativeToggle;
-
-  // Category ids are UUIDs — everything user-facing resolves through this
-  // lookup ("Parent : Child", "Uncategorised" for a dangling id).
-  const categoryName = useMemo(() => buildCategoryNameLookup(categories), [categories]);
-
-  // Biggest movements in the period. A COPY: sorting `rows` in place would
-  // mutate the memoised array on every render.
-  const topTransactions = useMemo(
-    () => [...rows].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 10),
-    [rows]
-  );
 
   // The Money-style category × month matrix, built from the SAME classified
   // rows as the summary cards so the two can never disagree.
@@ -114,7 +89,7 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
-          <ReportAccountFilter accounts={accounts} filter={filter} />
+          <ReportAccountMultiSelect accounts={accounts} selection={selection} />
           <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
             <input
               type="checkbox"
@@ -145,97 +120,9 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
       {/* The detailed read. */}
       <MonthlyIncomeExpenseMatrix matrix={matrix} onDrill={handleMatrixDrill} cumulative={cumulative} />
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-        <div className={`flex items-center justify-between gap-4 p-6 ${showTopTransactions ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}>
-          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Top Transactions</h2>
-          <button
-            type="button"
-            onClick={toggleTopTransactions}
-            aria-expanded={showTopTransactions}
-            aria-controls="top-transactions-panel"
-            className="flex items-center gap-1 px-3 py-1 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-          >
-            {showTopTransactions ? 'Hide' : 'Show'}
-            {showTopTransactions ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
-          </button>
-        </div>
-        <div id="top-transactions-panel" hidden={!showTopTransactions}>
-          {/* Mobile card view */}
-          <div className="block sm:hidden p-4">
-            <div className="space-y-3">
-              {topTransactions.map(transaction => (
-                <div key={transaction.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(transaction.splitParentId ?? transaction.id)}
-                        className="font-medium text-left text-gray-900 dark:text-white hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                        title="View or edit this transaction"
-                      >
-                        {transaction.description}
-                      </button>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{categoryName(transaction.category)}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500">
-                        {new Date(transaction.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <p className={`text-lg font-semibold ${
-                      transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'
-                    }`}>
-                      {/* Amounts are stored signed; derive the sign from the value so incoming transfers show '+' */}
-                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Desktop table view — scrolls inside its own box. */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full">
-              <caption className="sr-only">The ten largest transactions in the selected period</caption>
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
-                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">Description</th>
-                  <th scope="col" className="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">Category</th>
-                  <th scope="col" className="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {topTransactions.map(transaction => (
-                  <tr key={transaction.id}>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
-                      {new Date(transaction.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(transaction.splitParentId ?? transaction.id)}
-                        className="text-left hover:text-blue-700 dark:hover:text-blue-400 hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                        title="View or edit this transaction"
-                      >
-                        {transaction.description}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
-                      {categoryName(transaction.category)}
-                    </td>
-                    <td className={`px-4 py-3 text-sm text-right font-medium tabular-nums whitespace-nowrap ${
-                      transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'
-                    }`}>
-                      {/* Amounts are stored signed; derive the sign from the value so incoming transfers show '+' */}
-                      {transaction.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(transaction.amount))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      {/* The biggest REAL movements of the period — transfers and
+          revaluations are neither income nor spending, so they never appear. */}
+      <TopTransactionsTable rows={rows} categories={categories} onOpenTransaction={setEditingId} />
 
       <ReportDrillModal target={drill} onClose={() => setDrill(null)} categories={categories} />
 

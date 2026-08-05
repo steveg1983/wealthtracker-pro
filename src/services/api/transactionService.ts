@@ -4,6 +4,7 @@ import type { Account, Transaction, TransactionSplit, TransactionSplitInput } fr
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { transactionCache, newestUpdatedAt, type TransactionSnapshot } from '../transactionCache';
 import { toDecimal } from '../../utils/decimal';
+import { normalizeTransactionDates, toDateMs, toDateValue } from '../../utils/dateBoundary';
 import type { ServerAccountBalance } from '../../utils/accountBalances';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
@@ -83,12 +84,19 @@ export function deltaFloor(highWaterMark: string): string {
   return new Date(ms - DELTA_OVERLAP_MS).toISOString();
 }
 
-/** A transaction's date as a lexicographically comparable string. */
-function sortableDate(transaction: Transaction): string {
-  const raw: unknown = transaction.date;
-  if (typeof raw === 'string') return raw;
-  if (raw instanceof Date && Number.isFinite(raw.getTime())) return raw.toISOString();
-  return '';
+/**
+ * A transaction's date as a comparable instant.
+ *
+ * Compared as a NUMBER, not as text: every row reaching this point has been
+ * through the date boundary (mapFromDbFields for a fetched row, the snapshot
+ * normalisation for a cached one), so the old lexicographic string compare
+ * would now be sorting `toISOString()` output — correct, but only by accident
+ * and only while every row carries the same string format. An unusable date
+ * sorts oldest rather than poisoning the comparator with NaN.
+ */
+function sortableTime(transaction: Transaction): number {
+  const ms = toDateMs(transaction.date);
+  return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
 }
 
 /**
@@ -106,9 +114,9 @@ export function mergeTransactionDelta(cached: Transaction[], delta: Transaction[
   for (const row of delta) byId.set(row.id, row);
 
   return Array.from(byId.values()).sort((a, b) => {
-    const dateA = sortableDate(a);
-    const dateB = sortableDate(b);
-    if (dateA !== dateB) return dateA < dateB ? 1 : -1;
+    const timeA = sortableTime(a);
+    const timeB = sortableTime(b);
+    if (timeA !== timeB) return timeB - timeA;
     if (a.id === b.id) return 0;
     return a.id < b.id ? 1 : -1;
   });
@@ -169,10 +177,24 @@ const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
  */
 const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
 
+/**
+ * One PostgREST row → the camelCase shape a Transaction claims.
+ *
+ * This is THE network date boundary. `date` is a Postgres date column, so
+ * PostgREST sends "2026-08-01" — a string, however loudly `Transaction.date`
+ * says Date. Left as text it fails every `t.date >= startDate` comparison in
+ * the app (a string vs a Date coerces to NaN, which is false both ways), which
+ * is what reported £0 spent on every budget. Converting here covers every
+ * fetch, every atomic-RPC return and every delta in one place. A row that
+ * carries no `date` at all keeps none — the field is not invented.
+ */
 function mapFromDbFields(row: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
     result[DB_TO_CAMEL[key] ?? key] = value;
+  }
+  if ('date' in result) {
+    result.date = toDateValue(result.date);
   }
   return result;
 }
@@ -285,9 +307,14 @@ class TransactionServiceImpl {
     return userId;
   }
 
+  /**
+   * The local-mode/demo store. Its rows went out through JSON.stringify, so
+   * every Date came back a string — the same date boundary the network path
+   * has, and the reason demo mode's budgets read £0 too.
+   */
   private async readStoredTransactions(): Promise<Transaction[]> {
     const stored = await this.storage.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
-    return stored || [];
+    return normalizeTransactionDates(stored || []);
   }
 
   private async persistTransactions(transactions: Transaction[]): Promise<void> {
@@ -439,6 +466,14 @@ class TransactionServiceImpl {
 
     if (snapshot) {
       try {
+        // Snapshots written before the date boundary existed hold `date` as the
+        // raw wire string, and any cache implementation that serialises through
+        // JSON hands one back the same way. The store normalises on read; this
+        // repeats it here (in place, one `instanceof` per row) so the rows that
+        // reach app state are right whichever cache is plugged in — and inside
+        // the try, so an unusable snapshot costs a refetch, never the boot.
+        normalizeTransactionDates(snapshot.rows);
+
         const [delta, serverCount] = await Promise.all([
           this.getTransactionsSince(userId, deltaFloor(snapshot.highWaterMark)),
           this.countTransactions(userId)
@@ -530,8 +565,11 @@ class TransactionServiceImpl {
   ): Promise<Transaction> {
     if (!this.isSupabaseReady()) {
       const now = this.getCurrentDate();
+      // The caller's date goes through the boundary too: an importer or a form
+      // may hand over "2026-08-01", and this row lands straight in app state.
       const newTransaction: Transaction = {
         ...transaction,
+        date: toDateValue(transaction.date),
         id: this.uuid(),
         createdAt: now,
         updatedAt: now
@@ -579,6 +617,7 @@ class TransactionServiceImpl {
       const updated: Transaction = {
         ...transactions[index],
         ...updates,
+        ...(updates.date !== undefined ? { date: toDateValue(updates.date) } : {}),
         updatedAt: this.getCurrentDate()
       } as Transaction;
 
@@ -1191,6 +1230,7 @@ class TransactionServiceImpl {
       const now = this.getCurrentDate(); // Returns Date object
       const newTransactions: Transaction[] = transactions.map(transaction => ({
         ...transaction,
+        date: toDateValue(transaction.date), // importers hand over wire strings
         id: this.uuid(),
         createdAt: now,    // Date object, not string
         updatedAt: now     // Date object, not string

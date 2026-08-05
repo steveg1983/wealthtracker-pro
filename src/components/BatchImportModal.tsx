@@ -14,7 +14,7 @@ import {
   StopIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
-import type { Transaction } from '../types';
+import { isDuplicateImport } from '../utils/importDedupe';
 
 interface BatchImportModalProps {
   isOpen: boolean;
@@ -141,12 +141,11 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
           
           // Import transactions
           for (const transaction of preview.transactions) {
-            const isDuplicate = transactions.some((t: Transaction) => 
-              t.date === transaction.date &&
-              t.amount === transaction.amount &&
-              t.description === transaction.description
-            );
-            
+            // Dates are compared as instants: `===` on two Date objects is
+            // identity, so this test never once matched and every re-import
+            // duplicated the statement.
+            const isDuplicate = isDuplicateImport(transactions, transaction);
+
             if (!isDuplicate && transaction.date && transaction.amount !== undefined && transaction.description && transaction.category && transaction.type) {
               await addTransaction({
                 date: transaction.date,

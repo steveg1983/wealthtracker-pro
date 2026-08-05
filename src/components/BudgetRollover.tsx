@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
+import { useToast } from '../contexts/ToastContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, parseMoneyInput } from '../utils/decimal';
+import { toDecimal, toStorageNumber, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { getEffectiveBudgetAmount, sumBudgetCarry } from '../utils/budgetAmounts';
 import {
   ArrowRightIcon,
   CheckCircleIcon,
@@ -22,16 +23,15 @@ interface RolloverSettings {
   carryNegative: boolean; // Whether to carry over overages as debt
 }
 
+interface RolloverPeriod {
+  month: number;
+  year: number;
+}
+
 interface RolloverHistory {
   id: string;
-  fromPeriod: {
-    month: number;
-    year: number;
-  };
-  toPeriod: {
-    month: number;
-    year: number;
-  };
+  fromPeriod: RolloverPeriod;
+  toPeriod: RolloverPeriod;
   rollovers: Array<{
     budgetId: string;
     categoryId: string;
@@ -44,6 +44,121 @@ interface RolloverHistory {
   totalRolledOver: DecimalInstance;
   appliedAt: Date;
 }
+
+/**
+ * What actually goes into localStorage.
+ *
+ * Decimal instances and Dates do not survive `JSON.stringify` → `JSON.parse`,
+ * and `useLocalStorage` has no reviver: an earlier build wrote the runtime
+ * shape straight through, so on the next page load `totalRolledOver` came back
+ * as the STRING decimal.js serialises to, `entry.totalRolledOver.greaterThan(0)`
+ * threw, and this tab crashed for good. Everything is persisted as a plain
+ * number / ISO string and rehydrated on read instead.
+ */
+interface StoredRolloverHistory {
+  id: string;
+  fromPeriod: RolloverPeriod;
+  toPeriod: RolloverPeriod;
+  rollovers: Array<{
+    budgetId: string;
+    categoryId: string;
+    categoryName: string;
+    originalBudget: number;
+    spent: number;
+    remaining: number;
+    rolledOver: number;
+  }>;
+  totalRolledOver: number;
+  appliedAt: string;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const readString = (value: unknown): string => {
+  if (typeof value !== 'string') throw new Error('Expected a string');
+  return value;
+};
+
+const readNumber = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('Expected a finite number');
+  }
+  return value;
+};
+
+/**
+ * Money, as either a number or the numeric string decimal.js serialises to.
+ * Accepting the string is what rescues history written by the broken build —
+ * the figures themselves were never lost, only their type. Anything that is not
+ * a plain signed decimal is rejected rather than coerced.
+ */
+const readMoney = (value: unknown): number => {
+  if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return readNumber(value);
+};
+
+const readPeriod = (value: unknown): RolloverPeriod => {
+  if (!isRecord(value)) throw new Error('Expected a period');
+  return { month: readNumber(value.month), year: readNumber(value.year) };
+};
+
+/**
+ * Rehydrate one stored entry, or discard it. Anything that cannot be read back
+ * into trustworthy figures is dropped rather than guessed at — this is
+ * device-local display history, and a wrong number would be worse than a
+ * missing one.
+ */
+const reviveHistoryEntry = (raw: unknown): RolloverHistory | null => {
+  try {
+    if (!isRecord(raw)) return null;
+    const appliedAt = new Date(readString(raw.appliedAt));
+    if (Number.isNaN(appliedAt.getTime())) return null;
+    if (!Array.isArray(raw.rollovers)) return null;
+
+    return {
+      id: readString(raw.id),
+      fromPeriod: readPeriod(raw.fromPeriod),
+      toPeriod: readPeriod(raw.toPeriod),
+      rollovers: raw.rollovers.map(entry => {
+        if (!isRecord(entry)) throw new Error('Expected a rollover row');
+        return {
+          budgetId: readString(entry.budgetId),
+          categoryId: readString(entry.categoryId),
+          categoryName: readString(entry.categoryName),
+          originalBudget: toDecimal(readMoney(entry.originalBudget)),
+          spent: toDecimal(readMoney(entry.spent)),
+          remaining: toDecimal(readMoney(entry.remaining)),
+          rolledOver: toDecimal(readMoney(entry.rolledOver))
+        };
+      }),
+      totalRolledOver: toDecimal(readMoney(raw.totalRolledOver)),
+      appliedAt
+    };
+  } catch {
+    return null;
+  }
+};
+
+const toStoredHistory = (entry: RolloverHistory): StoredRolloverHistory => ({
+  id: entry.id,
+  fromPeriod: entry.fromPeriod,
+  toPeriod: entry.toPeriod,
+  rollovers: entry.rollovers.map(rollover => ({
+    budgetId: rollover.budgetId,
+    categoryId: rollover.categoryId,
+    categoryName: rollover.categoryName,
+    originalBudget: toStorageNumber(rollover.originalBudget),
+    spent: toStorageNumber(rollover.spent),
+    remaining: toStorageNumber(rollover.remaining),
+    rolledOver: toStorageNumber(rollover.rolledOver)
+  })),
+  totalRolledOver: toStorageNumber(entry.totalRolledOver),
+  appliedAt: entry.appliedAt.toISOString()
+});
+
+const samePeriod = (a: RolloverPeriod, b: RolloverPeriod): boolean =>
+  a.month === b.month && a.year === b.year;
 
 interface BudgetRolloverSummary {
   budgetId: string;
@@ -58,10 +173,10 @@ interface BudgetRolloverSummary {
 }
 
 export default function BudgetRollover() {
-  const { categories, transactions } = useApp();
-  const { budgets, updateBudget } = useBudgets();
+  const { categories, transactions, budgets, updateBudget } = useApp();
+  const { showSuccess, showError } = useToast();
   const { formatCurrency } = useCurrencyDecimal();
-  
+
   const [rolloverSettings, setRolloverSettings] = useLocalStorage<RolloverSettings>('rollover-settings', {
     enabled: false,
     mode: 'all',
@@ -70,21 +185,70 @@ export default function BudgetRollover() {
     autoApply: false,
     carryNegative: false
   });
-  
-  const [rolloverHistory, setRolloverHistory] = useLocalStorage<RolloverHistory[]>('rollover-history', []);
+
+  // Typed as `unknown` on purpose: whatever is on this device may predate the
+  // stored shape below, so it is validated on read rather than trusted.
+  const [storedHistory, setStoredHistory] = useLocalStorage<unknown>('rollover-history', []);
   const [showSettings, setShowSettings] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
-  
+
   // Calculate previous period
   const previousDate = new Date(currentYear, currentMonth - 1, 1);
   const previousMonth = previousDate.getMonth();
   const previousYear = previousDate.getFullYear();
 
+  const storedHistoryEntries = useMemo<unknown[]>(
+    () => (Array.isArray(storedHistory) ? storedHistory : []),
+    [storedHistory]
+  );
+
+  const rolloverHistory = useMemo<RolloverHistory[]>(
+    () => storedHistoryEntries
+      .map(reviveHistoryEntry)
+      .filter((entry): entry is RolloverHistory => entry !== null),
+    [storedHistoryEntries]
+  );
+
+  // Migrate the payload in place the first time it is read: legacy entries are
+  // rewritten in the plain shape and unreadable ones drop out for good, so the
+  // broken payload is not re-parsed on every render of every session.
+  // `toStoredHistory(revive(x))` is a fixed point, so this settles in one write.
+  useEffect(() => {
+    const normalised = rolloverHistory.map(toStoredHistory);
+    if (JSON.stringify(normalised) !== JSON.stringify(storedHistoryEntries)) {
+      setStoredHistory(normalised);
+    }
+  }, [rolloverHistory, storedHistoryEntries, setStoredHistory]);
+
   const exclusionSet = useMemo(() => new Set(rolloverSettings.excludeCategories), [rolloverSettings.excludeCategories]);
+
+  /**
+   * A budget's headroom in the PREVIOUS period, i.e. its plan plus whatever was
+   * carried into that month. `budget.rolloverAmount` always describes the most
+   * recent apply — which may already be the current month — so the previous
+   * month's carry is read from history instead of from the budget.
+   */
+  const previousPeriodCarry = useMemo(() => {
+    const carry = new Map<string, DecimalInstance>();
+    const entry = rolloverHistory.find(history =>
+      samePeriod(history.toPeriod, { month: previousMonth, year: previousYear })
+    );
+    entry?.rollovers.forEach(rollover => carry.set(rollover.budgetId, rollover.rolledOver));
+    return carry;
+  }, [rolloverHistory, previousMonth, previousYear]);
+
+  const alreadyAppliedForPeriod = useMemo(
+    () => rolloverHistory.some(entry =>
+      samePeriod(entry.fromPeriod, { month: previousMonth, year: previousYear }) &&
+      samePeriod(entry.toPeriod, { month: currentMonth, year: currentYear })
+    ),
+    [rolloverHistory, previousMonth, previousYear, currentMonth, currentYear]
+  );
 
   // Calculate rollover amounts for each budget
   const rolloverData = useMemo<BudgetRolloverSummary[]>(() => {
@@ -98,14 +262,17 @@ export default function BudgetRollover() {
     const nonTransferTransactions = transactions
       .filter(t => t.type !== 'transfer')
       .map(t => ({
-        ...t,
+        category: t.category,
+        // Cached/imported rows can arrive as ISO strings; a string compared
+        // against a Date silently yields false and would empty the period.
+        date: t.date instanceof Date ? t.date : new Date(t.date),
         amount: toDecimal(t.amount)
       }));
 
     return budgets.map<BudgetRolloverSummary>(budget => {
       const categoryId = budget.categoryId;
       const categoryName = categoryNameLookup.get(categoryId) ?? categoryId;
-      const budgetAmount = toDecimal(budget.amount);
+      const budgetAmount = toDecimal(budget.amount).plus(previousPeriodCarry.get(budget.id) ?? toDecimal(0));
 
       const netSpent = nonTransferTransactions
         .filter(t =>
@@ -154,50 +321,81 @@ export default function BudgetRollover() {
         willRollover: rolloverAmount.abs().greaterThan(0)
       };
     });
-  }, [budgets, categories, exclusionSet, previousMonth, previousYear, rolloverSettings, transactions]);
+  }, [budgets, categories, exclusionSet, previousMonth, previousPeriodCarry, previousYear, rolloverSettings, transactions]);
 
   const totalRollover = rolloverData.reduce((sum, data) => sum.plus(data.rolloverAmount), toDecimal(0));
   const eligibleBudgets = rolloverData.filter(data => data.isEligible).length;
   const budgetsWithSurplus = rolloverData.filter(data => data.remaining.greaterThan(0)).length;
   const budgetsWithDeficit = rolloverData.filter(data => data.remaining.lessThan(0)).length;
+  const currentCarry = useMemo(() => sumBudgetCarry(budgets), [budgets]);
 
-  const applyRollover = () => {
-    const rollovers: RolloverHistory['rollovers'] = rolloverData
-      .filter(data => data.willRollover)
-      .map(data => {
-        const currentBudget = budgets.find(b => b.id === data.budgetId);
-        if (currentBudget) {
-          const newAmount = toDecimal(currentBudget.amount).plus(data.rolloverAmount).toNumber();
-          updateBudget(data.budgetId, { amount: newAmount });
-        }
+  const getMonthName = useCallback(
+    (month: number) => new Date(2000, month).toLocaleString('default', { month: 'long' }),
+    []
+  );
 
-        return {
-          budgetId: data.budgetId,
-          categoryId: data.categoryId,
-          categoryName: data.categoryName,
-          originalBudget: data.originalBudget,
-          spent: data.spent,
-          remaining: data.remaining,
-          rolledOver: data.rolloverAmount
-        };
-      });
+  /**
+   * Write this period's carry to every budget and log it once.
+   *
+   * The carry lands in `rolloverAmount`, never in `amount`: the plan the user
+   * typed stays untouched, and because each apply REPLACES the carry rather
+   * than adding to it the figure cannot compound. Budgets that are not rolling
+   * over are reset to zero in the same pass, so a carry granted by an earlier
+   * apply cannot linger next to a newer one. The history guard then stops the
+   * same period being applied twice at all.
+   */
+  const applyRollover = async () => {
+    if (alreadyAppliedForPeriod || isApplying) return;
+    setIsApplying(true);
 
-    const historyEntry: RolloverHistory = {
-      id: Date.now().toString(),
-      fromPeriod: { month: previousMonth, year: previousYear },
-      toPeriod: { month: currentMonth, year: currentYear },
-      rollovers,
-      totalRolledOver: totalRollover,
-      appliedAt: new Date()
-    };
-    
-    setRolloverHistory([historyEntry, ...rolloverHistory]);
-    setShowPreview(false);
+    try {
+      await Promise.all(rolloverData.map(async data => {
+        const budget = budgets.find(b => b.id === data.budgetId);
+        if (!budget) return;
+
+        const carry = data.willRollover ? toStorageNumber(data.rolloverAmount) : 0;
+        const rollover = carry !== 0;
+        if ((budget.rolloverAmount ?? 0) === carry && (budget.rollover === true) === rollover) return;
+
+        await updateBudget(data.budgetId, { rollover, rolloverAmount: carry });
+      }));
+
+      const historyEntry: RolloverHistory = {
+        id: Date.now().toString(),
+        fromPeriod: { month: previousMonth, year: previousYear },
+        toPeriod: { month: currentMonth, year: currentYear },
+        rollovers: rolloverData
+          .filter(data => data.willRollover)
+          .map(data => ({
+            budgetId: data.budgetId,
+            categoryId: data.categoryId,
+            categoryName: data.categoryName,
+            originalBudget: data.originalBudget,
+            spent: data.spent,
+            remaining: data.remaining,
+            rolledOver: data.rolloverAmount
+          })),
+        totalRolledOver: totalRollover,
+        appliedAt: new Date()
+      };
+
+      setStoredHistory([historyEntry, ...rolloverHistory].map(toStoredHistory));
+      setShowPreview(false);
+      showSuccess(
+        `${formatCurrency(totalRollover)} carried into ${getMonthName(currentMonth)} ${currentYear}`,
+        'Rollover applied'
+      );
+    } catch (error) {
+      showError(error);
+    } finally {
+      setIsApplying(false);
+    }
   };
 
-  const getMonthName = (month: number) => {
-    return new Date(2000, month).toLocaleString('default', { month: 'long' });
-  };
+  const alreadyAppliedMessage =
+    `${getMonthName(previousMonth)} ${previousYear} has already been rolled into ` +
+    `${getMonthName(currentMonth)} ${currentYear}. Applying it again would double the carry.`;
+  const canPreview = rolloverSettings.enabled && !totalRollover.equals(0) && !alreadyAppliedForPeriod;
 
   return (
     <div className="space-y-6">
@@ -220,9 +418,10 @@ export default function BudgetRollover() {
             </button>
             <button
               onClick={() => setShowPreview(true)}
-              disabled={!rolloverSettings.enabled || totalRollover.equals(0)}
+              disabled={!canPreview}
+              title={alreadyAppliedForPeriod ? alreadyAppliedMessage : undefined}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                rolloverSettings.enabled && !totalRollover.equals(0)
+                canPreview
                   ? 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
@@ -249,9 +448,15 @@ export default function BudgetRollover() {
           )}
         </div>
 
+        {alreadyAppliedForPeriod && (
+          <p className="mt-3 text-sm text-blue-700 dark:text-blue-400">
+            {alreadyAppliedMessage}
+          </p>
+        )}
+
         {/* Summary Stats */}
         {rolloverSettings.enabled && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
               <p className="text-xs text-gray-600 dark:text-gray-400">Total Rollover</p>
               <p className={`text-lg font-semibold ${
@@ -283,6 +488,15 @@ export default function BudgetRollover() {
               <p className="text-xs text-red-700 dark:text-red-300">With Deficit</p>
               <p className="text-lg font-semibold text-red-700 dark:text-red-300">
                 {budgetsWithDeficit}
+              </p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Carried into {getMonthName(currentMonth)}
+              </p>
+              <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                {formatCurrency(currentCarry)}
               </p>
             </div>
           </div>
@@ -352,10 +566,10 @@ export default function BudgetRollover() {
               >
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {getMonthName(entry.fromPeriod.month)} → {getMonthName(entry.toPeriod.month)}
+                    {getMonthName(entry.fromPeriod.month)} {entry.fromPeriod.year} → {getMonthName(entry.toPeriod.month)} {entry.toPeriod.year}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {entry.rollovers.length} categories • {new Date(entry.appliedAt).toLocaleDateString()}
+                    {entry.rollovers.length} categories • {entry.appliedAt.toLocaleDateString()}
                   </p>
                 </div>
                 <span className={`font-medium ${
@@ -536,15 +750,20 @@ export default function BudgetRollover() {
             </h3>
             
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              The following amounts will be added to your {getMonthName(currentMonth)} budgets:
+              The following amounts will be carried into your {getMonthName(currentMonth)} budgets.
+              Each budget&apos;s planned amount is left untouched — the carry is held separately and
+              replaced, never added to, if you roll over again.
             </p>
-            
+
             <div className="space-y-3 mb-6">
               {rolloverData
                 .filter(data => data.willRollover)
                 .map((data) => {
-                  const currentBudgetAmount = budgets.find(b => b.id === data.budgetId)?.amount ?? 0;
-                  const projectedAmount = toDecimal(currentBudgetAmount).plus(data.rolloverAmount);
+                  const currentBudget = budgets.find(b => b.id === data.budgetId);
+                  const currentAmount = currentBudget
+                    ? getEffectiveBudgetAmount(currentBudget)
+                    : toDecimal(0);
+                  const projectedAmount = toDecimal(currentBudget?.amount ?? 0).plus(data.rolloverAmount);
 
                   return (
                     <div
@@ -554,7 +773,7 @@ export default function BudgetRollover() {
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{data.categoryName}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatCurrency(data.originalBudget)} → {formatCurrency(projectedAmount)}
+                          {formatCurrency(currentAmount)} → {formatCurrency(projectedAmount)}
                         </p>
                       </div>
                       <span className={`font-medium ${
@@ -590,9 +809,14 @@ export default function BudgetRollover() {
                 </button>
                 <button
                   onClick={applyRollover}
-                  className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90"
+                  disabled={isApplying || alreadyAppliedForPeriod}
+                  className={`px-4 py-2 rounded-lg ${
+                    isApplying || alreadyAppliedForPeriod
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90'
+                  }`}
                 >
-                  Apply Rollover
+                  {isApplying ? 'Applying…' : 'Apply Rollover'}
                 </button>
               </div>
             </div>

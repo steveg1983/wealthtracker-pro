@@ -476,6 +476,210 @@ describe('TransactionService (deterministic fallback)', () => {
     });
   });
 
+  // Regression (audit 2026-08): `Transaction.date` is typed Date, but PostgREST
+  // sends the `date` column as "2026-08-01" and mapFromDbFields copied it
+  // verbatim, so app state held strings. Every `t.date >= startDate` comparison
+  // in the app then coerced to NaN and answered false — £0 spent on every
+  // budget, no spending alerts, empty category totals and exports. The type is
+  // made TRUE at each boundary; these tests hold every one of them shut.
+  describe('date boundary — every entry point yields a real Date', () => {
+    const dbRow = (date: unknown): Record<string, unknown> => ({
+      id: 'db-1',
+      account_id: 'acct-1',
+      amount: -12.5,
+      type: 'expense',
+      description: 'Wire row',
+      date,
+      updated_at: '2026-08-01T09:00:00.000Z'
+    });
+
+    /** Chainable PostgREST stand-in: count query, then one page of rows. */
+    const makeClient = (rows: Record<string, unknown>[]) => ({
+      from: vi.fn(() => {
+        const builder: Record<string, unknown> = {};
+        let isCount = false;
+        builder.select = vi.fn((_cols: unknown, opts: unknown) => {
+          isCount = Boolean(opts && (opts as { head?: boolean }).head);
+          return builder;
+        });
+        builder.eq = vi.fn(() => builder);
+        builder.gte = vi.fn(() => builder);
+        builder.order = vi.fn(() => builder);
+        builder.range = vi.fn(() => builder);
+        builder.then = (resolve: (value: unknown) => unknown) =>
+          resolve(isCount ? { count: rows.length, error: null } : { data: rows, error: null });
+        return builder;
+      })
+    });
+
+    const cloudService = (client: { from: unknown }) => createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now,
+      uuid,
+      supabaseClient: client as unknown as never
+    });
+
+    it('converts the fetched date column — a Postgres date arrives as "2026-08-01"', async () => {
+      const service = cloudService(makeClient([dbRow('2026-08-01')]));
+
+      const transactions = await service.getTransactions('user-1');
+
+      expect(transactions[0].date).toBeInstanceOf(Date);
+      expect(transactions[0].date.toISOString()).toBe('2026-08-01T00:00:00.000Z');
+      // The whole point: this comparison was false for a string.
+      expect(transactions[0].date >= new Date('2026-07-01')).toBe(true);
+      expect(transactions[0].date <= new Date('2026-08-31')).toBe(true);
+    });
+
+    it('converts a full timestamp from the wire too', async () => {
+      const service = cloudService(makeClient([dbRow('2026-08-01T13:45:00+00:00')]));
+
+      const transactions = await service.getTransactions('user-1');
+
+      expect(transactions[0].date).toBeInstanceOf(Date);
+      expect(transactions[0].date.toISOString()).toBe('2026-08-01T13:45:00.000Z');
+    });
+
+    it('converts the row an atomic create RPC returns', async () => {
+      const rpc = vi.fn(async () => ({ data: dbRow('2026-08-01'), error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = baseTransaction();
+      const created = await service.createTransaction(
+        'user-1',
+        input as Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
+      );
+
+      expect(created.date).toBeInstanceOf(Date);
+    });
+
+    it('converts the row an atomic update RPC returns', async () => {
+      const rpc = vi.fn(async () => ({ data: dbRow('2026-08-01'), error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const updated = await service.updateTransaction('db-1', { description: 'edited' }, 'user-1');
+
+      expect(updated.date).toBeInstanceOf(Date);
+    });
+
+    it('converts both sides of a linked transfer pair', async () => {
+      const rpc = vi.fn(async () => ({
+        data: { a: dbRow('2026-08-01'), b: dbRow('2026-08-02') },
+        error: null
+      }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const { a, b } = await service.linkTransferPair('txn-1', 'txn-2', 'user-1');
+
+      expect(a.date).toBeInstanceOf(Date);
+      expect(b.date).toBeInstanceOf(Date);
+    });
+
+    it('converts rows rehydrated from the boot snapshot (JSON turned them back into strings)', async () => {
+      // A snapshot written before the boundary existed — and what any
+      // JSON-serialising cache hands back — holds the raw wire string.
+      const stale: Transaction = JSON.parse(JSON.stringify({
+        id: 'cached-1',
+        date: new Date('2026-08-01'),
+        amount: -12.5,
+        description: 'Cached row',
+        category: '',
+        accountId: 'acct-1',
+        type: 'expense',
+        updatedAt: new Date('2026-08-01T09:00:00.000Z')
+      }));
+      const cache = {
+        read: vi.fn(async () => ({ rows: [stale], highWaterMark: '2026-08-01T09:00:00.000Z' })),
+        write: vi.fn(async () => {}),
+        clear: vi.fn(async () => {})
+      };
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        transactionCache: cache,
+        supabaseClient: makeClient([dbRow('2026-08-01')]) as unknown as never
+      });
+
+      const result = await service.loadTransactionsForBoot('user-1');
+
+      expect(result.transactions).toHaveLength(1);
+      expect(result.transactions[0].date).toBeInstanceOf(Date);
+    });
+
+    it('converts rows read back from local/demo storage', async () => {
+      // Local mode stores through JSON, so its dates come back as strings too.
+      const stored: Transaction = JSON.parse(JSON.stringify(baseTransaction({ id: 'local-1' })));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: createStorage([stored]),
+        logger,
+        now,
+        uuid
+      });
+
+      const transactions = await service.getTransactions('user-1');
+
+      expect(transactions[0].date).toBeInstanceOf(Date);
+      expect(transactions[0].date.toISOString()).toBe('2025-04-15T00:00:00.000Z');
+    });
+
+    it('converts a caller-supplied string date on the local create path', async () => {
+      const storage = createStorage([]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      // An importer hands over the wire shape; the row goes straight to state.
+      const input: Transaction = JSON.parse(JSON.stringify(baseTransaction()));
+      const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...transactionInput } = input;
+      const created = await service.createTransaction(
+        'user-1',
+        transactionInput as Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
+      );
+
+      expect(created.date).toBeInstanceOf(Date);
+    });
+
+    it('leaves an unreadable date as an Invalid Date rather than filing it at the epoch', async () => {
+      const service = cloudService(makeClient([dbRow('not a date')]));
+
+      const transactions = await service.getTransactions('user-1');
+
+      expect(transactions[0].date).toBeInstanceOf(Date);
+      expect(Number.isNaN(transactions[0].date.getTime())).toBe(true);
+    });
+  });
+
   describe('mergeTransactionDelta', () => {
     const at = (id: string, date: string, description = id): Transaction => ({
       id,
