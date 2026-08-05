@@ -7,7 +7,7 @@ import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, Men
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
-import { Breadcrumbs, MobileBreadcrumb } from './layout/Breadcrumbs';
+import { MobileBreadcrumb } from './layout/Breadcrumbs';
 import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatus } from './OfflineStatus';
@@ -611,9 +611,6 @@ export default function Layout(): React.JSX.Element {
         
         <MobileBreadcrumb />
         <div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto pb-20 md:pb-8">
-          <div className="hidden sm:block">
-            <Breadcrumbs />
-          </div>
           <PageTransition>
             <Outlet />
           </PageTransition>

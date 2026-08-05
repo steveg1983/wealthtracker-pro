@@ -25,7 +25,10 @@ interface Props {
 const CAP = 300;
 
 export default function TransferSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
-  const { transactions, categories, accounts, linkTransferPair } = useApp();
+  const {
+    transactions, categories, accounts, linkTransferPair,
+    updateAccount, refreshAccountsAndTransactions, refreshCategories,
+  } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
@@ -34,6 +37,12 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   const [inspecting, setInspecting] = useState<TransferPairSuggestion | null>(null);
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState(0);
+  // A leg in a CLOSED account can't open a register directly — this prompt
+  // offers the Money-style way through: re-open the account, then jump to
+  // the transaction. Same rule as the Accounts page (closed = no register),
+  // just with the reopen offered where the user actually needs it.
+  const [reopenPrompt, setReopenPrompt] = useState<{ accountId: string; txnId: string } | null>(null);
+  const [reopening, setReopening] = useState(false);
 
   // Closed accounts included — old transfers routinely have one leg in an
   // account that has since been closed.
@@ -248,19 +257,23 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 { label: 'Money out', t: inspecting.outgoing, colour: 'text-red-600 dark:text-red-400' },
                 { label: 'Money in', t: inspecting.incoming, colour: 'text-green-600 dark:text-green-400' },
               ] as const).map(({ label, t, colour }) => {
-                // A leg in a CLOSED account has no register to open — the
-                // card stays informational instead of dead-ending.
+                // A leg in a CLOSED account has no register to open directly;
+                // clicking it offers to re-open the account first.
                 const accountIsOpen = accounts.some(a => a.id === t.accountId);
                 return (
                 /* Either leg jumps into its own account register with the
                    transaction selected and centred — the same ?txn deep link
-                   the categorisation drills use. */
+                   the categorisation drills use. flex-col overrides the
+                   global `button { display:inline-flex }`, which laid the
+                   card's lines out side-by-side. */
                 <button
                   key={t.id}
                   type="button"
-                  disabled={!accountIsOpen}
                   onClick={() => {
-                    if (!accountIsOpen) return;
+                    if (!accountIsOpen) {
+                      setReopenPrompt({ accountId: t.accountId, txnId: t.id });
+                      return;
+                    }
                     const params = new URLSearchParams();
                     params.set('txn', t.id);
                     if (new URLSearchParams(location.search).get('demo') === 'true') {
@@ -272,10 +285,8 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   }}
                   title={accountIsOpen
                     ? 'Open this transaction in its account'
-                    : 'This account is closed — its register cannot be opened'}
-                  className={`text-left rounded-xl border border-gray-200 dark:border-gray-700 p-4 transition-all ${
-                    accountIsOpen ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'cursor-default'
-                  }`}
+                    : 'This account is closed — click to re-open it and view the transaction'}
+                  className="flex flex-col items-start text-left rounded-xl border border-gray-200 dark:border-gray-700 p-4 transition-all hover:border-primary hover:shadow-md cursor-pointer"
                 >
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">{label}</p>
                   <p className={`text-lg font-bold tabular-nums ${colour}`}>
@@ -318,6 +329,70 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
               >
                 Yes — select this pair
+              </button>
+            </div>
+          </ModalFooter>
+        </Modal>
+      )}
+
+      {/* The closed-account way through: closed accounts have no register
+          (the Accounts-page rule), so viewing an old leg means re-opening
+          the account first — offered here, where the need arises. Closing
+          it again afterwards is one click on the Accounts page. */}
+      {reopenPrompt && (
+        <Modal isOpen onClose={() => (reopening ? undefined : setReopenPrompt(null))} title="Account is closed" size="md">
+          <ModalBody>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <strong className="text-gray-900 dark:text-white">{accountName(reopenPrompt.accountId)}</strong>{' '}
+              is closed, and closed accounts don&rsquo;t have an open register. To view this
+              transaction the account must be re-opened first. Nothing else changes — every
+              transaction is preserved either way, and you can close it again from the
+              Accounts page whenever you&rsquo;re done.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={() => setReopenPrompt(null)}
+                disabled={reopening}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={reopening}
+                onClick={() => {
+                  void (async () => {
+                    setReopening(true);
+                    try {
+                      await updateAccount(reopenPrompt.accountId, { isActive: true });
+                      // Same refresh recipe as the Accounts page's reopen:
+                      // closed accounts are filtered out at load, and the DB
+                      // trigger re-activated the transfer category.
+                      await refreshAccountsAndTransactions();
+                      await refreshCategories();
+                      const params = new URLSearchParams();
+                      params.set('txn', reopenPrompt.txnId);
+                      if (new URLSearchParams(location.search).get('demo') === 'true') {
+                        params.set('demo', 'true');
+                      }
+                      const target = reopenPrompt.accountId;
+                      setReopenPrompt(null);
+                      setInspecting(null);
+                      onClose();
+                      navigate(`/accounts/${target}?${params.toString()}`);
+                    } catch (error) {
+                      showError(error);
+                    } finally {
+                      setReopening(false);
+                    }
+                  })();
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {reopening ? 'Re-opening…' : 'Re-open and view'}
               </button>
             </div>
           </ModalFooter>

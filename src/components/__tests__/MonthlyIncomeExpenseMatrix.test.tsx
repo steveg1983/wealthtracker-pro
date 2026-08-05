@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import MonthlyIncomeExpenseMatrix, { type MatrixDrillTarget } from '../MonthlyIncomeExpenseMatrix';
 import { buildMonthlyCategoryMatrix } from '../../utils/monthlyCategoryMatrix';
+import { toCumulativeMatrix } from '../../utils/cumulativeSeries';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import type { Category, Transaction } from '../../types';
 import type { PeriodRange } from '../../hooks/usePeriod';
@@ -37,6 +38,14 @@ const renderMatrix = (onDrill: (t: MatrixDrillTarget) => void = vi.fn()) =>
   render(
     <PreferencesProvider>
       <MonthlyIncomeExpenseMatrix matrix={matrix()} onDrill={onDrill} />
+    </PreferencesProvider>
+  );
+
+/** The same report, read as running totals for the period. */
+const renderCumulative = (onDrill: (t: MatrixDrillTarget) => void = vi.fn()) =>
+  render(
+    <PreferencesProvider>
+      <MonthlyIncomeExpenseMatrix matrix={toCumulativeMatrix(matrix())} onDrill={onDrill} cumulative />
     </PreferencesProvider>
   );
 
@@ -128,6 +137,38 @@ describe('MonthlyIncomeExpenseMatrix', () => {
     const salaryRow = screen.getByRole('rowheader', { name: 'Salary' }).closest('tr');
     expect(within(salaryRow as HTMLElement).queryByTitle('Salary · Feb 26 — view these transactions')).toBeNull();
     expect(within(salaryRow as HTMLElement).getAllByText('—').length).toBe(1);
+  });
+
+  it('says every column is a running total when the report is cumulative', () => {
+    renderCumulative();
+
+    // The column heading is the axis here — a running total must never be
+    // presented under a bare month.
+    expect(screen.getByRole('columnheader', { name: 'to Jan 26' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'to Feb 26' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Feb 26' })).toBeNull();
+    expect(screen.getByText(/^Running totals: each column is that month plus every month before it/)).toBeInTheDocument();
+
+    const expenses = screen.getByRole('rowheader', { name: 'Total Expenses' }).closest('tr');
+    // Jan 40, then Jan + Feb — which by the last column is the period total,
+    // so the Total column repeats it.
+    expect(within(expenses as HTMLElement).getByText('£40.00')).toBeInTheDocument();
+    expect(within(expenses as HTMLElement).getAllByText('£100.00')).toHaveLength(2);
+  });
+
+  it('a cumulative cell drills in as the period up to that month', () => {
+    const onDrill = vi.fn();
+    renderCumulative(onDrill);
+
+    fireEvent.click(screen.getByTitle('Groceries · to Feb 26 — view these transactions'));
+
+    expect(onDrill).toHaveBeenCalledWith({
+      bucket: 'expense',
+      categoryIds: ['cat-groceries'],
+      monthKey: '2026-02',
+      label: 'Food Related Costs : Groceries — to Feb 26',
+      total: 100,
+    });
   });
 
   it('persists the subcategory toggle', () => {

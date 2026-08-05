@@ -6,12 +6,15 @@ import { useReportAccountFilter } from '../hooks/useReportAccountFilter';
 import ReportAccountFilter from '../components/reports/ReportAccountFilter';
 import ReportDrillModal, { type ReportDrillTarget } from '../components/reports/ReportDrillModal';
 import ReportExportBar from '../components/reports/ReportExportBar';
+import ReportCumulativeToggle from '../components/reports/ReportCumulativeToggle';
 import IncomeExpenseSummaryCards from '../components/reports/IncomeExpenseSummaryCards';
 import UncategorisedReviewBand from '../components/reports/UncategorisedReviewBand';
 import MonthlyIncomeExpenseMatrix, { type MatrixDrillTarget } from '../components/MonthlyIncomeExpenseMatrix';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { buildMonthlyCategoryMatrix, monthKeyOf } from '../utils/monthlyCategoryMatrix';
+import { toCumulativeMatrix } from '../utils/cumulativeSeries';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
+import { useCumulativeReport } from '../hooks/useCumulativeReport';
 import { PERIOD_LABELS } from '../hooks/usePeriod';
 import type { ReportViewProps } from './reports/types';
 
@@ -28,6 +31,9 @@ import type { ReportViewProps } from './reports/types';
  * reports of their own in the gallery ("Income and spending over time",
  * "Spending by category").
  */
+
+const CUMULATIVE_KEY = 'reports.monthlyIncomeExpenses.cumulative.v1';
+
 export default function Reports({ picker }: ReportViewProps): React.JSX.Element {
   const filter = useReportAccountFilter();
   const { accounts, categories, rows, flows, allTransactions } = useReportDataset(picker, filter.accountId);
@@ -59,6 +65,10 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
       return !prev;
     });
   };
+  // Running totals across the period instead of month on its own — the matrix
+  // only; the summary cards above it are whole-period figures either way.
+  const cumulativeToggle = useCumulativeReport(CUMULATIVE_KEY);
+  const { cumulative } = cumulativeToggle;
 
   // Category ids are UUIDs — everything user-facing resolves through this
   // lookup ("Parent : Child", "Uncategorised" for a dangling id).
@@ -73,21 +83,29 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
 
   // The Money-style category × month matrix, built from the SAME classified
   // rows as the summary cards so the two can never disagree.
-  const matrix = useMemo(
-    () => buildMonthlyCategoryMatrix(flows.incomeRows, flows.expenseRows, categories, picker.range),
-    [flows, categories, picker.range]
-  );
+  const matrix = useMemo(() => {
+    const monthly = buildMonthlyCategoryMatrix(flows.incomeRows, flows.expenseRows, categories, picker.range);
+    return cumulative ? toCumulativeMatrix(monthly) : monthly;
+  }, [flows, categories, picker.range, cumulative]);
+
+  const firstColumnKey = matrix.months[0]?.key ?? null;
 
   const handleMatrixDrill = (target: MatrixDrillTarget): void => {
     const source = target.bucket === 'income' ? flows.incomeRows : flows.expenseRows;
     const ids = target.categoryIds ? new Set(target.categoryIds) : null;
+    // A cumulative cell is the period up to that month, so its drill-in must
+    // carry every month from the first column shown — the rows have to add up
+    // to the figure that opened them.
+    const inColumn = (date: Date | string): boolean => {
+      if (target.monthKey === null) return true;
+      const key = monthKeyOf(date);
+      if (!cumulative) return key === target.monthKey;
+      return key <= target.monthKey && (firstColumnKey === null || key >= firstColumnKey);
+    };
     setDrill({
       title: target.label,
       bucket: target.bucket,
-      rows: source.filter(t =>
-        (ids === null || ids.has(t.category)) &&
-        (target.monthKey === null || monthKeyOf(t.date) === target.monthKey)
-      ),
+      rows: source.filter(t => (ids === null || ids.has(t.category)) && inColumn(t.date)),
       total: target.total,
     });
   };
@@ -106,6 +124,7 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
             />
             Show gains, losses &amp; adjustments
           </label>
+          <ReportCumulativeToggle toggle={cumulativeToggle} />
         </div>
         <ReportExportBar
           title="Monthly income and expenses"
@@ -124,7 +143,7 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
       <UncategorisedReviewBand flows={flows} categories={categories} />
 
       {/* The detailed read. */}
-      <MonthlyIncomeExpenseMatrix matrix={matrix} onDrill={handleMatrixDrill} />
+      <MonthlyIncomeExpenseMatrix matrix={matrix} onDrill={handleMatrixDrill} cumulative={cumulative} />
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
         <div className={`flex items-center justify-between gap-4 p-6 ${showTopTransactions ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}>

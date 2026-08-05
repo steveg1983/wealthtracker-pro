@@ -1,13 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronRightIcon, HomeIcon } from '../icons';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../../utils/navigation';
-
-interface BreadcrumbItem {
-  label: string;
-  path: string;
-}
 
 const routeLabels: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -40,70 +34,8 @@ const routeLabels: Record<string, string> = {
   'ai-features': 'AI Features'
 };
 
-export function Breadcrumbs() {
-  const location = useLocation();
-  const { accounts } = useApp();
-  const pathSegments = location.pathname.split('/').filter(Boolean);
-
-  // Don't show breadcrumbs on home page or top-level pages (e.g. /dashboard, /accounts)
-  // Only show when there's depth (e.g. /accounts/uuid, /settings/categories)
-  if (pathSegments.length <= 1) {
-    return null;
-  }
-
-  const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Home', path: preserveDemoParam('/', location.search) }
-  ];
-
-  let currentPath = '';
-  pathSegments.forEach((segment) => {
-    currentPath += `/${segment}`;
-    // Check if segment is a UUID matching an account
-    const matchedAccount = accounts.find(a => a.id === segment);
-    const label = matchedAccount
-      ? matchedAccount.name
-      : routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
-    breadcrumbs.push({ label, path: preserveDemoParam(currentPath, location.search) });
-  });
-
-  return (
-    <nav aria-label="Breadcrumb" className="hidden sm:block mb-4">
-      <ol className="flex items-center space-x-2 text-sm">
-        {breadcrumbs.map((crumb, index) => {
-          const isLast = index === breadcrumbs.length - 1;
-          
-          return (
-            <li key={crumb.path} className="flex items-center">
-              {index > 0 && (
-                <ChevronRightIcon 
-                  size={16} 
-                  className="mx-2 text-gray-400 dark:text-gray-600" 
-                />
-              )}
-              
-              {isLast ? (
-                <span className="text-gray-700 dark:text-gray-300 font-medium">
-                  {index === 0 && <HomeIcon size={16} className="inline mr-1" />}
-                  {crumb.label}
-                </span>
-              ) : (
-                <Link
-                  to={crumb.path}
-                  className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors"
-                >
-                  {index === 0 && <HomeIcon size={16} className="inline mr-1" />}
-                  {crumb.label}
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
-}
-
-// Mobile breadcrumb with back button
+// Mobile-only back link to the parent route. Deliberately not a breadcrumb
+// trail — the trail was removed app-wide as it crowded narrow viewports.
 export function MobileBreadcrumb() {
   const location = useLocation();
   const { accounts } = useApp();
