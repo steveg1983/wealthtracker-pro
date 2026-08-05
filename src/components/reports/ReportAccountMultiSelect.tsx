@@ -1,12 +1,17 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDownIcon, FilterIcon } from '../icons';
+import { groupAccountsBySection } from '../../utils/accountGrouping';
 import type { Account } from '../../types';
 import type { ReportAccountSelection } from '../../hooks/useReportAccountSelection';
 
 /**
- * The reports' account filter when a report can answer for SEVERAL accounts
- * at once: a checkbox per account behind one trigger, rather than the
- * one-account-or-all dropdown.
+ * The reports' account filter: a checkbox per account behind one trigger, so
+ * a report can answer for any set of accounts rather than one or all.
+ *
+ * The list is grouped exactly as the Accounts page groups it (shared
+ * `groupAccountsBySection` — Current, Savings, Credit Cards…, alphabetical
+ * inside each), because a household with seventy accounts cannot find one in a
+ * flat list. Long lists scroll inside the panel with the section bands pinned.
  *
  * The trigger states the whole filter in a few words — "All accounts", the
  * account's own name when it is the only one ticked, otherwise how many — so
@@ -24,6 +29,12 @@ export default function ReportAccountMultiSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstCheckboxRef = useRef<HTMLInputElement>(null);
   const panelId = `${useId()}-accounts`;
+
+  // The Accounts page's own sections, in the Accounts page's own order.
+  const sections = useMemo(() => groupAccountsBySection(accounts), [accounts]);
+  // Opening puts the keyboard on the first box in the list — which is the
+  // first account of the first section, not the first account given.
+  const firstAccountId = sections[0]?.accounts[0]?.id ?? null;
 
   const summary = useMemo(() => {
     if (selection.isAll) return 'All accounts';
@@ -102,7 +113,7 @@ export default function ReportAccountMultiSelect({
             id={panelId}
             role="group"
             aria-label="Accounts included in this report"
-            className="absolute left-0 z-30 mt-1 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+            className="absolute left-0 z-30 mt-1 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
           >
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
               <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -118,27 +129,51 @@ export default function ReportAccountMultiSelect({
               </div>
             </div>
 
-            {accounts.length === 0 ? (
+            {sections.length === 0 ? (
               <p className="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">No accounts yet.</p>
             ) : (
-              <div className="max-h-72 overflow-y-auto py-1">
-                {accounts.map((account, index) => (
-                  <label
-                    key={account.id}
-                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                  >
-                    <input
-                      ref={index === 0 ? firstCheckboxRef : undefined}
-                      type="checkbox"
-                      checked={selection.isSelected(account.id)}
-                      onChange={() => selection.toggle(account.id)}
-                      className="rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary"
-                    />
-                    <span className="truncate text-gray-900 dark:text-white">{account.name}</span>
-                  </label>
+              /* Seventy accounts have to fit: the list scrolls, and each
+                 section's band stays put while its own accounts pass under it. */
+              <div className="max-h-72 overflow-y-auto">
+                {sections.map(section => (
+                  <div key={section.label} role="group" aria-label={section.title}>
+                    {/* The same darker group-header treatment as the Accounts
+                        page and the category picker — one scheme for every
+                        grouping band. */}
+                    <div className="sticky top-0 z-10 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-500 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                      {section.title}
+                    </div>
+                    {section.accounts.map(account => (
+                      <label
+                        key={account.id}
+                        className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      >
+                        <input
+                          ref={account.id === firstAccountId ? firstCheckboxRef : undefined}
+                          type="checkbox"
+                          checked={selection.isSelected(account.id)}
+                          onChange={() => selection.toggle(account.id)}
+                          className="rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary"
+                        />
+                        <span className="truncate text-gray-900 dark:text-white">{account.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
+
+            {/* Every tick has already been applied to the figures behind this
+                panel; Done is the way back to them, not an OK button. */}
+            <div className="flex justify-end px-3 py-2 border-t border-gray-100 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={close}
+                className="px-3 py-1 text-sm font-medium rounded-md bg-[#1a2332] dark:bg-blue-600 text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Done
+              </button>
+            </div>
           </div>
         )}
       </div>

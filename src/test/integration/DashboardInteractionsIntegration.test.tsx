@@ -7,7 +7,6 @@ import { markOnboardingComplete, dismissTestDataWarning } from '../utils/testPre
 import { AppProvider } from '../../contexts/AppContextSupabase';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
-import { BudgetProvider } from '../../contexts/BudgetContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 
 // Mock IntersectionObserver
@@ -29,13 +28,11 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/dashboard' } = 
         <AppProvider>
           <NotificationProvider>
             <ToastProvider>
-              <BudgetProvider>
-                  <Routes>
-                  <Route path="/dashboard" element={ui} />
-                  <Route path="/accounts" element={<div>Accounts Page</div>} />
-                  <Route path="/transactions" element={<div>Transactions Page</div>} />
-                </Routes>
-              </BudgetProvider>
+              <Routes>
+                <Route path="/dashboard" element={ui} />
+                <Route path="/accounts" element={<div>Accounts Page</div>} />
+                <Route path="/transactions" element={<div>Transactions Page</div>} />
+              </Routes>
             </ToastProvider>
           </NotificationProvider>
         </AppProvider>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
@@ -10,33 +10,67 @@ interface BudgetModalProps {
   isOpen: boolean;
   onClose: () => void;
   budget?: Budget;
+  /**
+   * Switch this modal to editing the budget the chosen category ALREADY has.
+   * One line per category is Money's model — two budgets on one category
+   * double-count in every total — so the duplicate is offered as an edit
+   * rather than refused outright.
+   */
+  onEditExisting?: (existing: Budget) => void;
 }
 
 interface FormData {
   categoryId: string;
   amount: string;
-  period: 'monthly' | 'weekly' | 'yearly' | 'custom' | 'quarterly';
+  period: Budget['period'];
   isActive: boolean;
 }
 
-export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProps): React.JSX.Element {
-  const { addBudget, updateBudget, categories } = useApp();
+/**
+ * The periods this modal can create. Each one has a window the app derives on
+ * its own (see utils/budgetPeriods); 'custom' is deliberately absent because
+ * it needs start and end dates this form does not collect — offering it would
+ * create budgets whose period is a guess.
+ */
+const PERIOD_OPTIONS: ReadonlyArray<{ value: Budget['period']; label: string }> = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' }
+];
+
+/** A <select> value narrowed to a real period — no cast, no unlisted value. */
+function toBudgetPeriod(value: string): Budget['period'] {
+  return PERIOD_OPTIONS.find(option => option.value === value)?.value ?? 'monthly';
+}
+
+export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }: BudgetModalProps): React.JSX.Element {
+  const { addBudget, updateBudget, categories, budgets } = useApp();
 
   /**
    * Budgets key on a category ID: that is what `calculateBudgetSpending`
    * matches against `transaction.category`, and what the recommendation
    * service writes. This modal's old flat <select> stored the category NAME
    * instead, so a budget added here matched nothing. Resolve such a legacy
-   * value back to its id on open, so editing an old budget both shows the
-   * right category and heals the stored value on save.
+   * value back to its id, so editing an old budget both shows the right
+   * category and heals the stored value on save.
+   *
+   * Group budgets are resolvable the same way: a group ("Food") is a real
+   * category with an id, so nothing here needs to know which level it is.
    */
-  const seededCategoryId = useMemo((): string => {
-    const stored = budget?.categoryId;
+  const resolveCategoryId = useCallback((stored: string | undefined): string => {
     if (!stored) return '';
     if (categories.some((c: Category) => c.id === stored)) return stored;
-    const byName = categories.find((c: Category) => c.level === 'detail' && c.name === stored);
+    const byName = categories.find(
+      (c: Category) => (c.level === 'detail' || c.level === 'sub') && c.name === stored
+    );
     return byName?.id ?? '';
-  }, [budget?.categoryId, categories]);
+  }, [categories]);
+
+  const seededCategoryId = useMemo(
+    (): string => resolveCategoryId(budget?.categoryId),
+    [budget?.categoryId, resolveCategoryId]
+  );
 
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
@@ -70,10 +104,37 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
   // The combobox has no native `required`, so the form guards the field itself.
   const [categoryError, setCategoryError] = useState('');
 
+  /**
+   * The budget this category already has, if any.
+   *
+   * Nothing stopped a second budget on one category, and once there were two
+   * every total counted the category twice while each card showed the same
+   * spending against a different limit. One line per category, as Money has
+   * it: the duplicate is blocked and the existing line is offered instead.
+   */
+  const existingBudget = useMemo((): Budget | null => {
+    if (!formData.categoryId) return null;
+    return (
+      budgets.find(
+        (candidate: Budget) =>
+          candidate.id !== budget?.id &&
+          resolveCategoryId(candidate.categoryId) === formData.categoryId
+      ) ?? null
+    );
+  }, [budgets, budget?.id, formData.categoryId, resolveCategoryId]);
+
+  const existingBudgetName = existingBudget
+    ? categories.find((c: Category) => c.id === formData.categoryId)?.name ?? 'That category'
+    : '';
+
   const onFormSubmit = (e: React.FormEvent): void => {
     if (!formData.categoryId) {
       e.preventDefault();
       setCategoryError('Choose a category to budget against.');
+      return;
+    }
+    if (existingBudget) {
+      e.preventDefault();
       return;
     }
     handleSubmit(e);
@@ -103,8 +164,11 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             </label>
             {/* The shared searchable picker every categorisation surface uses:
                 grouped under its parent group, alphabetical inside. Budgets are
-                spending limits, so it lists the expense tree. usePortal escapes
-                the modal body's overflow-y-auto clipping. */}
+                spending limits, so it lists the expense tree. Groups are
+                selectable here (and only here): budgeting "Food" as a whole is
+                how most people plan, and the spending rolls its detail
+                categories up. usePortal escapes the modal body's
+                overflow-y-auto clipping. */}
             <CategorySelector
               selectedCategory={formData.categoryId}
               onCategoryChange={(categoryId) => {
@@ -115,12 +179,30 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
               placeholder="Search or select category…"
               allowCreate={false}
               showHelperText={false}
+              allowGroupSelection
               usePortal
             />
             {categoryError && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
                 {categoryError}
               </p>
+            )}
+            {existingBudget && (
+              <div
+                className="mt-1 text-sm text-red-600 dark:text-red-400 flex flex-wrap items-center gap-x-1"
+                role="alert"
+              >
+                <span>{existingBudgetName} already has a budget.</span>
+                {onEditExisting && (
+                  <button
+                    type="button"
+                    onClick={() => onEditExisting(existingBudget)}
+                    className="underline font-medium hover:no-underline"
+                  >
+                    Edit that budget instead
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -145,11 +227,12 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             </label>
             <select
               value={formData.period}
-              onChange={(e) => updateField('period', e.target.value as 'monthly' | 'yearly')}
+              onChange={(e) => updateField('period', toBudgetPeriod(e.target.value))}
               className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
+              {PERIOD_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
 
@@ -175,9 +258,15 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             >
               Cancel
             </button>
+            {/* Disabled while the chosen category already has a budget: a
+                button that swallows the click and does nothing tells the user
+                less than one that visibly cannot be pressed, with the reason
+                sitting under the field. */}
             <button
               type="submit"
-              className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
+              disabled={existingBudget !== null}
+              title={existingBudget ? `${existingBudgetName} already has a budget` : undefined}
+              className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {budget ? 'Save Changes' : 'Add Budget'}
             </button>

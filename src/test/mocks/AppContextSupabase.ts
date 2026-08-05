@@ -7,6 +7,12 @@ import {
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category } from '../../types';
+import type {
+  DecimalAccount,
+  DecimalBudget,
+  DecimalGoal,
+  DecimalTransaction
+} from '../../types/decimal-types';
 
 const accounts = getDefaultTestAccounts();
 const transactions = getDefaultTestTransactions();
@@ -52,9 +58,12 @@ const baseValue = {
   importCategoryTree: async () => ({ created: 0, skipped: 0, pruned: 0, keptForTransactions: 0 }),
   updateCategory: noop,
   deleteCategory: noop,
-  addGoal: noop,
-  updateGoal: noop,
-  deleteGoal: noop,
+  // Async, like the real context: callers chain .catch() on these, and a
+  // double that hands back `undefined` crashes the very code it is meant to
+  // stand in for.
+  addGoal: asyncNoop,
+  updateGoal: asyncNoop,
+  deleteGoal: asyncNoop,
   addTag: noop,
   updateTag: noop,
   deleteTag: noop,
@@ -68,10 +77,12 @@ const baseValue = {
   updateRecurringTransaction: noop,
   deleteRecurringTransaction: noop,
   processRecurringTransactions: noop,
-  getDecimalTransactions: () => [],
-  getDecimalAccounts: () => [],
-  getDecimalBudgets: () => [],
-  getDecimalGoals: () => [],
+  // Typed returns, so a test can override them with real decimal data
+  // (`() => []` alone infers never[], which nothing can be assigned to).
+  getDecimalTransactions: (): DecimalTransaction[] => [],
+  getDecimalAccounts: (): DecimalAccount[] => [],
+  getDecimalBudgets: (): DecimalBudget[] => [],
+  getDecimalGoals: (): DecimalGoal[] => [],
   investments: [],
   getAllUsedTags: () => [],
 };

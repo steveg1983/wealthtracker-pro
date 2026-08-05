@@ -6,7 +6,6 @@ import { AppProvider } from '../../contexts/AppContextSupabase';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { ToastProvider } from '../../contexts/ToastContext';
-import { BudgetProvider } from '../../contexts/BudgetContext';
 import { __setAppContextValue, __resetAppContextValue } from '../mocks/AppContextSupabase';
 import { markOnboardingComplete, dismissTestDataWarning } from '../utils/testPreferences';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
@@ -40,9 +39,7 @@ describe('Decimal Financial Integration Tests', () => {
           <AppProvider>
             <NotificationProvider>
               <ToastProvider>
-                <BudgetProvider>
                   {component}
-                </BudgetProvider>
               </ToastProvider>
             </NotificationProvider>
           </AppProvider>

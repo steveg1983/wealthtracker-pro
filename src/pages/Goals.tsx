@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { format } from "date-fns";
 import { useApp } from "../contexts/AppContextSupabase";
 import GoalModal from "../components/GoalModal";
 import { TargetIcon, TrendingUpIcon, CalendarIcon } from "../components/icons";
 import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
 import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
-import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/decimal-types";
+import type { DecimalAccount, DecimalInstance } from "../types/decimal-types";
 import PageWrapper from "../components/PageWrapper";
 import PageTip from "../components/PageTip";
-import { calculateGoalProgress } from "../utils/calculations-decimal";
 import { toDecimal } from "../utils/decimal";
 import { formatDecimal } from "../utils/decimal-format";
 import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
@@ -18,73 +19,256 @@ import { goalAchievementService } from "../services/goalAchievementService";
 import { useNotifications } from "../contexts/NotificationContext";
 import { usePreferences } from "../contexts/PreferencesContext";
 import AchievementHistory from "../components/AchievementHistory";
+import {
+  daysUntil,
+  formatDaysRemaining,
+  isDeadlineUrgent,
+  monthlyTargetToStayOnTrack
+} from "../utils/goalDates";
+import { preserveDemoParam } from "../utils/navigation";
+import { createScopedLogger } from "../loggers/scopedLogger";
 
-export default function Goals() {
-  const { goals, accounts: _accounts, deleteGoal, getDecimalGoals, getDecimalAccounts } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
-  const { addNotification, checkGoalProgress } = useNotifications();
+const logger = createScopedLogger('GoalsPage');
+
+/** What the linked accounts say about one goal, once currencies are settled. */
+interface LinkedAccountsSummary {
+  /** Combined balance of the linked accounts that still exist and are open. */
+  total: DecimalInstance;
+  /** Those accounts, in the order the goal lists them. */
+  available: DecimalAccount[];
+  /** Links pointing at an account that has been closed or deleted. */
+  unavailableCount: number;
+}
+
+/**
+ * A goal plus everything the page needs to draw it — money as Decimal, and a
+ * single answer to "how far along is this?" so the cards, the totals, the
+ * completion write and the notifications can never disagree.
+ */
+interface GoalView {
+  goal: Goal;
+  current: DecimalInstance;
+  target: DecimalInstance;
+  /** True percentage, NOT clamped — 143% is a fact worth showing. */
+  progress: number;
+  /** Progress is coming from linked account balances, not the typed-in figure. */
+  isTracked: boolean;
+  linkedAccounts: DecimalAccount[];
+  unavailableCount: number;
+  isReached: boolean;
+  isPaused: boolean;
+}
+
+const progressPercent = (current: DecimalInstance, target: DecimalInstance): number =>
+  target.greaterThan(0) ? current.dividedBy(target).times(100).toNumber() : 0;
+
+export default function Goals(): React.JSX.Element {
+  const { goals, deleteGoal, updateGoal, getDecimalAccounts } = useApp();
+  const { formatCurrency, convertAndSum } = useCurrencyDecimal();
+  const { checkGoalProgress } = useNotifications();
   const { enableGoalCelebrations } = usePreferences();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>();
   const [showConfetti, setShowConfetti] = useState(false);
   const [celebratingGoal, setCelebratingGoal] = useState<Goal | null>(null);
   const [celebrationMessage, setCelebrationMessage] = useState('');
   const [showAchievements, setShowAchievements] = useState(false);
-  const [previousGoals, setPreviousGoals] = useState<Goal[]>([]);
+  const [linkedSummaries, setLinkedSummaries] = useState<Map<string, LinkedAccountsSummary>>(
+    () => new Map()
+  );
 
-  // Track goal progress changes for notifications
+  const decimalAccounts = useMemo(() => getDecimalAccounts(), [getDecimalAccounts]);
+  const accountsById = useMemo(
+    () => new Map(decimalAccounts.map((account: DecimalAccount) => [account.id, account])),
+    [decimalAccounts]
+  );
+
+  /**
+   * Linked accounts DRIVE progress: the page has always promised "link accounts
+   * for automatic progress tracking", and this is where that becomes true.
+   *
+   * Balances are summed through convertAndSum, so a goal linked to a euro
+   * account and a sterling one totals correctly in the display currency
+   * instead of adding the two numbers together as if they were the same money.
+   */
   useEffect(() => {
-    if (goals.length > 0 && previousGoals.length > 0) {
-      checkGoalProgress(goals, previousGoals);
-    }
-    setPreviousGoals([...goals]);
-  }, [goals, previousGoals, checkGoalProgress]);
+    let cancelled = false;
 
-  const handleEdit = (goal: Goal) => {
+    const buildSummaries = async (): Promise<void> => {
+      const next = new Map<string, LinkedAccountsSummary>();
+
+      for (const goal of goals) {
+        const linkedIds = goal.linkedAccountIds ?? [];
+        if (linkedIds.length === 0) continue;
+
+        const available: DecimalAccount[] = [];
+        for (const id of linkedIds) {
+          const account = accountsById.get(id);
+          // A closed account is as unavailable as a deleted one: it no longer
+          // holds money towards this goal.
+          if (account && account.isActive !== false) available.push(account);
+        }
+
+        const total = available.length > 0
+          ? await convertAndSum(available.map(account => ({
+              amount: account.balance,
+              currency: account.currency
+            })))
+          : toDecimal(0);
+
+        next.set(goal.id, {
+          total,
+          available,
+          unavailableCount: linkedIds.length - available.length
+        });
+      }
+
+      if (!cancelled) setLinkedSummaries(next);
+    };
+
+    void buildSummaries();
+    return (): void => { cancelled = true; };
+  }, [goals, accountsById, convertAndSum]);
+
+  const goalViews = useMemo<GoalView[]>(() => goals.map(goal => {
+    const target = toDecimal(goal.targetAmount);
+    const summary = linkedSummaries.get(goal.id);
+    // Links whose accounts have ALL gone leave nothing to derive from, so the
+    // goal falls back to its last stored amount and says so on the card. The
+    // alternative — showing £0 — would look like the money had vanished.
+    const isTracked = summary !== undefined && summary.available.length > 0;
+    const current = isTracked ? summary.total : toDecimal(goal.currentAmount);
+    const progress = progressPercent(current, target);
+
+    return {
+      goal,
+      current,
+      target,
+      progress,
+      isTracked,
+      linkedAccounts: summary?.available ?? [],
+      unavailableCount: summary?.unavailableCount ?? 0,
+      isReached: goal.status === 'completed' || progress >= 100,
+      isPaused: goal.status === 'paused' || goal.isActive === false
+    };
+  }), [goals, linkedSummaries]);
+
+  const activeViews = useMemo(
+    () => goalViews.filter(view => !view.isPaused && !view.isReached),
+    [goalViews]
+  );
+  const completedViews = useMemo(() => goalViews.filter(view => view.isReached), [goalViews]);
+  const pausedViews = useMemo(
+    () => goalViews.filter(view => view.isPaused && !view.isReached),
+    [goalViews]
+  );
+
+  /**
+   * The goals as the rest of the app should see them: for a linked goal the
+   * derived balance IS its current amount, so milestone and completion
+   * notifications fire off the same number the card shows.
+   */
+  const effectiveGoals = useMemo<Goal[]>(
+    () => goalViews.map(view => ({
+      ...view.goal,
+      currentAmount: view.current.toNumber(),
+      progress: view.current.toNumber()
+    })),
+    [goalViews]
+  );
+
+  // The snapshot the next run compares against. A REF, not state: holding it in
+  // state while listing it as a dependency of the effect that sets it is an
+  // unbounded render loop (set → re-render → effect → set …).
+  const previousSnapshotRef = useRef<{ goals: Goal[]; progress: Map<string, number> } | null>(null);
+  // Goals we have already tried to mark complete, so a failing write is
+  // attempted once rather than on every data change.
+  const completionWritesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const previous = previousSnapshotRef.current;
+    previousSnapshotRef.current = {
+      goals: effectiveGoals,
+      progress: new Map(goalViews.map(view => [view.goal.id, view.progress]))
+    };
+
+    if (goalViews.length === 0) return;
+
+    // Milestones and completion notifications belong to notificationService,
+    // which fires on a THRESHOLD CROSSING. The page used to run its own
+    // sessionStorage-banded copy alongside it, so 25% arrived twice.
+    if (previous && previous.goals.length > 0) {
+      checkGoalProgress(effectiveGoals, previous.goals);
+    }
+
+    for (const view of goalViews) {
+      if (!view.isReached) continue;
+      const { goal } = view;
+
+      // Achievement is a fact about the goal, so it lives on the goal: status
+      // + completed_at reach every device, where a localStorage flag reached
+      // one browser. Recording is idempotent per goal id.
+      goalAchievementService.recordAchievement(
+        goal,
+        goal.completedAt ? new Date(goal.completedAt) : new Date()
+      );
+
+      if (goal.status !== 'completed' && !completionWritesRef.current.has(goal.id)) {
+        completionWritesRef.current.add(goal.id);
+        void updateGoal(goal.id, {
+          status: 'completed',
+          achieved: true,
+          completedAt: new Date().toISOString()
+        }).catch((error: unknown) => {
+          logger.error('Failed to mark goal as completed', error);
+        });
+      }
+
+      // Confetti is for the moment it happens — a goal that was already at
+      // 100% when the page opened has had its party.
+      const crossedJustNow = previous !== null && (previous.progress.get(goal.id) ?? 100) < 100;
+      if (
+        crossedJustNow &&
+        enableGoalCelebrations &&
+        !goalAchievementService.hasBeenCelebrated(goal.id)
+      ) {
+        goalAchievementService.markAsCelebrated(goal.id);
+        setCelebrationMessage(goalAchievementService.getCelebrationMessage(goal));
+        setCelebratingGoal(goal);
+        setShowConfetti(true);
+      }
+    }
+  }, [goalViews, effectiveGoals, checkGoalProgress, enableGoalCelebrations, updateGoal]);
+
+  const handleEdit = (goal: Goal): void => {
     setEditingGoal(goal);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: string): void => {
     if (confirm("Are you sure you want to delete this goal?")) {
-      deleteGoal(id);
+      void deleteGoal(id).catch((error: unknown) => {
+        logger.error('Failed to delete goal', error);
+      });
     }
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = (): void => {
     setIsModalOpen(false);
     setEditingGoal(undefined);
   };
 
-  const getProgressPercentage = useCallback((goal: Goal) => {
-    const decimalGoal = getDecimalGoals().find((g: DecimalGoal) => g.id === goal.id);
-    if (!decimalGoal) return 0;
-    return calculateGoalProgress(decimalGoal);
-  }, [getDecimalGoals]);
-
-  const getDaysRemaining = (targetDate: Date) => {
-    const today = new Date();
-    const target = new Date(targetDate);
-    const diffTime = target.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  const openAccount = (accountId: string): void => {
+    navigate(preserveDemoParam(`/accounts/${accountId}`, location.search));
   };
 
-  const getLinkedAccountsBalance = (linkedAccountIds?: string[]) => {
-    if (!linkedAccountIds || linkedAccountIds.length === 0) return toDecimal(0);
-    
-    const decimalAccounts = getDecimalAccounts();
-    return linkedAccountIds.reduce((total, accountId) => {
-      const account = decimalAccounts.find((a: DecimalAccount) => a.id === accountId);
-      return account ? total.plus(account.balance) : total;
-    }, toDecimal(0));
-  };
-
-  const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
+  const formatPercentage = (value: DecimalInstance | number, decimals: number = 1): string => {
     return formatDecimal(value, decimals);
   };
 
-  const getGoalIcon = (type: Goal["type"]) => {
+  const getGoalIcon = (type: Goal["type"]): string => {
     switch (type) {
       case "savings":
         return "💰";
@@ -97,64 +281,19 @@ export default function Goals() {
     }
   };
 
-  const activeGoals = goals.filter(g => g.isActive);
-  const completedGoals = goals.filter(g => !g.isActive || getProgressPercentage(g) >= 100);
-
-  // Check for newly achieved goals
-  useEffect(() => {
-    if (!enableGoalCelebrations) return;
-    
-    activeGoals.forEach(goal => {
-      const progress = getProgressPercentage(goal);
-      
-      // Check for achievement
-      if (progress >= 100 && !goalAchievementService.hasBeenCelebrated(goal.id)) {
-        // Record achievement
-        goalAchievementService.recordAchievement(goal);
-        goalAchievementService.markAsCelebrated(goal.id);
-        
-        // Get celebration message
-        const message = goalAchievementService.getCelebrationMessage(goal);
-        setCelebrationMessage(message);
-        setCelebratingGoal(goal);
-        
-        // Show confetti
-        setShowConfetti(true);
-        
-        // Add notification
-        addNotification({
-          type: 'success',
-          title: 'Goal Achieved! 🎉',
-          message: `Congratulations! You've achieved your goal: ${goal.name}`
-        });
-      }
-      
-      // Check for milestones
-      const milestoneMessage = goalAchievementService.getMilestoneMessage(progress);
-      if (milestoneMessage && !sessionStorage.getItem(`milestone-${goal.id}-${Math.floor(progress / 25) * 25}`)) {
-        sessionStorage.setItem(`milestone-${goal.id}-${Math.floor(progress / 25) * 25}`, 'true');
-        
-        addNotification({
-          type: 'info',
-          title: 'Goal Progress',
-          message: `${goal.name}: ${milestoneMessage}`
-        });
-      }
-    });
-  }, [activeGoals, addNotification, enableGoalCelebrations, getProgressPercentage]);
-
-  const decimalGoals = getDecimalGoals();
-  const activeDecimalGoals = decimalGoals.filter((g: DecimalGoal) => {
-    const regularGoal = goals.find(rg => rg.id === g.id);
-    return regularGoal?.isActive;
-  });
-  
-  const totalTargetAmount = activeDecimalGoals.reduce((sum: DecimalInstance, goal: DecimalGoal) => sum.plus(goal.targetAmount), toDecimal(0));
-  const totalCurrentAmount = activeDecimalGoals.reduce((sum: DecimalInstance, goal: DecimalGoal) => sum.plus(goal.currentAmount), toDecimal(0));
-  const overallProgress = totalTargetAmount.greaterThan(0) ? totalCurrentAmount.dividedBy(totalTargetAmount).times(100).toNumber() : 0;
+  const totalTargetAmount = useMemo(
+    () => activeViews.reduce((sum, view) => sum.plus(view.target), toDecimal(0)),
+    [activeViews]
+  );
+  const totalCurrentAmount = useMemo(
+    () => activeViews.reduce((sum, view) => sum.plus(view.current), toDecimal(0)),
+    [activeViews]
+  );
+  const overallProgress = progressPercent(totalCurrentAmount, totalTargetAmount);
+  const overallRingProgress = Math.min(Math.max(overallProgress, 0), 100);
 
   return (
-    <PageWrapper 
+    <PageWrapper
       title="Goals"
       rightContent={
         <button
@@ -182,11 +321,11 @@ export default function Goals() {
               onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
             />
             <g transform="translate(12, 12)">
-              <path 
-                d="M12 5v14M5 12h14" 
-                stroke="#1F2937" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
+              <path
+                d="M12 5v14M5 12h14"
+                stroke="#1F2937"
+                strokeWidth="2"
+                strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </g>
@@ -203,7 +342,7 @@ export default function Goals() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Active Goals</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeGoals.length}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeViews.length}</p>
             </div>
             <TargetIcon className="h-8 w-8 text-blue-600" />
           </div>
@@ -239,7 +378,7 @@ export default function Goals() {
                   stroke="#3b82f6"
                   strokeWidth="4"
                   fill="none"
-                  strokeDasharray={`${overallProgress * 0.88} 88`}
+                  strokeDasharray={`${overallRingProgress * 0.88} 88`}
                 />
               </svg>
             </div>
@@ -250,7 +389,7 @@ export default function Goals() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Completed</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedGoals.length}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{completedViews.length}</p>
             </div>
             <div className="text-2xl">🏆</div>
           </div>
@@ -259,17 +398,22 @@ export default function Goals() {
 
         {/* Active Goals */}
         <div className="pt-4">
-          {activeGoals.length > 0 ? (
+          {activeViews.length > 0 && (
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Active Goals</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {activeGoals.map((goal) => {
-              const progress = getProgressPercentage(goal);
-              const progressDecimal = toDecimal(progress);
-              const progressValue = progressDecimal.toNumber();
-              const progressDisplay = formatPercentage(progressDecimal, 1);
-              const daysRemaining = getDaysRemaining(goal.targetDate);
-              const linkedBalance = getLinkedAccountsBalance(goal.linkedAccountIds);
+            {activeViews.map((view) => {
+              const { goal } = view;
+              const progressDisplay = formatPercentage(toDecimal(view.progress), 1);
+              // The BAR is clamped (a 143% bar would spill out of its track);
+              // the number beside it is not, because that is the truth.
+              const barWidth = Math.min(Math.max(view.progress, 0), 100);
+              const daysLeft = daysUntil(goal.targetDate);
+              const monthlyTarget = monthlyTargetToStayOnTrack({
+                targetAmount: view.target,
+                currentAmount: view.current,
+                targetDate: goal.targetDate
+              });
 
               return (
                 <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
@@ -288,6 +432,7 @@ export default function Goals() {
                         variant="ghost"
                         size="sm"
                         className="text-gray-500 hover:text-gray-700"
+                        aria-label={`Edit ${goal.name}`}
                       />
                       <IconButton
                         onClick={() => handleDelete(goal.id)}
@@ -295,6 +440,7 @@ export default function Goals() {
                         variant="ghost"
                         size="sm"
                         className="text-gray-500 hover:text-gray-700"
+                        aria-label={`Delete ${goal.name}`}
                       />
                     </div>
                   </div>
@@ -312,9 +458,9 @@ export default function Goals() {
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            progressValue >= 100 ? "bg-blue-600" : progressValue >= 75 ? "bg-[#1a2332]" : progressValue >= 50 ? "bg-yellow-600" : "bg-gray-400"
+                            view.progress >= 100 ? "bg-blue-600" : view.progress >= 75 ? "bg-[#1a2332]" : view.progress >= 50 ? "bg-yellow-600" : "bg-gray-400"
                           }`}
-                          style={{ width: `${Math.min(progressValue, 100)}%` }}
+                          style={{ width: `${barWidth}%` }}
                         />
                       </div>
                     </div>
@@ -323,37 +469,74 @@ export default function Goals() {
                       <div>
                         <p className="text-gray-500 dark:text-gray-400">Current</p>
                         <p className="font-semibold text-gray-900 dark:text-white">
-                          {formatCurrency(goal.currentAmount)}
+                          {formatCurrency(view.current)}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-500 dark:text-gray-400">Target</p>
                         <p className="font-semibold text-gray-900 dark:text-white">
-                          {formatCurrency(goal.targetAmount)}
+                          {formatCurrency(view.target)}
                         </p>
                       </div>
                     </div>
 
+                    {monthlyTarget && (
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {formatCurrency(monthlyTarget)}/month to stay on track
+                      </p>
+                    )}
+
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-1">
                         <CalendarIcon className="h-4 w-4 text-gray-400" />
-                        <span className={`${daysRemaining < 30 ? "text-red-600" : "text-gray-600 dark:text-gray-400"}`}>
-                          {daysRemaining > 0 ? `${daysRemaining} days left` : "Overdue"}
+                        <span className={isDeadlineUrgent(daysLeft) ? "text-red-600" : "text-gray-600 dark:text-gray-400"}>
+                          {formatDaysRemaining(daysLeft)}
                         </span>
                       </div>
-                      {goal.linkedAccountIds && goal.linkedAccountIds.length > 0 && (
+                      {view.isTracked && (
+                        // The "Current" figure above IS this sum — say where it
+                        // comes from rather than printing the same money twice.
                         <div className="text-gray-600 dark:text-gray-400">
-                          Linked: {formatCurrency(linkedBalance)}
+                          Tracked from linked accounts
                         </div>
                       )}
                     </div>
+
+                    {view.linkedAccounts.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {view.linkedAccounts.map(account => (
+                          <button
+                            key={account.id}
+                            type="button"
+                            onClick={() => openAccount(account.id)}
+                            className="px-2 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label={`Open ${account.name}`}
+                          >
+                            {account.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {view.unavailableCount > 0 && (
+                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                        {view.unavailableCount === 1
+                          ? '1 linked account unavailable'
+                          : `${view.unavailableCount} linked accounts unavailable`}
+                        {view.isTracked
+                          ? ' — this total covers the rest'
+                          : ' — showing the last saved amount'}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
-      ) : goals.length === 0 ? (
+      )}
+
+      {activeViews.length === 0 && goals.length === 0 && (
         /* Empty state when no goals at all */
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12" data-testid="empty-state">
           <div className="text-center">
@@ -371,7 +554,7 @@ export default function Goals() {
               <PlusIcon size={20} />
               <span>Create Your First Goal</span>
             </button>
-            
+
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="text-2xl mb-2">💰</div>
@@ -397,16 +580,23 @@ export default function Goals() {
             </div>
           </div>
         </div>
-      ) : (
-        /* Empty state when all goals are completed */
+      )}
+
+      {activeViews.length === 0 && goals.length > 0 && (
+        /* Goals exist, none of them active: say which, rather than claiming
+           everything is finished when some are merely paused. */
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12" data-testid="empty-state">
           <div className="text-center">
-            <div className="text-5xl mb-4">🎉</div>
+            <div className="text-5xl mb-4">{completedViews.length > 0 ? '🎉' : '⏸️'}</div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              All goals completed!
+              {completedViews.length > 0 && pausedViews.length === 0
+                ? 'All goals completed!'
+                : 'No active goals'}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-              Congratulations on achieving your goals! Ready to set new financial targets?
+              {completedViews.length > 0 && pausedViews.length === 0
+                ? 'Congratulations on achieving your goals! Ready to set new financial targets?'
+                : 'Your goals are paused or finished. Resume one by editing it, or set a new target.'}
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
@@ -419,37 +609,83 @@ export default function Goals() {
         </div>
       )}
 
-      {/* Completed Goals */}
-      {completedGoals.length > 0 && (
-        <div>
-          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Completed Goals</h2>
+      {/* Paused Goals */}
+      {pausedViews.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Paused Goals</h2>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
-              {completedGoals.map((goal) => (
-                <div key={goal.id} className="p-4 flex items-center justify-between">
+              {pausedViews.map((view) => (
+                <div key={view.goal.id} className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-xl opacity-50">{getGoalIcon(goal.type)}</span>
+                    <span className="text-xl opacity-50">{getGoalIcon(view.goal.type)}</span>
                     <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">{goal.name}</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-white">{view.goal.name}</h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Completed • £{goal.targetAmount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        Paused • {formatCurrency(view.current)} of {formatCurrency(view.target)}
                       </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <IconButton
-                      onClick={() => handleEdit(goal)}
+                      onClick={() => handleEdit(view.goal)}
                       icon={<EditIcon size={16} />}
                       variant="ghost"
                       size="sm"
                       className="text-gray-500 hover:text-gray-700"
+                      aria-label={`Edit ${view.goal.name}`}
                     />
                     <IconButton
-                      onClick={() => handleDelete(goal.id)}
+                      onClick={() => handleDelete(view.goal.id)}
                       icon={<DeleteIcon size={16} />}
                       variant="ghost"
                       size="sm"
                       className="text-gray-500 hover:text-gray-700"
+                      aria-label={`Delete ${view.goal.name}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Completed Goals */}
+      {completedViews.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Completed Goals</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {completedViews.map((view) => (
+                <div key={view.goal.id} className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl opacity-50">{getGoalIcon(view.goal.type)}</span>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">{view.goal.name}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {view.goal.completedAt
+                          ? `Completed ${format(new Date(view.goal.completedAt), 'd MMM yyyy')}`
+                          : 'Completed'} • {formatCurrency(view.target)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <IconButton
+                      onClick={() => handleEdit(view.goal)}
+                      icon={<EditIcon size={16} />}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                      aria-label={`Edit ${view.goal.name}`}
+                    />
+                    <IconButton
+                      onClick={() => handleDelete(view.goal.id)}
+                      icon={<DeleteIcon size={16} />}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                      aria-label={`Delete ${view.goal.name}`}
                     />
                   </div>
                 </div>
@@ -458,7 +694,7 @@ export default function Goals() {
           </div>
         </div>
         )}
-        
+
         {/* Achievement History Toggle */}
         {goals.length > 0 && (
           <div className="mt-6">
@@ -471,7 +707,7 @@ export default function Goals() {
             </button>
           </div>
         )}
-        
+
         {/* Achievement History */}
         {showAchievements && (
           <div className="mt-6">
@@ -486,14 +722,14 @@ export default function Goals() {
         onClose={handleCloseModal}
         goal={editingGoal}
       />
-      
+
       {/* Confetti Animation */}
       <Confetti
         isActive={showConfetti}
         duration={4000}
         onComplete={() => setShowConfetti(false)}
       />
-      
+
       {/* Goal Celebration Modal */}
       {celebratingGoal && (
         <GoalCelebrationModal
@@ -503,8 +739,8 @@ export default function Goals() {
           message={celebrationMessage}
         />
       )}
-      
-    <PageTip id="goals-intro" title="Track your financial goals" description="Set savings targets, debt payoff goals, and investment milestones. Link accounts for automatic progress tracking and set up auto-contributions." />
+
+    <PageTip id="goals-intro" title="Track your financial goals" description="Set savings targets, debt payoff goals, and investment milestones. Link accounts and the balance in them becomes the goal's progress, automatically." />
     </PageWrapper>
   );
 }

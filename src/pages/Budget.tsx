@@ -12,10 +12,17 @@ import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
 import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
+import { getEffectiveBudgetAmount } from '../utils/budgetAmounts';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
-import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
-import { expandSplitTransactions } from '../utils/transactionSplits';
+import { calculateBudgetPercentage } from '../utils/calculations-decimal';
+import {
+  buildCategoryChildIndex,
+  calculateBudgetSpend,
+  collectBudgetCategoryIds,
+  foreignCurrencyAccountIds,
+  prepareBudgetTransactions
+} from '../utils/budgetSpending';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
@@ -26,78 +33,94 @@ export default function Budget() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
   const [isLoading, setIsLoading] = useState(true);
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   const formatPercentage = (value: number | DecimalInstance, decimals: number = 0) => {
     return formatDecimal(value, decimals);
   };
-  
+
   // Get data from context
-  const { budgets, updateBudget, deleteBudget, transactions, transactionSplits, categories } = useApp();
+  const { budgets, updateBudget, deleteBudget, transactions, transactionSplits, categories, accounts } = useApp();
   const { checkEnhancedBudgetAlerts, checkBudgetAlerts, alertThreshold } = useNotifications();
 
-  // Memoize current date values
-  const { currentMonth, currentYear } = useMemo(() => {
-    const now = new Date();
-    return {
-      currentMonth: now.getMonth(),
-      currentYear: now.getFullYear()
-    };
-  }, []);
+  // One evaluation instant for the whole page: every card, caption and total
+  // describes the same "now".
+  const evaluatedAt = useMemo(() => new Date(), []);
+
+  // Parent → children, so a group budget can roll its descendants up.
+  const categoryChildIndex = useMemo(() => buildCategoryChildIndex(categories), [categories]);
+
+  // Rows on accounts held in another currency cannot join this total without a
+  // rate; they are left out and the card says so.
+  const foreignAccountIds = useMemo(
+    () => foreignCurrencyAccountIds(accounts, displayCurrency),
+    [accounts, displayCurrency]
+  );
+
+  // Legacy healing for the SPEND path, not just the modal: budgets saved by
+  // the old picker carry a category NAME where the id belongs, and matched
+  // nothing until each was opened and re-saved. Resolve a name-keyed (or
+  // legacy `category`-field) budget to its real category id before matching.
+  const categoryIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach(category => {
+      if (category?.name && category.id) map.set(category.name, category.id);
+    });
+    return map;
+  }, [categories]);
+  const categoryIdSet = useMemo(() => new Set(categories.map(c => c.id)), [categories]);
+  const resolveBudgetCategoryId = useCallback((budget: Budget): string => {
+    if (budget.categoryId && categoryIdSet.has(budget.categoryId)) return budget.categoryId;
+    const legacy = (budget as Budget & { category?: string }).category ?? budget.categoryId;
+    return (legacy && categoryIdByName.get(legacy)) || budget.categoryId;
+  }, [categoryIdSet, categoryIdByName]);
 
   // Calculate spent amounts for each budget with memoization
   const budgetsWithSpent = useMemo(() => {
     // Split parents expand into their per-line rows first, so a split line
     // spends against ITS category's budget. Converted to decimal once, not
     // per budget.
-    const decimalTransactions = expandSplitTransactions(transactions, transactionSplits).map(t => ({
-      ...t,
-      amount: toDecimal(t.amount)
-    }));
+    const prepared = prepareBudgetTransactions(transactions, transactionSplits);
 
     return budgets
       .filter(budget => budget !== null && budget !== undefined)
       .map((budget) => {
-        // Convert to decimal for calculations
-        const decimalBudget = {
-          ...budget,
-          amount: toDecimal(budget.amount)
-        };
+        // Effective amount = base budget plus any rollover carried in — the
+        // same figure the Envelope, Rollover and Alerts tabs use, so the five
+        // tabs can never disagree.
+        const effectiveAmount = getEffectiveBudgetAmount(budget);
 
-        // Calculate date range for budget period
-        let startDate: Date;
-        let endDate: Date;
-        
-        if (budget.period === 'monthly') {
-          startDate = new Date(currentYear, currentMonth, 1);
-          endDate = new Date(currentYear, currentMonth + 1, 0);
-        } else if (budget.period === 'weekly') {
-          // For weekly, use the current week
-          const now = new Date();
-          const dayOfWeek = now.getDay();
-          startDate = new Date(now);
-          startDate.setDate(now.getDate() - dayOfWeek);
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + 6);
-          endDate.setHours(23, 59, 59, 999);
-        } else {
-          // Yearly
-          startDate = new Date(currentYear, 0, 1);
-          endDate = new Date(currentYear, 11, 31);
-        }
+        // A budget on a GROUP category counts every detail category beneath
+        // it. A detail budget's set is just itself, so it keeps the plain
+        // equality match it has always used.
+        const resolvedCategoryId = resolveBudgetCategoryId(budget);
+        const categoryIds = collectBudgetCategoryIds(resolvedCategoryId, categoryChildIndex);
+        const { spent, window, excludedForeignCount } = calculateBudgetSpend(
+          { ...budget, categoryId: resolvedCategoryId },
+          prepared,
+          {
+            now: evaluatedAt,
+            categoryIds: categoryIds.size > 1 ? categoryIds : undefined,
+            foreignAccountIds
+          }
+        );
 
-        const spent = calculateBudgetSpending(decimalBudget, decimalTransactions, startDate, endDate);
-        const percentage = calculateBudgetPercentage(decimalBudget, spent);
-        const remaining = calculateBudgetRemaining(decimalBudget, spent);
+        const percentage = calculateBudgetPercentage({ amount: effectiveAmount }, spent);
+        // UNCLAMPED, unlike calculateBudgetRemaining's floored figure: an
+        // overspent budget must read "over budget by £30.00" rather than
+        // "£0.00 remaining" while the page total says something else.
+        const remaining = effectiveAmount.minus(spent);
 
         return {
           ...budget,
+          effectiveAmount,
           spent: spent.toNumber(),
           percentage,
-          remaining: remaining.toNumber()
+          remaining: remaining.toNumber(),
+          periodLabel: window.label,
+          excludedForeignCount
         };
       });
-  }, [budgets, transactions, transactionSplits, currentMonth, currentYear]);
+  }, [budgets, transactions, transactionSplits, categoryChildIndex, foreignAccountIds, evaluatedAt, resolveBudgetCategoryId]);
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -138,7 +161,9 @@ export default function Budget() {
             categoryName: categoryLabel || 'Unknown',
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
-            budget: budget.amount,
+            // The figure the card shows — the plan plus any carry — so an
+            // alert can never quote a limit the page does not display.
+            budget: budget.effectiveAmount.toNumber(),
             period: budget.period,
             type: 'danger' as const
           };
@@ -148,7 +173,7 @@ export default function Budget() {
             categoryName: categoryLabel || 'Unknown',
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
-            budget: budget.amount,
+            budget: budget.effectiveAmount.toNumber(),
             period: budget.period,
             type: 'warning' as const
           };
@@ -185,7 +210,9 @@ export default function Budget() {
   // Calculate totals with memoization
   const { totalBudgeted, totalSpent, totalRemaining, totalRemainingValue } = useMemo(() => {
     const active = budgetsWithSpent.filter(b => b && b.isActive !== false);
-    const budgeted = active.reduce((sum, b) => sum.plus(toDecimal(b.amount || 0)), toDecimal(0));
+    // Summed from exactly what the cards show — the effective amount (plan plus
+    // carry) and the same spend — so the header can never contradict them.
+    const budgeted = active.reduce((sum, b) => sum.plus(b.effectiveAmount), toDecimal(0));
     const spent = active.reduce((sum, b) => sum.plus(toDecimal(b.spent || 0)), toDecimal(0));
     const remaining = budgeted.minus(spent);
     
@@ -200,9 +227,15 @@ export default function Budget() {
   // Check for enhanced budget alerts whenever budgets change
   useEffect(() => {
     if (budgets.length > 0 && transactions.length > 0) {
-      checkEnhancedBudgetAlerts(budgets, transactions, categories);
+      // Same inputs the cards use: split lines count, and rows in another
+      // currency do not — an alert that disagrees with the card behind it is
+      // worse than no alert.
+      checkEnhancedBudgetAlerts(budgets, transactions, categories, {
+        transactionSplits,
+        foreignAccountIds
+      });
     }
-  }, [budgets, transactions, categories, checkEnhancedBudgetAlerts]);
+  }, [budgets, transactions, categories, transactionSplits, foreignAccountIds, checkEnhancedBudgetAlerts]);
 
   return (
     <PageWrapper 
@@ -360,7 +393,10 @@ export default function Budget() {
                   {getBudgetCategoryLabel(budget)}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {budget.period === 'monthly' ? 'Monthly' : 'Yearly'} budget
+                  {/* The budget's ACTUAL period — a weekly or quarterly budget
+                      used to be captioned "Yearly" because anything that was
+                      not monthly fell through to the same branch. */}
+                  {budget.periodLabel} budget
                   {budget.isActive === false && ' (Inactive)'}
                 </p>
               </div>
@@ -402,11 +438,20 @@ export default function Budget() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Spent</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {formatCurrency(budget.spent)} of {formatCurrency(Number(budget.amount) || 0)}
+                  {formatCurrency(budget.spent)} of {formatCurrency(budget.effectiveAmount)}
                 </span>
               </div>
 
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              {/* The BAR stops at full — there is no more room to draw — while
+                  the figures below it keep telling the truth past 100%. */}
+              <div
+                className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(Math.min(budget.percentage, 100))}
+                aria-valuetext={`${formatPercentage(budget.percentage, 0)}% of ${getBudgetCategoryLabel(budget)} budget used`}
+              >
                 <div
                   className={`h-2 rounded-full transition-all ${getProgressColor(budget.percentage)}`}
                   style={{ width: `${Math.min(budget.percentage, 100)}%` }}
@@ -420,9 +465,20 @@ export default function Budget() {
                 <span className={`font-medium ${
                   budget.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {formatCurrency(Math.abs(budget.remaining))} {budget.remaining >= 0 ? 'remaining' : 'over budget'}
+                  {budget.remaining >= 0
+                    ? `${formatCurrency(budget.remaining)} remaining`
+                    : `over budget by ${formatCurrency(Math.abs(budget.remaining))}`}
                 </span>
               </div>
+
+              {/* Named where the wrong figure is read, and by its consequence:
+                  no rate is applied to another currency in this wave, so the
+                  spend shown is short of what was actually spent. */}
+              {budget.excludedForeignCount > 0 && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Spending on accounts in another currency is left out, so you have spent more than this.
+                </p>
+              )}
             </div>
           </div>
         ))}
@@ -472,6 +528,10 @@ export default function Budget() {
         isOpen={isModalOpen}
         onClose={handleModalClose}
         budget={editingBudget || undefined}
+        // One line per category (Money's model): when the chosen category
+        // already has a budget, the modal offers to edit THAT one instead of
+        // adding a second that would double-count.
+        onEditExisting={setEditingBudget}
       />
 
       <PageTip

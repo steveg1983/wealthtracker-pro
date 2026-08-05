@@ -39,6 +39,10 @@ describe('BudgetModal', () => {
     vi.clearAllMocks();
     __setAppContextValue({
       categories: tree,
+      // No budgets unless a test says so: the shared default fixture holds
+      // budgets keyed by category NAME ("Groceries"), which resolve onto this
+      // tree and would trip the one-budget-per-category guard.
+      budgets: [],
       addBudget,
       updateBudget,
       getSubCategories: (parentId?: string) =>
@@ -94,6 +98,73 @@ describe('BudgetModal', () => {
 
     expect(addBudget).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a category to budget against.');
+  });
+
+  it('offers each group as a budgetable choice of its own', () => {
+    // Budgeting "Food" as a whole is how most people plan; the spending rolls
+    // the group's detail categories up (see utils/budgetSpending).
+    renderWithProviders(<BudgetModal {...defaultProps} />);
+    openCategoryPicker();
+
+    fireEvent.click(screen.getByText('All Food'));
+    fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '400' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Budget' }));
+
+    expect(addBudget.mock.calls[0][0]).toMatchObject({ categoryId: 'sub-food', amount: 400 });
+  });
+
+  describe('one budget per category', () => {
+    const existing: Budget = {
+      id: 'bud-existing',
+      categoryId: 'det-groceries',
+      amount: 300,
+      period: 'monthly',
+      isActive: true,
+      spent: 0,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    };
+
+    beforeEach(() => {
+      __setAppContextValue({ budgets: [existing] });
+    });
+
+    it('refuses to add a second budget to a category that already has one', () => {
+      renderWithProviders(<BudgetModal {...defaultProps} />);
+      openCategoryPicker();
+      fireEvent.click(screen.getByText('Groceries'));
+      fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '250' } });
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Groceries already has a budget.');
+      expect(screen.getByRole('button', { name: 'Add Budget' })).toBeDisabled();
+
+      // …and the form itself refuses the submit, however it is reached.
+      // (The modal renders through a portal, so it is found from the dialog.)
+      const form = screen.getByRole('dialog').querySelector('form');
+      if (!form) throw new Error('No form rendered');
+      fireEvent.submit(form);
+
+      expect(addBudget).not.toHaveBeenCalled();
+    });
+
+    it('offers to edit the budget that category already has', () => {
+      const onEditExisting = vi.fn();
+      renderWithProviders(<BudgetModal {...defaultProps} onEditExisting={onEditExisting} />);
+      openCategoryPicker();
+      fireEvent.click(screen.getByText('Groceries'));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit that budget instead' }));
+
+      expect(onEditExisting).toHaveBeenCalledWith(existing);
+    });
+
+    it('lets that same budget be saved when it is the one being edited', () => {
+      renderWithProviders(<BudgetModal {...defaultProps} budget={existing} />);
+      fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '350' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      expect(updateBudget).toHaveBeenCalledWith('bud-existing', expect.objectContaining({ amount: 350 }));
+    });
   });
 
   it('shows the category of a budget stored the legacy way, by NAME', () => {

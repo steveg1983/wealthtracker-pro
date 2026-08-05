@@ -29,6 +29,7 @@
  */
 
 import { indexedDBService } from './indexedDBService';
+import { normalizeTransactionDates } from '../utils/dateBoundary';
 import type { Transaction } from '../types';
 
 /**
@@ -149,7 +150,13 @@ export class TransactionCache {
         return null;
       }
 
-      return { rows: record.rows, highWaterMark: record.highWaterMark };
+      // `rows` claims Transaction[], so `date` must be a real Date before it
+      // leaves here. A structured clone preserves a Date, but every snapshot
+      // written before the date boundary existed stored the raw wire string
+      // ("2026-08-01") — and those are sitting in users' IndexedDB right now.
+      // Normalising on read fixes them in place; invalidating the record
+      // instead would cost every existing user a full ~29 MB re-download.
+      return { rows: normalizeTransactionDates(record.rows), highWaterMark: record.highWaterMark };
     } catch (error) {
       this.logger.warn('[TransactionCache] Unable to read the boot snapshot', error);
       return null;

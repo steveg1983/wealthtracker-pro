@@ -98,6 +98,13 @@ interface CategorySelectorProps {
    * that bottom-aligned row and floated its label above the others.
    */
   size?: 'default' | 'compact';
+  /**
+   * Offer each GROUP itself as a choice ("All Food"), above its detail
+   * categories. For budgets, where a limit on a whole group is the normal way
+   * to plan and spending rolls the group's detail categories up. OFF
+   * everywhere a transaction is being filed: a transaction belongs to a leaf.
+   */
+  allowGroupSelection?: boolean;
 }
 
 export default function CategorySelector({
@@ -113,6 +120,7 @@ export default function CategorySelector({
   excludeIds,
   allowClear = false,
   size = 'default',
+  allowGroupSelection = false,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -247,13 +255,17 @@ export default function CategorySelector({
   // titled sections instead of a flat list, while search still filters items.
   const getGroupedOptions = (): Array<{ id: string; name: string; items: Category[] }> => {
     const matchedIds = new Set(getFilteredOptions().map(c => c.id));
+    const groupMatchesSearch = (name: string): boolean =>
+      allowGroupSelection && name.toLowerCase().includes(searchTerm.toLowerCase());
     const groups = getSubCategoriesForType()
       .map(sub => ({
         id: sub.id,
         name: sub.name,
         items: getDetailCategories(sub.id).filter(d => matchedIds.has(d.id)),
       }))
-      .filter(group => group.items.length > 0);
+      // A group with no (matching) leaves still belongs in the list when the
+      // group ITSELF can be chosen and the search names it.
+      .filter(group => group.items.length > 0 || groupMatchesSearch(group.name));
     // Revaluation last, under its own heading: the third kind of movement,
     // read after the everyday ones rather than mixed in with them.
     const revaluationGroups = getRevaluationRoots()
@@ -279,6 +291,13 @@ export default function CategorySelector({
   const getCategoryDisplayName = (categoryId: string): string => {
     const category = categories.find(c => c.id === categoryId);
     if (!category) return '';
+
+    // A chosen GROUP reads as the whole group ("All Food"), never as
+    // "Expenses > Food" — the parent of a group is the direction, which tells
+    // the reader nothing.
+    if (allowGroupSelection && category.level === 'sub') {
+      return `All ${category.name}`;
+    }
 
     const parentName = getParentCategoryName(categoryId);
     return parentName ? `${parentName} > ${category.name}` : category.name;
@@ -448,10 +467,16 @@ export default function CategorySelector({
   // "Uncategorised" stays visible while the search could still mean it
   // ('' matches everything, "unc" matches, "food" hides it).
   const showClearOption = allowClear && 'uncategorised'.includes(searchTerm.toLowerCase());
-  // Flat view of the visible options, in render order — what the arrow keys walk.
+  // Flat view of the visible options, in render order — what the arrow keys
+  // walk. With group selection on, each group's own option leads its items,
+  // exactly as they are drawn.
   const flatOptions: Array<Pick<Category, 'id' | 'name'>> = [
     ...(showClearOption ? [{ id: UNCATEGORISED_ID, name: 'Uncategorised' }] : []),
-    ...groupedOptions.flatMap(g => g.items),
+    ...groupedOptions.flatMap(g =>
+      allowGroupSelection
+        ? [{ id: g.id, name: `All ${g.name}` }, ...g.items]
+        : g.items
+    ),
   ];
   const highlightedId = highlightIndex >= 0 ? flatOptions[highlightIndex]?.id : undefined;
 
@@ -626,6 +651,32 @@ export default function CategorySelector({
                       <div className="sticky top-0 z-10 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-500 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                         {group.name}
                       </div>
+                      {/* The group as a choice in its own right, above its
+                          leaves — a budget on "Food" covers everything under
+                          it. Only rendered where groups are selectable. */}
+                      {allowGroupSelection && (
+                        <div
+                          id={optionDomId(group.id)}
+                          role="option"
+                          aria-selected={selectedCategory === group.id}
+                          data-highlighted-option={highlightedId === group.id ? instanceId : undefined}
+                          className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${
+                            highlightedId === group.id
+                              ? 'bg-gray-100 dark:bg-gray-600'
+                              : selectedCategory === group.id
+                              ? 'bg-blue-50 dark:bg-blue-900/20'
+                              : ''
+                          }`}
+                          onClick={() => handleCategorySelect(group.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <TagIcon size={14} className="text-gray-400 shrink-0" />
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              All {group.name}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       {group.items.map((category) => (
                         <div
                           key={category.id}

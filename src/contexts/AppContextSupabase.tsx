@@ -12,6 +12,7 @@ import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';
 import { PlanningService } from '../services/api/planningService';
+import { goalAchievementService } from '../services/goalAchievementService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
 import {
@@ -20,6 +21,7 @@ import {
   toDecimalGoal
 } from '../utils/decimal-converters';
 import { toDecimal } from '../utils/decimal';
+import { normalizeTransactionDates } from '../utils/dateBoundary';
 import { TransactionService } from '../services/api/transactionService';
 import type { ServerAccountBalance } from '../utils/accountBalances';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
@@ -893,6 +895,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await PlanningService.deleteGoal(userIdService.getCurrentDatabaseUserId(), id);
       setGoals(prev => prev.filter(g => g.id !== id));
+      // The goal is gone, so its trophy and its "already celebrated" flag go
+      // with it — otherwise the achievement history keeps listing a goal that
+      // no longer exists.
+      goalAchievementService.forgetGoal(id);
     } catch (error) {
       appLogger.error('Failed to delete goal', error);
       throw error;
@@ -1094,7 +1100,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Import/Export operations
   const importData = useCallback((data: Partial<AppState>) => {
     if (data.accounts) setAccounts(data.accounts);
-    if (data.transactions) setTransactions(data.transactions);
+    // A restored backup arrives via JSON.parse, so every `date` is the string
+    // it was serialised to — the last way rows can enter state still stringly.
+    if (data.transactions) setTransactions(normalizeTransactionDates(data.transactions));
     if (data.budgets) setBudgets(data.budgets);
     if (data.goals) setGoals(data.goals);
     if (data.categories) setCategories(data.categories);

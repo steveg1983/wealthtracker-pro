@@ -13,6 +13,7 @@ import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal } from '../../utils/decimal';
+import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
 import type { Account, Transaction, TransactionSplit, TransactionSplitInput, Budget, Goal, Category } from '../../types';
 
 export interface AppData {
@@ -128,6 +129,17 @@ class DataServiceImpl {
     return stored || [];
   }
 
+  /**
+   * The browser-local transaction collection (local mode, demo data, offline
+   * fallback). It is stored as JSON, so every `date` comes back as the string
+   * it was serialised to — the same boundary the network path has. These rows
+   * go straight into app state and into the balance/budget maths, so the type
+   * is made true here rather than at each reader.
+   */
+  private async readLocalTransactions(): Promise<Transaction[]> {
+    return normalizeTransactionDates(await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS));
+  }
+
   private async persistCollection<T>(key: string, value: T[]): Promise<void> {
     await this.storage.set(key, value);
   }
@@ -211,7 +223,7 @@ class DataServiceImpl {
 
     const rows = this.isCloudSessionPending()
       ? []
-      : await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+      : await this.readLocalTransactions();
     return {
       transactions: rows,
       stats: { cached: 0, fetched: 0, total: rows.length, fullFetchReason: 'local mode' }
@@ -296,7 +308,7 @@ class DataServiceImpl {
     }
 
     if (this.isCloudSessionPending()) return [];
-    return this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    return this.readLocalTransactions();
   }
 
   async createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
@@ -306,9 +318,12 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
+    // The caller's date crosses the boundary here: this row is handed straight
+    // back to the context and pushed into app state.
     const newTransaction: Transaction = {
       ...transaction,
+      date: toDateValue(transaction.date),
       id: this.generateId()
     } as Transaction;
 
@@ -325,7 +340,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const index = transactions.findIndex(transaction => transaction.id === id);
     if (index === -1) {
       throw new Error('Transaction not found');
@@ -334,7 +349,11 @@ class DataServiceImpl {
     const oldAmount = transactions[index].amount;
     const oldAccountId = transactions[index].accountId;
 
-    transactions[index] = { ...transactions[index], ...updates } as Transaction;
+    transactions[index] = {
+      ...transactions[index],
+      ...updates,
+      ...(updates.date !== undefined ? { date: toDateValue(updates.date) } : {})
+    } as Transaction;
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
 
     if (updates.amount !== undefined && updates.amount !== oldAmount) {
@@ -356,7 +375,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const transaction = transactions.find(t => t.id === id);
     if (transaction) {
       await this.updateAccountBalance(transaction.accountId, -transaction.amount);
@@ -373,7 +392,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const cutoffByAccount = new Map(
       accounts.map(a => [a.id, a.archiveThroughDate ? new Date(a.archiveThroughDate) : null])
@@ -411,7 +430,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     let count = 0;
     const updated = transactions.map(t => {
       if (t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff) {
@@ -438,7 +457,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     let count = 0;
     const updated = transactions.map(t => {
       if (t.accountId === accountId && t.archived) { count += 1; return { ...t, archived: false }; }
@@ -465,7 +484,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const idSet = new Set(ids);
     let count = 0;
     const updated = transactions.map(t => {
@@ -521,7 +540,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const index = transactions.findIndex(t => t.id === transactionId);
     if (index === -1) {
       throw new Error('Transaction not found');
@@ -607,7 +626,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const a = transactions.find(t => t.id === idA);
     const b = transactions.find(t => t.id === idB);
     if (!a || !b) {
@@ -663,7 +682,7 @@ class DataServiceImpl {
     }
     this.guardCloudWrite();
 
-    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const transactions = await this.readLocalTransactions();
     const source = transactions.find(t => t.id === id);
     if (!source) {
       throw new Error('Transaction not found');

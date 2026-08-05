@@ -5,7 +5,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import BudgetPage from '../../pages/Budget';
 import { AppProvider } from '../../contexts/AppContextSupabase';
 import { NotificationProvider } from '../../contexts/NotificationContext';
-import { BudgetProvider } from '../../contexts/BudgetContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { __resetAppContextValue, __setAppContextValue } from '../mocks/AppContextSupabase';
@@ -22,11 +21,9 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/budget' } = {})
         <AppProvider>
           <NotificationProvider>
             <ToastProvider>
-              <BudgetProvider>
-                <Routes>
-                  <Route path="/budget" element={ui} />
-                </Routes>
-              </BudgetProvider>
+              <Routes>
+                <Route path="/budget" element={ui} />
+              </Routes>
             </ToastProvider>
           </NotificationProvider>
         </AppProvider>

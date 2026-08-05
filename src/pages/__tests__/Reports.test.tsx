@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
@@ -21,6 +21,13 @@ import type { Account, Category, Transaction } from '../../types';
  * so the number of columns after March moves with the calendar, and a test
  * that counts them would start failing on its own.
  */
+
+// The editor's own behaviour is covered by EditTransactionModal's tests; here
+// only the wiring matters — which transaction the report hands it.
+vi.mock('../../components/EditTransactionModal', () => ({
+  default: ({ isOpen, transaction }: { isOpen: boolean; transaction: Transaction | null }) =>
+    isOpen ? <div data-testid="edit-transaction-modal">Editing: {transaction?.description}</div> : null,
+}));
 
 const CUMULATIVE_KEY = 'reports.monthlyIncomeExpenses.cumulative.v1';
 
@@ -157,5 +164,61 @@ describe('Monthly income and expenses — the Cumulative toggle', () => {
 
     expect(cumulativeBox()).toBeChecked();
     expect(firstThreeMonths('Total Expenses')).toEqual(['£40.25', '£100.75', '£111.00']);
+  });
+});
+
+/**
+ * Top Transactions on the report itself: the wiring, not the table's own
+ * behaviour (that is covered by TopTransactionsTable.test.tsx). What matters
+ * here is that the categories the report holds are the ones the exclusion is
+ * resolved against, so a transfer leg and a revaluation cannot reach the list.
+ */
+describe('Monthly income and expenses — Top Transactions', () => {
+  const MIXED_CATEGORIES: Category[] = [
+    ...CATEGORIES,
+    { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
+    { id: 'tofrom-savings', name: 'To/From Savings', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'acc-2' },
+    { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isSystem: true, isRevaluationCategory: true },
+    { id: 'cat-reval', name: 'Market Value Change', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
+  ];
+
+  const MIXED_TRANSACTIONS: Transaction[] = [
+    txn({ id: 'x1', date: new Date(2026, 0, 9), amount: -250, description: 'synthetic real spend' }),
+    txn({ id: 'x2', date: new Date(2026, 0, 10), amount: -9000, type: 'transfer', category: '', description: 'synthetic transfer leg' }),
+    txn({ id: 'x3', date: new Date(2026, 0, 11), amount: -7000, category: 'tofrom-savings', description: 'synthetic filed transfer' }),
+    txn({ id: 'x4', date: new Date(2026, 0, 12), amount: 8000, type: 'income', category: 'cat-reval', description: 'synthetic valuation' }),
+  ];
+
+  beforeEach(() => {
+    localStorage.clear();
+    __setAppContextValue({ accounts: ACCOUNTS, categories: MIXED_CATEGORIES, transactions: MIXED_TRANSACTIONS });
+  });
+
+  afterEach(() => {
+    __resetAppContextValue();
+  });
+
+  it('lists the real spending and neither the transfers nor the revaluation', () => {
+    renderReport();
+    fireEvent.click(screen.getByRole('button', { name: /^Show/ }));
+
+    expect(screen.getAllByText('synthetic real spend').length).toBeGreaterThan(0);
+    expect(screen.queryByText('synthetic transfer leg')).not.toBeInTheDocument();
+    expect(screen.queryByText('synthetic filed transfer')).not.toBeInTheDocument();
+    expect(screen.queryByText('synthetic valuation')).not.toBeInTheDocument();
+  });
+
+  it('opens the transaction editor from the row', () => {
+    renderReport();
+    fireEvent.click(screen.getByRole('button', { name: /^Show/ }));
+
+    // The row itself is the way in — the description carries no control now.
+    const row = screen
+      .getAllByText('synthetic real spend')
+      .map(node => node.closest('tr'))
+      .find((element): element is HTMLTableRowElement => element !== null);
+    fireEvent.click(row as HTMLElement);
+
+    expect(screen.getByTestId('edit-transaction-modal')).toHaveTextContent('Editing: synthetic real spend');
   });
 });

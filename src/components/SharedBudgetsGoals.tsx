@@ -20,10 +20,11 @@ import {
 } from './icons';
 import { CreateBudgetModal, CreateGoalModal } from './SharedBudgetsModals';
 import { useCurrency } from '../hooks/useCurrency';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, toStorageNumber } from '../utils/decimal';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { daysUntil, formatDaysRemaining } from '../utils/goalDates';
 import { format } from 'date-fns';
 
 type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
@@ -51,7 +52,7 @@ interface GoalFormState {
 }
 
 export default function SharedBudgetsGoals() {
-  const { transactions: rawTransactions, transactionSplits, categories, addBudget, addGoal } = useApp();
+  const { transactions: rawTransactions, transactionSplits, categories, addBudget } = useApp();
   // Split parents expand into per-line rows so shared-budget spending counts
   // split lines against their categories.
   const transactions = useMemo(
@@ -167,10 +168,15 @@ export default function SharedBudgetsGoals() {
     if (!household || !currentMember) return;
 
     try {
+      // ONE goal, not two. This used to also create a private copy in the app
+      // context: a second goal with the same name that no contribution ever
+      // reached, so the household saw its shared goal climbing while the
+      // Goals page showed the twin stuck at £0 forever. A shared goal lives
+      // in the household; it is shown here.
       sharedFinanceService.createSharedGoal(
         {
           name: goalForm.name,
-          targetAmount: Number(goalForm.targetAmount),
+          targetAmount: toStorageNumber(toDecimal(goalForm.targetAmount || 0)),
           currentAmount: 0,
           targetDate: new Date(goalForm.targetDate),
           description: goalForm.description,
@@ -184,19 +190,6 @@ export default function SharedBudgetsGoals() {
         currentMember.name,
         goalForm.isHouseholdGoal
       );
-
-      // Also create in main app context
-      addGoal({
-        name: goalForm.name,
-        targetAmount: Number(goalForm.targetAmount),
-        targetDate: new Date(goalForm.targetDate),
-        description: goalForm.description,
-        currentAmount: 0,
-        type: 'savings' as const,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
 
       setShowCreateGoal(false);
       setGoalForm({
@@ -250,10 +243,10 @@ export default function SharedBudgetsGoals() {
       transactions,
       now
     );
-    
-    let total = 0;
-    spending.forEach(amount => total += amount);
-    return total;
+
+    let total = toDecimal(0);
+    spending.forEach(amount => { total = total.plus(toDecimal(amount)); });
+    return toStorageNumber(total);
   };
 
   const getMemberSpending = (budget: SharedBudget): Map<string, number> => {
@@ -469,7 +462,9 @@ export default function SharedBudgetsGoals() {
             const percentageDecimal = targetAmountDecimal.greaterThan(0)
               ? currentAmountDecimal.dividedBy(targetAmountDecimal).times(100)
               : toDecimal(0);
-            const daysLeft = Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            // Calendar days in local time (shared with the Goals page), so a
+            // goal due today reads "Due today" rather than "Overdue".
+            const daysLeft = daysUntil(new Date(goal.targetDate));
             const myContribution = goal.contributors.find(c => c.memberId === currentMember?.id);
 
             return (
@@ -486,7 +481,7 @@ export default function SharedBudgetsGoals() {
                       {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
                     </p>
                     <p className={`text-sm ${daysLeft < 30 ? 'text-orange-600' : 'text-gray-600'}`}>
-                      {daysLeft > 0 ? `${daysLeft} days left` : 'Overdue'}
+                      {formatDaysRemaining(daysLeft)}
                     </p>
                   </div>
                 </div>
@@ -541,13 +536,16 @@ export default function SharedBudgetsGoals() {
                 {!goal.completedAt && myContribution && currentMember?.permissions.canEditGoals && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex gap-2">
+                      {/* The user's currency, not a hard-coded dollar sign —
+                          this is a UK-first app and the rest of the card is
+                          already formatted properly. */}
                       {[10, 25, 50, 100].map(amount => (
                         <button
                           key={amount}
                           onClick={() => handleContributeToGoal(goal.id, amount)}
                           className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 text-sm"
                         >
-                          +${amount}
+                          +{formatCurrency(amount)}
                         </button>
                       ))}
                     </div>

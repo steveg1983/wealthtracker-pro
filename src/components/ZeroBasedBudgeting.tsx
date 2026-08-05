@@ -51,7 +51,8 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
   const { categories } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, displayCurrency, getCurrencySymbol } = useCurrencyDecimal();
+  const currencySymbol = getCurrencySymbol(displayCurrency);
 
   // Load periods from localStorage
   useEffect(() => {
@@ -481,7 +482,9 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
                   <li>• Start with essential expenses: housing, utilities, food, transportation</li>
                   <li>• Add important items: insurance, debt payments, savings</li>
                   <li>• Consider nice-to-have items only after essentials are covered</li>
-                  <li>• Every dollar should have a purpose - aim for zero remaining</li>
+                  {/* The user's own currency, not a dollar: this app is used
+                      in pounds by default and the symbol follows preferences. */}
+                  <li>• Every {currencySymbol} should have a purpose - aim for zero remaining</li>
                   <li>• Review and adjust regularly as priorities change</li>
                 </ul>
               </div>
@@ -493,7 +496,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
           <CalculatorIcon size={64} className="mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-semibold mb-2">Get Started with Zero-Based Budgeting</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Create your first budget period to start allocating every dollar
+            Create your first budget period to start allocating every {currencySymbol}
           </p>
           <button
             onClick={() => setShowNewPeriodModal(true)}

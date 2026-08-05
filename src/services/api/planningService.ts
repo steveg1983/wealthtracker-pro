@@ -74,7 +74,15 @@ const budgetToDb = (b: Partial<Budget>, userId?: string): Row => {
 
 // ── Goal mapping ─────────────────────────────────────────────────────────────
 
-const goalFromDb = (row: Row): Goal => {
+/**
+ * Cloud row → Goal.
+ *
+ * Exported so the mapping itself is testable: it is the whole of the cloud
+ * round trip (the wire is covered by the Supabase smoke suite), and until
+ * 2026-08 it was the only path with NO test at all — which is how `isActive`
+ * came to be silently dropped on the way out.
+ */
+export const goalFromDb = (row: Row): Goal => {
   const metadata = (row.metadata ?? {}) as Row;
   const currentAmount = num(row.current_amount);
   return {
@@ -89,6 +97,9 @@ const goalFromDb = (row: Row): Goal => {
     isActive: str(row.status) !== 'paused',
     achieved: str(row.status) === 'completed',
     status: (str(row.status) ?? 'active') as Goal['status'],
+    // The achievement itself, not a per-device localStorage flag: a goal
+    // reached on the laptop shows as reached on the phone.
+    completedAt: row.completed_at ? new Date(String(row.completed_at)).toISOString() : undefined,
     createdAt: row.created_at ? new Date(String(row.created_at)) : new Date(),
     updatedAt: row.updated_at ? new Date(String(row.updated_at)) : new Date(),
     category: str(row.category),
@@ -107,7 +118,18 @@ const goalFromDb = (row: Row): Goal => {
   };
 };
 
-const goalToDb = (g: Partial<Goal>, userId?: string): Row => {
+/**
+ * Goal → cloud row.
+ *
+ * `existingMetadata` is the row's CURRENT metadata, and it matters: metadata
+ * carries three unrelated fields (type, linked accounts, contribution amount)
+ * in one jsonb column, so rebuilding the object from a partial update — which
+ * is what this did until 2026-08 — wiped whichever of the three the update did
+ * not happen to mention. Editing a goal's type deleted its linked accounts.
+ *
+ * Exported for tests alongside goalFromDb.
+ */
+export const goalToDb = (g: Partial<Goal>, userId?: string, existingMetadata?: Row): Row => {
   const row: Row = {};
   if (userId) row.user_id = userId;
   if (g.name !== undefined) row.name = g.name;
@@ -123,16 +145,33 @@ const goalToDb = (g: Partial<Goal>, userId?: string): Row => {
   }
   if (g.category !== undefined) row.category = g.category;
   if (g.priority !== undefined) row.priority = g.priority;
+  // `status` is the column; `isActive` is what the UI calls the same thing.
+  // Mapping it here is what makes the modal's "Active Goal" checkbox mean
+  // anything at all — before this, pausing a goal wrote nothing.
   if (g.status !== undefined) row.status = g.status;
   else if (g.achieved === true) row.status = 'completed';
+  else if (g.isActive !== undefined) row.status = g.isActive ? 'active' : 'paused';
+  if (row.status !== undefined) {
+    // The achievement date follows the status, always: stamped when a goal
+    // completes, cleared if it is ever reopened, so the two can never disagree.
+    if (row.status === 'completed') {
+      row.completed_at = g.completedAt ?? new Date().toISOString();
+    } else {
+      row.completed_at = null;
+    }
+  } else if (g.completedAt !== undefined) {
+    row.completed_at = g.completedAt;
+  }
   if (g.accountId !== undefined) row.account_id = g.accountId || null;
   if (g.autoContribute !== undefined) row.auto_contribute = g.autoContribute;
   if (g.contributionFrequency !== undefined) row.contribution_frequency = g.contributionFrequency || null;
   if (g.icon !== undefined) row.icon = g.icon;
   if (g.color !== undefined) row.color = g.color;
-  // Fields without dedicated columns ride in metadata.
+  // Fields without dedicated columns ride in metadata — merged over whatever
+  // is already stored, never rebuilt from scratch.
   if (g.type !== undefined || g.linkedAccountIds !== undefined || g.contributionAmount !== undefined) {
     row.metadata = {
+      ...(existingMetadata ?? {}),
       ...(g.type !== undefined ? { type: g.type } : {}),
       ...(g.linkedAccountIds !== undefined ? { linkedAccountIds: g.linkedAccountIds } : {}),
       ...(g.contributionAmount !== undefined ? { contributionAmount: g.contributionAmount } : {})
@@ -163,11 +202,13 @@ export class PlanningService {
 
   static async getBudgets(userId: string | null): Promise<Budget[]> {
     if (this.cloudReady && userId) {
+      // Inactive budgets load too: pausing a budget greys it out on the page
+      // (which filters on isActive where it matters), it must not make the
+      // budget vanish with no way to reactivate it.
       const { data, error } = await supabase!
         .from('budgets')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_active', true)
         .order('created_at', { ascending: true });
       if (error) {
         logger.error('getBudgets failed, using local fallback', error);
@@ -260,8 +301,13 @@ export class PlanningService {
   }
 
   static async createGoal(userId: string | null, goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
+    // `progress` IS the accumulated amount, so a goal created with money
+    // already put by starts at that figure — hard-coding 0 here banked the
+    // user's opening amount in local mode and threw it away in the cloud.
+    const startingAmount = goal.currentAmount ?? 0;
+
     if (this.cloudReady && userId) {
-      const row = goalToDb({ ...goal, progress: 0 }, userId);
+      const row = goalToDb({ ...goal, progress: startingAmount }, userId);
       const { data, error } = await supabase!
         .from('goals')
         .insert(row as never)
@@ -274,10 +320,10 @@ export class PlanningService {
     const newGoal: Goal = {
       ...goal,
       id: crypto.randomUUID(),
-      progress: 0,
+      progress: startingAmount,
       createdAt: new Date(),
       updatedAt: new Date()
-    } as Goal;
+    };
     const goals = await readLocal<Goal>(STORAGE_KEYS.GOALS);
     goals.push(newGoal);
     await writeLocal(STORAGE_KEYS.GOALS, goals);
@@ -286,9 +332,30 @@ export class PlanningService {
 
   static async updateGoal(userId: string | null, id: string, updates: Partial<Goal>): Promise<Goal> {
     if (this.cloudReady && userId) {
+      // A metadata-backed field (type / linked accounts / contribution amount)
+      // shares one jsonb column with the other two, and PostgREST cannot merge
+      // server-side — so read the stored object and merge into it. Only the
+      // updates that actually touch metadata pay for the extra round trip.
+      let existingMetadata: Row | undefined;
+      const touchesMetadata =
+        updates.type !== undefined ||
+        updates.linkedAccountIds !== undefined ||
+        updates.contributionAmount !== undefined;
+      if (touchesMetadata) {
+        const { data: current, error: readError } = await supabase!
+          .from('goals')
+          .select('metadata')
+          .eq('id', id)
+          .eq('user_id', userId)
+          .single();
+        if (readError) throw new Error(handleSupabaseError(readError));
+        const stored = (current as Row | null)?.metadata;
+        existingMetadata = stored && typeof stored === 'object' ? (stored as Row) : undefined;
+      }
+
       const { data, error } = await supabase!
         .from('goals')
-        .update(goalToDb(updates) as never)
+        .update(goalToDb(updates, undefined, existingMetadata) as never)
         .eq('id', id)
         .eq('user_id', userId)
         .select()

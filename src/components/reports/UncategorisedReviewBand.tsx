@@ -45,8 +45,30 @@ export default function UncategorisedReviewBand({
         <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
           {count.toLocaleString()} uncategorised transaction{count === 1 ? '' : 's'} excluded from these totals
         </span>
-        <span className="text-sm text-amber-700 dark:text-amber-400 tabular-nums">
-          {formatCurrency(flows.uncategorizedIn.toNumber())} in · {formatCurrency(flows.uncategorizedOut.toNumber())} out
+        {/* The money the report cannot see, in the app's money colours: in
+            green, out red, and the NET of the two — the single number that
+            says how far the report's totals could move once filed. */}
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm font-semibold tabular-nums">
+          <span className="text-green-600 dark:text-green-400">
+            {formatCurrency(flows.uncategorizedIn.toNumber())} in
+          </span>
+          <span className="text-red-600 dark:text-red-400">
+            {formatCurrency(flows.uncategorizedOut.toNumber())} out
+          </span>
+          {(() => {
+            const net = flows.uncategorizedIn.minus(flows.uncategorizedOut);
+            if (net.isZero()) {
+              return <span className="text-amber-700 dark:text-amber-400">nets to zero</span>;
+            }
+            const colour = net.isNegative()
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-green-600 dark:text-green-400';
+            return (
+              <span className={colour}>
+                {formatCurrency(net.abs().toNumber())} net {net.isNegative() ? 'out' : 'in'}
+              </span>
+            );
+          })()}
         </span>
         <span className="ml-auto text-xs text-amber-700 dark:text-amber-400">
           Click to review and categorise

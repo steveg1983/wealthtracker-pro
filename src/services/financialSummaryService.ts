@@ -222,16 +222,22 @@ export class FinancialSummaryService {
       ? netIncome.dividedBy(totalIncome).times(100).toNumber()
       : 0;
 
-    // Account balance changes
+    // Account balance changes. The per-id index exists because goals link to
+    // accounts BY ID: matching them back by name (as this did until 2026-08)
+    // credits the wrong account whenever two are named alike — "Savings" at
+    // two banks — and credits none at all after a rename.
+    const changeByAccountId = new Map<string, DecimalInstance>();
     const accountBalances = accounts.map(account => {
       const accountTransactions = periodTransactions.filter(t => t.accountId === account.id);
       const income = sumMagnitudes(accountTransactions.filter(t => t.type === 'income'));
       const expenses = sumMagnitudes(accountTransactions.filter(t => t.type === 'expense'));
+      const change = income.minus(expenses);
+      changeByAccountId.set(account.id, change);
 
       return {
         accountName: account.name,
         balance: toDecimal(account.balance),
-        change: income.minus(expenses)
+        change
       };
     });
 
@@ -265,20 +271,19 @@ export class FinancialSummaryService {
         let amountAdded = toDecimal(0);
         if (goal.linkedAccountIds && goal.linkedAccountIds.length > 0) {
           goal.linkedAccountIds.forEach(accountId => {
-            const account = accountBalances.find(a => {
-              const acc = accounts.find(ac => ac.id === accountId);
-              return acc && a.accountName === acc.name;
-            });
-            if (account && account.change.greaterThan(0)) {
-              amountAdded = amountAdded.plus(account.change);
+            const change = changeByAccountId.get(accountId);
+            if (change && change.greaterThan(0)) {
+              amountAdded = amountAdded.plus(change);
             }
           });
         }
-        
-        const progress = goal.targetAmount > 0 
-          ? (goal.currentAmount / goal.targetAmount) * 100 
+
+        const targetAmount = toDecimal(goal.targetAmount);
+        const progress = targetAmount.greaterThan(0)
+          ? toDecimal(goal.currentAmount).dividedBy(targetAmount).times(100).toNumber()
           : 0;
-        
+
+
         return {
           goalName: goal.name,
           progress,

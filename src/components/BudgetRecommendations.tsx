@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { foreignCurrencyAccountIds } from '../utils/budgetSpending';
 import { 
   budgetRecommendationService, 
   type BudgetAnalysis, 
@@ -20,13 +21,20 @@ import {
 import { useCurrency } from '../hooks/useCurrency';
 
 export default function BudgetRecommendations() {
-  const { transactions, categories, budgets, updateBudget, addBudget } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { transactions, transactionSplits, categories, budgets, accounts, updateBudget, addBudget } = useApp();
+  const { formatCurrency, displayCurrency } = useCurrency();
   const [analysis, setAnalysis] = useState<BudgetAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedRecommendations, setSelectedRecommendations] = useState<Set<string>>(new Set());
   const [config, setConfig] = useState<RecommendationConfig>(() => budgetRecommendationService.getConfig());
+
+  // Rows on accounts in another currency are left out of the analysis rather
+  // than added to a sterling total at an invented rate.
+  const foreignAccountIds = useMemo(
+    () => foreignCurrencyAccountIds(accounts, displayCurrency),
+    [accounts, displayCurrency]
+  );
 
   const analyzeAndRecommend = useCallback(() => {
     setLoading(true);
@@ -34,13 +42,15 @@ export default function BudgetRecommendations() {
       const result = budgetRecommendationService.analyzeBudgets(
         transactions,
         categories,
-        budgets
+        budgets,
+        // The same inputs the Budget cards use: split lines count, one currency.
+        { transactionSplits, foreignAccountIds, currency: displayCurrency }
       );
       setAnalysis(result);
     } finally {
       setLoading(false);
     }
-  }, [budgets, categories, transactions]);
+  }, [budgets, categories, transactions, transactionSplits, foreignAccountIds, displayCurrency]);
 
   useEffect(() => {
     analyzeAndRecommend();

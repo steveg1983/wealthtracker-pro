@@ -3,9 +3,9 @@
  * Comprehensive tests for the notification context provider
  */
 
-import React, { ReactNode } from 'react';
+import React, { useEffect, type ReactNode } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { render, renderHook, screen, act } from '@testing-library/react';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import { NotificationProvider, useNotifications } from './NotificationContext';
 import type { Notification, BudgetAlert } from './NotificationContext';
@@ -182,7 +182,13 @@ describe('NotificationContext', () => {
         read: false,
         timestamp: new Date('2025-01-20T12:00:00'),
       });
-      expect(result.current.notifications[0].id).toMatch(/^notification-\d+$/);
+      // Ids come from crypto.randomUUID (stubbed in the test setup), not from
+      // `notification-${Date.now()}`: two alerts raised in the same millisecond
+      // used to share an id, and markAsRead/remove then acted on both. The
+      // distinctness of same-millisecond ids is asserted under
+      // "budget alerts > repeat suppression".
+      expect(result.current.notifications[0].id).toMatch(/^notification-\S+$/);
+      expect(result.current.notifications[0].id).not.toMatch(/^notification-\d+$/);
       expect(result.current.unreadCount).toBe(1);
     });
 
@@ -499,6 +505,243 @@ describe('NotificationContext', () => {
       expect(result.current.notifications[0].message).toContain('85%');
     });
 
+    // Regression (audit 2026-08): the old duplicate check compared each
+    // notification's MESSAGE against a `budget-<id>-<pct>` key that was never
+    // stored, so it matched nothing and every call appended another
+    // notification. The Budget page raises these from an effect that depends on
+    // checkBudgetAlerts, and checkBudgetAlerts closed over `notifications` —
+    // so each added notification re-created the callback, re-ran the effect and
+    // added another. With real (non-zero) budget percentages that is unbounded.
+    describe('repeat suppression', () => {
+      const alert: BudgetAlert = {
+        budgetId: 'budget-1',
+        categoryName: 'Food',
+        percentage: 85,
+        spent: 425,
+        budget: 500,
+        period: 'monthly',
+        type: 'warning',
+      };
+
+      const enabled = () => {
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+        act(() => {
+          result.current.setBudgetAlertsEnabled(true);
+        });
+        return result;
+      };
+
+      it('raises the same budget alert once, however many times the effect fires', () => {
+        const result = enabled();
+
+        act(() => {
+          result.current.checkBudgetAlerts([alert]);
+        });
+        const first = result.current.notifications[0];
+
+        act(() => {
+          result.current.checkBudgetAlerts([alert]);
+          result.current.checkBudgetAlerts([alert]);
+          result.current.checkBudgetAlerts([alert]);
+        });
+
+        expect(result.current.notifications).toHaveLength(1);
+        // Same object: the state array was returned by identity, which is what
+        // makes React bail out and stops the effect re-firing.
+        expect(result.current.notifications[0]).toBe(first);
+      });
+
+      it('suppresses the repeat even as the percentage creeps up', () => {
+        // The band is the identity, not the exact figure — otherwise every new
+        // transaction ("84%… 85%… 86%") would raise a fresh notification.
+        const result = enabled();
+
+        act(() => {
+          result.current.checkBudgetAlerts([alert]);
+        });
+        act(() => {
+          vi.advanceTimersByTime(60_000);
+          result.current.checkBudgetAlerts([{ ...alert, percentage: 91, spent: 455 }]);
+        });
+
+        expect(result.current.notifications).toHaveLength(1);
+        expect(result.current.notifications[0].message).toContain('85%');
+      });
+
+      it('still raises the exceeded alert after the warning — a different band', () => {
+        const result = enabled();
+
+        act(() => {
+          result.current.checkBudgetAlerts([alert]);
+        });
+        act(() => {
+          vi.advanceTimersByTime(60_000);
+          result.current.checkBudgetAlerts([
+            { ...alert, percentage: 120, spent: 600, type: 'danger' }
+          ]);
+        });
+
+        expect(result.current.notifications).toHaveLength(2);
+        expect(result.current.notifications[0].title).toBe('Budget Exceeded: Food');
+        expect(result.current.notifications[1].title).toBe('Budget Warning: Food');
+      });
+
+      it('keeps alerts for different budgets apart', () => {
+        const result = enabled();
+
+        act(() => {
+          result.current.checkBudgetAlerts([
+            alert,
+            { ...alert, budgetId: 'budget-2', categoryName: 'Travel' }
+          ]);
+          result.current.checkBudgetAlerts([
+            alert,
+            { ...alert, budgetId: 'budget-2', categoryName: 'Travel' }
+          ]);
+        });
+
+        expect(result.current.notifications).toHaveLength(2);
+      });
+
+      it('raises it again once the suppression window has passed', () => {
+        const result = enabled();
+
+        act(() => {
+          result.current.checkBudgetAlerts([alert]);
+        });
+        act(() => {
+          vi.advanceTimersByTime(25 * 60 * 60 * 1000);
+          result.current.checkBudgetAlerts([alert]);
+        });
+
+        expect(result.current.notifications).toHaveLength(2);
+      });
+
+      it('does not re-raise an alert restored from a previous session', () => {
+        // The key is persisted, so a reload does not start the day with a
+        // duplicate of every alert already on the board.
+        const stored = [{
+          id: 'notification-stored',
+          type: 'warning',
+          title: 'Budget Warning: Food',
+          message: "You've spent 85% of your monthly budget.",
+          timestamp: new Date('2025-01-20T09:00:00').toISOString(),
+          read: false,
+          dedupeKey: 'budget-budget-1-warning',
+        }];
+        mockLocalStorage.getItem.mockImplementation((key) => {
+          if (key === 'money_management_notifications') return JSON.stringify(stored);
+          if (key === 'money_management_budget_alerts_enabled') return 'true';
+          return null;
+        });
+
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+
+        act(() => {
+          result.current.checkBudgetAlerts([alert]);
+        });
+
+        expect(result.current.notifications).toHaveLength(1);
+        expect(result.current.notifications[0].id).toBe('notification-stored');
+      });
+
+      it('gives every notification a distinct id inside a single millisecond', () => {
+        const result = enabled();
+
+        act(() => {
+          result.current.checkBudgetAlerts([
+            alert,
+            { ...alert, budgetId: 'budget-2' },
+            { ...alert, budgetId: 'budget-3' }
+          ]);
+        });
+
+        const ids = result.current.notifications.map(n => n.id);
+        expect(new Set(ids).size).toBe(3);
+      });
+
+      it('drops a restored action button rather than rendering one that throws', () => {
+        // onClick is a function: JSON.stringify silently drops it, and the old
+        // code kept the { label } behind, so clicking it crashed the page.
+        mockLocalStorage.getItem.mockImplementation((key) => {
+          if (key === 'money_management_notifications') {
+            return JSON.stringify([{
+              id: 'notification-stored',
+              type: 'warning',
+              title: 'Budget Warning: Food',
+              timestamp: new Date('2025-01-20T09:00:00').toISOString(),
+              read: false,
+              action: { label: 'View Budget' },
+            }]);
+          }
+          return null;
+        });
+
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+
+        expect(result.current.notifications).toHaveLength(1);
+        expect(result.current.notifications[0].action).toBeUndefined();
+      });
+
+      it('settles instead of growing when an effect depends on checkBudgetAlerts (the Budget page pattern)', () => {
+        // src/pages/Budget.tsx raises its alerts from an effect whose deps
+        // include checkBudgetAlerts. Before the fix that callback changed
+        // identity on every notification change, so: effect → notification →
+        // new callback → effect → notification… React tears this down with
+        // "Maximum update depth exceeded" once the percentages are real.
+        mockLocalStorage.getItem.mockImplementation((key) =>
+          key === 'money_management_budget_alerts_enabled' ? 'true' : null
+        );
+
+        let renderCount = 0;
+        function BudgetPageLike(): React.JSX.Element {
+          const { checkBudgetAlerts, notifications } = useNotifications();
+          renderCount += 1;
+          // A circuit breaker, because a regression here does not fail — it
+          // renders until the worker runs out of memory (measured).
+          if (renderCount > 25) {
+            throw new Error('checkBudgetAlerts is looping: the effect never settles');
+          }
+
+          useEffect(() => {
+            checkBudgetAlerts([alert]);
+          }, [checkBudgetAlerts]);
+
+          return <span data-testid="count">{notifications.length}</span>;
+        }
+
+        render(
+          <NotificationProvider>
+            <BudgetPageLike />
+          </NotificationProvider>
+        );
+
+        expect(screen.getByTestId('count').textContent).toBe('1');
+        // One render for the mount, one for the notification landing. Anything
+        // unbounded shows up here long before the assertion above does.
+        expect(renderCount).toBeLessThanOrEqual(4);
+      });
+
+      it('restores timestamps as real Dates, not the strings JSON wrote', () => {
+        mockLocalStorage.getItem.mockImplementation((key) => {
+          if (key === 'money_management_notifications') {
+            return JSON.stringify([{
+              id: 'notification-stored',
+              type: 'info',
+              title: 'Stored',
+              timestamp: new Date('2025-01-20T09:00:00').toISOString(),
+              read: false,
+            }]);
+          }
+          return null;
+        });
+
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+
+        expect(result.current.notifications[0].timestamp).toBeInstanceOf(Date);
+      });
+    });
+
     it('navigates to budget page when action is clicked', () => {
       const { result } = renderHook(() => useNotifications(), { wrapper });
 
@@ -648,10 +891,13 @@ describe('NotificationContext', () => {
         result.current.checkEnhancedBudgetAlerts(mockBudgets, mockTransactions, mockCategories);
       });
 
+      // The fourth argument is the spending context (split lines, foreign
+      // accounts); a caller that supplies none gets the empty one.
       expect(notificationService.checkBudgetAlerts).toHaveBeenCalledWith(
         mockBudgets,
         mockTransactions,
-        mockCategories
+        mockCategories,
+        {}
       );
       expect(result.current.notifications).toHaveLength(1);
       expect(result.current.notifications[0]).toMatchObject(mockNotifications[0]);

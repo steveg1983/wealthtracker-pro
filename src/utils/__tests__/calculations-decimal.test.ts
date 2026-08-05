@@ -10,6 +10,7 @@ import {
   calculateNetIncome,
   calculateAccountBalance,
   calculateBudgetSpending,
+  calculateBudgetSpendingBreakdown,
   calculateBudgetRemaining,
   calculateBudgetPercentage,
   calculateGoalRemaining,
@@ -29,6 +30,7 @@ import {
   calculateSavingsRate,
   calculateCashFlow,
 } from '../calculations-decimal';
+import type { DatedDecimalTransaction } from '../calculations-decimal';
 import { toDecimal } from '../decimal';
 import type { DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal } from '../../types/decimal-types';
 
@@ -355,6 +357,43 @@ describe('Decimal Calculation Utilities', () => {
       expect(result.toString()).toBe('100');
     });
 
+    // A budget may sit on a GROUP ("Food"), in which case it counts what every
+    // category beneath it spends. The caller supplies the ids; the equality
+    // path is what a detail budget keeps.
+    it('matches a set of category ids when one is given, instead of the budget’s own', () => {
+      const budget = createMockDecimalBudget({ categoryId: 'grp-food' });
+      const startDate = new Date('2023-01-01');
+      const endDate = new Date('2023-01-31');
+      const transactions = [
+        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(-40), date: new Date('2023-01-10') }),
+        createMockDecimalTransaction({ category: 'takeaway', type: 'expense', amount: toDecimal(-15), date: new Date('2023-01-11') }),
+        createMockDecimalTransaction({ category: 'household', type: 'expense', amount: toDecimal(-60), date: new Date('2023-01-12') })
+      ];
+
+      const result = calculateBudgetSpending(budget, transactions, startDate, endDate, {
+        categoryIds: new Set(['grp-food', 'groceries', 'takeaway'])
+      });
+
+      expect(result.toString()).toBe('55');
+    });
+
+    it('sets aside rows on excluded accounts and reports them', () => {
+      const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+      const startDate = new Date('2023-01-01');
+      const endDate = new Date('2023-01-31');
+      const transactions = [
+        createMockDecimalTransaction({ id: 'a', accountId: 'acc-gbp', category: 'groceries', type: 'expense', amount: toDecimal(-40), date: new Date('2023-01-10') }),
+        createMockDecimalTransaction({ id: 'b', accountId: 'acc-eur', category: 'groceries', type: 'expense', amount: toDecimal(-25), date: new Date('2023-01-11') })
+      ];
+
+      const breakdown = calculateBudgetSpendingBreakdown(budget, transactions, startDate, endDate, {
+        excludeAccountIds: new Set(['acc-eur'])
+      });
+
+      expect(breakdown.spent.toString()).toBe('40');
+      expect(breakdown.excluded.map(t => t.id)).toEqual(['b']);
+    });
+
     it('nets refunds filed under the budget category against the spend (Money model)', () => {
       const budget = createMockDecimalBudget({ categoryId: 'groceries' });
       const startDate = new Date('2023-01-01');
@@ -376,6 +415,163 @@ describe('Decimal Calculation Utilities', () => {
       ];
       const result = calculateBudgetSpending(budget, transactions, startDate, endDate);
       expect(result.toString()).toBe('70');
+    });
+
+    // Regression (audit 2026-08): every fixture above hands the filter a real
+    // Date, which is why the suite passed while every budget in the app read
+    // £0. Postgres sends the `date` column as "2026-08-15", and
+    // `"2026-08-15" >= new Date(...)` is false in BOTH directions, so the
+    // period filter dropped every row. The rows below carry the wire shape.
+    describe('transactions straight off the wire (date as a string)', () => {
+      const wireTransaction = (
+        overrides: Partial<Omit<DatedDecimalTransaction, 'date'>> & { date: string }
+      ): DatedDecimalTransaction => ({
+        ...createMockDecimalTransaction(),
+        ...overrides
+      });
+
+      it('counts spending whose date is the string Postgres sent', () => {
+        const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+        const transactions = [
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-100),
+            date: '2026-08-15'
+          }),
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-25.5),
+            date: '2026-08-20'
+          })
+        ];
+
+        const result = calculateBudgetSpending(
+          budget, transactions, new Date('2026-08-01'), new Date('2026-08-31')
+        );
+
+        expect(result.toString()).toBe('125.5');
+      });
+
+      it('still honours the period bounds for string dates', () => {
+        const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+        const transactions = [
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-100),
+            date: '2026-08-15'
+          }),
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-40),
+            date: '2026-09-01' // the month after
+          }),
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-30),
+            date: '2026-07-31' // the month before
+          })
+        ];
+
+        const result = calculateBudgetSpending(
+          budget, transactions, new Date('2026-08-01'), new Date('2026-08-31T23:59:59.999Z')
+        );
+
+        expect(result.toString()).toBe('100');
+      });
+
+      it('reads a full ISO timestamp the same way', () => {
+        const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+        const transactions = [
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-60),
+            date: '2026-08-15T13:45:00.000Z'
+          })
+        ];
+
+        const result = calculateBudgetSpending(
+          budget, transactions, new Date('2026-08-01'), new Date('2026-08-31T23:59:59.999Z')
+        );
+
+        expect(result.toString()).toBe('60');
+      });
+
+      it('excludes a row whose date cannot be read rather than filing it in the period', () => {
+        const budget = createMockDecimalBudget({ categoryId: 'groceries' });
+        const transactions = [
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-100),
+            date: 'not a date'
+          })
+        ];
+
+        const result = calculateBudgetSpending(
+          budget, transactions, new Date('2026-08-01'), new Date('2026-08-31')
+        );
+
+        expect(result.toString()).toBe('0');
+      });
+
+      it('filters category spending by period with string dates', () => {
+        const transactions = [
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-100),
+            date: '2026-08-15'
+          }),
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-50),
+            date: '2026-09-15'
+          })
+        ];
+
+        const result = calculateCategorySpending(
+          'groceries', transactions, new Date('2026-08-01'), new Date('2026-08-31')
+        );
+
+        expect(result.toString()).toBe('100');
+      });
+
+      it('groups spending by category with string dates', () => {
+        const transactions = [
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-100),
+            date: '2026-08-15'
+          }),
+          wireTransaction({
+            category: 'utilities',
+            type: 'expense',
+            amount: toDecimal(-40),
+            date: '2026-08-16'
+          }),
+          wireTransaction({
+            category: 'groceries',
+            type: 'expense',
+            amount: toDecimal(-10),
+            date: '2026-09-16' // outside the window
+          })
+        ];
+
+        const result = calculateSpendingByCategory(
+          transactions, new Date('2026-08-01'), new Date('2026-08-31')
+        );
+
+        expect(result.groceries.toString()).toBe('100');
+        expect(result.utilities.toString()).toBe('40');
+      });
     });
 
     it('clamps at zero when refunds exceed spending in the period', () => {

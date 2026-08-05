@@ -18,6 +18,7 @@ import {
   FolderIcon
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { isDuplicateImport } from '../utils/importDedupe';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
@@ -175,12 +176,11 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
               ).filter(t => t !== null) as Partial<Transaction>[];
               
               for (const transaction of processedTransactions) {
-                const isDuplicate = transactions.some(t => 
-                  t.date === transaction.date &&
-                  t.amount === transaction.amount &&
-                  t.description === transaction.description
-                );
-                
+                // Dates are compared as instants: `===` on two Date objects is
+                // identity, so this test never once matched and nothing was
+                // ever detected as a duplicate.
+                const isDuplicate = isDuplicateImport(transactions, transaction);
+
                 if (!isDuplicate && transaction.date && transaction.amount !== undefined && transaction.type && transaction.category && transaction.accountId && transaction.description !== undefined) {
                   addTransaction({
                     date: transaction.date,

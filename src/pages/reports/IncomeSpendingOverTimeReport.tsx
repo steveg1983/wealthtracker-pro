@@ -12,8 +12,8 @@ import {
 } from 'recharts';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useReportDataset } from '../../hooks/useReportDataset';
-import { useReportAccountFilter } from '../../hooks/useReportAccountFilter';
-import ReportAccountFilter from '../../components/reports/ReportAccountFilter';
+import { useReportAccountSelection } from '../../hooks/useReportAccountSelection';
+import ReportAccountMultiSelect from '../../components/reports/ReportAccountMultiSelect';
 import ReportDrillModal, { type ReportDrillTarget } from '../../components/reports/ReportDrillModal';
 import ReportExportBar from '../../components/reports/ReportExportBar';
 import ReportCumulativeToggle from '../../components/reports/ReportCumulativeToggle';
@@ -48,8 +48,8 @@ const compactTick = (value: number): string => {
 };
 
 export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps): React.JSX.Element {
-  const filter = useReportAccountFilter();
-  const { accounts, categories, rows, flows } = useReportDataset(picker, filter.accountId);
+  const selection = useReportAccountSelection();
+  const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
@@ -154,7 +154,7 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
     <div className="max-w-[1400px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
-          <ReportAccountFilter accounts={accounts} filter={filter} />
+          <ReportAccountMultiSelect accounts={accounts} selection={selection} />
           <ReportCumulativeToggle toggle={cumulativeToggle} />
         </div>
         <ReportExportBar

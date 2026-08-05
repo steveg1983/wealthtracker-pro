@@ -13,9 +13,23 @@ import type {
   DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal
 } from '../types/decimal-types';
 import { sumDecimals } from './decimal';
+import { toDateMs } from './dateBoundary';
 
 // Type alias for cleaner code
 type DecimalInstance = InstanceType<typeof Decimal>;
+
+/**
+ * What the period filters below accept.
+ *
+ * App state now holds a real Date on every transaction (converted once at the
+ * service boundary — see utils/dateBoundary), but these helpers are pure and
+ * get handed rows straight off a wire or a JSON blob too, where `date` is the
+ * string Postgres sent: "2026-08-15". `"2026-08-15" >= new Date(...)` is always
+ * false, so that shape reported £0 spent on every budget and fired no alerts.
+ * The input type therefore says what the runtime genuinely tolerates, and
+ * every comparison goes through toDateMs instead of comparing the raw values.
+ */
+export type DatedDecimalTransaction = Omit<DecimalTransaction, 'date'> & { date: Date | string };
 
 /** Sum of |amount| — displayed magnitude for income/expense aggregates. */
 function sumMagnitudes(transactions: DecimalTransaction[]): DecimalInstance {
@@ -85,38 +99,112 @@ export function calculateNetWorth(accounts: DecimalAccount[], transactions?: Dec
 }
 
 /**
- * Calculate budget spending for a category
+ * Optional refinements to which rows count towards a budget.
  */
-export function calculateBudgetSpending(
-  budget: DecimalBudget,
-  transactions: DecimalTransaction[],
-  startDate: Date,
-  endDate: Date
-): DecimalInstance {
-  // Money-style netting: income filed under the budget's category (e.g. a
-  // refund on a purchase) reduces the spend instead of counting as income.
-  const budgetTransactions = transactions.filter(t =>
-    (t.type === 'expense' || t.type === 'income') &&
-    t.category === budget.categoryId &&
-    t.date >= startDate &&
-    t.date <= endDate
-  );
+export interface BudgetSpendingFilter {
+  /**
+   * Match these category ids INSTEAD of the budget's own single id — the
+   * budget's category and every descendant of it, so a GROUP-level budget
+   * ("Food") counts what its detail categories spend. Omitted for a detail
+   * budget, which keeps the plain equality it has always used.
+   */
+  categoryIds?: ReadonlySet<string>;
+  /**
+   * Accounts whose rows must NOT be counted — the ones held in a currency
+   * other than the one being displayed. Adding £ and $ figures together would
+   * report a number that is true in no currency at all, so those rows are set
+   * aside and reported (see `excluded`) for the caller to disclose, never
+   * silently dropped.
+   */
+  excludeAccountIds?: ReadonlySet<string>;
+}
 
-  // Signed convention: spending is negative, so net spend is the negated
-  // signed sum. Clamped at zero if refunds exceed spending in the period.
-  const netSigned = budgetTransactions.reduce(
-    (sum, t) => sum.plus(t.amount),
-    new Decimal(0)
-  );
-  const spent = netSigned.negated();
-  return spent.isNegative() ? new Decimal(0) : spent;
+export interface BudgetSpendingBreakdown {
+  /** Net spend over the period: positive magnitude, refunds deducted. */
+  spent: DecimalInstance;
+  /** The rows that made up `spent`. */
+  counted: DatedDecimalTransaction[];
+  /** In-period, in-category rows left out by `excludeAccountIds`. */
+  excluded: DatedDecimalTransaction[];
+}
+
+function matchesBudgetCategory(
+  transaction: DatedDecimalTransaction,
+  budget: Pick<DecimalBudget, 'categoryId'>,
+  categoryIds: ReadonlySet<string> | undefined
+): boolean {
+  return categoryIds ? categoryIds.has(transaction.category) : transaction.category === budget.categoryId;
 }
 
 /**
- * Calculate budget remaining
+ * Budget spending, and what was left out of it.
+ *
+ * Money-style netting: income filed under the budget's category (e.g. a refund
+ * on a purchase) reduces the spend instead of counting as income. Dates are
+ * compared as instants — see DatedDecimalTransaction; an unreadable date yields
+ * NaN, which excludes the row rather than filing it in an arbitrary period.
+ */
+export function calculateBudgetSpendingBreakdown(
+  budget: Pick<DecimalBudget, 'categoryId'>,
+  transactions: DatedDecimalTransaction[],
+  startDate: Date,
+  endDate: Date,
+  filter: BudgetSpendingFilter = {}
+): BudgetSpendingBreakdown {
+  const startMs = startDate.getTime();
+  const endMs = endDate.getTime();
+  const counted: DatedDecimalTransaction[] = [];
+  const excluded: DatedDecimalTransaction[] = [];
+
+  for (const transaction of transactions) {
+    if (transaction.type !== 'expense' && transaction.type !== 'income') continue;
+    if (!matchesBudgetCategory(transaction, budget, filter.categoryIds)) continue;
+    const ms = toDateMs(transaction.date);
+    if (!(ms >= startMs && ms <= endMs)) continue;
+    if (filter.excludeAccountIds?.has(transaction.accountId)) {
+      excluded.push(transaction);
+      continue;
+    }
+    counted.push(transaction);
+  }
+
+  // Signed convention: spending is negative, so net spend is the negated
+  // signed sum. Clamped at zero if refunds exceed spending in the period.
+  const netSigned = counted.reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
+  const spent = netSigned.negated();
+
+  return {
+    spent: spent.isNegative() ? new Decimal(0) : spent,
+    counted,
+    excluded
+  };
+}
+
+/**
+ * Calculate budget spending for a category
+ */
+export function calculateBudgetSpending(
+  budget: Pick<DecimalBudget, 'categoryId'>,
+  transactions: DatedDecimalTransaction[],
+  startDate: Date,
+  endDate: Date,
+  filter?: BudgetSpendingFilter
+): DecimalInstance {
+  return calculateBudgetSpendingBreakdown(budget, transactions, startDate, endDate, filter).spent;
+}
+
+/**
+ * Headroom left in a budget, FLOORED AT ZERO.
+ *
+ * The floor is for callers that fund something out of what is left (envelopes,
+ * "safe to spend"), where a negative would hand out money that is not there.
+ * Anything DISPLAYING the state of a budget wants the signed figure —
+ * `amount.minus(spent)` — or an overspent budget reads "£0.00 remaining" while
+ * the page total, which nets honestly, says otherwise. The Budget page does
+ * exactly that; see its `remaining`.
  */
 export function calculateBudgetRemaining(
-  budget: DecimalBudget,
+  budget: Pick<DecimalBudget, 'amount'>,
   spent: DecimalInstance
 ): DecimalInstance {
   const remaining = budget.amount.minus(spent);
@@ -127,7 +215,7 @@ export function calculateBudgetRemaining(
  * Calculate budget percentage
  */
 export function calculateBudgetPercentage(
-  budget: DecimalBudget,
+  budget: Pick<DecimalBudget, 'amount'>,
   spent: DecimalInstance
 ): number {
   if (budget.amount.isZero()) return 0;
@@ -194,7 +282,7 @@ export function calculateDebtToIncomeRatio(
  */
 export function calculateCategorySpending(
   category: string,
-  transactions: DecimalTransaction[],
+  transactions: DatedDecimalTransaction[],
   startDate?: Date,
   endDate?: Date
 ): DecimalInstance {
@@ -205,10 +293,12 @@ export function calculateCategorySpending(
   );
 
   if (startDate) {
-    filtered = filtered.filter(t => t.date >= startDate);
+    const startMs = startDate.getTime();
+    filtered = filtered.filter(t => toDateMs(t.date) >= startMs);
   }
   if (endDate) {
-    filtered = filtered.filter(t => t.date <= endDate);
+    const endMs = endDate.getTime();
+    filtered = filtered.filter(t => toDateMs(t.date) <= endMs);
   }
 
   const netSigned = filtered.reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
@@ -245,7 +335,7 @@ export function calculateBudgetProgress(
  * Calculate spending by category
  */
 export function calculateSpendingByCategory(
-  transactions: DecimalTransaction[],
+  transactions: DatedDecimalTransaction[],
   startDate?: Date,
   endDate?: Date
 ): Record<string, DecimalInstance> {
@@ -254,10 +344,12 @@ export function calculateSpendingByCategory(
   let filtered = transactions.filter(t => t.type === 'expense' || t.type === 'income');
 
   if (startDate) {
-    filtered = filtered.filter(t => t.date >= startDate);
+    const startMs = startDate.getTime();
+    filtered = filtered.filter(t => toDateMs(t.date) >= startMs);
   }
   if (endDate) {
-    filtered = filtered.filter(t => t.date <= endDate);
+    const endMs = endDate.getTime();
+    filtered = filtered.filter(t => toDateMs(t.date) <= endMs);
   }
 
   const netSigned: Record<string, DecimalInstance> = {};

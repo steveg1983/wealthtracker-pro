@@ -1,21 +1,115 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { notificationService } from '../services/notificationService';
+import { notificationService, type BudgetAlertContext } from '../services/notificationService';
 import type { Goal, Budget, Transaction, Category } from '../types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
+const NOTIFICATION_TYPES = ['info', 'success', 'warning', 'error'] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
 export interface Notification {
   id: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: NotificationType;
   title: string;
   message?: string;
   timestamp: Date;
   read: boolean;
+  /**
+   * Stable identity for "this same alert again".
+   *
+   * WHY: budget alerts are raised from a render effect, so the same alert is
+   * offered every time the page recomputes. Without a key the only thing to
+   * compare was the rendered message text — which the old dedupe checked
+   * against a `budget-<id>-<pct>` string it never stored, so it never matched
+   * once and every recompute appended another notification. A key that does
+   * not change when the wording (or the exact percentage) does is what makes
+   * repeat suppression actually work.
+   *
+   * Persisted with the notification, so a reload does not re-raise it either.
+   */
+  dedupeKey?: string;
   action?: {
     label: string;
     onClick: () => void;
   };
+}
+
+/** How long a dedupeKey suppresses a repeat of the same alert. */
+const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** Hard cap on stored notifications (spam guard). */
+const MAX_NOTIFICATIONS = 50;
+/** How many survive a reload, and how old the oldest may be. */
+const MAX_RESTORED_NOTIFICATIONS = 20;
+const MAX_RESTORED_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const STORAGE_KEY = 'money_management_notifications';
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isNotificationType = (value: unknown): value is NotificationType =>
+  typeof value === 'string' && NOTIFICATION_TYPES.some((type): boolean => type === value);
+
+/**
+ * A notification's timestamp as an instant. Declared a Date, but a restored
+ * one arrives as the ISO string JSON wrote — and `string > Date` is always
+ * false, which is exactly how the old 24-hour dedupe window silently matched
+ * nothing. NaN for anything unreadable, so it falls outside every window.
+ */
+const timestampMs = (notification: Notification): number => {
+  const raw: unknown = notification.timestamp;
+  if (raw instanceof Date) return raw.getTime();
+  if (typeof raw === 'string' || typeof raw === 'number') return new Date(raw).getTime();
+  return Number.NaN;
+};
+
+/**
+ * A stored notification back into a real one, or null when the record is not
+ * usable. `action.onClick` is a function and cannot survive JSON, so a
+ * restored action is dropped rather than rendered as a button that throws when
+ * clicked.
+ */
+function reviveNotification(value: unknown): Notification | null {
+  if (!isRecord(value)) return null;
+  const { id, type, title, message, timestamp, read, dedupeKey } = value;
+  if (typeof id !== 'string' || id === '') return null;
+  if (!isNotificationType(type)) return null;
+  if (typeof title !== 'string') return null;
+
+  const time = typeof timestamp === 'string' || typeof timestamp === 'number'
+    ? new Date(timestamp)
+    : timestamp instanceof Date ? timestamp : null;
+  if (time === null || !Number.isFinite(time.getTime())) return null;
+
+  return {
+    id,
+    type,
+    title,
+    ...(typeof message === 'string' ? { message } : {}),
+    timestamp: time,
+    read: read === true,
+    ...(typeof dedupeKey === 'string' ? { dedupeKey } : {})
+  };
+}
+
+/** Has this exact alert already been raised inside the dedupe window? */
+function hasRecentDuplicate(existing: Notification[], dedupeKey: string, nowMs: number): boolean {
+  const oldest = nowMs - DEDUPE_WINDOW_MS;
+  return existing.some((n): boolean => n.dedupeKey === dedupeKey && timestampMs(n) >= oldest);
+}
+
+/**
+ * Collision-free ids. `notification-${Date.now()}` collided whenever two
+ * notifications were raised inside the same millisecond — which is precisely
+ * what a loop of budget alerts does — and duplicate keys break markAsRead and
+ * removeNotification (they act on every colliding row).
+ */
+function createNotificationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `notification-${crypto.randomUUID()}`;
+  }
+  return `notification-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export interface BudgetAlert {
@@ -47,7 +141,17 @@ interface NotificationContextType {
   clearAll: () => void;
   checkBudgetAlerts: (budgetAlerts: BudgetAlert[]) => void;
   checkLargeTransaction: (amount: number, description: string) => void;
-  checkEnhancedBudgetAlerts: (budgets: Budget[], transactions: Transaction[], categories: Category[]) => void;
+  /**
+   * `context` carries the same facts the Budget page uses to draw its cards —
+   * split lines and the accounts held in another currency — so an alert can
+   * never quote a different figure from the card it is about.
+   */
+  checkEnhancedBudgetAlerts: (
+    budgets: Budget[],
+    transactions: Transaction[],
+    categories: Category[],
+    context?: BudgetAlertContext
+  ) => void;
   checkEnhancedTransactionAlerts: (transaction: Transaction, allTransactions: Transaction[]) => void;
   checkGoalProgress: (goals: Goal[], previousGoals?: Goal[]) => void;
 }
@@ -57,23 +161,24 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [notifications, setNotifications] = useState<Notification[]>((): Notification[] => {
     try {
-      const saved = localStorage.getItem('money_management_notifications');
-      const parsed = saved ? JSON.parse(saved) : [];
-      // Limit to 20 most recent notifications on initialization to prevent excessive notifications
-      // Also clear very old notifications (older than 7 days)
-      const now = Date.now();
-      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
-      const filtered = Array.isArray(parsed) 
-        ? parsed.filter((n) => {
-            try {
-              const timestamp = new Date(n.timestamp).getTime();
-              return timestamp > sevenDaysAgo;
-            } catch {
-              return false;
-            }
-          })
-        : [];
-      return filtered.slice(0, 20);
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return [];
+      const parsed: unknown = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+
+      // Keep the 20 most recent, and nothing older than a week. Every entry is
+      // revived (not trusted): JSON gives back plain values, so `timestamp`
+      // becomes a real Date here rather than a string masquerading as one.
+      const oldestAllowed = Date.now() - MAX_RESTORED_AGE_MS;
+      const restored: Notification[] = [];
+      for (const entry of parsed) {
+        const notification = reviveNotification(entry);
+        if (notification === null) continue;
+        if (notification.timestamp.getTime() <= oldestAllowed) continue;
+        restored.push(notification);
+        if (restored.length === MAX_RESTORED_NOTIFICATIONS) break;
+      }
+      return restored;
     } catch {
       return [];
     }
@@ -119,7 +224,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   const unreadCount = notifications.filter((n): boolean => !n.read).length;
 
   useEffect((): void => {
-    localStorage.setItem('money_management_notifications', JSON.stringify(notifications));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
   }, [notifications]);
 
   useEffect((): void => {
@@ -141,23 +246,46 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>): void => {
     const newNotification: Notification = {
       ...notification,
-      id: `notification-${Date.now()}`,
+      id: createNotificationId(),
       timestamp: new Date(),
       read: false
     };
-    
+
     setNotifications((prev): Notification[] => {
-      // Limit to 50 notifications to prevent spam
-      const updated = [newNotification, ...prev];
-      return updated.slice(0, 50);
+      // A keyed notification that is already on the board is DROPPED, and the
+      // previous array is returned by identity: React bails out of a state
+      // update that changes nothing, so a caller firing this from a render
+      // effect cannot grow state — and therefore cannot re-trigger itself.
+      if (
+        newNotification.dedupeKey !== undefined &&
+        hasRecentDuplicate(prev, newNotification.dedupeKey, newNotification.timestamp.getTime())
+      ) {
+        return prev;
+      }
+      return [newNotification, ...prev].slice(0, MAX_NOTIFICATIONS);
     });
   }, []);
 
   const addNotifications = useCallback((newNotifications: Notification[]): void => {
+    if (newNotifications.length === 0) return;
+
     setNotifications((prev): Notification[] => {
-      // Limit to 50 notifications to prevent spam
-      const updated = [...newNotifications, ...prev];
-      return updated.slice(0, 50);
+      const nowMs = Date.now();
+      const knownIds = new Set(prev.map((n): string => n.id));
+      const accepted: Notification[] = [];
+
+      for (const notification of newNotifications) {
+        if (knownIds.has(notification.id)) continue;
+        if (notification.dedupeKey !== undefined && (
+          hasRecentDuplicate(prev, notification.dedupeKey, nowMs) ||
+          accepted.some((n): boolean => n.dedupeKey === notification.dedupeKey)
+        )) continue;
+        knownIds.add(notification.id);
+        accepted.push(notification);
+      }
+
+      if (accepted.length === 0) return prev;
+      return [...accepted, ...prev].slice(0, MAX_NOTIFICATIONS);
     });
   }, []);
 
@@ -181,43 +309,47 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     setNotifications([]);
   }, []);
 
+  /**
+   * Raise the budget alerts the Budget page has just computed.
+   *
+   * Identity matters here as much as behaviour: the page calls this from an
+   * effect whose dependencies include this very callback, so closing over
+   * `notifications` (as the old duplicate check did) re-created it on every
+   * notification change and re-fired the effect — which added another
+   * notification, which changed it again. Suppression now happens inside the
+   * state updater against a stored key, leaving this callback stable.
+   */
   const checkBudgetAlerts = useCallback((budgetAlerts: BudgetAlert[]): void => {
     if (!budgetAlertsEnabled) return;
 
-    // Check for existing alerts to avoid duplicates
-    const existingAlertIds = new Set(
-      notifications
-        .filter((n): boolean => n.timestamp > new Date(Date.now() - 24 * 60 * 60 * 1000)) // Within last 24 hours
-        .map((n): string | undefined => n.message)
-    );
-
     budgetAlerts.forEach((alert): void => {
-      const alertKey = `budget-${alert.budgetId}-${alert.percentage}`;
-      
-      if (!existingAlertIds.has(alertKey)) {
-        const type = alert.type === 'danger' ? 'error' : 'warning';
-        const title = alert.type === 'danger'
-          ? `Budget Exceeded: ${alert.categoryName}`
-          : `Budget Warning: ${alert.categoryName}`;
+      const type = alert.type === 'danger' ? 'error' : 'warning';
+      const title = alert.type === 'danger'
+        ? `Budget Exceeded: ${alert.categoryName}`
+        : `Budget Warning: ${alert.categoryName}`;
 
-        const message = alert.type === 'danger'
-          ? `You've spent ${alert.percentage}% of your ${alert.period} budget (${formatCurrency(alert.spent)} of ${formatCurrency(alert.budget)})`
-          : `You've spent ${alert.percentage}% of your ${alert.period} budget. Consider slowing down spending in this category.`;
+      const message = alert.type === 'danger'
+        ? `You've spent ${alert.percentage}% of your ${alert.period} budget (${formatCurrency(alert.spent)} of ${formatCurrency(alert.budget)})`
+        : `You've spent ${alert.percentage}% of your ${alert.period} budget. Consider slowing down spending in this category.`;
 
-        addNotification({
-          type,
-          title,
-          message,
-          action: {
-            label: 'View Budget',
-            onClick: (): void => {
-              window.location.href = '/budget';
-            }
+      addNotification({
+        type,
+        title,
+        message,
+        // The budget and the BAND it has crossed — deliberately not the exact
+        // percentage, which moves with every new transaction and would raise a
+        // fresh "84%… 85%… 86%" alert all day. One warning and at most one
+        // exceeded notice per budget per day, which is what Money does.
+        dedupeKey: `budget-${alert.budgetId}-${alert.type}`,
+        action: {
+          label: 'View Budget',
+          onClick: (): void => {
+            window.location.href = '/budget';
           }
-        });
-      }
+        }
+      });
     });
-  }, [budgetAlertsEnabled, notifications, addNotification, formatCurrency]);
+  }, [budgetAlertsEnabled, addNotification, formatCurrency]);
 
   const checkLargeTransaction = useCallback((amount: number, description: string): void => {
     if (!largeTransactionAlertsEnabled) return;
@@ -237,10 +369,15 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     }
   }, [largeTransactionAlertsEnabled, largeTransactionThreshold, addNotification, formatCurrency]);
 
-  const checkEnhancedBudgetAlerts = useCallback((budgets: Budget[], transactions: Transaction[], categories: Category[]): void => {
+  const checkEnhancedBudgetAlerts = useCallback((
+    budgets: Budget[],
+    transactions: Transaction[],
+    categories: Category[],
+    context: BudgetAlertContext = {}
+  ): void => {
     if (!budgetAlertsEnabled) return;
-    
-    const newNotifications = notificationService.checkBudgetAlerts(budgets, transactions, categories);
+
+    const newNotifications = notificationService.checkBudgetAlerts(budgets, transactions, categories, context);
     if (newNotifications.length > 0) {
       addNotifications(newNotifications);
     }

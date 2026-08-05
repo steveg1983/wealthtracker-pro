@@ -1,6 +1,5 @@
-import { Transaction, Budget } from '../types';
-import { Decimal, toDecimal, toNumber } from '../utils/decimal';
-import { formatDecimal } from '../utils/decimal-format';
+import { Transaction } from '../types';
+import { toDecimal, toNumber } from '../utils/decimal';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import type {
   NotificationAction,
@@ -499,68 +498,10 @@ export class MobileService {
     this.savePushNotifications();
   }
 
-  // Budget/Bill Monitoring
-  checkBudgetAlerts(budgets: Budget[], transactions: Transaction[]): void {
-    if (!this.notificationSettings.budgetAlerts) return;
-
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-
-    budgets.forEach(budget => {
-      const monthlyTransactions = transactions.filter(t => {
-        const date = new Date(t.date);
-        return date.getMonth() === currentMonth && 
-               date.getFullYear() === currentYear &&
-               t.category === budget.categoryId &&
-               t.type === 'expense';
-      });
-
-      const spentDecimal = monthlyTransactions.reduce(
-        (sum, t) => sum.plus(toDecimal(Math.abs(t.amount))),
-        toDecimal(0)
-      );
-      const budgetAmountDecimal = toDecimal(budget.amount || 0);
-
-      if (budgetAmountDecimal.equals(0)) {
-        return;
-      }
-
-      const percentageDecimal = spentDecimal
-        .dividedBy(budgetAmountDecimal)
-        .times(100);
-
-      if (percentageDecimal.greaterThanOrEqualTo(new Decimal(90))) {
-        const percentageDisplay = formatDecimal(percentageDecimal, 0);
-        this.sendNotification(
-          'Budget Alert',
-          `You've spent ${percentageDisplay}% of your ${budget.categoryId} budget`,
-          { type: 'budget_alert', category: budget.categoryId }
-        );
-      }
-    });
-  }
-
-  checkBillReminders(transactions: Transaction[]): void {
-    if (!this.notificationSettings.billReminders) return;
-
-    // Mock bill reminder logic
-    const recurringExpenses = transactions.filter(t => t.isRecurring);
-    const today = new Date();
-    
-    recurringExpenses.forEach(expense => {
-      const lastDate = new Date(expense.date);
-      const daysSinceLastPayment = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      // Remind if it's been 25+ days since last payment (assuming monthly bills)
-      if (daysSinceLastPayment >= 25 && daysSinceLastPayment <= 35) {
-        this.sendNotification(
-          'Bill Reminder',
-          `${expense.description} payment may be due soon`,
-          { type: 'bill_reminder', transaction_id: expense.id }
-        );
-      }
-    });
-  }
+  // Budget/bill monitoring used to live here as a second, split-blind spend
+  // calculation that nothing ever called — the real alerts run through
+  // notificationService's unified budget maths. Deleted rather than
+  // modernised: dead code does not get upgrades.
 
   // PWA Installation
   async installPWA(): Promise<boolean> {
