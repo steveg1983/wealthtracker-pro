@@ -36,7 +36,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
   /**
    * Optional so an injected test double stays a partial stand-in; without it
@@ -668,6 +668,160 @@ class DataServiceImpl {
   }
 
   /**
+   * Break linked transfer pairs — clear linkedTransferId on the named rows.
+   *
+   * The un-doing of linkTransferPair, and the step a corrective re-pair needs
+   * before the link RPC will accept a row. Balance-neutral: only the link is
+   * removed. Rows whose opposite is a split LINE are refused by the cloud path
+   * (their link also lives on the split line) and skipped locally, so the two
+   * modes agree. Returns the number of rows actually unlinked.
+   */
+  async unlinkTransfers(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.clearTransferLinks(ids, userId);
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readLocalTransactions();
+    const idSet = new Set(ids);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (!idSet.has(t.id) || t.linkedTransferSplitId) return t;
+      if (!t.linkedTransferId) return t;
+      count += 1;
+      const { linkedTransferId: _removed, ...rest } = t;
+      return rest;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+    return count;
+  }
+
+  /**
+   * Soft-archive (or restore) one transaction. Balance-neutral and reversible —
+   * the row is never deleted, just hidden from the live register.
+   */
+  async setTransactionArchived(id: string, archived: boolean): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.setTransactionArchived(id, archived, userId);
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readLocalTransactions();
+    if (!transactions.some(t => t.id === id)) {
+      throw new Error('Transaction not found');
+    }
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTIONS,
+      transactions.map(t => (t.id === id ? { ...t, archived } : t))
+    );
+  }
+
+  /**
+   * Re-pair a counterpart onto the row that really matches it: break the wrong
+   * pairing, file the row it displaces as Account Adjustment, and link the
+   * right pair.
+   *
+   * Cloud mode is ONE call — repair_claimed_transfer does all three in a single
+   * database transaction, so there is no half-repaired state to compensate for
+   * and no audit gap. Local/demo mirrors the RPC's invariants and its outcome,
+   * and is likewise all-or-nothing: every check runs before the single persist.
+   */
+  async repairClaimedTransfer(
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string
+  ): Promise<{ stranded: Transaction; counterpart: Transaction; partner: Transaction }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.repairClaimedTransfer(
+        strandedId, counterpartId, partnerId, adjustmentCategoryId, userId
+      );
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readLocalTransactions();
+    const stranded = transactions.find(t => t.id === strandedId);
+    const counterpart = transactions.find(t => t.id === counterpartId);
+    const partner = transactions.find(t => t.id === partnerId);
+    if (!stranded || !counterpart || !partner) {
+      throw new Error('Transaction not found');
+    }
+    // The pairing being broken must still be the one the caller saw — mutual,
+    // both ways round, so a stale list cannot unlink a pair that has moved on.
+    if (counterpart.linkedTransferId !== partner.id || partner.linkedTransferId !== counterpart.id) {
+      throw new Error('Those two rows are not linked to each other any more — reload and look again');
+    }
+    if (stranded.isSplit || counterpart.isSplit || partner.isSplit) {
+      throw new Error('A split transaction cannot become a transfer — remove the split first');
+    }
+    if (stranded.linkedTransferSplitId || counterpart.linkedTransferSplitId || partner.linkedTransferSplitId) {
+      throw new Error('One of these legs is the opposite side of a split line — edit the split to unpick it first');
+    }
+    if (stranded.archived || counterpart.archived || partner.archived) {
+      throw new Error('One of these rows is archived — bring it back into the register before re-pairing it');
+    }
+    if (stranded.linkedTransferId) {
+      throw new Error('Transaction is already part of a linked transfer');
+    }
+    if (counterpart.accountId === stranded.accountId) {
+      throw new Error('A transfer needs two different accounts');
+    }
+    const counterpartAmount = toDecimal(counterpart.amount);
+    if (counterpartAmount.isZero() || !counterpartAmount.equals(toDecimal(stranded.amount).negated())) {
+      throw new Error('Transfer sides must have exactly opposite non-zero amounts');
+    }
+
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    if (stranded.category && categories.some(c => c.id === stranded.category)) {
+      throw new Error('That row has been filed under a category since this list was built — reload and look again');
+    }
+    const adjustment = categories.find(c => c.id === adjustmentCategoryId);
+    if (!adjustment || adjustment.isTransferCategory === true || adjustment.level === 'type') {
+      throw new Error(`Unknown or transfer category: ${adjustmentCategoryId}`);
+    }
+
+    // The displaced row stops being half of a transfer, so the transfer
+    // scaffolding goes with the link: no partner, no target account, typed by
+    // the money's own direction, filed under the adjustment.
+    const { linkedTransferId: _partnerLink, transferAccountId: _partnerTarget, ...partnerRest } = partner;
+    const newPartner: Transaction = {
+      ...partnerRest,
+      category: adjustmentCategoryId,
+      type: toDecimal(partner.amount).isNegative() ? 'expense' : 'income',
+    };
+    const newCounterpart: Transaction = {
+      ...counterpart,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(stranded.accountId, counterpart.amount),
+      transferAccountId: stranded.accountId,
+      linkedTransferId: stranded.id,
+    };
+    const newStranded: Transaction = {
+      ...stranded,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(counterpart.accountId, stranded.amount),
+      transferAccountId: counterpart.accountId,
+      linkedTransferId: counterpart.id,
+    };
+
+    // Balance-neutral: no amount, sign or account moves, so no balance write.
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTIONS,
+      transactions.map(t =>
+        t.id === partnerId ? newPartner
+          : t.id === counterpartId ? newCounterpart
+            : t.id === strandedId ? newStranded
+              : t
+      )
+    );
+    return { stranded: newStranded, counterpart: newCounterpart, partner: newPartner };
+  }
+
+  /**
    * Money-style "create the other side": insert the counterpart in the target
    * account, convert the source into a linked transfer, and move the target
    * account's balance. Mirrors the create_transfer_counterpart RPC.
@@ -892,6 +1046,25 @@ export class DataService {
 
   static linkTransferPair(idA: string, idB: string): Promise<{ a: Transaction; b: Transaction }> {
     return this.service.linkTransferPair(idA, idB);
+  }
+
+  static unlinkTransfers(ids: string[]): Promise<number> {
+    return this.service.unlinkTransfers(ids);
+  }
+
+  static setTransactionArchived(id: string, archived: boolean): Promise<void> {
+    return this.service.setTransactionArchived(id, archived);
+  }
+
+  static repairClaimedTransfer(
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string
+  ): Promise<{ stranded: Transaction; counterpart: Transaction; partner: Transaction }> {
+    return this.service.repairClaimedTransfer(
+      strandedId, counterpartId, partnerId, adjustmentCategoryId
+    );
   }
 
   static createTransferCounterpart(

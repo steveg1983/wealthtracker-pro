@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput } from '../utils/decimal';
 import { signTransactionAmount } from '../utils/transactionAmount';
@@ -139,14 +140,16 @@ export default function ValidationTransactionModal({
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-sm text-gray-600 dark:text-gray-400">Amount</label>
-                            <input
-                              type="number"
-                              step="0.01"
+                            <MoneyInput
+                              // A transfer's sign encodes its direction, so the
+                              // minus has to survive an edit here.
+                              allowNegative
                               value={values.amount || ''}
-                              onChange={(e) => setEditValues({
+                              onChange={(value) => setEditValues({
                                 ...editValues,
-                                [transaction.id]: { ...values, amount: e.target.value }
+                                [transaction.id]: { ...values, amount: value }
                               })}
+                              aria-label="Amount"
                               className={`w-full px-3 py-1 border rounded-lg
                                        bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                                        ${Math.abs(parseMoneyInput(values.amount) ?? 0) === 0

@@ -169,6 +169,30 @@ export interface AppContextType extends AppState {
    */
   linkTransferPair: (idA: string, idB: string) => Promise<{ a: Transaction; b: Transaction }>;
   /**
+   * Break linked transfer pairs (the un-doing of linkTransferPair): clears the
+   * link on the named rows so they can be re-paired or re-filed. Balance-neutral.
+   * The rows keep their transfer type and category until something re-files
+   * them — leaving that to the caller, which knows what the row should become.
+   */
+  unlinkTransfers: (ids: string[]) => Promise<number>;
+  /**
+   * Soft-archive (or restore) ONE transaction — hidden from the live register,
+   * never deleted, still counted in every balance and report.
+   */
+  setTransactionArchived: (id: string, archived: boolean) => Promise<void>;
+  /**
+   * Re-pair a counterpart onto the row that really matches it: the wrong
+   * pairing is broken, the row it displaces is filed under the given Account
+   * Adjustment category, and the right pair is linked — all in ONE server-side
+   * transaction, so it either happens or it does not. Balance-neutral.
+   */
+  repairClaimedTransfer: (
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string
+  ) => Promise<void>;
+  /**
    * Money-style "create the other side": insert the counterpart in the target
    * account and convert the source into a linked transfer, atomically. Moves
    * the target account's balance by the counterpart amount.
@@ -777,6 +801,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const unlinkTransfers = useCallback(async (ids: string[]) => {
+    try {
+      const count = await DataService.unlinkTransfers(ids);
+      // Balance-neutral: only the link goes. The type/category the rows carry
+      // stay as they are until the caller re-files them, exactly as the
+      // database left them.
+      const idSet = new Set(ids);
+      setTransactions(prev => prev.map(t => {
+        if (!idSet.has(t.id) || t.linkedTransferSplitId || !t.linkedTransferId) return t;
+        const { linkedTransferId: _cleared, ...rest } = t;
+        return rest;
+      }));
+      return count;
+    } catch (error) {
+      appLogger.error('Failed to unlink transfers', error);
+      throw error;
+    }
+  }, []);
+
+  const setTransactionArchived = useCallback(async (id: string, archived: boolean) => {
+    try {
+      await DataService.setTransactionArchived(id, archived);
+      setTransactions(prev => prev.map(t => (t.id === id ? { ...t, archived } : t)));
+    } catch (error) {
+      appLogger.error('Failed to archive transaction', error);
+      throw error;
+    }
+  }, []);
+
+  const repairClaimedTransfer = useCallback(async (
+    strandedId: string,
+    counterpartId: string,
+    partnerId: string,
+    adjustmentCategoryId: string
+  ) => {
+    try {
+      const result = await DataService.repairClaimedTransfer(
+        strandedId, counterpartId, partnerId, adjustmentCategoryId
+      );
+      // State comes from the rows the database actually wrote — the repair
+      // re-types and re-categorises all three, and guessing at that here is how
+      // a register ends up disagreeing with the ledger. Balance-neutral, so no
+      // account touched.
+      const written = new Map([
+        [result.stranded.id, result.stranded],
+        [result.counterpart.id, result.counterpart],
+        [result.partner.id, result.partner],
+      ]);
+      setTransactions(prev => prev.map(t => written.get(t.id) ?? t));
+    } catch (error) {
+      appLogger.error('Failed to repair claimed transfer', error);
+      throw error;
+    }
+  }, []);
+
   const createTransferCounterpart = useCallback(async (id: string, targetAccountId: string) => {
     try {
       const result = await DataService.createTransferCounterpart(id, targetAccountId);
@@ -1189,6 +1268,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getTransactionSplits,
     setTransactionSplits,
     linkTransferPair,
+    unlinkTransfers,
+    setTransactionArchived,
+    repairClaimedTransfer,
     createTransferCounterpart,
 
     // Budget operations

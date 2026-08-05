@@ -428,9 +428,11 @@ describe('PortfolioRebalancer', () => {
       const label = screen.getByText(/Consider Tax Implications/i);
       expect(label).toBeInTheDocument();
       
-      // Cash input is within a label but text is in a span, so we need to find it differently
-      const cashInput = screen.getByPlaceholderText('0');
-      expect(cashInput).toHaveAttribute('type', 'number');
+      // Cash input is within a label but its text is in a span, so it is found
+      // by its own accessible name. Money fields are text + inputMode="decimal".
+      const cashInput = screen.getByLabelText('Cash Available');
+      expect(cashInput).toHaveAttribute('type', 'text');
+      expect(cashInput).toHaveAttribute('inputmode', 'decimal');
     });
 
     it('modal has proper dialog role', async () => {

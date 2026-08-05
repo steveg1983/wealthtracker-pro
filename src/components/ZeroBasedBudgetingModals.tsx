@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import type { Category } from '../types';
 import { parseMoneyInput } from '../utils/decimal';
 
@@ -91,14 +92,12 @@ export function NewPeriodModal({ onSave, onClose }: NewPeriodModalProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Total Expected Income</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="zero-based-total-income" className="block text-sm font-medium mb-1">Total Expected Income</label>
+              <MoneyInput
+                id="zero-based-total-income"
                 value={formData.totalIncome}
-                onChange={(e) => setFormData({ ...formData, totalIncome: parseMoneyInput(e.target.value) ?? 0 })}
+                onChange={(value) => setFormData({ ...formData, totalIncome: parseMoneyInput(value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                placeholder="0.00"
                 required
               />
             </div>
@@ -188,14 +187,12 @@ export function BudgetItemModal({ item, categories, onSave, onClose }: BudgetIte
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
+                <label htmlFor="zero-based-item-amount" className="block text-sm font-medium mb-1">Amount</label>
+                <MoneyInput
+                  id="zero-based-item-amount"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseMoneyInput(e.target.value) ?? 0 })}
+                  onChange={(value) => setFormData({ ...formData, amount: parseMoneyInput(value) ?? 0 })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                  placeholder="0.00"
                   required
                 />
               </div>

@@ -2,6 +2,8 @@ import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { AlertCircleIcon, DollarSignIcon } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import MoneyInput from './common/MoneyInput';
+import { parseMoneyInput } from '../utils/decimal';
 import ToggleSwitch from './ui/ToggleSwitch';
 
 export default function LargeTransactionAlertSettings() {
@@ -46,14 +48,11 @@ export default function LargeTransactionAlertSettings() {
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <DollarSignIcon size={20} className="text-gray-500" />
-              <input
-                type="number"
+              <MoneyInput
                 aria-label="Large transaction alert threshold"
-                min="50"
-                max="10000"
-                step="50"
                 value={largeTransactionThreshold}
-                onChange={(e) => setLargeTransactionThreshold(parseInt(e.target.value) || 500)}
+                // An emptied field falls back to the default threshold, as before.
+                onChange={(value) => setLargeTransactionThreshold(parseMoneyInput(value) || 500)}
                 disabled={!largeTransactionAlertsEnabled}
                 className="flex-1 px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />

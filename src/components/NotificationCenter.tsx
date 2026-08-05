@@ -4,6 +4,8 @@ import type { Notification } from '../contexts/NotificationContext';
 import { notificationService } from '../services/notificationService';
 import type { NotificationRule } from '../services/notificationService';
 import { VirtualizedList } from './VirtualizedList';
+import MoneyInput from './common/MoneyInput';
+import { parseMoneyInput } from '../utils/decimal';
 import {
   BellIcon,
   BellOffIcon,
@@ -540,17 +542,16 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                   </h4>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                      <label htmlFor="large-transaction-threshold" className="text-sm text-gray-700 dark:text-gray-300">
                         Large transaction threshold (£)
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
+                      </label>
+                      <MoneyInput
+                        id="large-transaction-threshold"
                         value={notificationService.getTransactionConfig().largeTransactionThreshold}
-                        onChange={(e) => {
+                        // An emptied field falls back to the default, as before.
+                        onChange={(value) => {
                           notificationService.updateTransactionConfig({
-                            largeTransactionThreshold: parseInt(e.target.value) || 500
+                            largeTransactionThreshold: parseMoneyInput(value) || 500
                           });
                         }}
                         className="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm dark:bg-gray-600 dark:text-white"

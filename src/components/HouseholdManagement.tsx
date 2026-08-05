@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { householdService, type Household, type HouseholdMember, type MemberActivity, type HouseholdInvite, type MemberContribution } from '../services/householdService';
 import SharedBudgetsGoals from './SharedBudgetsGoals';
+import MoneyInput from './common/MoneyInput';
+import { parseMoneyInput } from '../utils/decimal';
 import {
   UsersIcon,
   PlusIcon,
@@ -364,14 +366,14 @@ export default function HouseholdManagement() {
             
             {household.settings.requireApprovalForLargeTransactions && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="household-large-transaction-threshold" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Large Transaction Threshold
                 </label>
-                <input
-                  type="number"
+                <MoneyInput
+                  id="household-large-transaction-threshold"
                   value={household.settings.largeTransactionThreshold}
-                  onChange={(e) => householdService.updateHouseholdSettings({ 
-                    largeTransactionThreshold: Number(e.target.value) 
+                  onChange={(value) => householdService.updateHouseholdSettings({
+                    largeTransactionThreshold: parseMoneyInput(value) ?? 0
                   })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 />

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
@@ -21,6 +21,12 @@ export default function Reconciliation() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     searchParams.get('account') || null
   );
+  const navigate = useNavigate();
+  // Where the user CAME FROM, captured once — later in-page query rewrites
+  // (selecting an account re-writes the whole search string) would drop it.
+  // Arriving via an Accounts-page reconcile button means "done" and "Back"
+  // both return THERE, not to this page's own account list.
+  const [cameFromAccounts] = useState<boolean>(() => searchParams.get('from') === 'accounts');
   // Group + sort for the account list — the same controls (and persistence
   // keys pattern) as the Accounts page, so the two pages always feel the same.
   const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() =>
@@ -161,10 +167,17 @@ export default function Reconciliation() {
   }, [setSearchParams]);
 
   const handleBack = useCallback(() => {
+    if (cameFromAccounts) {
+      // Return whence the user came: the Accounts page sent them here for ONE
+      // account, so leaving that account means leaving this page too.
+      const params = new URLSearchParams(preserveRuntimeControlParams(searchParams));
+      navigate({ pathname: '/accounts', search: params.toString() });
+      return;
+    }
     setSelectedAccountId(null);
     setSearchParams(prev => preserveRuntimeControlParams(prev));
     window.scrollTo(0, 0);
-  }, [setSearchParams]);
+  }, [cameFromAccounts, searchParams, navigate, setSearchParams]);
 
   const applyCleared = useCallback(async (requestedIds: string[], cleared: boolean) => {
     // Drop ids that already have a write in flight — the checkbox is disabled

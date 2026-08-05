@@ -184,10 +184,13 @@ describe('AccountSettingsModal', () => {
     it('has opening balance inputs', () => {
       render(<AccountSettingsModal {...defaultProps} />);
       
+      // A money field: text + inputMode="decimal", so the amount can carry its
+      // thousands separators.
       const balanceInput = screen.getByLabelText('Opening balance amount');
-      expect(balanceInput).toHaveAttribute('type', 'number');
-      expect(balanceInput).toHaveAttribute('step', '0.01');
-      
+      expect(balanceInput).toHaveAttribute('type', 'text');
+      expect(balanceInput).toHaveAttribute('inputmode', 'decimal');
+
+
       const dateInput = screen.getByLabelText('Opening balance date');
       expect(dateInput).toHaveAttribute('type', 'text');
     });

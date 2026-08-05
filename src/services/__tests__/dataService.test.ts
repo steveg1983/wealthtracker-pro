@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createDataService, DataService } from '../api/dataService';
-import type { Account, Transaction } from '../../types';
+import type { Account, Category, Transaction } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
 const createStorage = (initial: Record<string, unknown> = {}) => {
@@ -354,6 +354,151 @@ describe('DataService Decimal balance deltas (local mode)', () => {
 
     const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
     expect(accounts[0].balance).toBe(-70.3);
+  });
+});
+
+
+// The demo/offline half of the stranded-transfer re-pair. Cloud mode is one
+// atomic RPC (repair_claimed_transfer, migration 20260805145035); local mode
+// has no server to be atomic on, so it validates EVERYTHING before its single
+// persist — mirroring the RPC's invariants and its outcome, which is what
+// keeps demo mode honest about what the real thing will do.
+describe('DataService repairClaimedTransfer (local mode)', () => {
+  const ADJUSTMENT = 'revaluation-adjustment';
+
+  const adjustmentCategory: Category = {
+    id: ADJUSTMENT,
+    name: 'Account Adjustment',
+    type: 'both',
+    level: 'detail',
+    isRevaluationCategory: true
+  };
+
+  /** A wrong pairing: the counterpart is linked to `partner`, not to the row that matches it. */
+  const claimedHistory = (): Transaction[] => [
+    baseTransaction({ id: 'stranded', accountId: 'acct-b', amount: 200, category: '', type: 'income' }),
+    baseTransaction({
+      id: 'counterpart', accountId: 'acct-a', amount: -200, type: 'transfer',
+      category: 'cat-transfer', transferAccountId: 'acct-c', linkedTransferId: 'partner'
+    }),
+    baseTransaction({
+      id: 'partner', accountId: 'acct-c', amount: 200, type: 'transfer',
+      category: 'cat-transfer', transferAccountId: 'acct-a', linkedTransferId: 'counterpart'
+    })
+  ];
+
+  const buildService = (storage: ReturnType<typeof createStorage>) =>
+    createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
+      uuid: vi.fn(() => 'generated-id'),
+      now: vi.fn(() => new Date('2025-09-01T00:00:00.000Z')),
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+      }
+    });
+
+  it('breaks the wrong pairing, files the displaced row by its sign, and links the right pair', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-a' }), baseAccount({ id: 'acct-b' }), baseAccount({ id: 'acct-c' })],
+      [STORAGE_KEYS.TRANSACTIONS]: claimedHistory(),
+      [STORAGE_KEYS.CATEGORIES]: [adjustmentCategory]
+    });
+    const service = buildService(storage);
+
+    await service.repairClaimedTransfer('stranded', 'counterpart', 'partner', ADJUSTMENT);
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    const byId = new Map(stored.map(t => [t.id, t]));
+
+    // The displaced row is no longer half of anything: filed as the
+    // adjustment, typed by its own sign (+200 → income), scaffolding gone.
+    expect(byId.get('partner')).toMatchObject({ category: ADJUSTMENT, type: 'income' });
+    expect(byId.get('partner')?.linkedTransferId).toBeUndefined();
+    expect(byId.get('partner')?.transferAccountId).toBeUndefined();
+
+    // The right pair is linked, each side facing the other's account.
+    expect(byId.get('counterpart')).toMatchObject({
+      type: 'transfer', linkedTransferId: 'stranded', transferAccountId: 'acct-b'
+    });
+    expect(byId.get('stranded')).toMatchObject({
+      type: 'transfer', linkedTransferId: 'counterpart', transferAccountId: 'acct-a'
+    });
+
+    // Balance-neutral: no amount moved, so no account did either.
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.every(a => a.balance === 100)).toBe(true);
+  });
+
+  it('files a negative displaced row as an expense', async () => {
+    const history = claimedHistory();
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-a' }), baseAccount({ id: 'acct-b' }), baseAccount({ id: 'acct-c' })],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        { ...history[0], amount: -200, type: 'expense' },
+        { ...history[1], amount: 200 },
+        { ...history[2], amount: -200 }
+      ],
+      [STORAGE_KEYS.CATEGORIES]: [adjustmentCategory]
+    });
+    const service = buildService(storage);
+
+    await service.repairClaimedTransfer('stranded', 'counterpart', 'partner', ADJUSTMENT);
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored.find(t => t.id === 'partner')).toMatchObject({ category: ADJUSTMENT, type: 'expense' });
+  });
+
+  it('refuses a stale list — and writes nothing at all', async () => {
+    // Somebody re-arranged the pair since the finding was built: the
+    // counterpart no longer points at the partner. Acting on that would
+    // unlink a pairing the user never reviewed.
+    const history = claimedHistory();
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-a' })],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        history[0],
+        { ...history[1], linkedTransferId: 'somebody-else' },
+        history[2]
+      ],
+      [STORAGE_KEYS.CATEGORIES]: [adjustmentCategory]
+    });
+    const service = buildService(storage);
+
+    await expect(service.repairClaimedTransfer('stranded', 'counterpart', 'partner', ADJUSTMENT))
+      .rejects.toThrow(/not linked to each other any more/);
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored.find(t => t.id === 'partner')?.category).toBe('cat-transfer');
+    expect(stored.find(t => t.id === 'stranded')?.linkedTransferId).toBeUndefined();
+  });
+
+  it('refuses when the amounts are not exact opposites', async () => {
+    const history = claimedHistory();
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-a' })],
+      [STORAGE_KEYS.TRANSACTIONS]: [{ ...history[0], amount: 199.99 }, history[1], history[2]],
+      [STORAGE_KEYS.CATEGORIES]: [adjustmentCategory]
+    });
+    const service = buildService(storage);
+
+    await expect(service.repairClaimedTransfer('stranded', 'counterpart', 'partner', ADJUSTMENT))
+      .rejects.toThrow(/exactly opposite/);
+  });
+
+  it('refuses a category that is not the user’s own', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-a' })],
+      [STORAGE_KEYS.TRANSACTIONS]: claimedHistory(),
+      [STORAGE_KEYS.CATEGORIES]: []
+    });
+    const service = buildService(storage);
+
+    await expect(service.repairClaimedTransfer('stranded', 'counterpart', 'partner', ADJUSTMENT))
+      .rejects.toThrow(/Unknown or transfer category/);
   });
 });
 

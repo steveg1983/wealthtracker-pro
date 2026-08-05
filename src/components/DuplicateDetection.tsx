@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { parseMoneyInput } from '../utils/decimal';
 import { Modal } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -197,15 +198,13 @@ export default function DuplicateDetection({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="duplicate-amount-threshold" className="block text-sm font-medium mb-1">
                 Amount Threshold (£)
               </label>
-              <input
-                type="number"
+              <MoneyInput
+                id="duplicate-amount-threshold"
                 value={amountThreshold}
-                onChange={(e) => setAmountThreshold(parseMoneyInput(e.target.value) ?? 0)}
-                min="0"
-                step="0.01"
+                onChange={(value) => setAmountThreshold(parseMoneyInput(value) ?? 0)}
                 className="w-full px-3 py-1 border border-gray-300 dark:border-gray-600 rounded
                          bg-white dark:bg-gray-700"
               />

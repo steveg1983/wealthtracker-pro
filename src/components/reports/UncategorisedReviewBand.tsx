@@ -48,23 +48,30 @@ export default function UncategorisedReviewBand({
         {/* The money the report cannot see, in the app's money colours: in
             green, out red, and the NET of the two — the single number that
             says how far the report's totals could move once filed. */}
-        <span className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm font-semibold tabular-nums">
+        <span className="flex flex-wrap items-center gap-x-8 gap-y-1 text-sm font-semibold tabular-nums">
           <span className="text-green-600 dark:text-green-400">
             {formatCurrency(flows.uncategorizedIn.toNumber())} in
           </span>
           <span className="text-red-600 dark:text-red-400">
             {formatCurrency(flows.uncategorizedOut.toNumber())} out
           </span>
+          {/* The net wears a subtle bordered chip: it is the one figure that
+              says how far these totals could move, so it stands apart from
+              the two components it nets. */}
           {(() => {
             const net = flows.uncategorizedIn.minus(flows.uncategorizedOut);
             if (net.isZero()) {
-              return <span className="text-amber-700 dark:text-amber-400">nets to zero</span>;
+              return (
+                <span className="px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400">
+                  nets to zero
+                </span>
+              );
             }
-            const colour = net.isNegative()
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-green-600 dark:text-green-400';
+            const chip = net.isNegative()
+              ? 'border-red-300 dark:border-red-600/70 text-red-600 dark:text-red-400'
+              : 'border-green-300 dark:border-green-600/70 text-green-600 dark:text-green-400';
             return (
-              <span className={colour}>
+              <span className={`px-2 py-0.5 rounded-md border ${chip}`}>
                 {formatCurrency(net.abs().toNumber())} net {net.isNegative() ? 'out' : 'in'}
               </span>
             );

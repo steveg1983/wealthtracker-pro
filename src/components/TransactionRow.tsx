@@ -3,6 +3,7 @@ import type { Transaction, Account } from '../types';
 import { TrendingUpIcon, TrendingDownIcon, CheckIcon, EditIcon, DeleteIcon } from './icons';
 import { IconButton } from './icons/IconButton';
 import MarkdownNote from './MarkdownNote';
+import MoneyInput from './common/MoneyInput';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
 interface TransactionRowProps {
@@ -258,13 +259,12 @@ export const TransactionRow = memo(function TransactionRow({
                 {formattedAmount}
               </span>
             ) : isEditingAmount && onUpdateAmount ? (
-              <input
-                type="number"
-                step="0.01"
+              <MoneyInput
                 className="w-full text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={editAmount}
                 aria-label="Edit transaction amount"
-                onChange={(e) => setEditAmount(e.target.value)}
+                // The row's type carries the sign; the cell holds the size.
+                onChange={setEditAmount}
                 onBlur={() => {
                   const parsed = Number(editAmount);
                   if (Number.isFinite(parsed) && parsed > 0 && parsed !== Math.abs(transaction.amount)) {

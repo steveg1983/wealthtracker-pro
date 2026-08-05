@@ -219,8 +219,24 @@ describe('GoalModal', () => {
     it('refuses negative amounts', () => {
       renderModal(existingGoal());
 
-      expect(screen.getByLabelText('Current Amount (£)')).toHaveAttribute('min', '0');
-      expect(screen.getByLabelText('Target Amount (£)')).toHaveAttribute('min', '0');
+      const current = screen.getByLabelText('Current Amount (£)');
+      const target = screen.getByLabelText('Target Amount (£)');
+
+      fireEvent.change(current, { target: { value: '-50' } });
+      fireEvent.change(target, { target: { value: '-50' } });
+
+      expect(current).toHaveValue('50');
+      expect(target).toHaveValue('50');
+    });
+
+    it('groups thousands in the amounts once the field is left', () => {
+      renderModal(existingGoal());
+
+      const target = screen.getByLabelText('Target Amount (£)');
+      fireEvent.change(target, { target: { value: '1000000' } });
+      fireEvent.blur(target);
+
+      expect(target).toHaveValue('1,000,000.00');
     });
   });
 

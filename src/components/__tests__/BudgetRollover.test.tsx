@@ -281,10 +281,17 @@ describe('BudgetRollover', () => {
       
       const modal = await openSettingsModal();
       
-      const maxAmountInput = within(modal).getByRole('spinbutton');
+      const maxAmountInput = within(modal).getByLabelText('Maximum Rollover Amount (Optional)');
       await userEvent.type(maxAmountInput, '500');
-      
-      expect(maxAmountInput).toHaveValue(500);
+
+      expect(maxAmountInput).toHaveValue('500');
+
+      // Money fields group their thousands once the caret leaves.
+      await userEvent.clear(maxAmountInput);
+      await userEvent.type(maxAmountInput, '1000000');
+      await userEvent.tab();
+
+      expect(maxAmountInput).toHaveValue('1,000,000.00');
     });
 
     it('allows excluding categories', async () => {

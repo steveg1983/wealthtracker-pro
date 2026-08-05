@@ -4,6 +4,7 @@ import { parseMoneyInput } from '../utils/decimal';
 import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
+import MoneyInput from './common/MoneyInput';
 import type { Transaction } from '../types';
 
 interface TransactionModalProps {
@@ -328,14 +329,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Amount <span className="text-red-500" aria-label="required">*</span>
               </label>
-              <input
+              <MoneyInput
                 id="amount"
-                type="number"
                 required
-                step="0.01"
-                min="0.01"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, amount: value })}
                 onBlur={() => handleBlur('amount')}
                 aria-required="true"
                 aria-invalid={touched.amount && !!errors.amount}

@@ -19,6 +19,17 @@ import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
 const BankConnections = lazy(() => import('../components/BankConnections'));
 import type { Account } from '../types';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
+import {
+  groupAccountsForDisplay,
+  parseAccountGroupingPreference,
+  serializeAccountGroupingPreference,
+  ACCOUNT_GROUPING_STORAGE_KEY,
+  LEGACY_ACCOUNT_GROUPING_STORAGE_KEY,
+  DEFAULT_ACCOUNT_GROUPING,
+  type AccountGroupingOptions,
+  type AccountGroupKind,
+  type AccountDisplayGroup,
+} from '../utils/accountGrouping';
 
 type AccountSortMode = 'default' | 'name' | 'balance-desc' | 'balance-asc';
 import { IconButton } from '../components/icons/IconButton';
@@ -30,6 +41,24 @@ import PageTip from '../components/PageTip';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
+
+/**
+ * The two "Group by" switches as stored. Read through the shared parser, which
+ * migrates the pre-toggle single choice — so someone whose page was grouped by
+ * institution yesterday still sees institution bands today. localStorage can
+ * throw outright (Safari private browsing), which must not stop the page
+ * rendering, hence the catch as well as the parser's own.
+ */
+function readStoredGrouping(): AccountGroupingOptions {
+  try {
+    return parseAccountGroupingPreference(
+      localStorage.getItem(ACCOUNT_GROUPING_STORAGE_KEY),
+      localStorage.getItem(LEGACY_ACCOUNT_GROUPING_STORAGE_KEY)
+    );
+  } catch {
+    return DEFAULT_ACCOUNT_GROUPING;
+  }
+}
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
   const { accounts, transactions, serverBalances, updateAccount, deleteAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
@@ -45,9 +74,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
   const [breakdownView, setBreakdownView] = useState<AccountBreakdownView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() => {
-    return (localStorage.getItem('accountsGroupBy') as 'type' | 'institution') || 'type';
-  });
+  // Two INDEPENDENT switches, not a choice of one: Account Type and Institution
+  // each on or off. Both on nests institutions inside the type sections; both
+  // off is a single flat list.
+  const [grouping, setGrouping] = useState<AccountGroupingOptions>(readStoredGrouping);
   const [sortMode, setSortMode] = useState<AccountSortMode>(() => {
     const stored = localStorage.getItem('accountsSortMode');
     return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc'
@@ -59,8 +89,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // is unmanageable fully expanded, so a heading can be collapsed down to just
   // its name, count and running total (that total is the whole point of
   // collapsing — you still see what a section is worth without its rows).
-  // Keyed by "<groupBy>:<label>" so collapsing "Natwest" under Institution can
-  // never also collapse a same-named section under Account Type.
+  // Keyed by "<kind>:<label>" — the dimension the band groups BY, not the whole
+  // view — so collapsing "Natwest" under Institution can never also collapse a
+  // same-named section under Account Type, and a folded type section stays
+  // folded when the Institution switch is flipped alongside it.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('accountsCollapsedGroups');
@@ -169,52 +201,20 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }
   }, [reopeningId, updateAccount, refreshAccountsAndTransactions, refreshCategories, loadClosedAccounts, showError]);
 
-  // Closed accounts get the SAME grouping as the open list — by account type
-  // (the shared section definitions) or by institution when the page toggle
-  // says so — so the archive reads the way the live list does. Rows within a
-  // group are alphabetical by name; that was the whole point of this change
-  // (they used to arrive in no order at all). Empty groups don't render.
+  // Closed accounts get the SAME grouping as the open list, in all four switch
+  // combinations, so the archive reads the way the live list does. Rows within
+  // a group are alphabetical by name; that was the whole point of this change
+  // (they used to arrive in no order at all). The grouping preserves input
+  // order, so sorting once up front sorts every band. Empty bands don't render.
   // Kept independent of `sortMode`: the live list's Value/Default sorts are for
   // triage, but an archive you're scanning for one name always wants A–Z.
-  const closedAccountGroups = useMemo<{ label: string; title: string; accounts: Account[] }[]>(() => {
-    const byName = (a: Account, b: Account) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-
-    if (groupBy === 'institution') {
-      // Mirror accountsByInstitution: bucket by institution, "Other Accounts"
-      // for the unset ones, sorted alphabetically with that catch-all last.
-      const groups = new Map<string, Account[]>();
-      closedAccounts.forEach(account => {
-        const institution = account.institution || 'Other Accounts';
-        const list = groups.get(institution);
-        if (list) list.push(account);
-        else groups.set(institution, [account]);
-      });
-      return [...groups.keys()]
-        .sort((a, b) => {
-          if (a === 'Other Accounts') return 1;
-          if (b === 'Other Accounts') return -1;
-          return a.localeCompare(b);
-        })
-        .map(institution => ({
-          label: institution,
-          title: institution,
-          accounts: [...(groups.get(institution) ?? [])].sort(byName),
-        }));
-    }
-
-    // Group by account type through the shared section list (catch-all last),
-    // so a closed account files under exactly the section its open twin would.
-    return ALL_ACCOUNT_SECTIONS
-      .map(section => ({
-        label: section.type,
-        title: section.title,
-        accounts: closedAccounts
-          .filter(account => sectionTypeForAccount(account.type) === section.type)
-          .sort(byName),
-      }))
-      .filter(group => group.accounts.length > 0);
-  }, [closedAccounts, groupBy]);
+  const closedAccountBands = useMemo(
+    () => groupAccountsForDisplay(
+      [...closedAccounts].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+      grouping
+    ),
+    [closedAccounts, grouping]
+  );
 
   // Convert accounts to decimal for calculations
   const decimalAccounts = useMemo(() => openAccounts.map(a => ({
@@ -234,21 +234,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     })) : undefined
   })), [openAccounts]);
 
-  // Group accounts by type (memoized) — nested cash accounts are not
-  // top-level cards, so they don't group here.
-  const accountsByType = useMemo(() =>
-    topLevelAccounts.reduce((groups, account) => {
-      // Bucket by SECTION type, not the raw type string: the raw string is
-      // exactly how an "Other Assets" ('assets') or 'mortgage' account used to
-      // vanish — bucketed under a key no section ever looked up.
-      const type = sectionTypeForAccount(account.type);
-      if (!groups[type]) {
-        groups[type] = [];
-      }
-      groups[type].push(account);
-      return groups;
-    }, {} as Record<string, typeof accounts>),
-    [topLevelAccounts]
+  // The open list's bands, straight from the two switches — type sections,
+  // institution bands, type sections with institution sub-bands, or one flat
+  // list. Nested cash accounts ride inside their parent's card, so only
+  // top-level accounts band here. Bucketing by SECTION type (not the raw type
+  // string) is what stops an "Other Assets" or 'mortgage' account vanishing
+  // under a key no section ever looked up — see `sectionTypeForAccount`.
+  const accountBands = useMemo(
+    () => groupAccountsForDisplay(topLevelAccounts, grouping),
+    [topLevelAccounts, grouping]
   );
 
   // Set loading to false when accounts are loaded
@@ -264,53 +258,52 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     amount: toDecimal(t.amount),
   })), [transactions]);
 
-  // Group decimal accounts by their EFFECTIVE type for the section totals: a
-  // nested cash account counts toward its PARENT's section (Investments), not
-  // its own type (Current Accounts).
-  const decimalAccountsByType = useMemo(() => {
-    const typeById = new Map(openAccounts.map(a => [a.id, a.type]));
-    return decimalAccounts.reduce((groups, account) => {
-      const type = sectionTypeForAccount(
-        (account.parentAccountId && typeById.get(account.parentAccountId)) || account.type
-      );
-      if (!groups[type]) {
-        groups[type] = [];
+  // Which top-level card an account's money counts toward: itself, or the
+  // nearest ancestor that IS a top-level card. A nested cash account belongs to
+  // the band its PARENT sits in (Investments), not the one its own type or
+  // institution would suggest. The walk stops on a parent already seen, so a
+  // cycle in the data cannot hang the page.
+  const topLevelIdByAccountId = useMemo(() => {
+    const byId = new Map(openAccounts.map(a => [a.id, a]));
+    const resolve = (account: Account): string => {
+      const seen = new Set<string>([account.id]);
+      let current = account;
+      for (;;) {
+        const parentId = current.parentAccountId;
+        if (!parentId || seen.has(parentId)) return current.id;
+        const parent = byId.get(parentId);
+        if (!parent) return current.id;
+        seen.add(parentId);
+        current = parent;
       }
-      groups[type].push(account);
-      return groups;
-    }, {} as Record<string, typeof decimalAccounts>);
-  }, [decimalAccounts, openAccounts]);
+    };
+    return new Map(openAccounts.map(a => [a.id, resolve(a)]));
+  }, [openAccounts]);
+
+  // A band's running total: every open account whose money counts toward one of
+  // the band's cards, summed as Decimal (opening balance + its transactions) —
+  // the same figure the net-worth bar shows, never floating-point arithmetic.
+  const totalForBand = useCallback((bandAccounts: readonly Account[]): DecimalInstance => {
+    const ids = new Set(bandAccounts.map(a => a.id));
+    return calculateTotalBalance(
+      decimalAccounts.filter(a => ids.has(topLevelIdByAccountId.get(a.id) ?? a.id)),
+      decimalTransactions
+    );
+  }, [decimalAccounts, decimalTransactions, topLevelIdByAccountId]);
 
   // The shared account-type sections (same groupings everywhere), catch-all
   // last — a type without a section renders under "Other Accounts", never
   // nowhere.
   const accountTypes = ALL_ACCOUNT_SECTIONS;
 
-
-  // Group accounts by institution (nested cash accounts ride with their
-  // parent's card, so only top-level accounts group here)
-  const accountsByInstitution = useMemo(() => {
-    const groups: Record<string, typeof accounts> = {};
-    topLevelAccounts.forEach(account => {
-      const institution = account.institution || 'Other Accounts';
-      if (!groups[institution]) {
-        groups[institution] = [];
-      }
-      groups[institution].push(account);
-    });
-    // Sort institutions alphabetically, with "Other Accounts" last
-    const sorted: Record<string, typeof accounts> = {};
-    Object.keys(groups).sort((a, b) => {
-      if (a === 'Other Accounts') return 1;
-      if (b === 'Other Accounts') return -1;
-      return a.localeCompare(b);
-    }).forEach(key => { sorted[key] = groups[key]; });
-    return sorted;
-  }, [topLevelAccounts]);
-
-  const handleGroupByChange = (value: 'type' | 'institution') => {
-    setGroupBy(value);
-    localStorage.setItem('accountsGroupBy', value);
+  // Each switch flips on its own: both on nests, both off flattens.
+  const handleGroupingChange = (next: AccountGroupingOptions) => {
+    setGrouping(next);
+    try {
+      localStorage.setItem(ACCOUNT_GROUPING_STORAGE_KEY, serializeAccountGroupingPreference(next));
+    } catch {
+      // Storage unavailable — the choice still applies for this session.
+    }
   };
 
   const handleSortChange = (value: AccountSortMode) => {
@@ -319,7 +312,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   };
 
   // Fold a group open/closed and persist the whole collapsed set, so the choice
-  // survives a reload. Takes the fully-qualified "<groupBy>:<label>" key.
+  // survives a reload. Takes the fully-qualified "<kind>:<label>" key.
   const toggleGroupCollapsed = useCallback((key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
@@ -556,7 +549,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                   </span>
                                 </div>
                                 <button
-                                  onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}`, location.search))}
+                                  onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search))}
                                   className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Reconcile transactions"
                                 >
@@ -648,41 +641,55 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     ? topLevelAccounts.filter(accountOrChildMatches).length
     : topLevelAccounts.length;
 
-  // The collapsed-set key and the region id both key off the same label, per
-  // grouping mode — see `collapsedGroups` for why the mode is part of the key.
-  const collapseKeyFor = (label: string) => `${groupBy}:${label}`;
-  const groupRegionId = (label: string) =>
-    `account-group-${groupBy}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  // The collapsed-set key and the region id both key off the band's dimension
+  // and label — see `collapsedGroups` for why the dimension is part of the key.
+  const collapseKeyFor = (kind: AccountGroupKind, label: string) => `${kind}:${label}`;
+  const groupRegionId = (kind: AccountGroupKind, label: string) =>
+    `account-group-${kind}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
 
-  // ONE section renderer for both grouping views: a heading that toggles the
-  // section, and — when open — the account cards. The heading always shows the
-  // full group's name, count and total, so a collapsed section still tells you
-  // what it is worth. `label` is the stable key (account type id / institution
-  // name); `title` is what the heading reads.
-  const renderAccountGroup = (
-    label: string,
-    headingIcon: ReactNode,
-    title: string,
-    groupTopLevelAccounts: Account[],
-    groupTotal: DecimalInstance | number,
-  ): ReactNode => {
+  // The band's own glyph: its section's icon and colour for a type band, the
+  // bank mark for an institution band.
+  const bandHeadingIcon = (group: AccountDisplayGroup<Account>): ReactNode => {
+    if (group.kind === 'institution') {
+      return <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />;
+    }
+    const section = accountTypes.find(t => t.type === group.label);
+    const Icon = section?.icon ?? WalletIcon;
+    return <Icon className={section?.color ?? 'text-gray-600'} size={20} />;
+  };
+
+  // ONE renderer for every banded view: a heading that folds the band away,
+  // and — when open — either the account cards or, with both switches on, the
+  // institution sub-bands holding them. The heading always shows the full
+  // band's name, count and total, so a collapsed band still tells you what it
+  // is worth.
+  const renderAccountBand = (group: AccountDisplayGroup<Account>): ReactNode => {
     const displayedAccounts = isSearching
-      ? groupTopLevelAccounts.filter(accountOrChildMatches)
-      : groupTopLevelAccounts;
+      ? group.accounts.filter(accountOrChildMatches)
+      : group.accounts;
     // A search that hides its own hits would be worse than no search, so a
-    // group with no match drops out entirely instead of showing an empty card.
+    // band with no match drops out entirely instead of showing an empty card.
     if (isSearching && displayedAccounts.length === 0) return null;
+
+    // Sub-bands are filtered the same way, and an all-miss sub-band drops out
+    // while its siblings keep their headings.
+    const subBands = group.subGroups
+      ?.map(sub => ({
+        ...sub,
+        displayed: isSearching ? sub.accounts.filter(accountOrChildMatches) : sub.accounts,
+      }))
+      .filter(sub => sub.displayed.length > 0);
 
     // While searching, collapse is deliberately ignored: a folded section must
     // not swallow a result the user is actively looking for.
-    const isExpanded = isSearching || !collapsedGroups.has(collapseKeyFor(label));
-    const regionId = groupRegionId(label);
+    const isExpanded = isSearching || !collapsedGroups.has(collapseKeyFor(group.kind, group.label));
+    const regionId = groupRegionId(group.kind, group.label);
 
     return (
-      <div key={label} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div key={`${group.kind}:${group.label}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <button
           type="button"
-          onClick={() => toggleGroupCollapsed(collapseKeyFor(label))}
+          onClick={() => toggleGroupCollapsed(collapseKeyFor(group.kind, group.label))}
           aria-expanded={isExpanded}
           aria-controls={regionId}
           className="w-full bg-gray-100 dark:bg-gray-700/70 border-b border-gray-300 dark:border-gray-500 px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-gray-200/70 dark:hover:bg-gray-700 transition-colors"
@@ -693,21 +700,52 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                 size={16}
                 className={`flex-shrink-0 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
               />
-              {headingIcon}
-              <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+              {bandHeadingIcon(group)}
+              <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{group.title}</h2>
               <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                ({groupTopLevelAccounts.length} {groupTopLevelAccounts.length === 1 ? 'account' : 'accounts'})
+                ({group.accounts.length} {group.accounts.length === 1 ? 'account' : 'accounts'})
               </span>
             </div>
             <p className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">
-              {formatDisplayCurrency(groupTotal)}
+              {formatDisplayCurrency(totalForBand(group.accounts))}
             </p>
           </div>
         </button>
 
         {isExpanded && (
           <div id={regionId} className="p-3 sm:p-4 space-y-3">
-            {sortAccounts(displayedAccounts).map(renderAccountCard)}
+            {subBands
+              ? subBands.map(sub => {
+                  // Count and total describe the WHOLE sub-band, as the section
+                  // header does — a search narrows the rows, not the figures.
+                  const countLabel = `${sub.accounts.length} ${sub.accounts.length === 1 ? 'account' : 'accounts'}`;
+                  const subTotal = formatDisplayCurrency(totalForBand(sub.accounts));
+                  return (
+                    // A sub-band is a group, not a heading: the outline stays
+                    // section (h2) → account name (h3), and screen readers get
+                    // the institution, its count and its total from the label.
+                    <div
+                      key={sub.label}
+                      role="group"
+                      aria-label={`${sub.title}, ${countLabel}, total ${subTotal}`}
+                      className="space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-700 px-3 py-1.5">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 truncate">
+                          {sub.title}
+                          <span className="ml-2 font-normal normal-case tracking-normal text-gray-400 dark:text-gray-500">
+                            ({countLabel})
+                          </span>
+                        </p>
+                        <p className="shrink-0 text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300">
+                          {subTotal}
+                        </p>
+                      </div>
+                      {sortAccounts(sub.displayed).map(renderAccountCard)}
+                    </div>
+                  );
+                })
+              : sortAccounts(displayedAccounts).map(renderAccountCard)}
           </div>
         )}
       </div>
@@ -840,26 +878,38 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
         {/* w-full below sm: each control needs to OWN its row for the pill
             group inside to stretch — as content-sized flex items the two
-            rows ended at different x and the pills could not line up. */}
+            rows ended at different x and the pills could not line up.
+
+            Group by is two INDEPENDENT switches rather than an either/or pair:
+            on their own they band the list one way, together they nest
+            institutions inside the type sections, and off they leave one flat
+            list. The p-0.5 is not decoration — it matches the height the Sort
+            group gets from its own border and padding, so the two rows line up. */}
         <div className="w-full sm:w-auto flex items-center gap-2">
           <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Group by:</span>
-          <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
+          <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex gap-2 p-0.5">
             <button
-              onClick={() => handleGroupByChange('type')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                groupBy === 'type'
-                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              type="button"
+              onClick={() => handleGroupingChange({ ...grouping, byType: !grouping.byType })}
+              aria-pressed={grouping.byType}
+              title="Band the list into account-type sections"
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                grouping.byType
+                  ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
               Account Type
             </button>
             <button
-              onClick={() => handleGroupByChange('institution')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                groupBy === 'institution'
-                  ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+              type="button"
+              onClick={() => handleGroupingChange({ ...grouping, byInstitution: !grouping.byInstitution })}
+              aria-pressed={grouping.byInstitution}
+              title="Band the list by institution"
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                grouping.byInstitution
+                  ? 'bg-[#1a2332] dark:bg-blue-600 border-[#1a2332] dark:border-blue-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
               Institution
@@ -965,42 +1015,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             <SkeletonCard className="h-48" />
             <SkeletonCard className="h-48" />
           </>
-        ) : groupBy === 'institution' ? (
-          /* Institution grouping view */
-          Object.entries(accountsByInstitution).map(([institution, instAccounts]) => {
-            // Nested cash accounts count toward their parent's institution
-            // total, wherever the cash account itself claims to live.
-            const instIds = new Set(instAccounts.map(a => a.id));
-            const instDecimalAccounts = decimalAccounts.filter(da =>
-              instIds.has(da.id) || (da.parentAccountId != null && instIds.has(da.parentAccountId))
-            );
-            const instTotal = calculateTotalBalance(instDecimalAccounts, decimalTransactions);
-
-            return renderAccountGroup(
-              institution,
-              <BankIcon className="text-[#1a2332] dark:text-gray-400" size={20} />,
-              institution,
-              instAccounts,
-              instTotal,
-            );
-          })
+        ) : accountBands.mode === 'flat' ? (
+          /* Both switches off: one list, no band chrome at all. */
+          <div className="space-y-3">
+            {sortAccounts(
+              isSearching ? accountBands.accounts.filter(accountOrChildMatches) : accountBands.accounts
+            ).map(renderAccountCard)}
+          </div>
         ) : (
-          /* Account type grouping view (original) */
-          accountTypes.map(({ type, title, icon: Icon, color }) => {
-            const typeAccounts = accountsByType[type] || [];
-            if (typeAccounts.length === 0) return null;
-
-            const decimalTypeAccounts = decimalAccountsByType[type] || [];
-            const typeTotal = calculateTotalBalance(decimalTypeAccounts, decimalTransactions);
-
-            return renderAccountGroup(
-              type,
-              <Icon className={color} size={20} />,
-              title,
-              typeAccounts,
-              typeTotal,
-            );
-          })
+          accountBands.groups.map(renderAccountBand)
         )}
       </div>
 
@@ -1040,21 +1063,41 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
           {showClosedAccounts && (
             <div data-testid="closed-accounts" className="border-t border-gray-100 dark:border-gray-700">
-              {/* Grouped like the open list (type or institution), but kept
-                  quiet: a small grey subheading per group, rows alphabetical
-                  within. A subheading is not a semantic <h2> here — it sits
-                  below the open sections' weight on purpose, an archive rather
-                  than the main event. */}
-              {closedAccountGroups.map(group => (
-                <div key={group.label}>
-                  <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                    {group.title}
-                  </p>
-                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {group.accounts.map(renderClosedAccountRow)}
-                  </div>
+              {/* Grouped exactly like the open list — both switches included,
+                  so an institution sub-band nests here too — but kept quiet: a
+                  small grey subheading per group, rows alphabetical within. A
+                  subheading is not a semantic <h2> here; it sits below the open
+                  sections' weight on purpose, an archive rather than the main
+                  event. With both switches off there is no subheading at all. */}
+              {closedAccountBands.mode === 'flat' ? (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {closedAccountBands.accounts.map(renderClosedAccountRow)}
                 </div>
-              ))}
+              ) : (
+                closedAccountBands.groups.map(group => (
+                  <div key={`${group.kind}:${group.label}`}>
+                    <p className="px-4 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      {group.title}
+                    </p>
+                    {group.subGroups ? (
+                      group.subGroups.map(sub => (
+                        <div key={sub.label}>
+                          <p className="pl-8 pr-4 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400/90 dark:text-gray-500/90">
+                            {sub.title}
+                          </p>
+                          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                            {sub.accounts.map(renderClosedAccountRow)}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {group.accounts.map(renderClosedAccountRow)}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

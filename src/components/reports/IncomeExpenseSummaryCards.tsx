@@ -105,7 +105,7 @@ export default function IncomeExpenseSummaryCards({
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Income vs Expenditure</p>
           <div className={`text-2xl font-bold ${
             summary.savingsRate >= 20 ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'
           }`}>

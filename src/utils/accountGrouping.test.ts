@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import {
   ACCOUNT_SECTION_DEFINITIONS,
   OTHER_SECTION_DEFINITION,
+  DEFAULT_ACCOUNT_GROUPING,
   groupAccountsBySection,
+  groupAccountsForDisplay,
+  parseAccountGroupingPreference,
+  serializeAccountGroupingPreference,
+  type AccountDisplayGrouping,
+  type AccountDisplayGroup,
+  type GroupableAccount,
 } from './accountGrouping';
 import { ALL_ACCOUNT_SECTIONS } from './accountSections';
 import type { Account } from '../types';
@@ -84,6 +91,250 @@ describe('groupAccountsBySection', () => {
     expect(groups[0].accounts[0].id).toBe('transfer:acc-1');
     // `label` is the section type — a stable key, and the way back to its styling.
     expect(groups[0].label).toBe(ACCOUNT_SECTION_DEFINITIONS[0].type);
+  });
+});
+
+/**
+ * The Accounts page's "Group by" switches are two INDEPENDENT toggles, so this
+ * one function has to serve four views: type sections, institution bands, the
+ * two nested, and neither. What these pin is that each view keeps the shape the
+ * page draws — and that no account is lost in any of them.
+ */
+describe('groupAccountsForDisplay', () => {
+  const acct = (name: string, type: string, institution?: string): GroupableAccount =>
+    institution === undefined ? { name, type } : { name, type, institution };
+
+  // Deliberately awkward: the same institution in two casings, one blank
+  // string, one absent, spread across three sections and out of section order.
+  const book: GroupableAccount[] = [
+    acct('Coutts Current', 'current', 'Coutts'),
+    acct('Amex Platinum', 'credit', 'AMEX'),
+    acct('Loose Change', 'current'),
+    acct('Coutts Savings', 'savings', 'coutts'),
+    acct('Amex Gold', 'credit', 'Amex'),
+    acct('Barclays Current', 'current', 'Barclays'),
+    acct('Blank Jar', 'savings', '   '),
+  ];
+
+  const groupsOf = (
+    result: AccountDisplayGrouping<GroupableAccount>
+  ): AccountDisplayGroup<GroupableAccount>[] => {
+    if (result.mode !== 'grouped') throw new Error(`expected grouped bands, got ${result.mode}`);
+    return result.groups;
+  };
+  const namesIn = (accounts: GroupableAccount[]): string[] => accounts.map(a => a.name);
+
+  describe('Account Type on, Institution off', () => {
+    const options = { byType: true, byInstitution: false };
+
+    it('bands into the page\'s sections, in section order, empty ones omitted', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      expect(groups.map(g => g.title)).toEqual(['Current Accounts', 'Savings Accounts', 'Credit Cards']);
+      expect(groups.every(g => g.kind === 'type')).toBe(true);
+      // The label is the section type — the page's collapse key and the way
+      // back to the section's icon and colour.
+      expect(groups[0].label).toBe('current');
+    });
+
+    it('keeps the caller\'s order inside a band — the page applies its own sort', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      expect(namesIn(groups[0].accounts)).toEqual(['Coutts Current', 'Loose Change', 'Barclays Current']);
+    });
+
+    it('carries no sub-bands when the Institution switch is off', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      expect(groups.every(g => g.subGroups === undefined)).toBe(true);
+    });
+  });
+
+  describe('Institution on, Account Type off', () => {
+    const options = { byType: false, byInstitution: true };
+
+    it('bands by institution alphabetically, unfiled accounts last', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      expect(groups.map(g => g.title)).toEqual(['AMEX', 'Barclays', 'Coutts', 'Other Accounts']);
+      expect(groups.every(g => g.kind === 'institution')).toBe(true);
+    });
+
+    it('merges casings into one band and prints the casing that arrived first', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      // 'AMEX' then 'Amex' is ONE institution — his data's own spelling wins.
+      const amex = groups.find(g => g.title === 'AMEX');
+      expect(namesIn(amex?.accounts ?? [])).toEqual(['Amex Platinum', 'Amex Gold']);
+      expect(groups.some(g => g.title === 'Amex')).toBe(false);
+      // …and 'coutts' joins 'Coutts' rather than starting a band of its own.
+      const coutts = groups.find(g => g.title === 'Coutts');
+      expect(namesIn(coutts?.accounts ?? [])).toEqual(['Coutts Current', 'Coutts Savings']);
+    });
+
+    it('files absent AND blank institutions under the one catch-all', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      const other = groups.find(g => g.title === 'Other Accounts');
+      // '   ' is not an institution called three spaces: it is nothing said.
+      expect(namesIn(other?.accounts ?? [])).toEqual(['Loose Change', 'Blank Jar']);
+    });
+
+    it('ignores the accounts\' types entirely', () => {
+      const groups = groupsOf(groupAccountsForDisplay(
+        [acct('Solo', 'hoverboard', 'Coutts')],
+        options
+      ));
+      expect(groups).toHaveLength(1);
+      expect(groups[0].title).toBe('Coutts');
+    });
+  });
+
+  describe('both switches on', () => {
+    const options = { byType: true, byInstitution: true };
+
+    it('nests institution sub-bands inside the type sections', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      expect(groups.map(g => ({
+        title: g.title,
+        subs: (g.subGroups ?? []).map(s => ({ title: s.title, accounts: namesIn(s.accounts) })),
+      }))).toEqual([
+        {
+          title: 'Current Accounts',
+          subs: [
+            { title: 'Barclays', accounts: ['Barclays Current'] },
+            { title: 'Coutts', accounts: ['Coutts Current'] },
+            { title: 'Other Accounts', accounts: ['Loose Change'] },
+          ],
+        },
+        {
+          // 'Coutts Savings' carries the institution as 'coutts', yet its
+          // sub-band still reads 'Coutts': the spelling is settled once across
+          // the whole book, so one institution cannot head two sections two
+          // different ways.
+          title: 'Savings Accounts',
+          subs: [
+            { title: 'Coutts', accounts: ['Coutts Savings'] },
+            { title: 'Other Accounts', accounts: ['Blank Jar'] },
+          ],
+        },
+        {
+          title: 'Credit Cards',
+          subs: [{ title: 'AMEX', accounts: ['Amex Platinum', 'Amex Gold'] }],
+        },
+      ]);
+    });
+
+    it('keeps the band\'s full account list alongside its sub-bands', () => {
+      // The section heading counts and totals the WHOLE section, not one sub-band.
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      expect(namesIn(groups[0].accounts)).toEqual(['Coutts Current', 'Loose Change', 'Barclays Current']);
+    });
+
+    it('puts the catch-all sub-band last inside every section that has one', () => {
+      const groups = groupsOf(groupAccountsForDisplay(book, options));
+      groups.forEach(group => {
+        const subs = group.subGroups ?? [];
+        const catchAll = subs.findIndex(s => s.title === 'Other Accounts');
+        if (catchAll !== -1) expect(catchAll).toBe(subs.length - 1);
+      });
+    });
+
+    it('merges casings within a section, not across the whole book', () => {
+      const groups = groupsOf(groupAccountsForDisplay(
+        [acct('Card One', 'credit', 'AMEX'), acct('Card Two', 'credit', 'amex')],
+        options
+      ));
+      expect(groups[0].subGroups).toHaveLength(1);
+      expect(groups[0].subGroups?.[0].title).toBe('AMEX');
+    });
+  });
+
+  describe('both switches off', () => {
+    const options = { byType: false, byInstitution: false };
+
+    it('returns one flat list in the caller\'s order, with no band chrome', () => {
+      const result = groupAccountsForDisplay(book, options);
+      expect(result.mode).toBe('flat');
+      if (result.mode !== 'flat') throw new Error('expected a flat list');
+      expect(namesIn(result.accounts)).toEqual(namesIn(book));
+    });
+
+    it('hands back a copy, not the caller\'s array', () => {
+      const result = groupAccountsForDisplay(book, options);
+      if (result.mode !== 'flat') throw new Error('expected a flat list');
+      expect(result.accounts).not.toBe(book);
+    });
+  });
+
+  it('never drops an account, in any of the four modes', () => {
+    const counts = [
+      { byType: true, byInstitution: false },
+      { byType: false, byInstitution: true },
+      { byType: true, byInstitution: true },
+      { byType: false, byInstitution: false },
+    ].map(options => {
+      const result = groupAccountsForDisplay(book, options);
+      return result.mode === 'flat'
+        ? result.accounts.length
+        : result.groups.reduce((sum, g) => sum + g.accounts.length, 0);
+    });
+    expect(counts).toEqual([book.length, book.length, book.length, book.length]);
+    // Nesting must not duplicate either: the sub-bands hold each account once.
+    const nested = groupAccountsForDisplay(book, { byType: true, byInstitution: true });
+    const inSubBands = groupsOf(nested).flatMap(g => (g.subGroups ?? []).flatMap(s => namesIn(s.accounts)));
+    expect(inSubBands.sort()).toEqual(namesIn(book).sort());
+  });
+
+  it('leaves the caller\'s array untouched in every mode', () => {
+    const input = [acct('Zed', 'current', 'Coutts'), acct('Ada', 'current')];
+    const before = namesIn(input);
+    groupAccountsForDisplay(input, { byType: true, byInstitution: true });
+    groupAccountsForDisplay(input, { byType: false, byInstitution: true });
+    groupAccountsForDisplay(input, { byType: false, byInstitution: false });
+    expect(namesIn(input)).toEqual(before);
+  });
+
+  it('bands nothing into nothing rather than empty headings', () => {
+    expect(groupsOf(groupAccountsForDisplay([], { byType: true, byInstitution: true }))).toEqual([]);
+    expect(groupsOf(groupAccountsForDisplay([], { byType: false, byInstitution: true }))).toEqual([]);
+  });
+});
+
+/**
+ * The upgrade. Before the two switches there was ONE stored choice
+ * ('type' | 'institution'); nobody's page may re-band itself just because a new
+ * bundle landed.
+ */
+describe('parseAccountGroupingPreference', () => {
+  it('defaults to Account Type alone — what an untouched page shows today', () => {
+    expect(parseAccountGroupingPreference(null, null)).toEqual({ byType: true, byInstitution: false });
+    expect(DEFAULT_ACCOUNT_GROUPING).toEqual({ byType: true, byInstitution: false });
+  });
+
+  it('migrates a stored v1 choice to the identical view', () => {
+    expect(parseAccountGroupingPreference(null, 'type')).toEqual({ byType: true, byInstitution: false });
+    expect(parseAccountGroupingPreference(null, 'institution')).toEqual({ byType: false, byInstitution: true });
+  });
+
+  it('prefers the v2 switches once they exist, whatever v1 still says', () => {
+    const stored = serializeAccountGroupingPreference({ byType: true, byInstitution: true });
+    expect(parseAccountGroupingPreference(stored, 'institution')).toEqual({ byType: true, byInstitution: true });
+  });
+
+  it('round-trips all four combinations', () => {
+    [
+      { byType: true, byInstitution: false },
+      { byType: false, byInstitution: true },
+      { byType: true, byInstitution: true },
+      { byType: false, byInstitution: false },
+    ].forEach(options => {
+      expect(parseAccountGroupingPreference(serializeAccountGroupingPreference(options), null)).toEqual(options);
+    });
+  });
+
+  it('falls back to the default on junk rather than wedging the page', () => {
+    expect(parseAccountGroupingPreference('not json', null)).toEqual(DEFAULT_ACCOUNT_GROUPING);
+    expect(parseAccountGroupingPreference('null', null)).toEqual(DEFAULT_ACCOUNT_GROUPING);
+    expect(parseAccountGroupingPreference('{"byType":"yes"}', null)).toEqual(DEFAULT_ACCOUNT_GROUPING);
+    // A stored v2 value, however broken, still beats re-reading v1: the user
+    // has used the switches since, so the old choice is stale.
+    expect(parseAccountGroupingPreference('not json', 'institution')).toEqual(DEFAULT_ACCOUNT_GROUPING);
+    expect(parseAccountGroupingPreference(null, 'nonsense')).toEqual(DEFAULT_ACCOUNT_GROUPING);
   });
 });
 

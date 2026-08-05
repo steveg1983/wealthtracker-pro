@@ -8,6 +8,7 @@ import { useOfflineOperations } from '../../pwa/offline-storage';
 import { useCategories } from '../../contexts/CategoryContext';
 import { useAccounts } from '../../contexts/AccountContext';
 import { formatCurrency } from '../../utils/formatters';
+import MoneyInput from '../common/MoneyInput';
 import { toDecimal, parseMoneyInput } from '../../utils/decimal';
 import { 
   WifiOffIcon, 
@@ -196,18 +197,16 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
 
             {/* Amount */}
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="offline-amount" className="block text-sm font-medium mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <DollarSignIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="number"
-                  step="0.01"
+                <MoneyInput
+                  id="offline-amount"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, amount: value })}
                   className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="0.00"
                   required
                 />
               </div>

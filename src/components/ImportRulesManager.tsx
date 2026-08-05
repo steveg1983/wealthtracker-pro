@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importRulesService } from '../services/importRulesService';
+import MoneyInput from './common/MoneyInput';
 import { parseMoneyInput } from '../utils/decimal';
 import { 
   PlusIcon, 
@@ -546,20 +547,34 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                       ))}
                     </select>
 
-                    <input
-                      type={condition.field === 'amount' ? 'number' : 'text'}
-                      value={condition.value}
-                      onChange={(e) => updateCondition(index, { value: condition.field === 'amount' ? parseMoneyInput(e.target.value) ?? 0 : e.target.value })}
-                      placeholder="Value"
-                      className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
-                    />
+                    {condition.field === 'amount' ? (
+                      <MoneyInput
+                        // Rules match signed amounts, so a rule for money going
+                        // out has to be able to say so.
+                        allowNegative
+                        value={condition.value}
+                        onChange={(value) => updateCondition(index, { value: parseMoneyInput(value) ?? 0 })}
+                        placeholder="Value"
+                        aria-label={`Condition ${index + 1} amount`}
+                        className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={condition.value}
+                        onChange={(e) => updateCondition(index, { value: e.target.value })}
+                        placeholder="Value"
+                        className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                      />
+                    )}
 
                     {condition.operator === 'between' && (
-                      <input
-                        type="number"
-                        value={condition.value2}
-                        onChange={(e) => updateCondition(index, { value2: parseMoneyInput(e.target.value) ?? 0 })}
+                      <MoneyInput
+                        allowNegative
+                        value={condition.value2 ?? ''}
+                        onChange={(value) => updateCondition(index, { value2: parseMoneyInput(value) ?? 0 })}
                         placeholder="Max value"
+                        aria-label={`Condition ${index + 1} maximum amount`}
                         className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm w-24"
                       />
                     )}

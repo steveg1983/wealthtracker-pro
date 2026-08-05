@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dividendService } from '../services/dividendService';
 import type { Dividend, DividendSummary, DividendProjection } from '../services/dividendService';
 import { parseMoneyInput } from '../utils/decimal';
+import MoneyInput from './common/MoneyInput';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -390,7 +391,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">Per Share</span>
                       <span className="text-gray-900 dark:text-white">
-                        {currencySymbol}{formatDecimal(dividend.amountPerShare, 4)}
+                        {currencySymbol}{formatDecimal(dividend.amountPerShare, 4, { group: true })}
                       </span>
                     </div>
                   </div>
@@ -419,7 +420,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                       <td className="py-3 px-4 font-medium">{dividend.symbol}</td>
                       <td className="py-3 px-4 text-right">{formatCurrency(dividend.amount)}</td>
                       <td className="py-3 px-4 text-right text-sm text-gray-600 dark:text-gray-400">
-                        {currencySymbol}{formatDecimal(dividend.amountPerShare, 4)}
+                        {currencySymbol}{formatDecimal(dividend.amountPerShare, 4, { group: true })}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`text-xs px-2 py-1 rounded ${
@@ -540,12 +541,11 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-1">Total Amount</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="dividend-total-amount" className="block text-sm font-medium mb-1">Total Amount</label>
+              <MoneyInput
+                id="dividend-total-amount"
                 value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: parseMoneyInput(e.target.value) ?? 0 })}
+                onChange={(value) => setFormData({ ...formData, amount: parseMoneyInput(value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
               />
@@ -604,12 +604,11 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-1">Tax Withheld</label>
-              <input
-                type="number"
-                step="0.01"
+              <label htmlFor="dividend-tax-withheld" className="block text-sm font-medium mb-1">Tax Withheld</label>
+              <MoneyInput
+                id="dividend-tax-withheld"
                 value={formData.taxWithheld}
-                onChange={(e) => setFormData({ ...formData, taxWithheld: parseMoneyInput(e.target.value) ?? 0 })}
+                onChange={(value) => setFormData({ ...formData, taxWithheld: parseMoneyInput(value) ?? 0 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               />
             </div>

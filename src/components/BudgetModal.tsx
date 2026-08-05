@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import CategorySelector from './CategorySelector';
@@ -207,17 +208,15 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="budget-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Amount
             </label>
-            <input
-              type="number"
+            <MoneyInput
+              id="budget-amount"
               required
-              step="0.01"
               value={formData.amount}
-              onChange={(e) => updateField('amount', e.target.value)}
+              onChange={(value) => updateField('amount', value)}
               className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              placeholder="0.00"
             />
           </div>
 

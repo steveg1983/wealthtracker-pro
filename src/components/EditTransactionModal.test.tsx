@@ -8,6 +8,18 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import EditTransactionModal from './EditTransactionModal';
 import type { Transaction } from '../types';
 
+// The modal navigates (a linked transfer's "jump to the other side"); every
+// host sits inside the app router, but this file renders it bare.
+const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ pathname: '/accounts/acc-1', search: '', hash: '', state: null, key: 'test' }),
+  };
+});
+
 // Mock all dependencies with minimal implementations.
 // AppContextSupabase (which the component actually consumes) is mocked
 // globally in src/test/setup.ts via src/test/mocks/AppContextSupabase.ts.

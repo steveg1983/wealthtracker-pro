@@ -945,6 +945,9 @@ describe('TransactionService — owner id cannot be silently omitted', () => {
       { category: 'cat-2', amount: 15 }
     ], 25)],
     ['linkTransferPair', s => s.linkTransferPair('txn-1', 'txn-2')],
+    ['clearTransferLinks', s => s.clearTransferLinks(['txn-1'])],
+    ['setTransactionArchived', s => s.setTransactionArchived('txn-1', true)],
+    ['repairClaimedTransfer', s => s.repairClaimedTransfer('txn-1', 'txn-2', 'txn-3', 'cat-1')],
     ['createTransferCounterpart', s => s.createTransferCounterpart('txn-1', 'acct-2')],
     ['archiveTransactionsBefore', s => s.archiveTransactionsBefore('acct-1', '2025-01-31')],
     ['unarchiveAccount', s => s.unarchiveAccount('acct-1')],
@@ -968,6 +971,114 @@ describe('TransactionService — owner id cannot be silently omitted', () => {
       p_cleared: true,
       p_user_id: 'user-1'
     });
+  });
+});
+
+
+// Audit 2026-08-05: unlinking a transfer and archiving a row were the last two
+// financial writes that reached the table directly, so they left no
+// financial_audit_log entry — two ways to change a transaction, one of them
+// silent. Migration 20260805145035 gives each an audited RPC. These tests exist
+// so a future edit cannot quietly put the table update back.
+describe('TransactionService — transfer repair goes through audited RPCs', () => {
+  const logger = { error: vi.fn() };
+
+  const createRpcService = (data: unknown) => {
+    const rpc = vi.fn(async () => ({ data, error: null }));
+    const from = vi.fn(() => {
+      throw new Error('financial writes must not touch the table directly');
+    });
+    const service = createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now: () => new Date(fixedNow),
+      uuid: () => 'generated-id',
+      supabaseClient: { rpc, from } as unknown as never
+    });
+    return { service, rpc };
+  };
+
+  beforeEach(() => {
+    logger.error.mockReset();
+  });
+
+  it('unlinks through clear_transfer_links and returns what the database changed', async () => {
+    const { service, rpc } = createRpcService(2);
+
+    const count = await service.clearTransferLinks(['txn-1', 'txn-2'], 'user-1');
+
+    expect(rpc).toHaveBeenCalledWith('clear_transfer_links', {
+      p_ids: ['txn-1', 'txn-2'],
+      p_user_id: 'user-1'
+    });
+    expect(count).toBe(2);
+  });
+
+  it('refuses to guess when the database does not report a count', async () => {
+    const { service } = createRpcService(null);
+
+    await expect(service.clearTransferLinks(['txn-1'], 'user-1')).rejects.toThrow(/refusing to assume/);
+  });
+
+  it('archives through set_transactions_archived, one row at a time', async () => {
+    const { service, rpc } = createRpcService(1);
+
+    await service.setTransactionArchived('txn-1', true, 'user-1');
+
+    expect(rpc).toHaveBeenCalledWith('set_transactions_archived', {
+      p_ids: ['txn-1'],
+      p_archived: true,
+      p_user_id: 'user-1'
+    });
+  });
+
+  it('repairs a claimed transfer in ONE call and converts all three rows it returns', async () => {
+    const row = (id: string): Record<string, unknown> => ({
+      id,
+      account_id: 'acct-1',
+      amount: 200,
+      type: 'transfer',
+      date: '2026-05-01',
+      description: id
+    });
+    const { service, rpc } = createRpcService({
+      stranded: row('stranded'),
+      counterpart: row('counterpart'),
+      partner: row('partner')
+    });
+
+    const result = await service.repairClaimedTransfer(
+      'stranded', 'counterpart', 'partner', 'cat-adjustment', 'user-1'
+    );
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('repair_claimed_transfer', {
+      p_stranded_id: 'stranded',
+      p_counterpart_id: 'counterpart',
+      p_partner_id: 'partner',
+      p_adjustment_category_id: 'cat-adjustment',
+      p_user_id: 'user-1'
+    });
+    expect(result.stranded.date).toBeInstanceOf(Date);
+    expect(result.counterpart.id).toBe('counterpart');
+    expect(result.partner.id).toBe('partner');
+  });
+
+  it('surfaces the database refusal verbatim', async () => {
+    const rpc = vi.fn(async () => ({ data: null, error: { message: 'transfer_pair_not_linked' } }));
+    const service = createTransactionService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now: () => new Date(fixedNow),
+      uuid: () => 'generated-id',
+      supabaseClient: { rpc } as unknown as never
+    });
+
+    await expect(
+      service.repairClaimedTransfer('stranded', 'counterpart', 'partner', 'cat-adjustment', 'user-1')
+    ).rejects.toThrow('transfer_pair_not_linked');
   });
 });
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { parseMoneyInput, toDecimal } from '../../utils/decimal';
+import MoneyInput from '../common/MoneyInput';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { ClearedSummary } from '../../hooks/useReconciliation';
 
@@ -70,12 +71,13 @@ export default function ReconciliationBalanceBar({
             </button>
           ) : isEditingBankBalance ? (
             <form onSubmit={handleBankBalanceSubmit} className="flex gap-1">
-              <input
-                type="number"
-                step="0.01"
+              <MoneyInput
+                // An overdrawn account's statement balance is negative.
+                allowNegative
                 value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
+                onChange={setEditValue}
                 className="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                aria-label="Bank balance"
                 autoFocus
                 onBlur={() => {
                   if (editValue.trim()) {
