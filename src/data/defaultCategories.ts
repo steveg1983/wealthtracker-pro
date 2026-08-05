@@ -1,4 +1,4 @@
-import { MS_MONEY_CATEGORY_SET } from './msMoneyCategories';
+import { DEFAULT_CATEGORY_TREE } from './defaultCategoryTree';
 
 interface Category {
   id: string;
@@ -40,9 +40,9 @@ const slugify = (name: string): string =>
     .replace(/^-+|-+$/g, '');
 
 /**
- * The default category tree every new user starts with: the classic
- * Microsoft Money (UK) set (src/data/msMoneyCategories.ts) plus the system
- * categories the app itself needs (type anchors, transfer in/out, and the
+ * The default category tree every new user starts with: the curated starter
+ * set (src/data/defaultCategoryTree.ts) plus the system categories the app
+ * itself needs (type anchors, transfer in/out, revaluation, and the
  * Adjustments bucket used by balance-repair tooling).
  */
 export function getDefaultCategories(): Category[] {
@@ -68,7 +68,7 @@ export function getDefaultCategories(): Category[] {
     { id: 'revaluation-adjustment', name: 'Account Adjustment', type: 'both', level: 'detail', parentId: 'type-revaluation', isSystem: true, isRevaluationCategory: true },
   ];
 
-  for (const group of MS_MONEY_CATEGORY_SET) {
+  for (const group of DEFAULT_CATEGORY_TREE) {
     const subId = `sub-${slugify(group.name)}`;
     categories.push({
       id: subId,
