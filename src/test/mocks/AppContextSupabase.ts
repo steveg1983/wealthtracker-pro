@@ -61,6 +61,15 @@ const baseValue = {
   importCategoryTree: async () => ({ created: 0, skipped: 0, pruned: 0, keptForTransactions: 0 }),
   updateCategory: noop,
   deleteCategory: noop,
+  mergeCategories: async (sourceId: string, targetId: string) => ({
+    sourceId,
+    targetId,
+    transactions: 0,
+    splitLines: 0,
+    splitTransactions: 0,
+    budgets: 0,
+    recurring: 0,
+  }),
   // Async, like the real context: callers chain .catch() on these, and a
   // double that hands back `undefined` crashes the very code it is meant to
   // stand in for.

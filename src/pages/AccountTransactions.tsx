@@ -18,7 +18,7 @@ import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
-import { groupAccountsBySection } from '../utils/accountGrouping';
+import GroupedAccountSelect from '../components/common/GroupedAccountSelect';
 import type { Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -494,26 +494,33 @@ export default function AccountTransactions() {
     [transactionsWithBalance, selectedTransactionId]
   );
 
-  // Transfer targets for the quick-add dock, banded into the same sections the
-  // Accounts page uses. Which accounts are offered is unchanged — every account
-  // but this one — only the order they read in.
-  const transferTargetSections = useMemo(
-    () => groupAccountsBySection(accounts.filter(acc => acc.id !== account?.id)),
+  // Transfer targets for the quick-add dock: every account but this one. The
+  // select bands them into the Accounts page's sections.
+  const transferTargets = useMemo(
+    () => accounts.filter(acc => acc.id !== account?.id),
     [accounts, account?.id]
   );
 
   // Clicking the page background deselects: the row un-highlights and the
   // bottom dock flips back from Quick Edit to Quick Add. Clicks inside the
   // table, the dock, or any dialog keep the selection.
+  //
+  // NEVER while the edit modal is open: the modal only renders while a row is
+  // selected, and its pickers (category, tags, date) render their menus in
+  // PORTALS on document.body — outside the dialog subtree — so a click on a
+  // category option used to deselect, unmount the modal mid-click, and dump
+  // the user back on the register with nothing saved. The listbox guard keeps
+  // the selection for any other portaled picker menu (the dock's, say) too.
   useEffect(() => {
-    if (!selectedTransactionId) return;
+    if (!selectedTransactionId || isEditModalOpen) return;
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       if (
         target.closest('[data-transaction-table]') ||
         target.closest('[data-quick-edit-panel]') ||
-        target.closest('[role="dialog"]')
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="listbox"]')
       ) {
         return;
       }
@@ -523,7 +530,7 @@ export default function AccountTransactions() {
     };
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [selectedTransactionId]);
+  }, [selectedTransactionId, isEditModalOpen]);
 
   // Next non-summary row below the given one in the CURRENT visible order —
   // powers "Save & Next" in both the quick-edit panel and the full modal.
@@ -1374,22 +1381,14 @@ export default function AccountTransactions() {
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
               {quickAddForm.type === 'transfer' ? (
-                <select
+                <GroupedAccountSelect
+                  accounts={transferTargets}
                   value={quickAddForm.category}
-                  onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: e.target.value }); }}
+                  onChange={(accountId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: accountId }); }}
+                  placeholder="Select account..."
+                  formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
                   className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
-                >
-                  <option value="">Select account...</option>
-                  {transferTargetSections.map(group => (
-                    <optgroup key={group.label} label={group.title}>
-                      {group.accounts.map(acc => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name} ({formatCurrency(acc.balance)})
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                />
               ) : (
                 /* Which direction's tree it lists is this row's own, flipped by
                    the cross-type checkbox below — the same control the edit

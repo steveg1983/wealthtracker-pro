@@ -5,6 +5,7 @@ import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
 import MoneyInput from './common/MoneyInput';
+import GroupedAccountSelect from './common/GroupedAccountSelect';
 import type { Transaction } from '../types';
 
 interface TransactionModalProps {
@@ -388,25 +389,22 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
             <label htmlFor="account" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Account <span className="text-red-500" aria-label="required">*</span>
             </label>
-            <select
+            <GroupedAccountSelect
               id="account"
+              accounts={accounts}
               value={formData.accountId}
-              onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+              onChange={(accountId) => setFormData({ ...formData, accountId })}
               onBlur={() => handleBlur('account')}
+              placeholder="Select an account"
               aria-required="true"
               aria-invalid={touched.account && !!errors.account}
               aria-describedby={touched.account && errors.account ? 'account-error' : undefined}
               className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
-                touched.account && errors.account 
-                  ? 'border-red-500 dark:border-red-500' 
+                touched.account && errors.account
+                  ? 'border-red-500 dark:border-red-500'
                   : 'border-gray-300/50 dark:border-gray-600/50'
               } rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
-            >
-              <option value="">Select an account</option>
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>{account.name}</option>
-              ))}
-            </select>
+            />
             {touched.account && errors.account && (
               <p id="account-error" className="mt-1 text-sm text-red-500" role="alert">
                 {errors.account}

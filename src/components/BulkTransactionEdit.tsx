@@ -16,6 +16,7 @@ import {
   RepeatIcon
 } from './icons';
 import BulkEditPanel from './BulkEditPanel';
+import { GroupedAccountOptions } from './common/GroupedAccountSelect';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 
@@ -452,9 +453,9 @@ export default function BulkTransactionEdit({
                                rounded bg-white dark:bg-gray-700"
                       size={3}
                     >
-                      {accounts.map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.name}</option>
-                      ))}
+                      {/* Multi-select, so it keeps its own <select> and takes
+                          only the grouped options. */}
+                      <GroupedAccountOptions accounts={accounts} />
                     </select>
                   </div>
                   <div>

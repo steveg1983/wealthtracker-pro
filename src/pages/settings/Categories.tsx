@@ -2,14 +2,15 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
-import { expandSplitTransactions, splitsByTransaction } from '../../utils/transactionSplits';
+import { expandSplitTransactions } from '../../utils/transactionSplits';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
 import { computeCategoryHealth } from '../../utils/categoryHealth';
-import { AlertCircleIcon, Settings2Icon, GripVerticalIcon } from '../../components/icons';
+import { AlertCircleIcon, Settings2Icon, GripVerticalIcon, MergeIcon } from '../../components/icons';
 import { PlusIcon, XIcon, CheckIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
+import type { Category as AppCategory, CategoryMergeResult } from '../../types';
 import { IconButton } from '../../components/icons/IconButton';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
@@ -30,14 +31,43 @@ interface Category {
   order?: number;
 }
 
+/**
+ * Why this category cannot be merged away — the sentence the user sees — or
+ * null when it can be. Mirrors the merge_categories RPC's refusals
+ * (20260805214322) so an ineligible row explains itself BEFORE the round trip
+ * rather than after it.
+ *
+ * v1 is leaf-to-leaf: the affordance is offered on detail categories only, and
+ * a group says so instead of being silently absent.
+ */
+function mergeBlockedReason(category: AppCategory, categories: AppCategory[]): string | null {
+  if (category.isTransferCategory === true) {
+    return 'Transfer categories are managed automatically from their account. Close the account to hide it instead.';
+  }
+  if (category.isRevaluationCategory === true || category.isSystem === true) {
+    return 'The app files transactions under this built-in category automatically, so it cannot be merged away.';
+  }
+  if (category.isUnassignedBucket === true) {
+    return "Rows here aren't categorised at all — file them from the review band rather than merging the whole bucket into a real category.";
+  }
+  if (category.level !== 'detail' || categories.some(c => c.parentId === category.id)) {
+    return "Merging a whole group isn't supported yet — merge the detail categories inside it instead.";
+  }
+  return null;
+}
+
 interface SortableCategoryProps {
   category: Category;
   isEditMode: boolean;
   isDeleteMode: boolean;
+  isMergeMode: boolean;
+  /** Set when merge mode is on and this row cannot be merged; the row dims and says why. */
+  mergeBlockedReason?: string | null;
   isEditing: boolean;
   editingName: string;
   onEdit: () => void;
   onDelete: () => void;
+  onMerge: () => void;
   onNameChange: (name: string) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -46,14 +76,17 @@ interface SortableCategoryProps {
   isDraggable?: boolean;
 }
 
-function SortableCategory({ 
-  category, 
+function SortableCategory({
+  category,
   isEditMode,
-  isDeleteMode, 
-  isEditing, 
+  isDeleteMode,
+  isMergeMode,
+  mergeBlockedReason: mergeBlocked,
+  isEditing,
   editingName,
-  onEdit, 
-  onDelete, 
+  onEdit,
+  onDelete,
+  onMerge,
   onNameChange,
   onSave,
   onCancel,
@@ -68,9 +101,9 @@ function SortableCategory({
     transform,
     transition,
     isDragging,
-  } = useSortable({ 
+  } = useSortable({
     id: category.id,
-    disabled: !isEditMode || !isDraggable || isDeleteMode
+    disabled: !isEditMode || !isDraggable || isDeleteMode || isMergeMode
   });
 
   const style = {
@@ -78,12 +111,18 @@ function SortableCategory({
     transition,
   };
 
+  // In merge mode an ineligible row is dimmed and carries its reason as a
+  // tooltip — visibly off rather than missing, so the tree still reads as the
+  // whole tree. Clicking it says the same thing out loud (a toast), because a
+  // title attribute is no use on a touch screen.
+  const mergeUnavailable = isMergeMode && mergeBlocked != null;
+
   return (
     <div ref={setNodeRef} style={style}>
-      <div 
+      <div
         className={`flex items-center justify-between p-2 rounded ${
           isDragging ? 'opacity-50' : ''
-        } ${
+        } ${mergeUnavailable ? 'opacity-60' : ''} ${
           isEditMode ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
         }`}
       >
@@ -108,13 +147,26 @@ function SortableCategory({
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <div 
+            <div
+              title={
+                mergeUnavailable
+                  ? mergeBlocked ?? undefined
+                  : isMergeMode
+                    ? `Merge "${category.name}" into another category`
+                    : undefined
+              }
               className={`flex items-center gap-2 flex-1 ${
-                !isEditMode && !isDeleteMode && onClick ? 'cursor-pointer' : ''
+                mergeUnavailable
+                  ? 'cursor-not-allowed'
+                  : isMergeMode || (!isEditMode && !isDeleteMode && onClick)
+                    ? 'cursor-pointer'
+                    : ''
               }`}
               onClick={(e) => {
                 e.stopPropagation();
-                if (isDeleteMode) {
+                if (isMergeMode) {
+                  onMerge();
+                } else if (isDeleteMode) {
                   onDelete();
                 } else if (isEditMode) {
                   onEdit();
@@ -124,8 +176,10 @@ function SortableCategory({
               }}
             >
               <span className={`${category.level === 'sub' ? 'font-medium' : ''} text-gray-900 dark:text-white ${
-                isDeleteMode ? 'hover:text-red-600 dark:hover:text-red-400' : 
-                isEditMode ? 'hover:text-primary dark:hover:text-primary' : 
+                mergeUnavailable ? '' :
+                isMergeMode ? 'hover:text-primary dark:hover:text-primary' :
+                isDeleteMode ? 'hover:text-red-600 dark:hover:text-red-400' :
+                isEditMode ? 'hover:text-primary dark:hover:text-primary' :
                 !isEditMode && !isDeleteMode ? 'hover:text-primary dark:hover:text-primary' : ''
               }`}>
                 {category.name}
@@ -162,15 +216,32 @@ function SortableCategory({
   );
 }
 
+/** "1,240 transactions, 12 split lines and 1 budget" — zero counts say nothing. */
+function movingClause(transactions: number, splitLines: number, budgets: number): string {
+  const parts: string[] = [];
+  if (transactions > 0) {
+    parts.push(`${transactions.toLocaleString()} transaction${transactions === 1 ? '' : 's'}`);
+  }
+  if (splitLines > 0) {
+    parts.push(`${splitLines.toLocaleString()} split line${splitLines === 1 ? '' : 's'}`);
+  }
+  if (budgets > 0) {
+    parts.push(`${budgets.toLocaleString()} budget${budgets === 1 ? '' : 's'}`);
+  }
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
 export default function CategoriesSettings() {
   const {
     transactions,
     categories,
+    budgets,
     transactionSplits,
-    setTransactionSplits,
     updateCategory,
     deleteCategory,
-    updateTransaction,
+    mergeCategories,
     getSubCategories,
     getDetailCategories,
     importCategoryTree
@@ -246,12 +317,16 @@ export default function CategoriesSettings() {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [isMergeMode, setIsMergeMode] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const [isReassigning, setIsReassigning] = useState(false);
   const [reassignCategoryId, setReassignCategoryId] = useState<string>('');
+  const [mergingCategoryId, setMergingCategoryId] = useState<string | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState<string>('');
+  const [isMerging, setIsMerging] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<{ [parentId: string]: string[] }>({});
@@ -491,6 +566,19 @@ export default function CategoriesSettings() {
     setEditingCategoryName('');
   };
 
+  /**
+   * Everything that would be orphaned if this category disappeared: whole
+   * transactions filed under it, split LINES inside other transactions, and
+   * budgets pointing at it. Split parents are excluded from the transaction
+   * figure because their own category is blank — their filing lives in the
+   * lines, which are counted separately.
+   */
+  const referencesTo = (categoryId: string): { transactions: number; splitLines: number; budgets: number } => ({
+    transactions: transactions.filter(t => t.category === categoryId && !t.isSplit).length,
+    splitLines: transactionSplits.filter(s => s.category === categoryId).length,
+    budgets: budgets.filter(b => b.categoryId === categoryId).length,
+  });
+
   const handleDelete = (categoryId: string) => {
     const category = categories.find(c => c.id === categoryId);
     if (!category) return;
@@ -505,15 +593,16 @@ export default function CategoriesSettings() {
       return;
     }
 
-    // Count on the EXPANDED view so a category used only inside split lines
-    // still routes through reassignment — deleting it outright would orphan
-    // those lines' categorisation (the DB refuses that delete anyway).
-    const transactionCount = expandedTransactions.filter(t => t.category === categoryId).length;
+    // EVERY reference routes through reassignment, not just transactions: a
+    // budget left pointing at a deleted category keeps a dangling id and
+    // silently reports £0 spent for ever after.
+    const references = referencesTo(categoryId);
+    const referenceCount = references.transactions + references.splitLines + references.budgets;
     const childCategories = categories.filter(c => c.parentId === categoryId);
 
     if (childCategories.length > 0) {
       alert('Cannot delete category with subcategories. Delete subcategories first.');
-    } else if (transactionCount > 0) {
+    } else if (referenceCount > 0) {
       setDeletingCategoryId(categoryId);
       setReassignCategoryId('');
     } else {
@@ -521,6 +610,37 @@ export default function CategoriesSettings() {
         deleteCategory(categoryId);
       }
     }
+  };
+
+  const handleMerge = (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return;
+
+    const blocked = mergeBlockedReason(category, categories);
+    if (blocked) {
+      showError(new Error(blocked));
+      return;
+    }
+    setMergingCategoryId(categoryId);
+    setMergeTargetId('');
+  };
+
+  /**
+   * Run a merge and report what the DATABASE moved, not what was predicted.
+   * Shared by the merge dialog and by "Delete & Reassign", which is the same
+   * operation reached from the other end.
+   */
+  const runMerge = async (sourceId: string, targetId: string): Promise<void> => {
+    const sourceName = categories.find(c => c.id === sourceId)?.name ?? 'that category';
+    const targetName = categories.find(c => c.id === targetId)?.name ?? 'the new category';
+    const result: CategoryMergeResult = await mergeCategories(sourceId, targetId);
+    const moved = movingClause(result.transactions, result.splitLines, result.budgets);
+    showSuccess(
+      moved
+        ? `${moved} moved from "${sourceName}" to "${targetName}".`
+        : `"${sourceName}" was empty, so it has simply been removed.`,
+      'Categories merged'
+    );
   };
 
   const handleCategoryClick = (categoryId: string, categoryName: string) => {
@@ -592,10 +712,13 @@ export default function CategoriesSettings() {
                       category={subCategory as Category}
                       isEditMode={isEditMode}
                       isDeleteMode={isDeleteMode}
+                      isMergeMode={isMergeMode}
+                      mergeBlockedReason={isMergeMode ? mergeBlockedReason(subCategory, categories) : null}
                       isEditing={editingCategoryId === subCategory.id}
                       editingName={editingCategoryName}
                       onEdit={() => startEditing(subCategory.id, subCategory.name)}
                       onDelete={() => handleDelete(subCategory.id)}
+                      onMerge={() => handleMerge(subCategory.id)}
                       onNameChange={setEditingCategoryName}
                       onSave={saveEdit}
                       onCancel={cancelEdit}
@@ -634,10 +757,13 @@ export default function CategoriesSettings() {
                                   category={detailCategory as Category}
                                   isEditMode={isEditMode}
                                   isDeleteMode={isDeleteMode}
+                                  isMergeMode={isMergeMode}
+                                  mergeBlockedReason={isMergeMode ? mergeBlockedReason(detailCategory, categories) : null}
                                   isEditing={editingCategoryId === detailCategory.id}
                                   editingName={editingCategoryName}
                                   onEdit={() => startEditing(detailCategory.id, detailCategory.name)}
                                   onDelete={() => handleDelete(detailCategory.id)}
+                                  onMerge={() => handleMerge(detailCategory.id)}
                                   onNameChange={setEditingCategoryName}
                                   onSave={saveEdit}
                                   onCancel={cancelEdit}
@@ -669,20 +795,42 @@ export default function CategoriesSettings() {
             onClick={() => {
               setIsEditMode(!isEditMode);
               if (isDeleteMode) setIsDeleteMode(false);
+              if (isMergeMode) setIsMergeMode(false);
               setEditingCategoryId(null);
             }}
             className={`w-8 h-8 flex items-center justify-center transition-colors ${
-              isEditMode 
-                ? 'text-white bg-gray-600 hover:bg-gray-700' 
+              isEditMode
+                ? 'text-white bg-gray-600 hover:bg-gray-700'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
             title={isEditMode ? 'Done Editing' : 'Edit Categories'}
           >
             <Settings2Icon size={16} />
           </button>
+          {/* Merge sits beside Delete, inside Edit mode, because it is the same
+              kind of structural change reached the same way: a mode, then the
+              category you mean. One click of a row, not a button per row —
+              which would put a control on every line of a long tree. */}
           {isEditMode && (
             <IconButton
-              onClick={() => setIsDeleteMode(!isDeleteMode)}
+              onClick={() => {
+                setIsMergeMode(!isMergeMode);
+                if (!isMergeMode) setIsDeleteMode(false);
+                setEditingCategoryId(null);
+              }}
+              icon={<MergeIcon size={16} />}
+              variant={isMergeMode ? 'primary' : 'ghost'}
+              size="sm"
+              className={isMergeMode ? '' : 'text-gray-500 hover:text-gray-700'}
+              title={isMergeMode ? 'Cancel Merge' : 'Merge Categories'}
+            />
+          )}
+          {isEditMode && (
+            <IconButton
+              onClick={() => {
+                setIsDeleteMode(!isDeleteMode);
+                if (!isDeleteMode) setIsMergeMode(false);
+              }}
               icon={<DeleteIcon size={16} />}
               variant={isDeleteMode ? 'danger' : 'ghost'}
               size="sm"
@@ -711,26 +859,32 @@ export default function CategoriesSettings() {
       {/* Instructions */}
       {(isEditMode || isDeleteMode) ? (
         <div className={`lg:shrink-0 border rounded-2xl p-4 mb-6 ${
-          isDeleteMode 
-            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+          isDeleteMode
+            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
             : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
         }`}>
           <div className={`text-sm space-y-2 ${
             isDeleteMode ? 'text-red-800 dark:text-red-200' : 'text-blue-800 dark:text-blue-200'
           }`}>
-            <p><strong>{isDeleteMode ? 'Delete Mode Active:' : 'Edit Mode Active:'}</strong></p>
+            <p><strong>{isDeleteMode ? 'Delete Mode Active:' : isMergeMode ? 'Merge Mode Active:' : 'Edit Mode Active:'}</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">
               {isDeleteMode ? (
                 <>
                   <li>Click on any category to delete it</li>
-                  <li>Categories with transactions will prompt for reassignment</li>
+                  <li>Categories still in use will prompt for reassignment</li>
                   <li>Categories with subcategories must have subcategories deleted first</li>
+                </>
+              ) : isMergeMode ? (
+                <>
+                  <li>Click the category you want to merge away, then choose the one it joins</li>
+                  <li>Everything filed under it moves across — transactions, split lines and budgets</li>
+                  <li>Groups and the app&apos;s own categories are greyed out and say why</li>
                 </>
               ) : (
                 <>
                   <li>Click on any category name to rename it</li>
                   <li>Drag detail categories to different subcategories to reorganize them</li>
-                  <li>Toggle Delete Mode to remove categories</li>
+                  <li>Toggle Merge Mode to join two categories, or Delete Mode to remove one</li>
                   <li>Default categories can be edited just like custom ones</li>
                 </>
               )}
@@ -802,10 +956,13 @@ export default function CategoriesSettings() {
                       category={category as Category}
                       isEditMode={isEditMode}
                       isDeleteMode={isDeleteMode}
+                      isMergeMode={isMergeMode}
+                      mergeBlockedReason={isMergeMode ? mergeBlockedReason(category, categories) : null}
                       isEditing={editingCategoryId === category.id}
                       editingName={editingCategoryName}
                       onEdit={() => startEditing(category.id, category.name)}
                       onDelete={() => handleDelete(category.id)}
+                      onMerge={() => handleMerge(category.id)}
                       onNameChange={setEditingCategoryName}
                       onSave={saveEdit}
                       onCancel={cancelEdit}
@@ -837,27 +994,33 @@ export default function CategoriesSettings() {
       {/* Category Delete Confirmation Dialog */}
       {deletingCategoryId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-category-heading"
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full"
+          >
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-orange-500" size={24} />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Category</h3>
+              <h3 id="delete-category-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
+                Delete Category
+              </h3>
             </div>
             {(() => {
               const category = categories.find(c => c.id === deletingCategoryId);
-              const directRows = transactions.filter(t => t.category === deletingCategoryId && !t.isSplit);
-              const affectedSplitLines = transactionSplits.filter(s => s.category === deletingCategoryId);
-              const transactionCount = directRows.length + affectedSplitLines.length;
+              const references = referencesTo(deletingCategoryId);
+              const held = movingClause(references.transactions, references.splitLines, references.budgets);
+              const only = references.transactions + references.splitLines + references.budgets === 1;
+              const targetName = categories.find(c => c.id === reassignCategoryId)?.name;
 
               return (
                 <>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    The category "{category?.name}" has {transactionCount} transaction{transactionCount !== 1 ? 's' : ''} associated with it
-                    {affectedSplitLines.length > 0 && (
-                      <> (including {affectedSplitLines.length} split line{affectedSplitLines.length !== 1 ? 's' : ''})</>
-                    )}.
+                    {held} {only ? 'is' : 'are'} filed under &ldquo;{category?.name}&rdquo;,
+                    so {only ? 'it needs' : 'they need'} somewhere to go before it can be removed.
                   </p>
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    Please select a category to reassign these transactions to:
+                    Please select a category to reassign them to:
                   </p>
                   {/* Same searchable grouped picker as the transaction editor —
                       it filters out inactive categories (a closed account's
@@ -875,6 +1038,15 @@ export default function CategoriesSettings() {
                       usePortal
                     />
                   </div>
+                  {/* Consequence before the button, in the same words the merge
+                      dialog uses — because this IS a merge, reached from the
+                      "I want this gone" end. */}
+                  {reassignCategoryId && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                      {held} move to &ldquo;{targetName}&rdquo;; &ldquo;{category?.name}&rdquo; is then removed.
+                      Payee memory and future imports follow &ldquo;{targetName}&rdquo;.
+                    </p>
+                  )}
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
@@ -893,33 +1065,11 @@ export default function CategoriesSettings() {
                         }
                         setIsReassigning(true);
                         try {
-                          // Ordinary rows move in one pass; failures surface
-                          // instead of silently racing the category delete.
-                          await Promise.all(directRows.map(transaction =>
-                            updateTransaction(transaction.id, { category: reassignCategoryId })
-                          ));
-
-                          // Split lines: swap the category inside each affected
-                          // parent's split set. Amounts are untouched, so the
-                          // sum invariant holds and the RPC accepts.
-                          const affectedParents = splitsByTransaction(affectedSplitLines);
-                          for (const parentId of affectedParents.keys()) {
-                            const allLines = transactionSplits
-                              .filter(s => s.transactionId === parentId)
-                              .sort((a, b) => a.sortOrder - b.sortOrder);
-                            const parent = transactions.find(t => t.id === parentId);
-                            await setTransactionSplits(
-                              parentId,
-                              allLines.map(line => ({
-                                category: line.category === deletingCategoryId ? reassignCategoryId : line.category,
-                                amount: line.amount,
-                                ...(line.memo ? { memo: line.memo } : {}),
-                              })),
-                              parent?.amount ?? null
-                            );
-                          }
-
-                          await deleteCategory(deletingCategoryId);
+                          // ONE atomic call. This used to be a round trip per
+                          // transaction, then a split rewrite per parent, then
+                          // the delete — with budgets left behind entirely and
+                          // nothing to undo a half-finished run.
+                          await runMerge(deletingCategoryId, reassignCategoryId);
                           setDeletingCategoryId(null);
                           setReassignCategoryId('');
                         } catch (error) {
@@ -932,6 +1082,104 @@ export default function CategoriesSettings() {
                       disabled={!reassignCategoryId || isReassigning}
                     >
                       {isReassigning ? 'Reassigning…' : 'Delete & Reassign'}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Category Merge Dialog */}
+      {mergingCategoryId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="merge-category-heading"
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <MergeIcon className="text-primary" size={24} />
+              <h3 id="merge-category-heading" className="text-lg font-semibold text-gray-900 dark:text-white">
+                Merge Category
+              </h3>
+            </div>
+            {(() => {
+              const source = categories.find(c => c.id === mergingCategoryId);
+              const target = categories.find(c => c.id === mergeTargetId);
+              const references = referencesTo(mergingCategoryId);
+              const moving = movingClause(references.transactions, references.splitLines, references.budgets);
+              // A budget already on the target means the user ends up with two
+              // on one category. Said out loud, once, only when it applies.
+              const targetBudgets = mergeTargetId
+                ? budgets.filter(b => b.categoryId === mergeTargetId).length
+                : 0;
+
+              return (
+                <>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Everything filed under &ldquo;{source?.name}&rdquo; moves to the category you choose,
+                    and &ldquo;{source?.name}&rdquo; is then removed.
+                  </p>
+                  <div className="mb-6">
+                    <CategorySelector
+                      selectedCategory={mergeTargetId}
+                      onCategoryChange={setMergeTargetId}
+                      transactionType={source?.type === 'income' ? 'income' : 'expense'}
+                      includeAllTypes={source?.type === 'both'}
+                      excludeIds={[mergingCategoryId]}
+                      placeholder="Merge into…"
+                      allowCreate={false}
+                      showHelperText={false}
+                      usePortal
+                    />
+                  </div>
+                  {mergeTargetId && (
+                    <div className="mb-6 rounded-xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 p-3">
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        {moving
+                          ? <>{moving} move to &ldquo;{target?.name}&rdquo;; &ldquo;{source?.name}&rdquo; is then removed.</>
+                          : <>Nothing is filed under &ldquo;{source?.name}&rdquo;, so it is simply removed.</>}
+                        {' '}Payee memory and future imports follow &ldquo;{target?.name}&rdquo;.
+                        {references.budgets > 0 && targetBudgets > 0 && (
+                          <> &ldquo;{target?.name}&rdquo; will then have {(targetBudgets + references.budgets).toLocaleString()} budgets — tidy them on the Budgets page.</>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setMergingCategoryId(null);
+                        setMergeTargetId('');
+                      }}
+                      disabled={isMerging}
+                      className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!mergeTargetId || mergeTargetId === mergingCategoryId || isMerging) {
+                          return;
+                        }
+                        setIsMerging(true);
+                        try {
+                          await runMerge(mergingCategoryId, mergeTargetId);
+                          setMergingCategoryId(null);
+                          setMergeTargetId('');
+                        } catch (error) {
+                          showError(error);
+                        } finally {
+                          setIsMerging(false);
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
+                      disabled={!mergeTargetId || isMerging}
+                    >
+                      {isMerging ? 'Merging…' : 'Merge'}
                     </button>
                   </div>
                 </>

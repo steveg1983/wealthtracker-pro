@@ -82,6 +82,10 @@ type Database = {
         Args: { p_ids: string[]; p_user_id: string };
         Returns: number;
       };
+      merge_categories: {
+        Args: { p_source_id: string; p_target_id: string; p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
       migrate_categories_atomic: {
         Args: { p_user_id: string; p_categories: Record<string, unknown>[] };
         Returns: Record<string, unknown>[];

@@ -31,6 +31,7 @@ import type {
   TransactionSplit,
   TransactionSplitInput,
   Category,
+  CategoryMergeResult,
   Budget,
   Goal,
   RecurringTransaction,
@@ -84,6 +85,14 @@ export interface AppContextType extends AppState {
   ) => Promise<{ created: number; skipped: number; pruned: number; keptForTransactions: number }>;
   updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  /**
+   * Join two categories: every reference (transactions, split lines, budgets,
+   * recurring templates) moves from `sourceId` to `targetId` and the source is
+   * removed — all in ONE server-side transaction, so it either happens or it
+   * does not. Balance-neutral. Returns what actually moved, as the database
+   * counted it.
+   */
+  mergeCategories: (sourceId: string, targetId: string) => Promise<CategoryMergeResult>;
   getSubCategories: (parentId: string) => Category[];
   getDetailCategories: (parentId: string) => Category[];
   
@@ -1122,6 +1131,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const mergeCategories = useCallback(async (sourceId: string, targetId: string) => {
+    try {
+      const result = await DataService.mergeCategories(sourceId, targetId);
+
+      // Mirror exactly what the merge moved. Balance-neutral throughout: not
+      // one amount, sign or account changes, so no account is touched.
+      setTransactions(prev => prev.map(t =>
+        t.category === sourceId ? { ...t, category: targetId } : t
+      ));
+      setTransactionSplitsState(prev => prev.map(s =>
+        s.category === sourceId ? { ...s, category: targetId } : s
+      ));
+      setBudgets(prev => prev.map(b =>
+        b.categoryId === sourceId ? { ...b, categoryId: targetId } : b
+      ));
+      setRecurringTransactions(prev => prev.map(r =>
+        r.category === sourceId ? { ...r, category: targetId } : r
+      ));
+      setCategories(prev => prev.filter(c => c.id !== sourceId));
+
+      // Import rules are the one place a category id is stored in THIS browser
+      // rather than the database, so they cannot join the merge's transaction —
+      // they follow it immediately instead. Loaded on demand so the rules
+      // engine stays out of the boot bundle. A failure here costs a stale rule,
+      // never the merge: the history is already joined and correct.
+      try {
+        const { importRulesService } = await import('../services/importRulesService');
+        importRulesService.remapCategory(sourceId, targetId);
+      } catch (rulesError) {
+        appLogger.error('Failed to re-point import rules after a category merge', rulesError);
+      }
+
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to merge categories', error);
+      throw error;
+    }
+  }, []);
+
   const deleteCategory = useCallback(async (id: string) => {
     try {
       await PlanningService.deleteCategory(userIdService.getCurrentDatabaseUserId(), id);
@@ -1289,6 +1337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     importCategoryTree,
     updateCategory,
     deleteCategory,
+    mergeCategories,
     getSubCategories,
     getDetailCategories,
     

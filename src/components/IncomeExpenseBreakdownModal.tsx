@@ -104,12 +104,15 @@ export default function IncomeExpenseBreakdownModal({
     setSaving(true);
     try {
       await onApplyCategories(assignments);
-      setSavedIds(prev => {
-        const next = new Set(prev);
-        assignments.forEach(ids => ids.forEach(id => next.add(id)));
-        return next;
-      });
+      const nextSaved = new Set(savedIds);
+      assignments.forEach(ids => ids.forEach(id => nextSaved.add(id)));
+      setSavedIds(nextSaved);
       setPendingChoices({});
+      // The save just filed the LAST outstanding row: the popup's job is
+      // done, so it closes instead of sitting on an empty list.
+      if (rows.every(r => nextSaved.has(r.id))) {
+        onClose();
+      }
     } finally {
       // On failure the choices stay put — nothing the user picked is lost.
       setSaving(false);

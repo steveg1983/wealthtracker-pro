@@ -32,6 +32,12 @@ interface Props {
 
 const CAP = 100;
 
+type SortKey = 'payee' | 'rows' | 'total' | 'category';
+
+/** Case-insensitive, so "Boots" and "BOOTS" sit together, not in two blocks. */
+const compareText = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { sensitivity: 'base' });
+
 export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.JSX.Element {
   const { transactions, categories, applyCategoryToUncategorized } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
@@ -45,6 +51,11 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState(0);
+  // buildPayeeGroups already emits biggest-first (count desc, then total
+  // desc), so Rows descending IS today's order — and Array#sort is stable, so
+  // its total tie-break survives untouched until another column is clicked.
+  const [sortKey, setSortKey] = useState<SortKey>('rows');
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
 
   // Closed accounts included — Money-era payees live in accounts long since
   // closed, and every one of them has a real name.
@@ -98,7 +109,51 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
     setChoices(prev => ({ ...prev, [keyOf(g)]: categoryId }));
   };
 
-  const visible = groups.slice(0, CAP);
+  /** The chosen category's display name, or '' while the payee is undecided. */
+  const chosenName = (g: PayeeGroup): string => {
+    const id = effectiveChoice(g);
+    return id === '' ? '' : categoryName(id);
+  };
+
+  const compareGroups = (a: PayeeGroup, b: PayeeGroup): number => {
+    switch (sortKey) {
+      case 'payee':
+        return sortDir * compareText(a.displayName, b.displayName);
+      case 'rows':
+        return sortDir * (a.count - b.count);
+      // Group totals are magnitudes already, but Math.abs keeps the column
+      // honest if a future group ever carries a signed total.
+      case 'total':
+        return sortDir * (Math.abs(a.total) - Math.abs(b.total));
+      case 'category': {
+        const an = chosenName(a);
+        const bn = chosenName(b);
+        // Undecided payees sink to the bottom in BOTH directions — hence not
+        // multiplied by sortDir. This column is clicked to see what has
+        // already been decided; a screenful of "Choose a category…" on top
+        // would answer the opposite question.
+        if (an === '' || bn === '') return an === bn ? 0 : an === '' ? 1 : -1;
+        return sortDir * compareText(an, bn);
+      }
+    }
+  };
+
+  const handleSort = (key: SortKey): void => {
+    if (key === sortKey) {
+      setSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'rows' || key === 'total' ? -1 : 1);
+    }
+  };
+  const arrow = (key: SortKey): string =>
+    sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
+
+  // The cap is applied FIRST and the sort second, deliberately: the cap means
+  // "the 100 biggest payees", and it goes on meaning that whichever column
+  // the user sorts by afterwards. Sorting never pulls in a 101st payee.
+  // (slice hands back a fresh array, so `groups` itself is never reordered.)
+  const visible = groups.slice(0, CAP).sort(compareGroups);
   const ready = visible.filter(g => effectiveChoice(g) !== '');
   const rowsCovered = ready.reduce((sum, g) => sum + g.count, 0);
 
@@ -169,10 +224,23 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                     {/* Headings sit CENTRED over their columns — the app-wide
                         convention. pr matches the body cells so each heading
                         centres on its column, not on the gap beside it. */}
-                    <th className="text-center pb-2 pr-3 font-medium">Payee</th>
-                    <th className="text-center pb-2 pr-3 font-medium">Rows</th>
-                    <th className="text-center pb-2 pr-3 font-medium">Total</th>
-                    <th className="text-center pb-2 font-medium w-80 lg:w-[26rem]">Category</th>
+                    {([
+                      ['payee', 'Payee', 'pr-3', 'Sort by payee name'],
+                      ['rows', 'Rows', 'pr-3', 'Sort by how many transactions'],
+                      ['total', 'Total', 'pr-3', 'Sort by amount size'],
+                      ['category', 'Category', 'w-80 lg:w-[26rem]', 'Sort by the category chosen — payees still undecided last'],
+                    ] as const).map(([key, label, extra, hint]) => (
+                      <th key={key} className={`text-center pb-2 font-medium ${extra}`}>
+                        <button
+                          type="button"
+                          onClick={() => handleSort(key)}
+                          className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                          title={hint}
+                        >
+                          {label}{arrow(key)}
+                        </button>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="block sm:table-row-group">

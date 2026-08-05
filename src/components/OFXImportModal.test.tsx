@@ -365,6 +365,10 @@ describe('OFXImportModal', () => {
         expect(screen.getByText('Current Account (checking)')).toBeInTheDocument();
         expect(screen.getByText('Savings Account (savings)')).toBeInTheDocument();
         expect(screen.getByText('Credit Card (credit)')).toBeInTheDocument();
+        // Banded like every other account picker in the app.
+        expect(Array.from(select.querySelectorAll('optgroup')).map(g => g.label)).toEqual([
+          'Current Accounts', 'Savings Accounts', 'Credit Cards',
+        ]);
       });
     });
 
