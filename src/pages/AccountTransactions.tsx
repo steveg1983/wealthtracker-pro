@@ -165,6 +165,9 @@ export default function AccountTransactions() {
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
   }, [location.pathname, location.search, navigate]);
 
+  // location.search is a dependency for the already-mounted case: landing on
+  // the register that is ALREADY open only changes the search string, and
+  // without it this effect would never wake to consume the pending id.
   useEffect(() => {
     const txn = pendingTxnRef.current;
     if (!txn) return;
@@ -173,7 +176,8 @@ export default function AccountTransactions() {
     pendingTxnRef.current = null;
     setSelectedTransaction(target);
     setSelectedTransactionId(txn);
-  }, [transactions]);
+    setScrollTargetId(txn);
+  }, [transactions, location.search]);
 
   const toggleColumn = useCallback((key: string) => {
     setHiddenColumns(prev => (prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]));
@@ -185,6 +189,10 @@ export default function AccountTransactions() {
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  // Deep-link only: the row the register should centre on. Manual row clicks
+  // never set it — a click means the row is already on screen, and yanking
+  // the viewport to centre it would fight the user's own scrolling.
+  const [scrollTargetId, setScrollTargetId] = useState<string | null>(null);
   
   // State for quick add form
   const [quickAddForm, setQuickAddForm] = useState({
@@ -466,6 +474,9 @@ export default function AccountTransactions() {
   const handleTransactionClick = useCallback((item: DisplayRow) => {
     if (isOpeningBalanceRow(item)) return;
     setSelectedTransaction(item);
+    // The user has taken over — a later sort or filter must not snap the
+    // viewport back to the deep-linked row.
+    setScrollTargetId(null);
 
     if (selectedTransactionId === item.id) {
       // Second click on already selected transaction - open edit modal
@@ -475,27 +486,6 @@ export default function AccountTransactions() {
       setSelectedTransactionId(item.id);
     }
   }, [selectedTransactionId]);
-
-  // The quick-edit panel always reflects the latest saved state of the
-  // selected transaction (context updates flow straight back in).
-  // Scroll the virtualised register to the selected row when it arrived via
-  // the deep link. react-window scrolls via its outer element's scrollTop;
-  // best-effort — a failed lookup simply leaves the dock as the pointer.
-  const scrolledToRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!selectedTransactionId || scrolledToRef.current === selectedTransactionId) return;
-    const index = displayRows.findIndex(row => row.id === selectedTransactionId);
-    if (index < 0) return;
-    scrolledToRef.current = selectedTransactionId;
-    try {
-      const scroller = tableWrapRef.current?.querySelector('div[style*="overflow"]') as HTMLElement | null;
-      if (scroller) {
-        scroller.scrollTop = Math.max(0, index * (compactView ? 36 : 44) - 120);
-      }
-    } catch {
-      // Selection alone still identifies the row via the dock.
-    }
-  }, [selectedTransactionId, displayRows, compactView]);
 
   const quickEditTarget = useMemo(
     () => transactionsWithBalance.find(t => t.id === selectedTransactionId) ?? null,
@@ -519,6 +509,7 @@ export default function AccountTransactions() {
       }
       setSelectedTransactionId(null);
       setSelectedTransaction(null);
+      setScrollTargetId(null);
     };
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
@@ -1244,6 +1235,7 @@ export default function AccountTransactions() {
           getItemKey={(row: DisplayRow) => row.id}
           onRowClick={(item) => handleTransactionClick(item)}
           rowHeight={compactView ? 36 : 44}
+          scrollToKey={scrollTargetId}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
             // Every header sorts except the running Balance (which stays in its
@@ -1398,6 +1390,10 @@ export default function AccountTransactions() {
                   }
                   placeholder="Category..."
                   allowCreate={false}
+                  // The dock row bottom-aligns its fields; the helper line under
+                  // the combobox counted as field height and hoisted the picker
+                  // above its neighbours. The label already names the field.
+                  showHelperText={false}
                 />
               )}
             </div>

@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
 import { XIcon } from './icons';
 import CategorySelector from './CategorySelector';
+import DatePicker from './common/DatePicker';
 import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, type TransferCandidate } from '../utils/transferMatch';
 import type { Transaction } from '../types';
@@ -186,12 +187,15 @@ export default function QuickEditTransactionPanel({
           <label htmlFor="quick-edit-date" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
             Date
           </label>
-          <input
+          {/* The shared dd/mm/yyyy picker, NOT a native date input: natives
+              render in the browser's locale, which showed American dates to a
+              register displaying UK ones. */}
+          <DatePicker
             id="quick-edit-date"
-            type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 h-[42px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl dark:text-white"
+            onChange={setDate}
+            className="h-[42px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl dark:text-white"
+            aria-label="Transaction date"
           />
         </div>
 
