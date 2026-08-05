@@ -1,17 +1,18 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import type { ComponentProps } from 'react';
+import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 
 // Lazy load recharts components
-const LazyLineChart = lazy(() => 
+const LazyLineChart = lazyWithRecovery(() =>
   import('recharts').then(module => ({ default: module.LineChart }))
 );
-const LazyBarChart = lazy(() => 
+const LazyBarChart = lazyWithRecovery(() =>
   import('recharts').then(module => ({ default: module.BarChart }))
 );
-const LazyPieChart = lazy(() => 
+const LazyPieChart = lazyWithRecovery(() =>
   import('recharts').then(module => ({ default: module.PieChart }))
 );
-const LazyAreaChart = lazy(() => 
+const LazyAreaChart = lazyWithRecovery(() =>
   import('recharts').then(module => ({ default: module.AreaChart }))
 );
 

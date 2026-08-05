@@ -1,9 +1,10 @@
 import { Component, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AlertTriangleIcon, RefreshCwIcon, HomeIcon } from './icons';
+import { AlertTriangleIcon, RefreshCwIcon, HomeIcon, DownloadIcon, WifiOffIcon } from './icons';
 import { captureException } from '../lib/sentry';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { isChunkLoadError } from '../utils/chunkLoadError';
 
 interface Props {
   children: ReactNode;
@@ -112,21 +113,43 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
 
   render() {
     if (this.state.hasError) {
+      // Code that won't download is not a crash: a deploy has replaced the files
+      // this tab was booted with (or, offline, they were never cached). Name
+      // that, and offer the one action that fixes it — the generic crash card
+      // tells the user nothing and its "Try Again" cannot work, because React
+      // caches a lazy import's rejection and re-throws it on every later render.
+      const staleChunk = isChunkLoadError(this.state.error);
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+
       return this.props.fallback || (
         <div className="min-h-[400px] flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
             <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                <AlertTriangleIcon size={40} className="text-red-600 dark:text-red-400" />
-              </div>
+              {staleChunk ? (
+                <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  {offline
+                    ? <WifiOffIcon size={40} className="text-blue-600 dark:text-blue-400" />
+                    : <DownloadIcon size={40} className="text-blue-600 dark:text-blue-400" />}
+                </div>
+              ) : (
+                <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <AlertTriangleIcon size={40} className="text-red-600 dark:text-red-400" />
+                </div>
+              )}
             </div>
-            
+
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Oops! Something went wrong
+              {staleChunk
+                ? (offline ? "You're offline" : 'WealthTracker has been updated')
+                : 'Oops! Something went wrong'}
             </h3>
-            
+
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {this.state.error?.message || 'An unexpected error occurred. Please try again.'}
+              {staleChunk
+                ? (offline
+                    ? "This part of the app hadn't been downloaded yet, so it couldn't load. Reconnect and reload to carry on — nothing you've saved is affected."
+                    : "This tab is still running the older version, so part of the page couldn't load. Reload to pick up the update — nothing you've saved is affected.")
+                : (this.state.error?.message || 'An unexpected error occurred. Please try again.')}
             </p>
 
             {process.env.NODE_ENV === 'development' && this.state.error && (
@@ -148,14 +171,24 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => this.setState({ hasError: false, error: undefined, errorInfo: undefined })}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
-              >
-                <RefreshCwIcon size={18} />
-                Try Again
-              </button>
-              
+              {staleChunk ? (
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
+                >
+                  <RefreshCwIcon size={18} />
+                  Reload
+                </button>
+              ) : (
+                <button
+                  onClick={() => this.setState({ hasError: false, error: undefined, errorInfo: undefined })}
+                  className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
+                >
+                  <RefreshCwIcon size={18} />
+                  Try Again
+                </button>
+              )}
+
               <button
                 onClick={() => window.location.href = '/'}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"

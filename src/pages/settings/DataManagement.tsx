@@ -1,4 +1,5 @@
-import { useState, lazy, Suspense, useMemo } from 'react';
+import { useState, Suspense, useMemo } from 'react';
+import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, EditIcon, LinkIcon, WrenchIcon, LightbulbIcon, XCircleIcon, type IconProps } from '../../components/icons';
@@ -9,18 +10,18 @@ import { DataService } from '../../services/api/dataService';
 import { supabase } from '../../lib/supabase';
 import { STORAGE_KEYS } from '../../services/storageAdapter';
 
-const ArchiveManager = lazy(() => import('../../components/ArchiveManager'));
+const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveManager'));
 
 // Lazy load heavy components to reduce initial bundle size. Import and export
 // tools moved to the Manage pages (see the link cards below); what remains here
 // is genuine data administration — cleanup tools, backups, and the danger zone.
-const DuplicateDetection = lazy(() => import('../../components/DuplicateDetection'));
-const BulkTransactionEdit = lazy(() => import('../../components/BulkTransactionEdit'));
-const TransactionReconciliation = lazy(() => import('../../components/TransactionReconciliation'));
-const DataValidation = lazy(() => import('../../components/DataValidation'));
-const SmartCategorizationSettings = lazy(() => import('../../components/SmartCategorizationSettings'));
-const BankConnections = lazy(() => import('../../components/BankConnections'));
-const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBackupSettings'));
+const DuplicateDetection = lazyWithRecovery(() => import('../../components/DuplicateDetection'));
+const BulkTransactionEdit = lazyWithRecovery(() => import('../../components/BulkTransactionEdit'));
+const TransactionReconciliation = lazyWithRecovery(() => import('../../components/TransactionReconciliation'));
+const DataValidation = lazyWithRecovery(() => import('../../components/DataValidation'));
+const SmartCategorizationSettings = lazyWithRecovery(() => import('../../components/SmartCategorizationSettings'));
+const BankConnections = lazyWithRecovery(() => import('../../components/BankConnections'));
+const AutomaticBackupSettings = lazyWithRecovery(() => import('../../components/AutomaticBackupSettings'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {

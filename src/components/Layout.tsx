@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 
-const AddTransactionModal = lazy(() => import('./AddTransactionModal'));
+const AddTransactionModal = lazyWithRecovery(() => import('./AddTransactionModal'));
 import { UserButton } from '@clerk/clerk-react';
 import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';

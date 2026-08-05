@@ -187,24 +187,28 @@ describe('EditTransactionModal — jump to the other side', () => {
     expect(mocks.navigate).toHaveBeenCalledWith('/accounts/acc-b?txn=txn-in&demo=true');
   });
 
-  it('disables the jump, with the reason, when the other account is closed', () => {
-    // Closed accounts are absent from the context's account list.
+  it('still takes the jump when the other account is closed, saying what to expect', () => {
+    // Closed accounts are absent from the context's account list — so the name
+    // cannot be printed, and the label stays generic. The jump is offered all
+    // the same: the register owns the closed-account offer ("Re-open and
+    // view"), so the way through arrives where the user asked for it rather
+    // than being described as homework on another page.
     mocks.app.accounts = [account('acc-a', 'Current Account')];
     renderModal(OUT_LEG);
 
     const button = jumpButton();
-    expect(button).toBeDisabled();
+    expect(button).toBeEnabled();
     expect(button).toHaveTextContent('Jump to the other side →');
     expect(button).toHaveAttribute(
       'title',
-      'That account is closed — re-open it from the Accounts page to view this leg'
+      'That account is closed — the register will offer to re-open it'
     );
     expect(
-      screen.getByText(/re-open it from the Accounts page to view this leg/i)
+      screen.getByText(/that account is closed — the register will offer to re-open it/i)
     ).toBeInTheDocument();
 
     fireEvent.click(button);
-    expect(mocks.navigate).not.toHaveBeenCalled();
+    expect(mocks.navigate).toHaveBeenCalledWith('/accounts/acc-b?txn=txn-in');
   });
 
   it('does not offer the jump for a transfer with no linked side', () => {

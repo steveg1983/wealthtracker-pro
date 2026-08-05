@@ -12,16 +12,32 @@ import AccountSettingsModal from '../components/AccountSettingsModal';
 import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useToast } from '../contexts/ToastContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
+import { LoadingState } from '../components/loading/LoadingState';
 import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
+import { DataService } from '../services/api/dataService';
 import GroupedAccountSelect from '../components/common/GroupedAccountSelect';
-import type { Transaction } from '../types';
+import type { Account, Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
+
+/**
+ * Whether this id belongs to a CLOSED account, once we have asked.
+ *
+ * The app context carries only OPEN accounts, so an id that misses it is not
+ * automatically a missing account: closing one hides it and keeps every
+ * transaction (the Microsoft Money model), and a payee drill, a report drill
+ * or a bookmark lands on a closed account's register as readily as an open
+ * one's. 'idle' means the question never arose — the account is open.
+ */
+type ClosedAccountLookup =
+  | { status: 'idle' | 'loading' }
+  | { status: 'done'; account: Account | null };
 
 interface OpeningBalanceRow {
   id: 'opening-balance';
@@ -72,13 +88,66 @@ export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { accounts, transactions, categories, deleteTransaction, addTransaction, updateAccount, refreshCategories } = useApp();
+  const {
+    accounts, transactions, categories, isLoading,
+    deleteTransaction, addTransaction, updateAccount,
+    refreshCategories, refreshAccountsAndTransactions,
+  } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const { showError } = useToast();
   const { compactView, setCompactView: _setCompactView } = usePreferences();
-  
-  // Find the specific account
+
+  // Find the specific account — the context holds the OPEN ones only.
   const account = accounts.find(acc => acc.id === accountId);
-  
+  const accountIsOpen = account !== undefined;
+
+  // Asked for only on a miss, and only once the open list has arrived, so an
+  // ordinary register costs no extra request.
+  const [closedLookup, setClosedLookup] = useState<ClosedAccountLookup>({ status: 'idle' });
+  const [reopening, setReopening] = useState(false);
+
+  useEffect(() => {
+    if (isLoading || accountIsOpen) return;
+    if (!accountId) {
+      setClosedLookup({ status: 'done', account: null });
+      return;
+    }
+    let cancelled = false;
+    setClosedLookup({ status: 'loading' });
+    DataService.getClosedAccounts()
+      .then(list => {
+        if (!cancelled) {
+          setClosedLookup({ status: 'done', account: list.find(a => a.id === accountId) ?? null });
+        }
+      })
+      .catch(() => {
+        // A failed lookup says nothing about the account; "not in the open
+        // list, and we cannot check" reads as no longer existing.
+        if (!cancelled) setClosedLookup({ status: 'done', account: null });
+      });
+    return () => { cancelled = true; };
+  }, [accountId, accountIsOpen, isLoading]);
+
+  // Closed accounts have no register — the Accounts page's rule — so the way
+  // through is to re-open the account, offered here where the need arises.
+  // The refresh recipe matches the Accounts page's Reopen button: closed
+  // accounts are filtered out at load, and the DB trigger re-activates the
+  // account's transfer category. Once the account is back in the open list
+  // this page renders its register in place, deep link and all.
+  const handleReopenAccount = useCallback(async (): Promise<void> => {
+    if (!accountId || reopening) return;
+    setReopening(true);
+    try {
+      await updateAccount(accountId, { isActive: true });
+      await refreshAccountsAndTransactions();
+      await refreshCategories();
+    } catch (error) {
+      showError(error);
+    } finally {
+      setReopening(false);
+    }
+  }, [accountId, reopening, updateAccount, refreshAccountsAndTransactions, refreshCategories, showError]);
+
   // State for search and filtering
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -170,6 +239,13 @@ export default function AccountTransactions() {
   // location.search is a dependency for the already-mounted case: landing on
   // the register that is ALREADY open only changes the search string, and
   // without it this effect would never wake to consume the pending id.
+  //
+  // Both halves run whatever state the account is in, which is what carries a
+  // deep link across a re-open: the id is stashed and resolved into SELECTION
+  // STATE while the closed page is showing (transactions are loaded per user,
+  // not per open account), and that state outlives the re-open because the
+  // component never unmounts. If the row genuinely isn't loaded yet the id
+  // stays pending and the re-open's refresh wakes this effect again.
   useEffect(() => {
     const txn = pendingTxnRef.current;
     if (!txn) return;
@@ -511,8 +587,12 @@ export default function AccountTransactions() {
   // category option used to deselect, unmount the modal mid-click, and dump
   // the user back on the register with nothing saved. The listbox guard keeps
   // the selection for any other portaled picker menu (the dock's, say) too.
+  //
+  // Nor while the account is CLOSED: the register isn't rendered then, so
+  // there is no row to click away from — and a mousedown on "Re-open and
+  // view" would wipe the ?txn selection this page is about to show.
   useEffect(() => {
-    if (!selectedTransactionId || isEditModalOpen) return;
+    if (!accountIsOpen || !selectedTransactionId || isEditModalOpen) return;
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -530,7 +610,7 @@ export default function AccountTransactions() {
     };
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [selectedTransactionId, isEditModalOpen]);
+  }, [accountIsOpen, selectedTransactionId, isEditModalOpen]);
 
   // Next non-summary row below the given one in the CURRENT visible order —
   // powers "Save & Next" in both the quick-edit panel and the full modal.
@@ -884,11 +964,61 @@ export default function AccountTransactions() {
   }, [baseColumns]);
 
   if (!account) {
+    // Still finding out which of the three it is — the open list may not have
+    // arrived, or the closed lookup may be in flight. Saying "not found" here
+    // would flash an error at an account that exists.
+    if (isLoading || closedLookup.status !== 'done') {
+      return <LoadingState message="Loading account…" />;
+    }
+
+    // Closed: an honest page, not an error. Its history is intact; what it
+    // hasn't got is an open register (the same rule as the Accounts page,
+    // where a closed account offers Reopen rather than a way in).
+    if (closedLookup.account) {
+      return (
+        <div className="flex flex-col h-full">
+          {/* No back-arrow chrome above the card: the two actions below ARE the
+              page, and a second "Back to Accounts" would only duplicate one. */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 max-w-2xl">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              {closedLookup.account.name}
+            </h1>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              This account is closed, and closed accounts don&rsquo;t have an open register.
+              To see its transactions the account must be re-opened first. Nothing else
+              changes — every transaction is preserved either way, and you can close it
+              again from the Accounts page whenever you&rsquo;re done.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { void handleReopenAccount(); }}
+                disabled={reopening}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {reopening ? 'Re-opening…' : 'Re-open and view'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
+                disabled={reopening}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                <ArrowLeftIcon size={16} />
+                Back to Accounts
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Neither open nor closed: there is no such account any more.
     return (
       <div className="flex flex-col items-center justify-center h-64">
-        <p className="text-gray-500 dark:text-gray-400">Account not found</p>
+        <p className="text-gray-500 dark:text-gray-400">This account no longer exists</p>
         <button
-          onClick={() => navigate('/accounts')}
+          onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
           className="mt-4 text-primary hover:text-secondary"
         >
           Return to Accounts
@@ -896,7 +1026,7 @@ export default function AccountTransactions() {
       </div>
     );
   }
-  
+
   return (
     <div className="flex flex-col h-full">
       {/* Back button */}

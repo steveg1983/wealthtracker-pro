@@ -1,15 +1,23 @@
-import React, { useEffect, useState, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { Modal, ModalBody, ModalFooter } from '../common/Modal';
 import { bankConnectionService } from '../../services/bankConnectionService';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
+import LazyErrorBoundary from '../LazyErrorBoundary';
 import type { DiscoveredBankAccount } from '../../types/banking-api';
 import type { Account } from '../../types';
 
 import AccountPickerCombobox from './AccountPickerCombobox';
 import { CREATE_NEW_VALUE } from './accountPickerOptions';
 
-const AddAccountModal = lazy(() => import('../AddAccountModal'));
+// The only lazy import in the app that must NOT reload the page on its own.
+// It is reached part-way through linking a bank connection: discovery has
+// already run against the bank, and the user has matched accounts by hand.
+// Reloading would discard every match and re-run discovery, so a stale chunk
+// is handled in place instead (see the fallback below) — they can link what
+// they have matched and choose when to take the update.
+const AddAccountModal = lazyWithRecovery(() => import('../AddAccountModal'), { autoReload: false });
 
 interface LinkBankAccountsModalProps {
   isOpen: boolean;
@@ -162,6 +170,17 @@ export default function LinkBankAccountsModal({
       loadDiscoveredAccounts();
     }
   }, [isOpen, connectionId, loadDiscoveredAccounts]);
+
+  // Leaving the create-account step: the dropdown that opened it goes back to
+  // "skip" so it never claims an account that was never created.
+  const cancelCreateAccount = useCallback(() => {
+    setLinks(prev => prev.map(link =>
+      link.externalAccountId === createAccountFor
+        ? { ...link, selectedAccountId: '' }
+        : link
+    ));
+    setCreateAccountFor(null);
+  }, [createAccountFor]);
 
   const updateLink = (externalAccountId: string, selectedAccountId: string) => {
     if (selectedAccountId === CREATE_NEW_VALUE) {
@@ -366,36 +385,67 @@ export default function LinkBankAccountsModal({
     {createAccountFor && (() => {
       const da = discoveredAccounts.find(d => d.externalAccountId === createAccountFor);
       return (
-        <Suspense fallback={null}>
-          <AddAccountModal
-            isOpen={true}
-            onClose={() => {
-              // Reset dropdown to skip since they cancelled
-              setLinks(prev => prev.map(link =>
-                link.externalAccountId === createAccountFor
-                  ? { ...link, selectedAccountId: '' }
-                  : link
-              ));
-              setCreateAccountFor(null);
-            }}
-            prefill={{
-              name: da?.name,
-              type: da?.type === 'checking' ? 'current' : da?.type as 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other' | undefined,
-              balance: da?.balance?.toString(),
-              currency: da?.currency,
-              sortCode: da?.sortCode,
-              accountNumber: da?.accountNumber,
-            }}
-            onAccountCreated={(newAccountId) => {
-              setLinks(prev => prev.map(link =>
-                link.externalAccountId === createAccountFor
-                  ? { ...link, selectedAccountId: newAccountId }
-                  : link
-              ));
-              setCreateAccountFor(null);
-            }}
-          />
-        </Suspense>
+        <LazyErrorBoundary
+          componentName="the new account form"
+          fallback={
+            <Modal
+              isOpen={true}
+              onClose={cancelCreateAccount}
+              title="Couldn't open the new account form"
+              size="sm"
+            >
+              <ModalBody>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  This tab couldn&apos;t load the form — usually because WealthTracker has
+                  been updated since you opened this screen. Your matches are still here:
+                  link them first if you want to keep them, because reloading starts this
+                  screen again.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <div className="flex gap-3 w-full">
+                  <button
+                    type="button"
+                    onClick={cancelCreateAccount}
+                    className="flex-1 justify-center bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Back to matching
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="flex-1 justify-center bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Reload
+                  </button>
+                </div>
+              </ModalFooter>
+            </Modal>
+          }
+        >
+          <Suspense fallback={null}>
+            <AddAccountModal
+              isOpen={true}
+              onClose={cancelCreateAccount}
+              prefill={{
+                name: da?.name,
+                type: da?.type === 'checking' ? 'current' : da?.type as 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other' | undefined,
+                balance: da?.balance?.toString(),
+                currency: da?.currency,
+                sortCode: da?.sortCode,
+                accountNumber: da?.accountNumber,
+              }}
+              onAccountCreated={(newAccountId) => {
+                setLinks(prev => prev.map(link =>
+                  link.externalAccountId === createAccountFor
+                    ? { ...link, selectedAccountId: newAccountId }
+                    : link
+                ));
+                setCreateAccountFor(null);
+              }}
+            />
+          </Suspense>
+        </LazyErrorBoundary>
       );
     })()}
     </>
