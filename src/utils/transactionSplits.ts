@@ -19,27 +19,73 @@ export interface SplitLineDraft {
   memo?: string;
 }
 
-/** Sum of the entered split amounts; blank/invalid rows count as 0. */
-export function sumSplitDrafts(lines: SplitLineDraft[]): DecimalInstance {
-  return lines.reduce(
-    (sum, line) => sum.plus(parseMoneyInput(line.amount) ?? 0),
-    toDecimal(0)
-  );
+export type SplitDirection = 'income' | 'expense';
+
+/**
+ * Resolves a category id to the direction its TREE implies — 'income',
+ * 'expense', or null for the direction-neutral categories (Revaluation,
+ * Unassigned, blanks), which follow the parent transaction's direction.
+ *
+ * This is what lets one split MIX directions: a £30,000 payment can carry a
+ * £40,000 expense line and a £10,000 income line, because the income line
+ * counts AGAINST the expense total exactly as its category says it should.
+ */
+export type SplitDirectionFor = (categoryId: string) => SplitDirection | null;
+
+interface SplitDirectionOpts {
+  parentType: SplitDirection;
+  directionFor: SplitDirectionFor;
+}
+
+/** The pre-mixing behaviour: every line follows the parent's direction. */
+const FOLLOW_PARENT: SplitDirectionOpts = {
+  parentType: 'expense',
+  directionFor: () => null,
+};
+
+function lineDirection(line: SplitLineDraft, opts: SplitDirectionOpts): SplitDirection {
+  return opts.directionFor(line.category) ?? opts.parentType;
+}
+
+/**
+ * How much of the parent total the lines account for, in the ENTERED domain.
+ * A line whose category runs WITH the parent adds; one whose category runs
+ * COUNTER to it subtracts (£40,000 expense − £10,000 income = £30,000 of an
+ * expense parent). Blank/invalid rows count as 0. Without opts, every line
+ * follows the parent — the original single-direction behaviour.
+ */
+export function sumSplitDrafts(
+  lines: SplitLineDraft[],
+  opts: SplitDirectionOpts = FOLLOW_PARENT
+): DecimalInstance {
+  return lines.reduce((sum, line) => {
+    const entered = toDecimal(parseMoneyInput(line.amount) ?? 0);
+    const contribution = lineDirection(line, opts) === opts.parentType ? entered : entered.negated();
+    return sum.plus(contribution);
+  }, toDecimal(0));
 }
 
 /**
  * What is still left to allocate: entered total amount minus the split sum.
  * Zero (exactly) means the split is balanced and may be saved.
  */
-export function splitRemainder(totalAmount: string, lines: SplitLineDraft[]): DecimalInstance {
-  return toDecimal(parseMoneyInput(totalAmount) ?? 0).minus(sumSplitDrafts(lines));
+export function splitRemainder(
+  totalAmount: string,
+  lines: SplitLineDraft[],
+  opts: SplitDirectionOpts = FOLLOW_PARENT
+): DecimalInstance {
+  return toDecimal(parseMoneyInput(totalAmount) ?? 0).minus(sumSplitDrafts(lines, opts));
 }
 
 /**
  * Validate the draft against the save rules. Returns null when saveable,
  * otherwise the user-facing reason the save is blocked.
  */
-export function validateSplitDrafts(totalAmount: string, lines: SplitLineDraft[]): string | null {
+export function validateSplitDrafts(
+  totalAmount: string,
+  lines: SplitLineDraft[],
+  opts: SplitDirectionOpts = FOLLOW_PARENT
+): string | null {
   if (lines.length < 2) {
     return 'A split needs at least two category lines.';
   }
@@ -52,26 +98,30 @@ export function validateSplitDrafts(totalAmount: string, lines: SplitLineDraft[]
       return 'Every split line needs a non-zero amount.';
     }
   }
-  if (!splitRemainder(totalAmount, lines).isZero()) {
+  if (!splitRemainder(totalAmount, lines, opts).isZero()) {
     return 'The split total must match the transaction amount.';
   }
   return null;
 }
 
 /**
- * Convert entered magnitudes to DB-signed amounts. Expenses store negative,
- * so an entered 120 becomes -120 and an entered -20 (a cashback line)
- * becomes +20; income lines keep their entered sign. This mirrors what
- * signTransactionAmount does to the single amount field, extended to allow
- * per-line negatives.
+ * Convert entered magnitudes to DB-signed amounts. Expense-direction lines
+ * store negative, income-direction lines positive — the direction being the
+ * LINE's own (from its category), not the parent's, so a mixed split signs
+ * each line correctly. An entered -20 on an expense line (cashback typed as
+ * a minus) still lands as +20. The DB's set_transaction_splits invariant
+ * (signed lines sum to the signed parent amount) holds exactly whenever
+ * validateSplitDrafts passed with the same opts.
  */
 export function signSplitAmounts(
   lines: SplitLineDraft[],
-  type: 'income' | 'expense'
+  type: SplitDirection,
+  directionFor: SplitDirectionFor = () => null
 ): { category: string; amount: number; memo?: string }[] {
+  const opts: SplitDirectionOpts = { parentType: type, directionFor };
   return lines.map(line => {
     const entered = toDecimal(parseMoneyInput(line.amount) ?? 0);
-    const signed = type === 'expense' ? entered.negated() : entered;
+    const signed = lineDirection(line, opts) === 'expense' ? entered.negated() : entered;
     return {
       category: line.category,
       // `plus(0)` normalises -0 → 0 to match signTransactionAmount's `|| 0`.
@@ -82,12 +132,13 @@ export function signSplitAmounts(
 }
 
 /**
- * Convert stored (signed) split amounts back to the entered domain for the
- * editor — the inverse of signSplitAmounts.
+ * Convert a stored (signed) split amount back to the entered domain for the
+ * editor — the inverse of signSplitAmounts, per line: pass the LINE's
+ * resolved direction (its category's, falling back to the parent's).
  */
-export function displaySplitAmount(storedAmount: number, type: 'income' | 'expense'): string {
+export function displaySplitAmount(storedAmount: number, direction: SplitDirection): string {
   const value = toDecimal(storedAmount);
-  return (type === 'expense' ? value.negated() : value).toString();
+  return (direction === 'expense' ? value.negated() : value).toString();
 }
 
 /**

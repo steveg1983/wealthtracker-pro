@@ -92,6 +92,12 @@ interface CategorySelectorProps {
    * delete-reassignment dialog).
    */
   allowClear?: boolean;
+  /**
+   * Trigger height. 'compact' matches the register quick-add dock's 32px
+   * fields — the default 42px trigger stood taller than every neighbour in
+   * that bottom-aligned row and floated its label above the others.
+   */
+  size?: 'default' | 'compact';
 }
 
 export default function CategorySelector({
@@ -106,6 +112,7 @@ export default function CategorySelector({
   usePortal = false,
   excludeIds,
   allowClear = false,
+  size = 'default',
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -460,7 +467,11 @@ export default function CategorySelector({
           aria-controls={showDropdown ? listboxId : undefined}
           aria-label="Category"
           onKeyDown={handleTriggerKeyDown}
-          className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm cursor-text flex items-center"
+          className={`w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm cursor-text flex items-center ${
+            size === 'compact'
+              ? 'px-2.5 py-1.5 h-auto sm:h-[32px] text-xs rounded-lg'
+              : 'px-3 py-2 h-[42px] rounded-xl'
+          }`}
           onClick={handleInputClick}
         >
           <div className="flex w-full min-w-0 items-center justify-between gap-1">
@@ -610,7 +621,9 @@ export default function CategorySelector({
                 {groupedOptions.length > 0 ? (
                   groupedOptions.map((group) => (
                     <div key={group.id}>
-                      <div className="sticky top-0 z-10 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      {/* Same darker group-header treatment as the Accounts
+                          sections — one scheme for every grouping band. */}
+                      <div className="sticky top-0 z-10 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-500 text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
                         {group.name}
                       </div>
                       {group.items.map((category) => (

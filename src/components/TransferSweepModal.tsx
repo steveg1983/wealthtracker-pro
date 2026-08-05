@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -24,9 +25,11 @@ interface Props {
 const CAP = 300;
 
 export default function TransferSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
-  const { transactions, categories, linkTransferPair } = useApp();
+  const { transactions, categories, accounts, linkTransferPair } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [inspecting, setInspecting] = useState<TransferPairSuggestion | null>(null);
   const [applying, setApplying] = useState(false);
@@ -244,8 +247,36 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
               {([
                 { label: 'Money out', t: inspecting.outgoing, colour: 'text-red-600 dark:text-red-400' },
                 { label: 'Money in', t: inspecting.incoming, colour: 'text-green-600 dark:text-green-400' },
-              ] as const).map(({ label, t, colour }) => (
-                <div key={t.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              ] as const).map(({ label, t, colour }) => {
+                // A leg in a CLOSED account has no register to open — the
+                // card stays informational instead of dead-ending.
+                const accountIsOpen = accounts.some(a => a.id === t.accountId);
+                return (
+                /* Either leg jumps into its own account register with the
+                   transaction selected and centred — the same ?txn deep link
+                   the categorisation drills use. */
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={!accountIsOpen}
+                  onClick={() => {
+                    if (!accountIsOpen) return;
+                    const params = new URLSearchParams();
+                    params.set('txn', t.id);
+                    if (new URLSearchParams(location.search).get('demo') === 'true') {
+                      params.set('demo', 'true');
+                    }
+                    setInspecting(null);
+                    onClose();
+                    navigate(`/accounts/${t.accountId}?${params.toString()}`);
+                  }}
+                  title={accountIsOpen
+                    ? 'Open this transaction in its account'
+                    : 'This account is closed — its register cannot be opened'}
+                  className={`text-left rounded-xl border border-gray-200 dark:border-gray-700 p-4 transition-all ${
+                    accountIsOpen ? 'hover:border-primary hover:shadow-md cursor-pointer' : 'cursor-default'
+                  }`}
+                >
                   <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">{label}</p>
                   <p className={`text-lg font-bold tabular-nums ${colour}`}>
                     {formatCurrency(Math.abs(t.amount))}
@@ -257,8 +288,9 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
                   </p>
-                </div>
-              ))}
+                </button>
+                );
+              })}
             </div>
           </ModalBody>
           <ModalFooter>

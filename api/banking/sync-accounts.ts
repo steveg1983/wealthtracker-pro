@@ -195,6 +195,19 @@ const persistAccountsAndLinks = async (
     if (account.sortCode) identifierFields.sort_code = account.sortCode;
 
     if (accountId) {
+      // The account's name belongs to the USER: sync fills a blank name but
+      // never overwrites one that has been typed — feeds used to rename
+      // accounts to the bank's own label on every sync.
+      const currentName = await supabase
+        .from('accounts')
+        .select('name')
+        .eq('id', accountId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      // A failed lookup counts as "named": renaming is only safe when the
+      // account is POSITIVELY known to be blank.
+      const hasUserName = currentName.error !== null || Boolean(currentName.data?.name?.trim());
+
       // The bank's reported figure goes to bank_balance (the reconciliation
       // reference) ONLY. `balance` is ledger-authoritative — moved exclusively
       // by the atomic transaction RPCs — so overwriting it here would silently
@@ -203,7 +216,7 @@ const persistAccountsAndLinks = async (
       const updateResult = await supabase
         .from('accounts')
         .update({
-          name: account.name,
+          ...(hasUserName ? {} : { name: account.name }),
           type: account.type,
           bank_balance: account.balance,
           currency: account.currency,

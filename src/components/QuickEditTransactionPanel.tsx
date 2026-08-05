@@ -199,8 +199,9 @@ export default function QuickEditTransactionPanel({
           />
         </div>
 
-        {/* Description */}
-        <div className="flex-1 min-w-0">
+        {/* Description — flex-1 like Category, so the two split the row's
+            slack EQUALLY instead of Description hogging it. */}
+        <div className="w-full lg:flex-1 lg:min-w-0">
           <label htmlFor="quick-edit-description" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
             Description
           </label>
@@ -216,8 +217,9 @@ export default function QuickEditTransactionPanel({
         {/* Category (not editable for transfers — they carry system categories).
             Searchable combobox: click to type-filter, or use the chevron to
             browse the full list. Both directions are offered (Money-style
-            cross-type filing — a refund can file under the expense it refunds). */}
-        <div className="w-full lg:w-72">
+            cross-type filing — a refund can file under the expense it refunds).
+            flex-1 to match Description — the pair share the slack equally. */}
+        <div className="w-full lg:flex-1 lg:min-w-0">
           <span className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
             Category
           </span>

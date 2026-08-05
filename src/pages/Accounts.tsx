@@ -590,7 +590,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       return (
                         <div
                           key={child.id}
-                          className="mt-3 ml-6 sm:ml-9 flex items-center gap-3 rounded-xl border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 px-3 py-2.5 cursor-pointer hover:border-gray-300 dark:hover:border-gray-500 transition-colors"
+                          className="mt-3 ml-6 sm:ml-9 flex items-center gap-3 rounded-xl border border-dashed border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60 px-3 py-2.5 cursor-pointer hover:border-gray-400 dark:hover:border-gray-400 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             if ((e.target as HTMLElement).closest('button, input')) return;
@@ -685,7 +685,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           onClick={() => toggleGroupCollapsed(collapseKeyFor(label))}
           aria-expanded={isExpanded}
           aria-controls={regionId}
-          className="w-full bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-gray-100/70 dark:hover:bg-gray-800 transition-colors"
+          className="w-full bg-gray-100 dark:bg-gray-700/70 border-b border-gray-300 dark:border-gray-500 px-4 sm:px-6 py-3 sm:py-4 text-left hover:bg-gray-200/70 dark:hover:bg-gray-700 transition-colors"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2 md:gap-3">

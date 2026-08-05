@@ -183,3 +183,95 @@ describe('displaySplitAmount', () => {
     expect(displaySplitAmount(90, 'income')).toBe('90');
   });
 });
+
+describe('mixed-direction splits (category decides each line)', () => {
+  // The resolver a real editor builds from the category tree: 'exp:*' ids are
+  // expense categories, 'inc:*' income, 'both:*' neutral (Revaluation etc.).
+  const directionFor = (id: string): 'income' | 'expense' | null =>
+    id.startsWith('exp:') ? 'expense' : id.startsWith('inc:') ? 'income' : null;
+
+  it("balances Steve's case: a 30,000 expense split as 40,000 expense + 10,000 income", () => {
+    const lines = [line('exp:fees', '40000'), line('inc:interest', '10000')];
+    const opts = { parentType: 'expense' as const, directionFor };
+    expect(sumSplitDrafts(lines, opts).toString()).toBe('30000');
+    expect(splitRemainder('30000', lines, opts).isZero()).toBe(true);
+    expect(validateSplitDrafts('30000', lines, opts)).toBeNull();
+  });
+
+  it('signs each line by ITS category, not the parent', () => {
+    expect(
+      signSplitAmounts([line('exp:fees', '40000'), line('inc:interest', '10000')], 'expense', directionFor)
+    ).toEqual([
+      { category: 'exp:fees', amount: -40000 },
+      { category: 'inc:interest', amount: 10000 },
+    ]);
+    // Signed lines sum to the signed parent (-30000): the DB invariant holds.
+    // The mirror case: an income parent with an expense line taken out of it.
+    expect(
+      signSplitAmounts([line('inc:salary', '5000'), line('exp:fees', '500')], 'income', directionFor)
+    ).toEqual([
+      { category: 'inc:salary', amount: 5000 },
+      { category: 'exp:fees', amount: -500 },
+    ]);
+  });
+
+  it('an income parent nets expense lines the same way, mirrored', () => {
+    // 4,500 received = 5,000 salary less 500 of fees
+    const lines = [line('inc:salary', '5000'), line('exp:fees', '500')];
+    const opts = { parentType: 'income' as const, directionFor };
+    expect(sumSplitDrafts(lines, opts).toString()).toBe('4500');
+    expect(validateSplitDrafts('4500', lines, opts)).toBeNull();
+  });
+
+  it('direction-neutral categories follow the parent', () => {
+    const lines = [line('exp:fees', '80'), line('both:revaluation', '20')];
+    const opts = { parentType: 'expense' as const, directionFor };
+    expect(sumSplitDrafts(lines, opts).toString()).toBe('100');
+    expect(signSplitAmounts(lines, 'expense', directionFor).map(l => l.amount)).toEqual([-80, -20]);
+  });
+
+  it('a minus typed on a counter-direction line still works (double negative adds)', () => {
+    // Typing -100 on an income line inside an expense split contributes +100
+    const lines = [line('exp:fees', '200'), line('inc:interest', '-100')];
+    const opts = { parentType: 'expense' as const, directionFor };
+    expect(sumSplitDrafts(lines, opts).toString()).toBe('300');
+    // And it signs to stored -100 (income line entered negative)
+    expect(signSplitAmounts(lines, 'expense', directionFor).map(l => l.amount)).toEqual([-200, -100]);
+  });
+
+  it('remainder reads in the entered domain while mixing', () => {
+    const opts = { parentType: 'expense' as const, directionFor };
+    // 30,000 to allocate; 40,000 expense entered so far → income lines still
+    // owe 10,000 → remainder -10,000 (over-allocated until they arrive)
+    expect(splitRemainder('30000', [line('exp:fees', '40000')], opts).toString()).toBe('-10000');
+    expect(
+      splitRemainder('30000', [line('exp:fees', '40000'), line('inc:interest', '6000')], opts).toString()
+    ).toBe('-4000');
+  });
+
+  it('blocks an unbalanced mixed split', () => {
+    const opts = { parentType: 'expense' as const, directionFor };
+    expect(
+      validateSplitDrafts('30000', [line('exp:fees', '40000'), line('inc:interest', '9999')], opts)
+    ).toMatch(/must match/);
+  });
+
+  it('display round-trips a mixed split line by line', () => {
+    const signed = signSplitAmounts(
+      [line('exp:fees', '40000'), line('inc:interest', '10000')],
+      'expense',
+      directionFor
+    );
+    // Stored -40000 on the expense line → shown 40000; stored +10000 on the
+    // income line → shown 10000. Both positive magnitudes, as typed.
+    expect(displaySplitAmount(signed[0].amount, 'expense')).toBe('40000');
+    expect(displaySplitAmount(signed[1].amount, 'income')).toBe('10000');
+  });
+
+  it('exact decimal maths survives mixing (no float drift)', () => {
+    const lines = [line('exp:a', '0.1'), line('exp:b', '0.3'), line('inc:c', '0.2')];
+    const opts = { parentType: 'expense' as const, directionFor };
+    expect(sumSplitDrafts(lines, opts).toString()).toBe('0.2');
+    expect(validateSplitDrafts('0.2', lines, opts)).toBeNull();
+  });
+});

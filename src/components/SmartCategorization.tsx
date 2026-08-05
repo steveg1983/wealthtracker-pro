@@ -435,7 +435,7 @@ export function BulkCategorization({
         </div>
 
         {/* Actions bar */}
-        <div className="px-6 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-3 bg-gray-100 dark:bg-gray-700/70 border-b border-gray-300 dark:border-gray-500">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">

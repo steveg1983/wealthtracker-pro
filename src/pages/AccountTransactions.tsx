@@ -763,7 +763,9 @@ export default function AccountTransactions() {
     {
       key: 'payment',
       header: 'Payment',
-      width: '120px',
+      // 130px fits a 7-figure amount with pennies; Description is the flex
+      // column, so the extra width comes out of it automatically.
+      width: '130px',
       // Money out — the magnitude (no sign), in red, like MS Money's Payment column.
       accessor: (transaction) => (
         transaction.amount < 0 ? (
@@ -779,7 +781,7 @@ export default function AccountTransactions() {
     {
       key: 'deposit',
       header: 'Deposit',
-      width: '120px',
+      width: '130px',
       // Money in — in green, like MS Money's Deposit column.
       accessor: (transaction) => (
         transaction.amount > 0 ? (
@@ -831,7 +833,9 @@ export default function AccountTransactions() {
     {
       key: 'balance',
       header: 'Balance',
-      width: '120px',
+      // The register's rightmost column: room for a signed 7-figure running
+      // balance ("-£1,234,567.89") without truncating at the table edge.
+      width: '140px',
       accessor: (transaction) => (
         <span className={`text-sm font-medium ${
           transaction.balance < 0
@@ -1307,7 +1311,7 @@ export default function AccountTransactions() {
               <DatePicker
                 value={quickAddForm.date}
                 onChange={(val) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, date: val }); }}
-                className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white text-xs"
+                className="h-auto sm:h-[32px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white text-xs"
                 aria-label="Transaction date"
               />
             </div>
@@ -1394,6 +1398,9 @@ export default function AccountTransactions() {
                   // the combobox counted as field height and hoisted the picker
                   // above its neighbours. The label already names the field.
                   showHelperText={false}
+                  // Match the row's 32px fields — the default 42px trigger
+                  // still stood proud of its neighbours.
+                  size="compact"
                 />
               )}
             </div>
