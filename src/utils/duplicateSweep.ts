@@ -1,5 +1,6 @@
 import type { Transaction } from '../types';
 import { calculateSimilarity, findDuplicateGroups, type DuplicateThresholds } from './duplicateScan';
+import { toDecimal } from './decimal';
 
 /**
  * The duplicate sweep: which rows look like the same payment recorded twice,
@@ -30,8 +31,22 @@ import { calculateSimilarity, findDuplicateGroups, type DuplicateThresholds } fr
  * window moves, because import overlaps genuinely land days apart.
  */
 
-/** Money must match to the penny; anything looser is not a duplicate. */
+/**
+ * Money must match to the penny; anything looser is not a duplicate.
+ *
+ * This is a GATE, not a score. Passing it to the shared similarity scorer is not
+ * enough: there the amount is only 40% of a weighted total, so an identical
+ * description (30%) one day apart (30%) carries a pair over the line on its own.
+ * £24.99 against £36.95 — 48% apart — scored 82 against a threshold of 80 and was
+ * offered as a duplicate. A delete tool must never do that, so amounts are
+ * compared first and a mismatch is rejected outright, before scoring runs.
+ */
 const AMOUNT_THRESHOLD = 0.01;
+
+/** True when two rows are the same money to the penny, sign included. */
+function amountsMatch(a: Transaction, b: Transaction): boolean {
+  return toDecimal(a.amount).minus(toDecimal(b.amount)).abs().toNumber() <= AMOUNT_THRESHOLD;
+}
 /**
  * Above 70 the scan can prune by date window (see duplicateScan) — the reason
  * this stays high, besides being the point at which descriptions genuinely
@@ -114,6 +129,10 @@ export function findDuplicateCandidates(
     if (rows.length < 2) continue;
     for (const group of findDuplicateGroups(rows, thresholds)) {
       for (const other of group.potential) {
+        // The amount gate comes FIRST — before date, description or score. Two
+        // rows that are not the same money are not the same payment, however
+        // alike they read.
+        if (!amountsMatch(group.original, other)) continue;
         candidates.push({
           a: group.original,
           b: other,

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
@@ -54,6 +54,19 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  // An import awaits many writes and can settle AFTER unmount; the setState in
+  // the finally below then runs against a torn-down react-dom (the intermittent
+  // pre-commit/quality-gates error). Every post-await setState checks this ref
+  // first. Reset on mount because Strict Mode remounts reuse the same ref.
+  // Same pattern as SyncConflictResolver.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   const logger = useMemo(() => createScopedLogger('QIFImportModal'), []);
 
   const parseFile = useCallback(async (targetFile: File) => {
@@ -136,7 +149,8 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         const bulk = await transactionImportService.importInChunks(
           selectedAccountId,
           result.transactions,
-          { onProgress: setProgress }
+          // Fires between chunks, so it can also land after unmount.
+          { onProgress: p => { if (isMountedRef.current) setProgress(p); } }
         );
         insertedCount = bulk.inserted;
         complete = bulk.complete;
@@ -156,6 +170,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
 
       const account = accounts.find(a => a.id === selectedAccountId) ?? null;
 
+      if (!isMountedRef.current) return;
       setImportResult({
         success: true,
         imported: insertedCount,
@@ -168,13 +183,17 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
       });
     } catch (error) {
       logger.error('Import error', error as Error);
-      setImportResult({
-        success: false,
-        error: error instanceof Error ? error.message : 'Import failed'
-      });
+      if (isMountedRef.current) {
+        setImportResult({
+          success: false,
+          error: error instanceof Error ? error.message : 'Import failed'
+        });
+      }
     } finally {
-      setIsProcessing(false);
-      setProgress(null);
+      if (isMountedRef.current) {
+        setIsProcessing(false);
+        setProgress(null);
+      }
     }
   }, [accounts, addTransaction, categories, file, getToken, isUsingSupabase, parseResult, refreshAccountsAndTransactions, selectedAccountId, skipDuplicates, transactions, logger]);
   
