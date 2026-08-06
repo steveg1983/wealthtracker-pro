@@ -1,5 +1,6 @@
 import React from 'react';
 import { PERIOD_LABELS, type PeriodKey, type UsePeriodResult } from '../hooks/usePeriod';
+import DatePicker from './common/DatePicker';
 
 const ORDER: PeriodKey[] = ['this-month', 'last-month', 'tax-year', 'last-12-months', 'all', 'custom'];
 
@@ -37,22 +38,28 @@ export default function PeriodPicker({ picker }: { picker: UsePeriodResult }): R
       </div>
 
       {period === 'custom' && (
+        /* dd/mm/yyyy everywhere — a native date input renders in the
+           browser's locale, not the app's. */
         <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={customStart}
-            onChange={e => setCustomStart(e.target.value)}
-            aria-label="Custom period start date"
-            className="px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          />
+          <div className="w-36">
+            <DatePicker
+              size="sm"
+              value={customStart}
+              onChange={setCustomStart}
+              aria-label="Custom period start date"
+              className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+          </div>
           <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
-          <input
-            type="date"
-            value={customEnd}
-            onChange={e => setCustomEnd(e.target.value)}
-            aria-label="Custom period end date"
-            className="px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          />
+          <div className="w-36">
+            <DatePicker
+              size="sm"
+              value={customEnd}
+              onChange={setCustomEnd}
+              aria-label="Custom period end date"
+              className="text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            />
+          </div>
         </div>
       )}
     </div>

@@ -229,18 +229,25 @@ describe('ExcelExport', () => {
       
       const now = new Date();
       const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      expect(startDate.value).toBe(firstOfMonth.toISOString().split('T')[0]);
-      expect(endDate.value).toBe(now.toISOString().split('T')[0]);
+
+      // The shared picker displays UK dd/mm/yyyy; the state behind it stays ISO.
+      const uk = (d: Date): string =>
+        `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+      expect(startDate.value).toBe(uk(firstOfMonth));
+      expect(endDate.value).toBe(uk(now));
     });
 
     it('can change date range', () => {
       render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
-      
+
       const startDate = screen.getByLabelText('Start Date');
-      fireEvent.change(startDate, { target: { value: '2024-01-01' } });
-      
-      expect((startDate as HTMLInputElement).value).toBe('2024-01-01');
+      // Typed as a UK date; blur settles the draft, so what is left on screen
+      // is the committed value rather than the raw keystrokes.
+      fireEvent.change(startDate, { target: { value: '01/03/2024' } });
+      fireEvent.blur(startDate);
+
+      expect((startDate as HTMLInputElement).value).toBe('01/03/2024');
     });
   });
 

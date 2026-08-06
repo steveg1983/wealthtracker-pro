@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { findStrandedTransfers, resolveAdjustmentCategory } from './strandedTransfers';
+import { findStrandedTransfers, findUnmatchedSplitLegs, resolveAdjustmentCategory } from './strandedTransfers';
 import { sweepTransferPairs } from './transferSweep';
-import type { Category, Transaction } from '../types';
+import type { Category, Transaction, TransactionSplit } from '../types';
 
 const txn = (over: Partial<Transaction> & { id: string }): Transaction => ({
   date: new Date('2026-07-10'),
@@ -382,5 +382,118 @@ describe('findStrandedTransfers — ordering and determinism', () => {
       txn({ id: 'twin-b', amount: 200, accountId: 'acc-c', type: 'income', date: new Date('2026-05-02'), category: 'cat-groceries' }),
     ], CATEGORIES);
     expect(findings.filter(f => f.row.id === 'stranded')).toHaveLength(1);
+  });
+});
+
+/**
+ * Unmatched split legs — the one-sided family, for a LINE.
+ *
+ * Every case here ends in a SENTENCE and nothing else: there is no action, by
+ * design (see findUnmatchedSplitLegs), so what these tests pin is that the app
+ * never says something it cannot know — "nothing matches" only when nothing
+ * does, and the precise obstacle when there is one.
+ */
+describe('findUnmatchedSplitLegs', () => {
+  const PARENT: Transaction = txn({
+    id: 'repayment', accountId: 'acc-a', amount: 35000, type: 'income',
+    description: 'Repaid in full', isSplit: true, date: new Date('2026-07-10'),
+  });
+
+  const leg = (over: Partial<TransactionSplit> = {}): TransactionSplit => ({
+    id: 'leg', transactionId: 'repayment', category: 'cat-groceries',
+    amount: 30000, sortOrder: 1, transferAccountId: 'acc-b', ...over,
+  });
+
+  const opposite = (over: Partial<Transaction> = {}): Transaction =>
+    txn({ id: 'over-there', accountId: 'acc-b', amount: -30000, description: 'Repaid in full', ...over });
+
+  it('says nothing matches when the account really is empty', () => {
+    const { findings, scanned } = findUnmatchedSplitLegs([PARENT], [leg()], CATEGORIES);
+    expect(scanned).toBe(1);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ kind: 'unmatched-leg', reason: 'nothing-matches', target: 'acc-b' });
+    expect(findings[0].split.id).toBe('leg');
+    expect(findings[0].parent.id).toBe('repayment');
+  });
+
+  it('reports nothing at all for a leg the sweep can match', () => {
+    const { findings, scanned } = findUnmatchedSplitLegs([PARENT, opposite()], [leg()], CATEGORIES);
+    expect(scanned).toBe(0);
+    expect(findings).toEqual([]);
+  });
+
+  it('reports nothing for a linked leg — it has its other side', () => {
+    const { findings } = findUnmatchedSplitLegs(
+      [PARENT], [leg({ linkedTransferId: 'counterpart' })], CATEGORIES
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it.each([
+    ['linked', { linkedTransferId: 'someone', type: 'transfer' as const }],
+    ['split', { isSplit: true }],
+    ['archived', { archived: true }],
+  ])('names the obstacle when the matching row is %s', (reason, over) => {
+    const { findings } = findUnmatchedSplitLegs([PARENT, opposite(over)], [leg()], CATEGORIES);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].reason).toBe(reason);
+    expect(findings[0].parent.id).toBe('repayment');
+  });
+
+  it('names the category when the matching row is filed under one', () => {
+    const { findings } = findUnmatchedSplitLegs(
+      [PARENT, opposite({ category: 'cat-dental' })], [leg()], CATEGORIES
+    );
+    expect(findings).toHaveLength(1);
+    const [finding] = findings;
+    expect(finding.reason).toBe('filed');
+    if (finding.reason !== 'filed') throw new Error('expected a filed finding');
+    expect(finding.blockerCategoryName).toBe('Dental');
+    expect(finding.blocker.id).toBe('over-there');
+  });
+
+  it('says "taken" when the row it wanted went to another match', () => {
+    // Two lines want the same £30,000 row. One gets it; the other is told why
+    // it did not, rather than being told the loan account is empty.
+    const second: Transaction = txn({
+      id: 'repayment-2', accountId: 'acc-a', amount: 35000, type: 'income',
+      description: 'Repaid in full', isSplit: true, date: new Date('2026-07-10'),
+    });
+    const { findings } = findUnmatchedSplitLegs(
+      [PARENT, second, opposite()],
+      [leg(), leg({ id: 'leg-2', transactionId: 'repayment-2' })],
+      CATEGORIES
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0].reason).toBe('taken');
+  });
+
+  it('ignores a leg whose parent is archived, missing, or points at its own account', () => {
+    expect(findUnmatchedSplitLegs([{ ...PARENT, archived: true }], [leg()], CATEGORIES).findings).toEqual([]);
+    expect(findUnmatchedSplitLegs([], [leg()], CATEGORIES).findings).toEqual([]);
+    expect(findUnmatchedSplitLegs([PARENT], [leg({ transferAccountId: 'acc-a' })], CATEGORIES).findings).toEqual([]);
+  });
+
+  it('respects the date window before calling a row the obstacle', () => {
+    const { findings } = findUnmatchedSplitLegs(
+      [PARENT, opposite({ date: new Date('2026-08-10'), archived: true })], [leg()], CATEGORIES
+    );
+    expect(findings[0].reason).toBe('nothing-matches');
+  });
+
+  it('lists oldest first and re-runs identically', () => {
+    const older: Transaction = txn({
+      id: 'older', accountId: 'acc-a', amount: 100, type: 'income',
+      isSplit: true, date: new Date('2026-01-05'),
+    });
+    const transactions = [PARENT, older];
+    const splits = [leg(), leg({ id: 'leg-older', transactionId: 'older', amount: 60 })];
+
+    const first = findUnmatchedSplitLegs(transactions, splits, CATEGORIES).findings.map(f => f.split.id);
+    const second = findUnmatchedSplitLegs(
+      [...transactions].reverse(), [...splits].reverse(), CATEGORIES
+    ).findings.map(f => f.split.id);
+    expect(first).toEqual(['leg-older', 'leg']);
+    expect(second).toEqual(first);
   });
 });

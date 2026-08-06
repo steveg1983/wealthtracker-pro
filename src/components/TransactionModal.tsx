@@ -6,6 +6,7 @@ import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
 import MoneyInput from './common/MoneyInput';
 import GroupedAccountSelect from './common/GroupedAccountSelect';
+import DatePicker from './common/DatePicker';
 import type { Transaction } from '../types';
 
 interface TransactionModalProps {
@@ -257,19 +258,19 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
             <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date <span className="text-red-500" aria-label="required">*</span>
             </label>
-            <input
+            {/* dd/mm/yyyy everywhere — a native date input renders in the
+                browser's locale, not the app's. */}
+            <DatePicker
               id="date"
-              type="date"
               required
               value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              onChange={(val) => setFormData({ ...formData, date: val })}
               onBlur={() => handleBlur('date')}
-              aria-required="true"
               aria-invalid={touched.date && !!errors.date}
               aria-describedby={touched.date && errors.date ? 'date-error' : undefined}
-              className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
-                touched.date && errors.date 
-                  ? 'border-red-500 dark:border-red-500' 
+              className={`bg-white dark:bg-gray-800-sm border ${
+                touched.date && errors.date
+                  ? 'border-red-500 dark:border-red-500'
                   : 'border-gray-300/50 dark:border-gray-600/50'
               } rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
             />

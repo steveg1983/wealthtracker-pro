@@ -3,7 +3,9 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
-import { 
+import DatePicker from './common/DatePicker';
+import { formatDateForInput } from '../utils/dateFormatter';
+import {
   DownloadIcon,
   FileTextIcon,
   SettingsIcon,
@@ -495,38 +497,36 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
               Date Range (for transactions)
             </h3>
             <div className="grid grid-cols-2 gap-4">
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. */}
               <div>
                 <label className="block text-sm font-medium mb-1" htmlFor="excel-export-start-date">Start Date</label>
-                <input
+                <DatePicker
                   id="excel-export-start-date"
-                  type="date"
-                  value={options.dateRange.start?.toISOString().split('T')[0] || ''}
-                  onChange={(e) => setOptions({
+                  value={formatDateForInput(options.dateRange.start)}
+                  onChange={(val) => setOptions({
                     ...options,
                     dateRange: {
                       ...options.dateRange,
-                      start: e.target.value ? new Date(e.target.value) : null
+                      start: val ? new Date(val) : null
                     }
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-800"
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" htmlFor="excel-export-end-date">End Date</label>
-                <input
+                <DatePicker
                   id="excel-export-end-date"
-                  type="date"
-                  value={options.dateRange.end?.toISOString().split('T')[0] || ''}
-                  onChange={(e) => setOptions({
+                  value={formatDateForInput(options.dateRange.end)}
+                  onChange={(val) => setOptions({
                     ...options,
                     dateRange: {
                       ...options.dateRange,
-                      end: e.target.value ? new Date(e.target.value) : null
+                      end: val ? new Date(val) : null
                     }
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-800"
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
                 />
               </div>
             </div>

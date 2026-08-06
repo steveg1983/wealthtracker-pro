@@ -4,6 +4,8 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
 import GroupedAccountSelect from './common/GroupedAccountSelect';
+import DatePicker from './common/DatePicker';
+import { formatDateForInput } from '../utils/dateFormatter';
 import { CheckCircleIcon, LinkIcon, RefreshCwIcon, CalendarIcon } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
@@ -254,31 +256,27 @@ export default function TransactionReconciliation({
           </div>
           
           <div className="grid grid-cols-2 gap-6 mt-4">
+            {/* dd/mm/yyyy everywhere — a native date input renders in the
+                browser's locale, not the app's. Both ends hold real Dates, so
+                an emptied value (the picker's Clear) is ignored rather than
+                stored as an Invalid Date. */}
             <div>
               <label className="block text-sm font-medium mb-2">Start Date</label>
-              <input
-                type="date"
-                value={dateRange.start.toISOString().split('T')[0]}
-                onChange={(e) => setDateRange({
-                  ...dateRange,
-                  start: new Date(e.target.value)
-                })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                         bg-white dark:bg-gray-700"
+              <DatePicker
+                value={formatDateForInput(dateRange.start)}
+                onChange={(val) => { if (val) setDateRange({ ...dateRange, start: new Date(val) }); }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                aria-label="Reconciliation start date"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">End Date</label>
-              <input
-                type="date"
-                value={dateRange.end.toISOString().split('T')[0]}
-                onChange={(e) => setDateRange({
-                  ...dateRange,
-                  end: new Date(e.target.value)
-                })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                         bg-white dark:bg-gray-700"
+              <DatePicker
+                value={formatDateForInput(dateRange.end)}
+                onChange={(val) => { if (val) setDateRange({ ...dateRange, end: new Date(val) }); }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                aria-label="Reconciliation end date"
               />
             </div>
           </div>

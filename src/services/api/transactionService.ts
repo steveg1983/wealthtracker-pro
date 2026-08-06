@@ -946,6 +946,71 @@ class TransactionServiceImpl {
   }
 
   /**
+   * Write a split whose lines may include TRANSFER LEGS — one line that is
+   * itself half of a transfer with another account (the Microsoft Money
+   * model).
+   *
+   * A separate RPC from setTransactionSplits, not a widening of it, because
+   * the two have different semantics on purpose: set_transaction_splits
+   * REPLACES the line set (and so must refuse any split containing a leg,
+   * since it cannot tell an edited line from a deleted one), while
+   * set_transaction_splits_with_legs matches incoming lines to stored ones by
+   * id — which is what lets an ordinary line be re-filed while the leg beside
+   * it stays exactly as it is. Leaving the old path strict means a stale
+   * browser tab still fails safe.
+   *
+   * Line ids and transfer targets ride in the payload in the database's own
+   * spelling (snake_case), so the audit entries the RPC writes read the same
+   * as the columns they came from. Cloud-only — DataService owns the
+   * local/demo mirror of these rules.
+   *
+   * Returns the counterpart rows the database created, so the caller updates
+   * its state (and those accounts' balances) from what was actually written.
+   */
+  async setTransactionSplitsWithLegs(
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null,
+    userId?: string
+  ): Promise<{ isSplit: boolean; splitCount: number; amount: number; counterparts: Transaction[] }> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('setTransactionSplitsWithLegs requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const payload = splits.map(split => ({
+        category: split.category,
+        amount: split.amount,
+        ...(split.memo ? { memo: split.memo } : {}),
+        ...(split.id ? { id: split.id } : {}),
+        ...(split.transferAccountId ? { transfer_account_id: split.transferAccountId } : {}),
+      }));
+      const { data, error } = await this.supabaseClient!.rpc('set_transaction_splits_with_legs', {
+        p_transaction_id: transactionId,
+        p_splits: payload,
+        p_expected_amount: expectedAmount,
+        p_user_id: this.requireOwnerId(userId, 'setTransactionSplitsWithLegs'),
+      });
+
+      if (error) {
+        this.logger.error('Error setting transaction splits with legs:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+
+      const result = (data ?? {}) as Record<string, unknown>;
+      const rows: unknown[] = Array.isArray(result.counterparts) ? result.counterparts : [];
+      return {
+        isSplit: Boolean(result.is_split),
+        splitCount: Number(result.split_count ?? 0),
+        amount: Number(result.amount ?? expectedAmount ?? 0),
+        counterparts: this.toTransactions(rows.filter(isRecord)),
+      };
+    } catch (error) {
+      this.logger.error('TransactionService.setTransactionSplitsWithLegs error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
    * Join two existing rows into a linked transfer pair (both sides already
    * exist). Amount/account/link invariants are enforced by the RPC; balance-
    * neutral by construction. Cloud-only here — the local/demo path lives in
@@ -1143,6 +1208,52 @@ class TransactionServiceImpl {
       };
     } catch (error) {
       this.logger.error('TransactionService.linkTransferPair error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Join an existing split LINE to an existing transaction as the two halves
+   * of a transfer — the split-line counterpart of linkTransferPair, and what
+   * the transfer-matching sweep applies for a line suggestion.
+   *
+   * The amounts must be exactly opposite between the LINE and the row, never
+   * between the row and the split PARENT, whose total legitimately differs
+   * (£35,000 arrives, £30,000 of it settles a loan). The RPC enforces that and
+   * every other precondition against the rows as they are NOW, so a stale list
+   * is refused rather than acted on; balance-neutral by construction, since no
+   * amount, sign or account is written. Cloud-only here — the local/demo path
+   * lives in DataService.
+   *
+   * Returns the line and the row the database actually wrote, so the caller
+   * updates its state from them rather than guessing at the re-typing and
+   * re-categorising the RPC does.
+   */
+  async linkSplitLineTransfer(
+    splitId: string,
+    transactionId: string,
+    userId?: string
+  ): Promise<{ split: TransactionSplit; transaction: Transaction }> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('linkSplitLineTransfer requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('link_split_line_transfer', {
+        p_split_id: splitId,
+        p_transaction_id: transactionId,
+        p_user_id: this.requireOwnerId(userId, 'linkSplitLineTransfer'),
+      });
+      if (error) {
+        this.logger.error('Error linking split line transfer:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as { split?: Record<string, unknown>; transaction?: Record<string, unknown> };
+      return {
+        split: this.mapSplitRow(result.split ?? {}),
+        transaction: mapFromDbFields(result.transaction ?? {}) as unknown as Transaction,
+      };
+    } catch (error) {
+      this.logger.error('TransactionService.linkSplitLineTransfer error:', error as Error);
       throw error;
     }
   }
@@ -1493,6 +1604,14 @@ export class TransactionService {
     return this.service.linkTransferPair(idA, idB, userId);
   }
 
+  static linkSplitLineTransfer(
+    splitId: string,
+    transactionId: string,
+    userId?: string
+  ): Promise<{ split: TransactionSplit; transaction: Transaction }> {
+    return this.service.linkSplitLineTransfer(splitId, transactionId, userId);
+  }
+
   static repairClaimedTransfer(
     strandedId: string,
     counterpartId: string,
@@ -1532,6 +1651,15 @@ export class TransactionService {
     userId?: string
   ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
     return this.service.setTransactionSplits(transactionId, splits, expectedAmount, userId);
+  }
+
+  static setTransactionSplitsWithLegs(
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null,
+    userId?: string
+  ): Promise<{ isSplit: boolean; splitCount: number; amount: number; counterparts: Transaction[] }> {
+    return this.service.setTransactionSplitsWithLegs(transactionId, splits, expectedAmount, userId);
   }
 
   static getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {

@@ -7,6 +7,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { ArchiveIcon, CheckCircleIcon } from './icons';
+import DatePicker from './common/DatePicker';
 import {
   ARCHIVE_PRESETS, resolveCutoff, countArchivable, type ArchivePreset,
 } from '../utils/archive';
@@ -82,13 +83,17 @@ export default function ArchiveManager() {
             ))}
           </div>
           {preset === 'custom' && (
-            <input
-              type="date"
-              value={customDate}
-              onChange={(e) => setCustomDate(e.target.value)}
-              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-              aria-label="Custom archive cutoff date"
-            />
+            /* dd/mm/yyyy everywhere — a native date input renders in the
+               browser's locale, not the app's. */
+            <div className="w-40">
+              <DatePicker
+                size="sm"
+                value={customDate}
+                onChange={setCustomDate}
+                className="text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                aria-label="Custom archive cutoff date"
+              />
+            </div>
           )}
         </div>
         {cutoff && (

@@ -48,6 +48,7 @@ const baseValue = {
   getTransactionSplits: async () => [],
   setTransactionSplits: async () => ({ isSplit: false, splitCount: 0, amount: 0 }),
   linkTransferPair: async () => { throw new Error('not available in mock'); },
+  linkSplitLineTransfer: async () => { throw new Error('not available in mock'); },
   unlinkTransfers: async () => 0,
   setTransactionArchived: asyncNoop,
   repairClaimedTransfer: asyncNoop,

@@ -26,6 +26,12 @@ const tree: Category[] = [
   { id: 'det-groceries', name: 'Groceries', type: 'expense', level: 'detail', parentId: 'sub-food' },
   { id: 'type-revaluation', name: 'Revaluation', type: 'both', level: 'type', isRevaluationCategory: true },
   { id: 'rev-adjustment', name: 'Account Adjustment', type: 'both', level: 'detail', parentId: 'type-revaluation', isRevaluationCategory: true },
+  // The account-managed To/From categories: detail rows hanging off the
+  // Transfer type root, one per account, maintained by the account lifecycle.
+  { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type' },
+  { id: 'tofrom-savings', name: 'To/From Savings', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'acct-savings' },
+  { id: 'tofrom-current', name: 'To/From Current', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'acct-current' },
+  { id: 'tofrom-closed', name: 'To/From Old ISA', type: 'both', level: 'detail', parentId: 'type-transfer', isTransferCategory: true, accountId: 'acct-closed', isActive: false },
 ];
 
 const PLACEHOLDER = 'Pick a category';
@@ -201,6 +207,63 @@ describe('CategorySelector', () => {
       fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), { target: { value: 'adjust' } });
       expect(screen.getByText('Account Adjustment')).toBeInTheDocument();
       expect(screen.queryByText('Payslip')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('transfer targets (the split-line leg)', () => {
+    it('are absent unless asked for — a whole transaction transfers via the Type toggle', () => {
+      renderOpen({ includeAllTypes: true });
+      expect(screen.queryByText('To/From Savings')).not.toBeInTheDocument();
+      expect(screen.queryByText('Transfer to another account')).not.toBeInTheDocument();
+    });
+
+    it('appear under their own heading, last, when a line may BE a transfer', () => {
+      renderOpen({ includeAllTypes: true, includeTransferTargets: true });
+      expect(screen.getByText('Transfer to another account')).toBeInTheDocument();
+      expect(screen.getByText('To/From Savings')).toBeInTheDocument();
+      const headings = screen
+        .getAllByText(/^(Salary|Food|Revaluation|Transfer to another account)$/)
+        .map(el => el.textContent);
+      expect(headings[headings.length - 1]).toBe('Transfer to another account');
+    });
+
+    it("leaves out the transaction's own account — a transfer to itself moves nothing", () => {
+      renderOpen({
+        includeAllTypes: true,
+        includeTransferTargets: true,
+        transferSourceAccountId: 'acct-current',
+      });
+      expect(screen.getByText('To/From Savings')).toBeInTheDocument();
+      expect(screen.queryByText('To/From Current')).not.toBeInTheDocument();
+    });
+
+    it('leaves out a closed account (its category is inactive)', () => {
+      renderOpen({ includeAllTypes: true, includeTransferTargets: true });
+      expect(screen.queryByText('To/From Old ISA')).not.toBeInTheDocument();
+    });
+
+    it('reports the chosen To/From category id, and filters with the search', () => {
+      const { onCategoryChange } = renderOpen({
+        includeAllTypes: true,
+        includeTransferTargets: true,
+        transferSourceAccountId: 'acct-current',
+      });
+      fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), { target: { value: 'to/from' } });
+      expect(screen.queryByText('Groceries')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText('To/From Savings'));
+      expect(onCategoryChange).toHaveBeenCalledWith('tofrom-savings');
+    });
+
+    it('is reachable by keyboard like any other option', () => {
+      const { onCategoryChange } = renderOpen({
+        includeAllTypes: true,
+        includeTransferTargets: true,
+        transferSourceAccountId: 'acct-current',
+      });
+      const input = screen.getByPlaceholderText(PLACEHOLDER);
+      fireEvent.change(input, { target: { value: 'savings' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onCategoryChange).toHaveBeenCalledWith('tofrom-savings');
     });
   });
 

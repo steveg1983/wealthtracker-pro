@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
-import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon, XIcon } from '../components/icons';
+import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, ArrowUpRightIcon, BanknoteIcon, PaperclipIcon, XIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import {
   splitRemainder,
@@ -17,7 +17,9 @@ import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
 import { resolveTransferOtherSide } from '../utils/transferOtherSide';
+import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import GroupedAccountSelect from './common/GroupedAccountSelect';
+import DatePicker from './common/DatePicker';
 import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
 import TagSelector from './TagSelector';
@@ -51,6 +53,13 @@ interface EditTransactionModalProps {
    * saves and swaps in the PREVIOUS transaction from the caller's list.
    */
   onSaveAndPrevious?: () => void;
+  /**
+   * The account whose own register is hosting this modal. "See this
+   * transaction in <account>" is suppressed for it — offering a jump to where
+   * the user already is would be noise. Passed by the host rather than
+   * guessed from the URL, which cannot tell a register from a modal over it.
+   */
+  hideJumpToAccountId?: string;
 }
 
 interface FormData {
@@ -67,7 +76,7 @@ interface FormData {
   reconciledWith: string;
 }
 
-export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious }: EditTransactionModalProps): React.JSX.Element {
+export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious, hideJumpToAccountId }: EditTransactionModalProps): React.JSX.Element {
   const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart } = useApp();
   const { showSuccess, showError } = useToast();
   const { addTransaction } = useTransactionNotifications();
@@ -204,6 +213,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
             const splitError = validateSplitDrafts(data.amount, splitLines, {
               parentType: resolvedType as 'income' | 'expense',
               directionFor: splitDirectionFor,
+              parentAccountId: validatedData.accountId,
+              isTransferCategory,
             });
             if (splitError) {
               throw new Error(splitError);
@@ -285,10 +296,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           if (transaction) {
             if (splitting) {
               // A split parent's amount/category/type are guarded by a DB
-              // trigger — only set_transaction_splits may change them. The
-              // ordinary update carries everything else; the RPC then swaps
-              // the split lines in, re-validates the sum against the entered
-              // amount server-side, and syncs amount + account balance.
+              // trigger — only the split RPCs may change them. The ordinary
+              // update carries everything else; the RPC then writes the split
+              // lines (matching them to the stored ones by id, so a line that
+              // is half of a transfer survives an edit to its neighbours),
+              // re-validates the sum against the entered amount server-side,
+              // and syncs amount + account balance.
               await updateTransaction(transaction.id, {
                 date: transactionData.date,
                 description: transactionData.description,
@@ -483,6 +496,21 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     return cat.type;
   }, [categories]);
 
+  // Picking a "To/From <account>" category on a split line IS the sentence
+  // "this part of the money moved to that account" — the same rule the
+  // whole-transaction conversion follows. The account it names becomes the
+  // line's transfer target; any other category clears it.
+  const splitTransferTargetFor = useCallback((categoryId: string): string | undefined => {
+    const cat = categories.find(c => c.id === categoryId);
+    return cat?.isTransferCategory === true ? cat.accountId : undefined;
+  }, [categories]);
+
+  const isTransferCategory = useCallback(
+    (categoryId: string): boolean =>
+      categories.find(c => c.id === categoryId)?.isTransferCategory === true,
+    [categories]
+  );
+
   // Load an already-split transaction's lines into the editor (stored signed
   // amounts convert back to the entered domain). Non-split rows reset the
   // split state so batch mode (Save & Next) never leaks lines between rows.
@@ -497,10 +525,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
           const parentDirection = transaction.type === 'income' ? 'income' : 'expense';
           // Each line converts back using ITS OWN direction (its category's
           // tree), so a mixed split round-trips to positive magnitudes.
+          // Identity and leg fields come from the stored row and travel back
+          // out untouched: the writer matches lines by id, and a line already
+          // linked to a counterpart may not change.
           setSplitLines(splits.map(s => ({
+            id: s.id,
             category: s.category,
             amount: displaySplitAmount(s.amount, splitDirectionFor(s.category) ?? parentDirection),
             ...(s.memo ? { memo: s.memo } : {}),
+            ...(s.transferAccountId
+              ? { transferAccountId: s.transferAccountId, savedTransferAccountId: s.transferAccountId }
+              : {}),
+            ...(s.linkedTransferId ? { linkedTransferId: s.linkedTransferId } : {}),
           })));
         })
         .catch(error => {
@@ -539,6 +575,21 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     setSplitLines(prev => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   };
 
+  /**
+   * Re-file one line. The transfer target is derived from the category rather
+   * than stored twice: choosing "To/From Savings" makes the line a leg to
+   * Savings, choosing anything else stops it being one. (A line already linked
+   * to a counterpart never reaches here — the editor renders it read-only.)
+   */
+  const changeSplitLineCategory = (index: number, categoryId: string): void => {
+    const target = splitTransferTargetFor(categoryId);
+    setSplitLines(prev => prev.map((line, i) => {
+      if (i !== index) return line;
+      const { transferAccountId: _replaced, ...rest } = line;
+      return { ...rest, category: categoryId, ...(target ? { transferAccountId: target } : {}) };
+    }));
+  };
+
   const addSplitLine = (): void => {
     setSplitLines(prev => [...prev, { category: '', amount: '' }]);
   };
@@ -550,9 +601,16 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   // Save is blocked while the split doesn't balance; the remainder line
   // doubles as the explanation.
   const splitActive = isSplitMode && !!transaction && formData.type !== 'transfer';
+  // One of these lines is already half of a transfer with another account.
+  // That line is read-only and the split cannot be un-split (un-splitting
+  // deletes every line, stranding the row on the other side) — but every
+  // OTHER line stays editable, which is what the writer's line matching buys.
+  const splitHasLinkedLeg = splitLines.some(line => Boolean(line.linkedTransferId));
   const splitDirectionOpts = {
     parentType: (formData.type === 'income' ? 'income' : 'expense') as 'income' | 'expense',
     directionFor: splitDirectionFor,
+    parentAccountId: formData.accountId,
+    isTransferCategory,
   };
   const splitValidationMessage = splitActive
     ? validateSplitDrafts(formData.amount, splitLines, splitDirectionOpts)
@@ -585,21 +643,40 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     [transaction, transactions, accounts]
   );
 
-  // The jump is taken even when that account is CLOSED: the register itself
-  // owns the closed-account offer now (name, explanation, "Re-open and view"),
-  // so the way through arrives where the user asked for it instead of being
-  // described to them. `isOpen` still shapes the label — a closed account's
-  // name isn't in the context list to print.
+  // Every jump out of this modal works the same way: close the editor (so it
+  // isn't left hanging over the register it just opened), then deep-link the
+  // row. Taken even when the account is CLOSED — the register itself owns the
+  // closed-account offer (name, explanation, "Re-open and view"), so the way
+  // through arrives where the user asked for it instead of being described.
+  const jumpToRegister = useCallback((accountId: string, transactionId: string): void => {
+    onClose();
+    navigate(buildTransactionRegisterPath(accountId, transactionId, location.search));
+  }, [navigate, location.search, onClose]);
+
+  // `isOpen` shapes the transfer label only — a closed account's name isn't in
+  // the context list to print.
   const handleJumpToOtherSide = (): void => {
     if (!otherSide) return;
-    const params = new URLSearchParams();
-    params.set('txn', otherSide.transactionId);
-    if (new URLSearchParams(location.search).get('demo') === 'true') {
-      params.set('demo', 'true');
-    }
-    onClose();
-    navigate(`/accounts/${otherSide.accountId}?${params.toString()}`);
+    jumpToRegister(otherSide.accountId, otherSide.transactionId);
   };
+
+  // "See this transaction in <account>": the same mechanic pointed at the
+  // row's OWN account, for the context the edit screen can't give — the
+  // surrounding rows and the running balance. The SAVED account is the target,
+  // not the form's current pick, because that is where the row is right now.
+  const ownAccountJump = useMemo(() => {
+    if (!transaction || transaction.accountId === hideJumpToAccountId) return null;
+    const account = accounts.find(a => a.id === transaction.accountId);
+    return {
+      accountId: transaction.accountId,
+      transactionId: transaction.id,
+      // A closed account is absent from the loaded list, so the label goes
+      // generic rather than blank; the register handles the rest on arrival.
+      label: account
+        ? `See this transaction in ${account.name}`
+        : 'See this transaction in its account',
+    };
+  }, [transaction, accounts, hideJumpToAccountId]);
 
   const handleDelete = () => {
     if (!transaction) return;
@@ -620,15 +697,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <CalendarIcon size={16} />
                 Date
               </label>
-              {/* appearance-none + min-w-0: iOS gives a date input an
-                  intrinsic width that ignores w-full, so this box ran past
-                  the modal edge all its siblings stopped at. */}
-              <input
-                type="date"
+              {/* The shared dd/mm/yyyy picker, NOT a native date input: a
+                  native renders in the BROWSER's locale, so a row the
+                  register showed as 07/02/2022 opened here as 02/07/2022.
+                  min-w-0 keeps the box inside the grid column its siblings
+                  stop at. */}
+              <DatePicker
                 value={formData.date}
-                onChange={(e) => updateField('date', e.target.value)}
-                className="appearance-none min-w-0 w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                onChange={(val) => updateField('date', val)}
+                className="min-w-0 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
                 required
+                aria-label="Transaction date"
               />
             </div>
 
@@ -798,10 +877,19 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   is added single-category first, then split; transfers encode
                   their target in the category and cannot split). */}
               {transaction && formData.type !== 'transfer' && (
-                <label className="mb-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                <label className={`mb-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 ${
+                  splitHasLinkedLeg ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                }`}>
                   <input
                     type="checkbox"
                     checked={isSplitMode}
+                    // Un-splitting deletes every line, and one of these lines is
+                    // half of a transfer — the row on the other side would be
+                    // left pointing at nothing.
+                    disabled={splitHasLinkedLeg}
+                    title={splitHasLinkedLeg
+                      ? 'One of these lines is a transfer — delete that transfer first to un-split this transaction'
+                      : undefined}
                     onChange={(e) => handleSplitToggle(e.target.checked)}
                   />
                   <span>Split across multiple categories</span>
@@ -857,47 +945,113 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     <p className="text-sm text-gray-500 dark:text-gray-400 py-2">Loading splits…</p>
                   ) : (
                     <>
-                      {splitLines.map((line, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                          <div className="flex-1 min-w-0">
-                            <CategorySelector
-                              selectedCategory={line.category}
-                              onCategoryChange={(id) => updateSplitLine(index, { category: id })}
-                              transactionType={formData.type}
-                              // BOTH trees, per line: a split may mix expense
-                              // and income lines (an income line counts
-                              // against an expense total), so every line
-                              // offers every category and the line's
-                              // direction follows the one chosen.
-                              includeAllTypes
-                              placeholder="Search or select category…"
-                              allowCreate={false}
-                              showHelperText={false}
-                              usePortal
-                            />
+                      {splitLines.map((line, index) => {
+                        // A line already linked to a transaction in another
+                        // account is structural: its category, amount and
+                        // target are pinned by that row, so it is SHOWN, not
+                        // edited. Every other line on the split stays free —
+                        // which is the whole point of being able to open this
+                        // at all.
+                        const lockedLeg = Boolean(line.linkedTransferId);
+                        const legAccountName = line.transferAccountId
+                          ? accounts.find(a => a.id === line.transferAccountId)?.name
+                          : undefined;
+                        return (
+                        <div key={line.id ?? `new-${index}`} className="space-y-1">
+                          <div className="flex gap-2 items-center">
+                            <div className="flex-1 min-w-0">
+                              {lockedLeg ? (
+                                <div
+                                  className="w-full px-3 py-2 h-[42px] flex items-center rounded-xl bg-gray-100 dark:bg-gray-700/60 border border-gray-300/50 dark:border-gray-600/50 text-sm text-gray-700 dark:text-gray-300 truncate"
+                                  title="This line is one half of a transfer — delete that transfer to change it"
+                                >
+                                  {legAccountName
+                                    ? `Transfer — ${legAccountName}`
+                                    : 'Transfer — the linked account'}
+                                </div>
+                              ) : (
+                                <CategorySelector
+                                  selectedCategory={line.category}
+                                  onCategoryChange={(id) => changeSplitLineCategory(index, id)}
+                                  transactionType={formData.type}
+                                  // BOTH trees, per line: a split may mix expense
+                                  // and income lines (an income line counts
+                                  // against an expense total), so every line
+                                  // offers every category and the line's
+                                  // direction follows the one chosen.
+                                  includeAllTypes
+                                  // …and the To/From account categories, which
+                                  // make THIS LINE one leg of a transfer. Only
+                                  // split lines offer them: a whole transaction
+                                  // becomes a transfer via the Type toggle.
+                                  includeTransferTargets
+                                  transferSourceAccountId={formData.accountId}
+                                  placeholder="Search or select category…"
+                                  allowCreate={false}
+                                  showHelperText={false}
+                                  usePortal
+                                />
+                              )}
+                            </div>
+                            {lockedLeg ? (
+                              <div
+                                className="w-28 shrink-0 px-3 py-2 h-[42px] flex items-center justify-end rounded-xl bg-gray-100 dark:bg-gray-700/60 border border-gray-300/50 dark:border-gray-600/50 text-gray-700 dark:text-gray-300"
+                                aria-label={`Split line ${index + 1} amount`}
+                              >
+                                {formatWithCommas(line.amount)}
+                              </div>
+                            ) : (
+                              <MoneyInput
+                                value={line.amount}
+                                onChange={(raw) => updateSplitLine(index, { amount: raw })}
+                                // A MINUS line is legitimate here (cashback inside a
+                                // shop reduces the total), so negatives stay enterable.
+                                allowNegative
+                                aria-label={`Split line ${index + 1} amount`}
+                                className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white"
+                              />
+                            )}
+                            {splitLines.length > 2 && !lockedLeg && (
+                              <button
+                                type="button"
+                                onClick={() => removeSplitLine(index)}
+                                aria-label={`Remove split line ${index + 1}`}
+                                title="Remove this split line"
+                                className="shrink-0 p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
+                              >
+                                <XIcon size={18} />
+                              </button>
+                            )}
+                            {/* The removed button's width, kept, so a locked
+                                line's amount stays in the same column. */}
+                            {splitLines.length > 2 && lockedLeg && (
+                              <span className="shrink-0 w-[34px]" aria-hidden="true" />
+                            )}
                           </div>
-                          <MoneyInput
-                            value={line.amount}
-                            onChange={(raw) => updateSplitLine(index, { amount: raw })}
-                            // A MINUS line is legitimate here (cashback inside a
-                            // shop reduces the total), so negatives stay enterable.
-                            allowNegative
-                            aria-label={`Split line ${index + 1} amount`}
-                            className="w-28 shrink-0 px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 dark:text-white"
-                          />
-                          {splitLines.length > 2 && (
-                            <button
-                              type="button"
-                              onClick={() => removeSplitLine(index)}
-                              aria-label={`Remove split line ${index + 1}`}
-                              title="Remove this split line"
-                              className="shrink-0 p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
-                            >
-                              <XIcon size={18} />
-                            </button>
+                          {/* What this line MEANS, said once: money leaving for
+                              (or arriving from) a named account, not a category
+                              — and exactly what saving will do about it. */}
+                          {line.transferAccountId && (
+                            <p className="flex items-center gap-1.5 pl-1 text-xs text-blue-700 dark:text-blue-400">
+                              <ArrowRightLeftIcon size={12} />
+                              <span>
+                                {lockedLeg
+                                  ? `Transfer with ${legAccountName ?? 'the linked account'} — its other side is already recorded there, so this line can't change. Delete that transfer to edit it.`
+                                  : line.transferAccountId === line.savedTransferAccountId
+                                    // Already a leg, but its counterpart is gone
+                                    // (deleted, or never imported). Saving must
+                                    // NOT make a new one: the row that matches it
+                                    // may be sitting in that account unmatched,
+                                    // and inventing a second would double the
+                                    // movement.
+                                    ? `Transfer with ${legAccountName ?? 'that account'} — the matching transaction there is missing. Saving leaves this line as it is; nothing new is created.`
+                                    : `Transfer with ${legAccountName ?? 'that account'} — saving creates the matching transaction there.`}
+                              </span>
+                            </p>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                       <div className="flex justify-between items-center pt-1">
                         <button
                           type="button"
@@ -1042,6 +1196,19 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-sm text-red-700 dark:text-red-300">{errors.submit}</p>
               </div>
+            )}
+            {/* Low-key on purpose: a way out to context, not a competing
+                action next to Save. Any unsaved edits are abandoned, same as
+                Cancel, so it reads as leaving rather than committing. */}
+            {ownAccountJump && (
+              <button
+                type="button"
+                onClick={() => jumpToRegister(ownAccountJump.accountId, ownAccountJump.transactionId)}
+                className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-secondary"
+              >
+                <ArrowUpRightIcon size={14} />
+                {ownAccountJump.label}
+              </button>
             )}
             <div className="flex justify-between gap-3 w-full">
               {transaction && (

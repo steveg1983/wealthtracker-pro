@@ -9,6 +9,7 @@ import {
   SearchIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
+import DatePicker from '../../components/common/DatePicker';
 import { VirtualizedTable, Column } from '../../components/VirtualizedTable';
 import type { AuditLog } from '../../services/securityService';
 
@@ -302,11 +303,13 @@ export default function AuditLogs() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Start Date
               </label>
-              <input
-                type="date"
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. */}
+              <DatePicker
                 value={filters.startDate}
-                onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                onChange={(val) => handleFilterChange('startDate', val)}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                aria-label="Audit log start date"
               />
             </div>
 
@@ -315,11 +318,11 @@ export default function AuditLogs() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 End Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={filters.endDate}
-                onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                onChange={(val) => handleFilterChange('endDate', val)}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                aria-label="Audit log end date"
               />
             </div>
           </div>

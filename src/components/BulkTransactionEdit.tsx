@@ -17,6 +17,8 @@ import {
 } from './icons';
 import BulkEditPanel from './BulkEditPanel';
 import { GroupedAccountOptions } from './common/GroupedAccountSelect';
+import DatePicker from './common/DatePicker';
+import { formatDateForInput } from '../utils/dateFormatter';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 
@@ -397,34 +399,40 @@ export default function BulkTransactionEdit({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Date Range</label>
+                    {/* dd/mm/yyyy everywhere — a native date input renders in
+                        the browser's locale, not the app's. */}
                     <div className="flex gap-2">
-                      <input
-                        type="date"
-                        value={filters.dateRange.start?.toISOString().split('T')[0] || ''}
-                        onChange={(e) => setFilters({
-                          ...filters,
-                          dateRange: {
-                            ...filters.dateRange,
-                            start: e.target.value ? new Date(e.target.value) : null
-                          }
-                        })}
-                        className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 
-                                 rounded bg-white dark:bg-gray-700"
-                      />
+                      <div className="flex-1 min-w-0">
+                        <DatePicker
+                          size="sm"
+                          value={formatDateForInput(filters.dateRange.start)}
+                          onChange={(val) => setFilters({
+                            ...filters,
+                            dateRange: {
+                              ...filters.dateRange,
+                              start: val ? new Date(val) : null
+                            }
+                          })}
+                          className="text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                          aria-label="Filter from date"
+                        />
+                      </div>
                       <span className="self-center">to</span>
-                      <input
-                        type="date"
-                        value={filters.dateRange.end?.toISOString().split('T')[0] || ''}
-                        onChange={(e) => setFilters({
-                          ...filters,
-                          dateRange: {
-                            ...filters.dateRange,
-                            end: e.target.value ? new Date(e.target.value) : null
-                          }
-                        })}
-                        className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 
-                                 rounded bg-white dark:bg-gray-700"
-                      />
+                      <div className="flex-1 min-w-0">
+                        <DatePicker
+                          size="sm"
+                          value={formatDateForInput(filters.dateRange.end)}
+                          onChange={(val) => setFilters({
+                            ...filters,
+                            dateRange: {
+                              ...filters.dateRange,
+                              end: val ? new Date(val) : null
+                            }
+                          })}
+                          className="text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                          aria-label="Filter to date"
+                        />
+                      </div>
                     </div>
                   </div>
                   <div>

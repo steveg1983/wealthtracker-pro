@@ -10,14 +10,14 @@ import { useAccounts } from '../../contexts/AccountContext';
 import { formatCurrency } from '../../utils/formatters';
 import MoneyInput from '../common/MoneyInput';
 import GroupedAccountSelect from '../common/GroupedAccountSelect';
+import DatePicker from '../common/DatePicker';
 import { toDecimal, parseMoneyInput } from '../../utils/decimal';
 import { 
   WifiOffIcon, 
   CheckCircleIcon, 
   AlertCircleIcon,
   DollarSignIcon,
-  CalendarIcon,
-  FileTextIcon 
+  FileTextIcon
 } from '../icons';
 
 interface OfflineTransactionFormProps {
@@ -216,15 +216,15 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
             {/* Date */}
             <div>
               <label className="block text-sm font-medium mb-1">Date</label>
-              <div className="relative">
-                <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                />
-              </div>
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. The picker carries its own
+                  calendar glyph, so the decorative leading one goes. */}
+              <DatePicker
+                value={formData.date}
+                onChange={(val) => setFormData({ ...formData, date: val })}
+                className="border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                aria-label="Transaction date"
+              />
             </div>
 
             {/* Category */}

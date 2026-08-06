@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircleIcon, XIcon } from '../icons';
 import CategorySelector from '../CategorySelector';
 import MoneyInput from '../common/MoneyInput';
+import DatePicker from '../common/DatePicker';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import { deriveAdjustment } from '../../utils/reconciliation';
@@ -242,12 +243,13 @@ export default function ReconciliationFinalizationModal({
                 <label htmlFor="adjustment-date" className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
                   Date
                 </label>
-                <input
+                {/* dd/mm/yyyy everywhere — a native date input renders in the
+                    browser's locale, not the app's. */}
+                <DatePicker
                   id="adjustment-date"
-                  type="date"
                   value={adjustmentDate}
-                  onChange={(e) => setAdjustmentDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
+                  onChange={setAdjustmentDate}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>

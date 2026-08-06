@@ -3,6 +3,7 @@ import { useApp } from "../contexts/AppContextSupabase";
 import type { Goal } from "../types";
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
+import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 
@@ -221,12 +222,13 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
             <label htmlFor={`${fieldId}-date`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Target Date
             </label>
-            <input
+            {/* dd/mm/yyyy everywhere — a native date input renders in the
+                browser's locale, not the app's. */}
+            <DatePicker
               id={`${fieldId}-date`}
-              type="date"
               required
               value={formData.targetDate}
-              onChange={(e) => updateField('targetDate', e.target.value)}
+              onChange={(val) => updateField('targetDate', val)}
               className={inputClasses}
             />
           </div>

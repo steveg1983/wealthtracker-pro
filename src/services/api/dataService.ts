@@ -13,9 +13,10 @@ import { isSupabaseConfigured } from './supabaseClient';
 import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
-import type { Account, Transaction, TransactionSplit, TransactionSplitInput, Budget, Goal, Category, CategoryMergeResult } from '../../types';
+import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
+import type { Account, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult } from '../../types';
 
 export interface AppData {
   accounts: Account[];
@@ -37,7 +38,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'getAllTransactionSplits' | 'linkTransferPair' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
   /**
    * Optional so an injected test double stays a partial stand-in; without it
@@ -530,21 +531,55 @@ class DataServiceImpl {
 
   /**
    * Replace a transaction's splits atomically (empty array un-splits it).
-   * Server-side the RPC validates ≥2 lines / non-zero amounts / sum ==
-   * expectedAmount and syncs the amount + account balance; the local path
-   * mirrors those rules so demo/offline behave identically.
+   *
+   * Two server paths, chosen by the line set itself: one that declares a
+   * TRANSFER LEG goes to set_transaction_splits_with_legs, which matches lines
+   * by id (so an ordinary line beside a leg can be re-filed) and creates the
+   * counterpart for any line that becomes a leg; everything else takes
+   * set_transaction_splits, which replaces the set exactly as it always has.
+   * The local path mirrors both sets of rules in ONE implementation so
+   * demo/offline behave identically.
    */
   async setTransactionSplits(
     transactionId: string,
     splits: TransactionSplitInput[],
     expectedAmount: number | null
-  ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
+  ): Promise<SplitWriteResult> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
-      return this.transactionService.setTransactionSplits(transactionId, splits, expectedAmount, userId);
+      if (splitDeclaresTransferLeg(splits)) {
+        return this.transactionService.setTransactionSplitsWithLegs(
+          transactionId, splits, expectedAmount, userId
+        );
+      }
+      const result = await this.transactionService.setTransactionSplits(
+        transactionId, splits, expectedAmount, userId
+      );
+      return { ...result, counterparts: [] };
     }
     this.guardCloudWrite();
+    return this.setTransactionSplitsLocally(transactionId, splits, expectedAmount);
+  }
 
+  /**
+   * The local/demo half of the split write — the mirror of
+   * set_transaction_splits AND set_transaction_splits_with_legs, kept in one
+   * place because they differ only in what they allow, not in what they mean.
+   *
+   * All-or-nothing: every check runs BEFORE the first persist, so a refusal
+   * leaves browser storage exactly as it was (the same stance as
+   * repairClaimedTransfer and mergeCategories).
+   *
+   * The rule about legs, precisely: a line already linked to a counterpart may
+   * change only its position and memo. Removing one, or changing its amount,
+   * target or category, strands or falsifies the transaction on the other side
+   * and is refused by name. Every other line in the same split is free.
+   */
+  private async setTransactionSplitsLocally(
+    transactionId: string,
+    splits: TransactionSplitInput[],
+    expectedAmount: number | null
+  ): Promise<SplitWriteResult> {
     const transactions = await this.readLocalTransactions();
     const index = transactions.findIndex(t => t.id === transactionId);
     if (index === -1) {
@@ -556,67 +591,201 @@ class DataServiceImpl {
     }
 
     const stored = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
-    // A line that is one leg of a linked transfer is structural — replacing or
-    // removing it would strand the opposite transaction. Same v1 stance as
-    // moving a linked transfer: delete/unlink first, then edit.
-    if (stored.some(s => s.transactionId === transactionId && s.linkedTransferId)) {
-      throw new Error(
-        'This split contains a linked transfer line — delete the linked transfer first, then edit the split.'
-      );
-    }
+    const mine = stored.filter(s => s.transactionId === transactionId);
     const others = stored.filter(s => s.transactionId !== transactionId);
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    const accountName = (id: string | undefined): string =>
+      accounts.find(a => a.id === id)?.name ?? 'another account';
+
+    const keptIds = new Set(splits.map(s => s.id).filter((id): id is string => Boolean(id)));
+    if (keptIds.size !== splits.filter(s => s.id).length) {
+      throw new Error('Two of these lines claim to be the same stored line — reload and look again');
+    }
+    // Dropping a linked leg leaves its counterpart pointing at a line that no
+    // longer exists. Named before anything is written.
+    for (const line of mine) {
+      if (line.linkedTransferId && !keptIds.has(line.id)) {
+        throw new Error(
+          `The line transferring to "${accountName(line.transferAccountId)}" is one half of a transfer — the transaction on the other side would be left pointing at a line that no longer exists. Delete that transfer first, then edit the split.`
+        );
+      }
+    }
 
     if (splits.length === 0) {
       await this.persistCollection(STORAGE_KEYS.TRANSACTION_SPLITS, others);
       transactions[index] = { ...transaction, isSplit: false } as Transaction;
       await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
-      return { isSplit: false, splitCount: 0, amount: transaction.amount };
+      return { isSplit: false, splitCount: 0, amount: transaction.amount, counterparts: [] };
     }
 
     if (splits.length < 2) {
       throw new Error('A split needs at least 2 lines');
     }
+
     let sum = toDecimal(0);
-    for (const split of splits) {
+    const nextLines: TransactionSplit[] = [];
+    const counterparts: Transaction[] = [];
+    // account id → the delta this write owes it, applied in ONE pass at the end.
+    const balanceDeltas = new Map<string, DecimalInstance>();
+
+    for (const [i, split] of splits.entries()) {
       if (!split.category.trim()) {
         throw new Error('Every split line needs a category');
       }
       if (!split.amount) {
         throw new Error('Every split line needs a non-zero amount');
       }
+
+      const previous = split.id ? mine.find(s => s.id === split.id) : undefined;
+      if (split.id && !previous) {
+        throw new Error('One of these lines is not part of this split any more — reload and look again');
+      }
+
+      const target = split.transferAccountId;
+      const targetAccount = target ? accounts.find(a => a.id === target) : undefined;
+      if (target) {
+        if (!targetAccount) {
+          throw new Error('A transfer line names an account that is not yours, or no longer exists');
+        }
+        if (target === transaction.accountId) {
+          throw new Error('A transfer needs two different accounts');
+        }
+      }
+      // A To/From category names an account, so it must name the same one the
+      // line does. Unlike the server, a category that is simply absent from
+      // local storage is not fatal — demo/offline fixtures routinely carry
+      // transactions without the tree they were filed against.
+      const category = categories.find(c => c.id === split.category);
+      if (category?.isTransferCategory === true) {
+        if (!target) {
+          throw new Error('That line is filed under a To/From account category but does not say which account is on the other side');
+        }
+        if (category.accountId !== target) {
+          throw new Error('That line is filed under one account\'s To/From category but transfers to a different account');
+        }
+      }
+
+      const memo = split.memo ? { memo: split.memo } : {};
+      const sortOrder = i + 1;
+
+      if (previous?.linkedTransferId) {
+        // Pinned by the row on the other side: position and memo may move,
+        // nothing else may.
+        if (!toDecimal(split.amount).equals(toDecimal(previous.amount))) {
+          throw new Error(
+            `The line transferring to "${accountName(previous.transferAccountId)}" has to stay as it is, because the transaction on the other side is for exactly that much — change the other lines, or delete that transfer first.`
+          );
+        }
+        if (target !== previous.transferAccountId) {
+          throw new Error(
+            `That line is already linked to a transaction in "${accountName(previous.transferAccountId)}" — moving it would strand that row. Delete that transfer first, then edit the split.`
+          );
+        }
+        if (split.category !== previous.category) {
+          throw new Error(
+            'That line is one half of a transfer — its category names the account on the other side. Delete that transfer first, then re-file it.'
+          );
+        }
+        nextLines.push({ ...previous, ...memo, sortOrder });
+      } else {
+        const line: TransactionSplit = {
+          id: previous?.id ?? this.generateId(),
+          transactionId,
+          category: split.category,
+          amount: split.amount,
+          ...memo,
+          sortOrder,
+          ...(target ? { transferAccountId: target } : {}),
+        };
+
+        // A line that BECOMES a leg gets its other side made now. A line that
+        // already pointed at this account keeps whatever link state it has —
+        // creating a second counterpart would invent money.
+        if (target && previous?.transferAccountId !== target) {
+          const sourceAccount = accounts.find(a => a.id === transaction.accountId);
+          if (
+            sourceAccount?.currency && targetAccount?.currency &&
+            sourceAccount.currency !== targetAccount.currency
+          ) {
+            throw new Error(
+              `Transfers between accounts in different currencies are not supported yet (${sourceAccount.currency} and ${targetAccount.currency})`
+            );
+          }
+          // Opposite of the LINE, never of the parent — whose total includes
+          // the other lines, and is supposed to differ.
+          const counterpartAmount = toDecimal(split.amount).negated().toNumber();
+          const counterpart: Transaction = {
+            id: this.generateId(),
+            date: transaction.date,
+            description: transaction.description,
+            amount: counterpartAmount,
+            type: 'transfer',
+            category: this.localTransferCategoryFrom(categories, transaction.accountId, counterpartAmount),
+            accountId: target,
+            notes: split.memo ?? transaction.notes,
+            cleared: false,
+            transferAccountId: transaction.accountId,
+            linkedTransferId: transactionId,
+            linkedTransferSplitId: line.id,
+          };
+          line.linkedTransferId = counterpart.id;
+          counterparts.push(counterpart);
+          balanceDeltas.set(
+            target,
+            (balanceDeltas.get(target) ?? toDecimal(0)).plus(toDecimal(counterpartAmount))
+          );
+        }
+
+        nextLines.push(line);
+      }
+
       sum = sum.plus(toDecimal(split.amount));
     }
+
     if (expectedAmount !== null && !sum.equals(toDecimal(expectedAmount))) {
       throw new Error('The split lines must sum to the transaction amount');
     }
 
-    const newSplits: TransactionSplit[] = splits.map((split, i) => ({
-      id: this.generateId(),
-      transactionId,
-      category: split.category,
-      amount: split.amount,
-      ...(split.memo ? { memo: split.memo } : {}),
-      sortOrder: i + 1,
-    }));
-    await this.persistCollection(STORAGE_KEYS.TRANSACTION_SPLITS, [...others, ...newSplits]);
-
+    // ── Past every refusal: persist ───────────────────────────────────────────
     const newAmount = sum.toNumber();
-    transactions[index] = { ...transaction, isSplit: true, category: '', amount: newAmount } as Transaction;
-    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
     if (newAmount !== transaction.amount) {
-      await this.updateAccountBalance(
+      balanceDeltas.set(
         transaction.accountId,
-        sum.minus(toDecimal(transaction.amount)).toNumber()
+        (balanceDeltas.get(transaction.accountId) ?? toDecimal(0))
+          .plus(sum.minus(toDecimal(transaction.amount)))
       );
     }
-    return { isSplit: true, splitCount: newSplits.length, amount: newAmount };
+
+    await this.persistCollection(STORAGE_KEYS.TRANSACTION_SPLITS, [...others, ...nextLines]);
+    transactions[index] = { ...transaction, isSplit: true, category: '', amount: newAmount } as Transaction;
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, [...transactions, ...counterparts]);
+    if (balanceDeltas.size > 0) {
+      await this.persistCollection(
+        STORAGE_KEYS.ACCOUNTS,
+        accounts.map(account => {
+          const delta = balanceDeltas.get(account.id);
+          // Decimal arithmetic — IEEE-754 float math is banned on money values.
+          return delta
+            ? { ...account, balance: toDecimal(account.balance || 0).plus(delta).toNumber() }
+            : account;
+        })
+      );
+    }
+
+    return { isSplit: true, splitCount: nextLines.length, amount: newAmount, counterparts };
   }
 
   /** The account-managed To/From category id, or the legacy sentinel. */
-  private async localTransferCategoryFor(accountId: string, amount: number): Promise<string> {
-    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+  private localTransferCategoryFrom(categories: Category[], accountId: string, amount: number): string {
     const transferCategory = categories.find(c => c.isTransferCategory === true && c.accountId === accountId);
     return transferCategory?.id ?? (amount < 0 ? 'transfer-out' : 'transfer-in');
+  }
+
+  /** As above, reading the category collection itself. */
+  private async localTransferCategoryFor(accountId: string, amount: number): Promise<string> {
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    return this.localTransferCategoryFrom(categories, accountId, amount);
   }
 
   /**
@@ -670,6 +839,94 @@ class DataServiceImpl {
       transactions.map(t => (t.id === idA ? newA : t.id === idB ? newB : t))
     );
     return { a: newA, b: newB };
+  }
+
+  /**
+   * Join an existing split LINE to an existing transaction as the two halves
+   * of a transfer. Mirrors the link_split_line_transfer RPC's invariants
+   * locally so demo/offline behave identically.
+   *
+   * The amounts are compared against the LINE, never the split PARENT: the
+   * parent's total includes the other lines and is SUPPOSED to differ. Like
+   * the RPC, this is balance-neutral (nothing about any amount or account
+   * moves) and all-or-nothing: every check runs before the first persist.
+   */
+  async linkSplitLineTransfer(
+    splitId: string,
+    transactionId: string
+  ): Promise<{ split: TransactionSplit; transaction: Transaction }> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.linkSplitLineTransfer(splitId, transactionId, userId);
+    }
+    this.guardCloudWrite();
+
+    const splits = await this.readCollection<TransactionSplit>(STORAGE_KEYS.TRANSACTION_SPLITS);
+    const line = splits.find(s => s.id === splitId);
+    if (!line) {
+      throw new Error('That split line no longer exists');
+    }
+    const transactions = await this.readLocalTransactions();
+    const parent = transactions.find(t => t.id === line.transactionId);
+    if (!parent) {
+      throw new Error('The split that line belongs to no longer exists');
+    }
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+    if (transaction.id === parent.id) {
+      throw new Error('A transaction cannot be linked to itself');
+    }
+    if (line.linkedTransferId) {
+      throw new Error('That line is already one half of a transfer — reload and look again');
+    }
+    if (transaction.linkedTransferId || transaction.linkedTransferSplitId) {
+      throw new Error('Transaction is already part of a linked transfer');
+    }
+    if (transaction.isSplit) {
+      throw new Error('A split transaction cannot become a transfer — remove the split first');
+    }
+    if (transaction.archived === true) {
+      throw new Error('That row is archived — bring it back into the register before pairing it');
+    }
+    if (transaction.accountId === parent.accountId) {
+      throw new Error('A transfer needs two different accounts');
+    }
+    if (line.transferAccountId && line.transferAccountId !== transaction.accountId) {
+      throw new Error('That line transfers to a different account from the one that row sits in');
+    }
+    const lineAmount = toDecimal(line.amount);
+    if (lineAmount.isZero() || !toDecimal(transaction.amount).equals(lineAmount.negated())) {
+      throw new Error('Transfer sides must have exactly opposite non-zero amounts');
+    }
+
+    // ── Past every refusal: persist ───────────────────────────────────────────
+    const newLine: TransactionSplit = {
+      ...line,
+      transferAccountId: transaction.accountId,
+      linkedTransferId: transaction.id,
+    };
+    // The row over there files under the To/From category of the account the
+    // SPLIT sits in, and points back at both the parent and the exact line.
+    const newTransaction: Transaction = {
+      ...transaction,
+      type: 'transfer',
+      category: await this.localTransferCategoryFor(parent.accountId, transaction.amount),
+      transferAccountId: parent.accountId,
+      linkedTransferId: parent.id,
+      linkedTransferSplitId: line.id,
+    };
+
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTION_SPLITS,
+      splits.map(s => (s.id === splitId ? newLine : s))
+    );
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTIONS,
+      transactions.map(t => (t.id === transactionId ? newTransaction : t))
+    );
+    return { split: newLine, transaction: newTransaction };
   }
 
   /**
@@ -1182,6 +1439,13 @@ export class DataService {
     return this.service.linkTransferPair(idA, idB);
   }
 
+  static linkSplitLineTransfer(
+    splitId: string,
+    transactionId: string
+  ): Promise<{ split: TransactionSplit; transaction: Transaction }> {
+    return this.service.linkSplitLineTransfer(splitId, transactionId);
+  }
+
   static unlinkTransfers(ids: string[]): Promise<number> {
     return this.service.unlinkTransfers(ids);
   }
@@ -1216,7 +1480,7 @@ export class DataService {
     transactionId: string,
     splits: TransactionSplitInput[],
     expectedAmount: number | null
-  ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
+  ): Promise<SplitWriteResult> {
     return this.service.setTransactionSplits(transactionId, splits, expectedAmount);
   }
 

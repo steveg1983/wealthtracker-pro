@@ -13,6 +13,7 @@ import {
   CalendarIcon,
   SaveIcon
 } from './icons';
+import DatePicker from './common/DatePicker';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -486,20 +487,26 @@ export default function CustomReportBuilder({
             <option value="custom">Custom Range</option>
           </select>
           
+          {/* dd/mm/yyyy everywhere — a native date input renders in the
+              browser's locale, not the app's. */}
           {filters.dateRange === 'custom' && (
             <>
-              <input
-                type="date"
-                value={filters.customStartDate || ''}
-                onChange={(e) => handleCustomStartDateChange(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
-              />
-              <input
-                type="date"
-                value={filters.customEndDate || ''}
-                onChange={(e) => handleCustomEndDateChange(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
-              />
+              <div className="w-40">
+                <DatePicker
+                  value={filters.customStartDate || ''}
+                  onChange={handleCustomStartDateChange}
+                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                  aria-label="Report start date"
+                />
+              </div>
+              <div className="w-40">
+                <DatePicker
+                  value={filters.customEndDate || ''}
+                  onChange={handleCustomEndDateChange}
+                  className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                  aria-label="Report end date"
+                />
+              </div>
             </>
           )}
 

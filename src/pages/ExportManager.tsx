@@ -16,6 +16,8 @@ import {
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
+import DatePicker from '../components/common/DatePicker';
+import { formatDateForInput } from '../utils/dateFormatter';
 import { LoadingState } from '../components/loading/LoadingState';
 import type { Investment } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -253,30 +255,26 @@ export default function ExportManager() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Start Date
                     </label>
-                    <input
-                      type="date"
+                    {/* dd/mm/yyyy everywhere — a native date input renders in
+                        the browser's locale, not the app's. The range holds
+                        real Dates, so an emptied value (the picker's Clear) is
+                        ignored rather than stored as an Invalid Date. */}
+                    <DatePicker
                       aria-label="Start date"
-                      value={exportOptions.startDate.toISOString().split('T')[0]}
-                      onChange={(e) => setExportOptions({
-                        ...exportOptions,
-                        startDate: new Date(e.target.value)
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      value={formatDateForInput(exportOptions.startDate)}
+                      onChange={(val) => { if (val) setExportOptions({ ...exportOptions, startDate: new Date(val) }); }}
+                      className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       End Date
                     </label>
-                    <input
-                      type="date"
+                    <DatePicker
                       aria-label="End date"
-                      value={exportOptions.endDate.toISOString().split('T')[0]}
-                      onChange={(e) => setExportOptions({
-                        ...exportOptions,
-                        endDate: new Date(e.target.value)
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      value={formatDateForInput(exportOptions.endDate)}
+                      onChange={(val) => { if (val) setExportOptions({ ...exportOptions, endDate: new Date(val) }); }}
+                      className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>

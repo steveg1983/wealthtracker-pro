@@ -1628,6 +1628,9 @@ export default function AccountTransactions() {
               ? () => { advanceToPreviousTransaction(selectedTransaction.id); }
               : undefined
           }
+          // This IS the register the modal's "see it in its account" link
+          // would jump to, so the link stays hidden here.
+          hideJumpToAccountId={accountId}
         />
       )}
       

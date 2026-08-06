@@ -74,6 +74,10 @@ vi.mock('./common/Modal', () => ({
   ModalFooter: ({ children }: any) => <div data-testid="modal-footer">{children}</div>,
 }));
 
+// Hoisted so the date-field tests can read what the form was actually told to
+// store — a fresh vi.fn() per render would be unassertable.
+const { mockUpdateField } = vi.hoisted(() => ({ mockUpdateField: vi.fn() }));
+
 vi.mock('../hooks/useModalForm', () => ({
   useModalForm: () => ({
     formData: {
@@ -89,7 +93,7 @@ vi.mock('../hooks/useModalForm', () => ({
       cleared: false,
       reconciledWith: ''
     },
-    updateField: vi.fn(),
+    updateField: mockUpdateField,
     handleSubmit: vi.fn(),
     setFormData: vi.fn(),
   }),
@@ -106,9 +110,13 @@ vi.mock('../services/validationService', () => ({
   },
 }));
 
-// Mock all icons with simple divs
+// Mock all icons with simple divs. The shared DatePicker draws from the same
+// module, so its glyphs (calendar + the calendar's own chevrons) belong here too.
 vi.mock('../components/icons', () => ({
   CalendarIcon: () => <div data-testid="calendar-icon">📅</div>,
+  ChevronLeftIcon: () => <div data-testid="chevron-left-icon">‹</div>,
+  ChevronRightIcon: () => <div data-testid="chevron-right-icon">›</div>,
+  ArrowUpRightIcon: () => <div data-testid="arrow-up-right-icon">↗️</div>,
   TagIcon: () => <div data-testid="tag-icon">🏷️</div>,
   FileTextIcon: () => <div data-testid="file-text-icon">📄</div>,
   CheckIcon2: () => <div data-testid="check-icon-2">✓</div>,
@@ -306,7 +314,8 @@ describe('EditTransactionModal', () => {
     it('displays form field icons', () => {
       renderModal(true, null);
       
-      expect(screen.getByTestId('calendar-icon')).toBeInTheDocument();
+      // Two: the Date field's label, and the date picker's own trailing glyph.
+      expect(screen.getAllByTestId('calendar-icon')).toHaveLength(2);
       expect(screen.getByTestId('wallet-icon')).toBeInTheDocument();
       expect(screen.getAllByTestId('file-text-icon')).toHaveLength(2); // Description and Notes
       expect(screen.getByTestId('arrow-right-left-icon')).toBeInTheDocument();
@@ -342,6 +351,35 @@ describe('EditTransactionModal', () => {
       expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+    });
+  });
+
+  describe('date field', () => {
+    // The reported bug: the modal used a native <input type="date">, which
+    // renders in the BROWSER's locale. A register row reading 07/02/2022 opened
+    // here as 02/07/2022 — 7 February against 2 July, on money.
+    it('reads the stored ISO date back in UK order', () => {
+      renderModal(true, createMockTransaction());
+
+      const field = screen.getByLabelText('Transaction date');
+      // 2023-01-15 — day first, so 15 cannot be mistaken for a month.
+      expect(field).toHaveValue('15/01/2023');
+      expect(field).toHaveAttribute('placeholder', 'dd/mm/yyyy');
+      // Not a native control: those are the ones that follow the browser.
+      expect(field).toHaveAttribute('type', 'text');
+      expect(field).toBeRequired();
+    });
+
+    it('stores a typed UK date as ISO, unchanged', () => {
+      renderModal(true, createMockTransaction());
+
+      fireEvent.change(screen.getByLabelText('Transaction date'), {
+        target: { value: '06/07/2017' },
+      });
+
+      // 6 July 2017 — the value handed to the form is the ISO the DB holds,
+      // so the caller's state shape is untouched by the presentation change.
+      expect(mockUpdateField).toHaveBeenCalledWith('date', '2017-07-06');
     });
   });
 

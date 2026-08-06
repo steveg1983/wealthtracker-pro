@@ -1,5 +1,5 @@
 import { toDecimal, parseMoneyInput, type DecimalInstance } from './decimal';
-import type { Transaction, TransactionSplit } from '../types';
+import type { Transaction, TransactionSplit, TransactionSplitInput } from '../types';
 
 /**
  * Split-editor money maths. Everything runs through Decimal — the "totals
@@ -17,6 +17,34 @@ export interface SplitLineDraft {
   category: string;
   amount: string;
   memo?: string;
+  /**
+   * The stored line this draft was loaded from. Sent back on save so the
+   * writer can match lines by identity instead of replacing the whole set —
+   * the difference between "line 2 was re-categorised" and "line 1 (a transfer
+   * leg) was deleted". Absent on lines the user has just added.
+   */
+  id?: string;
+  /**
+   * The account on the other side when this line is one leg of a transfer:
+   * loaded from the stored row, or resolved from the "To/From <account>"
+   * category the user picked.
+   */
+  transferAccountId?: string;
+  /**
+   * The target the STORED line carries, kept beside the live choice above so
+   * the editor can tell a line that is BECOMING a transfer (its other side
+   * gets created on save) from one that already was (it does not — a leg
+   * whose counterpart has been deleted is re-paired, never duplicated, since
+   * the missing row may simply be sitting in that account unmatched).
+   */
+  savedTransferAccountId?: string;
+  /**
+   * The counterpart transaction, when this leg is already linked to one. Such
+   * a line is structural — its category, amount and target are pinned by the
+   * row on the other side — so the editor renders it read-only and the writer
+   * refuses to change it.
+   */
+  linkedTransferId?: string;
 }
 
 export type SplitDirection = 'income' | 'expense';
@@ -35,6 +63,20 @@ export type SplitDirectionFor = (categoryId: string) => SplitDirection | null;
 interface SplitDirectionOpts {
   parentType: SplitDirection;
   directionFor: SplitDirectionFor;
+}
+
+/**
+ * What validateSplitDrafts needs on top of direction, to judge TRANSFER lines
+ * (a line that is itself one leg of a transfer — the Microsoft Money model).
+ * Both fields are optional: surfaces that cannot produce a transfer line (the
+ * pure maths tests, any caller without a category tree) simply never trip the
+ * rules that read them.
+ */
+interface SplitValidationOpts extends SplitDirectionOpts {
+  /** The account the parent transaction sits in. */
+  parentAccountId?: string;
+  /** True for a "To/From <account>" category (Category.isTransferCategory). */
+  isTransferCategory?: (categoryId: string) => boolean;
 }
 
 /** The pre-mixing behaviour: every line follows the parent's direction. */
@@ -80,11 +122,17 @@ export function splitRemainder(
 /**
  * Validate the draft against the save rules. Returns null when saveable,
  * otherwise the user-facing reason the save is blocked.
+ *
+ * The transfer-line rules mirror the ones set_transaction_splits_with_legs
+ * enforces server-side, so the editor refuses before the round trip rather
+ * than translating a database error afterwards. A transfer line counts toward
+ * the parent total exactly like any other line — that is what makes
+ * £30,000 (transferred) + £5,000 (interest) = the £35,000 that arrived.
  */
 export function validateSplitDrafts(
   totalAmount: string,
   lines: SplitLineDraft[],
-  opts: SplitDirectionOpts = FOLLOW_PARENT
+  opts: SplitValidationOpts = FOLLOW_PARENT
 ): string | null {
   if (lines.length < 2) {
     return 'A split needs at least two category lines.';
@@ -96,6 +144,14 @@ export function validateSplitDrafts(
     const amount = parseMoneyInput(line.amount);
     if (amount === null || toDecimal(amount).isZero()) {
       return 'Every split line needs a non-zero amount.';
+    }
+    // A To/From category names an account; without one the line says
+    // "transfer" but cannot say where to, and there is no other side to make.
+    if (opts.isTransferCategory?.(line.category) === true && !line.transferAccountId) {
+      return 'A transfer line must name the account on the other side — that To/From category is not linked to an account.';
+    }
+    if (line.transferAccountId && line.transferAccountId === opts.parentAccountId) {
+      return 'A transfer line must point at a different account — this one points back at the account the transaction is already in.';
     }
   }
   if (!splitRemainder(totalAmount, lines, opts).isZero()) {
@@ -112,12 +168,15 @@ export function validateSplitDrafts(
  * a minus) still lands as +20. The DB's set_transaction_splits invariant
  * (signed lines sum to the signed parent amount) holds exactly whenever
  * validateSplitDrafts passed with the same opts.
+ *
+ * Line identity and transfer targets travel with the amounts: the writer needs
+ * both to match an edit against the stored lines rather than replacing them.
  */
 export function signSplitAmounts(
   lines: SplitLineDraft[],
   type: SplitDirection,
   directionFor: SplitDirectionFor = () => null
-): { category: string; amount: number; memo?: string }[] {
+): TransactionSplitInput[] {
   const opts: SplitDirectionOpts = { parentType: type, directionFor };
   return lines.map(line => {
     const entered = toDecimal(parseMoneyInput(line.amount) ?? 0);
@@ -127,8 +186,21 @@ export function signSplitAmounts(
       // `plus(0)` normalises -0 → 0 to match signTransactionAmount's `|| 0`.
       amount: signed.plus(0).toNumber(),
       ...(line.memo?.trim() ? { memo: line.memo.trim() } : {}),
+      ...(line.id ? { id: line.id } : {}),
+      ...(line.transferAccountId ? { transferAccountId: line.transferAccountId } : {}),
     };
   });
+}
+
+/**
+ * Does this line set say "one of these lines is a transfer"? The routing rule
+ * for the write path: a set that declares a leg — a new one, or an existing
+ * one being carried through an edit — goes to the writer that understands
+ * legs; everything else takes the ordinary replace-the-set path, which stays
+ * exactly as it was.
+ */
+export function splitDeclaresTransferLeg(lines: { transferAccountId?: string }[]): boolean {
+  return lines.some(line => Boolean(line.transferAccountId));
 }
 
 /**

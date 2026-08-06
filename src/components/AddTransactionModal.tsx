@@ -7,6 +7,7 @@ import { getCurrencySymbol } from '../utils/currency';
 import { ResponsiveModal } from './ResponsiveModal';
 import MoneyInput from './common/MoneyInput';
 import GroupedAccountSelect from './common/GroupedAccountSelect';
+import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import MarkdownEditor from './MarkdownEditor';
@@ -302,12 +303,13 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <label htmlFor="date-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Date
               </label>
-              <input
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. */}
+              <DatePicker
                 id="date-input"
-                type="date"
                 value={formData.date}
-                onChange={(e) => updateField('date', e.target.value)}
-                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                onChange={(val) => updateField('date', val)}
+                className="text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 required
                 aria-label="Transaction date"
               />

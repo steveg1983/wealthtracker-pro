@@ -20,7 +20,7 @@ import {
   toDecimalAccount,
   toDecimalGoal
 } from '../utils/decimal-converters';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { normalizeTransactionDates } from '../utils/dateBoundary';
 import { TransactionService } from '../services/api/transactionService';
 import type { ServerAccountBalance } from '../utils/accountBalances';
@@ -30,6 +30,7 @@ import type {
   Transaction,
   TransactionSplit,
   TransactionSplitInput,
+  SplitWriteResult,
   Category,
   CategoryMergeResult,
   Budget,
@@ -162,21 +163,40 @@ export interface AppContextType extends AppState {
   getTransactionSplits: (transactionId: string) => Promise<TransactionSplit[]>;
   /**
    * Replace a transaction's splits atomically (empty array un-splits it).
-   * Split lines must sum EXACTLY to expectedAmount — enforced server-side by
-   * the set_transaction_splits RPC, which also syncs the transaction amount
-   * and account balance when the sum changes them.
+   * Split lines must sum EXACTLY to expectedAmount — enforced server-side,
+   * which also syncs the transaction amount and account balance when the sum
+   * changes them.
+   *
+   * A line may declare a `transferAccountId`, making it one LEG of a transfer:
+   * the counterpart transaction is created in that account and linked to the
+   * exact line, in the same server-side transaction, and comes back in
+   * `counterparts`. An already-linked leg may only move position or memo —
+   * changing its amount, target or category, or dropping it, is refused,
+   * because the row on the other side is pinned to it.
    */
   setTransactionSplits: (
     transactionId: string,
     splits: TransactionSplitInput[],
     expectedAmount: number | null
-  ) => Promise<{ isSplit: boolean; splitCount: number; amount: number }>;
+  ) => Promise<SplitWriteResult>;
   /**
    * Join two existing rows (in different accounts, exactly opposite amounts)
    * into a linked transfer pair — both become type 'transfer' carrying the
    * other account's To/From category. Balance-neutral; atomic server-side.
    */
   linkTransferPair: (idA: string, idB: string) => Promise<{ a: Transaction; b: Transaction }>;
+  /**
+   * Join one LINE of a split to an existing row as the two halves of a
+   * transfer — the line-level counterpart of linkTransferPair, for the case
+   * where the movement is only part of the transaction it sits in (£35,000
+   * arrives, £30,000 of it settles a loan). The amounts must be exactly
+   * opposite between the LINE and the row, never the split parent, whose total
+   * legitimately differs. Balance-neutral; atomic server-side.
+   */
+  linkSplitLineTransfer: (
+    splitId: string,
+    transactionId: string
+  ) => Promise<{ split: TransactionSplit; transaction: Transaction }>;
   /**
    * Break linked transfer pairs (the un-doing of linkTransferPair): clears the
    * link on the named rows so they can be re-paired or re-filed. Balance-neutral.
@@ -766,27 +786,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Mirror the atomic server change locally: the flag, the blanked
-      // category while split, and the amount the splits sum to.
-      setTransactions(prev => prev.map(t =>
-        t.id === transactionId
-          ? {
-              ...t,
-              isSplit: result.isSplit,
-              amount: result.amount,
-              ...(result.isSplit ? { category: '' } : {}),
-            }
-          : t
-      ));
+      // category while split, and the amount the splits sum to. A line that
+      // became a transfer leg also put a REAL row in another account — those
+      // come back from the database, so they are added as written rather than
+      // synthesised here.
+      setTransactions(prev => [
+        ...prev.map(t =>
+          t.id === transactionId
+            ? {
+                ...t,
+                isSplit: result.isSplit,
+                amount: result.amount,
+                ...(result.isSplit ? { category: '' } : {}),
+              }
+            : t
+        ),
+        ...result.counterparts,
+      ]);
 
-      // Balance follows the amount (Decimal arithmetic; the DB balance was
-      // adjusted atomically inside set_transaction_splits).
+      // Balances follow the money (Decimal arithmetic; the DB moved them
+      // atomically inside the split RPC): the parent's account by whatever the
+      // new total changed, each counterpart's account by the row now sitting
+      // in it.
+      const deltas = new Map<string, DecimalInstance>();
+      const owe = (accountId: string, amount: DecimalInstance): void => {
+        deltas.set(accountId, (deltas.get(accountId) ?? toDecimal(0)).plus(amount));
+      };
       if (oldTransaction && result.amount !== oldTransaction.amount) {
-        const difference = toDecimal(result.amount).minus(toDecimal(oldTransaction.amount));
-        setAccounts(prev => prev.map(acc =>
-          acc.id === oldTransaction.accountId
-            ? { ...acc, balance: toDecimal(acc.balance || 0).plus(difference).toNumber() }
-            : acc
-        ));
+        owe(oldTransaction.accountId, toDecimal(result.amount).minus(toDecimal(oldTransaction.amount)));
+      }
+      for (const counterpart of result.counterparts) {
+        owe(counterpart.accountId, toDecimal(counterpart.amount));
+      }
+      if (deltas.size > 0) {
+        setAccounts(prev => prev.map(acc => {
+          const delta = deltas.get(acc.id);
+          return delta
+            ? { ...acc, balance: toDecimal(acc.balance || 0).plus(delta).toNumber() }
+            : acc;
+        }));
       }
 
       return result;
@@ -806,6 +844,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return result;
     } catch (error) {
       appLogger.error('Failed to link transfer pair', error);
+      throw error;
+    }
+  }, []);
+
+  const linkSplitLineTransfer = useCallback(async (splitId: string, transactionId: string) => {
+    try {
+      const result = await DataService.linkSplitLineTransfer(splitId, transactionId);
+      // State comes from what the database wrote: linking re-types and
+      // re-categorises the row over there, and pins it to the exact line.
+      // Balance-neutral — both sides existed with these amounts already.
+      setTransactions(prev => prev.map(t => (t.id === result.transaction.id ? result.transaction : t)));
+      setTransactionSplitsState(prev => prev.map(s => (s.id === result.split.id ? result.split : s)));
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to link split line transfer', error);
       throw error;
     }
   }, []);
@@ -1316,6 +1369,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getTransactionSplits,
     setTransactionSplits,
     linkTransferPair,
+    linkSplitLineTransfer,
     unlinkTransfers,
     setTransactionArchived,
     repairClaimedTransfer,
