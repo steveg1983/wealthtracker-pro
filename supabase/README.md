@@ -90,7 +90,7 @@ Never leave schema changes untracked. If you must hotfix via the dashboard, conv
 
 1. Create a repository secret named `SUPABASE_DB_URL` set to the pooler DSN (e.g. `postgresql://postgres.nqbacrjjgdjabygqtcah:<password>@aws-0-eu-west-2.pooler.supabase.com:6543/postgres`). This is required for CLI access during CI.
 2. The `quality-gates` job in `.github/workflows/handoff-snapshot.yml` runs `npx supabase db lint --linked --fail-on error` whenever that secret is present, alongside lint/typecheck/tests/build checks.
-3. Nightly `.github/workflows/supabase-smoke.yml` uses `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_SERVICE_ROLE_KEY` secrets to verify CRUD + RLS via `npm run test:supabase-smoke`.
+3. Nightly `.github/workflows/supabase-smoke.yml` uses `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` secrets to verify CRUD + RLS via `npm run test:supabase-smoke`. The service-role secret is deliberately **not** `VITE_`-prefixed: Vite inlines `VITE_*` vars into the public browser bundle, so prefixing it would publish the master key.
 4. Record every migration in release notes / change log to keep downstream systems informed.
 
 ## Rollbacks

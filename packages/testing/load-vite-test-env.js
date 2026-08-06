@@ -6,10 +6,13 @@ const defaultEnvFiles = ['.env', '.env.test', '.env.test.local'];
 const defaultSupabaseOptions = {
   modeKey: 'VITEST_SUPABASE_MODE',
   defaultMode: 'mock',
+  // An entry may be an array, in which case any one of the names satisfies it.
+  // The service-role key is listed unprefixed first: a VITE_ prefix would inline it
+  // into the browser bundle, so the prefixed name is a legacy fallback only.
   requiredWhenReal: [
     'VITE_SUPABASE_URL',
     'VITE_SUPABASE_ANON_KEY',
-    'VITE_SUPABASE_SERVICE_ROLE_KEY',
+    ['SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_SERVICE_ROLE_KEY'],
     'VITEST_SUPABASE_EMAIL',
     'VITEST_SUPABASE_PASSWORD',
   ],
@@ -82,9 +85,13 @@ export const loadViteTestEnv = (options = {}) => {
     Array.isArray(supabaseOptions.requiredWhenReal)
   ) {
     const missingKeys = supabaseOptions.requiredWhenReal
-      .map((key) => [key, process.env[key] ?? env[key]])
-      .filter(([, value]) => !value)
-      .map(([key]) => key);
+      .map((entry) => {
+        const names = Array.isArray(entry) ? entry : [entry];
+        const satisfied = names.some((name) => process.env[name] ?? env[name]);
+        return [names.join(' or '), satisfied];
+      })
+      .filter(([, satisfied]) => !satisfied)
+      .map(([label]) => label);
 
     if (missingKeys.length > 0) {
       throw new Error(

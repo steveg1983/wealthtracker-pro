@@ -103,27 +103,21 @@ openssl rand -hex 32
 
 ---
 
-### Step 3: Send Messages to ChatGPT (30 minutes)
+### Step 3: Brief the Backend Developer (30 minutes)
 
-I've created three pre-written messages for you to send to ChatGPT (your backend developer):
+The three pre-written handover messages that used to live in `docs/` have been deleted — that
+collaboration is finished, and two of them carried live credentials in plain text in a public
+repo. Brief whoever picks up the backend from this guide plus the schema itself:
 
-**Message 1**: Project overview and credentials
-- File: [docs/chatgpt-message-1-project-overview.md](./chatgpt-message-1-project-overview.md)
-- **ACTION REQUIRED**: Insert your NEW rotated credentials in the marked spots
-- Then copy/paste entire message to ChatGPT
-- **Wait for response** before proceeding
+**Project overview**: the "Where You Are Now" section above, plus the frontend files listed under
+Resources. Share rotated credentials through a secure channel only — never in a committed file.
 
-**Message 2**: Database schema and migration
-- File: [docs/chatgpt-message-2-database-schema.md](./chatgpt-message-2-database-schema.md)
-- Send after ChatGPT confirms they understand Message 1
-- This includes the enhancement migration SQL
-- **Wait for response** before proceeding
+**Database schema**: the base and enhancement migrations under `supabase/migrations/` are the
+source of truth. See [supabase/README.md](../supabase/README.md) for the migration workflow.
 
-**Message 3**: API contract and first endpoint
-- File: [docs/chatgpt-message-3-api-contract.md](./chatgpt-message-3-api-contract.md)
-- Send after database schema is confirmed
-- This gets ChatGPT started on actual coding
-- Defines the TypeScript interface contract
+**API contract**: seven endpoints are required (OAuth start/callback, account list, sync,
+transaction fetch, token refresh, webhook receiver). Match the TypeScript types already consumed
+by [bankConnectionService.ts](../src/services/bankConnectionService.ts).
 
 ---
 
@@ -239,7 +233,7 @@ WHERE table_schema = 'public'
 **NEVER commit these to git**:
 - `TRUELAYER_CLIENT_SECRET` (backend only, environment variables only)
 - `ENCRYPTION_KEY` (backend only, environment variables only)
-- `VITE_SUPABASE_SERVICE_ROLE_KEY` (backend only)
+- `SUPABASE_SERVICE_ROLE_KEY` (backend only — and never with a `VITE_` prefix, which would inline it into the public browser bundle)
 
 **Safe to commit**:
 - `TRUELAYER_CLIENT_ID` (public, needed by frontend)
@@ -268,11 +262,6 @@ git status
 - Service layer: [src/services/bankConnectionService.ts](../src/services/bankConnectionService.ts)
 - Base migration: [supabase/migrations/20250124_add_open_banking_tables.sql](../supabase/migrations/20250124_add_open_banking_tables.sql)
 - Enhancement migration: [supabase/migrations/20250102_enhance_open_banking.sql](../supabase/migrations/20250102_enhance_open_banking.sql)
-
-**ChatGPT Messages** (Ready to send):
-- Message 1: [docs/chatgpt-message-1-project-overview.md](./chatgpt-message-1-project-overview.md)
-- Message 2: [docs/chatgpt-message-2-database-schema.md](./chatgpt-message-2-database-schema.md)
-- Message 3: [docs/chatgpt-message-3-api-contract.md](./chatgpt-message-3-api-contract.md)
 
 ---
 
@@ -319,7 +308,7 @@ A: You'll need to contact their sales team for a quote based on your expected tr
 
 ## ✅ Quick Checklist (Start Here!)
 
-Before contacting ChatGPT, complete this checklist:
+Before briefing the backend developer, complete this checklist:
 
 - [ ] Rotate TrueLayer credentials (https://console.truelayer.com/)
 - [ ] Save new credentials securely (don't lose them!)
@@ -327,13 +316,10 @@ Before contacting ChatGPT, complete this checklist:
 - [ ] Generate encryption key (`openssl rand -hex 32`)
 - [ ] Add encryption key to `.env.local`
 - [ ] Add all vars to Vercel environment settings
-- [ ] Open `chatgpt-message-1-project-overview.md`
-- [ ] Insert new credentials in the marked spots
-- [ ] Send Message 1 to ChatGPT
-- [ ] Wait for ChatGPT confirmation
-- [ ] Send Message 2 to ChatGPT
-- [ ] Deploy database enhancements (after ChatGPT confirms)
-- [ ] Send Message 3 to ChatGPT
+- [ ] Brief the backend developer using Step 3 above
+- [ ] Share rotated credentials via a secure channel (never a committed file)
+- [ ] Deploy database enhancements (after the schema is confirmed)
+- [ ] Agree the API contract for the seven endpoints
 - [ ] Wait for backend implementation to begin
 
 ---

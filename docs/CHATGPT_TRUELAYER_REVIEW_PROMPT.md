@@ -499,7 +499,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     <h1>🏦 TrueLayer Direct Auth Test</h1>
 
     <label>Client ID:</label>
-    <input type="text" id="clientId" value="sandbox-wealthtracker-dd0b41" />
+    <input type="text" id="clientId" value="<YOUR_TRUELAYER_CLIENT_ID>" />
 
     <label>API Base URL (for token exchange):</label>
     <input type="text" id="apiBaseUrl" value="https://wealthtracker-pro-git-claude-lint-cleanup-steven-greens-projects.vercel.app" />
@@ -636,7 +636,7 @@ b9fca9be - feat: Add debugging tools for TrueLayer OAuth investigation
 
 **Current State:**
 - Environment variable: \`TRUELAYER_ENVIRONMENT=sandbox\`
-- Client ID: \`sandbox-wealthtracker-dd0b41\`
+- Client ID: \`<YOUR_TRUELAYER_CLIENT_ID>\`
 - Currently connects to Mock Bank (fake data)
 
 **User's Requirement:**
