@@ -6,6 +6,7 @@ import { XCircleIcon } from './icons/XCircleIcon';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import EditTransactionModal from './EditTransactionModal';
+import DatePicker from './common/DatePicker';
 import { expandSplitTransactions, type SplitExpandedTransaction } from '../utils/transactionSplits';
 import type { Transaction } from '../types';
 
@@ -237,20 +238,28 @@ export default function CategoryTransactionsModal({
             {/* Date Range */}
             <div className="flex flex-wrap gap-2 items-center">
               <CalendarIcon className="text-gray-400 hidden sm:block" size={18} />
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. */}
               <div className="flex flex-wrap gap-2 items-center flex-1">
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="flex-1 min-w-[130px] px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
-                />
+                <div className="flex-1 min-w-[130px]">
+                  <DatePicker
+                    size="sm"
+                    value={fromDate}
+                    onChange={setFromDate}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                    aria-label="Filter from date"
+                  />
+                </div>
                 <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="flex-1 min-w-[130px] px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
-                />
+                <div className="flex-1 min-w-[130px]">
+                  <DatePicker
+                    size="sm"
+                    value={toDate}
+                    onChange={setToDate}
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                    aria-label="Filter to date"
+                  />
+                </div>
               </div>
             </div>
             

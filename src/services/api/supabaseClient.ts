@@ -52,8 +52,37 @@ type Database = {
         };
         Returns: Record<string, unknown>;
       };
+      // The split writer that understands TRANSFER LEGS. Two fields the plain
+      // set_transaction_splits payload has no use for: `id` names the stored
+      // line an element replaces (so lines are matched, not wholesale
+      // replaced), and `transfer_account_id` makes a line one leg of a
+      // transfer — spelled the database's way, because that is how it reads
+      // back out of the audit log.
+      set_transaction_splits_with_legs: {
+        Args: {
+          p_transaction_id: string;
+          p_splits: {
+            category: string;
+            amount: number;
+            memo?: string;
+            id?: string;
+            transfer_account_id?: string;
+          }[];
+          p_expected_amount: number | null;
+          p_user_id: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       link_transfer_pair: {
         Args: { p_id_a: string; p_id_b: string; p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+      // The split-line counterpart of link_transfer_pair: pairs an existing
+      // split LINE with an existing transaction (amounts opposite between the
+      // LINE and the row, never the parent). Declared here because the
+      // database has it; the transfer-matching sweep is its caller.
+      link_split_line_transfer: {
+        Args: { p_split_id: string; p_transaction_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
       create_transfer_counterpart: {

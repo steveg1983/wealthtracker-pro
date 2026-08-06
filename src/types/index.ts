@@ -195,6 +195,34 @@ export interface TransactionSplitInput {
   category: string;
   amount: number;
   memo?: string;
+  /**
+   * The line this input replaces, when it came from an existing split. Sending
+   * it is what lets the writer tell "this line was edited" from "this line was
+   * removed and another arrived" — the distinction a split containing a
+   * transfer leg depends on, because a removed leg strands its counterpart.
+   * Omitted for brand-new lines (the id is then server-assigned).
+   */
+  id?: string;
+  /**
+   * Set to make this LINE one leg of a transfer: the account on the other
+   * side. A line that gains a target has its counterpart created and linked in
+   * the same write; a line that already carries this target keeps whatever
+   * link it has (never a second counterpart).
+   */
+  transferAccountId?: string;
+}
+
+/**
+ * What a split write actually did. `counterparts` holds the transactions
+ * created for lines that BECAME transfer legs in this write — real rows in
+ * other accounts, so the caller updates its state and those accounts'
+ * balances from them rather than guessing. Empty for every ordinary split.
+ */
+export interface SplitWriteResult {
+  isSplit: boolean;
+  splitCount: number;
+  amount: number;
+  counterparts: Transaction[];
 }
 
 export interface Budget {

@@ -105,7 +105,32 @@ interface CategorySelectorProps {
    * everywhere a transaction is being filed: a transaction belongs to a leaf.
    */
   allowGroupSelection?: boolean;
+  /**
+   * Offer the account "To/From <account>" categories as their own section, so
+   * a line can say "this part of the money moved to another account" — the
+   * Microsoft Money split leg.
+   *
+   * ONLY split-line pickers set this. A WHOLE transaction becomes a transfer
+   * through the Type toggle, which creates both sides; offering a To/From
+   * category as its category would be a second, contradictory way to say the
+   * same thing.
+   */
+  includeTransferTargets?: boolean;
+  /**
+   * The account the transaction sits in. Its own To/From category is left out
+   * of the transfer section — a transfer from an account to itself moves no
+   * money and has no other side to create.
+   */
+  transferSourceAccountId?: string;
 }
+
+/**
+ * Section id for the transfer targets. They hang off the Transfer type root as
+ * ordinary detail categories, so they have no shared parent to group under —
+ * and the heading wants to say what choosing one MEANS, not repeat the tree.
+ */
+const TRANSFER_SECTION_ID = '__transfer_targets__';
+const TRANSFER_SECTION_NAME = 'Transfer to another account';
 
 export default function CategorySelector({
   selectedCategory,
@@ -121,6 +146,8 @@ export default function CategorySelector({
   allowClear = false,
   size = 'default',
   allowGroupSelection = false,
+  includeTransferTargets = false,
+  transferSourceAccountId,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -217,6 +244,24 @@ export default function CategorySelector({
       : details;
   };
 
+  /**
+   * The account "To/From <account>" categories, offered only where a line may
+   * BE a transfer. A closed account's category is inactive and stays hidden;
+   * the transaction's own account is left out (nothing moves).
+   */
+  const getTransferTargetDetails = (): Category[] => {
+    if (!includeTransferTargets) return [];
+    const targets = categories.filter(c =>
+      c.isTransferCategory === true &&
+      c.isActive !== false &&
+      c.accountId !== undefined &&
+      c.accountId !== transferSourceAccountId
+    );
+    return excludeIds && excludeIds.length > 0
+      ? targets.filter(c => !excludeIds.includes(c.id))
+      : targets;
+  };
+
   // Get all detail categories for the transaction type
   const getAllDetailCategories = (): Category[] => {
     const subCategories = getSubCategoriesForType();
@@ -230,6 +275,7 @@ export default function CategorySelector({
     });
 
     detailCategories.push(...getRevaluationDetails());
+    detailCategories.push(...getTransferTargetDetails());
 
     return excludeIds && excludeIds.length > 0
       ? detailCategories.filter(c => !excludeIds.includes(c.id))
@@ -253,7 +299,13 @@ export default function CategorySelector({
   // Group the search-filtered detail categories under their parent sub-category
   // (Bills, Food, Personal…), preserving sub-category order — the dropdown shows
   // titled sections instead of a flat list, while search still filters items.
-  const getGroupedOptions = (): Array<{ id: string; name: string; items: Category[] }> => {
+  const getGroupedOptions = (): Array<{
+    id: string;
+    name: string;
+    items: Category[];
+    /** Whether the group HEADING is itself a choice ("All Food"). */
+    selectable: boolean;
+  }> => {
     const matchedIds = new Set(getFilteredOptions().map(c => c.id));
     const groupMatchesSearch = (name: string): boolean =>
       allowGroupSelection && name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -262,6 +314,7 @@ export default function CategorySelector({
         id: sub.id,
         name: sub.name,
         items: getDetailCategories(sub.id).filter(d => matchedIds.has(d.id)),
+        selectable: allowGroupSelection,
       }))
       // A group with no (matching) leaves still belongs in the list when the
       // group ITSELF can be chosen and the search names it.
@@ -273,9 +326,16 @@ export default function CategorySelector({
         id: root.id,
         name: root.name,
         items: getDetailCategories(root.id).filter(d => matchedIds.has(d.id)),
+        selectable: allowGroupSelection,
       }))
       .filter(group => group.items.length > 0);
-    return [...groups, ...revaluationGroups];
+    // Transfers last of all, and never selectable as a group: "transfer" is
+    // not a category anything can be filed under — only a specific account is.
+    const transferItems = getTransferTargetDetails().filter(c => matchedIds.has(c.id));
+    const transferGroups = transferItems.length > 0
+      ? [{ id: TRANSFER_SECTION_ID, name: TRANSFER_SECTION_NAME, items: transferItems, selectable: false }]
+      : [];
+    return [...groups, ...revaluationGroups, ...transferGroups];
   };
 
   // Get parent category name for display
@@ -473,7 +533,7 @@ export default function CategorySelector({
   const flatOptions: Array<Pick<Category, 'id' | 'name'>> = [
     ...(showClearOption ? [{ id: UNCATEGORISED_ID, name: 'Uncategorised' }] : []),
     ...groupedOptions.flatMap(g =>
-      allowGroupSelection
+      g.selectable
         ? [{ id: g.id, name: `All ${g.name}` }, ...g.items]
         : g.items
     ),
@@ -654,7 +714,7 @@ export default function CategorySelector({
                       {/* The group as a choice in its own right, above its
                           leaves — a budget on "Food" covers everything under
                           it. Only rendered where groups are selectable. */}
-                      {allowGroupSelection && (
+                      {group.selectable && (
                         <div
                           id={optionDomId(group.id)}
                           role="option"

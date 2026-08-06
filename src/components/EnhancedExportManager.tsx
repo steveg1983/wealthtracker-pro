@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { FileTextIcon, DownloadIcon, CalendarIcon, FileSpreadsheetIcon, FilePlusIcon, XIcon, TrendingUpIcon, DollarSignIcon, PieChartIcon, ReceiptIcon } from './icons';
+import DatePicker from './common/DatePicker';
 import { useApp } from '../contexts/AppContextSupabase';
 import { expandSplitTransactions } from '../utils/transactionSplits';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
@@ -629,19 +630,21 @@ export default function EnhancedExportManager(): React.JSX.Element {
                   ))}
                 </div>
 
+                {/* dd/mm/yyyy everywhere — a native date input renders in the
+                    browser's locale, not the app's. */}
                 {options.dateRange === 'custom' && (
                   <div className="grid grid-cols-2 gap-3 mt-3">
-                    <input
-                      type="date"
-                      value={options.startDate}
-                      onChange={(e) => setOptions(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                    <DatePicker
+                      value={options.startDate ?? ''}
+                      onChange={(val) => setOptions(prev => ({ ...prev, startDate: val }))}
+                      className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                      aria-label="Export start date"
                     />
-                    <input
-                      type="date"
-                      value={options.endDate}
-                      onChange={(e) => setOptions(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                    <DatePicker
+                      value={options.endDate ?? ''}
+                      onChange={(val) => setOptions(prev => ({ ...prev, endDate: val }))}
+                      className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                      aria-label="Export end date"
                     />
                   </div>
                 )}

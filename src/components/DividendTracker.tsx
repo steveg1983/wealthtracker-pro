@@ -3,6 +3,8 @@ import { dividendService } from '../services/dividendService';
 import type { Dividend, DividendSummary, DividendProjection } from '../services/dividendService';
 import { parseMoneyInput } from '../utils/decimal';
 import MoneyInput from './common/MoneyInput';
+import DatePicker from './common/DatePicker';
+import { formatDateForInput } from '../utils/dateFormatter';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -551,25 +553,29 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
               />
             </div>
             
+            {/* dd/mm/yyyy everywhere — a native date input renders in the
+                browser's locale, not the app's. Both hold real Dates and are
+                required, so an emptied value (the picker's Clear) is ignored
+                rather than stored as an Invalid Date. */}
             <div>
               <label className="block text-sm font-medium mb-1">Payment Date</label>
-              <input
-                type="date"
-                value={formData.paymentDate.toISOString().split('T')[0]}
-                onChange={(e) => setFormData({ ...formData, paymentDate: new Date(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              <DatePicker
+                value={formatDateForInput(formData.paymentDate)}
+                onChange={(val) => { if (val) setFormData({ ...formData, paymentDate: new Date(val) }); }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
+                aria-label="Payment date"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Ex-Dividend Date</label>
-              <input
-                type="date"
-                value={formData.exDividendDate.toISOString().split('T')[0]}
-                onChange={(e) => setFormData({ ...formData, exDividendDate: new Date(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              <DatePicker
+                value={formatDateForInput(formData.exDividendDate)}
+                onChange={(val) => { if (val) setFormData({ ...formData, exDividendDate: new Date(val) }); }}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
+                aria-label="Ex-dividend date"
               />
             </div>
             

@@ -1,7 +1,13 @@
 import { toDecimal } from './decimal';
 import { calculateStringSimilarity } from './duplicateScan';
-import { sweepTransferPairs, SWEEP_WINDOW_DAYS, type TransferPairSuggestion } from './transferSweep';
-import type { Category, Transaction } from '../types';
+import {
+  sweepTransferPairs,
+  unmatchedSplitLegs,
+  SWEEP_WINDOW_DAYS,
+  type SplitLegSuggestion,
+  type TransferPairSuggestion,
+} from './transferSweep';
+import type { Category, Transaction, TransactionSplit } from '../types';
 
 /**
  * Stranded transfers — the residue the clean sweep cannot touch.
@@ -396,4 +402,164 @@ function oneSidedFindingFor(
   if (hasOpposite) return null;
 
   return { kind: 'one-sided', row };
+}
+
+/**
+ * ── UNMATCHED SPLIT LEGS: the one-sided family, for a LINE ───────────────────
+ *
+ * A split line carrying a transfer target with no counterpart says "£30,000 of
+ * this went to the loan account" while the loan account's register shows
+ * nothing. That is a real inconsistency and the user should be told.
+ *
+ * It is DELIBERATELY not a member of StrandedFinding, and it carries NO
+ * ACTION, because there is no honest one:
+ *
+ *  - Creating the missing row would invent money. The line may be unmatched
+ *    because the counterpart was deleted, because the real row is sitting just
+ *    outside the window, or because the line was mis-declared — and nothing
+ *    here can tell which. set_transaction_splits_with_legs refuses to mint a
+ *    counterpart for an already-targeted line for exactly this reason.
+ *  - Filing it as Account Adjustment (the answer for a one-sided ROW) means
+ *    editing the split, which rewrites what the user said the money was for,
+ *    from a list that cannot show them the rest of the split.
+ *
+ * So: detect and explain, and let the user open the transaction. Every finding
+ * therefore says as precisely as the data allows WHY no match was offered —
+ * including when a row that would have matched exists but is unavailable,
+ * which is the difference between "your loan account is missing this" and
+ * "the row is there, it just isn't free".
+ */
+
+interface UnmatchedLegBase {
+  kind: 'unmatched-leg';
+  /** The line that declares a transfer with nothing on the other side. */
+  split: TransactionSplit;
+  /** The split parent — the line's date, payee and account. */
+  parent: Transaction;
+  /** The account the line names. */
+  target: string;
+}
+
+/** Nothing anywhere in that account, in the window, is the line's opposite. */
+export interface LegWithNoOpposite extends UnmatchedLegBase {
+  reason: 'nothing-matches';
+}
+
+/** The opposite is there, but something makes it unpairable. */
+export interface LegWithBlockedOpposite extends UnmatchedLegBase {
+  /**
+   * 'linked' — already half of a transfer; 'split' — a split parent, which
+   * cannot become a transfer; 'archived' — out of the live register; 'taken' —
+   * free, but already offered to another line or pair in this same sweep.
+   */
+  reason: 'linked' | 'split' | 'archived' | 'taken';
+  blocker: Transaction;
+}
+
+/** The opposite is free, but somebody filed it — the same "or a coincidence?" question. */
+export interface LegWithFiledOpposite extends UnmatchedLegBase {
+  reason: 'filed';
+  blocker: Transaction;
+  blockerCategoryName: string;
+}
+
+export type UnmatchedSplitLegFinding =
+  | LegWithNoOpposite
+  | LegWithBlockedOpposite
+  | LegWithFiledOpposite;
+
+export interface UnmatchedLegSweepResult {
+  findings: UnmatchedSplitLegFinding[];
+  /** Unmatched legs considered (those the sweep could not match). */
+  scanned: number;
+}
+
+export interface UnmatchedLegSweepOptions {
+  windowDays?: number;
+  /**
+   * The sweep's output, when the caller already has it. BOTH are needed or
+   * neither: a leg the sweep matched is not stranded, and a row the sweep is
+   * offering elsewhere is not missing — it is taken.
+   */
+  sweepSuggestions?: TransferPairSuggestion[];
+  legSuggestions?: SplitLegSuggestion[];
+}
+
+export function findUnmatchedSplitLegs(
+  transactions: Transaction[],
+  splits: TransactionSplit[],
+  categories: Category[],
+  opts: UnmatchedLegSweepOptions = {}
+): UnmatchedLegSweepResult {
+  if (splits.length === 0) return { findings: [], scanned: 0 };
+
+  const windowDays = opts.windowDays ?? SWEEP_WINDOW_DAYS;
+  const categoryIds = new Set(categories.map(c => c.id));
+  const categoryById = new Map(categories.map(c => [c.id, c]));
+  const byId = new Map(transactions.map(t => [t.id, t]));
+
+  const swept = opts.sweepSuggestions && opts.legSuggestions
+    ? { suggestions: opts.sweepSuggestions, legSuggestions: opts.legSuggestions }
+    : sweepTransferPairs(transactions, { windowDays, onlyUncategorised: true, categoryIds, splits });
+
+  const matched = new Set(swept.legSuggestions.map(s => s.split.id));
+  const taken = new Set<string>();
+  for (const s of swept.suggestions) {
+    taken.add(s.outgoing.id);
+    taken.add(s.incoming.id);
+  }
+  for (const s of swept.legSuggestions) taken.add(s.candidate.id);
+
+  const legs = unmatchedSplitLegs(splits, byId).filter(leg => !matched.has(leg.split.id));
+
+  // Every row, by account + amount. The "is there anything over there at all?"
+  // question is asked of the WHOLE history — linked, filed, archived and all —
+  // exactly as the one-sided classifier asks it of a row.
+  const byAccountAmount = new Map<string, Transaction[]>();
+  for (const t of transactions) {
+    if (toDecimal(t.amount).isZero()) continue;
+    const key = `${t.accountId}|${pennies(t.amount)}`;
+    const list = byAccountAmount.get(key);
+    if (list) list.push(t);
+    else byAccountAmount.set(key, [t]);
+  }
+
+  const findings: UnmatchedSplitLegFinding[] = [];
+  for (const leg of legs) {
+    const base = { kind: 'unmatched-leg' as const, split: leg.split, parent: leg.parent, target: leg.target };
+    const opposites = (byAccountAmount.get(`${leg.target}|${-pennies(leg.split.amount)}`) ?? [])
+      .map(t => ({ transaction: t, daysApart: Math.abs(timeOf(t.date) - leg.time) / DAY_MS }))
+      .filter(c => c.daysApart <= windowDays)
+      .sort((a, b) => a.daysApart - b.daysApart || a.transaction.id.localeCompare(b.transaction.id));
+
+    const blocker = opposites[0]?.transaction;
+    if (!blocker) {
+      findings.push({ ...base, reason: 'nothing-matches' });
+      continue;
+    }
+
+    if (isTakenAsTransfer(blocker)) {
+      findings.push({ ...base, reason: 'linked', blocker });
+    } else if (blocker.isSplit) {
+      findings.push({ ...base, reason: 'split', blocker });
+    } else if (blocker.archived === true) {
+      findings.push({ ...base, reason: 'archived', blocker });
+    } else if (blocker.category && categoryIds.has(blocker.category)) {
+      // The sweep's own definition of "filed", so a finding can never
+      // contradict what the sweep did with the row.
+      findings.push({
+        ...base,
+        reason: 'filed',
+        blocker,
+        blockerCategoryName: categoryById.get(blocker.category)?.name ?? blocker.category,
+      });
+    } else if (taken.has(blocker.id)) {
+      findings.push({ ...base, reason: 'taken', blocker });
+    }
+    // A free, unclaimed row is one the sweep would have offered. If one turns
+    // up here the data moved under us mid-pass, and saying nothing is better
+    // than saying something that is not true.
+  }
+
+  return { findings, scanned: legs.length };
 }

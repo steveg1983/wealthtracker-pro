@@ -945,6 +945,7 @@ describe('TransactionService — owner id cannot be silently omitted', () => {
       { category: 'cat-2', amount: 15 }
     ], 25)],
     ['linkTransferPair', s => s.linkTransferPair('txn-1', 'txn-2')],
+    ['linkSplitLineTransfer', s => s.linkSplitLineTransfer('split-1', 'txn-2')],
     ['clearTransferLinks', s => s.clearTransferLinks(['txn-1'])],
     ['setTransactionArchived', s => s.setTransactionArchived('txn-1', true)],
     ['repairClaimedTransfer', s => s.repairClaimedTransfer('txn-1', 'txn-2', 'txn-3', 'cat-1')],
@@ -1063,6 +1064,40 @@ describe('TransactionService — transfer repair goes through audited RPCs', () 
     expect(result.stranded.date).toBeInstanceOf(Date);
     expect(result.counterpart.id).toBe('counterpart');
     expect(result.partner.id).toBe('partner');
+  });
+
+  it('links a split LINE in ONE call and converts both rows it returns', async () => {
+    const { service, rpc } = createRpcService({
+      split: {
+        id: 'leg', transaction_id: 'parent', category: 'tofrom-current',
+        amount: '30000.00', sort_order: 1,
+        transfer_account_id: 'loan', linked_transfer_id: 'loan-row'
+      },
+      transaction: {
+        id: 'loan-row', account_id: 'loan', amount: -30000, type: 'transfer',
+        date: '2026-07-10', description: 'Repaid in full',
+        transfer_account_id: 'current', linked_transfer_id: 'parent',
+        linked_transfer_split_id: 'leg'
+      }
+    });
+
+    const result = await service.linkSplitLineTransfer('leg', 'loan-row', 'user-1');
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('link_split_line_transfer', {
+      p_split_id: 'leg',
+      p_transaction_id: 'loan-row',
+      p_user_id: 'user-1'
+    });
+    // numeric columns arrive as strings from PostgREST; the line is the thing
+    // whose amount has to survive that intact.
+    expect(result.split).toMatchObject({
+      id: 'leg', amount: 30000, transferAccountId: 'loan', linkedTransferId: 'loan-row'
+    });
+    expect(result.transaction).toMatchObject({
+      id: 'loan-row', type: 'transfer', linkedTransferId: 'parent', linkedTransferSplitId: 'leg'
+    });
+    expect(result.transaction.date).toBeInstanceOf(Date);
   });
 
   it('surfaces the database refusal verbatim', async () => {

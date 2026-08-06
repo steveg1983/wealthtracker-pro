@@ -58,7 +58,8 @@ const fillRequiredFields = (): void => {
   fireEvent.change(screen.getByLabelText('Goal Name'), { target: { value: 'House Deposit' } });
   fireEvent.change(screen.getByLabelText('Current Amount (£)'), { target: { value: '2500.50' } });
   fireEvent.change(screen.getByLabelText('Target Amount (£)'), { target: { value: '20000' } });
-  fireEvent.change(screen.getByLabelText('Target Date'), { target: { value: '2027-06-30' } });
+  // The shared dd/mm/yyyy picker: typed UK, held as ISO.
+  fireEvent.change(screen.getByLabelText('Target Date'), { target: { value: '30/06/2027' } });
 };
 
 const submit = (label: RegExp): void => {

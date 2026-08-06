@@ -570,9 +570,9 @@ describe('AddInvestmentModal', () => {
       expect(screen.getByPlaceholderText(/Apple Inc\./)).toHaveAttribute('required');
       expect(screen.getByPlaceholderText('100')).toHaveAttribute('required');
       expect(screen.getByPlaceholderText('150.00')).toHaveAttribute('required');
-      // Date input doesn't have placeholder, use type selector
-      const dateInput = screen.getByDisplayValue(mockFormData.date);
-      expect(dateInput).toHaveAttribute('required');
+      // The shared dd/mm/yyyy picker, so the field's value is the UK-formatted
+      // display of the ISO date held in state — find it by its label instead.
+      expect(screen.getByLabelText('Purchase date')).toHaveAttribute('required');
     });
   });
 

@@ -7,6 +7,7 @@ import {
   displaySplitAmount,
   expandSplitTransactions,
   splitsByTransaction,
+  splitDeclaresTransferLeg,
   type SplitLineDraft,
 } from './transactionSplits';
 import type { Transaction, TransactionSplit } from '../types';
@@ -66,6 +67,80 @@ describe('validateSplitDrafts', () => {
   });
 });
 
+describe('validateSplitDrafts — transfer lines', () => {
+  // What a real editor passes: the category tree says which ids are To/From
+  // categories, and the draft carries the account each one named.
+  const opts = {
+    parentType: 'income' as const,
+    directionFor: () => null,
+    parentAccountId: 'acct-current',
+    isTransferCategory: (id: string) => id.startsWith('tofrom:'),
+  };
+
+  it("balances Steve's case: £35,000 in, £30,000 of it a transfer, £5,000 interest", () => {
+    const lines: SplitLineDraft[] = [
+      { category: 'tofrom:loan', amount: '30000', transferAccountId: 'acct-loan' },
+      { category: 'interest', amount: '5000' },
+    ];
+    // A transfer line counts toward the parent exactly like any other line.
+    expect(sumSplitDrafts(lines, opts).toString()).toBe('35000');
+    expect(validateSplitDrafts('35000', lines, opts)).toBeNull();
+  });
+
+  it('needs the account on the other side', () => {
+    const lines: SplitLineDraft[] = [
+      { category: 'tofrom:loan', amount: '30000' },
+      { category: 'interest', amount: '5000' },
+    ];
+    expect(validateSplitDrafts('35000', lines, opts)).toMatch(/name the account on the other side/);
+  });
+
+  it('needs a non-zero amount, like every other line', () => {
+    const lines: SplitLineDraft[] = [
+      { category: 'tofrom:loan', amount: '0', transferAccountId: 'acct-loan' },
+      { category: 'interest', amount: '5000' },
+    ];
+    expect(validateSplitDrafts('5000', lines, opts)).toMatch(/non-zero amount/);
+  });
+
+  it("refuses a line pointing back at the transaction's own account", () => {
+    const lines: SplitLineDraft[] = [
+      { category: 'tofrom:self', amount: '30000', transferAccountId: 'acct-current' },
+      { category: 'interest', amount: '5000' },
+    ];
+    expect(validateSplitDrafts('35000', lines, opts)).toMatch(/point at a different account/);
+  });
+
+  it('allows more than one transfer line, to different accounts', () => {
+    // Nothing in the schema is one-leg-per-split: each line carries its own
+    // target and its own counterpart, which pins that exact line back.
+    const lines: SplitLineDraft[] = [
+      { category: 'tofrom:loan', amount: '30000', transferAccountId: 'acct-loan' },
+      { category: 'tofrom:isa', amount: '4000', transferAccountId: 'acct-isa' },
+      { category: 'interest', amount: '1000' },
+    ];
+    expect(validateSplitDrafts('35000', lines, opts)).toBeNull();
+  });
+
+  it('still refuses a set that does not add up', () => {
+    const lines: SplitLineDraft[] = [
+      { category: 'tofrom:loan', amount: '30000', transferAccountId: 'acct-loan' },
+      { category: 'interest', amount: '4000' },
+    ];
+    expect(validateSplitDrafts('35000', lines, opts)).toMatch(/must match/);
+  });
+});
+
+describe('splitDeclaresTransferLeg', () => {
+  it('is true when any line names an account on the other side', () => {
+    expect(splitDeclaresTransferLeg([{ }, { transferAccountId: 'acct-loan' }])).toBe(true);
+  });
+
+  it('is false for an ordinary split', () => {
+    expect(splitDeclaresTransferLeg([{ }, { }])).toBe(false);
+  });
+});
+
 describe('signSplitAmounts', () => {
   it('negates expense lines to the DB convention', () => {
     expect(signSplitAmounts([line('a', '120'), line('b', '-20')], 'expense')).toEqual([
@@ -93,6 +168,22 @@ describe('signSplitAmounts', () => {
     );
     expect(result[0].memo).toBe('petrol');
     expect(result[1]).not.toHaveProperty('memo');
+  });
+
+  it('carries line identity and transfer targets through to the writer', () => {
+    // The writer matches lines by id (so a leg survives an edit to its
+    // neighbour) and creates the other side from the target.
+    const [leg, ordinary] = signSplitAmounts(
+      [
+        { id: 'line-1', category: 'tofrom:loan', amount: '30000', transferAccountId: 'acct-loan' },
+        { category: 'interest', amount: '5000' },
+      ],
+      'income'
+    );
+    expect(leg).toEqual({
+      id: 'line-1', category: 'tofrom:loan', amount: 30000, transferAccountId: 'acct-loan',
+    });
+    expect(ordinary).toEqual({ category: 'interest', amount: 5000 });
   });
 });
 

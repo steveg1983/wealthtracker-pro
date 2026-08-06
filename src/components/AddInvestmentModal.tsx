@@ -5,6 +5,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { getCurrencySymbol } from '../utils/currency-decimal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
+import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
 
@@ -290,12 +291,14 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Purchase Date*
               </label>
-              <input
-                type="date"
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. */}
+              <DatePicker
                 value={formData.date}
-                onChange={(e) => updateField('date', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                onChange={(val) => updateField('date', val)}
+                className="bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
+                aria-label="Purchase date"
               />
             </div>
           </div>

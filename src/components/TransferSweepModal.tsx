@@ -4,11 +4,13 @@ import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { sweepTransferPairs, type TransferPairSuggestion } from '../utils/transferSweep';
+import { sweepTransferPairs, type SplitLegSuggestion, type TransferPairSuggestion } from '../utils/transferSweep';
 import {
   findStrandedTransfers,
+  findUnmatchedSplitLegs,
   resolveAdjustmentCategory,
   type StrandedFinding,
+  type UnmatchedSplitLegFinding,
 } from '../utils/strandedTransfers';
 import { applyStrandedFinding } from '../utils/strandedTransferActions';
 import { useAccountNames } from '../hooks/useAccountNames';
@@ -23,10 +25,20 @@ import type { Transaction } from '../types';
  * alternative existed) start UNSELECTED and are badged, because a wrong link
  * silently rewrites the meaning of two accounts.
  *
+ * The same table also carries LINE matches: one line of a split paired with
+ * the row that is its other side (£35,000 arrives, £30,000 of it settles a
+ * loan — the parent and that row match nothing, the LINE and that row match
+ * exactly). They tick, sort and apply alongside the whole-transaction pairs,
+ * and are marked as what they are, because accepting one changes a line inside
+ * a transaction rather than the transaction itself.
+ *
  * Below the clean pairs sits the residue — rows that look like transfers but
  * whose other side is taken, filed or missing (utils/strandedTransfers). Those
  * are per-row, confirm-first corrections, each spelling out its consequence
- * before it happens.
+ * before it happens. Last of all, and deliberately WITHOUT any action, sit the
+ * split lines whose other side could not be found at all: see
+ * findUnmatchedSplitLegs for why inventing one, or re-filing the line, would
+ * both be worse than saying so plainly.
  */
 
 interface Props {
@@ -111,29 +123,105 @@ const STRANDED_DONE: Record<StrandedFinding['kind'], string> = {
   'one-sided': 'Filed as Account Adjustment — neither income nor spending.',
 };
 
-/** Both account names, in the order the "From → To" cell reads them. */
-function pairRoute(s: TransferPairSuggestion, accountName: (id: string) => string): string {
-  return `${accountName(s.outgoing.accountId)} → ${accountName(s.incoming.accountId)}`;
+/**
+ * One line of the match table: a whole-transaction pair, or one LINE of a
+ * split matched to the row on its other side. They share the table because
+ * they are the same offer — "these two are one movement of money" — and differ
+ * only in what accepting one writes.
+ */
+type SweepRow =
+  | { kind: 'pair'; key: string; pair: TransferPairSuggestion }
+  | { kind: 'leg'; key: string; leg: SplitLegSuggestion };
+
+/** Selection key for a line match; the pair form is `keyOf` inside the component. */
+const keyOfLeg = (l: SplitLegSuggestion): string => `split:${l.split.id}|${l.candidate.id}`;
+
+/**
+ * The two accounts a line match moves money between, in "From → To" order. A
+ * line has no direction of its own beyond its SIGN: a positive line is money
+ * arriving in the parent's account, so the row over there is the out side.
+ */
+function legAccounts(leg: SplitLegSuggestion): { from: string; to: string } {
+  return leg.split.amount > 0
+    ? { from: leg.candidate.accountId, to: leg.parent.accountId }
+    : { from: leg.parent.accountId, to: leg.candidate.accountId };
+}
+
+/** What each sortable column reads, whichever kind of row it is looking at. */
+interface RowFacts {
+  date: number;
+  route: string;
+  description: string;
+  /** Size of the movement — for a line match, the LINE's, not the parent's. */
+  magnitude: number;
+}
+
+function factsOf(row: SweepRow, accountName: (id: string) => string): RowFacts {
+  if (row.kind === 'pair') {
+    const { outgoing, incoming } = row.pair;
+    return {
+      date: new Date(outgoing.date).getTime(),
+      route: `${accountName(outgoing.accountId)} → ${accountName(incoming.accountId)}`,
+      description: outgoing.description,
+      // Magnitude: the two legs are equal and opposite, so the sign carries no
+      // information here — only the size of the movement does.
+      magnitude: Math.abs(outgoing.amount),
+    };
+  }
+  const { split, parent } = row.leg;
+  // A line has no date or payee of its own: it takes the parent's.
+  const { from, to } = legAccounts(row.leg);
+  return {
+    date: new Date(parent.date).getTime(),
+    route: `${accountName(from)} → ${accountName(to)}`,
+    description: parent.description,
+    magnitude: Math.abs(split.amount),
+  };
 }
 
 /** Ascending by the given column; the caller applies the direction. */
-function comparePairs(
-  a: TransferPairSuggestion,
-  b: TransferPairSuggestion,
+function compareRows(
+  a: SweepRow,
+  b: SweepRow,
   key: PairSortKey,
   accountName: (id: string) => string
 ): number {
+  const left = factsOf(a, accountName);
+  const right = factsOf(b, accountName);
   switch (key) {
     case 'accounts':
-      return compareText(pairRoute(a, accountName), pairRoute(b, accountName));
+      return compareText(left.route, right.route);
     case 'description':
-      return compareText(a.outgoing.description, b.outgoing.description);
-    // Magnitude: the two legs are equal and opposite, so the sign carries no
-    // information here — only the size of the movement does.
+      return compareText(left.description, right.description);
     case 'amount':
-      return Math.abs(a.outgoing.amount) - Math.abs(b.outgoing.amount);
+      return left.magnitude - right.magnitude;
     case 'date':
-      return new Date(a.outgoing.date).getTime() - new Date(b.outgoing.date).getTime();
+      return left.date - right.date;
+  }
+}
+
+/**
+ * Why the sweep could not offer a match for a split line — said in full,
+ * because no action is offered and the sentence is all the user gets.
+ */
+function unmatchedLegReason(
+  finding: UnmatchedSplitLegFinding,
+  accountName: (id: string) => string
+): string {
+  const there = accountName(finding.target);
+  switch (finding.reason) {
+    case 'nothing-matches':
+      return `Nothing in ${there} within a few days is the other side of this line.`;
+    case 'linked':
+      return `The row that would match it in ${there} is already half of another transfer.`;
+    case 'split':
+      return `The row that would match it in ${there} is itself split, and a split cannot be one side of a transfer.`;
+    case 'archived':
+      return `The row that would match it in ${there} is archived — bring it back into the register, then run this again.`;
+    case 'filed':
+      return `The row that would match it in ${there} is filed under “${finding.blockerCategoryName}” — the same money, or a coincidence? Nothing here will guess.`;
+    case 'taken':
+      return `The row that would match it in ${there} is already being offered to another match above — settle that one, then run this again.`;
   }
 }
 
@@ -160,8 +248,8 @@ function compareFindings(
 
 export default function TransferSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
   const {
-    transactions, categories, accounts, linkTransferPair,
-    repairClaimedTransfer, setTransactionArchived, updateTransaction,
+    transactions, categories, accounts, transactionSplits, linkTransferPair,
+    linkSplitLineTransfer, repairClaimedTransfer, setTransactionArchived, updateTransaction,
     updateAccount, refreshAccountsAndTransactions, refreshCategories,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
@@ -170,6 +258,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   const location = useLocation();
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [inspecting, setInspecting] = useState<TransferPairSuggestion | null>(null);
+  const [inspectingLeg, setInspectingLeg] = useState<SplitLegSuggestion | null>(null);
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [reviewing, setReviewing] = useState<StrandedFinding | null>(null);
@@ -200,13 +289,21 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   // account that has since been closed.
   const accountName = useAccountNames();
 
-  const { suggestions } = useMemo(() => {
-    if (!isOpen) return { suggestions: [] as TransferPairSuggestion[] };
+  // One pass finds both: the whole-transaction pairs, and the split LINES
+  // whose other side is sitting unmatched in the account they name.
+  const { suggestions, legSuggestions } = useMemo(() => {
+    if (!isOpen) {
+      return {
+        suggestions: [] as TransferPairSuggestion[],
+        legSuggestions: [] as SplitLegSuggestion[],
+      };
+    }
     return sweepTransferPairs(transactions, {
       onlyUncategorised: true,
       categoryIds: new Set(categories.map(c => c.id)),
+      splits: transactionSplits,
     });
-  }, [isOpen, transactions, categories]);
+  }, [isOpen, transactions, categories, transactionSplits]);
 
   /**
    * The residue the clean sweep cannot pair. Composed with the suggestions
@@ -218,15 +315,33 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     return findStrandedTransfers(transactions, categories, { sweepSuggestions: suggestions }).findings;
   }, [isOpen, transactions, categories, suggestions]);
 
+  /** Split lines with no other side anywhere — reported, never acted on. */
+  const legFindings = useMemo(() => {
+    if (!isOpen) return [] as UnmatchedSplitLegFinding[];
+    return findUnmatchedSplitLegs(transactions, transactionSplits, categories, {
+      sweepSuggestions: suggestions,
+      legSuggestions,
+    }).findings;
+  }, [isOpen, transactions, transactionSplits, categories, suggestions, legSuggestions]);
+
   // Resolved from the user's own categories — never created, never hardcoded.
   const adjustmentCategory = useMemo(() => resolveAdjustmentCategory(categories), [categories]);
 
   const keyOf = (s: TransferPairSuggestion): string => `${s.outgoing.id}|${s.incoming.id}`;
   const keyOfFinding = (f: StrandedFinding): string => `${f.kind}|${f.row.id}`;
 
-  // Default selection: every unambiguous pair.
+  // Whole-transaction pairs first, then the line matches: the same order the
+  // sweep found them in, and the order the table opens in.
+  const rows: SweepRow[] = [
+    ...suggestions.map(pair => ({ kind: 'pair' as const, key: keyOf(pair), pair })),
+    ...legSuggestions.map(leg => ({ kind: 'leg' as const, key: keyOfLeg(leg), leg })),
+  ];
+  const isAmbiguous = (row: SweepRow): boolean =>
+    row.kind === 'pair' ? row.pair.ambiguous : row.leg.ambiguous;
+
+  // Default selection: every unambiguous match, of either kind.
   const effectiveSelected = selected ?? new Set(
-    suggestions.filter(s => !s.ambiguous).map(keyOf)
+    rows.filter(row => !isAmbiguous(row)).map(row => row.key)
   );
 
   const toggle = (key: string): void => {
@@ -260,13 +375,13 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
 
   // The cap is applied FIRST and the sort second, so "the first 300 the sweep
   // found" goes on meaning exactly that whichever column is sorted by. Row
-  // order is presentation only: selection is keyed by the pair's two ids, and
-  // both `effectiveSelected` and `chosen` read the unsorted list.
-  const pairPage = suggestions.slice(0, CAP);
+  // order is presentation only: selection is keyed by the ids each match is
+  // made of, and both `effectiveSelected` and `chosen` read the unsorted list.
+  const pairPage = rows.slice(0, CAP);
   const visible = pairSortKey === null
     ? pairPage
-    : [...pairPage].sort((a, b) => pairSortDir * comparePairs(a, b, pairSortKey, accountName));
-  const chosen = suggestions.filter(s => effectiveSelected.has(keyOf(s)));
+    : [...pairPage].sort((a, b) => pairSortDir * compareRows(a, b, pairSortKey, accountName));
+  const chosen = rows.filter(row => effectiveSelected.has(row.key));
 
   const liveFindings = findings.filter(f => !dismissed.has(keyOfFinding(f)));
   const visibleFindings = liveFindings.slice(0, STRANDED_CAP).sort(
@@ -299,12 +414,31 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   };
 
   /**
+   * Open a transaction in its own account register, with the row selected (the
+   * same ?txn deep link the categorisation drills use). A row in a CLOSED
+   * account has no register, so it routes through the re-open prompt first.
+   */
+  const openTransaction = (t: Transaction): void => {
+    if (!accounts.some(a => a.id === t.accountId)) {
+      setReopenPrompt({ accountId: t.accountId, txnId: t.id });
+      return;
+    }
+    const params = new URLSearchParams();
+    params.set('txn', t.id);
+    if (new URLSearchParams(location.search).get('demo') === 'true') {
+      params.set('demo', 'true');
+    }
+    setInspecting(null);
+    setInspectingLeg(null);
+    setReviewing(null);
+    onClose();
+    navigate(`/accounts/${t.accountId}?${params.toString()}`);
+  };
+
+  /**
    * One transaction as an evidence card — shared by the clean-pair check and
    * every stranded review, so the two read as the same thing.
    *
-   * The card jumps into its own account register with the transaction selected
-   * (the same ?txn deep link the categorisation drills use); a leg in a CLOSED
-   * account has no register, so it routes through the re-open prompt first.
    * `flex flex-col items-start` is load-bearing: it overrides the global
    * `button { display: inline-flex }` rule, which otherwise lays the card's
    * lines out side by side.
@@ -320,21 +454,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
       <button
         key={t.id}
         type="button"
-        onClick={() => {
-          if (!accountIsOpen) {
-            setReopenPrompt({ accountId: t.accountId, txnId: t.id });
-            return;
-          }
-          const params = new URLSearchParams();
-          params.set('txn', t.id);
-          if (new URLSearchParams(location.search).get('demo') === 'true') {
-            params.set('demo', 'true');
-          }
-          setInspecting(null);
-          setReviewing(null);
-          onClose();
-          navigate(`/accounts/${t.accountId}?${params.toString()}`);
-        }}
+        onClick={() => openTransaction(t)}
         title={accountIsOpen
           ? 'Open this transaction in its account'
           : 'This account is closed — click to re-open it and view the transaction'}
@@ -358,15 +478,63 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     );
   };
 
+  /**
+   * ONE LINE of a split as an evidence card. The line's own amount is what
+   * matches, so that is what leads; the parent's total is shown beside it
+   * because the two differing is the entire point of a mixed split, and a card
+   * that hid it would look like an arithmetic error. Opens the parent — the
+   * line has no register row of its own.
+   */
+  const renderSplitLineCard = (leg: SplitLegSuggestion): React.JSX.Element => {
+    const { split, parent } = leg;
+    const accountIsOpen = accounts.some(a => a.id === parent.accountId);
+    return (
+      <button
+        key={split.id}
+        type="button"
+        onClick={() => openTransaction(parent)}
+        title={accountIsOpen
+          ? 'Open the transaction this line belongs to'
+          : 'This account is closed — click to re-open it and view the transaction'}
+        className="flex flex-col items-start text-left rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-blue-900/10 p-4 transition-all hover:border-primary hover:shadow-md cursor-pointer"
+      >
+        <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+          One line of a split
+        </p>
+        <p className={`text-lg font-bold tabular-nums ${split.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+          {formatCurrency(Math.abs(split.amount))}
+        </p>
+        <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          {accountName(parent.accountId)}
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 break-words">{parent.description}</p>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {new Date(parent.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+        </p>
+        <p className="mt-2 text-xs font-medium text-blue-700 dark:text-blue-300">
+          {formatCurrency(Math.abs(split.amount))} of the {formatCurrency(Math.abs(parent.amount))} in this split,
+          {' '}moving to {accountName(leg.candidate.accountId)}
+        </p>
+      </button>
+    );
+  };
+
   const handleApply = async (): Promise<void> => {
     setApplying(true);
     setProgress(0);
     let linked = 0;
     let failed = 0;
     try {
-      for (const pair of chosen) {
+      for (const row of chosen) {
         try {
-          await linkTransferPair(pair.outgoing.id, pair.incoming.id);
+          if (row.kind === 'pair') {
+            await linkTransferPair(row.pair.outgoing.id, row.pair.incoming.id);
+          } else {
+            // A line match links the LINE, not the parent — a different write
+            // entirely, and the reason the two kinds share a table but not a
+            // call.
+            await linkSplitLineTransfer(row.leg.split.id, row.leg.candidate.id);
+          }
           linked++;
         } catch {
           failed++;
@@ -380,7 +548,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
         );
       }
       if (linked === 0 && failed > 0) {
-        showError(new Error('No pairs could be linked. Please try again.'));
+        showError(new Error('No matches could be linked. Please try again.'));
       }
       onClose();
     } finally {
@@ -397,18 +565,26 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
       size="xl"
     >
       <ModalBody>
-        {suggestions.length === 0 && liveFindings.length === 0 ? (
+        {rows.length === 0 && liveFindings.length === 0 && legFindings.length === 0 ? (
           <p className="text-center py-10 text-gray-500 dark:text-gray-400">
             No unlinked transfer pairs found. Every equal-and-opposite movement in your
             history is already linked.
           </p>
-        ) : suggestions.length > 0 && (
+        ) : rows.length > 0 && (
           <>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Found <strong>{suggestions.length.toLocaleString()}</strong> likely transfer
-              pair{suggestions.length === 1 ? '' : 's'} — uncategorised rows that are exactly
+              Found <strong>{rows.length.toLocaleString()}</strong> likely transfer
+              pair{rows.length === 1 ? '' : 's'} — uncategorised rows that are exactly
               equal and opposite, in different accounts, within a few days. Linking them
               makes both sides transfers, so they leave your income and expense totals.
+              {legSuggestions.length > 0 && (
+                <>
+                  {' '}<strong>{legSuggestions.length.toLocaleString()}</strong> of
+                  them {legSuggestions.length === 1 ? 'matches a single line' : 'match single lines'} inside
+                  a split, not a whole row — marked <em>split line</em> below, because linking one
+                  changes that line and the row it matches, and nothing else in the transaction.
+                </>
+              )}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -435,66 +611,131 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map(s => {
-                    const key = keyOf(s);
-                    return (
-                      /* The WHOLE line drills into the both-sides popup — date,
-                         accounts, description or amount, it makes no difference.
-                         Only the checkbox cell stays out of it, so ticking a
-                         pair never accidentally opens the inspection. */
-                      <tr
-                        key={key}
-                        onClick={() => setInspecting(s)}
-                        className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
-                        title="See both sides of this pair"
-                      >
-                        <td className="py-2" onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={effectiveSelected.has(key)}
-                            onChange={() => toggle(key)}
-                            disabled={applying}
-                            aria-label={`Link ${formatCurrency(Math.abs(s.outgoing.amount))} transfer`}
-                            className="rounded border-gray-300"
-                          />
-                        </td>
-                        <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                          {new Date(s.outgoing.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
-                          {s.daysApart > 0 && (
-                            <span className="ml-1 text-xs text-gray-400">+{Math.round(s.daysApart)}d</span>
-                          )}
-                        </td>
-                        <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                            <span className="truncate max-w-[140px]">{accountName(s.outgoing.accountId)}</span>
-                            <ArrowRightIcon size={12} className="text-gray-400 flex-shrink-0" />
-                            <span className="truncate max-w-[140px]">{accountName(s.incoming.accountId)}</span>
+                  {visible.map(row => row.kind === 'pair' ? (
+                    /* The WHOLE line drills into the both-sides popup — date,
+                       accounts, description or amount, it makes no difference.
+                       Only the checkbox cell stays out of it, so ticking a
+                       pair never accidentally opens the inspection. */
+                    <tr
+                      key={row.key}
+                      onClick={() => setInspecting(row.pair)}
+                      className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                      title="See both sides of this pair"
+                    >
+                      <td className="py-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={effectiveSelected.has(row.key)}
+                          onChange={() => toggle(row.key)}
+                          disabled={applying}
+                          aria-label={`Link ${formatCurrency(Math.abs(row.pair.outgoing.amount))} transfer`}
+                          className="rounded border-gray-300"
+                        />
+                      </td>
+                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(row.pair.outgoing.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {row.pair.daysApart > 0 && (
+                          <span className="ml-1 text-xs text-gray-400">+{Math.round(row.pair.daysApart)}d</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                          <span className="truncate max-w-[140px]">{accountName(row.pair.outgoing.accountId)}</span>
+                          <ArrowRightIcon size={12} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate max-w-[140px]">{accountName(row.pair.incoming.accountId)}</span>
+                        </span>
+                        {row.pair.ambiguous && (
+                          <span
+                            className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2"
+                            title="Other rows matched this amount equally well — look at both sides before linking"
+                          >
+                            <AlertTriangleIcon size={12} />
+                            check
                           </span>
-                          {s.ambiguous && (
-                            <span
-                              className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2"
-                              title="Other rows matched this amount equally well — look at both sides before linking"
-                            >
-                              <AlertTriangleIcon size={12} />
-                              check
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
-                          <span className="block truncate max-w-[220px] underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600">
-                            {s.outgoing.description}
+                        )}
+                      </td>
+                      <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span className="block truncate max-w-[220px] underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600">
+                          {row.pair.outgoing.description}
+                        </span>
+                      </td>
+                      <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatCurrency(Math.abs(row.pair.outgoing.amount))}
+                      </td>
+                    </tr>
+                  ) : (
+                    /* A LINE match. Same columns, same ticking, same bulk
+                       apply — with the blue accent and the "split line" badge
+                       saying that accepting it changes one line inside a
+                       transaction, and with the line's own amount against the
+                       parent's total, since those two differing is the whole
+                       point of the thing. */
+                    <tr
+                      key={row.key}
+                      onClick={() => setInspectingLeg(row.leg)}
+                      className="border-b border-gray-50 dark:border-gray-700/50 border-l-2 border-l-blue-400 dark:border-l-blue-500 bg-blue-50/30 dark:bg-blue-900/10 cursor-pointer hover:bg-blue-50/60 dark:hover:bg-blue-900/20 transition-colors"
+                      title="See this split line and its match"
+                    >
+                      <td className="py-2 pl-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={effectiveSelected.has(row.key)}
+                          onChange={() => toggle(row.key)}
+                          disabled={applying}
+                          aria-label={`Link ${formatCurrency(Math.abs(row.leg.split.amount))} split line transfer`}
+                          className="rounded border-gray-300"
+                        />
+                      </td>
+                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(row.leg.parent.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {row.leg.daysApart > 0 && (
+                          <span className="ml-1 text-xs text-gray-400">+{Math.round(row.leg.daysApart)}d</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                          <span className="truncate max-w-[140px]">
+                            {accountName(legAccounts(row.leg).from)}
                           </span>
-                        </td>
-                        <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                          {formatCurrency(Math.abs(s.outgoing.amount))}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {suggestions.length > CAP && (
+                          <ArrowRightIcon size={12} className="text-gray-400 flex-shrink-0" />
+                          <span className="truncate max-w-[140px]">
+                            {accountName(legAccounts(row.leg).to)}
+                          </span>
+                        </span>
+                        <span
+                          className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200"
+                          title="One line of a split transaction — not the whole row"
+                        >
+                          split line
+                        </span>
+                        {row.leg.ambiguous && (
+                          <span
+                            className="ml-2 inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 underline decoration-dotted underline-offset-2"
+                            title="Other rows matched this line equally well — look at both sides before linking"
+                          >
+                            <AlertTriangleIcon size={12} />
+                            check
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span className="block truncate max-w-[220px] underline decoration-dotted underline-offset-2 decoration-gray-300 dark:decoration-gray-600">
+                          {row.leg.parent.description}
+                        </span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">
+                          {formatCurrency(Math.abs(row.leg.split.amount))} of the{' '}
+                          {formatCurrency(Math.abs(row.leg.parent.amount))} in this split
+                        </span>
+                      </td>
+                      <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatCurrency(Math.abs(row.leg.split.amount))}
+                      </td>
+                    </tr>
+                  ))}
+                  {rows.length > CAP && (
                     <tr>
                       <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Showing the first {CAP.toLocaleString()} of {suggestions.length.toLocaleString()} pairs —
+                        Showing the first {CAP.toLocaleString()} of {rows.length.toLocaleString()} pairs —
                         link these, then run the sweep again for the rest.
                       </td>
                     </tr>
@@ -510,7 +751,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             a decision with a consequence, so each is reviewed on its own. The
             section simply does not exist when there is nothing to show. */}
         {liveFindings.length > 0 && (
-          <section className={suggestions.length > 0 ? 'mt-6 pt-5 border-t border-gray-200 dark:border-gray-700' : ''}>
+          <section className={rows.length > 0 ? 'mt-6 pt-5 border-t border-gray-200 dark:border-gray-700' : ''}>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Stranded transfers
               <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
@@ -607,6 +848,91 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             </div>
           </section>
         )}
+
+        {/* Split lines whose other side could not be found. NOTHING here is
+            offered as a fix, deliberately: creating the missing row could
+            double a movement that already exists somewhere, and re-filing the
+            line would rewrite what the user said the money was for — from a
+            list that cannot even show them the rest of the split. So the
+            finding says what is wrong, and the row opens the transaction. */}
+        {legFindings.length > 0 && (
+          <section className={rows.length > 0 || liveFindings.length > 0 ? 'mt-6 pt-5 border-t border-gray-200 dark:border-gray-700' : ''}>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Split lines with no other side
+              <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                {legFindings.length.toLocaleString()}
+              </span>
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
+              One line inside each of these transactions says money moved to another account, but
+              nothing over there matches it. <strong>Nothing here is changed for you</strong> — the
+              missing row may exist under a different date or amount, and inventing one would count
+              the same money twice. Open the transaction and decide.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                    <th className="text-center pb-2 font-medium">Date</th>
+                    <th className="text-center pb-2 font-medium">Account</th>
+                    <th className="text-center pb-2 font-medium">What is wrong</th>
+                    <th className="text-center pb-2 font-medium">Line</th>
+                    <th className="pb-2 w-24"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {legFindings.slice(0, STRANDED_CAP).map(f => (
+                    <tr
+                      key={f.split.id}
+                      className="border-b border-gray-50 dark:border-gray-700/50 align-top"
+                    >
+                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {new Date(f.parent.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
+                      </td>
+                      <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span className="block truncate max-w-[140px]">{accountName(f.parent.accountId)}</span>
+                      </td>
+                      <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span className="block truncate max-w-[260px] text-gray-900 dark:text-white">
+                          {f.parent.description}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                          <AlertTriangleIcon size={12} />
+                          split line, no other side
+                        </span>
+                        <span className="block text-xs mt-0.5 max-w-[420px]">
+                          {unmatchedLegReason(f, accountName)}
+                        </span>
+                      </td>
+                      <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatCurrency(Math.abs(f.split.amount))}
+                        <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                          of {formatCurrency(Math.abs(f.parent.amount))}
+                        </span>
+                      </td>
+                      <td className="py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openTransaction(f.parent)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Open
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {legFindings.length > STRANDED_CAP && (
+                    <tr>
+                      <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                        Showing the first {STRANDED_CAP.toLocaleString()} of {legFindings.length.toLocaleString()}.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </ModalBody>
       <ModalFooter>
         <div className="flex items-center gap-3">
@@ -616,9 +942,9 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {applying
               ? `Linking ${progress.toLocaleString()} of ${chosen.length.toLocaleString()}…`
-              : suggestions.length === 0
-                ? 'Each stranded row is fixed on its own, above.'
-                : `${chosen.length.toLocaleString()} of ${Math.min(suggestions.length, CAP).toLocaleString()} selected`}
+              : rows.length === 0
+                ? 'Each row here is sorted out on its own, above.'
+                : `${chosen.length.toLocaleString()} of ${Math.min(rows.length, CAP).toLocaleString()} selected`}
           </p>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -627,9 +953,9 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
               disabled={applying}
               className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
-              {suggestions.length === 0 ? 'Close' : 'Cancel'}
+              {rows.length === 0 ? 'Close' : 'Cancel'}
             </button>
-            {suggestions.length > 0 && (
+            {rows.length > 0 && (
               <button
                 type="button"
                 onClick={() => void handleApply()}
@@ -692,6 +1018,68 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
               >
                 Yes — select this pair
+              </button>
+            </div>
+          </ModalFooter>
+        </Modal>
+      )}
+
+      {/* The same check for a LINE match, with the one thing that makes it
+          different said plainly: what matches is the line, not the transaction
+          it sits in, and only that line changes. */}
+      {inspectingLeg && (
+        <Modal
+          isOpen
+          onClose={() => setInspectingLeg(null)}
+          title="Check this split line"
+          size="lg"
+        >
+          <ModalBody>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {inspectingLeg.ambiguous
+                ? 'Flagged because other rows matched this line equally well — make sure these two really are the same movement of money.'
+                : 'One line of this split says money moved to another account, and the row beside it is exactly its opposite.'}
+              {' '}Linking them makes <strong>that line</strong> and that row two halves of one
+              transfer. The rest of the split is untouched, and the transaction&rsquo;s own total
+              does not move.
+              {inspectingLeg.daysApart > 0 && (
+                <> The two sides are <strong>{Math.round(inspectingLeg.daysApart)} day{Math.round(inspectingLeg.daysApart) === 1 ? '' : 's'} apart</strong>.</>
+              )}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {renderSplitLineCard(inspectingLeg)}
+              {renderLeg(
+                'Its other side',
+                inspectingLeg.candidate,
+                inspectingLeg.candidate.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new Set(effectiveSelected);
+                  next.delete(keyOfLeg(inspectingLeg));
+                  setSelected(next);
+                  setInspectingLeg(null);
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                Not a match — leave it
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new Set(effectiveSelected);
+                  next.add(keyOfLeg(inspectingLeg));
+                  setSelected(next);
+                  setInspectingLeg(null);
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors"
+              >
+                Yes — select this line
               </button>
             </div>
           </ModalFooter>
@@ -865,6 +1253,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                       const target = reopenPrompt.accountId;
                       setReopenPrompt(null);
                       setInspecting(null);
+                      setInspectingLeg(null);
                       onClose();
                       navigate(`/accounts/${target}?${params.toString()}`);
                     } catch (error) {

@@ -122,12 +122,13 @@ describe('DataService (deterministic fallback)', () => {
     expect(data.categories).toHaveLength(1);
   });
 
-  it('refuses to edit or un-split a split containing a linked transfer line', async () => {
+  it('refuses an edit that would drop a linked transfer line, and refuses to un-split', async () => {
     // A split whose second line is one leg of a transfer (the counterpart
-    // transaction points back at it). Replacing or removing the lines would
-    // strand the counterpart, so both must be rejected.
+    // transaction points back at it). A line set that does not name that line
+    // by id is asking for it to be deleted — which would leave the counterpart
+    // pointing at nothing — and un-splitting deletes every line. Both refused.
     const storage = createStorage({
-      [STORAGE_KEYS.ACCOUNTS]: [baseAccount()],
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount(), baseAccount({ id: 'acct-2', name: 'Savings' })],
       [STORAGE_KEYS.TRANSACTIONS]: [
         baseTransaction({ id: 'split-parent', amount: -100, isSplit: true, category: '' }),
         baseTransaction({
@@ -170,9 +171,9 @@ describe('DataService (deterministic fallback)', () => {
         ],
         -100
       )
-    ).rejects.toThrow(/linked transfer line/);
+    ).rejects.toThrow(/transferring to "Savings" is one half of a transfer/);
     await expect(service.setTransactionSplits('split-parent', [], null)).rejects.toThrow(
-      /linked transfer line/
+      /transferring to "Savings" is one half of a transfer/
     );
     // nothing was persisted — the split and its leg line survive intact
     expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(2);
@@ -354,6 +355,377 @@ describe('DataService Decimal balance deltas (local mode)', () => {
 
     const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
     expect(accounts[0].balance).toBe(-70.3);
+  });
+});
+
+
+// The demo/offline half of the split-leg write path — the mirror of
+// set_transaction_splits_with_legs (migration 20260806094058). Two jobs:
+// creating a leg (Steve's case: one payment that both settles a loan and pays
+// interest), and letting the REST of a split that contains a leg be edited,
+// which the old replace-the-whole-set writer had to refuse wholesale.
+describe('DataService split transfer legs (local mode)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+  const now = vi.fn(() => new Date('2025-09-01T00:00:00.000Z'));
+  const userId = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+  };
+
+  /** Sequential ids: a leg write mints a line AND a counterpart in one call. */
+  const buildService = (storage: ReturnType<typeof createStorage>): DataService => {
+    let n = 0;
+    return createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger,
+      uuid: () => `new-${++n}`,
+      now,
+      userIdService: userId
+    });
+  };
+
+  const transferCategory = (accountId: string): Category => ({
+    id: `tofrom-${accountId}`,
+    name: `To/From ${accountId}`,
+    type: 'both',
+    level: 'detail',
+    isTransferCategory: true,
+    accountId
+  });
+
+  // ── Creating a leg: £35,000 arrives, £30,000 of it settles a loan ─────────
+  describe('creating a leg', () => {
+    const lendingHistory = () => createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [
+        baseAccount({ id: 'current', name: 'Current', balance: 35000, currency: 'GBP' }),
+        baseAccount({ id: 'loan', name: 'Friend Loan', balance: 30000, currency: 'GBP' })
+      ],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({
+          id: 'repayment', accountId: 'current', amount: 35000,
+          type: 'income', category: 'interest', description: 'Repaid in full'
+        })
+      ],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [],
+      [STORAGE_KEYS.CATEGORIES]: [
+        transferCategory('loan'),
+        { id: 'interest', name: 'Interest', type: 'income', level: 'detail' } as Category
+      ]
+    });
+
+    const repaymentSplit = [
+      { category: 'tofrom-loan', amount: 30000, transferAccountId: 'loan' },
+      { category: 'interest', amount: 5000 }
+    ];
+
+    it('creates the counterpart with the opposite LINE amount and links both ways', async () => {
+      const storage = lendingHistory();
+      const service = buildService(storage);
+
+      const result = await service.setTransactionSplits('repayment', repaymentSplit, 35000);
+
+      expect(result.counterparts).toHaveLength(1);
+      const [counterpart] = result.counterparts;
+      // Opposite of the LINE (30,000), NOT of the parent (35,000) — the whole
+      // point of a mixed split.
+      expect(counterpart).toMatchObject({
+        amount: -30000,
+        accountId: 'loan',
+        type: 'transfer',
+        transferAccountId: 'current',
+        linkedTransferId: 'repayment'
+      });
+
+      const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      const leg = lines.find(l => l.transferAccountId === 'loan');
+      expect(leg).toMatchObject({ amount: 30000, linkedTransferId: counterpart.id });
+      // The counterpart pins the exact LINE, so the pair is navigable from
+      // either end.
+      expect(counterpart.linkedTransferSplitId).toBe(leg?.id);
+      // The other line is untouched by any of this.
+      expect(lines.find(l => l.category === 'interest')).toMatchObject({ amount: 5000 });
+    });
+
+    it('leaves the parent total alone and moves only the target account', async () => {
+      const storage = lendingHistory();
+      const service = buildService(storage);
+
+      await service.setTransactionSplits('repayment', repaymentSplit, 35000);
+
+      const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+      expect(stored.find(t => t.id === 'repayment')).toMatchObject({
+        isSplit: true, amount: 35000, category: ''
+      });
+      const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      // The loan is settled: 30,000 owed, 30,000 repaid.
+      expect(accounts.find(a => a.id === 'loan')?.balance).toBe(0);
+      // The receiving account already carried the 35,000; nothing moved there.
+      expect(accounts.find(a => a.id === 'current')?.balance).toBe(35000);
+    });
+
+    it('refuses a leg pointing back at the transaction\'s own account', async () => {
+      const storage = lendingHistory();
+      const service = buildService(storage);
+
+      await expect(service.setTransactionSplits('repayment', [
+        { category: 'tofrom-current', amount: 30000, transferAccountId: 'current' },
+        { category: 'interest', amount: 5000 }
+      ], 35000)).rejects.toThrow(/two different accounts/);
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(0);
+    });
+
+    it('refuses a leg across currencies, and writes nothing at all', async () => {
+      const storage = lendingHistory();
+      const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      await storage.set(STORAGE_KEYS.ACCOUNTS, accounts.map(a =>
+        a.id === 'loan' ? { ...a, currency: 'USD' } : a
+      ));
+      const service = buildService(storage);
+
+      await expect(service.setTransactionSplits('repayment', repaymentSplit, 35000))
+        .rejects.toThrow(/different currencies/);
+
+      // All-or-nothing: no lines, no counterpart, no balance moved.
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(0);
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTIONS)).toHaveLength(1);
+      const after = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      expect(after.find(a => a.id === 'loan')?.balance).toBe(30000);
+    });
+
+    it('refuses a leg whose lines do not sum to the transaction, writing nothing', async () => {
+      const storage = lendingHistory();
+      const service = buildService(storage);
+
+      await expect(service.setTransactionSplits('repayment', [
+        { category: 'tofrom-loan', amount: 30000, transferAccountId: 'loan' },
+        { category: 'interest', amount: 4000 }
+      ], 35000)).rejects.toThrow(/must sum to the transaction amount/);
+
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(0);
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTIONS)).toHaveLength(1);
+      const after = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      expect(after.find(a => a.id === 'loan')?.balance).toBe(30000);
+    });
+
+    it('refuses a To/From category that names a different account from the line', async () => {
+      const storage = lendingHistory();
+      const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      const categories = storage.snapshot(STORAGE_KEYS.CATEGORIES) as Category[];
+      await storage.set(STORAGE_KEYS.ACCOUNTS, [...accounts, baseAccount({ id: 'isa', name: 'ISA' })]);
+      await storage.set(STORAGE_KEYS.CATEGORIES, [...categories, transferCategory('isa')]);
+      const service = buildService(storage);
+
+      // Filed under the ISA's To/From category, but transferring to the loan:
+      // the category names the account, so the two cannot disagree.
+      await expect(service.setTransactionSplits('repayment', [
+        { category: 'tofrom-isa', amount: 30000, transferAccountId: 'loan' },
+        { category: 'interest', amount: 5000 }
+      ], 35000)).rejects.toThrow(/transfers to a different account/);
+
+      // And a To/From category with no target at all says "transfer" without
+      // saying where to.
+      await expect(service.setTransactionSplits('repayment', [
+        { category: 'tofrom-loan', amount: 30000 },
+        { category: 'interest', amount: 5000 }
+      ], 35000)).rejects.toThrow(/which account is on the other side/);
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(0);
+    });
+  });
+
+  // ── The owner's case: file a NEIGHBOUR of a leg ───────────────────────────
+  // 78 of his split parents contain a linked leg and 33 still carry an
+  // unfiled line. Categorising one of those strands nothing, and must work.
+  describe('editing a split that already contains a leg', () => {
+    const splitWithLeg = () => createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [
+        baseAccount({ id: 'current', name: 'Current', balance: -400 }),
+        baseAccount({ id: 'savings', name: 'Savings', balance: 100 })
+      ],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({
+          id: 'parent', accountId: 'current', amount: -400,
+          type: 'expense', category: '', isSplit: true
+        }),
+        baseTransaction({
+          id: 'counterpart', accountId: 'savings', amount: 100, type: 'transfer',
+          category: 'tofrom-current', transferAccountId: 'current',
+          linkedTransferId: 'parent', linkedTransferSplitId: 'leg-line'
+        })
+      ],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [
+        {
+          id: 'leg-line', transactionId: 'parent', category: 'tofrom-savings',
+          amount: -100, sortOrder: 1, transferAccountId: 'savings',
+          linkedTransferId: 'counterpart'
+        },
+        { id: 'unfiled', transactionId: 'parent', category: 'unassigned', amount: -300, sortOrder: 2 }
+      ],
+      [STORAGE_KEYS.CATEGORIES]: [
+        transferCategory('savings'),
+        { id: 'unassigned', name: 'Unassigned', type: 'both', level: 'detail', isUnassignedBucket: true } as Category,
+        { id: 'rent', name: 'Rent', type: 'expense', level: 'detail' } as Category
+      ]
+    });
+
+    /** The leg exactly as stored, carried back out untouched. */
+    const legAsStored = {
+      id: 'leg-line', category: 'tofrom-savings', amount: -100, transferAccountId: 'savings'
+    };
+
+    it('re-files the ordinary line and leaves the leg byte-identical', async () => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      const result = await service.setTransactionSplits('parent', [
+        legAsStored,
+        { id: 'unfiled', category: 'rent', amount: -300 }
+      ], -400);
+
+      // Nothing was created: an edit beside a leg is not a new transfer.
+      expect(result.counterparts).toEqual([]);
+
+      const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      expect(lines.find(l => l.id === 'unfiled')).toMatchObject({ category: 'rent', amount: -300 });
+      // Same line, same amount, same target, same link — the counterpart on
+      // the other side still points at something real.
+      expect(lines.find(l => l.id === 'leg-line')).toEqual({
+        id: 'leg-line',
+        transactionId: 'parent',
+        category: 'tofrom-savings',
+        amount: -100,
+        sortOrder: 1,
+        transferAccountId: 'savings',
+        linkedTransferId: 'counterpart'
+      });
+      const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+      expect(stored.find(t => t.id === 'counterpart')).toMatchObject({
+        amount: 100, linkedTransferId: 'parent', linkedTransferSplitId: 'leg-line'
+      });
+      // Balance-neutral: the total is what it always was.
+      expect(stored.find(t => t.id === 'parent')?.amount).toBe(-400);
+      const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      expect(accounts.map(a => a.balance)).toEqual([-400, 100]);
+    });
+
+    it('lets the ordinary line change amount, as long as the total still adds up', async () => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      await service.setTransactionSplits('parent', [
+        legAsStored,
+        { id: 'unfiled', category: 'rent', amount: -250 }
+      ], -350);
+
+      const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+      expect(stored.find(t => t.id === 'parent')?.amount).toBe(-350);
+      // Only the parent's own account moves; the leg (and so the other
+      // account) is exactly as it was.
+      const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      expect(accounts.find(a => a.id === 'current')?.balance).toBe(-350);
+      expect(accounts.find(a => a.id === 'savings')?.balance).toBe(100);
+    });
+
+    it('adds a new ordinary line beside the leg', async () => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      await service.setTransactionSplits('parent', [
+        legAsStored,
+        { id: 'unfiled', category: 'rent', amount: -250 },
+        { category: 'rent', amount: -50, memo: 'the rest' }
+      ], -400);
+
+      const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      expect(lines).toHaveLength(3);
+      expect(lines.find(l => l.id === 'leg-line')?.linkedTransferId).toBe('counterpart');
+    });
+
+    it.each([
+      ['its amount', { ...legAsStored, amount: -120 }, /has to stay as it is/],
+      ['its target', { ...legAsStored, transferAccountId: 'current' }, /two different accounts/],
+      ['its category', { ...legAsStored, category: 'rent' }, /names the account on the other side/],
+    ])('refuses to change a linked leg: %s', async (_what, leg, message) => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      await expect(service.setTransactionSplits('parent', [
+        leg,
+        { id: 'unfiled', category: 'rent', amount: -300 }
+      ], -400)).rejects.toThrow(message);
+
+      // Nothing at all was written, so the counterpart is never orphaned.
+      const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      expect(lines.find(l => l.id === 'leg-line')).toMatchObject({
+        amount: -100, transferAccountId: 'savings', linkedTransferId: 'counterpart'
+      });
+      expect(lines.find(l => l.id === 'unfiled')?.category).toBe('unassigned');
+    });
+
+    it('refuses an edit that drops the leg, naming the account it would strand', async () => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      await expect(service.setTransactionSplits('parent', [
+        { id: 'unfiled', category: 'rent', amount: -300 },
+        { category: 'rent', amount: -100 }
+      ], -400)).rejects.toThrow(/transferring to "Savings" is one half of a transfer/);
+
+      const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      expect(lines).toHaveLength(2);
+      expect(lines.find(l => l.id === 'leg-line')?.linkedTransferId).toBe('counterpart');
+    });
+
+    it('never mints a second counterpart for a leg it already has', async () => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      const result = await service.setTransactionSplits('parent', [
+        legAsStored,
+        { id: 'unfiled', category: 'rent', amount: -300 }
+      ], -400);
+
+      expect(result.counterparts).toEqual([]);
+      const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+      expect(stored.filter(t => t.type === 'transfer')).toHaveLength(1);
+    });
+
+    it('does not invent a counterpart for a leg whose other side was deleted', async () => {
+      // linked_transfer_id goes (ON DELETE SET NULL), transfer_account_id
+      // stays. The row that matches it may still be sitting in Savings
+      // unmatched, so re-saving must leave the line alone rather than double
+      // the movement.
+      const storage = splitWithLeg();
+      const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      await storage.set(STORAGE_KEYS.TRANSACTION_SPLITS, lines.map(l =>
+        l.id === 'leg-line' ? { ...l, linkedTransferId: undefined } : l
+      ));
+      const service = buildService(storage);
+
+      const result = await service.setTransactionSplits('parent', [
+        legAsStored,
+        { id: 'unfiled', category: 'rent', amount: -300 }
+      ], -400);
+
+      expect(result.counterparts).toEqual([]);
+      const after = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+      expect(after.find(l => l.id === 'leg-line')).toMatchObject({ transferAccountId: 'savings' });
+      expect(after.find(l => l.id === 'leg-line')?.linkedTransferId).toBeUndefined();
+      const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+      expect(accounts.find(a => a.id === 'savings')?.balance).toBe(100);
+    });
+
+    it('refuses a line claiming to be one this split does not have', async () => {
+      const storage = splitWithLeg();
+      const service = buildService(storage);
+
+      await expect(service.setTransactionSplits('parent', [
+        legAsStored,
+        { id: 'somebody-elses-line', category: 'rent', amount: -300 }
+      ], -400)).rejects.toThrow(/not part of this split any more/);
+      expect(storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS)).toHaveLength(2);
+    });
   });
 });
 
@@ -756,5 +1128,123 @@ describe('DataService createTransferCounterpart currency guard (local mode)', ()
     expect(transactions).toHaveLength(1);
     const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
     expect(accounts.find(a => a.id === 'acct-gbp')?.balance).toBe(100);
+  });
+});
+
+
+// The demo/offline half of a LINE match. Cloud mode is one atomic RPC
+// (link_split_line_transfer, migration 20260806094058); local mode has no
+// server to be atomic on, so it validates EVERYTHING before its first persist
+// — which is what keeps demo mode honest about what the real thing will do.
+//
+// The invariant these tests exist for: the amounts are compared against the
+// LINE, never the split PARENT, whose total is SUPPOSED to differ.
+describe('DataService linkSplitLineTransfer (local mode)', () => {
+  const buildService = (storage: ReturnType<typeof createStorage>) =>
+    createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
+      uuid: vi.fn(() => 'generated-id'),
+      now: vi.fn(() => new Date('2025-09-01T00:00:00.000Z')),
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+      }
+    });
+
+  /** £35,000 arrives; £30,000 of it settles the loan, £5,000 is interest. */
+  const lending = (over: { row?: Partial<Transaction>; line?: Partial<TransactionSplit> } = {}) =>
+    createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [
+        baseAccount({ id: 'current', name: 'Current', balance: 35000 }),
+        baseAccount({ id: 'loan', name: 'Friend Loan', balance: 30000 })
+      ],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({
+          id: 'parent', accountId: 'current', amount: 35000, type: 'income',
+          category: '', isSplit: true, description: 'Repaid in full'
+        }),
+        baseTransaction({
+          id: 'loan-row', accountId: 'loan', amount: -30000, type: 'expense',
+          category: '', description: 'Repaid in full', ...over.row
+        })
+      ],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: [
+        {
+          id: 'leg', transactionId: 'parent', category: 'tofrom-loan',
+          amount: 30000, sortOrder: 1, transferAccountId: 'loan', ...over.line
+        },
+        { id: 'interest', transactionId: 'parent', category: 'interest', amount: 5000, sortOrder: 2 }
+      ],
+      [STORAGE_KEYS.CATEGORIES]: [
+        {
+          id: 'tofrom-current', name: 'To/From Current', type: 'both', level: 'detail',
+          isTransferCategory: true, accountId: 'current'
+        } as Category,
+        { id: 'interest', name: 'Interest', type: 'income', level: 'detail' } as Category
+      ]
+    });
+
+  it('links the LINE to the row, and files the row against the split\'s account', async () => {
+    const storage = lending();
+    const service = buildService(storage);
+
+    const result = await service.linkSplitLineTransfer('leg', 'loan-row');
+
+    expect(result.split).toMatchObject({ id: 'leg', transferAccountId: 'loan', linkedTransferId: 'loan-row' });
+    // The row over there points at BOTH the parent and the exact line, which
+    // is what makes the pair navigable from either end.
+    expect(result.transaction).toMatchObject({
+      id: 'loan-row',
+      type: 'transfer',
+      category: 'tofrom-current',
+      transferAccountId: 'current',
+      linkedTransferId: 'parent',
+      linkedTransferSplitId: 'leg'
+    });
+
+    const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+    expect(lines.find(l => l.id === 'leg')?.linkedTransferId).toBe('loan-row');
+    // The other line is untouched, and so is the parent.
+    expect(lines.find(l => l.id === 'interest')).toMatchObject({ amount: 5000, category: 'interest' });
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored.find(t => t.id === 'parent')).toMatchObject({ amount: 35000, isSplit: true });
+
+    // Balance-neutral: both rows already existed with these amounts.
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.find(a => a.id === 'current')?.balance).toBe(35000);
+    expect(accounts.find(a => a.id === 'loan')?.balance).toBe(30000);
+  });
+
+  it.each([
+    ['the row is a penny out', { row: { amount: -29999.99 } }, /exactly opposite/],
+    ['the row matches the PARENT, not the line', { row: { amount: -35000 } }, /exactly opposite/],
+    ['the row sits in a different account from the one the line names', { row: { accountId: 'other' } }, /different account/],
+    ['the row is in the split\'s own account', { row: { accountId: 'current' } }, /two different accounts/],
+    ['the row is already half of a transfer', { row: { linkedTransferId: 'someone' } }, /already part of a linked transfer/],
+    ['the row is already some other line\'s opposite', { row: { linkedTransferSplitId: 'other-line' } }, /already part of a linked transfer/],
+    ['the row is itself split', { row: { isSplit: true } }, /split transaction cannot become a transfer/],
+    ['the row is archived', { row: { archived: true } }, /archived/],
+    ['the line is already linked', { line: { linkedTransferId: 'counterpart' } }, /already one half of a transfer/],
+  ])('refuses when %s — and writes nothing at all', async (_case, over, message) => {
+    const storage = lending(over);
+    const service = buildService(storage);
+
+    await expect(service.linkSplitLineTransfer('leg', 'loan-row')).rejects.toThrow(message);
+
+    const lines = storage.snapshot(STORAGE_KEYS.TRANSACTION_SPLITS) as TransactionSplit[];
+    expect(lines.find(l => l.id === 'leg')?.linkedTransferId).toBe(over.line?.linkedTransferId);
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored.find(t => t.id === 'loan-row')?.type).not.toBe('transfer');
+  });
+
+  it('refuses a line or a row that is not there', async () => {
+    const service = buildService(lending());
+    await expect(service.linkSplitLineTransfer('nope', 'loan-row'))
+      .rejects.toThrow(/split line no longer exists/);
+    await expect(service.linkSplitLineTransfer('leg', 'nope'))
+      .rejects.toThrow(/Transaction not found/);
   });
 });

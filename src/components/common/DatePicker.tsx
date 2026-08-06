@@ -7,7 +7,26 @@ interface DatePickerProps {
   className?: string;
   'aria-label'?: string;
   id?: string;
+  /** Mirrors a native date input's `required` for forms that rely on it. */
+  required?: boolean;
+  /** Runs AFTER the typed draft settles, so a caller's touched/validation
+   *  bookkeeping sees the committed value rather than the half-typed one. */
+  onBlur?: () => void;
+  'aria-invalid'?: boolean;
+  'aria-describedby'?: string;
+  /**
+   * Chrome density. 'sm' matches the compact filter rows (px-2 py-1.5) that
+   * native inputs used; padding lives here rather than in className because
+   * Tailwind resolves competing padding utilities by stylesheet order, not by
+   * the order they appear in the class attribute.
+   */
+  size?: 'sm' | 'md';
 }
+
+const SIZES = {
+  sm: { field: 'px-2 py-1.5 pr-8', icon: 'right-2', iconSize: 14 },
+  md: { field: 'px-3 py-2 pr-10', icon: 'right-3', iconSize: 16 },
+} as const;
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTHS = [
@@ -63,7 +82,18 @@ function parseTypedDate(input: string): string | null {
   return toYMD(year, month - 1, day);
 }
 
-export default function DatePicker({ value, onChange, className = '', 'aria-label': ariaLabel, id }: DatePickerProps) {
+export default function DatePicker({
+  value,
+  onChange,
+  className = '',
+  'aria-label': ariaLabel,
+  id,
+  required,
+  onBlur,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
+  size = 'md',
+}: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -264,6 +294,8 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
     setIsOpen(true);
   };
 
+  const chrome = SIZES[size];
+
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
@@ -275,16 +307,22 @@ export default function DatePicker({ value, onChange, className = '', 'aria-labe
           onChange={(e) => handleTyping(e.target.value)}
           onFocus={openPicker}
           onClick={openPicker}
-          onBlur={settleDraft}
+          onBlur={() => {
+            settleDraft();
+            onBlur?.();
+          }}
           onKeyDown={handleKeyDown}
           placeholder="dd/mm/yyyy"
           aria-label={ariaLabel}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
+          required={required}
           autoComplete="off"
-          className={`w-full px-3 py-2 pr-10 ${className}`}
+          className={`w-full ${chrome.field} ${className}`}
         />
         <CalendarIcon
-          size={16}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          size={chrome.iconSize}
+          className={`absolute ${chrome.icon} top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none`}
         />
       </div>
 

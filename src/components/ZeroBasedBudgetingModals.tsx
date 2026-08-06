@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
+import DatePicker from './common/DatePicker';
 import type { Category } from '../types';
 import { parseMoneyInput } from '../utils/decimal';
+import { formatDateForInput } from '../utils/dateFormatter';
 
 // Types shared with ZeroBasedBudgeting
 export interface ZeroBudgetItem {
@@ -68,25 +70,29 @@ export function NewPeriodModal({ onSave, onClose }: NewPeriodModalProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. These two hold real Dates
+                  and are required, so an emptied value (the picker's Clear)
+                  is ignored rather than stored as an Invalid Date. */}
               <div>
                 <label className="block text-sm font-medium mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={formData.startDate.toISOString().split('T')[0]}
-                  onChange={(e) => setFormData({ ...formData, startDate: new Date(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                <DatePicker
+                  value={formatDateForInput(formData.startDate)}
+                  onChange={(val) => { if (val) setFormData({ ...formData, startDate: new Date(val) }); }}
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   required
+                  aria-label="Budget start date"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={formData.endDate.toISOString().split('T')[0]}
-                  onChange={(e) => setFormData({ ...formData, endDate: new Date(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                <DatePicker
+                  value={formatDateForInput(formData.endDate)}
+                  onChange={(val) => { if (val) setFormData({ ...formData, endDate: new Date(val) }); }}
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   required
+                  aria-label="Budget end date"
                 />
               </div>
             </div>

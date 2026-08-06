@@ -1,5 +1,6 @@
 import React from 'react';
 import MoneyInput from './common/MoneyInput';
+import DatePicker from './common/DatePicker';
 import type { Category } from '../types';
 
 type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
@@ -154,12 +155,14 @@ export function CreateGoalModal({ form, setForm, categories, onSubmit, onClose }
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Date</label>
-              <input
-                type="date"
+              {/* dd/mm/yyyy everywhere — a native date input renders in the
+                  browser's locale, not the app's. */}
+              <DatePicker
                 value={form.targetDate}
-                onChange={(e) => setForm({ ...form, targetDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                onChange={(val) => setForm({ ...form, targetDate: val })}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 required
+                aria-label="Target date"
               />
             </div>
           </div>
