@@ -1,11 +1,16 @@
 # Supabase Database Connection Status
 **Last Updated:** 2025-10-30
 
+> ⚠️ **Credentials removed.** Every `<YOUR_DB_PASSWORD>` placeholder below stands in for the real
+> database password, which used to be committed here in plain text. Read it from `.env.local`
+> (or your secret manager) at the point of use — never paste it back into this file. This repo is
+> public.
+
 ## Connection Details Provided
 - **Project Hostname:** `db.nqbacrjjgdjabygqtcah.supabase.co` (IPv6 only)
 - **Pooler Host:** `aws-0-eu-west-2.pooler.supabase.com`
 - **Username:** `postgres.nqbacrjjgdjabygqtcah`
-- **Password:** `SDzMGtV9FGTfdLun`
+- **Password:** `<YOUR_DB_PASSWORD>`
 - **Ports:** 5432 (session pooler), 6543 (transaction pooler)
 - **Database:** `postgres`
 
@@ -18,14 +23,14 @@ host db.nqbacrjjgdjabygqtcah.supabase.co
 → IPv6: 2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf
 
 # Connection attempt fails - no route to IPv6 host
-PGPASSWORD="SDzMGtV9FGTfdLun" psql -h "2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf" -p 5432 -U postgres
+PGPASSWORD="<YOUR_DB_PASSWORD>" psql -h "2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf" -p 5432 -U postgres
 ```
 **Result:** No route to host when IPv6 connectivity is unavailable
 
 ### ✅ Pooler Connection (IPv4 Allow-Listed)
 After adding our public IPv4 (`86.161.28.220`) to Supabase → Database → Network Restrictions, the pooler host succeeds:
 ```bash
-PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
+PGPASSWORD="<YOUR_DB_PASSWORD>" pg_dump \
   -h aws-0-eu-west-2.pooler.supabase.com \
   -p 6543 \
   -U postgres.nqbacrjjgdjabygqtcah \
@@ -100,7 +105,7 @@ Using the **canonical pg_dump snapshot** in `supabase/migrations/20251030003814_
 
 ```bash
 # Full schema export via pooler host (transaction pooler port 6543)
-PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
+PGPASSWORD="<YOUR_DB_PASSWORD>" pg_dump \
   -h aws-0-eu-west-2.pooler.supabase.com \
   -p 6543 \
   -U postgres.nqbacrjjgdjabygqtcah \
@@ -109,7 +114,7 @@ PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
   -f supabase/migrations/20251030003814__initial-schema.sql
 
 # Lint migrations (requires SUPABASE_DB_URL environment variable)
-SUPABASE_DB_URL="postgresql://postgres.nqbacrjjgdjabygqtcah:SDzMGtV9FGTfdLun@aws-0-eu-west-2.pooler.supabase.com:6543/postgres" \
+SUPABASE_DB_URL="postgresql://postgres.nqbacrjjgdjabygqtcah:<YOUR_DB_PASSWORD>@aws-0-eu-west-2.pooler.supabase.com:6543/postgres" \
   npx supabase db lint --linked --fail-on error
 ```
 

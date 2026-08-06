@@ -85,7 +85,7 @@ npm run test:supabase-smoke
 ### GitHub Secrets Required
 - `VITE_SUPABASE_URL` ✅
 - `VITE_SUPABASE_ANON_KEY` ✅
-- `VITE_SUPABASE_SERVICE_ROLE_KEY` ✅
+- `SUPABASE_SERVICE_ROLE_KEY` ✅ (no `VITE_` prefix — `VITE_*` vars are inlined into the public browser bundle)
 - `SUPABASE_DB_URL` ✅ (for pg_dump and lint)
 
 ### CI Workflow

@@ -34,7 +34,10 @@ if (existsSync(envPath)) {
 
 const url = process.env.VITE_SUPABASE_URL;
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
-const serviceRoleKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+// Prefer the unprefixed name: a VITE_ prefix would inline the service-role key into
+// the browser bundle. The prefixed name is accepted only as a legacy fallback.
+const serviceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 console.log('\n🔍 Checking RLS and policy status...\n');
 

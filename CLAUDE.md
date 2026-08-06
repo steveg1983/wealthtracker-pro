@@ -33,7 +33,11 @@ Latest Vercel preview: `wealthtracker-l514dsq11` (2025‑10‑29 21:33 UTC). B
 ### Supabase
 - `scripts/run-supabase-smoke.mjs` discovers `supabase` tests, loads `.env.test.local`, and writes timestamped logs to `logs/supabase-smoke/<ISO>_supabase-smoke.log` plus `latest.log`. Nightly GitHub workflow uploads the log artifact for auditing.
 - Schema + migrations live under `supabase/`. Use `npm run db:migration:new`, `db:migrate`, `db:diff`, `db:lint`, `db:reset` with `SUPABASE_DB_URL`.
-- CI secrets required: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`.
+- CI secrets required: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`.
+- ⚠️ **Never prefix a service-role key with `VITE_`.** Vite inlines every `VITE_*` var into the
+  public browser bundle at build time; a `VITE_SUPABASE_SERVICE_ROLE_KEY` leaked the master key
+  into `dist/` in June 2026. The server/CI name is `SUPABASE_SERVICE_ROLE_KEY` (no prefix) — that
+  is the GitHub Actions secret and the only name `api/_lib/supabase.ts` accepts.
 
 ### Collaboration Rules
 - Keep selectors stable for dashboard/import journeys; log multi-file UI refactors in the latest regression audit doc.

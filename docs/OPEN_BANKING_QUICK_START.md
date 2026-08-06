@@ -28,16 +28,11 @@ Generate encryption key:
 openssl rand -hex 32
 ```
 
-### 3. Send to ChatGPT (10 min)
-**File 1**: Open `docs/chatgpt-message-1-project-overview.md`
-- Find the section with `TRUELAYER_CLIENT_ID=...`
-- Replace with your NEW credentials
-- Copy entire file and paste to ChatGPT
-- **WAIT for response**
-
-**File 2**: After ChatGPT responds, send `docs/chatgpt-message-2-database-schema.md`
-
-**File 3**: After ChatGPT responds, send `docs/chatgpt-message-3-api-contract.md`
+### 3. Brief the Backend Developer (10 min)
+The three pre-written handover files this step used to point at have been deleted — that
+collaboration is over, and two of them held live credentials in a public repo. Brief the backend
+developer from `docs/OPEN_BANKING_IMPLEMENTATION_GUIDE.md` (Step 3) instead, and hand over
+rotated credentials through a secure channel rather than a committed file.
 
 ---
 
@@ -46,16 +41,13 @@ openssl rand -hex 32
 | File | Purpose |
 |------|---------|
 | `docs/OPEN_BANKING_IMPLEMENTATION_GUIDE.md` | Complete guide (read this for details) |
-| `docs/chatgpt-message-1-project-overview.md` | Message 1 to send ChatGPT |
-| `docs/chatgpt-message-2-database-schema.md` | Message 2 to send ChatGPT |
-| `docs/chatgpt-message-3-api-contract.md` | Message 3 to send ChatGPT |
-| `supabase/migrations/20250102_enhance_open_banking.sql` | Database upgrade (deploy after Message 2) |
+| `supabase/migrations/20250102_enhance_open_banking.sql` | Database upgrade (deploy once the schema is confirmed) |
 
 ---
 
 ## ⏱️ Timeline
 
-- **Today**: Rotate credentials, send messages to ChatGPT
+- **Today**: Rotate credentials, brief the backend developer
 - **Week 1**: ChatGPT sets up database + first endpoint
 - **Weeks 2-4**: ChatGPT builds remaining 6 endpoints
 - **Week 5**: You + Claude integrate frontend
@@ -77,12 +69,11 @@ openssl rand -hex 32
 
 - [ ] Credentials rotated
 - [ ] .env.local updated
-- [ ] Message 1 sent to ChatGPT
-- [ ] Message 2 sent (after ChatGPT responds)
-- [ ] Message 3 sent (after ChatGPT responds)
+- [ ] Backend developer briefed from the implementation guide
+- [ ] Rotated credentials shared securely (not via a committed file)
 - [ ] Database enhancements deployed
-- [ ] Backend implementation started (ChatGPT's work)
+- [ ] Backend implementation started
 
-**Start here**: Step 1 → Rotate credentials → Then message ChatGPT
+**Start here**: Step 1 → Rotate credentials → Then brief the backend developer
 
 That's it! See the full guide for details: `docs/OPEN_BANKING_IMPLEMENTATION_GUIDE.md`

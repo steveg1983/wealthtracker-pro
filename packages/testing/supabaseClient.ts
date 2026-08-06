@@ -31,6 +31,14 @@ const ensureEnv = (key: string, message: string): string => {
   return value;
 };
 
+/** Like ensureEnv, but for a value already resolved from more than one accepted name. */
+const ensureValue = (value: string | undefined, message: string): string => {
+  if (!value) {
+    throw new Error(message);
+  }
+  return value;
+};
+
 interface GetClientOptions {
   mode?: ClientMode;
   fallbackToAnon?: boolean;
@@ -48,13 +56,15 @@ export const getSupabaseTestClient = ({
   const desiredMode = mode;
   let effectiveMode = desiredMode;
 
+  // Unprefixed first: a VITE_ prefix would inline the service-role key into the
+  // browser bundle. The prefixed name is accepted only as a legacy fallback.
   const serviceRoleKey =
-    process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
   if (desiredMode === 'service' && !serviceRoleKey) {
     if (!fallbackToAnon) {
       throw new Error(
-        'Supabase service role key missing – set VITE_SUPABASE_SERVICE_ROLE_KEY when requesting service mode.',
+        'Supabase service role key missing – set SUPABASE_SERVICE_ROLE_KEY when requesting service mode.',
       );
     }
     effectiveMode = 'anon';
@@ -66,9 +76,9 @@ export const getSupabaseTestClient = ({
 
   const supabaseKey =
     effectiveMode === 'service'
-      ? ensureEnv(
-          'VITE_SUPABASE_SERVICE_ROLE_KEY',
-          'Supabase service role key missing – set VITE_SUPABASE_SERVICE_ROLE_KEY in your test environment.',
+      ? ensureValue(
+          serviceRoleKey,
+          'Supabase service role key missing – set SUPABASE_SERVICE_ROLE_KEY in your test environment.',
         )
       : ensureEnv(
           'VITE_SUPABASE_ANON_KEY',

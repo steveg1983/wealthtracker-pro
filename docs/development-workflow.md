@@ -35,7 +35,9 @@ The realtime guard now covers deterministic suites for realtime price (subscribe
 
 Real integration suites are opt-in. To exercise them locally or in CI you must:
 
-1. Provide Supabase credentials: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and a privileged `VITE_SUPABASE_SERVICE_ROLE_KEY`. Store them in `.env.test.local` (preferred) so the smoke helper can load them automatically. `.env.local` is used only for interactive dev.
+1. Provide Supabase credentials: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and a privileged `SUPABASE_SERVICE_ROLE_KEY`. Store them in `.env.test.local` (preferred) so the smoke helper can load them automatically. `.env.local` is used only for interactive dev.
+
+   > ⚠️ The service-role key must **never** carry the `VITE_` prefix. Vite inlines every `VITE_*` var into the public browser bundle, so a `VITE_`-prefixed service-role key ships the master key to every visitor (this happened in June 2026). Server, CI, and test environments all use the unprefixed `SUPABASE_SERVICE_ROLE_KEY`.
 2. Explicitly opt-in via `RUN_SUPABASE_REAL_TESTS=true`.
 3. Run the dedicated command:
 
@@ -44,7 +46,7 @@ Real integration suites are opt-in. To exercise them locally or in CI you must:
 RUN_SUPABASE_REAL_TESTS=true \
 VITE_SUPABASE_URL=https://nqbacrjjgdjabygqtcah.supabase.co \
 VITE_SUPABASE_ANON_KEY=... \
-VITE_SUPABASE_SERVICE_ROLE_KEY=... \
+SUPABASE_SERVICE_ROLE_KEY=... \
 node scripts/run-supabase-smoke.mjs
 
 # Or rely on .env.test.local via npm script
@@ -59,7 +61,7 @@ Each run writes a timestamped log to `logs/supabase-smoke/<ISO>_supabase-smoke.l
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (no `VITE_` prefix — server-side only)
 
 The workflow is guarded so it silently skips when any secret is missing. Coordinate with DevOps before enabling it in production to manage costs and rate limits.
 

@@ -18,14 +18,14 @@ If it works, you should see something like:
 
 ```json
 {
-  "authUrl": "https://auth.truelayer-sandbox.com/?response_type=code&client_id=sandbox-wealthtracker-dd0b41&scope=info%20accounts%20balance%20transactions%20offline_access&redirect_uri=http://localhost:5173/auth/callback&state=SOME_SIGNED_TOKEN&nonce=RANDOM_NONCE",
+  "authUrl": "https://auth.truelayer-sandbox.com/?response_type=code&client_id=<YOUR_TRUELAYER_CLIENT_ID>&scope=info%20accounts%20balance%20transactions%20offline_access&redirect_uri=http://localhost:5173/auth/callback&state=SOME_SIGNED_TOKEN&nonce=RANDOM_NONCE",
   "state": "SOME_SIGNED_TOKEN"
 }
 ```
 
 The important parts:
 - ✅ `authUrl` starts with `https://auth.truelayer-sandbox.com/`
-- ✅ Contains your client ID: `sandbox-wealthtracker-dd0b41`
+- ✅ Contains your client ID: `<YOUR_TRUELAYER_CLIENT_ID>`
 - ✅ Has a `state` token (CSRF protection)
 
 ---
