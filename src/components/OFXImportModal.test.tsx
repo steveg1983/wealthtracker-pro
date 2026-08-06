@@ -39,7 +39,9 @@ vi.mock('./icons', () => ({
   InfoIcon: ({ className }: { className?: string }) => <div data-testid="info-icon" className={className}>Info</div>,
   LinkIcon: () => <div data-testid="link-icon">Link</div>,
   UnlinkIcon: () => <div data-testid="unlink-icon">Unlink</div>,
-  RefreshCwIcon: () => <div data-testid="refresh-icon">Refresh</div>
+  RefreshCwIcon: () => <div data-testid="refresh-icon">Refresh</div>,
+  // The account combobox's own chevron.
+  ChevronDownIcon: () => <div data-testid="chevron-down-icon">Chevron</div>
 }));
 
 // Mock Modal component
@@ -135,6 +137,18 @@ describe('OFXImportModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  /**
+   * The destination account is a searchable combobox now, not a native
+   * <select>: open it and click the row, as a user would.
+   */
+  const chooseAccount = (label: string): void => {
+    fireEvent.click(screen.getByRole('combobox', { name: 'Import to Account' }));
+    fireEvent.click(screen.getByText(label));
+  };
+
+  const CURRENT_ACCOUNT = 'Current Account (checking)';
+  const SAVINGS_ACCOUNT = 'Savings Account (savings)';
 
   describe('Rendering', () => {
     it('renders nothing when closed', () => {
@@ -359,17 +373,21 @@ describe('OFXImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        const select = screen.getByRole('combobox');
-        expect(select).toBeInTheDocument();
-        expect(screen.getByText('Select an account...')).toBeInTheDocument();
-        expect(screen.getByText('Current Account (checking)')).toBeInTheDocument();
-        expect(screen.getByText('Savings Account (savings)')).toBeInTheDocument();
-        expect(screen.getByText('Credit Card (credit)')).toBeInTheDocument();
-        // Banded like every other account picker in the app.
-        expect(Array.from(select.querySelectorAll('optgroup')).map(g => g.label)).toEqual([
-          'Current Accounts', 'Savings Accounts', 'Credit Cards',
-        ]);
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
       });
+      expect(screen.getByText('Search or select an account…')).toBeInTheDocument();
+
+      // The same searchable, banded picker as every other account field.
+      fireEvent.click(screen.getByRole('combobox', { name: 'Import to Account' }));
+      const list = screen.getByRole('listbox', { name: 'Import to Account' });
+      expect(
+        Array.from(list.children)
+          .filter(child => child.getAttribute('role') === 'group')
+          .map(child => child.getAttribute('aria-label'))
+      ).toEqual(['Current Accounts', 'Savings Accounts', 'Credit Cards']);
+      expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual([
+        'Current Account (checking)', 'Savings Account (savings)', 'Credit Card (credit)',
+      ]);
     });
 
     it('handles parsing errors', async () => {
@@ -426,10 +444,10 @@ describe('OFXImportModal', () => {
     });
 
     it('allows selecting account when no match found', () => {
-      const select = screen.getByRole('combobox');
-      
-      fireEvent.change(select, { target: { value: 'acc2' } });
-      expect(select).toHaveValue('acc2');
+      chooseAccount(SAVINGS_ACCOUNT);
+
+      expect(screen.getByRole('combobox', { name: 'Import to Account' }))
+        .toHaveTextContent(SAVINGS_ACCOUNT);
     });
   });
 
@@ -582,8 +600,7 @@ describe('OFXImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'acc1' } });
+        chooseAccount(CURRENT_ACCOUNT);
         
         const importButton = screen.getByTestId('loading-button');
         expect(importButton).not.toBeDisabled();
@@ -815,8 +832,7 @@ describe('OFXImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'acc2' } });
+        chooseAccount(SAVINGS_ACCOUNT);
         
         const importButton = screen.getByTestId('loading-button');
         fireEvent.click(importButton);

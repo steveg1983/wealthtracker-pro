@@ -13,7 +13,9 @@ vi.mock('./icons', () => ({
   CheckIcon: () => <div data-testid="check-icon">Check</div>,
   AlertCircleIcon: () => <div data-testid="alert-circle-icon">Alert</div>,
   InfoIcon: ({ className }: { className?: string }) => <div data-testid="info-icon" className={className}>Info</div>,
-  RefreshCwIcon: () => <div data-testid="refresh-icon">Refresh</div>
+  RefreshCwIcon: () => <div data-testid="refresh-icon">Refresh</div>,
+  // The account combobox's own chevron.
+  ChevronDownIcon: () => <div data-testid="chevron-down-icon">Chevron</div>
 }));
 
 // Mock Modal component
@@ -115,6 +117,18 @@ describe('QIFImportModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  /**
+   * The destination account is a searchable combobox now, not a native
+   * <select>: open it and click the row, as a user would.
+   */
+  const chooseAccount = (label: string): void => {
+    fireEvent.click(screen.getByRole('combobox', { name: 'Import to Account' }));
+    fireEvent.click(screen.getByText(label));
+  };
+
+  const CURRENT_ACCOUNT = 'Current Account (checking)';
+  const SAVINGS_ACCOUNT = 'Savings Account (savings)';
 
   const sampleTransaction: QIFParseResult['transactions'][number] = {
     date: '2024-01-15',
@@ -283,18 +297,22 @@ describe('QIFImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        const select = screen.getByRole('combobox');
-        expect(select).toBeInTheDocument();
-        expect(screen.getByText('Select an account...')).toBeInTheDocument();
-        expect(screen.getByText('Current Account (checking)')).toBeInTheDocument();
-        expect(screen.getByText('Savings Account (savings)')).toBeInTheDocument();
-        expect(screen.getByText('Credit Card (credit)')).toBeInTheDocument();
-        // Banded like every other account picker — the DB's 'checking' still
-        // files under Current Accounts.
-        expect(Array.from(select.querySelectorAll('optgroup')).map(g => g.label)).toEqual([
-          'Current Accounts', 'Savings Accounts', 'Credit Cards',
-        ]);
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
       });
+      expect(screen.getByText('Search or select an account…')).toBeInTheDocument();
+
+      // The same searchable, banded picker as every other account field — and
+      // the DB's 'checking' still files under Current Accounts.
+      fireEvent.click(screen.getByRole('combobox', { name: 'Import to Account' }));
+      const list = screen.getByRole('listbox', { name: 'Import to Account' });
+      expect(
+        Array.from(list.children)
+          .filter(child => child.getAttribute('role') === 'group')
+          .map(child => child.getAttribute('aria-label'))
+      ).toEqual(['Current Accounts', 'Savings Accounts', 'Credit Cards']);
+      expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual([
+        'Current Account (checking)', 'Savings Account (savings)', 'Credit Card (credit)',
+      ]);
     });
 
     it('shows transaction preview', async () => {
@@ -385,10 +403,10 @@ describe('QIFImportModal', () => {
     });
 
     it('allows selecting account', () => {
-      const select = screen.getByRole('combobox');
-      
-      fireEvent.change(select, { target: { value: 'acc2' } });
-      expect(select).toHaveValue('acc2');
+      chooseAccount(SAVINGS_ACCOUNT);
+
+      expect(screen.getByRole('combobox', { name: 'Import to Account' }))
+        .toHaveTextContent(SAVINGS_ACCOUNT);
     });
 
     it('shows required field indicator', () => {
@@ -425,8 +443,7 @@ describe('QIFImportModal', () => {
     });
 
     it('enables import button when account is selected', () => {
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc1' } });
+      chooseAccount(CURRENT_ACCOUNT);
       
       const importButton = screen.getByTestId('loading-button');
       expect(importButton).not.toBeDisabled();
@@ -445,8 +462,7 @@ describe('QIFImportModal', () => {
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
       
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc1' } });
+      chooseAccount(CURRENT_ACCOUNT);
       
       const importButton = screen.getByTestId('loading-button');
       fireEvent.click(importButton);
@@ -472,8 +488,7 @@ describe('QIFImportModal', () => {
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
       
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc1' } });
+      chooseAccount(CURRENT_ACCOUNT);
       
       const importButton = screen.getByTestId('loading-button');
       fireEvent.click(importButton);
@@ -487,8 +502,7 @@ describe('QIFImportModal', () => {
     it('handles import errors', async () => {
       vi.mocked(qifImportService.importTransactions).mockRejectedValueOnce(new Error('Import failed'));
       
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc1' } });
+      chooseAccount(CURRENT_ACCOUNT);
       
       const importButton = screen.getByTestId('loading-button');
       fireEvent.click(importButton);
@@ -501,8 +515,7 @@ describe('QIFImportModal', () => {
     });
 
     it('shows loading state during import', async () => {
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc1' } });
+      chooseAccount(CURRENT_ACCOUNT);
       
       const importButton = screen.getByTestId('loading-button');
       
@@ -529,8 +542,7 @@ describe('QIFImportModal', () => {
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
       
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc2' } });
+      chooseAccount(SAVINGS_ACCOUNT);
       
       const importButton = screen.getByTestId('loading-button');
       fireEvent.click(importButton);
@@ -555,8 +567,7 @@ describe('QIFImportModal', () => {
       
       vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce(mockImportResult);
       
-      const select = screen.getByRole('combobox');
-      fireEvent.change(select, { target: { value: 'acc1' } });
+      chooseAccount(CURRENT_ACCOUNT);
       
       const checkbox = screen.getByRole('checkbox', { name: /Skip potential duplicates/ });
       fireEvent.click(checkbox); // Uncheck the option
@@ -635,8 +646,7 @@ describe('QIFImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'acc1' } });
+        chooseAccount(CURRENT_ACCOUNT);
         
         const importButton = screen.getByTestId('loading-button');
         fireEvent.click(importButton);
@@ -680,8 +690,7 @@ describe('QIFImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        const select = screen.getByRole('combobox');
-        fireEvent.change(select, { target: { value: 'acc1' } });
+        chooseAccount(CURRENT_ACCOUNT);
         
         const importButton = screen.getByTestId('loading-button');
         fireEvent.click(importButton);

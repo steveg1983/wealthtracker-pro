@@ -34,8 +34,10 @@ import type {
   Category,
   CategoryMergeResult,
   Budget,
+  DismissalKind,
   Goal,
   RecurringTransaction,
+  SuggestionDismissal,
   AppState
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -230,6 +232,33 @@ export interface AppContextType extends AppState {
     id: string,
     targetAccountId: string
   ) => Promise<{ source: Transaction; counterpart: Transaction }>;
+  /**
+   * Suggestions the user has told the sweeps to stop offering. Loaded on demand
+   * (nothing outside the sweeps needs them, and the boot is already the slowest
+   * thing in the app), so a surface that filters by these must wait for
+   * `suggestionDismissalsStatus` to leave 'loading' before it renders a list.
+   */
+  suggestionDismissals: SuggestionDismissal[];
+  /**
+   * 'idle' before the first load, 'error' when the list could not be read — in
+   * which case the surfaces show everything and say so, rather than pretending
+   * the filter ran.
+   */
+  suggestionDismissalsStatus: 'idle' | 'loading' | 'ready' | 'error';
+  /** Re-read the dismissals (called when a sweep opens). Never throws. */
+  refreshSuggestionDismissals: () => Promise<void>;
+  /**
+   * Record a refusal so the suggestion is never offered again. Throws if it
+   * could not be saved — a dismissal that silently fails is the bug this exists
+   * to fix.
+   */
+  dismissSuggestion: (
+    kind: DismissalKind,
+    subjectKey: string,
+    subjectIds: string[]
+  ) => Promise<void>;
+  /** Undo a refusal: the suggestion comes back from the next scan. */
+  restoreSuggestion: (kind: DismissalKind, subjectKey: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -250,6 +279,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // into these lines via expandSplitTransactions.
   const [transactionSplits, setTransactionSplitsState] = useState<TransactionSplit[]>([]);
   const [serverBalances, setServerBalances] = useState<Map<string, ServerAccountBalance>>(new Map());
+  // Refusals the sweeps must honour. Loaded when a sweep opens, not at boot:
+  // nothing else reads them, and the boot is already the slowest thing here.
+  const [suggestionDismissals, setSuggestionDismissals] = useState<SuggestionDismissal[]>([]);
+  const [suggestionDismissalsStatus, setSuggestionDismissalsStatus] =
+    useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -939,6 +973,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshSuggestionDismissals = useCallback(async () => {
+    setSuggestionDismissalsStatus('loading');
+    try {
+      setSuggestionDismissals(await DataService.getSuggestionDismissals());
+      setSuggestionDismissalsStatus('ready');
+    } catch (error) {
+      // Never thrown on: a sweep that cannot read the dismissals still has to
+      // open. It shows everything and says the filter did not run — which is
+      // the safe direction to fail in, since a dismissal can only hide.
+      appLogger.error('Failed to load suggestion dismissals', error);
+      setSuggestionDismissals([]);
+      setSuggestionDismissalsStatus('error');
+    }
+  }, []);
+
+  const dismissSuggestion = useCallback(async (
+    kind: DismissalKind,
+    subjectKey: string,
+    subjectIds: string[]
+  ) => {
+    try {
+      const dismissal = await DataService.dismissSuggestion(kind, subjectKey, subjectIds);
+      // Keyed by (kind, subjectKey), exactly as the table's unique constraint
+      // is, so a repeat refusal replaces rather than duplicates.
+      setSuggestionDismissals(prev => [
+        dismissal,
+        ...prev.filter(d => !(d.kind === kind && d.subjectKey === subjectKey)),
+      ]);
+    } catch (error) {
+      appLogger.error('Failed to dismiss suggestion', error);
+      throw error;
+    }
+  }, []);
+
+  const restoreSuggestion = useCallback(async (kind: DismissalKind, subjectKey: string) => {
+    try {
+      await DataService.restoreSuggestion(kind, subjectKey);
+      setSuggestionDismissals(prev =>
+        prev.filter(d => !(d.kind === kind && d.subjectKey === subjectKey))
+      );
+    } catch (error) {
+      appLogger.error('Failed to restore dismissed suggestion', error);
+      throw error;
+    }
+  }, []);
+
   const deleteTransaction = useCallback(async (id: string) => {
     try {
       const transaction = transactions.find(t => t.id === id);
@@ -946,7 +1026,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTransactions(prev => prev.filter(t => t.id !== id));
       // Its split lines cascade away in the DB (FK); mirror locally.
       setTransactionSplitsState(prev => prev.filter(s => s.transactionId !== id));
-      
+      // So do any dismissals that named it (trg_prune_suggestion_dismissals):
+      // the suggestion can never be offered again, so the refusal is spent.
+      setSuggestionDismissals(prev => prev.filter(d => !d.subjectIds.includes(id)));
+
       // Update account balance (Decimal arithmetic; the DB balance is reversed
       // atomically inside delete_transaction_atomic).
       if (transaction) {
@@ -1374,6 +1457,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactionArchived,
     repairClaimedTransfer,
     createTransferCounterpart,
+
+    // Sweep suggestions the user has refused for good
+    suggestionDismissals,
+    suggestionDismissalsStatus,
+    refreshSuggestionDismissals,
+    dismissSuggestion,
+    restoreSuggestion,
 
     // Budget operations
     addBudget,

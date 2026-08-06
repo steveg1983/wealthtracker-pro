@@ -9,7 +9,7 @@ import { useCategories } from '../../contexts/CategoryContext';
 import { useAccounts } from '../../contexts/AccountContext';
 import { formatCurrency } from '../../utils/formatters';
 import MoneyInput from '../common/MoneyInput';
-import GroupedAccountSelect from '../common/GroupedAccountSelect';
+import AccountSelector from '../common/AccountSelector';
 import DatePicker from '../common/DatePicker';
 import { toDecimal, parseMoneyInput } from '../../utils/decimal';
 import { 
@@ -252,14 +252,16 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <label className="block text-sm font-medium mb-1">
                 Account <span className="text-red-500">*</span>
               </label>
-              <GroupedAccountSelect
+              <AccountSelector
                 accounts={accounts}
-                value={formData.accountId}
-                onChange={(accountId) => setFormData({ ...formData, accountId })}
-                placeholder="Select an account"
+                selectedAccountId={formData.accountId}
+                onAccountChange={(accountId) => setFormData({ ...formData, accountId })}
+                placeholder="Search or select an account…"
                 formatLabel={(account) => `${account.name} (${formatCurrency(account.balance)})`}
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                className="w-full px-3 py-2 h-[42px] border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                usePortal
                 required
+                ariaLabel="Account"
               />
             </div>
 

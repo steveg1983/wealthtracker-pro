@@ -16,7 +16,7 @@ import {
   RepeatIcon
 } from './icons';
 import BulkEditPanel from './BulkEditPanel';
-import { GroupedAccountOptions } from './common/GroupedAccountSelect';
+import GroupedAccountOptions from './common/GroupedAccountOptions';
 import DatePicker from './common/DatePicker';
 import { formatDateForInput } from '../utils/dateFormatter';
 import type { Transaction } from '../types';

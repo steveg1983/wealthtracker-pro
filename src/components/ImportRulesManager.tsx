@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importRulesService } from '../services/importRulesService';
 import MoneyInput from './common/MoneyInput';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import { parseMoneyInput } from '../utils/decimal';
 import { 
   PlusIcon, 
@@ -716,15 +716,21 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                     )}
 
                     {action.type === 'setAccount' && (
-                      <GroupedAccountSelect
-                        accounts={accounts}
-                        // An action starts with no value at all; '' is the
-                        // placeholder the select shows for it.
-                        value={action.value ?? ''}
-                        onChange={(accountId) => updateAction(index, { value: accountId })}
-                        placeholder="Select account"
-                        className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
-                      />
+                      // The picker's own box is the flex child's content, so
+                      // the row's `flex-1` sits on a wrapper around it.
+                      <div className="flex-1 min-w-0">
+                        <AccountSelector
+                          accounts={accounts}
+                          // An action starts with no value at all; '' is the
+                          // placeholder the picker shows for it.
+                          selectedAccountId={action.value ?? ''}
+                          onAccountChange={(accountId) => updateAction(index, { value: accountId })}
+                          placeholder="Search or select account…"
+                          className="w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                          usePortal
+                          ariaLabel="Account to set"
+                        />
+                      </div>
                     )}
 
                     <button

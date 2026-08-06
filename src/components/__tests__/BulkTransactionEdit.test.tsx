@@ -127,7 +127,9 @@ vi.mock('../icons', () => ({
   UndoIcon: ({ className }: { className?: string }) => <div data-testid="undo-icon" className={className}>Undo</div>,
   RepeatIcon: ({ className }: { className?: string }) => <div data-testid="repeat-icon" className={className}>Repeat</div>,
   EyeIcon: ({ className }: { className?: string }) => <div data-testid="eye-icon" className={className}>Eye</div>,
-  X: ({ className }: { className?: string }) => <div data-testid="x-icon" className={className}>X</div>
+  X: ({ className }: { className?: string }) => <div data-testid="x-icon" className={className}>X</div>,
+  // The account combobox's own chevron (the bulk-edit "Move to Account" field).
+  ChevronDownIcon: () => <div data-testid="chevron-down-icon">Chevron</div>
 }));
 
 // Mock window.matchMedia

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { Modal, ModalBody, ModalFooter } from '../common/Modal';
 import { bankConnectionService } from '../../services/bankConnectionService';
 import { useApp } from '../../contexts/AppContextSupabase';
@@ -8,7 +8,7 @@ import LazyErrorBoundary from '../LazyErrorBoundary';
 import type { DiscoveredBankAccount } from '../../types/banking-api';
 import type { Account } from '../../types';
 
-import AccountPickerCombobox from './AccountPickerCombobox';
+import AccountSelector from '../common/AccountSelector';
 import { CREATE_NEW_VALUE } from './accountPickerOptions';
 
 // The only lazy import in the app that must NOT reload the page on its own.
@@ -141,6 +141,13 @@ export default function LinkBankAccountsModal({
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAccountFor, setCreateAccountFor] = useState<string | null>(null);
+
+  // A closed account cannot take a live bank feed, so it is never offered as
+  // a link target — belt and braces, since the context carries open ones only.
+  const linkableAccounts = useMemo(
+    () => accounts.filter((a) => a.isActive !== false),
+    [accounts]
+  );
 
   const loadDiscoveredAccounts = useCallback(async () => {
     setIsLoading(true);
@@ -319,11 +326,23 @@ export default function LinkBankAccountsModal({
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                         Link to:
                       </label>
-                      <AccountPickerCombobox
-                        accounts={accounts}
-                        value={selectedId}
-                        onChange={(v) => updateLink(da.externalAccountId, v)}
+                      {/* The one account picker, shared with every
+                          transaction editor: the same bands, the same
+                          type-to-filter (name, bank or sort code), plus this
+                          wizard's own skip and create rows. The institution
+                          is a band heading here, so a row prints its name
+                          and — where two accounts share one — its sort code. */}
+                      <AccountSelector
+                        accounts={linkableAccounts}
+                        selectedAccountId={selectedId}
+                        onAccountChange={(v) => updateLink(da.externalAccountId, v)}
                         ariaLabel={`Link ${da.name} to account`}
+                        placeholder="Skip (don't link)"
+                        searchPlaceholder="Type to search accounts…"
+                        clearOption="Skip (don't link)"
+                        createOption={{ label: 'Create New Account', value: CREATE_NEW_VALUE }}
+                        formatLabel={(a) => (a.sortCode ? `${a.name} — ${a.sortCode}` : a.name)}
+                        usePortal
                       />
 
                       {/* Match reason */}

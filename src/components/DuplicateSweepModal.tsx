@@ -1,0 +1,571 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { useAccountNames } from '../hooks/useAccountNames';
+import {
+  deleteBlockOf,
+  findDuplicateCandidates,
+  type DeleteBlock,
+  type DuplicateCandidate,
+} from '../utils/duplicateSweep';
+import {
+  dismissedKeys,
+  duplicateDismissalKey,
+  duplicateDismissalSubjectIds,
+} from '../utils/suggestionDismissals';
+import DismissSuggestionPrompt from './sweeps/DismissSuggestionPrompt';
+import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
+import { AlertTriangleIcon } from './icons';
+import type { SuggestionDismissal, Transaction } from '../types';
+
+/**
+ * Find duplicates — the same sweep shape as "Match transfers", for the other
+ * commonest mess in real data: one payment recorded twice.
+ *
+ * It is a DELETE tool, so it is built the other way round from every other
+ * sweep in the app: nothing is bulk-applied, nothing is pre-selected, and the
+ * user has to say which of the two copies goes. The scan cannot know which one
+ * is the real one — one may be reconciled, categorised or carry a note the
+ * other does not — so it never guesses.
+ *
+ * Three shapes of row are refused outright, with the reason said out loud
+ * rather than the row being quietly hidden (see utils/duplicateSweep):
+ * deleting one would leave something else in the ledger pointing at nothing.
+ * The user still needs to know the two rows look identical — they can unpick
+ * the transfer or the split themselves and come back.
+ */
+
+interface Props {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const CAP = 300;
+
+/** How far apart two copies of the same payment are allowed to be. */
+const WINDOW_CHOICES = [3, 7, 14] as const;
+type WindowDays = (typeof WINDOW_CHOICES)[number];
+
+type SortKey = 'date' | 'account' | 'description' | 'amount';
+
+/** Case-insensitive, so "TESCO" and "Tesco" sit together, not in two blocks. */
+const compareText = (a: string, b: string): number =>
+  a.localeCompare(b, undefined, { sensitivity: 'base' });
+
+const earlier = (candidate: DuplicateCandidate): Transaction =>
+  new Date(candidate.a.date).getTime() <= new Date(candidate.b.date).getTime()
+    ? candidate.a
+    : candidate.b;
+
+function compareCandidates(
+  left: DuplicateCandidate,
+  right: DuplicateCandidate,
+  key: SortKey,
+  accountName: (id: string) => string
+): number {
+  switch (key) {
+    case 'account':
+      return compareText(accountName(left.a.accountId), accountName(right.a.accountId));
+    case 'description':
+      return compareText(left.a.description, right.a.description);
+    case 'amount':
+      return Math.abs(left.a.amount) - Math.abs(right.a.amount);
+    case 'date':
+      return new Date(earlier(left).date).getTime() - new Date(earlier(right).date).getTime();
+  }
+}
+
+const shortDate = (date: Date | string): string =>
+  new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+
+const longDate = (date: Date | string): string =>
+  new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
+  const {
+    transactions, categories, deleteTransaction,
+    suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
+    dismissSuggestion, restoreSuggestion,
+  } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
+  const { showSuccess, showError } = useToast();
+  const accountName = useAccountNames();
+
+  const [windowDays, setWindowDays] = useState<WindowDays>(3);
+  const [reviewing, setReviewing] = useState<DuplicateCandidate | null>(null);
+  /** Which copy the user has chosen to delete, inside the review. */
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  // A refusal that has not yet been answered "and never again?".
+  const [dismissPrompt, setDismissPrompt] = useState<DuplicateCandidate | null>(null);
+  const [savingDismissal, setSavingDismissal] = useState(false);
+  const [restoringKey, setRestoringKey] = useState<string | null>(null);
+  // "Not a duplicate" answered No to the follow-up: gone for this sitting only.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+
+  useEffect(() => {
+    if (isOpen) void refreshSuggestionDismissals();
+  }, [isOpen, refreshSuggestionDismissals]);
+
+  const candidates = useMemo(() => {
+    if (!isOpen) return [] as DuplicateCandidate[];
+    return findDuplicateCandidates(transactions, { windowDays });
+  }, [isOpen, transactions, windowDays]);
+
+  /**
+   * Whether the dismissal filter has run. The list is held back until it has —
+   * showing a suggestion for a second and then snatching it away is precisely
+   * what the persistent dismissals exist to end.
+   */
+  const dismissalsChecked =
+    suggestionDismissalsStatus === 'ready' || suggestionDismissalsStatus === 'error';
+  const dismissedDuplicateKeys = useMemo(
+    () => dismissedKeys(suggestionDismissals, 'duplicate'),
+    [suggestionDismissals]
+  );
+  const duplicateDismissals = useMemo(
+    () => suggestionDismissals.filter(d => d.kind === 'duplicate'),
+    [suggestionDismissals]
+  );
+  const transactionsById = useMemo(
+    () => new Map(transactions.map(t => [t.id, t])),
+    [transactions]
+  );
+  const categoryName = (id: string): string | null =>
+    categories.find(c => c.id === id)?.name ?? null;
+
+  const live = !dismissalsChecked ? [] : candidates.filter(candidate => {
+    const key = duplicateDismissalKey(candidate.a, candidate.b);
+    return !dismissed.has(key) && !dismissedDuplicateKeys.has(key);
+  });
+  const visible = live
+    .slice(0, CAP)
+    .sort((a, b) => sortDir * compareCandidates(a, b, sortKey, accountName));
+
+  const sortBy = (key: SortKey): void => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 1 ? -1 : 1));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'date' || key === 'amount' ? -1 : 1);
+    }
+  };
+  const arrow = (key: SortKey): string => (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '');
+
+  const review = (candidate: DuplicateCandidate): void => {
+    setReviewing(candidate);
+    // Nothing is pre-selected, deliberately: the scan cannot tell which copy is
+    // the real one, and a pre-ticked delete is how the wrong row goes.
+    setChosenId(null);
+  };
+
+  /** The row the user has picked, when it is genuinely deletable. */
+  const chosen = reviewing && chosenId
+    ? [reviewing.a, reviewing.b].find(t => t.id === chosenId) ?? null
+    : null;
+
+  /**
+   * What deleting the chosen copy does to the account — said before it happens.
+   * The balance MOVING is the point of the whole exercise: money counted twice
+   * has to stop being counted twice.
+   */
+  const deleteConsequence = (transaction: Transaction): string => {
+    const money = formatCurrency(Math.abs(transaction.amount));
+    const where = accountName(transaction.accountId);
+    const direction = transaction.amount < 0
+      ? `${where}’s balance goes up by ${money}, because that ${money} was taken off twice.`
+      : `${where}’s balance goes down by ${money}, because that ${money} was added twice.`;
+    return `This row is deleted for good — it is not archived, and it cannot be brought back. ${direction} The other copy stays exactly as it is.`;
+  };
+
+  const BLOCK_REASONS: Record<DeleteBlock, (t: Transaction) => string> = {
+    'linked-transfer': t =>
+      `This row is one half of a linked transfer with ${accountName(t.transferAccountId ?? '')}. Deleting it would leave the row over there pointing at nothing — a transfer with one side, which misstates both accounts. Unlink the pair first, then come back.`,
+    'split-line-counterpart': () =>
+      'This row is the other side of one LINE inside a split transaction. Deleting it would leave that line pointing at nothing. Edit the split to unpick the transfer first, then come back.',
+    'split-parent': () =>
+      'This row is split into lines. Deleting it takes the whole breakdown with it — including any line that is one half of a transfer, whose other side would be stranded. Remove the split first if you really do mean to delete it.',
+  };
+
+  const handleDelete = async (): Promise<void> => {
+    if (!chosen) return;
+    setDeleting(true);
+    try {
+      const money = formatCurrency(Math.abs(chosen.amount));
+      const where = accountName(chosen.accountId);
+      await deleteTransaction(chosen.id);
+      showSuccess(
+        `The copy is gone and ${where} has been corrected by ${money}. The other copy is untouched.`,
+        'Duplicate deleted'
+      );
+      setReviewing(null);
+      setChosenId(null);
+    } catch (error) {
+      // Verbatim: the database's own refusal names the precondition that
+      // failed, and a silent failure on a delete is the worst outcome here.
+      showError(error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDismiss = async (): Promise<void> => {
+    if (!dismissPrompt) return;
+    setSavingDismissal(true);
+    try {
+      await dismissSuggestion(
+        'duplicate',
+        duplicateDismissalKey(dismissPrompt.a, dismissPrompt.b),
+        duplicateDismissalSubjectIds(dismissPrompt.a, dismissPrompt.b)
+      );
+      showSuccess(
+        'These two will not be offered again. Bring them back any time from “Dismissed suggestions” at the foot of this list.',
+        'Left out in future'
+      );
+      setDismissPrompt(null);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingDismissal(false);
+    }
+  };
+
+  const handleRestore = async (dismissal: SuggestionDismissal): Promise<void> => {
+    setRestoringKey(dismissal.subjectKey);
+    try {
+      await restoreSuggestion(dismissal.kind, dismissal.subjectKey);
+      showSuccess('It is back in the list below.', 'Restored');
+    } catch (error) {
+      showError(error);
+    } finally {
+      setRestoringKey(null);
+    }
+  };
+
+  /**
+   * One copy as an evidence card, and the radio that chooses it for deletion.
+   *
+   * A real `input type="radio"` inside a `label`, not a styled div: the two
+   * cards are a genuine either/or, and the native control brings the keyboard
+   * behaviour and the grouping with it. An undeletable copy is disabled, with
+   * the reason underneath — visible, because "why can't I delete this one?" is
+   * the question that would otherwise send the user round in circles.
+   */
+  const renderCopy = (transaction: Transaction, label: string): React.JSX.Element => {
+    const block = deleteBlockOf(transaction);
+    const category = categoryName(transaction.category);
+    const isChosen = chosenId === transaction.id;
+    return (
+      <label
+        key={transaction.id}
+        className={`flex items-start gap-3 rounded-xl border p-4 transition-all ${
+          block
+            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 cursor-not-allowed'
+            : isChosen
+              ? 'border-red-400 dark:border-red-500 bg-red-50/60 dark:bg-red-900/20 cursor-pointer'
+              : 'border-gray-200 dark:border-gray-700 hover:border-primary cursor-pointer'
+        }`}
+      >
+        <input
+          type="radio"
+          name="duplicate-copy"
+          value={transaction.id}
+          checked={isChosen}
+          disabled={block !== null || deleting}
+          onChange={() => setChosenId(transaction.id)}
+          className="mt-1 rounded-full border-gray-300"
+        />
+        <span className="min-w-0">
+          <span className="block text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            {label}
+          </span>
+          <span className={`block text-lg font-bold tabular-nums ${transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+            {formatCurrency(Math.abs(transaction.amount))}
+          </span>
+          <span className="mt-1 block text-sm text-gray-900 dark:text-white break-words">
+            {transaction.description}
+          </span>
+          <span className="block text-xs text-gray-500 dark:text-gray-400">
+            {longDate(transaction.date)}
+          </span>
+          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+            {category ? `Filed as ${category}` : 'Not categorised'}
+            {transaction.cleared === true && ' · reconciled'}
+            {transaction.isImported === true && ' · imported'}
+          </span>
+          {transaction.notes && (
+            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400 break-words">
+              {transaction.notes}
+            </span>
+          )}
+          {block && (
+            <span className="mt-2 flex items-start gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangleIcon size={12} className="mt-0.5 flex-shrink-0" />
+              <span>{BLOCK_REASONS[block](transaction)}</span>
+            </span>
+          )}
+        </span>
+      </label>
+    );
+  };
+
+  const bothBlocked = reviewing !== null
+    && deleteBlockOf(reviewing.a) !== null
+    && deleteBlockOf(reviewing.b) !== null;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Find duplicates" size="xl">
+      <ModalBody>
+        {suggestionDismissalsStatus === 'error' && (
+          <p className="mb-3 text-sm rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
+            The list of suggestions you asked to leave out could not be read, so this list may
+            include some of them. Nothing has changed — close this and try again in a moment.
+          </p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <p className="text-sm text-gray-600 dark:text-gray-400 flex-1 min-w-[16rem]">
+            Rows in the <strong>same account</strong> for the same amount, to the penny, with the
+            same or nearly the same description, a few days apart — what a bank feed and an import
+            of the same payment look like. Two matching rows in <em>different</em> accounts are not
+            here: that is a transfer, and “Match transfers” is where it belongs.
+          </p>
+          <label className="text-sm text-gray-600 dark:text-gray-400">
+            Within{' '}
+            <select
+              value={windowDays}
+              onChange={e => setWindowDays(Number(e.target.value) as WindowDays)}
+              className="ml-1 px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              {WINDOW_CHOICES.map(days => (
+                <option key={days} value={days}>{days} days</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {!dismissalsChecked ? (
+          <p className="text-center py-10 text-gray-500 dark:text-gray-400">
+            Checking which of these you have already dealt with…
+          </p>
+        ) : live.length === 0 ? (
+          <p className="text-center py-10 text-gray-500 dark:text-gray-400">
+            Nothing looks like the same payment twice. Every row in every account is either
+            unique, far enough apart to be a real repeat
+            {duplicateDismissals.length > 0 ? ', or left out at your request below' : ''}.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                  {([
+                    ['date', 'Date', 'Sort by date'],
+                    ['account', 'Account', 'Sort by account name'],
+                    ['description', 'Description', 'Sort by description'],
+                    ['amount', 'Amount', 'Sort by amount size'],
+                  ] as const).map(([key, label, hint]) => (
+                    <th key={key} className="text-center pb-2 font-medium">
+                      <button
+                        type="button"
+                        onClick={() => sortBy(key)}
+                        className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                        title={hint}
+                      >
+                        {label}{arrow(key)}
+                      </button>
+                    </th>
+                  ))}
+                  <th className="pb-2 w-24"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map(candidate => {
+                  const first = earlier(candidate);
+                  const sameWording = candidate.a.description === candidate.b.description;
+                  return (
+                    <tr
+                      key={duplicateDismissalKey(candidate.a, candidate.b)}
+                      onClick={() => review(candidate)}
+                      className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top"
+                      title="Look at both copies of this"
+                    >
+                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {shortDate(first.date)}
+                        {candidate.daysApart > 0 && (
+                          <span className="ml-1 text-xs text-gray-400">
+                            +{Math.round(candidate.daysApart)}d
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
+                        <span className="block truncate max-w-[140px]">
+                          {accountName(candidate.a.accountId)}
+                        </span>
+                      </td>
+                      <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span className="block truncate max-w-[260px] text-gray-900 dark:text-white">
+                          {candidate.a.description}
+                        </span>
+                        {!sameWording && (
+                          <span className="block truncate max-w-[260px] text-xs">
+                            and “{candidate.b.description}”
+                          </span>
+                        )}
+                        <span className="block text-xs mt-0.5">
+                          {Math.round(candidate.score)}% alike
+                        </span>
+                      </td>
+                      <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatCurrency(Math.abs(candidate.a.amount))}
+                      </td>
+                      <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => review(candidate)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {live.length > CAP && (
+                  <tr>
+                    <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                      Showing the first {CAP.toLocaleString()} of {live.length.toLocaleString()} —
+                      settle these, then run this again for the rest.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <DismissedSuggestionsSection
+          dismissals={duplicateDismissals}
+          transactionsById={transactionsById}
+          accountName={accountName}
+          formatCurrency={formatCurrency}
+          onRestore={dismissal => void handleRestore(dismissal)}
+          restoringKey={restoringKey}
+          className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700"
+        />
+      </ModalBody>
+      <ModalFooter>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {!dismissalsChecked
+              ? 'Checking…'
+              : live.length === 0
+                ? 'Nothing to sort out here.'
+                : `${live.length.toLocaleString()} to look at — each one is decided on its own.`}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </ModalFooter>
+
+      {/* One candidate, both copies in full, and the consequence of deleting
+          the chosen one spelled out before it happens. */}
+      {reviewing && (
+        <Modal
+          isOpen
+          onClose={() => (deleting ? undefined : setReviewing(null))}
+          closeOnBackdrop={!deleting}
+          title="The same payment twice?"
+          size="lg"
+        >
+          <ModalBody>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              These two rows are in <strong>{accountName(reviewing.a.accountId)}</strong> for the
+              same amount,{' '}
+              {reviewing.daysApart === 0
+                ? 'on the same day'
+                : `${Math.round(reviewing.daysApart)} day${Math.round(reviewing.daysApart) === 1 ? '' : 's'} apart`}
+              , and read as the same payee. That is what an import landing on top of a bank feed
+              looks like — but it is also what a genuine repeat payment looks like, so{' '}
+              <strong>nothing here can tell which</strong>. Choose the copy to delete, or leave
+              them both alone.
+            </p>
+
+            <fieldset>
+              <legend className="sr-only">Choose the copy to delete</legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {renderCopy(reviewing.a, 'First copy')}
+                {renderCopy(reviewing.b, 'Second copy')}
+              </div>
+            </fieldset>
+
+            {bothBlocked ? (
+              <div className="mt-4 flex items-start gap-2 rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
+                <AlertTriangleIcon size={16} className="mt-0.5 flex-shrink-0" />
+                <p className="text-sm">
+                  Neither of these can be deleted from here — each one is holding something else
+                  together, as explained above. Unpick that first, then run this again.
+                </p>
+              </div>
+            ) : chosen ? (
+              <div className="mt-4 flex items-start gap-2 rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300">
+                <AlertTriangleIcon size={16} className="mt-0.5 flex-shrink-0" />
+                <p className="text-sm">{deleteConsequence(chosen)}</p>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                Pick one and this will say exactly what deleting it does before anything happens.
+              </p>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => {
+                  const key = duplicateDismissalKey(reviewing.a, reviewing.b);
+                  setDismissed(prev => new Set(prev).add(key));
+                  setDismissPrompt(reviewing);
+                  setReviewing(null);
+                  setChosenId(null);
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Not a duplicate — leave both
+              </button>
+              <button
+                type="button"
+                disabled={deleting || chosen === null}
+                onClick={() => void handleDelete()}
+                className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-red-700 text-white hover:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? 'Deleting…' : 'Delete the copy I chose'}
+              </button>
+            </div>
+          </ModalFooter>
+        </Modal>
+      )}
+
+      {dismissPrompt && (
+        <DismissSuggestionPrompt
+          isOpen
+          subject="these two rows"
+          keepingMeans="they drop off the list for now"
+          saving={savingDismissal}
+          onKeep={() => setDismissPrompt(null)}
+          onDismiss={() => void handleDismiss()}
+        />
+      )}
+    </Modal>
+  );
+}

@@ -6,7 +6,7 @@ import {
   getDefaultTestGoals,
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
-import type { Category } from '../../types';
+import type { Category, DismissalKind, SuggestionDismissal } from '../../types';
 import type {
   DecimalAccount,
   DecimalBudget,
@@ -53,6 +53,14 @@ const baseValue = {
   setTransactionArchived: asyncNoop,
   repairClaimedTransfer: asyncNoop,
   createTransferCounterpart: async () => { throw new Error('not available in mock'); },
+  // Typed so a test can override with real dismissals; 'ready' by default
+  // because the surfaces hold their lists back until the filter has run, and a
+  // test that says nothing about dismissals means "nothing is dismissed".
+  suggestionDismissals: [] as SuggestionDismissal[],
+  suggestionDismissalsStatus: 'ready' as 'idle' | 'loading' | 'ready' | 'error',
+  refreshSuggestionDismissals: asyncNoop,
+  dismissSuggestion: async (_kind: DismissalKind, _subjectKey: string, _subjectIds: string[]) => {},
+  restoreSuggestion: async (_kind: DismissalKind, _subjectKey: string) => {},
   refreshAccountsAndTransactions: asyncNoop,
   refreshCategories: asyncNoop,
   addBudget: noop,

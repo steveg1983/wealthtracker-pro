@@ -5,7 +5,7 @@ import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
 import MoneyInput from './common/MoneyInput';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import type { Transaction } from '../types';
 
@@ -387,20 +387,23 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
           </div>
 
           <div>
-            <label htmlFor="account" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {/* A combobox is not a labelable element, so the accessible name
+                rides on the control itself rather than a dangling htmlFor. */}
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Account <span className="text-red-500" aria-label="required">*</span>
             </label>
-            <GroupedAccountSelect
-              id="account"
+            <AccountSelector
               accounts={accounts}
-              value={formData.accountId}
-              onChange={(accountId) => setFormData({ ...formData, accountId })}
+              selectedAccountId={formData.accountId}
+              onAccountChange={(accountId) => setFormData({ ...formData, accountId })}
               onBlur={() => handleBlur('account')}
-              placeholder="Select an account"
-              aria-required="true"
-              aria-invalid={touched.account && !!errors.account}
-              aria-describedby={touched.account && errors.account ? 'account-error' : undefined}
-              className={`w-full px-3 py-2 bg-white dark:bg-gray-800-sm border ${
+              placeholder="Search or select an account…"
+              ariaLabel="Account"
+              required
+              ariaInvalid={touched.account && !!errors.account}
+              ariaDescribedBy={touched.account && errors.account ? 'account-error' : undefined}
+              usePortal
+              className={`w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-800 border ${
                 touched.account && errors.account
                   ? 'border-red-500 dark:border-red-500'
                   : 'border-gray-300/50 dark:border-gray-600/50'

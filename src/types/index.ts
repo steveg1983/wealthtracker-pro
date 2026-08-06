@@ -225,6 +225,31 @@ export interface SplitWriteResult {
   counterparts: Transaction[];
 }
 
+/**
+ * Which sweep made the offer the user refused. Part of a dismissal's identity,
+ * because the same two rows can be a transfer pair to one scan and a duplicate
+ * to another, and those two offers have opposite consequences — refusing one
+ * must never silently suppress the other.
+ */
+export type DismissalKind = 'transfer-pair' | 'transfer-leg' | 'stranded' | 'duplicate';
+
+/**
+ * A suggestion the user has told a sweep to stop offering. Holds no financial
+ * data and changes no figure: it can only hide an offer.
+ *
+ * See utils/suggestionDismissals for how `subjectKey` is built — canonical and
+ * order-independent, so a dismissal survives a re-scan that reaches the same
+ * rows from the other end.
+ */
+export interface SuggestionDismissal {
+  id: string;
+  kind: DismissalKind;
+  subjectKey: string;
+  /** The transactions the suggestion was about, in role order. */
+  subjectIds: string[];
+  dismissedAt: Date;
+}
+
 export interface Budget {
   id: string;
   categoryId: string;  // Changed from 'category' to match service implementation

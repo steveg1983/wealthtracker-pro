@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -13,9 +13,20 @@ import {
   type UnmatchedSplitLegFinding,
 } from '../utils/strandedTransfers';
 import { applyStrandedFinding } from '../utils/strandedTransferActions';
+import {
+  dismissedKeys,
+  legDismissalKey,
+  legDismissalSubjectIds,
+  pairDismissalKey,
+  pairDismissalSubjectIds,
+  strandedDismissalKey,
+  strandedDismissalSubjectIds,
+} from '../utils/suggestionDismissals';
+import DismissSuggestionPrompt from './sweeps/DismissSuggestionPrompt';
+import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
 import { useAccountNames } from '../hooks/useAccountNames';
 import { AlertTriangleIcon, ArrowRightIcon } from './icons';
-import type { Transaction } from '../types';
+import type { DismissalKind, SuggestionDismissal, Transaction } from '../types';
 
 /**
  * Bulk transfer matching: find every unlinked equal-and-opposite pair in the
@@ -51,6 +62,21 @@ const STRANDED_CAP = 100;
 
 type PairSortKey = 'date' | 'accounts' | 'description' | 'amount';
 type StrandedSortKey = 'date' | 'account' | 'problem' | 'amount';
+
+/** The kinds of refusal this sweep can record — its half of the dismissals. */
+const SWEEP_KINDS: readonly DismissalKind[] = ['transfer-pair', 'transfer-leg', 'stranded'];
+
+/**
+ * A refusal waiting on the "and never again?" answer. Carries what to write if
+ * the answer is yes, and the two sentences the question is asked with.
+ */
+interface PendingDismissal {
+  kind: DismissalKind;
+  subjectKey: string;
+  subjectIds: string[];
+  subject: string;
+  keepingMeans: string;
+}
 
 /** Case-insensitive, so "BARCLAYS" and "Barclays" sit together, not in two blocks. */
 const compareText = (a: string, b: string): number =>
@@ -251,6 +277,8 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     transactions, categories, accounts, transactionSplits, linkTransferPair,
     linkSplitLineTransfer, repairClaimedTransfer, setTransactionArchived, updateTransaction,
     updateAccount, refreshAccountsAndTransactions, refreshCategories,
+    suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
+    dismissSuggestion, restoreSuggestion,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
@@ -263,10 +291,15 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   const [progress, setProgress] = useState(0);
   const [reviewing, setReviewing] = useState<StrandedFinding | null>(null);
   const [resolving, setResolving] = useState(false);
-  // "Leave it" is a decision for this sitting, not a stored one: the finding
-  // drops out of the list now, and comes back next time if the data still
-  // looks that way. Nothing is written for a refusal.
+  // "Leave it" answered NO to the follow-up: a decision for this sitting only.
+  // The finding drops out of the list now and comes back next time if the data
+  // still looks that way. Answering YES writes a suggestion_dismissals row
+  // instead, and that one never comes back until it is restored.
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // The refusal waiting on that follow-up, and the writes it can cause.
+  const [dismissPrompt, setDismissPrompt] = useState<PendingDismissal | null>(null);
+  const [savingDismissal, setSavingDismissal] = useState(false);
+  const [restoringKey, setRestoringKey] = useState<string | null>(null);
   // A leg in a CLOSED account can't open a register directly — this prompt
   // offers the Money-style way through: re-open the account, then jump to
   // the transaction. Same rule as the Accounts page (closed = no register),
@@ -288,6 +321,41 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   // Closed accounts included — old transfers routinely have one leg in an
   // account that has since been closed.
   const accountName = useAccountNames();
+
+  // Refusals the user has already made stick. Re-read on every open rather than
+  // held from boot: another device may have dismissed something since.
+  useEffect(() => {
+    if (isOpen) void refreshSuggestionDismissals();
+  }, [isOpen, refreshSuggestionDismissals]);
+
+  /**
+   * Whether the dismissal filter has run. Lists are held back until it has —
+   * showing a suggestion for a second and then snatching it away is precisely
+   * the experience this feature exists to end. An 'error' counts as checked:
+   * the sweep still has to open, and it says below that the filter did not run.
+   */
+  const dismissalsChecked =
+    suggestionDismissalsStatus === 'ready' || suggestionDismissalsStatus === 'error';
+  const dismissedPairKeys = useMemo(
+    () => dismissedKeys(suggestionDismissals, 'transfer-pair'),
+    [suggestionDismissals]
+  );
+  const dismissedLegKeys = useMemo(
+    () => dismissedKeys(suggestionDismissals, 'transfer-leg'),
+    [suggestionDismissals]
+  );
+  const dismissedStrandedKeys = useMemo(
+    () => dismissedKeys(suggestionDismissals, 'stranded'),
+    [suggestionDismissals]
+  );
+  const sweepDismissals = useMemo(
+    () => suggestionDismissals.filter(d => SWEEP_KINDS.includes(d.kind)),
+    [suggestionDismissals]
+  );
+  const transactionsById = useMemo(
+    () => new Map(transactions.map(t => [t.id, t])),
+    [transactions]
+  );
 
   // One pass finds both: the whole-transaction pairs, and the split LINES
   // whose other side is sitting unmatched in the account they name.
@@ -331,13 +399,23 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
   const keyOfFinding = (f: StrandedFinding): string => `${f.kind}|${f.row.id}`;
 
   // Whole-transaction pairs first, then the line matches: the same order the
-  // sweep found them in, and the order the table opens in.
-  const rows: SweepRow[] = [
-    ...suggestions.map(pair => ({ kind: 'pair' as const, key: keyOf(pair), pair })),
-    ...legSuggestions.map(leg => ({ kind: 'leg' as const, key: keyOfLeg(leg), leg })),
+  // sweep found them in, and the order the table opens in — less anything the
+  // user has told this sweep to stop offering. (The selection key above and the
+  // dismissal key are deliberately different things: selection is per-render
+  // and positional, a dismissal is canonical and stored, so that it still
+  // matches when a later scan reaches the same two rows from the other end.)
+  const rows: SweepRow[] = !dismissalsChecked ? [] : [
+    ...suggestions
+      .filter(pair => !dismissedPairKeys.has(pairDismissalKey(pair)))
+      .map(pair => ({ kind: 'pair' as const, key: keyOf(pair), pair })),
+    ...legSuggestions
+      .filter(leg => !dismissedLegKeys.has(legDismissalKey(leg)))
+      .map(leg => ({ kind: 'leg' as const, key: keyOfLeg(leg), leg })),
   ];
   const isAmbiguous = (row: SweepRow): boolean =>
     row.kind === 'pair' ? row.pair.ambiguous : row.leg.ambiguous;
+  /** Line matches still on offer — never the raw sweep count, which ignores dismissals. */
+  const legRowCount = rows.filter(row => row.kind === 'leg').length;
 
   // Default selection: every unambiguous match, of either kind.
   const effectiveSelected = selected ?? new Set(
@@ -383,13 +461,58 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
     : [...pairPage].sort((a, b) => pairSortDir * compareRows(a, b, pairSortKey, accountName));
   const chosen = rows.filter(row => effectiveSelected.has(row.key));
 
-  const liveFindings = findings.filter(f => !dismissed.has(keyOfFinding(f)));
+  // Two filters, two lifetimes: `dismissed` is this sitting's refusals (the
+  // user answered No to the follow-up), the stored keys are the ones they asked
+  // never to see again.
+  const liveFindings = !dismissalsChecked ? [] : findings.filter(f =>
+    !dismissed.has(keyOfFinding(f)) && !dismissedStrandedKeys.has(strandedDismissalKey(f))
+  );
   const visibleFindings = liveFindings.slice(0, STRANDED_CAP).sort(
     (a, b) => strandedSortDir * compareFindings(a, b, strandedSortKey, accountName)
   );
+  const visibleLegFindings = dismissalsChecked ? legFindings : [];
   /** The adjustment filing is the ONLY offer for these two kinds — without the category they cannot run. */
   const needsAdjustmentCategory = (f: StrandedFinding): boolean =>
     f.kind === 'claimed' || f.kind === 'one-sided';
+
+  /**
+   * Answering the "and never again?" question with yes. Failures are surfaced
+   * and the prompt stays open: a refusal the user believes was remembered, and
+   * was not, is the bug this whole feature exists to fix.
+   */
+  const handleDismiss = async (): Promise<void> => {
+    if (!dismissPrompt) return;
+    setSavingDismissal(true);
+    try {
+      await dismissSuggestion(
+        dismissPrompt.kind, dismissPrompt.subjectKey, dismissPrompt.subjectIds
+      );
+      showSuccess(
+        'It will not be offered again. Bring it back any time from “Dismissed suggestions” at the foot of this list.',
+        'Left out in future'
+      );
+      setDismissPrompt(null);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingDismissal(false);
+    }
+  };
+
+  const handleRestore = async (dismissal: SuggestionDismissal): Promise<void> => {
+    setRestoringKey(dismissal.subjectKey);
+    try {
+      await restoreSuggestion(dismissal.kind, dismissal.subjectKey);
+      showSuccess(
+        'It is back in the list — close this and run the sweep again to see it.',
+        'Restored'
+      );
+    } catch (error) {
+      showError(error);
+    } finally {
+      setRestoringKey(null);
+    }
+  };
 
   const handleStranded = async (finding: StrandedFinding): Promise<void> => {
     setResolving(true);
@@ -565,10 +688,21 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
       size="xl"
     >
       <ModalBody>
-        {rows.length === 0 && liveFindings.length === 0 && legFindings.length === 0 ? (
+        {suggestionDismissalsStatus === 'error' && (
+          <p className="mb-3 text-sm rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
+            The list of suggestions you asked to leave out could not be read, so this list may
+            include some of them. Nothing has changed — close this and try again in a moment.
+          </p>
+        )}
+        {!dismissalsChecked ? (
+          <p className="text-center py-10 text-gray-500 dark:text-gray-400">
+            Checking which of these you have already dealt with…
+          </p>
+        ) : rows.length === 0 && liveFindings.length === 0 && visibleLegFindings.length === 0 ? (
           <p className="text-center py-10 text-gray-500 dark:text-gray-400">
             No unlinked transfer pairs found. Every equal-and-opposite movement in your
-            history is already linked.
+            history is already linked
+            {sweepDismissals.length > 0 && ', or left out at your request below'}.
           </p>
         ) : rows.length > 0 && (
           <>
@@ -577,10 +711,10 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
               pair{rows.length === 1 ? '' : 's'} — uncategorised rows that are exactly
               equal and opposite, in different accounts, within a few days. Linking them
               makes both sides transfers, so they leave your income and expense totals.
-              {legSuggestions.length > 0 && (
+              {legRowCount > 0 && (
                 <>
-                  {' '}<strong>{legSuggestions.length.toLocaleString()}</strong> of
-                  them {legSuggestions.length === 1 ? 'matches a single line' : 'match single lines'} inside
+                  {' '}<strong>{legRowCount.toLocaleString()}</strong> of
+                  them {legRowCount === 1 ? 'matches a single line' : 'match single lines'} inside
                   a split, not a whole row — marked <em>split line</em> below, because linking one
                   changes that line and the row it matches, and nothing else in the transaction.
                 </>
@@ -855,12 +989,12 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             line would rewrite what the user said the money was for — from a
             list that cannot even show them the rest of the split. So the
             finding says what is wrong, and the row opens the transaction. */}
-        {legFindings.length > 0 && (
+        {visibleLegFindings.length > 0 && (
           <section className={rows.length > 0 || liveFindings.length > 0 ? 'mt-6 pt-5 border-t border-gray-200 dark:border-gray-700' : ''}>
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
               Split lines with no other side
               <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
-                {legFindings.length.toLocaleString()}
+                {visibleLegFindings.length.toLocaleString()}
               </span>
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">
@@ -881,7 +1015,7 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   </tr>
                 </thead>
                 <tbody>
-                  {legFindings.slice(0, STRANDED_CAP).map(f => (
+                  {visibleLegFindings.slice(0, STRANDED_CAP).map(f => (
                     <tr
                       key={f.split.id}
                       className="border-b border-gray-50 dark:border-gray-700/50 align-top"
@@ -921,10 +1055,10 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                       </td>
                     </tr>
                   ))}
-                  {legFindings.length > STRANDED_CAP && (
+                  {visibleLegFindings.length > STRANDED_CAP && (
                     <tr>
                       <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                        Showing the first {STRANDED_CAP.toLocaleString()} of {legFindings.length.toLocaleString()}.
+                        Showing the first {STRANDED_CAP.toLocaleString()} of {visibleLegFindings.length.toLocaleString()}.
                       </td>
                     </tr>
                   )}
@@ -933,6 +1067,17 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             </div>
           </section>
         )}
+
+        {/* The way back out of every "never again" answered above. */}
+        <DismissedSuggestionsSection
+          dismissals={sweepDismissals}
+          transactionsById={transactionsById}
+          accountName={accountName}
+          formatCurrency={formatCurrency}
+          onRestore={dismissal => void handleRestore(dismissal)}
+          restoringKey={restoringKey}
+          className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700"
+        />
       </ModalBody>
       <ModalFooter>
         <div className="flex items-center gap-3">
@@ -942,9 +1087,11 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {applying
               ? `Linking ${progress.toLocaleString()} of ${chosen.length.toLocaleString()}…`
-              : rows.length === 0
-                ? 'Each row here is sorted out on its own, above.'
-                : `${chosen.length.toLocaleString()} of ${Math.min(rows.length, CAP).toLocaleString()} selected`}
+              : !dismissalsChecked
+                ? 'Checking…'
+                : rows.length === 0
+                  ? 'Each row here is sorted out on its own, above.'
+                  : `${chosen.length.toLocaleString()} of ${Math.min(rows.length, CAP).toLocaleString()} selected`}
           </p>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -1001,6 +1148,13 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   const next = new Set(effectiveSelected);
                   next.delete(keyOf(inspecting));
                   setSelected(next);
+                  setDismissPrompt({
+                    kind: 'transfer-pair',
+                    subjectKey: pairDismissalKey(inspecting),
+                    subjectIds: pairDismissalSubjectIds(inspecting),
+                    subject: 'this pairing',
+                    keepingMeans: 'it stays in the list below, unticked, until you close this window',
+                  });
                   setInspecting(null);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -1063,6 +1217,13 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                   const next = new Set(effectiveSelected);
                   next.delete(keyOfLeg(inspectingLeg));
                   setSelected(next);
+                  setDismissPrompt({
+                    kind: 'transfer-leg',
+                    subjectKey: legDismissalKey(inspectingLeg),
+                    subjectIds: legDismissalSubjectIds(inspectingLeg),
+                    subject: 'this line match',
+                    keepingMeans: 'it stays in the list below, unticked, until you close this window',
+                  });
                   setInspectingLeg(null);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -1188,6 +1349,13 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
                 disabled={resolving}
                 onClick={() => {
                   setDismissed(prev => new Set(prev).add(keyOfFinding(reviewing)));
+                  setDismissPrompt({
+                    kind: 'stranded',
+                    subjectKey: strandedDismissalKey(reviewing),
+                    subjectIds: strandedDismissalSubjectIds(reviewing),
+                    subject: 'this row',
+                    keepingMeans: 'it drops off the list for now',
+                  });
                   setReviewing(null);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
@@ -1205,6 +1373,19 @@ export default function TransferSweepModal({ isOpen, onClose }: Props): React.JS
             </div>
           </ModalFooter>
         </Modal>
+      )}
+
+      {/* Every refusal above is followed by the same question: and never
+          again? Answering No leaves today's behaviour exactly as it was. */}
+      {dismissPrompt && (
+        <DismissSuggestionPrompt
+          isOpen
+          subject={dismissPrompt.subject}
+          keepingMeans={dismissPrompt.keepingMeans}
+          saving={savingDismissal}
+          onKeep={() => setDismissPrompt(null)}
+          onDismiss={() => void handleDismiss()}
+        />
       )}
 
       {/* The closed-account way through: closed accounts have no register

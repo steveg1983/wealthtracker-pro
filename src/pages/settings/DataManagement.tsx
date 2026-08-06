@@ -15,7 +15,7 @@ const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveMa
 // Lazy load heavy components to reduce initial bundle size. Import and export
 // tools moved to the Manage pages (see the link cards below); what remains here
 // is genuine data administration — cleanup tools, backups, and the danger zone.
-const DuplicateDetection = lazyWithRecovery(() => import('../../components/DuplicateDetection'));
+const DuplicateSweepModal = lazyWithRecovery(() => import('../../components/DuplicateSweepModal'));
 const BulkTransactionEdit = lazyWithRecovery(() => import('../../components/BulkTransactionEdit'));
 const TransactionReconciliation = lazyWithRecovery(() => import('../../components/TransactionReconciliation'));
 const DataValidation = lazyWithRecovery(() => import('../../components/DataValidation'));
@@ -32,7 +32,7 @@ export default function DataManagementSettings() {
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
-  const [showDuplicateDetection, setShowDuplicateDetection] = useState(false);
+  const [showDuplicateSweep, setShowDuplicateSweep] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [showDataValidation, setShowDataValidation] = useState(false);
@@ -167,7 +167,7 @@ export default function DataManagementSettings() {
       <Section title="Tools" description="Tidy up, reconcile, and improve your data.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <ActionButton icon={LightbulbIcon} title="Smart Categorization" description="Auto-categorize with AI" onClick={() => setShowSmartCategorization(true)} />
-          <ActionButton icon={SearchIcon} title="Find Duplicates" description="Detect repeated transactions" onClick={() => setShowDuplicateDetection(true)} />
+          <ActionButton icon={SearchIcon} title="Find Duplicates" description="The same payment recorded twice" onClick={() => setShowDuplicateSweep(true)} />
           <ActionButton icon={EditIcon} title="Bulk Edit" description="Change many at once" onClick={() => setShowBulkEdit(true)} />
           <ActionButton icon={LinkIcon} title="Reconcile Accounts" description="Match against statements" onClick={() => setShowReconciliation(true)} />
           <ActionButton icon={WrenchIcon} title="Validate & Clean" description="Find and fix data issues" onClick={() => setShowDataValidation(true)} />
@@ -294,17 +294,17 @@ export default function DataManagementSettings() {
 
       {/* Tool modals — mounted ONLY while open. Rendering a React.lazy
           component (even closed, returning null) forces its chunk to download
-          AND runs its hooks: DuplicateDetection's O(n²) duplicate scan and
-          DataValidation's full-data sweep were executing on every visit to
-          this page. Gating on the show-flag defers chunk + work to first open
-          (the Suspense fallback covers the brief load). */}
+          AND runs its hooks: the duplicate scan and DataValidation's full-data
+          sweep were executing on every visit to this page. Gating on the
+          show-flag defers chunk + work to first open (the Suspense fallback
+          covers the brief load). */}
 
-      {/* Duplicate Detection */}
-      {showDuplicateDetection && (
+      {/* Find duplicates */}
+      {showDuplicateSweep && (
         <Suspense fallback={<LoadingState />}>
-          <DuplicateDetection
-            isOpen={showDuplicateDetection}
-            onClose={() => setShowDuplicateDetection(false)}
+          <DuplicateSweepModal
+            isOpen={showDuplicateSweep}
+            onClose={() => setShowDuplicateSweep(false)}
           />
         </Suspense>
       )}

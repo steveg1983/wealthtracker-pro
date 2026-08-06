@@ -116,6 +116,8 @@ vi.mock('../components/icons', () => ({
   CalendarIcon: () => <div data-testid="calendar-icon">📅</div>,
   ChevronLeftIcon: () => <div data-testid="chevron-left-icon">‹</div>,
   ChevronRightIcon: () => <div data-testid="chevron-right-icon">›</div>,
+  // The account combobox's own chevron.
+  ChevronDownIcon: () => <div data-testid="chevron-down-icon">⌄</div>,
   ArrowUpRightIcon: () => <div data-testid="arrow-up-right-icon">↗️</div>,
   TagIcon: () => <div data-testid="tag-icon">🏷️</div>,
   FileTextIcon: () => <div data-testid="file-text-icon">📄</div>,
@@ -241,22 +243,49 @@ describe('EditTransactionModal', () => {
 
     it('bands the account picker into the Accounts page sections', () => {
       // The owner's complaint: seventy accounts in one flat unsorted list.
-      // Sections in page order, alphabetical inside each, wording unchanged.
+      // It is now the same searchable combobox as the category picker, banded
+      // by type and then by institution — sections in page order, alphabetical
+      // inside each, and each call site's own option wording unchanged.
       renderModal(true, null);
 
-      const accountSelect = screen.getByRole('combobox');
-      expect(Array.from(accountSelect.querySelectorAll('optgroup')).map(g => g.label)).toEqual([
+      fireEvent.click(screen.getByRole('combobox', { name: 'Account' }));
+
+      const list = screen.getByRole('listbox', { name: 'Account' });
+      const typeSections = Array.from(list.children)
+        .filter(child => child.getAttribute('role') === 'group')
+        .map(child => child.getAttribute('aria-label'));
+      expect(typeSections).toEqual([
         'Current Accounts', 'Savings Accounts', 'Credit Cards', 'Loans', 'Investments', 'Assets',
       ]);
 
-      const creditCards = accountSelect.querySelector('optgroup[label="Credit Cards"]');
-      expect(Array.from(creditCards?.querySelectorAll('option') ?? []).map(o => o.textContent)).toEqual([
+      const creditCards = screen.getByRole('group', { name: 'Credit Cards' });
+      // Institution sub-bands nested inside the type section, alphabetical.
+      expect(Array.from(creditCards.querySelectorAll('[role="group"]')).map(g => g.getAttribute('aria-label')))
+        .toEqual(['American Express', 'Natwest']);
+      expect(Array.from(creditCards.querySelectorAll('[role="option"]')).map(o => o.textContent)).toEqual([
         'American Express Gold (credit)', 'Natwest Credit Card (credit)',
       ]);
       // A mortgage files under Loans, as it does on the Accounts page.
-      const loans = accountSelect.querySelector('optgroup[label="Loans"]');
-      expect(Array.from(loans?.querySelectorAll('option') ?? []).map(o => o.textContent)).toEqual([
+      const loans = screen.getByRole('group', { name: 'Loans' });
+      expect(Array.from(loans.querySelectorAll('[role="option"]')).map(o => o.textContent)).toEqual([
         'Natwest Mortgage (mortgage)', 'Natwest Personal Loan (loan)',
+      ]);
+    });
+
+    it('filters the account picker as the user types, by name or by bank', () => {
+      // The point of the change: with seventy accounts, typing beats scrolling.
+      renderModal(true, null);
+      fireEvent.click(screen.getByRole('combobox', { name: 'Account' }));
+
+      const search = screen.getByPlaceholderText('Search or select account…');
+      fireEvent.change(search, { target: { value: 'premium' } });
+      expect(screen.getAllByRole('option').map(o => o.textContent))
+        .toEqual(['NS&I Premium Bonds (savings)']);
+
+      // An institution finds every account held with it, whatever they're called.
+      fireEvent.change(search, { target: { value: 'hargreaves' } });
+      expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual([
+        'Hargreaves Lansdown ISA (investment)', 'Hargreaves Lansdown SIPP (investment)',
       ]);
     });
 

@@ -21,7 +21,7 @@ import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
 import { DataService } from '../services/api/dataService';
-import GroupedAccountSelect from '../components/common/GroupedAccountSelect';
+import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
 
 type TransactionWithBalance = Transaction & { balance: number };
@@ -570,11 +570,12 @@ export default function AccountTransactions() {
     [transactionsWithBalance, selectedTransactionId]
   );
 
-  // Transfer targets for the quick-add dock: every account but this one. The
-  // select bands them into the Accounts page's sections.
-  const transferTargets = useMemo(
-    () => accounts.filter(acc => acc.id !== account?.id),
-    [accounts, account?.id]
+  // A transfer to this very account moves nothing, so the quick-add dock's
+  // account picker never offers it. Held steady so the picker's own grouping
+  // is not rebuilt on every render of the page.
+  const quickAddExcludedAccountIds = useMemo(
+    () => (account ? [account.id] : []),
+    [account]
   );
 
   // Clicking the page background deselects: the row un-highlights and the
@@ -1511,13 +1512,21 @@ export default function AccountTransactions() {
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
               {quickAddForm.type === 'transfer' ? (
-                <GroupedAccountSelect
-                  accounts={transferTargets}
-                  value={quickAddForm.category}
-                  onChange={(accountId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: accountId }); }}
-                  placeholder="Select account..."
+                /* The account and category pickers take turns in this one
+                   slot, so they are the same control at the same size — and
+                   usePortal opens the list upward when the dock is sitting at
+                   the bottom of the window. */
+                <AccountSelector
+                  accounts={accounts}
+                  excludeIds={quickAddExcludedAccountIds}
+                  selectedAccountId={quickAddForm.category}
+                  onAccountChange={(accountId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: accountId }); }}
+                  placeholder="Account..."
+                  searchPlaceholder="Search accounts…"
                   formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
-                  className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                  size="compact"
+                  usePortal
+                  ariaLabel="To Account"
                 />
               ) : (
                 /* Which direction's tree it lists is this row's own, flipped by
