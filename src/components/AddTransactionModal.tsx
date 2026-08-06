@@ -6,7 +6,7 @@ import { getCurrencySymbol } from '../utils/currency';
 // Import { Modal, ModalBody, ModalFooter } from './common/Modal'; // Unused imports
 import { ResponsiveModal } from './ResponsiveModal';
 import MoneyInput from './common/MoneyInput';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
@@ -171,19 +171,22 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
             </div>
 
             <div>
-              <label htmlFor="account-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {/* A combobox is not a labelable element, so the accessible
+                  name rides on the control itself — the same pattern every
+                  category picker in the app already uses. */}
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Account
               </label>
-              <GroupedAccountSelect
-                id="account-select"
+              <AccountSelector
                 accounts={accounts}
-                value={formData.accountId}
-                onChange={(accountId) => updateField('accountId', accountId)}
-                placeholder="Select account"
+                selectedAccountId={formData.accountId}
+                onAccountChange={(accountId) => updateField('accountId', accountId)}
+                placeholder="Search or select account…"
                 formatLabel={(account) => `${account.name} (${account.type})`}
                 className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                usePortal
                 required
-                aria-label="Select account for transaction"
+                ariaLabel="Select account for transaction"
               />
             </div>
 

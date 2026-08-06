@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CategorySelector from './CategorySelector';
 import { XIcon } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { bucketContribution } from '../utils/incomeExpense';
+import { bucketContribution, buildCategoryKindLookup, classifyFlow } from '../utils/incomeExpense';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { toDecimal } from '../utils/decimal';
 import type { Category } from '../types';
@@ -40,10 +40,10 @@ interface Props {
   /**
    * Present only on the uncategorised drill: turns the Category column into
    * an inline picker so rows can be filed WITHOUT opening each one. Choices
-   * accumulate; Save appears in the header once any exist; saved rows leave
-   * the list. Receives categoryId → transaction ids, returns rows updated.
-   * Split lines are excluded — their category lives on the split line, not
-   * the parent this callback fills.
+   * accumulate; Save appears in the header once any exist; a row leaves the
+   * list as soon as the save has given it a category. Receives categoryId →
+   * transaction ids, returns rows updated. Split lines are excluded — their
+   * category lives on the split line, not the parent this callback fills.
    */
   onApplyCategories?: (assignments: Map<string, string[]>) => Promise<number>;
 }
@@ -66,36 +66,76 @@ export default function IncomeExpenseBreakdownModal({
   const { formatCurrency } = useCurrencyDecimal();
   const inlineFiling = bucket === 'uncategorized' && onApplyCategories !== undefined;
 
-  // Row id → chosen category ('' = choice cleared). Saved rows leave the
-  // list locally the moment the save lands — the upstream recompute follows
-  // on its own time.
+  // Row id → chosen category ('' = choice cleared).
   const [pendingChoices, setPendingChoices] = useState<Record<string, string>>({});
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  /**
+   * Where this list is in its life: 'empty' until it has had a row on it,
+   * 'working' while it has, 'closed' once its emptying has been reported. See
+   * the auto-close below — it must happen once, and never to a list that was
+   * opened with nothing on it.
+   */
+  const phase = useRef<'empty' | 'working' | 'closed'>('empty');
 
   // A fresh drill is a fresh slate.
   useEffect(() => {
     if (isOpen) {
       setPendingChoices({});
-      setSavedIds(new Set());
+      phase.current = 'empty';
     }
   }, [isOpen]);
 
-  const liveRows = useMemo(
-    () => (savedIds.size > 0 ? rows.filter(r => !savedIds.has(r.id)) : rows),
-    [rows, savedIds]
-  );
+  /**
+   * The uncategorised list is a CHORE list: a row that now has a real category
+   * has been done and leaves, however it was filed — by the picker below, in
+   * the editor a row opens, or anywhere else in the app. It is judged by the
+   * shared classifier (utils/incomeExpense), never a local test, so this list
+   * can never disagree with the page that opened it.
+   *
+   * Every other bucket is the HOST's own selection — one payee, one month, one
+   * account — and only the host can say what belongs in it, so those rows are
+   * shown exactly as given (re-categorised or not; it is still spending).
+   */
+  const visibleRows = useMemo(() => {
+    if (bucket !== 'uncategorized') return rows;
+    const kinds = buildCategoryKindLookup(categories);
+    return rows.filter(row => classifyFlow(row, kinds) === 'uncategorized');
+  }, [rows, bucket, categories]);
 
-  const pendingCount = useMemo(
-    () => Object.values(pendingChoices).filter(v => v !== '').length,
-    [pendingChoices]
+  // Latest-callback ref, for the reason common/Modal keeps one: hosts pass an
+  // inline onClose whose identity changes on every render, and the auto-close
+  // below must fire when the LIST empties — once — not whenever a parent
+  // re-renders.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Filing the last outstanding row finishes the job this list was opened to
+  // do, so it closes rather than sitting on "No transactions". A list that was
+  // opened empty stays put to say so.
+  useEffect(() => {
+    if (!isOpen || bucket !== 'uncategorized') return;
+    if (visibleRows.length > 0) {
+      phase.current = 'working';
+    } else if (phase.current === 'working') {
+      phase.current = 'closed';
+      onCloseRef.current();
+    }
+  }, [isOpen, bucket, visibleRows]);
+
+  // Only what is still on the list can be filed — a row categorised elsewhere
+  // while the drill was open takes its pending choice with it.
+  const pendingIds = useMemo(
+    () => visibleRows.filter(row => (pendingChoices[row.id] ?? '') !== '').map(row => row.id),
+    [visibleRows, pendingChoices]
   );
 
   const handleSave = async (): Promise<void> => {
     if (!onApplyCategories || saving) return;
     const assignments = new Map<string, string[]>();
-    for (const [rowId, categoryId] of Object.entries(pendingChoices)) {
-      if (categoryId === '') continue;
+    for (const rowId of pendingIds) {
+      const categoryId = pendingChoices[rowId];
       const list = assignments.get(categoryId);
       if (list) list.push(rowId);
       else assignments.set(categoryId, [rowId]);
@@ -104,15 +144,11 @@ export default function IncomeExpenseBreakdownModal({
     setSaving(true);
     try {
       await onApplyCategories(assignments);
-      const nextSaved = new Set(savedIds);
-      assignments.forEach(ids => ids.forEach(id => nextSaved.add(id)));
-      setSavedIds(nextSaved);
+      // Saved rows leave the list as the context catches up: they have real
+      // categories now, so the classifier above stops counting them as
+      // outstanding. A row the write REFUSED (it was filed by someone else in
+      // the meantime) stays, honestly, instead of being hidden locally.
       setPendingChoices({});
-      // The save just filed the LAST outstanding row: the popup's job is
-      // done, so it closes instead of sitting on an empty list.
-      if (rows.every(r => nextSaved.has(r.id))) {
-        onClose();
-      }
     } finally {
       // On failure the choices stay put — nothing the user picked is lost.
       setSaving(false);
@@ -141,7 +177,7 @@ export default function IncomeExpenseBreakdownModal({
   // Either a flat sorted list, or category sections (each with subtotal),
   // capped so an All-time window can't render tens of thousands of rows.
   const view = useMemo(() => {
-    const sorted = [...liveRows];
+    const sorted = [...visibleRows];
     if (sortKey === 'date') {
       sorted.sort((a, b) => sortDir * (new Date(a.date).getTime() - new Date(b.date).getTime()));
     } else if (sortKey === 'description') {
@@ -183,7 +219,7 @@ export default function IncomeExpenseBreakdownModal({
     }
     return { sections: capped, truncated };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveRows, sortKey, sortDir, categoryName, bucket]);
+  }, [visibleRows, sortKey, sortDir, categoryName, bucket]);
 
   const colourClass = bucket === 'income'
     ? 'text-green-600 dark:text-green-400'
@@ -284,14 +320,14 @@ export default function IncomeExpenseBreakdownModal({
       // it was the squeezed one.
       size={inlineFiling ? '2xl' : 'lg'}
       headerActions={
-        inlineFiling && pendingCount > 0 ? (
+        inlineFiling && pendingIds.length > 0 ? (
           <button
             type="button"
             onClick={() => void handleSave()}
             disabled={saving}
             className="px-4 py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-wait"
           >
-            {saving ? 'Saving…' : `Save ${pendingCount}`}
+            {saving ? 'Saving…' : `Save ${pendingIds.length}`}
           </button>
         ) : undefined
       }
@@ -301,7 +337,7 @@ export default function IncomeExpenseBreakdownModal({
             description and amount on one line, the category (or its picker)
             full-width beneath — because four fixed columns cannot share a
             phone. From sm up, the table is a table. */}
-        {liveRows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <p className="text-center py-8 text-gray-400">No transactions</p>
         ) : (
           <table className="block sm:table w-full">
@@ -337,7 +373,7 @@ export default function IncomeExpenseBreakdownModal({
               {view.truncated > 0 && (
                 <tr className="block sm:table-row">
                   <td colSpan={4} className="block sm:table-cell py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                    Showing {CAP.toLocaleString()} of {liveRows.length.toLocaleString()} rows — the total below covers them all.
+                    Showing {CAP.toLocaleString()} of {visibleRows.length.toLocaleString()} rows — the total below covers them all.
                   </td>
                 </tr>
               )}

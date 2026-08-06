@@ -15,7 +15,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
@@ -269,14 +269,16 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Import to Account <span className="text-red-500">*</span>
               </label>
-              <GroupedAccountSelect
+              <AccountSelector
                 accounts={accounts}
-                value={selectedAccountId}
-                onChange={setSelectedAccountId}
-                placeholder="Select an account..."
+                selectedAccountId={selectedAccountId}
+                onAccountChange={setSelectedAccountId}
+                placeholder="Search or select an account…"
                 formatLabel={(account) => `${account.name} (${account.type})`}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                usePortal
                 required
+                ariaLabel="Import to Account"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 QIF files don't contain account information, so you need to select the destination account

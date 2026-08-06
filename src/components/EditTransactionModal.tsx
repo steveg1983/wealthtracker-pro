@@ -18,7 +18,7 @@ import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
 import { resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import { useToast } from '../contexts/ToastContext';
 import CategorySelector from './CategorySelector';
@@ -391,12 +391,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   );
 
   // Transfer targets: every active account except the one this transaction
-  // sits in. The select carries 'transfer:<id>' because the target rides in
-  // the category field until save resolves it.
+  // sits in. The option carries 'transfer:<id>' because the target rides in
+  // the category field until save resolves it. `institution` comes along so
+  // the picker can band and find them by bank, as the Accounts page does.
   const transferTargetOptions = useMemo(
     () => accounts
       .filter(a => a.isActive !== false && a.id !== formData.accountId)
-      .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type })),
+      .map(a => ({ id: `transfer:${a.id}`, name: a.name, type: a.type, institution: a.institution })),
     [accounts, formData.accountId]
   );
 
@@ -717,13 +718,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <WalletIcon size={16} />
                 Account
               </label>
-              <GroupedAccountSelect
+              {/* Searchable, banded combobox — the same control as the
+                  category picker below. usePortal escapes the modal body's
+                  overflow-y-auto clipping; the box keeps this row's own
+                  styling so it still matches the date field beside it. */}
+              <AccountSelector
                 accounts={accounts}
-                value={formData.accountId}
-                onChange={(accountId) => updateField('accountId', accountId)}
-                placeholder="Select account"
+                selectedAccountId={formData.accountId}
+                onAccountChange={(accountId) => updateField('accountId', accountId)}
+                placeholder="Search or select account…"
                 formatLabel={(acc) => `${acc.name} (${acc.type})`}
                 className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                usePortal
                 required
               />
             </div>
@@ -900,14 +906,20 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   bucket. Transfers still require their target account. */}
               {formData.type === 'transfer' ? (
                 <>
-                  <GroupedAccountSelect
+                  {/* This picker sits in the SAME slot the category picker
+                      occupies for an income/expense row, so it wears the same
+                      box: choosing the other side of a transfer should feel
+                      exactly like choosing a category, not like a different
+                      app. Type to filter across seventy accounts by name or
+                      by bank. */}
+                  <AccountSelector
                     accounts={transferTargetOptions}
-                    value={formData.category}
-                    onChange={(target) => updateField('category', target)}
-                    placeholder="Select account to transfer to"
-                    className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
+                    selectedAccountId={formData.category}
+                    onAccountChange={(target) => updateField('category', target)}
+                    placeholder="Search or select account to transfer to…"
+                    usePortal
                     required
-                    aria-label="Transfer destination account"
+                    ariaLabel="Transfer destination account"
                   />
                   {/* Both halves of a linked transfer carry this, so it reads
                       the same whichever leg is open — and the register's ?txn

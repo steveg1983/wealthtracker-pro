@@ -40,7 +40,9 @@ vi.mock('./icons', () => ({
   CheckCircleIcon: () => <span data-testid="check-circle-icon" />,
   LinkIcon: () => <span data-testid="link-icon" />,
   RefreshCwIcon: () => <span data-testid="refresh-icon" />,
-  CalendarIcon: () => <span data-testid="calendar-icon" />
+  CalendarIcon: () => <span data-testid="calendar-icon" />,
+  // The account combobox's own chevron.
+  ChevronDownIcon: () => <span data-testid="chevron-down-icon" />
 }));
 
 const ACCOUNT_ID = 'acc-1';

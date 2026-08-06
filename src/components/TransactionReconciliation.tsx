@@ -3,7 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import { formatDateForInput } from '../utils/dateFormatter';
 import { CheckCircleIcon, LinkIcon, RefreshCwIcon, CalendarIcon } from './icons';
@@ -229,14 +229,16 @@ export default function TransactionReconciliation({
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium mb-2">Account</label>
-              <GroupedAccountSelect
+              <AccountSelector
                 accounts={accounts}
-                value={selectedAccount}
-                onChange={setSelectedAccount}
-                placeholder="Select an account..."
+                selectedAccountId={selectedAccount}
+                onAccountChange={setSelectedAccount}
+                placeholder="Search or select an account…"
                 formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg
                          bg-white dark:bg-gray-700"
+                usePortal
+                ariaLabel="Account"
               />
             </div>
             

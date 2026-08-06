@@ -4,7 +4,8 @@ import { toDecimal } from './decimal';
 /**
  * Duplicate-transaction scanning.
  *
- * Extracted from DuplicateDetection.tsx and restructured so the common case no
+ * Extracted from the old duplicate-detection modal and restructured so the
+ * common case no
  * longer does an O(n²) pairwise sweep with a Levenshtein computation per pair
  * (~16k transactions ⇒ ~128 million string comparisons that froze the main
  * thread for seconds):

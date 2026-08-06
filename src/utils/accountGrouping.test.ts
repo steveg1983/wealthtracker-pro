@@ -3,6 +3,7 @@ import {
   ACCOUNT_SECTION_DEFINITIONS,
   OTHER_SECTION_DEFINITION,
   DEFAULT_ACCOUNT_GROUPING,
+  accountMatchesQuery,
   groupAccountsBySection,
   groupAccountsForDisplay,
   parseAccountGroupingPreference,
@@ -348,5 +349,45 @@ describe('section definitions and the styled sections stay in step', () => {
     expect(ALL_ACCOUNT_SECTIONS.map(s => ({ type: s.type, title: s.title }))).toEqual(
       [...ACCOUNT_SECTION_DEFINITIONS, OTHER_SECTION_DEFINITION]
     );
+  });
+});
+
+/**
+ * What a picker's search box answers to. One definition of "matches", shared
+ * by every account combobox — the bank-link wizard used to carry its own.
+ */
+describe('accountMatchesQuery', () => {
+  const premier: GroupableAccount = {
+    name: 'Premier Bank',
+    type: 'current',
+    institution: 'HSBC',
+    sortCode: '40-18-41',
+  };
+
+  it('matches the account name, case-insensitively', () => {
+    expect(accountMatchesQuery(premier, 'premier')).toBe(true);
+    expect(accountMatchesQuery(premier, 'PREM')).toBe(true);
+    expect(accountMatchesQuery(premier, 'zebra')).toBe(false);
+  });
+
+  it('matches the institution, so a bank name finds accounts named nothing like it', () => {
+    expect(accountMatchesQuery(premier, 'hsbc')).toBe(true);
+    expect(accountMatchesQuery({ name: 'ISA', type: 'savings' }, 'hsbc')).toBe(false);
+  });
+
+  it('matches a sort code with or without its dashes', () => {
+    expect(accountMatchesQuery(premier, '40-18-41')).toBe(true);
+    expect(accountMatchesQuery(premier, '401841')).toBe(true);
+    expect(accountMatchesQuery(premier, '1841')).toBe(true);
+    expect(accountMatchesQuery(premier, '0184')).toBe(true); // spans two dashes
+    expect(accountMatchesQuery(premier, '99-99')).toBe(false);
+    // The dash-stripping path needs two digits of its own, so a stray digit
+    // inside a word does not drag in every sort code that contains it.
+    expect(accountMatchesQuery(premier, 'x4')).toBe(false);
+  });
+
+  it('matches everything on an empty or blank query', () => {
+    expect(accountMatchesQuery(premier, '')).toBe(true);
+    expect(accountMatchesQuery(premier, '   ')).toBe(true);
   });
 });

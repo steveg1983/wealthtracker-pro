@@ -246,9 +246,9 @@ describe('EditTransactionModal — jump to the other side', () => {
     expect(queryJumpButton()).toBeNull();
   });
 
-  it('offers every OTHER account as a transfer target, banded and named plainly', () => {
+  it('offers every OTHER account as a transfer target, banded and searchable', () => {
     // The target rides in the category field as 'transfer:<id>' until save
-    // resolves it — the shared grouped select must not change that, nor start
+    // resolves it — the shared picker must not change that, nor start
     // printing types or balances beside the name.
     mocks.app.accounts = [
       account('acc-a', 'Current Account'),
@@ -258,16 +258,28 @@ describe('EditTransactionModal — jump to the other side', () => {
     ];
     renderModal(OUT_LEG);
 
-    const target = screen.getByLabelText<HTMLSelectElement>('Transfer destination account');
-    expect(Array.from(target.querySelectorAll('optgroup')).map(g => g.label)).toEqual([
-      'Savings Accounts', 'Credit Cards',
-    ]);
-    expect(Array.from(target.querySelectorAll('option')).map(o => o.textContent)).toEqual([
-      'Select account to transfer to', 'Savings', 'Barclaycard',
-    ]);
-    expect(Array.from(target.querySelectorAll('optgroup option')).map(o => (o as HTMLOptionElement).value))
-      .toEqual(['transfer:acc-b', 'transfer:acc-c']);
     // An existing transfer opens showing the target it already has.
-    expect(target.value).toBe('transfer:acc-b');
+    const target = screen.getByRole('combobox', { name: 'Transfer destination account' });
+    expect(target).toHaveTextContent('Savings');
+
+    fireEvent.click(target);
+    const list = screen.getByRole('listbox', { name: 'Transfer destination account' });
+    expect(
+      Array.from(list.children)
+        .filter(child => child.getAttribute('role') === 'group')
+        .map(child => child.getAttribute('aria-label'))
+    ).toEqual(['Savings Accounts', 'Credit Cards']);
+    // This account and the closed one are both absent; the rest are named plainly.
+    expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['Savings', 'Barclaycard']);
+    // Selected by the 'transfer:' sentinel, not the bare account id.
+    expect(screen.getByRole('option', { name: 'Savings' })).toHaveAttribute('aria-selected', 'true');
+
+    // Type to filter, then pick — the whole point of the change.
+    fireEvent.change(screen.getByPlaceholderText('Search or select account to transfer to…'), {
+      target: { value: 'barclay' },
+    });
+    fireEvent.click(screen.getByText('Barclaycard'));
+    expect(screen.getByRole('combobox', { name: 'Transfer destination account' }))
+      .toHaveTextContent('Barclaycard');
   });
 });

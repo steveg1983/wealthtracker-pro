@@ -8,7 +8,7 @@ import {
   ArrowRightIcon,
   EyeIcon
 } from './icons';
-import GroupedAccountSelect from './common/GroupedAccountSelect';
+import AccountSelector from './common/AccountSelector';
 import type { Transaction, Account, Category } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 
@@ -164,13 +164,18 @@ export default function BulkEditPanel({
               <ArrowRightIcon size={16} className="inline mr-1" />
               Move to Account
             </label>
-            <GroupedAccountSelect
+            {/* "Keep in current account" is the no-change choice, so it is the
+                picker's clear row as well as its placeholder. */}
+            <AccountSelector
               accounts={accounts}
-              value={changes.moveToAccount ?? ''}
-              onChange={(accountId) => setChanges({ ...changes, moveToAccount: accountId || undefined })}
+              selectedAccountId={changes.moveToAccount ?? ''}
+              onAccountChange={(accountId) => setChanges({ ...changes, moveToAccount: accountId || undefined })}
               placeholder="Keep in current account"
+              searchPlaceholder="Search or select account…"
+              clearOption="Keep in current account"
               formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+              className="w-full px-3 py-2 h-[42px] border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+              ariaLabel="Move to account"
             />
           </div>
         </div>

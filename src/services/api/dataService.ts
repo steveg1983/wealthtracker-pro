@@ -9,6 +9,7 @@ import { UserService } from './userService';
 import { AccountService } from './accountService';
 import { TransactionService, type TransactionLoadResult, type TransactionLoadStats } from './transactionService';
 import { PlanningService } from './planningService';
+import { SuggestionDismissalService } from './suggestionDismissalService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
@@ -16,7 +17,7 @@ import { userIdService } from '../userIdService';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
-import type { Account, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult } from '../../types';
+import type { Account, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
 export interface AppData {
   accounts: Account[];
@@ -47,6 +48,8 @@ type TransactionServiceLike = Pick<typeof TransactionService,
   loadTransactionsForBoot?: (userId: string) => Promise<TransactionLoadResult>;
 };
 type PlanningServiceLike = Pick<typeof PlanningService, 'mergeCategories'>;
+type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
+  'list' | 'dismiss' | 'restore'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
@@ -59,6 +62,7 @@ export interface DataServiceOptions {
   accountService?: AccountServiceLike;
   transactionService?: TransactionServiceLike;
   planningService?: PlanningServiceLike;
+  suggestionDismissalService?: SuggestionDismissalServiceLike;
   userService?: typeof UserService;
   userIdService?: UserIdServiceLike;
   storageAdapter?: StorageAdapterLike;
@@ -74,6 +78,7 @@ class DataServiceImpl {
   private readonly accountService: AccountServiceLike;
   private readonly transactionService: TransactionServiceLike;
   private readonly planningService: PlanningServiceLike;
+  private readonly suggestionDismissalService: SuggestionDismissalServiceLike;
   private readonly userService: typeof UserService;
   private readonly userIdService: UserIdServiceLike;
   private readonly storage: StorageAdapterLike;
@@ -87,6 +92,8 @@ class DataServiceImpl {
     this.accountService = options.accountService ?? AccountService;
     this.transactionService = options.transactionService ?? TransactionService;
     this.planningService = options.planningService ?? PlanningService;
+    this.suggestionDismissalService =
+      options.suggestionDismissalService ?? SuggestionDismissalService;
     this.userService = options.userService ?? UserService;
     this.userIdService = options.userIdService ?? userIdService;
     this.storage = options.storageAdapter ?? storageAdapter;
@@ -388,6 +395,15 @@ class DataServiceImpl {
     }
     const filtered = transactions.filter(t => t.id !== id);
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, filtered);
+
+    // Mirrors the trg_prune_suggestion_dismissals trigger: a suggestion about a
+    // row that no longer exists can never be offered again, so its dismissal is
+    // dead weight. Same behaviour in demo mode as in the cloud.
+    const dismissals = await this.readLocalDismissals();
+    const survivors = dismissals.filter(d => !d.subjectIds.includes(id));
+    if (survivors.length !== dismissals.length) {
+      await this.persistCollection(STORAGE_KEYS.SUGGESTION_DISMISSALS, survivors);
+    }
   }
 
   /** Bulk-set the reconciliation cleared flag; balance-neutral by definition. */
@@ -1289,6 +1305,83 @@ class DataServiceImpl {
     };
   }
 
+  /**
+   * Suggestions the user has told the sweeps to stop offering.
+   *
+   * The local/demo mirror is a plain collection in browser storage, keyed the
+   * same way the table is — (kind, subjectKey) — so demo mode behaves exactly
+   * like the cloud: refuse a suggestion, close the sweep, re-open it, and the
+   * suggestion is still gone.
+   */
+  async getSuggestionDismissals(): Promise<SuggestionDismissal[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.suggestionDismissalService.list(userId);
+    }
+    if (this.isCloudSessionPending()) return [];
+    return this.readLocalDismissals();
+  }
+
+  /**
+   * Record a refusal. Idempotent in both modes: refusing something already
+   * refused returns the existing record, so a double-click (or a second device)
+   * cannot turn a decision into an error message.
+   */
+  async dismissSuggestion(
+    kind: DismissalKind,
+    subjectKey: string,
+    subjectIds: string[]
+  ): Promise<SuggestionDismissal> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.suggestionDismissalService.dismiss(userId, kind, subjectKey, subjectIds);
+    }
+    this.guardCloudWrite();
+
+    const stored = await this.readLocalDismissals();
+    const existing = stored.find(d => d.kind === kind && d.subjectKey === subjectKey);
+    if (existing) return existing;
+
+    const dismissal: SuggestionDismissal = {
+      id: this.generateId(),
+      kind,
+      subjectKey,
+      subjectIds,
+      dismissedAt: this.nowProvider(),
+    };
+    await this.persistCollection(STORAGE_KEYS.SUGGESTION_DISMISSALS, [...stored, dismissal]);
+    return dismissal;
+  }
+
+  /** Undo a refusal: the suggestion is offered again from the next scan. */
+  async restoreSuggestion(kind: DismissalKind, subjectKey: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.suggestionDismissalService.restore(userId, kind, subjectKey);
+    }
+    this.guardCloudWrite();
+
+    const stored = await this.readLocalDismissals();
+    await this.persistCollection(
+      STORAGE_KEYS.SUGGESTION_DISMISSALS,
+      stored.filter(d => !(d.kind === kind && d.subjectKey === subjectKey))
+    );
+  }
+
+  /**
+   * The browser-local dismissals. Stored as JSON, so `dismissedAt` comes back
+   * as the string it was serialised to — made true here rather than at each
+   * reader, the same boundary readLocalTransactions handles for dates.
+   */
+  private async readLocalDismissals(): Promise<SuggestionDismissal[]> {
+    const stored = await this.readCollection<SuggestionDismissal>(STORAGE_KEYS.SUGGESTION_DISMISSALS);
+    return stored.map(dismissal => ({
+      ...dismissal,
+      subjectIds: dismissal.subjectIds ?? [],
+      dismissedAt: new Date(dismissal.dismissedAt),
+    }));
+  }
+
   // Budgets/goals/categories are local-only here (PlanningService owns the
   // cloud path) — but a signed-in session must still never read them from
   // browser-local storage, so the same pending gate applies.
@@ -1486,6 +1579,22 @@ export class DataService {
 
   static mergeCategories(sourceId: string, targetId: string): Promise<CategoryMergeResult> {
     return this.service.mergeCategories(sourceId, targetId);
+  }
+
+  static getSuggestionDismissals(): Promise<SuggestionDismissal[]> {
+    return this.service.getSuggestionDismissals();
+  }
+
+  static dismissSuggestion(
+    kind: DismissalKind,
+    subjectKey: string,
+    subjectIds: string[]
+  ): Promise<SuggestionDismissal> {
+    return this.service.dismissSuggestion(kind, subjectKey, subjectIds);
+  }
+
+  static restoreSuggestion(kind: DismissalKind, subjectKey: string): Promise<void> {
+    return this.service.restoreSuggestion(kind, subjectKey);
   }
 
   static getBudgets(): Promise<Budget[]> {

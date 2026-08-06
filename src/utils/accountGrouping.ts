@@ -71,6 +71,38 @@ export interface GroupableAccount {
   name: string;
   type: Account['type'] | string;
   institution?: string;
+  /**
+   * Read only by `accountMatchesQuery`: the bank-link wizard identifies two
+   * same-named accounts by their sort code, so a picker must be able to find
+   * one by typing it. Optional because most option shapes never carry it.
+   */
+  sortCode?: string;
+}
+
+/**
+ * Does this account answer what the user typed? Name and institution always —
+ * with seventy accounts, "natwest" is as likely a search as "current" — plus
+ * the sort code where one is known, with or without its dashes.
+ *
+ * Pure and shared so a picker's filtering can be pinned by a test without
+ * rendering it, and so no second, subtly different notion of "matches" can
+ * grow up beside this one.
+ */
+export function accountMatchesQuery(account: GroupableAccount, rawQuery: string): boolean {
+  const query = rawQuery.trim().toLowerCase();
+  if (query === '') return true;
+  if (account.name.toLowerCase().includes(query)) return true;
+  if ((account.institution ?? '').toLowerCase().includes(query)) return true;
+  if (account.sortCode !== undefined && account.sortCode !== '') {
+    if (account.sortCode.toLowerCase().includes(query)) return true;
+    // "401841" and "1841" must find 40-18-41, which the raw compare above
+    // cannot answer across a dash. Two digits is the floor, so a stray digit
+    // inside a word does not drag in every sort code that contains it.
+    const queryDigits = query.replace(/\D/g, '');
+    const sortCodeDigits = account.sortCode.replace(/\D/g, '');
+    if (queryDigits.length >= 2 && sortCodeDigits.includes(queryDigits)) return true;
+  }
+  return false;
 }
 
 /** Same shape the Accounts page's own groups use: a stable key, a heading, rows. */
