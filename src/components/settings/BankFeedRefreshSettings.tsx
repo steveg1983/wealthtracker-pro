@@ -47,7 +47,7 @@ export default function BankFeedRefreshSettings(): React.JSX.Element | null {
   ];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
       <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-1 flex items-center gap-2">
         <RefreshCwIcon size={20} className="text-gray-500" />
         Bank feed refresh

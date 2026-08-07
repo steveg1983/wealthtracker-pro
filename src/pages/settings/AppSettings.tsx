@@ -68,9 +68,14 @@ export default function AppSettings() {
     }
   ];
 
+  // Every section below is a sibling card inside the wrapper's content
+  // container, so the gap between any two of them comes from the one
+  // `space-y-6` and nowhere else. Sections must not carry their own top or
+  // bottom margins, or the vertical rhythm disagrees with itself again.
   return (
-    <PageWrapper 
+    <PageWrapper
       title="App Settings"
+      contentClassName="space-y-6"
       rightContent={
         <button
           onClick={() => navigate('/settings')}
@@ -81,11 +86,10 @@ export default function AppSettings() {
         </button>
       }
     >
-
       <BankFeedRefreshSettings />
 
       {/* Personal Information */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Personal Information</h2>
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -108,7 +112,7 @@ export default function AppSettings() {
       <LocaleSelector />
 
       {/* Base Currency */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6 mt-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Base Currency</h2>
@@ -131,7 +135,7 @@ export default function AppSettings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Appearance</h2>
         
         {/* Theme Selection */}
