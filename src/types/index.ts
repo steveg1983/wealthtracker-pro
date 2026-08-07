@@ -108,6 +108,21 @@ export interface Transaction {
   };
   goalId?: string;
   accountName?: string;
+  /**
+   * Position of this row within the statement it was imported from — the
+   * BANK's own order among transactions that share a date.
+   *
+   * `date` is a calendar day, so same-day rows carry no order of their own and
+   * the register has to invent one to run a balance down the page. This is the
+   * one honest answer: OFX lists <STMTTRN> in statement order, so the file
+   * position is the bank's sequence. An ordinal, never a time — a statement
+   * states sequence, and a fabricated clock time would be a worse lie.
+   *
+   * Null/undefined = unknown, which is the truth for every hand-entered row and
+   * every row imported before the column existed. See compareChronological for
+   * how those interleave with rows that do know their place.
+   */
+  statementSequence?: number | null;
   createdAt?: Date;
   updatedAt?: Date;
   recurringTransactionId?: string;

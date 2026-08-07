@@ -123,8 +123,9 @@ export class EncryptedStorageService {
     }
   }
 
-  // Encrypt data
-  private encrypt(data: JsonValue): string {
+  // Encrypt data. Takes `unknown` because that is what JSON.stringify takes —
+  // narrowing it to JsonValue only forced every caller to cast back.
+  private encrypt(data: unknown): string {
     const jsonString = JSON.stringify(data);
     return CryptoJS.AES.encrypt(jsonString, this.encryptionKey).toString();
   }
@@ -160,7 +161,7 @@ export class EncryptedStorageService {
     // Encrypt if requested (values are otherwise stored as-is — see the
     // legacy note on decompress()).
     if (encrypted) {
-      processedData = this.encrypt(value as JsonValue);
+      processedData = this.encrypt(value);
     }
 
     const now = this.nowProvider();
@@ -264,8 +265,20 @@ export class EncryptedStorageService {
     return await indexedDBService.getAllKeys(this.storeName);
   }
 
-  // Bulk operations for better performance
-  async setItems<T extends JsonValue = JsonValue>(items: Array<StorageItem<T>>): Promise<void> {
+  /**
+   * Write several entries in ONE IndexedDB transaction.
+   *
+   * That is the property callers depend on, not just the speed: putBulk opens a
+   * single readwrite transaction, so a failure on any entry aborts the lot and
+   * storage is left exactly as it was. A restore is written through here for
+   * precisely that reason — a per-key loop could leave a user with half of one
+   * dataset and half of another.
+   *
+   * `T` is unconstrained (rather than `extends JsonValue`) so the app's own
+   * row types can be written without a cast; `encrypt` and structured clone
+   * both take anything JSON can carry.
+   */
+  async setItems<T = JsonValue>(items: Array<StorageItem<T>>): Promise<void> {
     const processedItems = await Promise.all(
       items.map(async ({ key, value, options }) => {
         const { encrypted = true, expiryDays } = options || {};
@@ -288,7 +301,8 @@ export class EncryptedStorageService {
           storedData.expiry = now + expiryDays * 24 * 60 * 60 * 1000;
         }
 
-        return { key, value: storedData } as BulkStorageItem;
+        const item: BulkStorageItem = { key, value: storedData };
+        return item;
       })
     );
 
@@ -364,7 +378,7 @@ export class EncryptedStorageService {
   }
 
   // Import data (from backup)
-  async importData(data: ExportedData, options: StorageOptions = {}): Promise<void> {
+  async importData<T = JsonValue>(data: Record<string, T>, options: StorageOptions = {}): Promise<void> {
     const items = Object.entries(data).map(([key, value]) => ({
       key,
       value,

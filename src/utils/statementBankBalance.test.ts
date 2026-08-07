@@ -96,6 +96,23 @@ describe('planStatementBankBalance', () => {
     expect(planStatementBankBalance(undefined, account(), CONFIRMED)).toEqual({ kind: 'none' });
   });
 
+  it('writes a closing balance of zero — absent and zero are not the same thing', () => {
+    // Zero is falsy, and every "does the file state a balance?" test here has
+    // to ask whether the BALANCE is absent, never whether the AMOUNT is truthy.
+    // An account on a nightly two-way sweep to a linked savings account closes
+    // at exactly 0.00 every day; skipping it would leave Reconciliation with
+    // nothing to check against on the one account that always states its
+    // position exactly.
+    const outcome = planStatementBankBalance(statement(0, '2026-03-31'), account(), CONFIRMED);
+
+    expect(outcome).toEqual({
+      kind: 'set',
+      updates: { bankBalance: 0, bankBalanceDate: '2026-03-31' },
+      amount: 0,
+      dateAsOf: '2026-03-31'
+    });
+  });
+
   it('does nothing when there is no account to write to', () => {
     expect(planStatementBankBalance(statement(900, '2026-03-31'), null, CONFIRMED))
       .toEqual({ kind: 'none' });

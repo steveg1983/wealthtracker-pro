@@ -7,6 +7,12 @@ import {
 } from '../utils/ofxAccountIdentifiers';
 import { keepLastFour } from '../utils/accountNumberInput';
 import { formatStatementDay, planStatementBankBalance } from '../utils/statementBankBalance';
+import {
+  findStatementDuplicates,
+  type IncomingStatementRow,
+  type StatementDuplicateMatch
+} from '../utils/statementDuplicates';
+import { formatShortDate } from '../utils/dateFormatter';
 // The account's OWN currency, not the user's display currency: a statement
 // states a figure in the currency the account is held in, and the reconciliation
 // screen compares it in that currency too.
@@ -36,11 +42,19 @@ interface OFXImportModalProps {
 
 type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
 
+/** One "you may already have this" pairing, with both sides ready to render. */
+interface DuplicateReviewRow {
+  incoming: IncomingStatementRow;
+  match: StatementDuplicateMatch;
+}
+
 type ImportOutcome =
   | {
       success: true;
       imported: number;
       duplicates: number;
+      /** How many of those the user looked at and chose to leave out. */
+      reviewedOut: number;
       account: Account | null;
       /** Set when the import also filled in the account's blank bank details. */
       savedDetails?: { accountName: string; summary: string };
@@ -74,6 +88,12 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
   const [accountIsUserChoice, setAccountIsUserChoice] = useState(false);
   /** null = follow the default above; true/false = the user said so. */
   const [saveDetailsOverride, setSaveDetailsOverride] = useState<boolean | null>(null);
+  /**
+   * FITIDs of rows the duplicate check flagged and the user overruled. Cleared
+   * whenever the file or the destination account changes, because a decision
+   * made about one account's register says nothing about another's.
+   */
+  const [importAnywayFitIds, setImportAnywayFitIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const parseFile = useCallback(async (targetFile: File) => {
     setIsProcessing(true);
@@ -168,10 +188,50 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     return `This file doesn't state a closing balance, so ${selectedAccount.name}'s Bank Balance stays as it is and Reconciliation has nothing to check these transactions against. You can enter it there by hand.`;
   }, [bankBalancePlan, parseResult, selectedAccount]);
 
+  // Which of this file's rows the chosen account already holds. Recomputed
+  // here rather than taken from the parse, because the destination is the
+  // user's to change and the answer is different for every account.
+  const duplicatePlan = useMemo(() => {
+    if (!parseResult || !selectedAccountId) return null;
+    return findStatementDuplicates(parseResult.statementRows, transactions, selectedAccountId);
+  }, [parseResult, selectedAccountId, transactions]);
+
+  /** The bank's own id on both sides — proof, so these are simply counted. */
+  const alreadyImportedCount = duplicatePlan?.certain.length ?? 0;
+
+  /** Same day, same pence, different words. Evidence, so these get reviewed. */
+  const reviewRows = useMemo((): DuplicateReviewRow[] => {
+    if (!parseResult || !duplicatePlan) return [];
+    return duplicatePlan.possible.map(match => ({
+      incoming: parseResult.statementRows[match.incomingIndex],
+      match
+    }));
+  }, [duplicatePlan, parseResult]);
+
+  const keptOut = reviewRows.filter(
+    row => row.match.fitId === null || !importAnywayFitIds.has(row.match.fitId)
+  ).length;
+
+  const willImport = parseResult
+    ? parseResult.statementRows.length -
+      (skipDuplicates ? alreadyImportedCount + keptOut : 0)
+    : 0;
+
+  const toggleImportAnyway = useCallback((fitId: string | null) => {
+    if (fitId === null) return;
+    setImportAnywayFitIds(previous => {
+      const next = new Set(previous);
+      if (next.has(fitId)) next.delete(fitId);
+      else next.add(fitId);
+      return next;
+    });
+  }, []);
+
   const handleAccountChange = useCallback((accountId: string) => {
     setSelectedAccountId(accountId);
     setAccountIsUserChoice(true);
     setSaveDetailsOverride(null);
+    setImportAnywayFitIds(new Set());
   }, []);
 
   // Handle file upload
@@ -190,6 +250,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     setImportResult(null);
     setAccountIsUserChoice(false);
     setSaveDetailsOverride(null);
+    setImportAnywayFitIds(new Set());
 
     // Parse the file
     parseFile(uploadedFile);
@@ -206,6 +267,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       setImportResult(null);
       setAccountIsUserChoice(false);
       setSaveDetailsOverride(null);
+      setImportAnywayFitIds(new Set());
       parseFile(droppedFile);
     }
   }, [parseFile]);
@@ -226,7 +288,9 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
           accountId: selectedAccountId || undefined,
           skipDuplicates,
           categories,
-          autoCategorize: true
+          autoCategorize: true,
+          // Only the rows on the review list above, and only the ones ticked.
+          importAnywayFitIds: [...importAnywayFitIds]
         }
       );
       
@@ -293,6 +357,9 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         success: true,
         imported: result.newTransactions,
         duplicates: result.duplicates,
+        reviewedOut: result.duplicateMatches.possible.filter(
+          match => match.fitId === null || !importAnywayFitIds.has(match.fitId)
+        ).length,
         account,
         savedDetails,
         savedDetailsError,
@@ -308,7 +375,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     } finally {
       setIsProcessing(false);
     }
-  }, [accounts, addTransaction, file, parseResult, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
+  }, [accounts, addTransaction, file, importAnywayFitIds, parseResult, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
 
   // Reset modal
   const resetModal = useCallback(() => {
@@ -318,6 +385,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     setSelectedAccountId('');
     setAccountIsUserChoice(false);
     setSaveDetailsOverride(null);
+    setImportAnywayFitIds(new Set());
   }, []);
   
   return (
@@ -366,7 +434,11 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                     OFX (Open Financial Exchange) files contain standardized financial data exported from banks and credit card companies.
                   </p>
                   <ul className="text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• Automatic duplicate detection using transaction IDs</li>
+                    {/* The old bullet promised detection "using transaction IDs",
+                        and that is exactly all it did — so every row that arrived
+                        from a bank feed, from Money or by hand, none of which
+                        carry one, was imported a second time. */}
+                    <li>• Finds transactions you already have, by the bank&apos;s own id or by date and amount</li>
                     <li>• Smart account matching based on account numbers</li>
                     <li>• Preserves transaction reference numbers</li>
                     <li>• Sets the account&apos;s Bank Balance from the statement&apos;s closing balance</li>
@@ -389,7 +461,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
               <div className="flex-1">
                 <p className="font-medium text-gray-900 dark:text-white">{file?.name}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {parseResult.transactions.length} transactions found
+                  {parseResult.statementRows.length} transactions found
                 </p>
               </div>
             </div>
@@ -494,27 +566,90 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                   className="rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Skip duplicate transactions
+                  Skip transactions you already have
                 </span>
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 ml-6 mt-1">
-                Uses unique transaction IDs to prevent importing the same transaction twice
+                Matches on the bank&apos;s own transaction id where both sides have
+                one, and otherwise on the date and the exact amount in this
+                account. Anything matched that way is listed below for you to
+                confirm before it is left out.
               </p>
             </div>
-            
+
+            {/* Already held — the bank's own id says so, so this is a count
+                rather than a list: there is nothing for anyone to decide. */}
+            {skipDuplicates && alreadyImportedCount > 0 && selectedAccount && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {alreadyImportedCount === 1
+                  ? `1 transaction in this file was already imported into ${selectedAccount.name} (same bank transaction id), so it will not be added again.`
+                  : `${alreadyImportedCount} transactions in this file were already imported into ${selectedAccount.name} (same bank transaction id), so they will not be added again.`}
+              </p>
+            )}
+
+            {/* The review list. Nothing here is deleted and nothing is decided
+                without the user: these rows are simply left out unless ticked. */}
+            {skipDuplicates && reviewRows.length > 0 && selectedAccount && (
+              <fieldset className="border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                <legend className="px-2 text-sm font-semibold text-yellow-900 dark:text-yellow-300">
+                  {reviewRows.length === 1
+                    ? '1 transaction looks like one you already have'
+                    : `${reviewRows.length} transactions look like ones you already have`}
+                </legend>
+                <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3">
+                  Each of these matches a transaction already in {selectedAccount.name}
+                  {' '}to the penny, on the same day. The wording differs because payees
+                  get renamed and older rows were shortened by whatever imported them, so
+                  the description is no guide. They will <strong>not</strong> be imported —
+                  tick any that are genuinely a second, separate payment.
+                </p>
+                <ul className="space-y-2">
+                  {reviewRows.map(({ incoming, match }) => (
+                    <li key={match.fitId ?? `${match.incomingIndex}`}>
+                      <label className="flex items-start gap-3 p-3 bg-white dark:bg-gray-800 border border-yellow-200 dark:border-yellow-800 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={match.fitId !== null && importAnywayFitIds.has(match.fitId)}
+                          onChange={() => toggleImportAnyway(match.fitId)}
+                          className="mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <span className="flex-1 min-w-0 text-sm">
+                          <span className="block font-medium text-gray-900 dark:text-white">
+                            {formatShortDate(incoming.date instanceof Date ? incoming.date : new Date(String(incoming.date)))}
+                            {' · '}
+                            {incoming.description}
+                            {' · '}
+                            {formatCurrency(incoming.amount, selectedAccount.currency)}
+                          </span>
+                          <span className="block text-gray-600 dark:text-gray-400">
+                            Already here as &ldquo;{match.heldDescription}&rdquo; on{' '}
+                            {formatShortDate(match.heldDate)}
+                            {match.heldCleared ? ', reconciled' : ''}
+                          </span>
+                          <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            Import anyway if this is a second, separate payment of the same amount.
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </fieldset>
+            )}
+
             {/* Summary */}
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {parseResult.transactions.length}
+                  {parseResult.statementRows.length}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Transactions</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">In this file</p>
               </div>
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {parseResult.duplicates || 0}
+                  {willImport}
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Duplicates Found</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Will be imported</p>
               </div>
             </div>
             
@@ -556,7 +691,12 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                 
                 {importResult.duplicates > 0 && (
                   <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
-                    Skipped {importResult.duplicates} duplicate transactions
+                    Left out {importResult.duplicates}{' '}
+                    {importResult.duplicates === 1 ? 'transaction' : 'transactions'} this
+                    account already had, so the statement period is not recorded twice.
+                    {importResult.reviewedOut > 0 && (
+                      ` ${importResult.reviewedOut} of those matched on date and amount rather than on the bank's own id — you can add any of them by hand if the wording made you doubt the match.`
+                    )}
                   </p>
                 )}
 

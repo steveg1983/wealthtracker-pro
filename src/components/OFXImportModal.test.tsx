@@ -22,9 +22,31 @@ const createMockImportResult = (
   matchedAccount: null,
   ofxAccount: OFX_BANK_ACCOUNT,
   matchConfidence: null,
+  statementRows: [],
+  duplicateMatches: { certain: [], possible: [] },
   duplicates: 0,
   newTransactions: 0,
   ...overrides,
+});
+
+/** N file rows, matching a mocked draft list — only the count is read here. */
+const mockStatementRows = (count: number): ImportTransactionsResult['statementRows'] =>
+  Array.from({ length: count }, (_, index) => ({
+    date: new Date('2024-01-01'),
+    amount: 100,
+    description: 'Test',
+    fitId: `fit-${index}`,
+  }));
+
+/** The file row behind a drafted transaction, as the service reports it. */
+const statementRow = (
+  transaction: ImportTransactionsResult['transactions'][number],
+  fitId: string
+): ImportTransactionsResult['statementRows'][number] => ({
+  date: transaction.date,
+  amount: transaction.amount,
+  description: transaction.description,
+  fitId,
 });
 
 const sampleTransaction: ImportTransactionsResult['transactions'][number] = {
@@ -177,6 +199,13 @@ describe('OFXImportModal', () => {
     fireEvent.click(screen.getByText(label));
   };
 
+  /** A preview summary tile, found by its label rather than by its number. */
+  const summaryTile = (label: string): HTMLElement => {
+    const tile = screen.getByText(label).parentElement;
+    if (!tile) throw new Error(`no summary tile labelled "${label}"`);
+    return tile;
+  };
+
   const CURRENT_ACCOUNT = 'Current Account (checking)';
   const SAVINGS_ACCOUNT = 'Savings Account (savings)';
 
@@ -206,7 +235,7 @@ describe('OFXImportModal', () => {
       
       expect(screen.getByText('About OFX Files')).toBeInTheDocument();
       expect(screen.getByText(/OFX.*Open Financial Exchange.*files contain standardized financial data/)).toBeInTheDocument();
-      expect(screen.getByText(/Automatic duplicate detection using transaction IDs/)).toBeInTheDocument();
+      expect(screen.getByText(/Finds transactions you already have/)).toBeInTheDocument();
       expect(screen.getByText(/Smart account matching based on account numbers/)).toBeInTheDocument();
       expect(screen.getByTestId('info-icon')).toBeInTheDocument();
     });
@@ -310,12 +339,10 @@ describe('OFXImportModal', () => {
 
   describe('File Parsing', () => {
     it('shows file info after successful parsing', async () => {
+      const second = { ...sampleTransaction, description: 'Test 2', amount: 200 };
       const mockParseResult = createMockImportResult({
-        transactions: [
-          sampleTransaction,
-          { ...sampleTransaction, description: 'Test 2', amount: 200 }
-        ],
-        duplicates: 1,
+        transactions: [sampleTransaction, second],
+        statementRows: [statementRow(sampleTransaction, 'fit-1'), statementRow(second, 'fit-2')],
         newTransactions: 2
       });
       
@@ -331,9 +358,11 @@ describe('OFXImportModal', () => {
       await waitFor(() => {
         expect(screen.getByText('test.ofx')).toBeInTheDocument();
         expect(screen.getByText('2 transactions found')).toBeInTheDocument();
-        expect(screen.getByText('2')).toBeInTheDocument(); // Total transactions
-        expect(screen.getByText('1')).toBeInTheDocument(); // Duplicates found
       });
+      // The tiles are read by their label, not by hunting for a loose "2":
+      // both of them say 2 here, and which is which is the whole point.
+      expect(summaryTile('In this file')).toHaveTextContent('2');
+      expect(summaryTile('Will be imported')).toHaveTextContent('2');
     });
 
     it('says a guessed match is a guess', async () => {
@@ -522,18 +551,18 @@ describe('OFXImportModal', () => {
       fireEvent.change(fileInput, { target: { files: [file] } });
       
       await waitFor(() => {
-        expect(screen.getByText('Skip duplicate transactions')).toBeInTheDocument();
+        expect(screen.getByText('Skip transactions you already have')).toBeInTheDocument();
       });
     });
 
     it('shows skip duplicates option checked by default', () => {
-      const checkbox = screen.getByRole('checkbox', { name: /Skip duplicate transactions/ });
+      const checkbox = screen.getByRole('checkbox', { name: /Skip transactions you already have/ });
       expect(checkbox).toBeChecked();
-      expect(screen.getByText('Uses unique transaction IDs to prevent importing the same transaction twice')).toBeInTheDocument();
+      expect(screen.getByText(/otherwise on the date and the exact amount in this\s+account/)).toBeInTheDocument();
     });
 
     it('allows toggling skip duplicates option', () => {
-      const checkbox = screen.getByRole('checkbox', { name: /Skip duplicate transactions/ });
+      const checkbox = screen.getByRole('checkbox', { name: /Skip transactions you already have/ });
       
       fireEvent.click(checkbox);
       expect(checkbox).not.toBeChecked();
@@ -554,6 +583,8 @@ describe('OFXImportModal', () => {
     beforeEach(async () => {
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
       };
@@ -581,6 +612,8 @@ describe('OFXImportModal', () => {
     it('processes import successfully', async () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         newTransactions: 1,
         duplicates: 0,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
@@ -603,6 +636,8 @@ describe('OFXImportModal', () => {
     it('shows duplicate count in success message', async () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         newTransactions: 1,
         duplicates: 3,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
@@ -615,7 +650,7 @@ describe('OFXImportModal', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Import Successful!')).toBeInTheDocument();
-        expect(screen.getByText('Skipped 3 duplicate transactions')).toBeInTheDocument();
+        expect(screen.getByText(/Left out\s+3\s+transactions this account already had/)).toBeInTheDocument();
       });
     });
 
@@ -661,6 +696,8 @@ describe('OFXImportModal', () => {
     it('disables import button when no account selected and no match', async () => {
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: null,
       };
@@ -683,6 +720,8 @@ describe('OFXImportModal', () => {
     it('enables import button when account is manually selected', async () => {
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: null,
       };
@@ -717,6 +756,8 @@ describe('OFXImportModal', () => {
     it('resets modal when cancel button clicked', async () => {
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: null
       };
@@ -744,12 +785,16 @@ describe('OFXImportModal', () => {
     it('shows import another file button after successful import', async () => {
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
       };
       
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         newTransactions: 1,
         duplicates: 0,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
@@ -786,12 +831,16 @@ describe('OFXImportModal', () => {
       const onClose = vi.fn();
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
       };
       
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         newTransactions: 1,
         duplicates: 0,
         matchedAccount: { id: 'acc1', name: 'Current Account' }
@@ -879,6 +928,8 @@ describe('OFXImportModal', () => {
     it('handles zero transactions found', async () => {
       const mockParseResult = {
         transactions: [],
+        statementRows: mockStatementRows(0),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: null,
       };
@@ -901,12 +952,16 @@ describe('OFXImportModal', () => {
     it('handles import with selectedAccountId when no matchedAccount', async () => {
       const mockParseResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         duplicates: 0,
         matchedAccount: null,
       };
       
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+        statementRows: mockStatementRows(1),
+        duplicateMatches: { certain: [], possible: [] },
         newTransactions: 1,
         duplicates: 0,
         matchedAccount: null // No matched account in result
@@ -1262,6 +1317,96 @@ describe('OFXImportModal', () => {
 
       expect(screen.getByText('Imported 1 transactions to Filed Account')).toBeInTheDocument();
       expect(screen.getByText(/Bank Balance couldn't be updated/)).toBeInTheDocument();
+    });
+  });
+  /**
+   * The preview's duplicate review. `mockTransactions` gives account acc1 one
+   * £100 transaction on 2024-01-01 described "Test Transaction"; the statement
+   * below carries the same money on the same day under the bank's own wording,
+   * which is exactly the shape that used to import a second copy in silence.
+   */
+  describe('Duplicate review', () => {
+    const sameMoneyDifferentWords: ImportTransactionsResult['statementRows'][number] = {
+      date: new Date('2024-01-01'),
+      amount: 100,
+      description: 'Immediate Faster Payment (Online) to B EXAMPLE 01-JAN-2024',
+      fitId: 'fit-1'
+    };
+
+    const openPreview = async (): Promise<void> => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(
+        createMockImportResult({
+          transactions: [sampleTransaction],
+          statementRows: [sameMoneyDifferentWords],
+          matchedAccount: mockAccounts[0],
+          newTransactions: 1
+        })
+      );
+
+      render(<OFXImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('ofx-upload')!, {
+        target: { files: [new File(['OFX content'], 'test.ofx', { type: 'application/ofx' })] }
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('test.ofx')).toBeInTheDocument();
+      });
+    };
+
+    it('lists the row against the transaction it matches, and leaves it out by default', async () => {
+      await openPreview();
+
+      expect(screen.getByText('1 transaction looks like one you already have')).toBeInTheDocument();
+      // Both sides shown: the user is being asked to judge a pair, and the
+      // descriptions are the only part that differs.
+      expect(screen.getByText(/Immediate Faster Payment \(Online\) to B EXAMPLE/)).toBeInTheDocument();
+      expect(screen.getByText(/Already here as “Test Transaction” on 01\/01\/2024/)).toBeInTheDocument();
+
+      expect(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ })).not.toBeChecked();
+      expect(summaryTile('In this file')).toHaveTextContent('1');
+      expect(summaryTile('Will be imported')).toHaveTextContent('0');
+    });
+
+    it('imports it after the user says it is a separate payment', async () => {
+      await openPreview();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ }));
+      expect(summaryTile('Will be imported')).toHaveTextContent('1');
+
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(
+        createMockImportResult({
+          transactions: [sampleTransaction],
+          statementRows: [sameMoneyDifferentWords],
+          matchedAccount: mockAccounts[0],
+          newTransactions: 1
+        })
+      );
+      fireEvent.click(screen.getByTestId('loading-button'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+      expect(ofxImportService.importTransactions).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ importAnywayFitIds: ['fit-1'] })
+      );
+    });
+
+    it('forgets the decision when the destination account changes', async () => {
+      await openPreview();
+      fireEvent.click(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ }));
+
+      // Savings holds none of this, so there is nothing left to review — and
+      // the overrule must not survive into an account it was never about.
+      chooseAccount(SAVINGS_ACCOUNT);
+      expect(screen.queryByText(/looks like one you already have/)).not.toBeInTheDocument();
+      expect(summaryTile('Will be imported')).toHaveTextContent('1');
+
+      chooseAccount(CURRENT_ACCOUNT);
+      expect(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ })).not.toBeChecked();
+      expect(summaryTile('Will be imported')).toHaveTextContent('0');
     });
   });
 });

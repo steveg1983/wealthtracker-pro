@@ -58,6 +58,22 @@ describe('currency-decimal', () => {
       expect(formatCurrency(0, 'EUR')).toBe('€0.00');
     });
 
+    it('never prints a minus in front of zero', () => {
+      // Zero has no sign to show, but Decimal keeps one: JS negative zero (which
+      // float arithmetic hands over from a running balance that nets out) and
+      // any amount small enough to round away both answer isNegative() while
+      // printing as 0.00. The account register showed "-£0.00" against a day
+      // whose payment and offsetting sweep cancelled, which reads to the user
+      // like a rounding error in their own money.
+      expect(formatCurrency(-0, 'GBP')).toBe('£0.00');
+      expect(formatCurrency(-0.001, 'GBP')).toBe('£0.00');
+      expect(formatCurrency(new Decimal('-0'), 'GBP')).toBe('£0.00');
+      expect(formatCurrency(new Decimal(75).minus(75), 'GBP')).toBe('£0.00');
+      expect(formatCurrency(-0, 'CHF')).toBe('0.00 CHF');
+      // A real negative still shows one — this must not silence the sign.
+      expect(formatCurrency(-0.01, 'GBP')).toBe('-£0.01');
+    });
+
     it('formats Decimal instances', () => {
       const decimal = new Decimal('1234.567');
       expect(formatCurrency(decimal, 'GBP')).toBe('£1,234.57');

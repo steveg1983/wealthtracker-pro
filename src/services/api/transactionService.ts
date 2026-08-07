@@ -135,6 +135,7 @@ const CAMEL_TO_DB: Record<string, string> = {
   goalId: 'goal_id',
   accountName: 'account_name',
   categoryName: 'category_name',
+  statementSequence: 'statement_sequence',
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   recurringTransactionId: 'recurring_transaction_id',
@@ -175,7 +176,29 @@ const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
  * parser — a widened `string` (which `+` concatenation or `[].join` produces)
  * degrades the result to an untyped error type.
  */
-const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
+const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+
+/**
+ * The same list without `statement_sequence`, for a database that has not had
+ * 20260808090000_transaction_statement_sequence.sql applied yet.
+ *
+ * WHY THIS EXISTS. The list above is an EXPLICIT select, and PostgREST fails the
+ * whole query on an unknown column — so shipping the column in it before the
+ * migration lands would not degrade the register's ordering, it would stop the
+ * app loading a single transaction. The owner applies migrations himself, so
+ * "deploy after the migration" is an ordering this code cannot enforce and must
+ * not depend on. Falling back makes the deploy safe in either order, and the
+ * feature light up by itself the moment the migration is applied — no second
+ * release to remember.
+ */
+const BOOT_TRANSACTION_COLUMNS_LEGACY = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
+
+/**
+ * Postgres `undefined_column`. Matched on the CODE, never on the message: the
+ * code is part of the documented wire contract and the message is English prose
+ * that has changed between releases.
+ */
+const UNDEFINED_COLUMN = '42703';
 
 /**
  * One PostgREST row → the camelCase shape a Transaction claims.
@@ -255,6 +278,12 @@ class TransactionServiceImpl {
   private readonly fetchImpl: FetchLike | null;
   private readonly authTokenProvider: AuthTokenProvider | null;
   private readonly cache: TransactionCacheLike;
+  /**
+   * Set once, on the first page that comes back 42703, when this database
+   * predates 20260808090000_transaction_statement_sequence.sql. Per instance
+   * rather than per call so a 50-page boot pays for the discovery once.
+   */
+  private statementSequenceMissing = false;
 
   constructor(options: TransactionServiceOptions = {}) {
     this.cache = options.transactionCache ?? transactionCache;
@@ -343,6 +372,30 @@ class TransactionServiceImpl {
     since?: string
   ): Promise<Record<string, unknown>[]> {
     const client = this.supabaseClient!;
+    const to = from + PAGE_SIZE - 1;
+
+    // The two select lists are written out in full rather than passed as a
+    // parameter, because supabase-js parses the select list AT THE TYPE LEVEL
+    // and only a single string literal engages that parser — a union of two
+    // literals degrades the whole result to an error type (the same reason the
+    // constants are `as const` and never concatenated).
+    if (this.statementSequenceMissing) {
+      const legacyBase = client
+        .from('transactions')
+        .select(BOOT_TRANSACTION_COLUMNS_LEGACY)
+        .eq('user_id', userId);
+      const legacyScoped = since ? legacyBase.gte('updated_at', since) : legacyBase;
+      const { data, error } = await legacyScoped
+        .order('date', { ascending: false })
+        .order('id', { ascending: false }) // stable tiebreak for paging
+        .range(from, to);
+      if (error) {
+        this.logger.error('Error fetching transactions:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      return (data || []) as Record<string, unknown>[];
+    }
+
     const base = client
       .from('transactions')
       .select(BOOT_TRANSACTION_COLUMNS)
@@ -351,8 +404,17 @@ class TransactionServiceImpl {
     const { data, error } = await scoped
       .order('date', { ascending: false })
       .order('id', { ascending: false }) // stable tiebreak for paging
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, to);
+
     if (error) {
+      // This database predates the statement-sequence migration. Remember it
+      // (so the other 50 pages of a boot do not each pay for the discovery) and
+      // fetch again without the column: a register that cannot order a day the
+      // bank's way is a shortfall, no register at all is an outage.
+      if (error.code === UNDEFINED_COLUMN) {
+        this.statementSequenceMissing = true;
+        return this.fetchTransactionPage(userId, from, since);
+      }
       this.logger.error('Error fetching transactions:', error);
       throw new Error(handleSupabaseError(error));
     }

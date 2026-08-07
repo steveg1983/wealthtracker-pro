@@ -177,21 +177,37 @@ export class SecureStorageAdapter implements StorageAdapter {
     }
   }
 
+  /**
+   * Keys holding the user's own records rather than a cached or derived copy.
+   *
+   * Membership decides ONE thing that matters more than the encryption flag it
+   * is named for: everything outside this list is stored with a 30-day expiry
+   * and is deleted on the first read after it lapses. Categories, splits and
+   * dismissals were outside it, so a local dataset lost its category tree a
+   * month after the last write — and a restored backup would have evaporated
+   * the same way. They are the user's records; they do not expire.
+   */
+  private static readonly FINANCIAL_KEYS: readonly string[] = [
+    STORAGE_KEYS.ACCOUNTS,
+    STORAGE_KEYS.TRANSACTIONS,
+    STORAGE_KEYS.TRANSACTION_SPLITS,
+    STORAGE_KEYS.CATEGORIES,
+    STORAGE_KEYS.BUDGETS,
+    STORAGE_KEYS.GOALS,
+    STORAGE_KEYS.SUGGESTION_DISMISSALS,
+  ];
+
+  private isFinancialKey(key: string): boolean {
+    return SecureStorageAdapter.FINANCIAL_KEYS.includes(key) ||
+           key.includes('transaction') ||
+           key.includes('account') ||
+           key.includes('budget') ||
+           key.includes('financial');
+  }
+
   async set<T>(key: string, value: T): Promise<void> {
     try {
-      // Determine if this is sensitive data that should be encrypted
-      const sensitiveKeys = [
-        STORAGE_KEYS.ACCOUNTS,
-        STORAGE_KEYS.TRANSACTIONS,
-        STORAGE_KEYS.BUDGETS,
-        STORAGE_KEYS.GOALS,
-      ];
-      
-      const isFinancialData = (sensitiveKeys as readonly string[]).includes(key) ||
-                              key.includes('transaction') ||
-                              key.includes('account') ||
-                              key.includes('budget') ||
-                              key.includes('financial');
+      const isFinancialData = this.isFinancialKey(key);
 
       // Store in encrypted storage
       await encryptedStorage.setItem(key, value, {
@@ -207,6 +223,36 @@ export class SecureStorageAdapter implements StorageAdapter {
       this.logger.error(`Error setting ${key}:`, error);
       // Fallback to localStorage
       this.localStorageRef?.setItem(key, JSON.stringify(value));
+    }
+  }
+
+  /**
+   * Write several keys as ONE unit.
+   *
+   * Deliberately WITHOUT the localStorage fallback `set` has: falling back
+   * per-key is exactly what would break the promise this method exists to make.
+   * A caller that needs "all of these or none of them" — the local restore, the
+   * local wipe — must be told the write failed, not handed a storage layer that
+   * quietly did some of it somewhere else. Failure leaves storage untouched.
+   */
+  async setMany<T>(entries: ReadonlyArray<{ key: string; value: T }>): Promise<void> {
+    if (entries.length === 0) return;
+
+    await encryptedStorage.setItems(entries.map(({ key, value }) => {
+      const isFinancialData = this.isFinancialKey(key);
+      return {
+        key,
+        value,
+        options: { encrypted: isFinancialData, expiryDays: isFinancialData ? undefined : 30 },
+      };
+    }));
+
+    // The pre-migration copies would otherwise be read back the moment
+    // IndexedDB returns null for a key this just emptied.
+    if (this.migrationCompleted) {
+      for (const { key } of entries) {
+        this.localStorageRef?.removeItem?.(key);
+      }
     }
   }
 
@@ -281,7 +327,7 @@ export class SecureStorageAdapter implements StorageAdapter {
 
   // Import data from backup
   async importData(data: Record<string, unknown>): Promise<void> {
-    await encryptedStorage.importData(data as Record<string, import('../types/common').JsonValue>, { encrypted: true });
+    await encryptedStorage.importData(data, { encrypted: true });
   }
 
   // Get storage usage info

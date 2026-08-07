@@ -611,8 +611,14 @@ export function transactionDateRange(bundle: BackupBundle): { first: string; las
  *  • `accounts.plaid_connection_id` and `transactions.connection_id` — they
  *    point at bank_connections, which a backup deliberately does not carry, and
  *    the RPC strips both before inserting.
- *  • the jsonb columns (`metadata`, `widgets`, `settings`) — nothing in the app
- *    writes a row id into any of them; they hold layout and display settings.
+ *  • the jsonb `widgets` and `settings` — they hold layout and display choices,
+ *    and nothing writes a row id into either.
+ *
+ * `metadata` used to be on that list, and it should not have been:
+ * planningService.goalToDb parks `linkedAccountIds` there, because goals has no
+ * column for them. So a goal's linked accounts survived a restore still naming
+ * the accounts of the login the file came from — wrong on both storage engines,
+ * and invisible because nothing constrains a jsonb key. See `metadataIdArrays`.
  */
 interface EntityReferences {
   /** Columns typed uuid whose value is another backed-up row's id. */
@@ -620,14 +626,32 @@ interface EntityReferences {
   /**
    * TEXT columns that hold a row id.
    *
-   * These are gated on the value LOOKING like a uuid, because the same column is
-   * free text in some rows: `goals.category` holds a label a person typed, while
-   * `transactions.category` holds a category's uuid. A label is not a reference
-   * and must not be counted as a dangling one.
+   * The same column is free text in some rows — `goals.category` holds a label
+   * a person typed, `transactions.category` holds a category's id — so the two
+   * have to be told apart. That is done by asking whether the value NAMES A ROW
+   * THE FILE CONTAINS, not by asking whether it looks like a uuid.
+   *
+   * The uuid test was the first answer and it was wrong for exactly one dataset,
+   * which happens to be the one this file's local half reads: a signed-out user's
+   * categories are seeded with text ids ('type-income', 'transfer-in' — see
+   * data/defaultCategories), because the cloud's uuid ids are minted per user by
+   * migrate_categories_atomic on first sign-in. Remapping categories[].id while
+   * skipping every transactions.category that pointed at one left the whole
+   * dataset uncategorised, silently, since nothing constrains that column.
+   * Membership of the id map is exact where a shape test could only guess.
    */
   readonly textId?: readonly string[];
   /** uuid[] columns where every element is a row id. */
   readonly uuidArray?: readonly string[];
+  /**
+   * Keys INSIDE the `metadata` jsonb holding an array of row ids.
+   *
+   * Only one exists — goals.metadata.linkedAccountIds — and it exists because
+   * goals has no column for it. Handled by key rather than by sweeping the
+   * whole jsonb: metadata also carries a user's own free text, and rewriting
+   * anything there that happened to match an id would corrupt it.
+   */
+  readonly metadataIdArrays?: readonly string[];
 }
 
 const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
@@ -646,7 +670,7 @@ const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
     textId: ['category'],
   },
   budgets: { uuid: ['category_id'], textId: ['category'] },
-  goals: { uuid: ['account_id'], textId: ['category'] },
+  goals: { uuid: ['account_id'], textId: ['category'], metadataIdArrays: ['linkedAccountIds'] },
   goal_contributions: { uuid: ['goal_id', 'transaction_id'] },
   investments: { uuid: ['account_id'] },
   investment_transactions: { uuid: ['investment_id'] },
@@ -720,20 +744,21 @@ function remapDismissalKey(
     const colon = segment.indexOf(':');
     const prefix = colon >= 0 ? segment.slice(0, colon + 1) : '';
     const value = colon >= 0 ? segment.slice(colon + 1) : segment;
-    // A segment that is not a uuid is a kind tag like "duplicate" or "claimed".
-    if (!UUID_PATTERN.test(value)) return segment;
     const replacement = lookup(value);
-    if (replacement === undefined) {
-      onDangling(value);
-      return segment;
-    }
-    return prefix + replacement;
+    if (replacement !== undefined) return prefix + replacement;
+    // Named no row in the file. Uuid-shaped, it should have been one; otherwise
+    // it is a kind tag like "duplicate" or "claimed" and belongs as it is.
+    if (UUID_PATTERN.test(value)) onDangling(value);
+    return segment;
   });
 
-  // Positions that held a BARE uuid — the ones canonicalSubjectKey sorted.
+  // Positions that held a BARE id — the ones canonicalSubjectKey sorted. Same
+  // discriminator as above: a row the file contains, or something uuid-shaped
+  // that was meant to be one. A kind tag is neither.
   const barePositions: number[] = [];
   segments.forEach((segment, index) => {
-    if (UUID_PATTERN.test(segment)) barePositions.push(index);
+    if (segment.includes(':')) return;
+    if (lookup(segment) !== undefined || UUID_PATTERN.test(segment)) barePositions.push(index);
   });
 
   const wasSorted = barePositions.every(
@@ -800,11 +825,16 @@ export function remapBackupIds(
 
       for (const field of spec.textId ?? []) {
         const value = readString(row, field);
-        // Not uuid-shaped means it is a label, not a reference to anything.
-        if (!value || !UUID_PATTERN.test(value)) continue;
+        if (!value) continue;
         const replacement = lookup(value);
-        if (replacement === undefined) note(field, value);
-        else next[field] = replacement;
+        if (replacement !== undefined) {
+          next[field] = replacement;
+          continue;
+        }
+        // It named no row in the file. Uuid-shaped, it was meant to be one and
+        // the user should hear about it; otherwise it is a label like "Holiday"
+        // and there is nothing wrong with it.
+        if (UUID_PATTERN.test(value)) note(field, value);
       }
 
       for (const field of spec.uuidArray ?? []) {
@@ -819,6 +849,28 @@ export function remapBackupIds(
           }
           return replacement;
         });
+      }
+
+      // The one jsonb column carrying references. Rewritten key by key, and
+      // only for the keys named in the spec, so everything else the user has
+      // in metadata travels through untouched.
+      const metadataKeys = spec.metadataIdArrays ?? [];
+      if (metadataKeys.length > 0 && isPlainObject(row.metadata)) {
+        const metadata: Record<string, unknown> = { ...row.metadata };
+        for (const key of metadataKeys) {
+          const value = metadata[key];
+          if (!Array.isArray(value)) continue;
+          metadata[key] = value.map((element) => {
+            if (typeof element !== 'string') return element;
+            const replacement = lookup(element);
+            if (replacement === undefined) {
+              note(`metadata.${key}`, element);
+              return element;
+            }
+            return replacement;
+          });
+        }
+        next.metadata = metadata;
       }
 
       if (entity === 'suggestion_dismissals') {

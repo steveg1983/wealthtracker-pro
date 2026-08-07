@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTransferOtherSide } from './transferOtherSide';
+import { describeDeleteStranding, resolveTransferOtherSide } from './transferOtherSide';
 import type { Account, Transaction } from '../types';
 
 const account = (id: string, name: string, isActive = true): Account => ({
@@ -93,5 +93,59 @@ describe('resolveTransferOtherSide', () => {
     // at a row that is not there, is worse than not offering the jump.
     const selfRef = leg({ id: 'y', accountId: 'acc-a', linkedTransferId: 'z', transferAccountId: 'acc-a' });
     expect(resolveTransferOtherSide(selfRef, [], OPEN)).toBeNull();
+  });
+});
+
+describe('describeDeleteStranding', () => {
+  it('says nothing for an ordinary transaction', () => {
+    // Zero counts render nothing: a plain expense loses nothing but itself, and
+    // a warning that fires on every delete is a warning nobody reads.
+    const ordinary = leg({
+      id: 'shopping',
+      accountId: 'acc-a',
+      type: 'expense',
+      transferAccountId: undefined,
+      linkedTransferId: undefined,
+    });
+    expect(describeDeleteStranding(ordinary, [ordinary], OPEN)).toBeNull();
+    expect(describeDeleteStranding(null, [], OPEN)).toBeNull();
+  });
+
+  it('names the account the survivor is left in, and what happens to it', () => {
+    const stranding = describeDeleteStranding(OUT, [OUT, IN], OPEN);
+
+    expect(stranding).not.toBeNull();
+    // The account by NAME: the whole point is that the damage lands somewhere
+    // the user is not looking.
+    expect(stranding?.message).toContain('Savings');
+    // The consequence, not the mechanism: the row survives and still counts.
+    expect(stranding?.message).toMatch(/still counted in that account's balance/);
+    expect(stranding?.message).toMatch(/no longer linked to anything/);
+    // And where to go and finish the job.
+    expect(stranding).toMatchObject({ accountId: 'acc-b', transactionId: 'in' });
+  });
+
+  it('works from the other leg too — both sides strand each other', () => {
+    expect(describeDeleteStranding(IN, [OUT, IN], OPEN)?.message).toContain('Current Account');
+  });
+
+  it('does not invent a name for an account that is closed', () => {
+    const stranding = describeDeleteStranding(OUT, [OUT], [account('acc-a', 'Current Account')]);
+
+    expect(stranding?.message).toContain('in the account it faces');
+    expect(stranding?.message).not.toContain('undefined');
+    expect(stranding?.accountId).toBe('acc-b');
+  });
+
+  it('says a split LINE is what survives, when that is what survives', () => {
+    // The counterpart is one line inside a split. Telling the user to "delete
+    // that side too" would be telling them to delete other people's spending:
+    // the rest of the split is unrelated, and it stays.
+    const facingASplitLine = { ...OUT, linkedTransferSplitId: 'split-line-1' };
+    const message = describeDeleteStranding(facingASplitLine, [facingASplitLine, IN], OPEN)?.message;
+
+    expect(message).toContain('a single line inside a split transaction in Savings');
+    expect(message).toMatch(/the split itself stays exactly as it is/);
+    expect(message).not.toMatch(/Delete that side too/);
   });
 });

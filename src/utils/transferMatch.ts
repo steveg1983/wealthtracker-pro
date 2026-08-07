@@ -67,3 +67,28 @@ export function findTransferCandidates(
 export function transferCategoryFor(categories: Category[], accountId: string): Category | undefined {
   return categories.find(c => c.isTransferCategory === true && c.accountId === accountId);
 }
+
+/**
+ * Would filing this transaction under `categoryId` make it a transfer to the
+ * account it is ALREADY in?
+ *
+ * A transfer moves money between two accounts; "Current Account → Current
+ * Account" describes nothing, and the manual editor already refuses it
+ * ("That's this account's own transfer category — pick the OTHER account's
+ * To/From category", QuickEditTransactionPanel). The importers' automatic
+ * categoriser had no such guard, and its merchant key is the generic payment
+ * channel — "immediate faster payment", "direct debit" — which a swept account's
+ * own internal sweeps share with every third-party payment on the statement. So
+ * ordinary direct debits arrived filed as transfers to the very account they sat
+ * in. Suggestions are advice; this one is never right, whatever its confidence.
+ */
+export function isSelfTransferCategory(
+  categories: readonly Category[],
+  categoryId: string,
+  accountId: string
+): boolean {
+  if (!categoryId || !accountId) return false;
+  return categories.some(
+    c => c.id === categoryId && c.isTransferCategory === true && c.accountId === accountId
+  );
+}

@@ -59,3 +59,66 @@ export function resolveTransferOtherSide(
     isOpen,
   };
 }
+
+/** What a delete would leave behind in the other account. */
+export interface DeleteStranding {
+  /** One paragraph, ready to render under "Delete Transaction?". */
+  message: string;
+  /** Where the survivor sits, so a caller can offer to go and deal with it. */
+  accountId: string;
+  /** The survivor's id, for the same reason. */
+  transactionId: string;
+}
+
+/**
+ * What deleting this row would do to the OTHER side of its transfer — or null
+ * when there is no other side and there is therefore nothing extra to say.
+ *
+ * WHY the confirmation needs this: `transactions_linked_transfer_id_fkey` is
+ * ON DELETE SET NULL, and `delete_transaction_atomic` removes one row and
+ * reverses one balance. So deleting one leg does not remove the movement; it
+ * removes half of it. The counterpart stays in its own account, still moving
+ * that account's balance, with its link quietly nulled — an orphan that looks
+ * like an ordinary transaction and reads as a real payment for as long as
+ * nobody reconciles that account. One such stranded leg went unnoticed for
+ * years and left an account out by five figures.
+ *
+ * The old confirmation said only "This action cannot be undone", which is true
+ * and beside the point: the thing the user cannot undo is happening in an
+ * account they are not looking at.
+ *
+ * Nothing is offered to delete on the user's behalf — cascading a delete into
+ * another account without being asked would be worse than stranding a row. This
+ * is consent, so it names the consequence and stops.
+ */
+export function describeDeleteStranding(
+  transaction: Transaction | null | undefined,
+  transactions: readonly Transaction[],
+  openAccounts: readonly Account[]
+): DeleteStranding | null {
+  const otherSide = resolveTransferOtherSide(transaction, transactions, openAccounts);
+  if (!otherSide || !transaction) {
+    return null;
+  }
+
+  // "the account it faces" rather than a blank: a closed account is not in the
+  // context's list, so its name genuinely is not available to print.
+  const where = otherSide.accountName ? `in ${otherSide.accountName}` : 'in the account it faces';
+
+  // The opposite side being one LINE of a split is worth saying, because what
+  // survives is not a whole transaction the user can go and delete — the rest
+  // of that split is other spending, and it stays.
+  if (transaction.linkedTransferSplitId) {
+    return {
+      message: `This is one half of a transfer. Its other half is a single line inside a split transaction ${where}, and deleting this will leave that line linked to nothing — the split itself stays exactly as it is, still counted in that account's balance. Open it there to put it right.`,
+      accountId: otherSide.accountId,
+      transactionId: otherSide.transactionId,
+    };
+  }
+
+  return {
+    message: `This is one half of a transfer. Deleting it will leave the other half ${where}, still counted in that account's balance but no longer linked to anything. Delete that side too if you mean to remove the whole movement — this only removes one of them.`,
+    accountId: otherSide.accountId,
+    transactionId: otherSide.transactionId,
+  };
+}

@@ -16,7 +16,7 @@ import {
 import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
-import { resolveTransferOtherSide } from '../utils/transferOtherSide';
+import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
@@ -679,6 +679,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     };
   }, [transaction, accounts, hideJumpToAccountId]);
 
+  // What deleting this row would leave behind in the other account. Null for an
+  // ordinary transaction, and then the confirmation says nothing extra.
+  const deleteStranding = useMemo(
+    () => describeDeleteStranding(transaction, transactions, accounts),
+    [transaction, transactions, accounts]
+  );
+
   const handleDelete = () => {
     if (!transaction) return;
     deleteTransaction(transaction.id);
@@ -1287,6 +1294,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
                 Are you sure you want to delete this transaction? This action cannot be undone.
               </p>
+              {/* Only for a linked transfer, where the damage happens in an
+                  account the user is not looking at. */}
+              {deleteStranding && (
+                <p className="text-sm sm:text-base text-yellow-800 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
+                  {deleteStranding.message}
+                </p>
+              )}
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}

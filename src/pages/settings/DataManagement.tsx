@@ -8,7 +8,6 @@ import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
 import { DataService } from '../../services/api/dataService';
 import { supabase } from '../../lib/supabase';
-import { STORAGE_KEYS } from '../../services/storageAdapter';
 
 const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveManager'));
 
@@ -75,16 +74,25 @@ export default function DataManagementSettings() {
   // back on the next load, which made the button a lie. The same proven wipe the
   // MS Money migration uses runs first, then the loaded snapshot is dropped, then
   // the app reloads to re-read the (empty) truth.
+  //
+  // The local branch used to call wipeLocalData, which wrote to localStorage
+  // while the app reads encrypted IndexedDB — so on a demo or local session this
+  // button reported success and deleted nothing at all.
   const handleClearData = async () => {
     setIsClearing(true);
     setClearError('');
     try {
-      const { wipeCloudData, wipeLocalData } = await import('../../services/import/msMoney/msMoneyImport');
       const databaseUserId = DataService.getUserIds().databaseId;
       if (isUsingSupabase && supabase && databaseUserId) {
+        const { wipeCloudData } = await import('../../services/import/msMoney/msMoneyImport');
         await wipeCloudData(supabase, databaseUserId);
       } else {
-        wipeLocalData(STORAGE_KEYS);
+        const { wipeLocalFinancialData, LOCAL_WIPE_CONFIRMATION } =
+          await import('../../services/localBackupService');
+        // The dialog behind this button is the confirmation (it will not enable
+        // until DELETE is typed), exactly as it is for the cloud branch above —
+        // wipeCloudData asks for no phrase either.
+        await wipeLocalFinancialData(LOCAL_WIPE_CONFIRMATION);
       }
       await resetLoadedData();
       setShowDeleteConfirm(false);
@@ -145,12 +153,16 @@ export default function DataManagementSettings() {
             to="/export-manager"
             icon={DownloadIcon}
             title="Download a backup"
-            description="Every record, straight from the database, as plain JSON"
+            description={isUsingSupabase
+              ? 'Every record, straight from the database, as plain JSON'
+              : 'Everything this browser holds, as plain JSON — the only copy there is'}
           />
           <ActionButton
             icon={UploadIcon}
             title="Restore from backup"
-            description="Read a backup file back in — only into an empty login"
+            description={isUsingSupabase
+              ? 'Read a backup file back in — only into an empty login'
+              : 'Read a backup file back in — only into an empty device'}
             onClick={() => setShowRestoreBackup(true)}
           />
         </div>

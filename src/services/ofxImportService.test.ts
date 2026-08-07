@@ -161,7 +161,8 @@ NEWFILEUID:NONE
         name: 'TESCO STORES',
         memo: 'Grocery shopping',
         checkNum: undefined,
-        refNum: undefined
+        refNum: undefined,
+        sequence: 0
       });
 
       // Second transaction - CREDIT
@@ -173,7 +174,8 @@ NEWFILEUID:NONE
         name: 'EMPLOYER PAYMENT',
         memo: 'Salary',
         checkNum: undefined,
-        refNum: undefined
+        refNum: undefined,
+        sequence: 1
       });
 
       // Third transaction - CHECK
@@ -185,7 +187,8 @@ NEWFILEUID:NONE
         name: 'Check #1234',
         memo: undefined,
         checkNum: '1234',
-        refNum: undefined
+        refNum: undefined,
+        sequence: 2
       });
     });
 
@@ -294,6 +297,64 @@ NEWFILEUID:NONE
 
       const result = ofxImportService.parseOFX(ofxWithoutLedger);
       expect(result.balance).toBeUndefined();
+    });
+
+    it('keeps the file position of each transaction — the bank\'s own order', () => {
+      // OFX lists <STMTTRN> in STATEMENT order, and that is the only record of
+      // which of a day's transactions came first. The parser used to throw it
+      // away, leaving the register to invent a same-day order; on an account
+      // swept back to zero each evening, the invented order showed balances the
+      // account never held.
+      const result = ofxImportService.parseOFX(validOFXContent);
+
+      // The fixture lists 15 Jan, then 20 Jan, then 10 Jan — file order, NOT
+      // date order, which is the point: position is recorded as found.
+      expect(result.transactions.map(t => t.sequence)).toEqual([0, 1, 2]);
+      expect(result.transactions.map(t => t.datePosted))
+        .toEqual(['2024-01-15', '2024-01-20', '2024-01-10']);
+    });
+
+    it('numbers the rows it keeps, leaving no gap for one it had to skip', () => {
+      // A block missing its FITID is dropped. Counting it would leave a hole in
+      // the sequence that reads like a transaction that went missing.
+      const withUnusableRow = validOFXContent.replace('<FITID>2024012001\n', '');
+
+      const result = ofxImportService.parseOFX(withUnusableRow);
+      expect(result.transactions).toHaveLength(2);
+      expect(result.transactions.map(t => t.sequence)).toEqual([0, 1]);
+    });
+
+    it('records a zero LEDGERBAL as a real closing balance of 0.00', () => {
+      // ABSENT and ZERO are different, and only one of them means "the file
+      // says nothing". A zero ledger balance is a statement of fact and is
+      // written like any other: accounts on a nightly two-way sweep — the
+      // balance moved to a linked savings account each night — legitimately
+      // close at exactly 0.00 every single day, as does a card paid off in
+      // full. Refusing to record those (on the theory that a bank publishing
+      // a non-zero AVAILBAL beside a zero LEDGERBAL must have left the ledger
+      // unfilled) would deny the swept account the one correct figure it has,
+      // for ever. AVAILBAL says nothing about whether the ledger is true; on a
+      // swept current account it is the overdraft headroom, which is non-zero
+      // precisely BECAUSE the balance is zero.
+      const sweptToZero = validOFXContent.replace(
+        /<LEDGERBAL>[\s\S]*?<\/LEDGERBAL>/g,
+        `<LEDGERBAL><BALAMT>0</BALAMT><DTASOF>20240131235959</DTASOF></LEDGERBAL>
+<AVAILBAL><BALAMT>250.00</BALAMT><DTASOF>20240131235959</DTASOF></AVAILBAL>`
+      );
+
+      expect(ofxImportService.parseOFX(sweptToZero).balance)
+        .toEqual({ amount: 0, dateAsOf: '2024-01-31' });
+    });
+
+    it('carries that zero through the import path to the caller', async () => {
+      const sweptToZero = validOFXContent.replace('<BALAMT>5000.00', '<BALAMT>0.00');
+
+      const result = await ofxImportService.importTransactions(sweptToZero, mockAccounts, []);
+
+      // Not undefined: the caller must be able to tell a zero balance from no
+      // balance, because planStatementBankBalance writes the first and skips
+      // the second.
+      expect(result.statementBalance).toEqual({ amount: 0, dateAsOf: '2024-01-31' });
     });
 
     it('survives an unreadable BALAMT instead of failing the whole import', () => {
