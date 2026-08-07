@@ -198,7 +198,14 @@ export default function AccountTransactions() {
   // Soft archive (persistent, server-side) — distinct from the date-window
   // "archive" dropdown above. Off by default; the toggle appears only when the
   // account actually has archived transactions.
-  const [showArchived, setShowArchived] = useState(false);
+  //
+  // ?showArchived=1 arrives from the archive manager, where a row links here
+  // so you can see how far back an account's history really goes before
+  // choosing a cutoff. Read at first render as well as in the effect below, so
+  // the hidden rows are there in the first paint rather than flashing in.
+  const [showArchived, setShowArchived] = useState(
+    () => new URLSearchParams(location.search).get('showArchived') === '1'
+  );
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -220,19 +227,32 @@ export default function AccountTransactions() {
 
   const archiveWindow = useMemo(() => computeArchiveWindow(archive.range, archive.from, archive.to), [archive]);
 
-  // Deep link from the categorisation drill: /accounts/:id?txn=<txnId>
-  // selects that transaction (the quick-edit dock shows it in full), widens
-  // the date window to All so it cannot be filtered out of sight, and
-  // scrolls the register to its row. The param is consumed with a replace —
-  // the established pattern — so back/refresh does not re-trigger it.
+  // Deep links into this register, both consumed with a replace — the
+  // established pattern — so back/refresh does not re-trigger them, and both
+  // in ONE effect so their two replaces cannot overwrite each other:
+  //  - ?txn=<txnId> (the categorisation drill) selects that transaction, widens
+  //    the date window to All so it cannot be filtered out of sight, and
+  //    scrolls the register to its row;
+  //  - ?showArchived=1 (the archive manager) opens the register with the
+  //    hidden rows already showing.
   const pendingTxnRef = useRef<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const txn = params.get('txn');
-    if (!txn) return;
-    pendingTxnRef.current = txn;
-    setArchive(prev => (prev.range === 'all' ? prev : { range: 'all', from: '', to: '' }));
-    params.delete('txn');
+    const hasShowArchived = params.has('showArchived');
+    if (!txn && !hasShowArchived) return;
+    if (txn) {
+      pendingTxnRef.current = txn;
+      setArchive(prev => (prev.range === 'all' ? prev : { range: 'all', from: '', to: '' }));
+      params.delete('txn');
+    }
+    if (hasShowArchived) {
+      // Arriving at a register that is ALREADY open changes only the search
+      // string, so the switch is flipped here too, not just in the initial
+      // state above.
+      if (params.get('showArchived') === '1') setShowArchived(true);
+      params.delete('showArchived');
+    }
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
   }, [location.pathname, location.search, navigate]);
 

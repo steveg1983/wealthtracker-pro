@@ -131,41 +131,16 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      {/* ── Import & Export moved to Manage ─────────────────────────
-          Bringing data in and getting it out are data-admin tasks, so they now
-          live under Manage where all data tools sit together. These signposts
-          keep muscle memory from dead-ending here. */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import &amp; export moved to Manage</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Every way to bring data in or get it out now lives in one place under Manage.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <LinkCard
-            to="/enhanced-import"
-            icon={UploadIcon}
-            title="Import Data"
-            description="Microsoft Money, bank files (CSV/OFX/QIF), other apps and import rules"
-          />
-          <LinkCard
-            to="/export-manager"
-            icon={DownloadIcon}
-            title="Export Data"
-            description="Reports, Excel, templates and a full machine-readable backup"
-          />
-        </div>
-      </div>
-
       {/* Bank connection MANAGEMENT lives on the Accounts page now; this page
           keeps only the URL-driven modal below so ops alert deep links
           (banking incident emails) keep working. */}
 
-      {/* ── Archive ────────────────────────────────────────────── */}
-      <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
-        <Suspense fallback={<LoadingState />}>
-          <ArchiveManager />
-        </Suspense>
-      </Section>
+      {/* Section order is deliberate: the short action cards first, then the
+          long Archive list, then the Danger Zone LAST — "Clear All Data" must
+          never be something you scroll past on the way to anything else.
+          Retired 2026-08-07: the "Import & export moved to Manage" signpost. It
+          announced a move that has long since settled, and the nav already
+          offers Manage. */}
 
       {/* ── Backup & restore ───────────────────────────────────── */}
       <Section
@@ -193,6 +168,13 @@ export default function DataManagementSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <ActionButton icon={SearchIcon} title="Find Duplicates" description="The same payment recorded twice" onClick={() => setShowDuplicateSweep(true)} />
         </div>
+      </Section>
+
+      {/* ── Archive ────────────────────────────────────────────── */}
+      <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
+        <Suspense fallback={<LoadingState />}>
+          <ArchiveManager />
+        </Suspense>
       </Section>
 
       {/* ── Danger Zone ────────────────────────────────────────── */}
