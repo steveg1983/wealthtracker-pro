@@ -27,11 +27,14 @@
  * payees to something they will recognise a year later ("Nadia"). Requiring the
  * two to agree, or even to be similar, misses most true duplicates.
  *
- * The register's own duplicate sweep (utils/duplicateSweep) scores description
- * similarity into a weighted total and needs 80: the truncated pairs clear it,
- * the renamed ones cannot, and no threshold that would catch them is safe in a
- * tool that DELETES. Here the consequence is "not added", which is why this
- * rule can be the wider one — and why what it finds is offered for review.
+ * The register's own duplicate sweep (utils/duplicateSweep) hit the same wall
+ * and now answers it the same way. Its weighted score needs 80: the truncated
+ * pairs clear that, the renamed ones never can, and no threshold that would
+ * catch them is safe in a tool that DELETES. So it runs the rule below as a
+ * second, wider pass over the rows the score left behind, and keeps what that
+ * finds in a separate tier — evidence for a human to confirm, never something
+ * a button can act on unseen. Here the consequence is only "not added", which
+ * is why this file can lead with the wider rule.
  *
  * THE RULE
  * --------
@@ -136,8 +139,17 @@ export function readFitId(notes: string | null | undefined): string | null {
   return match ? match[1] : null;
 }
 
-/** Exact pence — Decimal in, integer out. No float arithmetic on money. */
-const pence = (amount: number): number => toDecimal(amount).times(100).round().toNumber();
+/**
+ * Exact pence — Decimal in, integer out. No float arithmetic on money.
+ *
+ * Exported because the register's own sweep (utils/duplicateSweep) applies the
+ * same wider rule to a single account's history, and "the same money" has to
+ * mean bit-for-bit the same thing in both places: two modules each rounding
+ * their own way is how £10.005 becomes a duplicate in one tool and not the
+ * other.
+ */
+export const exactPence = (amount: number): number =>
+  toDecimal(amount).times(100).round().toNumber();
 
 /** Midnight UTC of the row's calendar day, or NaN when the date is unusable. */
 const dayOf = (value: Date | string | number | null | undefined): number => {
@@ -233,7 +245,7 @@ export function findStatementDuplicates(
     // A row whose date cannot be read is a duplicate of nothing: it has no
     // position on the calendar to compare, and guessing one would pair it with
     // whatever happened to share its amount.
-    if (Number.isFinite(day)) push(byAmount, String(pence(row.amount)), { row, day });
+    if (Number.isFinite(day)) push(byAmount, String(exactPence(row.amount)), { row, day });
   }
 
   /** Held ids already accounted for. Each may explain at most one file row. */
@@ -272,7 +284,7 @@ export function findStatementDuplicates(
     let best: HeldCandidate | null = null;
     let bestGap = Number.POSITIVE_INFINITY;
     let bestSimilarity = -1;
-    for (const candidate of byAmount.get(String(pence(row.amount))) ?? []) {
+    for (const candidate of byAmount.get(String(exactPence(row.amount))) ?? []) {
       if (claimed.has(candidate.row.id)) continue;
       const gap = Math.abs(candidate.day - day) / MS_PER_DAY;
       if (gap > tolerance) continue;

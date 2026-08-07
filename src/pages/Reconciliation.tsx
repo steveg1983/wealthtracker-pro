@@ -217,18 +217,31 @@ export default function Reconciliation() {
     void applyCleared(transactionIds, cleared);
   }, [applyCleared]);
 
-  const handleBankBalanceChange = useCallback((newBalance: number) => {
-    if (selectedAccountId) {
-      // Dated as well as set. A figure typed here is what the bank says TODAY,
-      // and recording that keeps bank_balance_date describing the balance it
-      // sits beside — otherwise a hand-typed correction would inherit the date
-      // of whatever statement was imported last, and a later import of that
-      // statement's successor could be judged stale against it.
-      updateAccount(selectedAccountId, {
-        bankBalance: newBalance,
-        bankBalanceDate: todayIsoDay()
-      });
+  const handleBankBalanceChange = useCallback((newBalance: number | null) => {
+    if (!selectedAccountId) {
+      return;
     }
+    if (newBalance === null) {
+      // The date goes with the figure it dated. A bank_balance_date describing
+      // no balance is a claim about nothing — and worse than nothing, because
+      // statementBankBalance judges an incoming statement stale against it, so
+      // a leftover date would go on refusing statements after the balance it
+      // belonged to was withdrawn.
+      updateAccount(selectedAccountId, {
+        bankBalance: null,
+        bankBalanceDate: null
+      });
+      return;
+    }
+    // Dated as well as set. A figure typed here is what the bank says TODAY,
+    // and recording that keeps bank_balance_date describing the balance it
+    // sits beside — otherwise a hand-typed correction would inherit the date
+    // of whatever statement was imported last, and a later import of that
+    // statement's successor could be judged stale against it.
+    updateAccount(selectedAccountId, {
+      bankBalance: newBalance,
+      bankBalanceDate: todayIsoDay()
+    });
   }, [selectedAccountId, updateAccount]);
 
   const handleFinalize = useCallback(async () => {

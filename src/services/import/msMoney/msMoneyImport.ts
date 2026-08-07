@@ -4,8 +4,9 @@
  * Takes the app-shaped collections produced by `transformMsMoneyExport` and
  * replaces ALL of the user's data with them. Two write paths share one plan:
  *
- *  - LOCAL (demo / signed-out): rewrites the wealthtracker_* storage keys, the
- *    same contract demo seeding uses.
+ *  - LOCAL (demo / signed-out): rewrites the wealthtracker_* storage keys
+ *    through `storageAdapter`, the same contract demo seeding uses — which is
+ *    also the only place the app's readers look.
  *  - CLOUD (signed in): wipes then batch-inserts through the authenticated
  *    Supabase client under RLS — the same ordered wipe + two-pass transfer
  *    linking + split-leg pinning proven by scripts/mnyCloudImport.mts, minus
@@ -18,6 +19,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Account, Category } from '../../../types';
 import { toDecimal } from '../../../utils/decimal';
+import { storageAdapter } from '../../storageAdapter';
 import type { TransferHandover } from './feedOverlap';
 import type { MsMoneyImportResult } from './transform';
 
@@ -116,27 +118,59 @@ export const IMPORT_PROVENANCE_CONFLICT = 'user_id,import_source,import_source_i
 // ── LOCAL path ───────────────────────────────────────────────────────────────
 
 /**
- * Replace local storage with the imported collections. Mirrors the demo-seed
- * storage contract so the app picks it up on the next load.
+ * The slice of browser storage this import writes through.
+ *
+ * `setMany` is one IndexedDB readwrite transaction, so the migration lands
+ * whole or not at all. A per-key loop could not promise that: a failure on the
+ * fifth key would leave the file's accounts beside the previous data's
+ * transactions, and no reconciliation could make sense of the result.
+ */
+export interface LocalImportStore {
+  setMany(entries: ReadonlyArray<{ key: string; value: unknown }>): Promise<void>;
+}
+
+export interface LocalImportOptions extends ImportOptions {
+  /** Defaults to the adapter the app itself reads through. */
+  store?: LocalImportStore;
+}
+
+/**
+ * Replace local storage with the imported collections.
+ *
+ * Written through `storageAdapter`, because that — storageAdapter →
+ * encryptedStorage → IndexedDB — is where every reader in the app looks. This
+ * used to call `window.localStorage.setItem` directly, which is the same defect
+ * `wipeLocalData` carried (see the note further down) and the same one
+ * mnyLocalImport documents for the dev seed: the keys it wrote were not the
+ * keys anything read, so a local-mode Money import reported success and left
+ * the app showing exactly what it showed before. Its test asserted on
+ * `window.localStorage` and passed for the same reason.
  */
 export async function importToLocalStorage(
   result: MsMoneyImportResult,
   storageKeys: { ACCOUNTS: string; TRANSACTIONS: string; CATEGORIES: string; TRANSACTION_SPLITS: string; BUDGETS: string; GOALS: string; RECURRING: string },
-  opts: ImportOptions = {}
+  opts: LocalImportOptions = {}
 ): Promise<void> {
   const { onProgress } = opts;
-  onProgress?.({ phase: 'accounts', fraction: 0.2, message: 'Writing accounts…' });
-  window.localStorage.setItem(storageKeys.ACCOUNTS, JSON.stringify(result.accounts));
-  onProgress?.({ phase: 'categories', fraction: 0.4, message: 'Writing categories…' });
-  window.localStorage.setItem(storageKeys.CATEGORIES, JSON.stringify(result.categories));
-  onProgress?.({ phase: 'transactions', fraction: 0.7, message: 'Writing transactions…' });
-  window.localStorage.setItem(storageKeys.TRANSACTIONS, JSON.stringify(result.transactions));
-  onProgress?.({ phase: 'splits', fraction: 0.9, message: 'Writing splits…' });
-  window.localStorage.setItem(storageKeys.TRANSACTION_SPLITS, JSON.stringify(result.transactionSplits));
-  // Everything else starts clean — a total migration replaces, never merges.
-  window.localStorage.setItem(storageKeys.BUDGETS, '[]');
-  window.localStorage.setItem(storageKeys.GOALS, '[]');
-  window.localStorage.setItem(storageKeys.RECURRING, '[]');
+  const store = opts.store ?? storageAdapter;
+
+  onProgress?.({ phase: 'accounts', fraction: 0.2, message: 'Preparing your data…' });
+  const entries: { key: string; value: unknown }[] = [
+    { key: storageKeys.ACCOUNTS, value: result.accounts },
+    { key: storageKeys.CATEGORIES, value: result.categories },
+    { key: storageKeys.TRANSACTIONS, value: result.transactions },
+    { key: storageKeys.TRANSACTION_SPLITS, value: result.transactionSplits },
+    // Everything else starts clean — a total migration replaces, never merges.
+    { key: storageKeys.BUDGETS, value: [] },
+    { key: storageKeys.GOALS, value: [] },
+    { key: storageKeys.RECURRING, value: [] },
+  ];
+
+  // One phase, because there is one write. Reporting "writing accounts…",
+  // "writing categories…" against a single atomic call would be inventing
+  // progress the import does not make.
+  onProgress?.({ phase: 'transactions', fraction: 0.5, message: 'Writing your data…' });
+  await store.setMany(entries);
   onProgress?.({ phase: 'done', fraction: 1, message: 'Import complete.' });
 }
 

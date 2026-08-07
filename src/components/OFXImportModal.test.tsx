@@ -26,6 +26,7 @@ const createMockImportResult = (
   duplicateMatches: { certain: [], possible: [] },
   duplicates: 0,
   newTransactions: 0,
+  unreadableRows: 0,
   ...overrides,
 });
 
@@ -363,6 +364,55 @@ describe('OFXImportModal', () => {
       // both of them say 2 here, and which is which is the whole point.
       expect(summaryTile('In this file')).toHaveTextContent('2');
       expect(summaryTile('Will be imported')).toHaveTextContent('2');
+    });
+
+    it('says when a row in the file could not be read', async () => {
+      // A row the parser could not use is a payment that will be missing from
+      // the register. Unsaid, the account simply would not reconcile and
+      // nothing would explain why.
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        statementRows: [statementRow(sampleTransaction, 'fit-1')],
+        newTransactions: 1,
+        unreadableRows: 2
+      });
+
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
+
+      render(<OFXImportModal {...defaultProps} />);
+
+      const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
+      const fileInput = document.getElementById('ofx-upload')!
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('2 rows in this file could not be read and will be missing from the register.')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('says nothing about unreadable rows when there are none', async () => {
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        statementRows: [statementRow(sampleTransaction, 'fit-1')],
+        newTransactions: 1
+      });
+
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
+
+      render(<OFXImportModal {...defaultProps} />);
+
+      const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
+      const fileInput = document.getElementById('ofx-upload')!
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('1 transactions found')).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/could not be read/)).not.toBeInTheDocument();
     });
 
     it('says a guessed match is a guess', async () => {

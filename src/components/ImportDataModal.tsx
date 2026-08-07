@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { UploadIcon } from './icons/UploadIcon';
-import { parseMoneyInput } from '../utils/decimal';
-import { signTransactionAmount } from '../utils/transactionAmount';
 import { FileTextIcon } from './icons/FileTextIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
@@ -10,6 +8,7 @@ import { InfoIcon } from './icons/InfoIcon';
 import { AlertTriangleIcon } from './icons/AlertTriangleIcon';
 import { parseMNY, parseMBF, applyMappingToData, type FieldMapping } from '../utils/mnyParser';
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
+import { ofxImportService } from '../services/ofxImportService';
 import MnyMappingModal from './MnyMappingModal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -28,6 +27,15 @@ interface ParsedTransaction {
   payee?: string;
   /** Parser-resolved source account; used to route the import to the right account. */
   accountName?: string;
+  /** Carried through from the file where the parser produced one (OFX FITID). */
+  notes?: string;
+  cleared?: boolean;
+  /**
+   * The bank's own position for this row within its statement. Kept because it
+   * is the only record of which of a day's payments came first. Null carries
+   * "the file had no order to give", exactly as Transaction stores it.
+   */
+  statementSequence?: number | null;
 }
 
 interface ParsedAccount {
@@ -42,10 +50,18 @@ interface ParsedData {
   warning?: string;
   rawData?: Array<Record<string, unknown>>;
   needsMapping?: boolean;
+  /**
+   * How many rows the register already held and this import left out.
+   *
+   * `undefined` means the format's parser does not look — which is a different
+   * statement from "it looked and found none", and the note shown before the
+   * Import button says the right one of those two.
+   */
+  duplicatesSkipped?: number;
 }
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps): React.JSX.Element {
-  const { addAccount, addTransaction, accounts } = useApp();
+  const { addAccount, addTransaction, accounts, transactions, categories } = useApp();
   const logger = useMemo(() => createScopedLogger('ImportDataModal'), []);
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -63,76 +79,70 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     };
   }, []);
 
-  // Parse OFX file format
-  const parseOFX = (content: string): ParsedData => {
-    logger.info?.('Using OFX parser');
-    const transactions: ParsedTransaction[] = [];
-    const accountsMap = new Map<string, ParsedAccount>();
-    
-    // Extract account info
-    const accountMatch = content.match(/<ACCTID>([^<]+)/);
-    const accountTypeMatch = content.match(/<ACCTTYPE>([^<]+)/);
-    const balanceMatch = content.match(/<BALAMT>([^<]+)/);
-    
-    const accountName = accountMatch ? `Account ${accountMatch[1]}` : 'Imported Account';
-    const accountType = accountTypeMatch?.[1]?.toLowerCase() || 'checking';
-    const balance = balanceMatch ? parseMoneyInput(balanceMatch[1]) ?? 0 : 0;
-    
-    accountsMap.set(accountName, {
-      name: accountName,
-      type: accountType.includes('credit') ? 'credit' : 
-            accountType.includes('saving') ? 'savings' : 'checking',
-      balance
+  /**
+   * OFX, read by the one OFX reader the app has.
+   *
+   * This used to be a second, hand-rolled parser living in this file, and it
+   * had drifted badly: it read an EMPTY <MEMO></MEMO> as the literal text
+   * "</MEMO>" and described the transaction that way, it put the OFX TRNTYPE
+   * ("DEBIT") into the category field, it took the FIRST <BALAMT> in the file —
+   * which on a card statement is the remaining credit, not the debt — and it
+   * detected no duplicates at all, so the same statement twice was the same
+   * payment twice.
+   *
+   * The account behaviour is deliberately kept: this modal is the Legacy
+   * Import, and its job is to bring a file in whether or not the account
+   * already exists. So a statement that matches an account the user holds is
+   * routed to THAT account, and one that matches nothing still creates the
+   * account it describes, exactly as before.
+   */
+  const parseOFXFile = async (content: string): Promise<ParsedData> => {
+    logger.info?.('Using OFX import service');
+    const result = await ofxImportService.importTransactions(content, accounts, transactions, {
+      // This modal writes straight through with no review step, so a row the
+      // register already holds must not be written a second time.
+      skipDuplicates: true,
+      categories,
+      autoCategorize: true
     });
-    
-    // Extract transactions
-    const transactionRegex = /<STMTTRN>[\s\S]*?<\/STMTTRN>/g;
-    const transactionMatches = content.match(transactionRegex) || [];
-    let skippedCount = 0;
 
-    for (const trans of transactionMatches) {
-      const typeMatch = trans.match(/<TRNTYPE>([^<]+)/);
-      const dateMatch = trans.match(/<DTPOSTED>([^<]+)/);
-      const amountMatch = trans.match(/<TRNAMT>([^<]+)/);
-      const nameMatch = trans.match(/<NAME>([^<]+)/);
-      const memoMatch = trans.match(/<MEMO>([^<]+)/);
+    // A matched account is reused by name below; an unmatched one is created.
+    const accountName = result.matchedAccount?.name
+      ?? `Account ${result.ofxAccount.accountId}`;
+    const ofxType = result.ofxAccount.accountType.toLowerCase();
 
-      if (dateMatch && amountMatch) {
-        const dateStr = dateMatch[1];
-        const year = parseInt(dateStr.substring(0, 4));
-        const month = parseInt(dateStr.substring(4, 6));
-        const day = parseInt(dateStr.substring(6, 8));
+    const account: ParsedAccount = {
+      name: accountName,
+      type: ofxType.includes('credit') ? 'credit'
+        : ofxType.includes('saving') ? 'savings'
+        : 'checking',
+      // The statement's LEDGERBAL. Only ever used for an account being
+      // created — a matched account keeps the balance its ledger says.
+      balance: result.statementBalance?.amount ?? 0
+    };
 
-        const amount = parseMoneyInput(amountMatch[1]);
-        if (amount === null) {
-          // An unparseable TRNAMT would import as NaN and poison every
-          // raw-sum balance downstream — skip the row and report it.
-          skippedCount++;
-          logger.warn?.('Skipping OFX transaction with unparseable amount', { raw: amountMatch[1] });
-          continue;
-        }
-        const description = nameMatch?.[1] || memoMatch?.[1] || 'Imported transaction';
-        // SIGNED CONVENTION: store a signed amount (expense negative, income
-        // positive). OFX TRNAMT is already source-signed; signTransactionAmount
-        // re-derives the sign from the resolved type (idempotent here).
-        const type: 'income' | 'expense' = amount < 0 ? 'expense' : 'income';
-
-        transactions.push({
-          date: new Date(year, month - 1, day),
-          amount: signTransactionAmount(amount, type),
-          description,
-          type,
-          category: typeMatch?.[1] || 'Other',
-          accountName
-        });
-      }
-    }
-
+    const unreadable = result.unreadableRows;
     return {
-      accounts: Array.from(accountsMap.values()),
-      transactions,
-      ...(skippedCount > 0
-        ? { warning: `Skipped ${skippedCount} transaction(s) with unreadable amounts` }
+      accounts: [account],
+      transactions: result.transactions.map((t): ParsedTransaction => ({
+        date: t.date,
+        amount: t.amount,
+        description: t.description,
+        // The OFX reader only ever resolves income or expense.
+        type: t.type === 'income' ? 'income' : 'expense',
+        category: t.category,
+        accountName,
+        notes: t.notes,
+        cleared: t.cleared,
+        statementSequence: t.statementSequence
+      })),
+      duplicatesSkipped: result.duplicates,
+      ...(unreadable > 0
+        ? {
+            warning: unreadable === 1
+              ? 'One row in this file could not be read and will be missing from the register.'
+              : `${unreadable} rows in this file could not be read and will be missing from the register.`
+          }
         : {})
     };
   };
@@ -190,7 +200,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         logger.info?.('Detected OFX file');
         setMessage('Parsing OFX file...');
         const content = await selectedFile.text();
-        parsed = parseOFX(content);
+        parsed = await parseOFXFile(content);
       } else {
         throw new Error('Unsupported file format. Please use .mny, .mbf, .qif, or .ofx files.');
       }
@@ -202,7 +212,14 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           setMessage(parsed.warning);
           setStatus('error');
         } else {
-          setMessage(`Found ${parsed.accounts.length} accounts and ${parsed.transactions.length} transactions`);
+          // Rows the register already held are named for what happened to
+          // them, not merely counted: they are not in the number beside them.
+          const alreadyHeld = parsed.duplicatesSkipped
+            ? ` — ${parsed.duplicatesSkipped} already in this account, left out`
+            : '';
+          setMessage(
+            `Found ${parsed.accounts.length} accounts and ${parsed.transactions.length} transactions${alreadyHeld}`
+          );
           setStatus('idle');
         }
       }
@@ -410,19 +427,27 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             </div>
           )}
 
-          {/* The one thing worth saying before the button is pressed, and it is
-              true of every format here: this importer only ever ADDS. Accounts
-              already present by name are reused, every transaction in the file
-              is written, and nothing on this path checks for duplicates — so
-              the same file twice is the same payment twice. */}
+          {/* The one thing worth saying before the button is pressed: this
+              importer only ever ADDS, and accounts already present by name are
+              reused. Whether the same file twice records the same payment twice
+              now depends on the format — OFX goes through the shared reader,
+              which recognises a row the register already holds; the rest do
+              not look. Saying "duplicates are not detected" for all of them
+              would be telling one half of the users something untrue. */}
           {preview && preview.transactions.length > 0 && (
             <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
               <AlertTriangleIcon size={20} className="mt-0.5 flex-shrink-0" />
               <div className="text-sm">
                 <p className="font-semibold mb-1">These are added to what you already have</p>
-                <p>Nothing is replaced or deleted. Duplicates are not detected on this
-                  path, so importing the same file twice records every payment twice —
-                  use Settings → Data Management → Find Duplicates afterwards if you are unsure.</p>
+                {preview.duplicatesSkipped === undefined ? (
+                  <p>Nothing is replaced or deleted. Duplicates are not detected on this
+                    path, so importing the same file twice records every payment twice —
+                    use Settings → Data Management → Find Duplicates afterwards if you are unsure.</p>
+                ) : (
+                  <p>Nothing is replaced or deleted. Rows this account already holds have
+                    been left out, so importing the same statement again will not record
+                    the same payment twice.</p>
+                )}
               </div>
             </div>
           )}

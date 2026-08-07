@@ -1,4 +1,8 @@
+// The local write path is tested against the real storage stack, not a
+// stand-in for it — see the importToLocalStorage suite at the foot of the file.
+import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { storageAdapter, STORAGE_KEYS } from '../../storageAdapter';
 import {
   planCloudImport, importToLocalStorage, executeCloudPlan,
   MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT, IMPORT_BATCH_SIZE,
@@ -752,23 +756,94 @@ describe('planCloudImport — opening balances on reused accounts', () => {
 // wipeLocalFinancialData, is covered in localBackupService.test.ts against real
 // storage.
 
+/**
+ * The LOCAL write path, against the REAL storage stack — storageAdapter →
+ * encryptedStorage → IndexedDB (fake-indexeddb) — because that is where every
+ * reader in the app looks.
+ *
+ * The old tests here asserted on `window.localStorage`, which is the wrong
+ * layer and is why the bug survived: the implementation wrote keys nothing
+ * reads, and the assertions read the keys nothing writes, so the two agreed
+ * with each other and with nobody else.
+ *
+ * The account already holding data is not incidental — it is the only state
+ * this import ever runs in. A total migration replaces what is there, and the
+ * moment IndexedDB holds ANY value for one of these keys (a demo seed, an
+ * earlier session, the empty arrays Clear All Data leaves behind) the adapter
+ * stops consulting its localStorage fallback. That is what turned the old
+ * implementation from "works on a virgin browser" into "does nothing, ever".
+ */
 describe('importToLocalStorage', () => {
-  const KEYS = { ACCOUNTS: 'a', TRANSACTIONS: 't', CATEGORIES: 'c', TRANSACTION_SPLITS: 's', BUDGETS: 'b', GOALS: 'g', RECURRING: 'r' };
-  beforeEach(() => { window.localStorage.clear(); });
+  const KEYS = {
+    ACCOUNTS: STORAGE_KEYS.ACCOUNTS,
+    TRANSACTIONS: STORAGE_KEYS.TRANSACTIONS,
+    CATEGORIES: STORAGE_KEYS.CATEGORIES,
+    TRANSACTION_SPLITS: STORAGE_KEYS.TRANSACTION_SPLITS,
+    BUDGETS: STORAGE_KEYS.BUDGETS,
+    GOALS: STORAGE_KEYS.GOALS,
+    RECURRING: STORAGE_KEYS.RECURRING,
+  };
 
-  it('writes the imported collections and clears the rest', async () => {
+  /** What the app reads back — never what some other layer happens to hold. */
+  const stored = async (key: string): Promise<unknown[]> =>
+    (await storageAdapter.get<unknown[]>(key)) ?? [];
+
+  beforeEach(async () => {
+    window.localStorage.clear();
+    await storageAdapter.clear();
+    // The data being replaced, written the way the app writes it.
+    await storageAdapter.set(KEYS.ACCOUNTS, [{ id: 'prior-acct', name: 'Everyday Account' }]);
+    await storageAdapter.set(KEYS.TRANSACTIONS, [{ id: 'prior-txn', description: 'Bus fare' }]);
+    await storageAdapter.set(KEYS.CATEGORIES, [{ id: 'prior-cat', name: 'Travel' }]);
+    await storageAdapter.set(KEYS.TRANSACTION_SPLITS, [{ id: 'prior-split' }]);
+    await storageAdapter.set(KEYS.BUDGETS, [{ id: 'prior-budget' }]);
+    await storageAdapter.set(KEYS.GOALS, [{ id: 'prior-goal' }]);
+    await storageAdapter.set(KEYS.RECURRING, [{ id: 'prior-recurring' }]);
+  });
+
+  it('writes the imported collections where the app reads them', async () => {
     const onProgress = vi.fn();
     await importToLocalStorage(sampleResult(), KEYS, { onProgress });
 
-    expect(JSON.parse(window.localStorage.getItem('a')!)).toHaveLength(4);
-    expect(JSON.parse(window.localStorage.getItem('t')!)).toHaveLength(4);
-    expect(JSON.parse(window.localStorage.getItem('c')!)).toHaveLength(5);
-    expect(JSON.parse(window.localStorage.getItem('s')!)).toHaveLength(1);
+    expect(await stored(KEYS.ACCOUNTS)).toHaveLength(4);
+    expect(await stored(KEYS.TRANSACTIONS)).toHaveLength(4);
+    expect(await stored(KEYS.CATEGORIES)).toHaveLength(5);
+    expect(await stored(KEYS.TRANSACTION_SPLITS)).toHaveLength(1);
     // A total migration replaces — the other collections are emptied.
-    expect(window.localStorage.getItem('b')).toBe('[]');
-    expect(window.localStorage.getItem('g')).toBe('[]');
-    expect(window.localStorage.getItem('r')).toBe('[]');
+    expect(await stored(KEYS.BUDGETS)).toEqual([]);
+    expect(await stored(KEYS.GOALS)).toEqual([]);
+    expect(await stored(KEYS.RECURRING)).toEqual([]);
     // progress reaches the terminal phase
     expect(onProgress).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 'done', fraction: 1 }));
+  });
+
+  it('leaves nothing of the replaced data behind', async () => {
+    await importToLocalStorage(sampleResult(), KEYS);
+
+    const accounts = await stored(KEYS.ACCOUNTS);
+    expect(accounts.some(a => (a as { id?: string }).id === 'prior-acct')).toBe(false);
+    const transactions = await stored(KEYS.TRANSACTIONS);
+    expect(transactions.some(t => (t as { id?: string }).id === 'prior-txn')).toBe(false);
+  });
+
+  it('reads back as data, not as JSON text', async () => {
+    // The old implementation stringified into localStorage; a reader expecting
+    // objects got a string, or — after the adapter's fallback stopped being
+    // consulted — nothing at all.
+    await importToLocalStorage(sampleResult(), KEYS);
+
+    const accounts = await stored(KEYS.ACCOUNTS);
+    expect(accounts.map(a => (a as { name?: string }).name))
+      .toEqual(['Current', 'Savings', 'Broker', 'Broker (Cash)']);
+  });
+
+  it('writes every collection as one unit, so a failure leaves the previous data intact', async () => {
+    const store = { setMany: vi.fn(async () => { throw new Error('quota exceeded'); }) };
+
+    await expect(importToLocalStorage(sampleResult(), KEYS, { store })).rejects.toThrow('quota exceeded');
+
+    expect(store.setMany).toHaveBeenCalledTimes(1);
+    expect(await stored(KEYS.ACCOUNTS)).toEqual([{ id: 'prior-acct', name: 'Everyday Account' }]);
+    expect(await stored(KEYS.BUDGETS)).toEqual([{ id: 'prior-budget' }]);
   });
 });

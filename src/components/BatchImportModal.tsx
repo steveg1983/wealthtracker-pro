@@ -44,6 +44,12 @@ interface FileInfo {
   bankBalanceSet?: string;
   /** Set when that write failed — the transactions still landed. */
   bankBalanceWarning?: string;
+  /**
+   * Rows the file describes that the parser could not use. Nobody watches this
+   * screen while it runs, so an unreported one is a payment that vanishes
+   * between the bank's file and the register with nothing to explain it.
+   */
+  unreadableRows?: number;
 }
 
 export default function BatchImportModal({ isOpen, onClose }: BatchImportModalProps): React.JSX.Element {
@@ -185,6 +191,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
       let accountMatched = '';
       let bankBalanceSet: string | undefined;
       let bankBalanceWarning: string | undefined;
+      let unreadableRows = 0;
 
       switch (fileInfo.type) {
         case 'csv': {
@@ -245,6 +252,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
             imported++;
           }
           duplicates = result.duplicates;
+          unreadableRows = result.unreadableRows;
 
           const balanceOutcome = await applyStatementBankBalance(result, bankBalancesWrittenThisRun);
           bankBalanceSet = balanceOutcome.note;
@@ -278,7 +286,8 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
           duplicates,
           accountMatched,
           bankBalanceSet,
-          bankBalanceWarning
+          bankBalanceWarning,
+          unreadableRows
         } : f
       ));
     } catch (error) {
@@ -506,6 +515,13 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                             {file.bankBalanceWarning && (
                               <span className="ml-2 text-yellow-600 dark:text-yellow-400">
                                 • {file.bankBalanceWarning}
+                              </span>
+                            )}
+                            {file.unreadableRows !== undefined && file.unreadableRows > 0 && (
+                              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+                                • {file.unreadableRows === 1
+                                  ? 'one row could not be read and is missing from the register'
+                                  : `${file.unreadableRows} rows could not be read and are missing from the register`}
                               </span>
                             )}
                           </p>

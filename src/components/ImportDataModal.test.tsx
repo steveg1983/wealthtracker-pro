@@ -11,6 +11,7 @@ import ImportDataModal from './ImportDataModal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMNY, parseMBF, applyMappingToData } from '../utils/mnyParser';
 import { parseQIF } from '../utils/qifParser';
+import type { Account, Transaction } from '../types';
 
 // Mock all icon components
 vi.mock('./icons/UploadIcon', () => ({
@@ -106,9 +107,30 @@ vi.mock('../utils/qifParser', () => ({
 // Mock AppContext
 const mockAddAccount = vi.fn();
 const mockAddTransaction = vi.fn();
-const mockAccounts = [
-  { id: '1', name: 'Checking', type: 'current', balance: 1000, currency: 'GBP', isActive: true }
+const mockAccounts: Account[] = [
+  {
+    id: '1',
+    name: 'Checking',
+    type: 'current',
+    balance: 1000,
+    currency: 'GBP',
+    isActive: true,
+    lastUpdated: new Date('2024-01-01')
+  }
 ];
+/** The register the importer checks incoming rows against. */
+let mockTransactions: Transaction[] = [];
+
+type AppContextValue = ReturnType<typeof useApp>;
+
+/**
+ * A stand-in for the app context that implements only the slice this modal
+ * touches. Asserted to the full type once, here, rather than at every call
+ * site — the modal reads five of its sixty-odd members and supplying the rest
+ * would say nothing about the import.
+ */
+const appContextDouble = (slice: Partial<AppContextValue>): AppContextValue =>
+  ({ ...slice }) as AppContextValue;
 
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: vi.fn()
@@ -135,6 +157,7 @@ describe('ImportDataModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTransactions = [];
     // addAccount's real contract is Promise<Account>: the modal awaits the
     // created account and uses its id to route imported transactions.
     mockAddAccount.mockImplementation(async (account: { name: string }) => ({
@@ -154,12 +177,17 @@ describe('ImportDataModal', () => {
       accounts: [],
       transactions: []
     });
-    // Set default mock for useApp
-    vi.mocked(useApp).mockReturnValue({
+    // Set default mock for useApp. The OFX path reads the register and the
+    // category tree too — it is the shared importer, which recognises rows the
+    // user already holds and files what it can. Read at CALL time, so a test
+    // can seed the register before rendering.
+    vi.mocked(useApp).mockImplementation(() => appContextDouble({
       addAccount: mockAddAccount,
       addTransaction: mockAddTransaction,
-      accounts: mockAccounts
-    } as any);
+      accounts: mockAccounts,
+      transactions: mockTransactions,
+      categories: []
+    }));
   });
 
   afterEach(() => {
@@ -294,32 +322,46 @@ describe('ImportDataModal', () => {
       });
     });
 
+    /**
+     * OFX now goes through ofxImportService — the one OFX reader the app has —
+     * rather than a second parser that lived in this component and had drifted
+     * away from it. These cover what routing it back through the service
+     * bought, and what it must not have cost.
+     */
+    const ofxStatement = (rows: string, ledger = '1000.00') => `
+      OFXHEADER:100
+      <OFX>
+        <BANKMSGSRSV1><STMTTRNRS><STMTRS>
+          <BANKACCTFROM>
+            <BANKID>112233</BANKID>
+            <ACCTID>99887766</ACCTID>
+            <ACCTTYPE>CHECKING</ACCTTYPE>
+          </BANKACCTFROM>
+          <BANKTRANLIST>${rows}</BANKTRANLIST>
+          <LEDGERBAL><BALAMT>${ledger}</BALAMT><DTASOF>20240131</DTASOF></LEDGERBAL>
+        </STMTRS></STMTTRNRS></BANKMSGSRSV1>
+      </OFX>
+    `;
+
+    const uploadOfx = async (content: string) => {
+      const file = createFile(content, 'statement.ofx');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+      Object.defineProperty(input, 'files', { value: [file], writable: false });
+      fireEvent.change(input);
+    };
+
     it('parses OFX files', async () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const ofxContent = `
-        <OFX>
-          <ACCTID>12345</ACCTID>
-          <ACCTTYPE>CHECKING</ACCTTYPE>
-          <BALAMT>1000.00</BALAMT>
-          <STMTTRN>
-            <TRNTYPE>DEBIT</TRNTYPE>
-            <DTPOSTED>20240115</DTPOSTED>
-            <TRNAMT>-50.00</TRNAMT>
-            <NAME>Store Purchase</NAME>
-          </STMTTRN>
-        </OFX>
-      `;
-      
-      const file = createFile(ofxContent, 'test.ofx');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-      
-      Object.defineProperty(input, 'files', {
-        value: [file],
-        writable: false,
-      });
-      
-      fireEvent.change(input);
+
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-50.00</TRNAMT>
+          <FITID>SEQ-0001</FITID>
+          <NAME>Store Purchase</NAME>
+        </STMTTRN>
+      `));
 
       await waitFor(() => {
         expect(screen.getByText('Found 1 accounts and 1 transactions')).toBeInTheDocument();
@@ -337,44 +379,218 @@ describe('ImportDataModal', () => {
       });
     });
 
-    it('skips OFX transactions with unparseable amounts instead of importing NaN', async () => {
+    it('describes a row the way the shared OFX reader does', async () => {
+      // Two things the in-file parser got wrong. It preferred <NAME>, so a row
+      // whose memo says what the payment WAS came in as the bank's generic
+      // channel label ("CARD PAYMENT"). And on an empty <MEMO></MEMO> the
+      // shared reader must return '' rather than falling through to a
+      // line-terminated read that captures the literal text "</MEMO>".
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
 
-      // One good row and one row whose TRNAMT cannot be parsed. Importing the
-      // bad row as NaN would poison every raw-sum balance downstream.
-      const ofxContent = `
-        <OFX>
-          <ACCTID>12345</ACCTID>
-          <ACCTTYPE>CHECKING</ACCTTYPE>
-          <BALAMT>1000.00</BALAMT>
-          <STMTTRN>
-            <TRNTYPE>DEBIT</TRNTYPE>
-            <DTPOSTED>20240115</DTPOSTED>
-            <TRNAMT>-50.00</TRNAMT>
-            <NAME>Store Purchase</NAME>
-          </STMTTRN>
-          <STMTTRN>
-            <TRNTYPE>DEBIT</TRNTYPE>
-            <DTPOSTED>20240116</DTPOSTED>
-            <TRNAMT>N/A</TRNAMT>
-            <NAME>Corrupt Row</NAME>
-          </STMTTRN>
-        </OFX>
-      `;
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-12.00</TRNAMT>
+          <FITID>SEQ-0002</FITID>
+          <NAME>CARD PAYMENT</NAME>
+          <MEMO>Corner Shop</MEMO>
+        </STMTTRN>
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240116</DTPOSTED>
+          <TRNAMT>-3.20</TRNAMT>
+          <FITID>SEQ-0009</FITID>
+          <NAME>Newsagent</NAME>
+          <MEMO></MEMO>
+        </STMTTRN>
+      `));
 
-      const file = createFile(ofxContent, 'test.ofx');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-
-      Object.defineProperty(input, 'files', {
-        value: [file],
-        writable: false,
-      });
-
-      fireEvent.change(input);
-
-      // The skipped row is surfaced as an import notice.
       await waitFor(() => {
-        expect(screen.getByText(/Skipped 1 transaction\(s\) with unreadable amounts/)).toBeInTheDocument();
+        expect(screen.getByText(/Found 1 accounts and 2 transactions/)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddTransaction).toHaveBeenCalledTimes(2);
+      });
+      const descriptions = mockAddTransaction.mock.calls.map(call => call[0].description);
+      expect(descriptions).toEqual(['Corner Shop', 'Newsagent']);
+      expect(descriptions).not.toContain('</MEMO>');
+      expect(descriptions).not.toContain('CARD PAYMENT');
+    });
+
+    it('leaves out a row the register already holds', async () => {
+      // Same account, same day, same amount — importing it again is the same
+      // payment twice. The old in-file parser checked for nothing at all.
+      mockTransactions = [
+        {
+          id: 'existing-1',
+          accountId: '1',
+          date: new Date(2024, 0, 15),
+          amount: -50,
+          type: 'expense',
+          description: 'Store Purchase',
+          category: '',
+          notes: 'FITID: SEQ-0001'
+        }
+      ];
+
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-50.00</TRNAMT>
+          <FITID>SEQ-0001</FITID>
+          <NAME>Store Purchase</NAME>
+        </STMTTRN>
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240116</DTPOSTED>
+          <TRNAMT>-8.40</TRNAMT>
+          <FITID>SEQ-0003</FITID>
+          <NAME>Coffee Stand</NAME>
+        </STMTTRN>
+      `));
+
+      await waitFor(() => {
+        expect(screen.getByText(/1 already in this account, left out/)).toBeInTheDocument();
+      });
+      // And the note before the button says so rather than the opposite.
+      expect(screen.getByText(/will not record the same payment twice/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddTransaction).toHaveBeenCalledTimes(1);
+      });
+      expect(mockAddTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ description: 'Coffee Stand' })
+      );
+    });
+
+    it('files an OFX row as uncategorised rather than filing it under "DEBIT"', async () => {
+      // The old in-file parser put the OFX TRNTYPE into the category field, so
+      // every imported row was filed under a category id that does not exist.
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-50.00</TRNAMT>
+          <FITID>SEQ-0004</FITID>
+          <NAME>Store Purchase</NAME>
+        </STMTTRN>
+      `));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Found 1 accounts/)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddTransaction).toHaveBeenCalledTimes(1);
+      });
+      const imported = mockAddTransaction.mock.calls[0][0];
+      expect(imported.category).not.toBe('DEBIT');
+      expect(imported.category).toBe('');
+      // The bank's own order within the statement survives the import.
+      expect(imported.statementSequence).toBe(0);
+    });
+
+    it('routes the statement to the account it matched instead of inventing one', async () => {
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-50.00</TRNAMT>
+          <FITID>SEQ-0005</FITID>
+          <NAME>Store Purchase</NAME>
+        </STMTTRN>
+      `));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Found 1 accounts/)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddTransaction).toHaveBeenCalledWith(
+          expect.objectContaining({ accountId: '1' })
+        );
+      });
+      expect(mockAddAccount).not.toHaveBeenCalled();
+    });
+
+    it('still creates the account a statement describes when nothing matches it', async () => {
+      // The Legacy Import's reason to exist: bring a file in whether or not the
+      // account is already there.
+      vi.mocked(useApp).mockReturnValue(appContextDouble({
+        addAccount: mockAddAccount,
+        addTransaction: mockAddTransaction,
+        accounts: [],
+        transactions: [],
+        categories: []
+      }));
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-50.00</TRNAMT>
+          <FITID>SEQ-0006</FITID>
+          <NAME>Store Purchase</NAME>
+        </STMTTRN>
+      `));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Found 1 accounts/)).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('Import Data'));
+
+      await waitFor(() => {
+        expect(mockAddAccount).toHaveBeenCalledWith(
+          expect.objectContaining({ name: 'Account 99887766', type: 'current', balance: 1000 })
+        );
+      });
+      expect(mockAddTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'created-Account 99887766' })
+      );
+    });
+
+    it('survives a row it cannot read instead of losing the whole statement', async () => {
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+
+      // `new Decimal('N/A')` THROWS. Reading TRNAMT through it would have cost
+      // the user every transaction in the file over one malformed tag.
+      await uploadOfx(ofxStatement(`
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240115</DTPOSTED>
+          <TRNAMT>-50.00</TRNAMT>
+          <FITID>SEQ-0007</FITID>
+          <NAME>Store Purchase</NAME>
+        </STMTTRN>
+        <STMTTRN>
+          <TRNTYPE>DEBIT</TRNTYPE>
+          <DTPOSTED>20240116</DTPOSTED>
+          <TRNAMT>N/A</TRNAMT>
+          <FITID>SEQ-0008</FITID>
+          <NAME>Corrupt Row</NAME>
+        </STMTTRN>
+      `));
+
+      // The lost row is named for its consequence, not merely counted.
+      await waitFor(() => {
+        expect(
+          screen.getByText('One row in this file could not be read and will be missing from the register.')
+        ).toBeInTheDocument();
       });
 
       fireEvent.click(screen.getByText('Import Data'));
@@ -386,7 +602,7 @@ describe('ImportDataModal', () => {
         );
       });
       // No NaN amount may ever reach the ledger.
-      const amounts = mockAddTransaction.mock.calls.map(([tx]: [{ amount: number }]) => tx.amount);
+      const amounts = mockAddTransaction.mock.calls.map(call => call[0].amount);
       expect(amounts.some(Number.isNaN)).toBe(false);
     });
 
