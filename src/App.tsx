@@ -16,10 +16,9 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
-// NOTE: performanceService / automaticBackupService are dynamically imported
-// in the startup effect below — static imports would pull them (and their
-// dependency graphs) into the main chunk for code that only runs after first
-// paint.
+// NOTE: performanceService is dynamically imported in the startup effect
+// below — a static import would pull it (and its dependency graph) into the
+// main chunk for code that only runs after first paint.
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
@@ -113,19 +112,12 @@ function App(): React.JSX.Element {
       performanceService.init();
     });
 
-    void import('./services/automaticBackupService').then(({ automaticBackupService }) => {
-      automaticBackupService.initializeBackups();
+    // Retired 2026-08-07: automaticBackupService and its 'perform-backup'
+    // service-worker listener. It snapshotted twelve localStorage keys the
+    // Supabase app never writes, into IndexedDB on the same machine, encrypted
+    // with a key it immediately discarded. Real backup/restore now lives in
+    // services/backupService (Manage → Export, Settings → Data Management).
 
-      // Handle service worker messages
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data.type === 'perform-backup') {
-            automaticBackupService.performBackup();
-          }
-        });
-      }
-    });
-    
     // Preload commonly accessed routes when browser is idle
     preloadWhenIdle(Dashboard);
     preloadWhenIdle(Transactions);

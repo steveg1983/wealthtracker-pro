@@ -134,6 +134,31 @@ type Database = {
         Args: Record<string, never>;
         Returns: Record<string, unknown>[];
       };
+      // ── Backup and restore (20260807083000) ──────────────────────────────
+      // p_rows is deliberately Record<string, unknown>[]: the restore takes
+      // WHOLE database rows and hands them to jsonb_populate_recordset against
+      // the table's own rowtype. Naming columns here would be a promise to keep
+      // a hand-written list correct forever, and a backup that silently drops a
+      // column is worse than one that fails.
+      user_financial_data_is_empty: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      wipe_user_financial_data: {
+        Args: { p_confirm: string; p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+      // RETURNS bigint. PostgREST sends that as a JSON number, but the call
+      // site narrows a string too rather than trusting the wire format on the
+      // one operation whose row counts are the only receipt the user gets.
+      restore_user_chunk: {
+        Args: { p_entity: string; p_rows: Record<string, unknown>[]; p_user_id: string };
+        Returns: number | string;
+      };
+      finalize_user_restore: {
+        Args: { p_links: Record<string, unknown>; p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
