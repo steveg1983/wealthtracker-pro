@@ -82,6 +82,54 @@ const DEFAULT_ALERT_THRESHOLD = 80;
 const DEFAULT_LARGE_TRANSACTION_ALERTS_ENABLED = true;
 const DEFAULT_LARGE_TRANSACTION_THRESHOLD = 500;
 
+const BUDGET_ALERTS_ENABLED_KEY = 'money_management_budget_alerts_enabled';
+const LARGE_TRANSACTION_ALERTS_ENABLED_KEY = 'money_management_large_transaction_alerts_enabled';
+
+/** Proof that the one-time repair below has already been offered to this browser. */
+const ALERT_PREFS_MIGRATION_KEY = 'wt_alert_prefs_migrated_v1';
+
+/**
+ * Undo the stored "false" that nobody chose — exactly once, ever.
+ *
+ * Correcting the default above only helps people who have never run the app.
+ * The old build did not merely DEFAULT these two toggles to off: it read an
+ * absent preference as `saved === 'true'` (i.e. false), and the persistence
+ * effect beside it then WROTE that false straight back to localStorage on first
+ * mount. So every browser that has ever opened WealthTracker is carrying an
+ * explicit `"false"` for both alert toggles that its user never picked, and a
+ * corrected default will never be consulted again.
+ *
+ * WHY A MARKER KEY: the stored value cannot tell the two cases apart. "The bug
+ * wrote this" and "the user switched alerts off" both look exactly like
+ * `"false"` — there is no third piece of evidence in the value itself. So the
+ * decision is made on a different fact entirely: has this repair already run in
+ * this browser? The marker records that, and nothing else. First run after this
+ * ships, both flags go back to their intended defaults and the marker is
+ * written; every run afterwards returns on the first line. A user who turns
+ * alerts off tomorrow keeps that choice for good, because by then the marker is
+ * there and this function no longer touches their preferences.
+ *
+ * Called from render, BEFORE the useState initialisers below read storage, so
+ * the very first read already sees the corrected values and no wrong state is
+ * ever shown. Safe to call repeatedly — the marker in storage, not a
+ * module-level flag, is what makes it once-only, which also means it behaves
+ * identically on a fresh page load and on a StrictMode double-render.
+ */
+function migrateAlertPreferencesOnce(): void {
+  try {
+    if (localStorage.getItem(ALERT_PREFS_MIGRATION_KEY) !== null) return;
+    localStorage.setItem(BUDGET_ALERTS_ENABLED_KEY, String(DEFAULT_BUDGET_ALERTS_ENABLED));
+    localStorage.setItem(
+      LARGE_TRANSACTION_ALERTS_ENABLED_KEY,
+      String(DEFAULT_LARGE_TRANSACTION_ALERTS_ENABLED)
+    );
+    localStorage.setItem(ALERT_PREFS_MIGRATION_KEY, 'true');
+  } catch {
+    // A browser that refuses localStorage has no wrongly-stored `false` to
+    // repair either — readStoredFlag falls back to the same defaults.
+  }
+}
+
 /** A stored on/off preference, or `fallback` when none has been saved. */
 function readStoredFlag(key: string, fallback: boolean): boolean {
   try {
@@ -235,6 +283,11 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }): React.JSX.Element {
+  // Deliberately above the first useState: the initialisers read localStorage,
+  // and the repair has to have happened by then or the user sees one render of
+  // the state the old bug left behind.
+  migrateAlertPreferencesOnce();
+
   const [notifications, setNotifications] = useState<Notification[]>((): Notification[] => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -261,7 +314,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   });
 
   const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((): boolean =>
-    readStoredFlag('money_management_budget_alerts_enabled', DEFAULT_BUDGET_ALERTS_ENABLED)
+    readStoredFlag(BUDGET_ALERTS_ENABLED_KEY, DEFAULT_BUDGET_ALERTS_ENABLED)
   );
 
   const [alertThreshold, setAlertThreshold] = useState((): number =>
@@ -270,7 +323,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
 
   const [largeTransactionAlertsEnabled, setLargeTransactionAlertsEnabled] = useState((): boolean =>
     readStoredFlag(
-      'money_management_large_transaction_alerts_enabled',
+      LARGE_TRANSACTION_ALERTS_ENABLED_KEY,
       DEFAULT_LARGE_TRANSACTION_ALERTS_ENABLED
     )
   );
@@ -335,7 +388,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   }, [notifications]);
 
   useEffect((): void => {
-    localStorage.setItem('money_management_budget_alerts_enabled', budgetAlertsEnabled.toString());
+    localStorage.setItem(BUDGET_ALERTS_ENABLED_KEY, budgetAlertsEnabled.toString());
   }, [budgetAlertsEnabled]);
 
   useEffect((): void => {
@@ -343,7 +396,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   }, [alertThreshold]);
 
   useEffect((): void => {
-    localStorage.setItem('money_management_large_transaction_alerts_enabled', largeTransactionAlertsEnabled.toString());
+    localStorage.setItem(LARGE_TRANSACTION_ALERTS_ENABLED_KEY, largeTransactionAlertsEnabled.toString());
   }, [largeTransactionAlertsEnabled]);
 
   useEffect((): void => {

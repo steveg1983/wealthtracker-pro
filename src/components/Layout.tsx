@@ -35,6 +35,13 @@ import ViewportDebugOverlay from './ViewportDebugOverlay';
 import SyncStatusIndicator from './SyncStatusIndicator';
 import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
 
+/**
+ * The vertical room the demo banner needs, or nothing at all when it is not
+ * showing. Set by DemoModeIndicator, which is the only thing that can measure
+ * it — see the comment on BANNER_HEIGHT_VAR there.
+ */
+const DEMO_BANNER_OFFSET = 'var(--wt-demo-banner-height, 0px)';
+
 export default function Layout(): React.JSX.Element {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
@@ -232,6 +239,11 @@ export default function Layout(): React.JSX.Element {
       <nav
         id="main-navigation"
         className="hidden md:block fixed top-0 left-0 right-0 z-40 bg-[#1a2332] shadow-md"
+        // Sits BELOW the demo banner rather than under it. DemoModeIndicator
+        // publishes its measured height into this variable while demo mode is
+        // on, and removes it otherwise — so outside demo mode this resolves to
+        // 0px and is exactly the `top-0` it overrides.
+        style={{ top: DEMO_BANNER_OFFSET }}
         role="navigation"
         aria-label="Main navigation"
       >
@@ -397,7 +409,11 @@ export default function Layout(): React.JSX.Element {
       </nav>
 
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md" role="banner">
+      <header
+        className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md"
+        style={{ top: DEMO_BANNER_OFFSET }}
+        role="banner"
+      >
         <div className="flex items-center justify-between p-4">
           <button
             onClick={toggleMobileMenu}
@@ -602,6 +618,11 @@ export default function Layout(): React.JSX.Element {
         // from inflating the layout viewport to 1438px; as a block, main is
         // simply the container's width and cannot be squeezed by siblings.)
         className="mt-16 md:mt-12"
+        // The headers moved down by the banner's height, so the content below
+        // them has to as well. Padding rather than margin because the margin is
+        // responsive (mt-16/md:mt-12) and this offset has to add to whichever
+        // of the two applies, not replace it.
+        style={{ paddingTop: DEMO_BANNER_OFFSET }}
         role="main"
         aria-label="Main content"
         tabIndex={-1}
