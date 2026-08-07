@@ -10,6 +10,7 @@ import type { Account } from '../../types';
 
 import AccountSelector from '../common/AccountSelector';
 import { CREATE_NEW_VALUE } from './accountPickerOptions';
+import { accountNumberForStorage, formatCardNumberForDisplay } from '../../utils/accountNumberInput';
 
 // The only lazy import in the app that must NOT reload the page on its own.
 // It is reached part-way through linking a bank connection: discovery has
@@ -39,6 +40,19 @@ const normalizeAccountNumber = (value: string | undefined): string =>
 
 const isCard = (discovered: DiscoveredBankAccount): boolean =>
   discovered.kind === 'card' || discovered.type === 'credit';
+
+/**
+ * The number this discovered account may be shown as, or linked with.
+ *
+ * TrueLayer's cards surface publishes a last-4 mask and nothing else, but a
+ * credit card reached through the ACCOUNTS surface (account_type
+ * "credit_card") carries account_number.number — the full card number. Linking
+ * writes that field onto the account row, so it is cut to the last 4 here,
+ * before it can be displayed, prefilled into the new-account form, or sent to
+ * /api/banking/link-accounts.
+ */
+const linkableAccountNumber = (discovered: DiscoveredBankAccount): string | undefined =>
+  accountNumberForStorage(discovered.accountNumber, isCard(discovered));
 
 // Cards expose no sort code or account number — only a last-4 mask. Restrict
 // mask matching to credit accounts, and only auto-select on a unique hit, so
@@ -224,7 +238,7 @@ export default function LinkBankAccountsModal({
           externalAccountMask: discovered?.mask,
           balance: discovered?.balance ?? 0,
           sortCode: discovered?.sortCode,
-          accountNumber: discovered?.accountNumber,
+          accountNumber: discovered ? linkableAccountNumber(discovered) : undefined,
           kind: discovered?.kind
         };
       });
@@ -280,6 +294,12 @@ export default function LinkBankAccountsModal({
                 );
                 const selectedId = link?.selectedAccountId ?? '';
                 const isMatched = findSmartMatch(da, accounts) !== null;
+                // A card's number is shown the way a card's number is shown
+                // everywhere else — masked to its last 4. A bank account's is
+                // the real 8-digit number and is shown whole.
+                const shownAccountNumber = isCard(da)
+                  ? formatCardNumberForDisplay(linkableAccountNumber(da))
+                  : da.accountNumber ?? '';
 
                 return (
                   <div
@@ -300,10 +320,10 @@ export default function LinkBankAccountsModal({
                           {da.sortCode && (
                             <span>Sort Code: {formatSortCode(da.sortCode)}</span>
                           )}
-                          {da.accountNumber && (
-                            <span>Account: {da.accountNumber}</span>
+                          {shownAccountNumber && (
+                            <span>Account: {shownAccountNumber}</span>
                           )}
-                          {da.mask && !da.accountNumber && (
+                          {da.mask && !shownAccountNumber && (
                             <span>****{da.mask}</span>
                           )}
                           <span className="capitalize">{da.type === 'checking' ? 'Current' : da.type}</span>
@@ -452,7 +472,7 @@ export default function LinkBankAccountsModal({
                 balance: da?.balance?.toString(),
                 currency: da?.currency,
                 sortCode: da?.sortCode,
-                accountNumber: da?.accountNumber,
+                accountNumber: da ? linkableAccountNumber(da) : undefined,
               }}
               onAccountCreated={(newAccountId) => {
                 setLinks(prev => prev.map(link =>

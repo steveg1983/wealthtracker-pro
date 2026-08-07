@@ -253,6 +253,82 @@ describe('AccountSettingsModal', () => {
     });
   });
 
+  describe('Card Number', () => {
+    const creditAccount: Account = { ...mockAccount, type: 'credit', sortCode: undefined, accountNumber: '9012' };
+
+    it('stores the LAST four of a pasted card number, not the first', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} account={creditAccount} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText('Last four digits of the card number'), {
+        target: { value: '4929 1234 5678 9012' }
+      });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
+          accountNumber: '9012'
+        }));
+      });
+    });
+
+    it('keeps the whole entry in the field so the right four survive the save', () => {
+      render(<AccountSettingsModal {...defaultProps} account={creditAccount} />);
+
+      const field = screen.getByLabelText('Last four digits of the card number');
+      fireEvent.change(field, { target: { value: '4929123456789012' } });
+
+      // Capping the input would have left '4929' — the wrong four.
+      expect(field).toHaveValue('4929123456789012');
+    });
+
+    it('trims on save even for a card the type was only just switched to', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText('Bank account number'), {
+        target: { value: '12345678' }
+      });
+      fireEvent.change(screen.getByDisplayValue('Current Account'), { target: { value: 'credit' } });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
+          accountNumber: '5678'
+        }));
+      });
+    });
+
+    it('tells the user what will be stored rather than offering them a choice', () => {
+      render(<AccountSettingsModal {...defaultProps} account={creditAccount} />);
+
+      fireEvent.change(screen.getByLabelText('Last four digits of the card number'), {
+        target: { value: '4929123456789012' }
+      });
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Saving will store 9012 and discard the rest.'
+      );
+      expect(screen.queryByRole('button', { name: /Keep only/ })).not.toBeInTheDocument();
+    });
+
+    it('clears the stored number when the card field is emptied', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} account={creditAccount} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText('Last four digits of the card number'), {
+        target: { value: '' }
+      });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
+          accountNumber: undefined
+        }));
+      });
+    });
+  });
+
   describe('Opening Balance', () => {
     it('accepts decimal values', () => {
       render(<AccountSettingsModal {...defaultProps} />);

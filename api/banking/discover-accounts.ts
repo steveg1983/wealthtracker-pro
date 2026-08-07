@@ -84,14 +84,21 @@ async function handler(req: VercelRequest, res: VercelResponse) {
               ? iban.slice(-4)
               : undefined;
 
+          const type = mapAccountType(account.account_type);
+          // For a card on this surface account_number.number is the card number.
+          // It must not leave the server: the client renders this value, prefills
+          // it into the add-account form and posts it back to be stored. The mask
+          // is the whole of what the app ever matches a card on.
+          const isCard = type === 'credit';
+
           return {
             externalAccountId: account.account_id,
             name: account.display_name?.trim() || connection.institution_name,
-            type: mapAccountType(account.account_type),
+            type,
             balance,
             currency: account.currency || 'GBP',
-            sortCode: account.account_number?.sort_code ?? undefined,
-            accountNumber: accountNumber ?? undefined,
+            sortCode: isCard ? undefined : (account.account_number?.sort_code ?? undefined),
+            accountNumber: isCard ? undefined : (accountNumber ?? undefined),
             mask,
             kind: 'account'
           };

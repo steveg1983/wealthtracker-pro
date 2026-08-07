@@ -20,6 +20,7 @@ import { compareTransactions } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
+import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { DataService } from '../services/api/dataService';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
@@ -1048,6 +1049,19 @@ export default function AccountTransactions() {
     );
   }
 
+  // '00000000' is the placeholder an account with no number was seeded with,
+  // and it is not a number anyone wants read back at them.
+  const storedAccountNumber =
+    account.accountNumber && account.accountNumber !== '00000000' ? account.accountNumber : '';
+
+  // A card shows as XXXX XXXX XXXX 1234. Four digits on their own read like a
+  // truncation; the mask says plainly that four digits is the whole of what is
+  // held. A bank account number is a different thing — 8 real digits — so it
+  // is shown as it is.
+  const displayedAccountNumber = isCardAccountType(account.type)
+    ? formatCardNumberForDisplay(storedAccountNumber)
+    : storedAccountNumber;
+
   return (
     <div className="flex flex-col h-full">
       {/* Back button */}
@@ -1078,13 +1092,13 @@ export default function AccountTransactions() {
                 <SettingsIcon size={16} />
               </button>
             </div>
-            {(account.sortCode && account.sortCode !== '000000') || (account.accountNumber && account.accountNumber !== '00000000') ? (
+            {(account.sortCode && account.sortCode !== '000000') || displayedAccountNumber ? (
               <div className="flex items-center gap-3 mt-0.5">
                 {account.sortCode && account.sortCode !== '000000' && (
                   <span className="text-xs text-white/70">{account.sortCode}</span>
                 )}
-                {account.accountNumber && account.accountNumber !== '00000000' && (
-                  <span className="text-xs text-white/70">{account.accountNumber}</span>
+                {displayedAccountNumber && (
+                  <span className="text-xs text-white/70">{displayedAccountNumber}</span>
                 )}
               </div>
             ) : null}

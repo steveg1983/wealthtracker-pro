@@ -11,8 +11,9 @@ import CardNumberGuidance from './CardNumberGuidance';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
+  accountNumberForStorage,
   formatSortCode,
-  keepLastFour,
+  isCardAccountType,
   nextAccountNumberValue
 } from '../utils/accountNumberInput';
 
@@ -123,7 +124,8 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
       // Strip formatting from sort code for storage (XX-XX-XX → XXXXXX).
       // A credit card has no sort code, so anything typed before the type was
       // switched to Credit Card is not part of what is being created.
-      const rawSortCode = formData.type === 'credit' ? '' : formData.sortCode.replace(/\D/g, '');
+      const isCard = isCardAccountType(formData.type);
+      const rawSortCode = isCard ? '' : formData.sortCode.replace(/\D/g, '');
 
       const newAccountPayload: Omit<Account, 'id'> & { initialBalance?: number } = {
         name: formData.name.trim(),
@@ -137,7 +139,10 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         openingBalanceDate: new Date(),
         isActive: true,
         sortCode: rawSortCode || undefined,
-        accountNumber: formData.accountNumber.trim() || undefined,
+        // A card is created holding its last 4 digits and nothing else — the
+        // field itself is uncapped so a pasted number keeps the RIGHT four
+        // (see nextAccountNumberValue), and this is where the rest is dropped.
+        accountNumber: accountNumberForStorage(formData.accountNumber, isCard),
       };
 
       // Create the account
@@ -176,7 +181,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
   const selectedType = accountTypes.find(t => t.value === formData.type);
   const selectedCurrency = currencies.find(c => c.value === formData.currency);
-  const isCreditCard = formData.type === 'credit';
+  const isCreditCard = isCardAccountType(formData.type);
   const isBankAccount = formData.type === 'current' || formData.type === 'savings';
 
   return (
@@ -368,12 +373,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
                     disabled={isSubmitting}
                   />
-                  {isCreditCard && (
-                    <CardNumberGuidance
-                      value={formData.accountNumber}
-                      onKeepLastFour={() => updateField('accountNumber', keepLastFour(formData.accountNumber))}
-                    />
-                  )}
+                  {isCreditCard && <CardNumberGuidance value={formData.accountNumber} />}
                 </div>
               </div>
             )}

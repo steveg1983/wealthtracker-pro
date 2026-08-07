@@ -10,8 +10,9 @@ import CardNumberGuidance from './CardNumberGuidance';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
+  accountNumberForStorage,
   formatSortCode,
-  keepLastFour,
+  isCardAccountType,
   nextAccountNumberValue
 } from '../utils/accountNumberInput';
 
@@ -86,7 +87,10 @@ export default function AccountSettingsModal({
           ...(data.name.trim() !== '' ? { name: data.name.trim() } : {}),
           notes: data.notes || undefined,
           sortCode: data.sortCode || undefined,
-          accountNumber: data.accountNumber || undefined,
+          // A card stores its last 4 digits and nothing else, whatever the
+          // field was left holding — the trim happens here rather than while
+          // typing so a pasted number loses its FIRST twelve, not its last four.
+          accountNumber: accountNumberForStorage(data.accountNumber, isCardAccountType(data.type)),
           isActive: data.isActive,
           lowBalanceAlertEnabled: data.lowBalanceAlertEnabled,
           lowBalanceThreshold: data.lowBalanceThreshold ? parseMoneyInput(data.lowBalanceThreshold) ?? undefined : undefined
@@ -138,15 +142,11 @@ export default function AccountSettingsModal({
   // digits, which would then live in the user's backups, JSON export and
   // audit history for no benefit at all. The rules and the wording are shared
   // with AddAccountModal, which asks for the same details at creation.
-  const isCreditCard = formData.type === 'credit';
+  const isCreditCard = isCardAccountType(formData.type);
   const isBankAccount = formData.type === 'current' || formData.type === 'savings';
 
   const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateField('accountNumber', nextAccountNumberValue(e.target.value, isCreditCard));
-  };
-
-  const trimToLastFour = (): void => {
-    updateField('accountNumber', keepLastFour(formData.accountNumber));
   };
 
   if (!account) return null;
@@ -270,12 +270,7 @@ export default function AccountSettingsModal({
                 {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
-              {isCreditCard && (
-                <CardNumberGuidance
-                  value={formData.accountNumber}
-                  onKeepLastFour={trimToLastFour}
-                />
-              )}
+              {isCreditCard && <CardNumberGuidance value={formData.accountNumber} />}
             </div>
           )}
 

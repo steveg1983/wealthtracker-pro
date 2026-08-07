@@ -6,6 +6,7 @@
 import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
+import { accountNumberForStorage, isCardAccountType } from '../../utils/accountNumberInput';
 import type { Account } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -178,7 +179,12 @@ class SimpleAccountServiceImpl {
         is_active: account.isActive !== false,
         institution: account.institution || null,
         sort_code: account.sortCode || null,
-        account_number: account.accountNumber || null,
+        // The last line before the insert: a credit account's number is a card
+        // number, and a full one written here would live on in every backup and
+        // export taken afterwards. Callers already trim; this is the guarantee
+        // that holds when a new one forgets to.
+        account_number:
+          accountNumberForStorage(account.accountNumber, isCardAccountType(account.type)) ?? null,
         opening_balance_date: account.openingBalanceDate instanceof Date
           ? account.openingBalanceDate.toISOString()
           : account.openingBalanceDate || null,

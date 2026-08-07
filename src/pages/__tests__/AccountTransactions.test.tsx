@@ -35,6 +35,18 @@ const CLOSED_ACCOUNT: Account = {
   currency: 'GBP', lastUpdated: new Date('2026-01-01'), openingBalance: 0, isActive: false,
 };
 
+// Bank details on show in the register header. A card stores (and is shown)
+// its last 4 digits; a bank account's 8 digits are the whole number.
+const CARD_ACCOUNT: Account = {
+  id: 'acc-card', name: 'Synthetic Card', type: 'credit', balance: 0,
+  currency: 'GBP', lastUpdated: new Date('2026-01-01'), openingBalance: 0, isActive: true,
+  accountNumber: '9012',
+};
+
+const DETAILED_ACCOUNT: Account = {
+  ...OPEN_ACCOUNT, sortCode: '12-34-56', accountNumber: '12345678',
+};
+
 const CATEGORIES: Category[] = [
   { id: 'type-expense', name: 'Expenses', type: 'expense', level: 'type', isSystem: true },
   { id: 'grp-food', name: 'Food', type: 'expense', level: 'sub', parentId: 'type-expense' },
@@ -222,5 +234,44 @@ describe('Account register — open, closed, and gone', () => {
     // Still the offer, not a half-open register — and the button is usable again.
     expect(reopenButton()).toBeEnabled();
     expect(screen.queryByRole('button', { name: /Search & filters/ })).not.toBeInTheDocument();
+  });
+
+  describe('the account number in the header', () => {
+    it('shows a card as XXXX XXXX XXXX 1234', async () => {
+      __setAppContextValue({ accounts: [CARD_ACCOUNT], transactions: [] });
+      renderRegister('/accounts/acc-card');
+
+      expect(await screen.findByText('XXXX XXXX XXXX 9012')).toBeInTheDocument();
+      // Never the bare four, which reads like a number that got cut off.
+      expect(screen.queryByText('9012')).not.toBeInTheDocument();
+    });
+
+    it('shows only the last 4 of a card row written before the rule existed', async () => {
+      __setAppContextValue({
+        accounts: [{ ...CARD_ACCOUNT, accountNumber: '4929123456789012' }],
+        transactions: []
+      });
+      renderRegister('/accounts/acc-card');
+
+      expect(await screen.findByText('XXXX XXXX XXXX 9012')).toBeInTheDocument();
+      expect(screen.queryByText('4929123456789012')).not.toBeInTheDocument();
+    });
+
+    it('leaves a bank account number alone — it is not a card number', async () => {
+      __setAppContextValue({ accounts: [DETAILED_ACCOUNT], transactions: [] });
+      renderRegister('/accounts/acc-open');
+
+      expect(await screen.findByText('12345678')).toBeInTheDocument();
+      expect(screen.getByText('12-34-56')).toBeInTheDocument();
+      expect(screen.queryByText(/^XXXX/)).not.toBeInTheDocument();
+    });
+
+    it('renders no number at all when the account has none', async () => {
+      __setAppContextValue({ accounts: [{ ...CARD_ACCOUNT, accountNumber: undefined }], transactions: [] });
+      renderRegister('/accounts/acc-card');
+
+      expect(await screen.findByRole('heading', { level: 1, name: 'Synthetic Card' })).toBeInTheDocument();
+      expect(screen.queryByText(/^XXXX/)).not.toBeInTheDocument();
+    });
   });
 });
