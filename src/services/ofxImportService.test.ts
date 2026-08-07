@@ -134,7 +134,8 @@ NEWFILEUID:NONE
         bankId: '123456',
         accountId: '12345678',
         accountType: 'CHECKING',
-        branchId: undefined
+        branchId: undefined,
+        isCreditCardStatement: false
       });
 
       expect(result.transactions).toHaveLength(3);
@@ -250,6 +251,36 @@ NEWFILEUID:NONE
 
       const result = ofxImportService.parseOFX(creditCardOFX);
       expect(result.account.accountType).toBe('CREDITCARD');
+      expect(result.account.isCreditCardStatement).toBe(true);
+    });
+
+    it('recognises a card statement that omits ACCTTYPE, rather than filing it as a current account', () => {
+      const creditCardOFX = validOFXContent
+        .replace('<BANKACCTFROM>', '<CCACCTFROM>')
+        .replace('</BANKACCTFROM>', '</CCACCTFROM>')
+        .replace('<ACCTTYPE>CHECKING\n', '')
+        .replace('<BANKID>123456\n', '');
+
+      const result = ofxImportService.parseOFX(creditCardOFX);
+      expect(result.account.isCreditCardStatement).toBe(true);
+      expect(result.account.accountType).toBe('CREDITCARD');
+    });
+
+    it('reads the account tags from the account section, not from anywhere in the file', () => {
+      // A payee address block carrying its own <BANKID> must not become the
+      // statement's sort code.
+      const ofxWithPayeeBlock = validOFXContent.replace(
+        '<BANKACCTFROM>',
+        `<PAYEEBANKACCTFROM>
+<BANKID>999999
+<ACCTID>99999999
+</PAYEEBANKACCTFROM>
+<BANKACCTFROM>`
+      );
+
+      const result = ofxImportService.parseOFX(ofxWithPayeeBlock);
+      expect(result.account.bankId).toBe('123456');
+      expect(result.account.accountId).toBe('12345678');
     });
   });
 
@@ -307,6 +338,53 @@ NEWFILEUID:NONE
     });
   });
 
+  describe('matchAccount confidence', () => {
+    const ofxAccount = {
+      accountId: '12345678',
+      accountType: 'CHECKING',
+      bankId: '123456',
+      isCreditCardStatement: false
+    };
+
+    it('calls a match on the account\'s own recorded details an identifier match', () => {
+      const recorded: Account = {
+        ...mockAccounts[1],
+        id: 'acc-recorded',
+        sortCode: '12-34-56',
+        accountNumber: '12345678'
+      };
+
+      const match = ofxImportService.matchAccount(ofxAccount, [recorded]);
+      expect(match).toEqual({ account: recorded, confidence: 'identifier' });
+    });
+
+    it('prefers the recorded identifiers over an account whose NAME happens to contain the digits', () => {
+      const recorded: Account = {
+        ...mockAccounts[1],
+        id: 'acc-recorded',
+        sortCode: '12-34-56',
+        accountNumber: '12345678'
+      };
+
+      // mockAccounts[0] is named "Main Current Account (****5678)".
+      const match = ofxImportService.matchAccount(ofxAccount, [...mockAccounts, recorded]);
+      expect(match?.account).toBe(recorded);
+    });
+
+    it('calls a name-substring match a guess', () => {
+      const match = ofxImportService.matchAccount(ofxAccount, mockAccounts);
+      expect(match).toEqual({ account: mockAccounts[0], confidence: 'heuristic' });
+    });
+
+    it('calls the only-account-of-this-type fallback a guess', () => {
+      const match = ofxImportService.matchAccount(
+        { accountId: '99999999', accountType: 'SAVINGS', isCreditCardStatement: false },
+        mockAccounts
+      );
+      expect(match).toEqual({ account: mockAccounts[1], confidence: 'heuristic' });
+    });
+  });
+
   describe('importTransactions', () => {
     const existingTransactions: Transaction[] = [
       {
@@ -344,7 +422,6 @@ NEWFILEUID:NONE
       expect(result.newTransactions).toBe(3);
       expect(result.duplicates).toBe(0);
       expect(result.matchedAccount).toBe(mockAccounts[0]);
-      expect(result.unmatchedAccount).toBeUndefined();
 
       expect(result.transactions).toHaveLength(3);
       
@@ -399,6 +476,19 @@ NEWFILEUID:NONE
 
       expect(result.matchedAccount).toBe(mockAccounts[1]);
       expect(result.transactions.every(t => t.accountId === 'acc2')).toBe(true);
+      // The caller named the account, so the file did not choose it and there
+      // is no confidence in the match to report.
+      expect(result.matchConfidence).toBeNull();
+    });
+
+    it('always reports the file\'s own account, matched or not', async () => {
+      const matched = await ofxImportService.importTransactions(validOFXContent, mockAccounts, []);
+      expect(matched.ofxAccount.accountId).toBe('12345678');
+      expect(matched.matchConfidence).toBe('heuristic');
+
+      const unmatched = await ofxImportService.importTransactions(validOFXContent, [], []);
+      expect(unmatched.ofxAccount.accountId).toBe('12345678');
+      expect(unmatched.matchConfidence).toBeNull();
     });
 
     it('detects and skips duplicate transactions', async () => {
@@ -514,11 +604,12 @@ NEWFILEUID:NONE
       );
 
       expect(result.matchedAccount).toBeNull();
-      expect(result.unmatchedAccount).toEqual({
+      expect(result.ofxAccount).toEqual({
         bankId: '123456',
         accountId: '12345678',
         accountType: 'CHECKING',
-        branchId: undefined
+        branchId: undefined,
+        isCreditCardStatement: false
       });
       expect(result.transactions.every(t => t.accountId === 'default')).toBe(true);
     });
@@ -729,5 +820,45 @@ NEWFILEUID:NONE
       expect(result.newTransactions).toBe(3);
       expect(result.matchedAccount).toBe(mockAccounts[0]);
     });
+  });
+});
+
+describe('a tag that is present but empty', () => {
+  // Regression: a Coutts (Sage-format) export writes <MEMO></MEMO> for a
+  // transaction with no memo. The old reader was `closed || unclosed`, and ''
+  // is falsy, so it fell through to the line-terminated read and captured the
+  // literal "</MEMO>". 17 of the 19 transactions in the reported file were
+  // described that way.
+  const emptyMemoOFX = `<OFX>
+<BANKMSGSRSV1><STMTTRNRS><STMTRS>
+<CURDEF>GBP</CURDEF>
+<BANKACCTFROM><BANKID>123456</BANKID><ACCTID>12345678</ACCTID><ACCTTYPE>CHECKING</ACCTTYPE></BANKACCTFROM>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>CREDIT</TRNTYPE>
+<DTPOSTED>20260806000000.000</DTPOSTED>
+<TRNAMT>2000</TRNAMT>
+<FITID>ABC123</FITID>
+<NAME>Two Way Sweep from account 04357</NAME>
+<MEMO></MEMO>
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS></STMTTRNRS></BANKMSGSRSV1>
+</OFX>`;
+
+  it('reads an empty element as empty, not as its own closing tag', () => {
+    const parsed = ofxImportService.parseOFX(emptyMemoOFX);
+    expect(parsed.transactions).toHaveLength(1);
+    expect(parsed.transactions[0].name).toBe('Two Way Sweep from account 04357');
+    expect(parsed.transactions[0].memo).toBeUndefined();
+  });
+
+  it('leaves no value shaped like a tag anywhere in the parse', () => {
+    const parsed = ofxImportService.parseOFX(emptyMemoOFX);
+    const values = parsed.transactions.flatMap(t => [t.name, t.memo, t.type, t.fitId, t.checkNum, t.refNum]);
+    // Whole-parse assertion rather than memo-only: the same reader served
+    // TRNTYPE, TRNAMT, FITID, NAME, CHECKNUM and REFNUM, so an empty
+    // <TRNAMT></TRNAMT> would have become the string "</TRNAMT>".
+    expect(values.filter(v => typeof v === 'string' && /^<\/?[A-Z]+>$/.test(v))).toEqual([]);
   });
 });
