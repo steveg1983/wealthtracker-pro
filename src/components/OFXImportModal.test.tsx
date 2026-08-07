@@ -7,12 +7,21 @@ import type { Account } from '../types';
 
 type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
 
+/** A bank statement for sort code 12-34-56, account 12345678. */
+const OFX_BANK_ACCOUNT: ImportTransactionsResult['ofxAccount'] = {
+  accountId: '12345678',
+  bankId: '123456',
+  accountType: 'CHECKING',
+  isCreditCardStatement: false,
+};
+
 const createMockImportResult = (
   overrides: Partial<ImportTransactionsResult> = {}
 ): ImportTransactionsResult => ({
   transactions: [],
   matchedAccount: null,
-  unmatchedAccount: null,
+  ofxAccount: OFX_BANK_ACCOUNT,
+  matchConfidence: null,
   duplicates: 0,
   newTransactions: 0,
   ...overrides,
@@ -73,10 +82,26 @@ vi.mock('./loading/LoadingState', () => ({
 
 // Mock AppContext
 const mockAddTransaction = vi.fn();
-const mockAccounts = [
-  { id: 'acc1', name: 'Current Account', type: 'checking' },
-  { id: 'acc2', name: 'Savings Account', type: 'savings' },
-  { id: 'acc3', name: 'Credit Card', type: 'credit' }
+const mockUpdateAccount = vi.fn();
+const mockAccount = (overrides: Partial<Account> & Pick<Account, 'id' | 'name' | 'type'>): Account => ({
+  balance: 0,
+  currency: 'GBP',
+  lastUpdated: new Date('2026-01-01'),
+  ...overrides
+});
+
+const mockAccounts: Account[] = [
+  mockAccount({ id: 'acc1', name: 'Current Account', type: 'checking' }),
+  mockAccount({ id: 'acc2', name: 'Savings Account', type: 'savings' }),
+  mockAccount({ id: 'acc3', name: 'Credit Card', type: 'credit' }),
+  // Already has its bank details recorded — nothing may ever be written over them.
+  mockAccount({
+    id: 'acc4',
+    name: 'Filed Account',
+    type: 'current',
+    sortCode: '12-34-56',
+    accountNumber: '12345678'
+  })
 ];
 
 const mockTransactions = [
@@ -104,7 +129,8 @@ vi.mock('../contexts/AppContextSupabase', () => ({
     accounts: mockAccounts,
     transactions: mockTransactions,
     categories: mockCategories,
-    addTransaction: mockAddTransaction
+    addTransaction: mockAddTransaction,
+    updateAccount: mockUpdateAccount
   })
 }));
 
@@ -306,60 +332,128 @@ describe('OFXImportModal', () => {
       });
     });
 
-    it('shows matched account when found', async () => {
+    it('says a guessed match is a guess', async () => {
       const mockParseResult = createMockImportResult({
         transactions: [sampleTransaction],
-        matchedAccount: { id: 'acc1', name: 'Current Account', type: 'checking' } as Account,
-        unmatchedAccount: { accountId: '12345678' },
+        matchedAccount: mockAccounts[0],
+        matchConfidence: 'heuristic',
         newTransactions: 1
       });
-      
+
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
-      
+
       render(<OFXImportModal {...defaultProps} />);
-      
+
       const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
       const fileInput = document.getElementById('ofx-upload')!
-      
+
       fireEvent.change(fileInput, { target: { files: [file] } });
-      
+
       await waitFor(() => {
         expect(screen.getByText('Automatically matched to: Current Account')).toBeInTheDocument();
-        expect(screen.getByText(/Based on account number ending in 5678/)).toBeInTheDocument();
+        expect(screen.getByText(/A best guess from the account's name and type/)).toBeInTheDocument();
         expect(screen.getByTestId('link-icon')).toBeInTheDocument();
       });
+    });
+
+    it('says an identifier match is the account\'s own recorded details', async () => {
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        matchedAccount: mockAccounts[0],
+        matchConfidence: 'identifier',
+        newTransactions: 1
+      });
+
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
+
+      render(<OFXImportModal {...defaultProps} />);
+
+      const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
+      const fileInput = document.getElementById('ofx-upload')!
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText(/Its recorded bank details are the ones in this file/)).toBeInTheDocument();
+      });
+    });
+
+    it('lets the destination be changed even after an automatic match', async () => {
+      // A match the user cannot overrule is a trap when the match is a guess.
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        matchedAccount: mockAccounts[0],
+        matchConfidence: 'heuristic',
+        newTransactions: 1
+      });
+
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
+
+      render(<OFXImportModal {...defaultProps} />);
+
+      const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
+      const fileInput = document.getElementById('ofx-upload')!
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
+      });
+
+      chooseAccount(SAVINGS_ACCOUNT);
+      expect(screen.getByRole('combobox', { name: 'Import to Account' }))
+        .toHaveTextContent(SAVINGS_ACCOUNT);
     });
 
     it('shows unmatched account warning when no match found', async () => {
       const mockParseResult = createMockImportResult({
         transactions: [sampleTransaction],
-        unmatchedAccount: {
-          accountId: '12345678',
-          bankId: '123456789'
-        },
         newTransactions: 1
       });
-      
+
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
-      
+
       render(<OFXImportModal {...defaultProps} />);
-      
+
       const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
       const fileInput = document.getElementById('ofx-upload')!
-      
+
       fireEvent.change(fileInput, { target: { files: [file] } });
-      
+
       await waitFor(() => {
         expect(screen.getByText('No matching account found')).toBeInTheDocument();
-        expect(screen.getByText(/OFX Account: \*\*\*\*5678.*Sort code: 456789/)).toBeInTheDocument();
+        expect(screen.getByText(/OFX Account: \*\*\*\*5678.*Sort code: 12-34-56/)).toBeInTheDocument();
         expect(screen.getByTestId('unlink-icon')).toBeInTheDocument();
       });
+    });
+
+    it('does not present a 9-digit routing number as a sort code', async () => {
+      // A US routing number is not a UK sort code, and its last 6 digits are
+      // not one either — showing it as one invents a fact about the file.
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        ofxAccount: { ...OFX_BANK_ACCOUNT, bankId: '123456789' },
+        newTransactions: 1
+      });
+
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
+
+      render(<OFXImportModal {...defaultProps} />);
+
+      const file = new File(['OFX content'], 'test.ofx', { type: 'application/ofx' });
+      const fileInput = document.getElementById('ofx-upload')!
+
+      fireEvent.change(fileInput, { target: { files: [file] } });
+
+      await waitFor(() => {
+        expect(screen.getByText(/OFX Account: \*\*\*\*5678/)).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/Sort code/)).not.toBeInTheDocument();
     });
 
     it('shows account selection dropdown when no match found', async () => {
       const mockParseResult = createMockImportResult({
         transactions: [sampleTransaction],
-        unmatchedAccount: { accountId: '12345678' },
         newTransactions: 1
       });
       
@@ -386,7 +480,8 @@ describe('OFXImportModal', () => {
           .map(child => child.getAttribute('aria-label'))
       ).toEqual(['Current Accounts', 'Savings Accounts', 'Credit Cards']);
       expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual([
-        'Current Account (checking)', 'Savings Account (savings)', 'Credit Card (credit)',
+        'Current Account (checking)', 'Filed Account (current)',
+        'Savings Account (savings)', 'Credit Card (credit)',
       ]);
     });
 
@@ -564,7 +659,6 @@ describe('OFXImportModal', () => {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         duplicates: 0,
         matchedAccount: null,
-        unmatchedAccount: null
       };
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
@@ -587,7 +681,6 @@ describe('OFXImportModal', () => {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         duplicates: 0,
         matchedAccount: null,
-        unmatchedAccount: null
       };
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
@@ -757,16 +850,13 @@ describe('OFXImportModal', () => {
     });
 
     it('handles unmatched account without bank ID', async () => {
-      const mockParseResult = {
-        transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
-        duplicates: 0,
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
         matchedAccount: null,
-        unmatchedAccount: { 
-          accountId: '12345678'
-          // No bankId
-        }
-      };
-      
+        // No bankId, so no sort code to show.
+        ofxAccount: { accountId: '12345678', accountType: 'CHECKING', isCreditCardStatement: false }
+      });
+
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
       render(<OFXImportModal {...defaultProps} />);
@@ -787,7 +877,6 @@ describe('OFXImportModal', () => {
         transactions: [],
         duplicates: 0,
         matchedAccount: null,
-        unmatchedAccount: null
       };
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
@@ -810,7 +899,6 @@ describe('OFXImportModal', () => {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
         duplicates: 0,
         matchedAccount: null,
-        unmatchedAccount: null
       };
       
       const mockImportResult = {
@@ -842,6 +930,174 @@ describe('OFXImportModal', () => {
         expect(screen.getByText('Import Successful!')).toBeInTheDocument();
         expect(screen.getByText('Imported 1 transactions to Savings Account')).toBeInTheDocument();
       });
+    });
+  });
+
+  /**
+   * Filling in an account's blank sort code / account number from the file
+   * being imported. It can only ever fill a blank, it only ever touches the
+   * account the transactions went into, and it always says what it did.
+   */
+  describe('Saving the file\'s details to the account', () => {
+    const CREDIT_CARD = 'Credit Card (credit)';
+    const FILED_ACCOUNT = 'Filed Account (current)';
+
+    const CARD_STATEMENT: ImportTransactionsResult['ofxAccount'] = {
+      // A card statement whose <ACCTID> is the full card number, as some
+      // banks really do publish it.
+      accountId: '4929123456789012',
+      accountType: 'CREDITCARD',
+      isCreditCardStatement: true,
+    };
+
+    /** Upload a file, choose a destination, and press Import. */
+    const runImport = async (
+      parsed: Partial<ImportTransactionsResult>,
+      accountLabel: string | null,
+      importedAccount: Account
+    ): Promise<void> => {
+      const parseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        newTransactions: 1,
+        ...parsed
+      });
+
+      vi.mocked(ofxImportService.importTransactions)
+        .mockResolvedValueOnce(parseResult)
+        .mockResolvedValueOnce(
+          createMockImportResult({
+            ...parseResult,
+            matchedAccount: importedAccount
+          })
+        );
+
+      render(<OFXImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('ofx-upload')!, {
+        target: { files: [new File(['OFX content'], 'test.ofx', { type: 'application/ofx' })] }
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
+      });
+      if (accountLabel) chooseAccount(accountLabel);
+    };
+
+    const pressImport = async (): Promise<void> => {
+      fireEvent.click(screen.getByTestId('loading-button'));
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+    };
+
+    it('fills in a chosen account\'s blank details and says it did', async () => {
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+
+      expect(screen.getByRole('checkbox', { name: /Save this file's/ })).toBeChecked();
+      await pressImport();
+
+      expect(mockUpdateAccount).toHaveBeenCalledWith('acc2', {
+        sortCode: '12-34-56',
+        accountNumber: '12345678'
+      });
+      expect(screen.getByText(/Also saved to Savings Account/)).toBeInTheDocument();
+      expect(screen.getByText(/sort code 12-34-56 and account number ending 5678/)).toBeInTheDocument();
+    });
+
+    it('does not call a chosen account a guess, even after the box is unticked', async () => {
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+
+      const checkbox = screen.getByRole('checkbox', { name: /Save this file's/ });
+      fireEvent.click(checkbox);
+
+      expect(checkbox).not.toBeChecked();
+      expect(screen.queryByText(/Off by default because this account was a guess/)).not.toBeInTheDocument();
+
+      await pressImport();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('never names a full account number in what it tells the user', async () => {
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+      await pressImport();
+
+      expect(document.body.textContent).not.toContain('12345678');
+    });
+
+    it('leaves an account that already has its details completely alone', async () => {
+      await runImport({}, FILED_ACCOUNT, mockAccounts[3]);
+
+      expect(screen.queryByRole('checkbox', { name: /Save this file's/ })).not.toBeInTheDocument();
+      await pressImport();
+
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+      expect(screen.queryByText(/Also saved to/)).not.toBeInTheDocument();
+    });
+
+    it('does not act on a guessed match unless the user says so', async () => {
+      await runImport(
+        {
+          matchedAccount: mockAccounts[1],
+          matchConfidence: 'heuristic'
+        },
+        null,
+        mockAccounts[1]
+      );
+
+      const checkbox = screen.getByRole('checkbox', { name: /Save this file's/ });
+      expect(checkbox).not.toBeChecked();
+      expect(screen.getByText(/Off by default because this account was a guess/)).toBeInTheDocument();
+
+      await pressImport();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('acts on a guessed match once the user ticks the box', async () => {
+      await runImport(
+        {
+          matchedAccount: mockAccounts[1],
+          matchConfidence: 'heuristic'
+        },
+        null,
+        mockAccounts[1]
+      );
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /Save this file's/ }));
+      await pressImport();
+
+      expect(mockUpdateAccount).toHaveBeenCalledWith('acc2', {
+        sortCode: '12-34-56',
+        accountNumber: '12345678'
+      });
+    });
+
+    it('stores only the last 4 digits of a card, and never the number itself', async () => {
+      await runImport({ ofxAccount: CARD_STATEMENT }, CREDIT_CARD, mockAccounts[2]);
+      await pressImport();
+
+      expect(mockUpdateAccount).toHaveBeenCalledWith('acc3', { accountNumber: '9012' });
+      expect(screen.getByText(/card ending 9012/)).toBeInTheDocument();
+      // The full card number must not survive anywhere the user can see it,
+      // let alone anywhere it would be stored.
+      expect(document.body.textContent).not.toContain('4929123456789012');
+    });
+
+    it('refuses to write a card statement onto a current account', async () => {
+      // <ACCTID> may be a full card number; its first 8 digits are not an
+      // account number, and storing them would be storing part of a card.
+      await runImport({ ofxAccount: CARD_STATEMENT }, SAVINGS_ACCOUNT, mockAccounts[1]);
+
+      expect(screen.queryByRole('checkbox', { name: /Save this file's/ })).not.toBeInTheDocument();
+      await pressImport();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('still reports the import as done when saving the details fails', async () => {
+      mockUpdateAccount.mockRejectedValueOnce(new Error('offline'));
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+      await pressImport();
+
+      expect(screen.getByText('Imported 1 transactions to Savings Account')).toBeInTheDocument();
+      expect(screen.getByText(/Couldn't save .* to Savings Account/)).toBeInTheDocument();
     });
   });
 });
