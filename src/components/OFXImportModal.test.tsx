@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import OFXImportModal from './OFXImportModal';
 import { ofxImportService } from '../services/ofxImportService';
 import type { Account } from '../types';
@@ -94,13 +94,17 @@ const mockAccounts: Account[] = [
   mockAccount({ id: 'acc1', name: 'Current Account', type: 'checking' }),
   mockAccount({ id: 'acc2', name: 'Savings Account', type: 'savings' }),
   mockAccount({ id: 'acc3', name: 'Credit Card', type: 'credit' }),
-  // Already has its bank details recorded — nothing may ever be written over them.
+  // Already has its bank details recorded — nothing may ever be written over
+  // them — and a bank balance more recent than any statement used in these
+  // tests, which nothing may write over either.
   mockAccount({
     id: 'acc4',
     name: 'Filed Account',
     type: 'current',
     sortCode: '12-34-56',
-    accountNumber: '12345678'
+    accountNumber: '12345678',
+    bankBalance: 4200,
+    bankBalanceDate: '2026-11-30'
   })
 ];
 
@@ -1098,6 +1102,166 @@ describe('OFXImportModal', () => {
 
       expect(screen.getByText('Imported 1 transactions to Savings Account')).toBeInTheDocument();
       expect(screen.getByText(/Couldn't save .* to Savings Account/)).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Setting the account's Bank Balance from the statement's own closing
+   * balance — the figure Reconciliation compares the cleared ledger against,
+   * and without which finalising a reconciliation proves nothing.
+   */
+  describe('Setting the Bank Balance from the statement', () => {
+    const CREDIT_CARD = 'Credit Card (credit)';
+    const FILED_ACCOUNT = 'Filed Account (current)';
+
+    // Some of these tests stop at the preview and never press Import, leaving
+    // the second queued result unconsumed — and a mockResolvedValueOnce queue
+    // survives vi.clearAllMocks(), so it would be handed to the NEXT test's
+    // parse. Drop the queue with the test that made it.
+    afterEach(() => {
+      vi.mocked(ofxImportService.importTransactions).mockReset();
+    });
+
+    const CARD_STATEMENT: ImportTransactionsResult['ofxAccount'] = {
+      accountId: '4929123456789012',
+      accountType: 'CREDITCARD',
+      isCreditCardStatement: true,
+    };
+
+    /** Upload a file, choose a destination, and stop before pressing Import. */
+    const runImport = async (
+      parsed: Partial<ImportTransactionsResult>,
+      accountLabel: string,
+      importedAccount: Account
+    ): Promise<void> => {
+      const parseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        newTransactions: 1,
+        statementBalance: { amount: 5000, dateAsOf: '2026-03-31' },
+        ...parsed
+      });
+
+      vi.mocked(ofxImportService.importTransactions)
+        .mockResolvedValueOnce(parseResult)
+        .mockResolvedValueOnce(
+          createMockImportResult({
+            ...parseResult,
+            matchedAccount: importedAccount
+          })
+        );
+
+      render(<OFXImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('ofx-upload')!, {
+        target: { files: [new File(['OFX content'], 'test.ofx', { type: 'application/ofx' })] }
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
+      });
+      chooseAccount(accountLabel);
+    };
+
+    const pressImport = async (): Promise<void> => {
+      fireEvent.click(screen.getByTestId('loading-button'));
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+    };
+
+    /** Every field this import wrote to the account, across all calls. */
+    const writtenFields = (): string[] =>
+      mockUpdateAccount.mock.calls.flatMap(([, updates]) => Object.keys(updates));
+
+    it('sets the Bank Balance to the statement\'s closing figure, dated by the statement', async () => {
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+      await pressImport();
+
+      expect(mockUpdateAccount).toHaveBeenCalledWith('acc2', {
+        bankBalance: 5000,
+        bankBalanceDate: '2026-03-31'
+      });
+      expect(screen.getByText(/Bank Balance set to £5,000\.00, as at 31 Mar 2026/))
+        .toBeInTheDocument();
+    });
+
+    it('never writes `balance` — that is the ledger the transactions already moved', async () => {
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+      await pressImport();
+
+      expect(mockUpdateAccount).toHaveBeenCalled();
+      expect(writtenFields()).not.toContain('balance');
+      expect(writtenFields()).not.toContain('openingBalance');
+    });
+
+    it('says what it will do before the user commits to it', async () => {
+      await runImport({}, SAVINGS_ACCOUNT, mockAccounts[1]);
+
+      expect(
+        screen.getByText(/Savings Account's Bank Balance will be set to £5,000\.00, as at 31 Mar 2026/)
+      ).toBeInTheDocument();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('leaves a more recent Bank Balance alone, and says which one it kept', async () => {
+      // Filed Account's balance is dated 30 Nov 2026; this statement closes in
+      // March. Overwriting would show months of spending as a difference.
+      await runImport({}, FILED_ACCOUNT, mockAccounts[3]);
+
+      expect(
+        screen.getByText(/will be left as it is: it already holds £4,200\.00 dated 30 Nov 2026/)
+      ).toBeInTheDocument();
+
+      await pressImport();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+      expect(screen.queryByText(/Bank Balance set to/)).not.toBeInTheDocument();
+    });
+
+    it('keeps a card statement\'s debt a debt', async () => {
+      // OFX signs the closing balance the same way it signs the purchases
+      // beside it, and this app stores a liability negative. Negating it here
+      // — as the TrueLayer card feed needs — would turn the debt into £1,234.56
+      // of assets.
+      await runImport(
+        {
+          ofxAccount: CARD_STATEMENT,
+          statementBalance: { amount: -1234.56, dateAsOf: '2026-03-31' }
+        },
+        CREDIT_CARD,
+        mockAccounts[2]
+      );
+      await pressImport();
+
+      expect(mockUpdateAccount).toHaveBeenCalledWith('acc3', {
+        bankBalance: -1234.56,
+        bankBalanceDate: '2026-03-31'
+      });
+      expect(screen.getByText(/Bank Balance set to -£1,234\.56/)).toBeInTheDocument();
+    });
+
+    it('says plainly when the file states no closing balance', async () => {
+      await runImport({ statementBalance: undefined }, SAVINGS_ACCOUNT, mockAccounts[1]);
+
+      expect(
+        screen.getByText(/This file doesn't state a closing balance/)
+      ).toBeInTheDocument();
+
+      await pressImport();
+      expect(writtenFields()).not.toContain('bankBalance');
+    });
+
+    it('still reports the import as done when the Bank Balance write fails', async () => {
+      // Filed Account has its details recorded, so the balance is the only
+      // write this import attempts.
+      await runImport(
+        { statementBalance: { amount: 5000, dateAsOf: '2026-12-31' } },
+        FILED_ACCOUNT,
+        mockAccounts[3]
+      );
+      mockUpdateAccount.mockRejectedValueOnce(new Error('offline'));
+      await pressImport();
+
+      expect(screen.getByText('Imported 1 transactions to Filed Account')).toBeInTheDocument();
+      expect(screen.getByText(/Bank Balance couldn't be updated/)).toBeInTheDocument();
     });
   });
 });

@@ -15,6 +15,15 @@ import {
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
 import { isDuplicateImport } from '../utils/importDedupe';
+import {
+  formatStatementDay,
+  planStatementBankBalance,
+  type BankBalanceRecord
+} from '../utils/statementBankBalance';
+import { formatCurrency } from '../utils/currency-decimal';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const logger = createScopedLogger('BatchImportModal');
 
 interface BatchImportModalProps {
   isOpen: boolean;
@@ -31,10 +40,14 @@ interface FileInfo {
   imported?: number;
   duplicates?: number;
   accountMatched?: string;
+  /** Set when this file's closing balance became the account's Bank Balance. */
+  bankBalanceSet?: string;
+  /** Set when that write failed — the transactions still landed. */
+  bankBalanceWarning?: string;
 }
 
 export default function BatchImportModal({ isOpen, onClose }: BatchImportModalProps): React.JSX.Element {
-  const { accounts, transactions, addTransaction } = useApp();
+  const { accounts, transactions, addTransaction, updateAccount } = useApp();
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(-1);
@@ -107,7 +120,59 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  const processFile = async (fileInfo: FileInfo, index: number): Promise<void> => {
+  /**
+   * Give the account the statement's own closing balance, so Reconciliation
+   * has something to check the rows just imported against.
+   *
+   * Only ever `bankBalance` — never `balance`, which the transactions above
+   * have already moved.
+   *
+   * Only on an IDENTIFIER match, unlike the OFX modal. Nobody is watching this
+   * screen: files are matched to accounts automatically and the result is a
+   * list of counts. A name-and-type guess is good enough to place transactions
+   * (each one visible and removable afterwards) but not to redefine what an
+   * account reconciles against, which nothing on this screen would show.
+   */
+  const applyStatementBankBalance = async (
+    result: Awaited<ReturnType<typeof ofxImportService.importTransactions>>,
+    writtenThisRun: Map<string, BankBalanceRecord>
+  ): Promise<{ note?: string; warning?: string }> => {
+    const account = result.matchedAccount;
+    if (!account) return {};
+
+    const plan = planStatementBankBalance(
+      result.statementBalance,
+      writtenThisRun.get(account.id) ?? account,
+      { destinationConfirmed: result.matchConfidence === 'identifier' }
+    );
+    if (plan.kind !== 'set') return {};
+
+    try {
+      await updateAccount(account.id, plan.updates);
+      writtenThisRun.set(account.id, plan.updates);
+      return {
+        note: `Bank Balance ${formatCurrency(plan.amount, account.currency)} as at ${formatStatementDay(plan.dateAsOf)}`
+      };
+    } catch (error) {
+      // The transactions are already in; say what did not happen rather than
+      // reporting the whole file as failed.
+      logger.error('Failed to set bank balance from statement', error);
+      return { warning: `Couldn't update ${account.name}'s Bank Balance` };
+    }
+  };
+
+  const processFile = async (
+    fileInfo: FileInfo,
+    index: number,
+    /**
+     * What this run has already written to each account's Bank Balance. The
+     * `accounts` array is React state and does not change between files, so
+     * without this a second statement for the same account would be judged
+     * against the account as it stood before the batch — and last March's
+     * statement could overwrite this month's.
+     */
+    bankBalancesWrittenThisRun: Map<string, BankBalanceRecord>
+  ): Promise<void> => {
     setCurrentFileIndex(index);
     setFiles(prev => prev.map((f, i) => 
       i === index ? { ...f, status: 'processing' } : f
@@ -118,6 +183,8 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
       let imported = 0;
       let duplicates = 0;
       let accountMatched = '';
+      let bankBalanceSet: string | undefined;
+      let bankBalanceWarning: string | undefined;
 
       switch (fileInfo.type) {
         case 'csv': {
@@ -178,9 +245,13 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
             imported++;
           }
           duplicates = result.duplicates;
+
+          const balanceOutcome = await applyStatementBankBalance(result, bankBalancesWrittenThisRun);
+          bankBalanceSet = balanceOutcome.note;
+          bankBalanceWarning = balanceOutcome.warning;
           break;
         }
-        
+
         case 'qif': {
           const result = await qifImportService.importTransactions(
             content,
@@ -199,13 +270,15 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
         }
       }
 
-      setFiles(prev => prev.map((f, i) => 
-        i === index ? { 
-          ...f, 
-          status: 'success', 
-          imported, 
+      setFiles(prev => prev.map((f, i) =>
+        i === index ? {
+          ...f,
+          status: 'success',
+          imported,
           duplicates,
-          accountMatched 
+          accountMatched,
+          bankBalanceSet,
+          bankBalanceWarning
         } : f
       ));
     } catch (error) {
@@ -231,10 +304,11 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
     let totalImported = 0;
     let totalDuplicates = 0;
     let successfulFiles = 0;
+    const bankBalancesWrittenThisRun = new Map<string, BankBalanceRecord>();
 
     for (let i = 0; i < files.length; i++) {
       if (files[i].status === 'pending') {
-        await processFile(files[i], i);
+        await processFile(files[i], i, bankBalancesWrittenThisRun);
         
         const updatedFile = files[i];
         if (updatedFile.status === 'success') {
@@ -419,6 +493,19 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                             {file.accountMatched && (
                               <span className="ml-2 text-primary">
                                 → {accounts.find(a => a.id === file.accountMatched)?.name}
+                              </span>
+                            )}
+                            {/* Only ever present when a balance was actually
+                                written, so there is nothing to render when
+                                nothing happened. */}
+                            {file.bankBalanceSet && (
+                              <span className="ml-2 text-gray-600 dark:text-gray-400">
+                                • {file.bankBalanceSet}
+                              </span>
+                            )}
+                            {file.bankBalanceWarning && (
+                              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+                                • {file.bankBalanceWarning}
                               </span>
                             )}
                           </p>

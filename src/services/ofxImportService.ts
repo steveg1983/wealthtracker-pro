@@ -1,7 +1,8 @@
 import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
-import { toDecimal, toNumber } from '../utils/decimal';
+import { parseMoneyInput, toDecimal, toNumber } from '../utils/decimal';
 import { findAccountByOfxIdentifiers } from '../utils/ofxAccountIdentifiers';
+import type { StatementBalance } from '../utils/statementBankBalance';
 
 interface OFXTransaction {
   type: string;
@@ -47,10 +48,7 @@ export interface AccountMatch {
 interface OFXParseResult {
   account: OFXAccount;
   transactions: OFXTransaction[];
-  balance?: {
-    amount: number;
-    dateAsOf: string;
-  };
+  balance?: StatementBalance;
   currency?: string;
   startDate?: string;
   endDate?: string;
@@ -202,21 +200,44 @@ export class OFXImportService {
   }
   
   /**
-   * Parse balance information
+   * The statement's CLOSING balance, read from <LEDGERBAL> and nowhere else.
+   *
+   * The distinction is not pedantry. A statement carries two balances, and the
+   * other one is a trap: <AVAILBAL> on a credit card is the REMAINING CREDIT,
+   * so a £20 debt on a £3,300 limit publishes an <AVAILBAL><BALAMT> of 3280 —
+   * the same trap cardNormalization documents for the bank feed. Reading the
+   * first <BALAMT> in the file happened to land on the ledger only because the
+   * OFX schema orders LEDGERBAL before AVAILBAL; now that this figure decides
+   * what the account reconciles against, it is read from the aggregate that
+   * defines it. A file with no closed <LEDGERBAL> has no closing balance to
+   * offer, and says so by returning nothing rather than by guessing.
+   *
+   * The amount goes through parseMoneyInput, which returns null for anything
+   * that is not a plain signed decimal. `new Decimal('12.34CR')` THROWS, and a
+   * throw here would fail the whole import over one unreadable tag.
    */
-  private parseBalance(content: string): { amount: number; dateAsOf: string } | undefined {
-    const balanceAmount = this.readTag(content, 'BALAMT');
-    
-    const balanceDate = this.readTag(content, 'DTASOF');
-    
-    if (balanceAmount && balanceDate) {
-      return {
-        amount: toNumber(toDecimal(balanceAmount)),
-        dateAsOf: this.parseOFXDate(balanceDate)
-      };
+  private parseBalance(content: string): StatementBalance | undefined {
+    const ledgerBlock = this.extractBlock(content, 'LEDGERBAL');
+    if (!ledgerBlock) {
+      return undefined;
     }
-    
-    return undefined;
+
+    const balanceAmount = this.readTag(ledgerBlock, 'BALAMT');
+    const balanceDate = this.readTag(ledgerBlock, 'DTASOF');
+
+    if (!balanceAmount || !balanceDate) {
+      return undefined;
+    }
+
+    const amount = parseMoneyInput(balanceAmount);
+    if (amount === null) {
+      return undefined;
+    }
+
+    return {
+      amount,
+      dateAsOf: this.parseOFXDate(balanceDate)
+    };
   }
   
   /**
@@ -404,6 +425,22 @@ export class OFXImportService {
      * account itself, because then the file did not choose it.
      */
     matchConfidence: AccountMatchConfidence | null;
+    /**
+     * What the bank says the account was worth at the end of the statement —
+     * the figure Reconciliation calls Bank Balance. Undefined when the file
+     * carries no <LEDGERBAL>.
+     *
+     * The sign is the file's own, untouched, and that is deliberate. OFX signs
+     * BALAMT in the same frame as the TRNAMTs beside it: on a card statement a
+     * purchase is a negative TRNAMT, so a card with money owing closes on a
+     * negative ledger balance — which is exactly how this app stores a
+     * liability. TrueLayer's /cards surface is the opposite (`current` is the
+     * amount owed, positive) and cardNormalization negates it for that reason;
+     * applying that negation here would turn a correctly-signed debt into an
+     * asset. Whichever way a file signs its balance, it signs its transactions
+     * the same way, and this importer already stores those verbatim.
+     */
+    statementBalance?: StatementBalance;
     duplicates: number;
     newTransactions: number;
   }> {
@@ -493,6 +530,7 @@ export class OFXImportService {
       matchedAccount,
       ofxAccount: parseResult.account,
       matchConfidence,
+      statementBalance: parseResult.balance,
       duplicates,
       newTransactions: transactions.length
     };
