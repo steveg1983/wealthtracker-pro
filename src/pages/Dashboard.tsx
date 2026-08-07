@@ -10,17 +10,20 @@ import LazyErrorBoundary from '../components/LazyErrorBoundary';
 import PageTip from '../components/PageTip';
 
 // Lazy load only modals and heavy features for better performance
-const TestDataWarningModal = lazyWithRecovery(() => import('../components/TestDataWarningModal'));
+//
+// Retired 2026-08-07: TestDataWarningModal. It fired off a `hasTestData` flag
+// that nothing could keep true to reality, and its "Clear & Start Fresh" button
+// only emptied React state — on a cloud login every row came back on the next
+// load, so the offer was one the app could not keep.
 const OnboardingModal = lazyWithRecovery(() => import('../components/OnboardingModal'));
 const ImprovedDashboard = lazyWithRecovery(() => import('../components/dashboard/ImprovedDashboard').then(module => ({ default: module.ImprovedDashboard })));
 
 
 export default function Dashboard() {
-  const { accounts, hasTestData, clearAllData } = useApp();
+  const { accounts } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
   const { user } = useAuth();
   const [_supabaseConnected, setSupabaseConnected] = useState(false);
-  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   
   // Check Supabase connection and migration status
@@ -51,25 +54,15 @@ export default function Dashboard() {
     };
     
     checkSupabase();
-  }, [user, accounts.length, showTestDataWarning, showOnboarding]);
-  
-  // Check for test data on component mount
-  useEffect(() => {
-    if (hasTestData) {
-      const warningDismissed = localStorage.getItem('testDataWarningDismissed');
-      if (warningDismissed !== 'true') {
-        setShowTestDataWarning(true);
-      }
-    }
-  }, [hasTestData, accounts.length]);
+  }, [user, accounts.length, showOnboarding]);
 
   // Check if onboarding should be shown
   useEffect(() => {
     const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-    if (!onboardingCompleted && !firstName && !showTestDataWarning) {
+    if (!onboardingCompleted && !firstName) {
       setShowOnboarding(true);
     }
-  }, [firstName, showTestDataWarning]);
+  }, [firstName]);
 
   // Handle onboarding completion
   const handleOnboardingComplete = (name: string, currency: string) => {
@@ -77,16 +70,6 @@ export default function Dashboard() {
     setCurrency(currency);
     localStorage.setItem('onboardingCompleted', 'true');
     setShowOnboarding(false);
-  };
-
-  // Handle test data warning close
-  const handleTestDataWarningClose = () => {
-    setShowTestDataWarning(false);
-    // Check if we should show onboarding after warning closes
-    const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-    if (!onboardingCompleted && !firstName) {
-      setShowOnboarding(true);
-    }
   };
 
   return (
@@ -106,20 +89,6 @@ export default function Dashboard() {
         title="What's on your dashboard"
         description="Net worth first, then income and expenses over whichever period you choose, the reports you pin here, your key accounts and how the budgets are going. Income, expenses and the account cards all open the transactions behind them."
       />
-
-      {/* Test Data Warning Modal */}
-      <LazyErrorBoundary componentName="Test Data Warning">
-        <Suspense fallback={null}>
-          <TestDataWarningModal
-            isOpen={showTestDataWarning}
-            onClose={handleTestDataWarningClose}
-            onClearData={() => {
-              clearAllData();
-              handleTestDataWarningClose();
-            }}
-          />
-        </Suspense>
-      </LazyErrorBoundary>
 
       {/* Onboarding Modal */}
       <LazyErrorBoundary componentName="Onboarding">

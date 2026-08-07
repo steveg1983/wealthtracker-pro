@@ -118,7 +118,7 @@ export interface AppContextType extends AppState {
   // Other operations
   importData: (data: Partial<AppState>) => void;
   exportData: () => string;
-  clearAllData: () => Promise<void>;
+  resetLoadedData: () => Promise<void>;
   getDecimalTransactions: () => DecimalTransaction[];
   getDecimalAccounts: () => DecimalAccount[];
   getDecimalGoals: () => DecimalGoal[];
@@ -1480,8 +1480,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       recurringTransactions,
       isLoading: false,
       isSyncing: false,
-      isUsingSupabase: true,
-      hasTestData: false
+      isUsingSupabase: true
     };
     return JSON.stringify(data, null, 2);
   }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
@@ -1501,7 +1500,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return goals.map(toDecimalGoal);
   }, [goals]);
 
-  const clearAllData = useCallback(async () => {
+  /**
+   * Forget what this session has loaded: the React state and the local
+   * transaction cache. Named for what it does — it deletes NOTHING from
+   * Supabase or from persisted local storage, so on its own the next load
+   * brings everything straight back. The delete has to happen in the store
+   * first; this then stops the stale snapshot outliving it.
+   */
+  const resetLoadedData = useCallback(async () => {
     // The local snapshot describes a history that is about to stop existing —
     // drop it here rather than making the next boot discover the mismatch and
     // pay for a full refetch to find out.
@@ -1752,7 +1758,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Other operations
     importData,
     exportData,
-    clearAllData,
+    resetLoadedData,
     getDecimalTransactions,
     getDecimalAccounts,
     getDecimalGoals,
@@ -1765,7 +1771,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isUsingSupabase,
     refreshAccountsAndTransactions,
     refreshCategories,
-    hasTestData: false,
     loadTestData
   };
 

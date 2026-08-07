@@ -29,14 +29,21 @@ export interface AppState {
   isLoading: boolean;
   isSyncing: boolean;
   isUsingSupabase: boolean;
-  hasTestData: boolean;
 
   // Sync metadata
   lastSyncTime: Date | null;
   syncError: string | null;
 
   // Utility methods
-  clearAllData: () => Promise<void>;
+  /**
+   * Drop this session's loaded copy of the data — React state plus the local
+   * transaction cache. It does NOT delete anything from Supabase or from
+   * persistent local storage, which is why it is not called `clearAllData`:
+   * on its own, a cloud login re-reads every row on the next load. A real
+   * delete has to wipe the store first (see Settings → Data Management) and
+   * then call this so the stale snapshot goes with it.
+   */
+  resetLoadedData: () => Promise<void>;
   exportData: () => string;
   /**
    * Create the sample dataset in whichever store this session is backed by,

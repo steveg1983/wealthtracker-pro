@@ -106,7 +106,6 @@ vi.mock('../utils/qifParser', () => ({
 // Mock AppContext
 const mockAddAccount = vi.fn();
 const mockAddTransaction = vi.fn();
-const mockClearAllData = vi.fn();
 const mockAccounts = [
   { id: '1', name: 'Checking', type: 'current', balance: 1000, currency: 'GBP', isActive: true }
 ];
@@ -159,9 +158,7 @@ describe('ImportDataModal', () => {
     vi.mocked(useApp).mockReturnValue({
       addAccount: mockAddAccount,
       addTransaction: mockAddTransaction,
-      accounts: mockAccounts,
-      hasTestData: false,
-      clearAllData: mockClearAllData
+      accounts: mockAccounts
     } as any);
   });
 
@@ -777,51 +774,6 @@ describe('ImportDataModal', () => {
       
       await waitFor(() => {
         expect(mockAddAccount).not.toHaveBeenCalled();
-      });
-    });
-  });
-
-  describe('Test Data Warning', () => {
-    it('shows warning when test data exists', async () => {
-      // Mock useApp to return hasTestData as true
-      vi.mocked(useApp).mockReturnValue({
-        addAccount: mockAddAccount,
-        addTransaction: mockAddTransaction,
-        accounts: mockAccounts,
-        hasTestData: true,
-        clearAllData: mockClearAllData
-      } as any);
-      
-      // Set up mock before rendering
-      vi.mocked(parseQIF).mockReturnValue({
-        accounts: [{ name: 'Test', type: 'checking', balance: 1000 }],
-        transactions: []
-      });
-      
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
-      
-      Object.defineProperty(input, 'files', {
-        value: [file],
-        writable: false,
-      });
-      
-      fireEvent.change(input);
-      
-      // Wait for the import button to be enabled
-      await waitFor(() => {
-        const importButton = screen.getByText('Import Data').closest('button');
-        expect(importButton).not.toBeDisabled();
-      });
-      
-      // Click the import button
-      fireEvent.click(screen.getByText('Import Data'));
-      
-      // Wait for test data warning
-      await waitFor(() => {
-        expect(screen.getByText('Test Data Detected')).toBeInTheDocument();
       });
     });
   });

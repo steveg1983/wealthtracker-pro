@@ -31,9 +31,8 @@ const baseValue = {
   categories,
   goals,
   tags: [],
-  hasTestData: true,
   isLoading: false,
-  clearAllData: asyncNoop,
+  resetLoadedData: asyncNoop,
   exportData: () => JSON.stringify({ accounts, transactions, budgets, goals, categories }),
   // Async and counting, like the real thing: callers await it and read the
   // result to report what was created.

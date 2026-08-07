@@ -50,7 +50,7 @@ interface ImportSummary {
 }
 
 export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImportWizardProps): React.JSX.Element {
-  const { accounts, transactions, addTransaction, categories, hasTestData, clearAllData } = useApp();
+  const { accounts, transactions, addTransaction, categories } = useApp();
   const logger = useMemo(() => createScopedLogger('EnhancedImportWizard'), []);
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('files');
@@ -59,7 +59,6 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResult, setImportResult] = useState<ImportSummary | null>(null);
-  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(-1);
   
   // File handling
@@ -134,12 +133,12 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
     }
   };
 
+  // Retired 2026-08-07: the "Test Data Detected — clear it first?" step that
+  // used to interrupt this. It read a flag nothing could keep true, and its
+  // clear button called a context reset that only emptied React state, so on a
+  // cloud login the data came back on the next load. The Review step now says
+  // plainly what the import does to existing data.
   const processFiles = async () => {
-    if (hasTestData && !showTestDataWarning) {
-      setShowTestDataWarning(true);
-      return;
-    }
-
     setIsProcessing(true);
     setCurrentStep('result');
     
@@ -287,7 +286,6 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
     setSelectedBankFormat('');
     setMappings([]);
     setImportResult(null);
-    setShowTestDataWarning(false);
   };
 
   const renderStepContent = () => {
@@ -403,6 +401,19 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
             </div>
             
             <ImportRulesManager />
+
+            {/* Last thing before "Start Import", so it says what the import
+                will actually do: every path here only ADDS transactions —
+                nothing existing is edited or removed — and rows matching one
+                already loaded are skipped and counted as duplicates. */}
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+              <AlertCircleIcon size={18} className="mt-0.5 flex-shrink-0" />
+              <p>
+                Importing adds these transactions to your existing data — nothing is
+                replaced or deleted. Anything matching a transaction you already have
+                is skipped and counted as a duplicate.
+              </p>
+            </div>
           </div>
         );
 
@@ -658,53 +669,6 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
         </ModalFooter>
       </Modal>
 
-      {/* Test Data Warning Modal */}
-      {showTestDataWarning && (
-        <Modal 
-          isOpen={true} 
-          onClose={() => setShowTestDataWarning(false)}
-          title="Test Data Detected"
-          size="md"
-        >
-          <ModalBody>
-            <div className="flex items-start gap-3">
-              <AlertCircleIcon size={24} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-1" />
-              <div>
-                <p className="text-gray-900 dark:text-white mb-2">
-                  Test data has been detected in your application. Importing real transaction data will mix with test data.
-                </p>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Would you like to clear all test data before importing your real transactions?
-                </p>
-              </div>
-            </div>
-          </ModalBody>
-          
-          <ModalFooter>
-            <div className="flex gap-3 w-full justify-end">
-              <button
-                onClick={() => {
-                  setShowTestDataWarning(false);
-                  processFiles();
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Keep Test Data
-              </button>
-              <button
-                onClick={() => {
-                  clearAllData();
-                  setShowTestDataWarning(false);
-                  processFiles();
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Clear Test Data
-              </button>
-            </div>
-          </ModalFooter>
-        </Modal>
-      )}
     </>
   );
 }

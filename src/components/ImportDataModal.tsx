@@ -45,7 +45,7 @@ interface ParsedData {
 }
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps): React.JSX.Element {
-  const { addAccount, addTransaction, accounts, hasTestData, clearAllData } = useApp();
+  const { addAccount, addTransaction, accounts } = useApp();
   const logger = useMemo(() => createScopedLogger('ImportDataModal'), []);
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -55,7 +55,6 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [preview, setPreview] = useState<ParsedData | null>(null);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [rawMnyData, setRawMnyData] = useState<Array<Record<string, unknown>>>([]);
-  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -229,35 +228,14 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setShowMappingModal(false);
   };
 
-  const handleClearAndImport = async () => {
-    // Clear all data first
-    clearAllData();
-    setShowTestDataWarning(false);
-    
-    // Small delay to ensure state updates and localStorage is cleared
-    setTimeout(() => {
-      // Now import the data - hasTestData will be false after clearAllData
-      if (preview) {
-        setImporting(true);
-        importDataToApp();
-      }
-    }, 100);
-  };
-
-  const handleContinueWithTestData = () => {
-    setShowTestDataWarning(false);
-    importDataToApp();
-  };
-
+  // Retired 2026-08-07: the "Test Data Detected — clear it first?" prompt that
+  // used to sit in front of this. It read a flag nothing could keep true, and
+  // its "Clear & Import" button called a context reset that only emptied React
+  // state, so on a cloud login the data it promised to clear came straight back
+  // on the next load. What replaces it is the note in the dialog body, which
+  // describes what this import actually does to existing data.
   const handleImport = async () => {
     if (!preview) return;
-    
-    // Check if we have test data and need to show warning
-    if (hasTestData && !showTestDataWarning) {
-      setShowTestDataWarning(true);
-      return;
-    }
-    
     importDataToApp();
   };
 
@@ -332,10 +310,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={() => {
-        onClose();
-        setShowTestDataWarning(false);
-      }} title="Import Financial Data" size="xl">
+      <Modal isOpen={isOpen} onClose={onClose} title="Import Financial Data" size="xl">
         <ModalBody>
 
           <div className="mb-6">
@@ -435,6 +410,23 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             </div>
           )}
 
+          {/* The one thing worth saying before the button is pressed, and it is
+              true of every format here: this importer only ever ADDS. Accounts
+              already present by name are reused, every transaction in the file
+              is written, and nothing on this path checks for duplicates — so
+              the same file twice is the same payment twice. */}
+          {preview && preview.transactions.length > 0 && (
+            <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+              <AlertTriangleIcon size={20} className="mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-semibold mb-1">These are added to what you already have</p>
+                <p>Nothing is replaced or deleted. Duplicates are not detected on this
+                  path, so importing the same file twice records every payment twice —
+                  use Settings → Data Management → Find Duplicates afterwards if you are unsure.</p>
+              </div>
+            </div>
+          )}
+
           {message && !preview?.warning && (
             <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
               status === 'success' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' :
@@ -452,10 +444,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         <ModalFooter>
           <div className="flex gap-3 w-full">
             <button
-              onClick={() => {
-                onClose();
-                setShowTestDataWarning(false);
-              }}
+              onClick={onClose}
               disabled={parsing || importing}
               className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
@@ -482,58 +471,6 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         rawData={rawMnyData}
         onMappingComplete={handleMappingComplete}
       />
-
-      {/* Test Data Warning Dialog */}
-      {showTestDataWarning && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertTriangleIcon className="text-orange-500" size={24} />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Test Data Detected</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              You currently have test data loaded in your application. You're about to import real bank data.
-            </p>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Would you like to:
-            </p>
-            <div className="space-y-3 mb-6">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="font-medium text-blue-800 dark:text-blue-200">Clear test data first (Recommended)</p>
-                <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                  Remove all test data and start fresh with your real bank data
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <p className="font-medium text-gray-800 dark:text-gray-200">Continue with test data</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Mix your real bank data with the existing test data
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowTestDataWarning(false)}
-                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleContinueWithTestData}
-                className="flex-1 justify-center px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-              >
-                Continue
-              </button>
-              <button
-                onClick={handleClearAndImport}
-                className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
-              >
-                Clear & Import
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

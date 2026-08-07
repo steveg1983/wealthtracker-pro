@@ -40,7 +40,7 @@ const LoadTestDataModal = lazyWithRecovery(() => import('../../components/LoadTe
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, hasTestData, isUsingSupabase } = useApp();
+  const { accounts, transactions, budgets, resetLoadedData, isUsingSupabase } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
@@ -70,9 +70,10 @@ export default function DataManagementSettings() {
   const [clearConfirmText, setClearConfirmText] = useState('');
   const [clearError, setClearError] = useState('');
 
-  // ACTUALLY delete everything. clearAllData() only resets in-memory state —
-  // on cloud the data all came back on the next load, which made the button a
-  // lie. Now the same proven wipe the MS Money migration uses runs first, then
+  // ACTUALLY delete everything. The store has to be wiped first — the context's
+  // resetLoadedData only forgets the loaded copy, so on cloud the data all came
+  // back on the next load, which made the button a lie. The same proven wipe the
+  // MS Money migration uses runs first, then the loaded snapshot is dropped, then
   // the app reloads to re-read the (empty) truth.
   const handleClearData = async () => {
     setIsClearing(true);
@@ -85,7 +86,7 @@ export default function DataManagementSettings() {
       } else {
         wipeLocalData(STORAGE_KEYS);
       }
-      await clearAllData();
+      await resetLoadedData();
       setShowDeleteConfirm(false);
       window.location.reload();
     } catch (error) {
@@ -115,17 +116,13 @@ export default function DataManagementSettings() {
         <h1 className="text-3xl font-bold text-white">Data Management</h1>
       </div>
 
-      {hasTestData && (
-        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <AlertCircleIcon className="text-orange-600 dark:text-orange-400 mt-0.5" size={20} />
-          <div>
-            <p className="font-medium text-orange-800 dark:text-orange-200">Test Data Active</p>
-            <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-              You currently have test data loaded. When importing real bank data, you'll be prompted to clear this test data first.
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Retired 2026-08-07: the orange "Test Data Active" banner and the
+          "Reload Test Data" button label. Both read a `hasTestData` flag that
+          nothing could keep true to reality — delete the seeded accounts by
+          hand, restore a backup over the top, or clear data on another device
+          and a stored boolean still claims sample data is present. The seeded
+          rows are ordinary rows; the app cannot tell them apart, so it should
+          not claim to. */}
 
       {/* Bank connection MANAGEMENT lives on the Accounts page now; this page
           keeps only the URL-driven modal below so ops alert deep links
@@ -184,7 +181,7 @@ export default function DataManagementSettings() {
           >
             <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"><DatabaseIcon size={18} /></span>
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-gray-900 dark:text-white">{hasTestData ? 'Reload Test Data' : 'Load Test Data'}</span>
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">Load Test Data</span>
               <span className="block text-xs text-gray-500 dark:text-gray-400">Adds sample data to explore features</span>
             </span>
           </button>
