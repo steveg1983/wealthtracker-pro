@@ -364,7 +364,14 @@ export class OFXImportService {
         type,
         accountId: matchedAccount?.id || 'default',
         category: '',
-        cleared: true, // OFX transactions are already cleared
+        // Deliberately NOT cleared, despite the file coming from the bank.
+        // "Cleared" here does not mean the bank has processed it — it means the
+        // USER has checked it against their statement and finalised the
+        // reconciliation. Importing a statement is the moment that check should
+        // happen, so arriving pre-cleared skips the one step that would catch a
+        // missing or wrong row and leave the account agreeing with the bank.
+        // Every other file importer already defaults this false; OFX was alone.
+        cleared: false,
         notes,
         isRecurring: false
       };

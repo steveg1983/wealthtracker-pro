@@ -322,6 +322,18 @@ NEWFILEUID:NONE
       }
     ];
 
+    it('never marks an imported OFX transaction as cleared', async () => {
+      const result = await ofxImportService.importTransactions(
+        validOFXContent,
+        mockAccounts,
+        []
+      );
+      expect(result.transactions.length).toBeGreaterThan(0);
+      // Every one, not "none happened to be true" — a partly-cleared import is
+      // the shape that hides a row nobody checked.
+      expect(result.transactions.every(t => t.cleared === false)).toBe(true);
+    });
+
     it('imports transactions successfully', async () => {
       const result = await ofxImportService.importTransactions(
         validOFXContent,
@@ -345,7 +357,10 @@ NEWFILEUID:NONE
         amount: -25.50,
         type: 'expense',
         accountId: 'acc1',
-        cleared: true
+        // Imported statements arrive UNRECONCILED. The bank having processed a
+        // payment is not the same as the user having checked it against their
+        // statement, and importing is precisely when that check should happen.
+        cleared: false
       });
       expectDateOnly(trx1.date, '2024-01-15');
       expect(trx1.notes).toContain('FITID: 2024011501');
@@ -357,7 +372,7 @@ NEWFILEUID:NONE
         amount: 2500,
         type: 'income',
         accountId: 'acc1',
-        cleared: true
+        cleared: false
       });
       expectDateOnly(trx2.date, '2024-01-20');
 
@@ -368,7 +383,7 @@ NEWFILEUID:NONE
         amount: -100,
         type: 'expense',
         accountId: 'acc1',
-        cleared: true
+        cleared: false
       });
       expectDateOnly(trx3.date, '2024-01-10');
       expect(trx3.notes).toContain('Check #: 1234');
