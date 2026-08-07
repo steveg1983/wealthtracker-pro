@@ -2,6 +2,12 @@ import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
 import { parseMoneyInput, toDecimal, toNumber } from '../utils/decimal';
 import { findAccountByOfxIdentifiers } from '../utils/ofxAccountIdentifiers';
+import { isSelfTransferCategory } from '../utils/transferMatch';
+import {
+  findStatementDuplicates,
+  type IncomingStatementRow,
+  type StatementDuplicateMatch
+} from '../utils/statementDuplicates';
 import type { StatementBalance } from '../utils/statementBankBalance';
 
 interface OFXTransaction {
@@ -13,6 +19,13 @@ interface OFXTransaction {
   memo?: string;
   checkNum?: string;
   refNum?: string;
+  /**
+   * Position in the file, from 0. OFX lists <STMTTRN> in STATEMENT order, so
+   * this is the bank's own sequence — the only record of which of a day's
+   * transactions came first, and until now the one thing this parser threw
+   * away. See Transaction.statementSequence.
+   */
+  sequence: number;
 }
 
 export interface OFXAccount {
@@ -191,7 +204,11 @@ export class OFXImportService {
           name: this.cleanString(name),
           memo: memo ? this.cleanString(memo) : undefined,
           checkNum: checkNum || undefined,
-          refNum: refNum || undefined
+          refNum: refNum || undefined,
+          // Position among the rows KEPT, not among the <STMTTRN> blocks seen:
+          // a block missing a date, amount or FITID is skipped above, and
+          // counting it would leave a gap that reads as a lost transaction.
+          sequence: transactions.length
         });
       }
     }
@@ -410,6 +427,13 @@ export class OFXImportService {
       duplicateThreshold?: number;
       categories?: Category[];
       autoCategorize?: boolean;
+      /**
+       * FITIDs the user has looked at and decided to import anyway — rows the
+       * amount-and-date rule flagged as already held but which are genuinely
+       * new (two £20 withdrawals on one day). Never overrides a FITID match:
+       * there the bank itself says the two are the same transaction.
+       */
+      importAnywayFitIds?: readonly string[];
     } = {}
   ): Promise<{
     transactions: Omit<Transaction, 'id'>[];
@@ -441,6 +465,20 @@ export class OFXImportService {
      * the same way, and this importer already stores those verbatim.
      */
     statementBalance?: StatementBalance;
+    /**
+     * Every row in the file, in file order — including the ones this call
+     * decided not to import. The review list is built from these, and
+     * `duplicateMatches` indexes into them.
+     */
+    statementRows: IncomingStatementRow[];
+    /**
+     * What the register already holds, split by how sure the match is:
+     * `certain` is the bank's own FITID on both sides, `possible` is same
+     * account / exact amount / near date and wants a human. Reported whether
+     * or not `skipDuplicates` acted on them.
+     */
+    duplicateMatches: { certain: StatementDuplicateMatch[]; possible: StatementDuplicateMatch[] };
+    /** How many rows were left out as already held. */
     duplicates: number;
     newTransactions: number;
   }> {
@@ -457,43 +495,36 @@ export class OFXImportService {
       matchConfidence = match?.confidence ?? null;
     }
 
-    const transactions: Omit<Transaction, 'id'>[] = [];
-    let duplicates = 0;
-    
+    const destinationAccountId = matchedAccount?.id || 'default';
+
+    // Every row is drafted BEFORE anything is dropped, so the duplicate rule
+    // sees the same list the user is shown and the two cannot disagree about
+    // which row is which.
+    const drafts: Omit<Transaction, 'id'>[] = [];
+    const statementRows: IncomingStatementRow[] = [];
+
     for (const ofxTrx of parseResult.transactions) {
-      // Check for duplicates using FITID (Financial Institution Transaction ID)
-      if (options.skipDuplicates !== false) {
-        const isDuplicate = existingTransactions.some(existing => 
-          existing.notes && existing.notes.includes(`FITID: ${ofxTrx.fitId}`)
-        );
-        
-        if (isDuplicate) {
-          duplicates++;
-          continue;
-        }
-      }
-      
       // Signed convention: OFX TRNAMT is already signed at the source
       // (debits negative, credits positive), so store the signed value directly.
       const amount = ofxTrx.amount;
       const type = this.getTransactionType(ofxTrx.type, ofxTrx.amount);
-      
+
       // Build description
       const description = ofxTrx.memo || ofxTrx.name;
-      
+
       // Add notes with OFX metadata
       const notes = [
         `FITID: ${ofxTrx.fitId}`,
         ofxTrx.checkNum ? `Check #: ${ofxTrx.checkNum}` : null,
         ofxTrx.refNum ? `Ref: ${ofxTrx.refNum}` : null
       ].filter(Boolean).join('\n');
-      
+
       const transaction: Omit<Transaction, 'id'> = {
         date: new Date(ofxTrx.datePosted),
         description,
         amount,
         type,
-        accountId: matchedAccount?.id || 'default',
+        accountId: destinationAccountId,
         category: '',
         // Deliberately NOT cleared, despite the file coming from the bank.
         // "Cleared" here does not mean the bank has processed it — it means the
@@ -504,34 +535,76 @@ export class OFXImportService {
         // Every other file importer already defaults this false; OFX was alone.
         cleared: false,
         notes,
-        isRecurring: false
+        isRecurring: false,
+        // The bank's own order within the statement, kept so the register's
+        // running balance can walk a day the way the bank printed it instead of
+        // guessing. Duplicates are skipped above, so this stays the position in
+        // the FILE, not in this batch — re-importing an overlapping statement
+        // must not renumber the rows it shares with the last one.
+        statementSequence: ofxTrx.sequence
       };
-      
+
       // Auto-categorize if enabled
       if (options.autoCategorize && options.categories) {
         // Train the model if we have existing transactions
         if (existingTransactions.length > 0) {
           smartCategorizationService.learnFromTransactions(existingTransactions, options.categories);
         }
-        
+
         // Get category suggestions
         const suggestions = smartCategorizationService.suggestCategories(transaction as Transaction, 1);
-        
-        if (suggestions.length > 0 && suggestions[0].confidence >= 0.7) {
+
+        if (suggestions.length > 0 &&
+            suggestions[0].confidence >= 0.7 &&
+            // A transfer to the account the row is already in describes nothing
+            // — and it is exactly what the merchant key "immediate faster
+            // payment" produces on an account whose own sweeps share it.
+            !isSelfTransferCategory(options.categories, suggestions[0].categoryId, destinationAccountId)) {
           transaction.category = suggestions[0].categoryId;
         }
       }
-      
-      transactions.push(transaction);
+
+      drafts.push(transaction);
+      statementRows.push({
+        date: transaction.date,
+        amount,
+        description,
+        fitId: ofxTrx.fitId
+      });
     }
-    
+
+    const duplicateMatches = findStatementDuplicates(
+      statementRows,
+      existingTransactions,
+      destinationAccountId
+    );
+
+    // Which drafts to leave out. FITID matches are the bank's own word and are
+    // never overridden; an amount-and-date match is evidence a human may have
+    // already looked at and overruled.
+    const importAnyway = new Set(options.importAnywayFitIds ?? []);
+    const skipped = new Set<number>();
+    if (options.skipDuplicates !== false) {
+      for (const match of duplicateMatches.certain) {
+        skipped.add(match.incomingIndex);
+      }
+      for (const match of duplicateMatches.possible) {
+        if (match.fitId !== null && importAnyway.has(match.fitId)) continue;
+        skipped.add(match.incomingIndex);
+      }
+    }
+
+    const transactions = drafts.filter((_, index) => !skipped.has(index));
+
     return {
       transactions,
       matchedAccount,
       ofxAccount: parseResult.account,
       matchConfidence,
       statementBalance: parseResult.balance,
-      duplicates,
+      statementRows,
+      duplicateMatches,
+      duplicates: skipped.size,
       newTransactions: transactions.length
     };
   }

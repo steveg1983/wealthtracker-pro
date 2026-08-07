@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  planCloudImport, importToLocalStorage, wipeLocalData, executeCloudPlan,
+  planCloudImport, importToLocalStorage, executeCloudPlan,
   MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT, IMPORT_BATCH_SIZE,
   isRetryableWriteStatus,
   type ExistingCategoryRow, type ExistingAccountRow, type CloudPlan,
@@ -745,14 +745,12 @@ describe('planCloudImport — opening balances on reused accounts', () => {
   });
 });
 
-describe('wipeLocalData', () => {
-  it('empties every financial collection', () => {
-    const KEYS = { ACCOUNTS: 'a', TRANSACTIONS: 't', CATEGORIES: 'c', TRANSACTION_SPLITS: 's', BUDGETS: 'b', GOALS: 'g', RECURRING: 'r' };
-    for (const k of Object.values(KEYS)) window.localStorage.setItem(k, '[{"id":"x"}]');
-    wipeLocalData(KEYS);
-    for (const k of Object.values(KEYS)) expect(window.localStorage.getItem(k)).toBe('[]');
-  });
-});
+// `wipeLocalData` and its test are gone. The test asserted that localStorage
+// held '[]' afterwards, which was true and irrelevant — the app reads from
+// encrypted IndexedDB, so the function cleared nothing anybody looks at and the
+// test proved it cleared the wrong place. Its replacement,
+// wipeLocalFinancialData, is covered in localBackupService.test.ts against real
+// storage.
 
 describe('importToLocalStorage', () => {
   const KEYS = { ACCOUNTS: 'a', TRANSACTIONS: 't', CATEGORIES: 'c', TRANSACTION_SPLITS: 's', BUDGETS: 'b', GOALS: 'g', RECURRING: 'r' };

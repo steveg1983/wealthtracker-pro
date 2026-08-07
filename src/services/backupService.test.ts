@@ -756,6 +756,79 @@ describe('remapBackupIds', () => {
     expect(danglingRefs).toEqual([]);
   });
 
+  it("rewrites a goal's linked accounts, which live inside the metadata jsonb", () => {
+    // goals has no column for them, so planningService.goalToDb parks them in
+    // metadata. Left alone, a restored goal still names the accounts of the
+    // login the file came from — and nothing constrains a jsonb key, so it
+    // fails silently.
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-07T09:30:00.000Z',
+      data: {
+        accounts: [
+          { id: A_CURRENT, name: 'Current', balance: 0 },
+          { id: A_SAVINGS, name: 'Savings', balance: 0 },
+        ],
+        goals: [{
+          id: uid('9', 1), name: 'Rainy day', target_amount: 5000,
+          metadata: {
+            type: 'savings',
+            linkedAccountIds: [A_CURRENT, A_SAVINGS],
+            // A user's own words, in the same object. They must come through
+            // exactly as written.
+            note: 'for the roof',
+          },
+        }],
+      },
+    });
+
+    const { bundle, idMap } = remapBackupIds(source, sequentialIds());
+    expect(bundle.data.goals[0].metadata).toEqual({
+      type: 'savings',
+      linkedAccountIds: [idMap.get(A_CURRENT), idMap.get(A_SAVINGS)],
+      note: 'for the roof',
+    });
+  });
+
+  it('rewrites a text id that is not shaped like a uuid', () => {
+    // A signed-out user's categories are seeded with text ids
+    // ('type-income', 'transfer-in' — data/defaultCategories), and the cloud
+    // only mints uuids for them on first sign-in. Judging a reference by its
+    // SHAPE left categories[].id remapped and transactions.category not, so a
+    // restore of that dataset came back entirely uncategorised.
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-07T09:30:00.000Z',
+      data: {
+        accounts: [{ id: A_CURRENT, name: 'Current', balance: 0 }],
+        categories: [{ id: 'type-expense', name: 'Expenses', level: 'type' }],
+        transactions: [{
+          id: T_SHOP, account_id: A_CURRENT, date: '2021-06-06', amount: -80,
+          category: 'type-expense',
+        }],
+      },
+    });
+
+    const { bundle, idMap, danglingRefs } = remapBackupIds(source, sequentialIds());
+    expect(bundle.data.transactions[0].category).toBe(idMap.get('type-expense'));
+    expect(bundle.data.categories[0].id).toBe(idMap.get('type-expense'));
+    expect(danglingRefs).toEqual([]);
+  });
+
+  it('still leaves a free-text label alone and does not report it', () => {
+    // The other half of the same judgement: goals.category holds a word a
+    // person typed. It names no row, and there is nothing wrong with that.
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-07T09:30:00.000Z',
+      data: { goals: [{ id: uid('9', 1), name: 'Trip', category: 'Holiday' }] },
+    });
+
+    const { bundle, danglingRefs } = remapBackupIds(source, sequentialIds());
+    expect(bundle.data.goals[0].category).toBe('Holiday');
+    expect(danglingRefs).toEqual([]);
+  });
+
   it('leaves an unresolvable reference alone and counts it', () => {
     // A category that never made it into the file. Blanking it would destroy
     // the only record of where the row was filed; the honest move is to leave

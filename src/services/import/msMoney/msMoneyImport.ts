@@ -908,14 +908,12 @@ export async function wipeCloudData(supabase: SupabaseClient, userId: string): P
   }
 }
 
-/** The local-mode equivalent: empty every financial collection. */
-export function wipeLocalData(
-  storageKeys: { ACCOUNTS: string; TRANSACTIONS: string; CATEGORIES: string; TRANSACTION_SPLITS: string; BUDGETS: string; GOALS: string; RECURRING: string }
-): void {
-  for (const key of Object.values(storageKeys)) {
-    window.localStorage.setItem(key, '[]');
-  }
-}
+// The local-mode equivalent used to live here as `wipeLocalData`, and it did
+// not work: it wrote '[]' into window.localStorage while every reader in the
+// app goes through storageAdapter → encryptedStorage → IndexedDB. It cleared
+// keys nothing reads, so "Clear All Data" reported success and changed nothing.
+// Its test asserted on localStorage and passed for the same reason. The working
+// one is wipeLocalFinancialData in services/localBackupService.
 
 /**
  * Execute the plan against Supabase under the authenticated client.

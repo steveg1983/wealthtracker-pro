@@ -16,7 +16,7 @@ import { useToast } from '../contexts/ToastContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
 import { LoadingState } from '../components/loading/LoadingState';
-import { compareTransactions } from '../utils/transactionSort';
+import { compareChronological, compareTransactions, type TransactionSortField } from '../utils/transactionSort';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
@@ -75,6 +75,18 @@ interface ArchiveState { range: ArchiveRange; from: string; to: string }
 
 // Friendly labels for the View dropdown's column checkboxes.
 const COLUMN_LABELS: Record<string, string> = { reconciled: 'Reconciled (R)' };
+
+/** The sortable columns, named as their headers name them. */
+const SORT_FIELD_LABELS: Record<TransactionSortField, string> = {
+  date: 'Date',
+  description: 'Description',
+  category: 'Category',
+  tags: 'Tags',
+  payment: 'Payment',
+  deposit: 'Deposit',
+  amount: 'Amount',
+  notes: 'Notes'
+};
 
 const readStored = <T,>(key: string, fallback: T): T => {
   try {
@@ -158,6 +170,8 @@ export default function AccountTransactions() {
   // can expand over the bottom add/edit dock for bulk browsing.
   const [showFilters, setShowFilters] = useState(false);
   const [tableExpanded, setTableExpanded] = useState(false);
+  const [sortField, setSortField] = useState<TransactionSortField>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   // The table's height is MEASURED (viewport minus everything above it and a
   // reserve for the bottom dock) so the whole page always fits one screen,
   // whatever banners/nav are present. Fixed calc() guesses drift.
@@ -170,13 +184,15 @@ export default function AccountTransactions() {
     const dockReserve = tableExpanded ? 32 : 224; // dock (~178) + gaps/padding, or just padding
     setTableHeight(Math.max(240, window.innerHeight - top - dockReserve));
   }, [tableExpanded]);
+  // Re-measured on anything that moves the table down the page: the filter
+  // panel, and the sort — a non-date sort adds a line above the table, and a
+  // table measured before that line appeared overflows the viewport by its
+  // height until the next window resize.
   useLayoutEffect(() => {
     measureTableHeight();
     window.addEventListener('resize', measureTableHeight);
     return () => window.removeEventListener('resize', measureTableHeight);
-  }, [measureTableHeight, showFilters]);
-  const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit' | 'notes'>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  }, [measureTableHeight, showFilters, sortField]);
   // Column layout (order + widths), drag-controlled and persisted per browser.
   const [columnOrder, setColumnOrder] = useState<string[]>(() => readStored<string[]>(COLUMN_ORDER_KEY, []));
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => readStored<Record<string, number>>(COLUMN_WIDTHS_KEY, {}));
@@ -389,25 +405,23 @@ export default function AccountTransactions() {
     // Running balance is computed over the FULL account history — every
     // transaction, ignoring the view filters — so hiding rows (archived, date
     // window, search) never corrupts the balance shown against a visible row.
-    // Within the same date: income first, then transfers, then expenses.
-    const typeOrder = { income: 0, transfer: 1, expense: 2 };
-    const sortedForBalance = [...fullAccountTransactions].sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      if (dateA !== dateB) {
-        return dateA - dateB;
-      }
-      return typeOrder[a.type] - typeOrder[b.type];
-    });
+    //
+    // compareChronological, NOT a local sort: the displayed rows are ordered by
+    // the same function (compareTransactions delegates to it for Date, and
+    // negates it wholesale for newest-first), so the column the user reads is
+    // the column these figures were accumulated in. The two used to disagree on
+    // same-day rows, and a register whose Balance column disagrees with itself
+    // is worse than one without a Balance column.
+    const sortedForBalance = [...fullAccountTransactions].sort(compareChronological);
 
-    // Start from opening balance or 0
-    let runningBalance = account.openingBalance || 0;
-
-    // Calculate running balance for each transaction (amounts are pre-signed)
+    // Decimal, not float: a statement's worth of `runningBalance += amount`
+    // drifts by a fraction of a penny and the register then shows a balance
+    // that never quite equals the account's. Amounts are pre-signed.
+    let runningBalance = toDecimal(account.openingBalance ?? 0);
     const balanceMap = new Map<string, number>();
     for (const transaction of sortedForBalance) {
-      runningBalance += transaction.amount;
-      balanceMap.set(transaction.id, runningBalance);
+      runningBalance = runningBalance.plus(toDecimal(transaction.amount));
+      balanceMap.set(transaction.id, runningBalance.toNumber());
     }
 
     // Display the filtered subset, each carrying its true running balance.
@@ -428,9 +442,15 @@ export default function AccountTransactions() {
     // balance ("Opening Balance"); when earlier history is hidden (archived, or
     // a date window) it's the carried-forward figure ("Brought forward"), so
     // the visible running balances stay continuous and correct.
-    const earliestVisible = transactionsWithBalance.length > 0
-      ? transactionsWithBalance.reduce((min, t) => (new Date(t.date) < new Date(min.date) ? t : min))
-      : null;
+    //
+    // "Earliest" by compareChronological, not by date alone. Comparing only the
+    // day left several rows tied, and the reduce then kept whichever the array
+    // held first — which under a newest-first sort is the LAST of that day's
+    // rows, so the lead balance came out short by everything else on that day.
+    const earliestVisible = transactionsWithBalance.reduce<TransactionWithBalance | null>(
+      (earliest, t) => (earliest === null || compareChronological(t, earliest) < 0 ? t : earliest),
+      null
+    );
     // No visible rows → the lead balance is the full account balance (opening
     // plus every transaction, all of which are currently hidden).
     const fullBalance = fullAccountTransactions
@@ -495,7 +515,27 @@ export default function AccountTransactions() {
 
   // Bank balance from TrueLayer sync (or null if not available)
   const bankBalance = account?.bankBalance ?? null;
-  
+
+  /**
+   * What to say when the register is not in date order.
+   *
+   * The Balance column is kept, and its figures stay true — the balance map is
+   * keyed by transaction, so every row shows what the account was worth
+   * immediately after that transaction whatever order the rows sit in, and
+   * sorting by Amount to find a large payment is exactly when someone wants to
+   * know it. What stops being true is the COLUMN: it no longer runs down the
+   * page, and each row's arithmetic no longer follows from the one above.
+   *
+   * Blanking the column instead would destroy correct information and make a
+   * user-sized, user-ordered column vanish as a side effect of clicking a
+   * different header. Saying it in a line is the honest option: name the
+   * consequence, and give the way back to a running balance.
+   */
+  const balanceOrderNotice = useMemo((): string | null => {
+    if (sortField === 'date') return null;
+    return `Sorted by ${SORT_FIELD_LABELS[sortField]}, so the Balance column doesn't run down the page. Each row still shows what ${account?.name ?? 'the account'} was worth immediately after that transaction — sort by Date to read the column as a running balance.`;
+  }, [sortField, account?.name]);
+
   // Keyboard event handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -956,11 +996,17 @@ export default function AccountTransactions() {
       // balance ("-£1,234,567.89") without truncating at the table edge.
       width: '140px',
       accessor: (transaction) => (
-        <span className={`text-sm font-medium ${
-          transaction.balance < 0
-            ? 'text-red-600 dark:text-red-400'
-            : 'text-gray-900 dark:text-gray-100'
-        }`}>
+        // data-testid: the column's whole contract is that the rows and the
+        // balances are in the same order, and the only way to hold that to
+        // account is to read the figures off in rendered order.
+        <span
+          data-testid="register-balance"
+          className={`text-sm font-medium ${
+            transaction.balance < 0
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-gray-900 dark:text-gray-100'
+          }`}
+        >
           {formatCurrency(transaction.balance, account?.currency)}
         </span>
       ),
@@ -1408,6 +1454,14 @@ export default function AccountTransactions() {
           }}
         />
       </div>
+
+      {/* Only the desktop table has a Balance column, so only it needs the
+          warning that the column has stopped being a running one. */}
+      {balanceOrderNotice && (
+        <p className="hidden lg:block text-sm text-gray-600 dark:text-gray-400">
+          {balanceOrderNotice}
+        </p>
+      )}
 
       <div
         ref={tableWrapRef}

@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import type { Transaction, Account, Category } from '../types';
+import { compareChronological } from '../utils/transactionSort';
 
 interface FilterOptions {
   filterType: 'all' | 'income' | 'expense';
@@ -118,11 +119,18 @@ export function useTransactionFilters(
     let bValue: string | number;
 
     switch (sortOptions.field) {
-      case 'date':
-        aValue = parseDate(a.date);
-        bValue = parseDate(b.date);
-        break;
-        
+      case 'date': {
+        // The shared register order, negated for newest-first — so each
+        // account's own rows come out as the exact reverse of the order its
+        // running balances were accumulated in (see runningBalances on the
+        // Transactions page) and the topmost row of an account carries that
+        // account's current balance. A date-only compare left same-day rows
+        // equal, and the display and the balances then disagreed about which
+        // of them came last.
+        const chronological = compareChronological(a, b);
+        return sortOptions.direction === 'asc' ? chronological : -chronological;
+      }
+
       case 'account': {
         const accountA = accountLookup.get(a.accountId);
         const accountB = accountLookup.get(b.accountId);
@@ -152,7 +160,9 @@ export function useTransactionFilters(
 
     if (aValue < bValue) return sortOptions.direction === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortOptions.direction === 'asc' ? 1 : -1;
-    return 0;
+    // Equal on the chosen column: settle it chronologically rather than leaving
+    // it to whichever order the array arrived in.
+    return compareChronological(a, b);
   }, [sortOptions.field, sortOptions.direction, accountLookup, getCategoryPath]);
 
   // Filter predicate function

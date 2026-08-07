@@ -1,6 +1,7 @@
 import type { Transaction, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
 import { buildCategoryMatcher } from '../utils/qifCategoryMatch';
+import { isSelfTransferCategory } from '../utils/transferMatch';
 import { toDecimal, toNumber } from '../utils/decimal';
 
 export interface QIFTransaction {
@@ -397,8 +398,14 @@ export class QIFImportService {
         
         // Get category suggestions
         const suggestions = smartCategorizationService.suggestCategories(transaction as Transaction, 1);
-        
-        if (suggestions.length > 0 && suggestions[0].confidence >= 0.7) {
+
+        if (suggestions.length > 0 &&
+            suggestions[0].confidence >= 0.7 &&
+            // Never "transfer to the account this row is already in" — the same
+            // guard the OFX importer carries, for the same reason: the learned
+            // merchant key is often the payment channel, which an account's own
+            // internal transfers share with every third-party payment.
+            !isSelfTransferCategory(options.categories, suggestions[0].categoryId, targetAccountId)) {
           transaction.category = suggestions[0].categoryId;
         }
       }

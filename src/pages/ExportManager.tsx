@@ -24,6 +24,7 @@ import type { Investment } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { DataService } from '../services/api/dataService';
 import { collectBackupBundle, downloadBackupBundle, type ExportProgress } from '../services/backupService';
+import { collectLocalBackupBundle } from '../services/localBackupService';
 
 // The advanced report builder (templated PDF/Excel/CSV) and the dedicated Excel
 // exporter both used to live under Settings ▸ Data Management. They move here so
@@ -42,7 +43,7 @@ const exportManagerLogger = createScopedLogger('ExportManagerPage');
 type ActiveTab = 'export' | 'templates' | 'history';
 
 export default function ExportManager() {
-  const { transactions, accounts } = useApp();
+  const { transactions, accounts, isUsingSupabase } = useApp();
   const investments: Investment[] = []; // TODO: Add investments to AppContext
   const [activeTab, setActiveTab] = useState<ActiveTab>('export');
   const [templates, setTemplates] = useState<ExportTemplate[]>([]);
@@ -121,9 +122,18 @@ export default function ExportManager() {
   // them, and renames what is left into camelCase. A file built from it could
   // never be poured back in, which is what Settings → Data Management can now
   // do with this one. See services/backupService for the contract.
+  //
+  // Local and demo sessions read the same file out of browser storage instead.
+  // Before that they could not save their data AT ALL — every path through
+  // backupService resolves a Supabase client and threw without one — which is
+  // an odd thing to offer a person and then refuse. Same format, same file,
+  // same restore; only where the rows come from differs.
   const handleExportEverything = async () => {
     const { databaseId, clerkId } = DataService.getUserIds();
-    if (!databaseId) {
+    // Signed in but the database identity has not resolved yet. Falling through
+    // to the local path here would hand a signed-in user a file made of
+    // whatever demo or imported data their browser happens to hold.
+    if (isUsingSupabase && !databaseId) {
       setBackupError('This session has no database identity yet, so there is nothing to read. Reload the page and try again.');
       return;
     }
@@ -131,10 +141,12 @@ export default function ExportManager() {
     setIsBackingUp(true);
     setBackupProgress(null);
     try {
-      const bundle = await collectBackupBundle(
-        { databaseUserId: databaseId, clerkUserId: clerkId },
-        { onProgress: setBackupProgress }
-      );
+      const bundle = databaseId
+        ? await collectBackupBundle(
+            { databaseUserId: databaseId, clerkUserId: clerkId },
+            { onProgress: setBackupProgress }
+          )
+        : await collectLocalBackupBundle({ onProgress: setBackupProgress });
       downloadBackupBundle(bundle);
     } catch (error) {
       exportManagerLogger.error('Full backup failed', error);
@@ -423,10 +435,11 @@ export default function ExportManager() {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Full backup</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">
-                  Every record we hold for you, straight from the database — accounts, transactions,
-                  splits, categories, budgets, goals, investments and the rest. This is the only export
-                  that can be restored: Settings &rarr; Data Management &rarr; Restore from backup reads
-                  it back. It also satisfies a data-portability request.
+                  {isUsingSupabase
+                    ? 'Every record we hold for you, straight from the database — accounts, transactions, splits, categories, budgets, goals, investments and the rest.'
+                    : 'Everything this browser is holding — accounts, transactions, splits, categories, budgets and goals. Nothing here has been sent anywhere, so this file is the only copy that exists.'}
+                  {' '}This is the only export that can be restored: Settings &rarr; Data Management
+                  &rarr; Restore from backup reads it back. It also satisfies a data-portability request.
                 </p>
 
                 <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 mb-4 flex items-start gap-3">

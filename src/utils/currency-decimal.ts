@@ -36,11 +36,24 @@ export function getCurrencySymbol(currency: string): string {
   return currencySymbols[currency] || currency;
 }
 
+/**
+ * Whether to print a minus sign — false for anything that has ROUNDED to zero.
+ *
+ * Zero has no sign to show. Decimal keeps one anyway: a JS negative zero (which
+ * float arithmetic produces from `2000 - 2000` in the wrong order, and which a
+ * float running balance produces all the time) and any small negative that
+ * rounds away both answer true to isNegative() while printing as 0.00. The
+ * account register showed "-£0.00" against a day that netted out, which reads
+ * like a rounding error in the user's own money.
+ */
+const showsMinus = (decimal: DecimalInstance): boolean =>
+  decimal.isNegative() && !decimal.isZero();
+
 // Format amount with currency (accepts Decimal or number)
 export function formatCurrency(amount: DecimalInstance | number, currency: string = 'GBP'): string {
   const decimal = toDecimal(amount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   const symbol = getCurrencySymbol(currency);
-  const isNegative = decimal.isNegative();
+  const isNegative = showsMinus(decimal);
   const absolute = decimal.abs();
   const formatted = formatDecimal(absolute, 2, { group: true });
 
@@ -58,7 +71,9 @@ export function formatCurrencyWhole(
 ): string {
   const decimal = toDecimal(amount);
   const rounded = decimal.toDecimalPlaces(0, Decimal.ROUND_DOWN);
-  const isNegative = rounded.isNegative();
+  // ROUND_DOWN takes -0.40 to zero, so this needs the same guard: a summary
+  // card reading "-£0" is the same lie in fewer digits.
+  const isNegative = showsMinus(rounded);
   const symbol = getCurrencySymbol(currency);
   const grouped = formatDecimal(rounded.abs(), 0, { group: true });
 

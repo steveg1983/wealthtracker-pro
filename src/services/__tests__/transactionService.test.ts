@@ -220,6 +220,110 @@ describe('TransactionService (deterministic fallback)', () => {
       for (const dropped of ['metadata', 'plaid_transaction_id', 'merchant_name', 'location_city', 'import_source']) {
         expect(cols).not.toContain(dropped);
       }
+      // The bank's own intra-day order. Without it the register cannot walk a
+      // day the way the statement prints it — see compareChronological.
+      expect(cols).toContain('statement_sequence');
+    });
+
+    /**
+     * A database that predates 20260808090000_transaction_statement_sequence.
+     *
+     * PostgREST rejects an EXPLICIT select naming a column that does not exist,
+     * so this is not a degraded register, it is a boot that returns no
+     * transactions at all. The owner applies migrations himself, so the deploy
+     * can legitimately reach a database that has not had it yet.
+     */
+    const makeClientWithoutSequenceColumn = (rows: Record<string, unknown>[]) => {
+      const selectArgs: { cols: unknown; opts: unknown }[] = [];
+      const from = vi.fn(() => {
+        const builder: Record<string, unknown> = {};
+        let isCount = false;
+        let asked = '';
+        let range: [number, number] | null = null;
+        builder.select = vi.fn((cols: unknown, opts: unknown) => {
+          selectArgs.push({ cols, opts });
+          asked = typeof cols === 'string' ? cols : '';
+          isCount = Boolean(opts && (opts as { head?: boolean }).head);
+          return builder;
+        });
+        builder.eq = vi.fn(() => builder);
+        builder.order = vi.fn(() => builder);
+        builder.range = vi.fn((from_: number, to: number) => {
+          range = [from_, to];
+          return builder;
+        });
+        builder.then = (resolve: (value: unknown) => unknown) => {
+          if (isCount) return resolve({ count: rows.length, error: null });
+          if (asked.includes('statement_sequence')) {
+            return resolve({
+              data: null,
+              error: {
+                code: '42703',
+                message: 'column transactions.statement_sequence does not exist'
+              }
+            });
+          }
+          const [f, t] = range ?? [0, rows.length - 1];
+          return resolve({ data: rows.slice(f, t + 1), error: null });
+        };
+        return builder;
+      });
+      return { client: { from }, selectArgs };
+    };
+
+    it('still loads every transaction when the statement-sequence migration has not been applied', async () => {
+      const { client, selectArgs } = makeClientWithoutSequenceColumn([
+        { id: 'db-1', account_id: 'acct-1', amount: 10, type: 'expense', date: '2025-04-01', is_cleared: true },
+        { id: 'db-2', account_id: 'acct-1', amount: -5, type: 'expense', date: '2025-04-02', is_cleared: false }
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: client as unknown as never
+      });
+
+      const transactions = await service.getTransactions('user-1');
+
+      // An unordered register is a shortfall; no register at all is an outage.
+      expect(transactions.map(t => t.id)).toEqual(['db-1', 'db-2']);
+
+      const pageSelects = selectArgs
+        .filter(a => !(a.opts as { head?: boolean } | undefined)?.head)
+        .map(a => String(a.cols));
+      // Asked with the column, was refused, asked again without it.
+      expect(pageSelects[0]).toContain('statement_sequence');
+      expect(pageSelects[1]).not.toContain('statement_sequence');
+      // …and every column that was already being read survives the fallback.
+      expect(pageSelects[1]).toContain('notes');
+      expect(pageSelects[1]).toContain('tags');
+      expect(pageSelects[1]).toContain('is_cleared');
+    });
+
+    it('does not re-ask for the missing column on every page of a boot', async () => {
+      const { client, selectArgs } = makeClientWithoutSequenceColumn([
+        { id: 'db-1', account_id: 'acct-1', amount: 10, type: 'expense', date: '2025-04-01' }
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: client as unknown as never
+      });
+
+      await service.getTransactions('user-1');
+      await service.getTransactions('user-1');
+
+      // One discovery for the life of the service, not one per page — a 50-page
+      // history would otherwise pay for the same refusal fifty times.
+      const refused = selectArgs.filter(
+        a => !(a.opts as { head?: boolean } | undefined)?.head && String(a.cols).includes('statement_sequence')
+      );
+      expect(refused).toHaveLength(1);
     });
   });
 

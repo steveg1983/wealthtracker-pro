@@ -14,12 +14,19 @@ import {
   validateBackupBundle,
   wipeUserFinancialData,
   type BackupBundle,
-  type RestoreOutcome,
+  type DanglingReference,
   type RestoreProgress,
 } from '../services/backupService';
+import {
+  LOCAL_BACKUP_BINDINGS,
+  LocalRestoreRefusedError,
+  localFinancialDataIsEmpty,
+  restoreLocalBackupBundle,
+  wipeLocalFinancialData,
+} from '../services/localBackupService';
 
 /**
- * Restore a backup file into this login.
+ * Restore a backup file into this login, or into this browser.
  *
  * The shape of this dialog is dictated by one fact from the database side: a
  * restore can only go into an EMPTY login. That is not caution, it is what
@@ -28,11 +35,16 @@ import {
  * login with data in it must be erased first, and erasing is a separate
  * decision with its own confirmation. Nothing here ever wipes implicitly.
  *
- * The other thing shaping this file is that the restore is chunked, so it is
- * not one transaction. A failure halfway leaves the login partly populated.
+ * The other thing shaping this file is that the CLOUD restore is chunked, so it
+ * is not one transaction. A failure halfway leaves the login partly populated.
  * That is survivable — the login was empty, so nothing of the user's is at
  * risk — but it must be SAID, not smoothed over, or the user will go looking at
  * a half-filled app believing it is whole.
+ *
+ * A LOCAL restore is one IndexedDB transaction, so it cannot end up halfway and
+ * the warning is not shown for it. That is a real difference between the two
+ * engines rather than a wording choice, so the dialog states whichever is true
+ * instead of hedging with a sentence that covers both and describes neither.
  */
 
 interface Props {
@@ -73,8 +85,24 @@ const formatExportedAt = (iso: string): string => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 };
 
+/**
+ * What a finished restore looks like, whichever engine did it.
+ *
+ * `notStoredLocally` is the one field the cloud never fills: a browser has no
+ * investments, goal contributions or repeating templates, so a cloud-taken file
+ * restored onto a device genuinely cannot keep some of what it holds. Saying so
+ * is the difference between a restore and a restore that quietly lost things.
+ */
+interface Outcome {
+  restored: { label: string; rows: number }[];
+  notStoredLocally: { label: string; rows: number; absence: string }[];
+  accountsRelinked: number;
+  transactionsRelinked: number;
+  danglingRefs: DanglingReference[];
+}
+
 export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JSX.Element {
-  const { refreshAccountsAndTransactions, refreshCategories } = useApp();
+  const { refreshAccountsAndTransactions, refreshCategories, isUsingSupabase } = useApp();
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [fileName, setFileName] = useState('');
@@ -83,16 +111,37 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
   const [targetIsEmpty, setTargetIsEmpty] = useState<boolean | null>(null);
   const [wipeConfirmText, setWipeConfirmText] = useState('');
   const [progress, setProgress] = useState<RestoreProgress | null>(null);
-  const [outcome, setOutcome] = useState<RestoreOutcome | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [failure, setFailure] = useState<{ step: string; message: string; partiallyRestored: boolean } | null>(null);
 
   const databaseUserId = DataService.getUserIds().databaseId;
+  /**
+   * Which store this restore is aimed at. A signed-in session whose database id
+   * has not resolved yet is NOT local — restoring into browser storage there
+   * would put the file somewhere the app will never read it from again.
+   */
+  const isCloudRestore = Boolean(databaseUserId);
+  const cloudSessionPending = isUsingSupabase && !databaseUserId;
+  const targetName = isCloudRestore ? 'login' : 'device';
 
   const dateRange = useMemo(() => (bundle ? transactionDateRange(bundle) : null), [bundle]);
   const populated = useMemo(
     () => (bundle ? BACKUP_ENTITIES.filter((entity) => bundle.counts[entity] > 0) : []),
     [bundle]
   );
+
+  /**
+   * What a local restore of THIS file would have to leave behind — told before
+   * the user commits, not discovered afterwards.
+   */
+  const unstorable = useMemo(() => {
+    if (!bundle || isCloudRestore) return [];
+    return BACKUP_ENTITIES
+      .filter((entity) => bundle.counts[entity] > 0 && !LOCAL_BACKUP_BINDINGS[entity].stored)
+      .map((entity) => ({ label: LOCAL_BACKUP_BINDINGS[entity].label, rows: bundle.counts[entity] }));
+  }, [bundle, isCloudRestore]);
+  const unstorableRows = unstorable.reduce((total, entry) => total + entry.rows, 0);
+  const unstorableLabels = unstorable.map((entry) => entry.label.toLowerCase()).join(', ');
 
   const reset = useCallback(() => {
     setPhase('pick');
@@ -136,53 +185,63 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       return;
     }
 
-    if (!databaseUserId) {
+    if (cloudSessionPending) {
       setFileProblem('This session has no database identity yet, so a restore cannot be scoped to your login. Reload the page and try again.');
       return;
     }
 
     setBundle(validation.bundle);
     try {
-      setTargetIsEmpty(await userFinancialDataIsEmpty(databaseUserId));
+      setTargetIsEmpty(databaseUserId
+        ? await userFinancialDataIsEmpty(databaseUserId)
+        : await localFinancialDataIsEmpty());
       setPhase('ready');
     } catch (error) {
       restoreLogger.error('Preflight emptiness check failed', error);
-      setFileProblem(error instanceof Error ? error.message : 'Could not check whether this login is empty.');
+      setFileProblem(error instanceof Error ? error.message : `Could not check whether this ${targetName} is empty.`);
     }
-  }, [databaseUserId]);
+  }, [databaseUserId, cloudSessionPending, targetName]);
 
   const handleWipe = useCallback(async () => {
-    if (!databaseUserId) return;
+    if (cloudSessionPending) return;
     setPhase('wiping');
     setFailure(null);
     try {
-      // The typed phrase goes through untouched. Normalising it here would make
-      // the user's typing decoration rather than confirmation.
-      await wipeUserFinancialData(wipeConfirmText, databaseUserId);
+      // The typed phrase goes through untouched on both engines. Normalising it
+      // here would make the user's typing decoration rather than confirmation.
+      if (databaseUserId) {
+        await wipeUserFinancialData(wipeConfirmText, databaseUserId);
+      } else {
+        await wipeLocalFinancialData(wipeConfirmText);
+      }
       // The local snapshot now describes history that no longer exists. Drop it
       // before anything reads it back and merges the dead rows in.
       await transactionCache.clear();
-      setTargetIsEmpty(await userFinancialDataIsEmpty(databaseUserId));
+      setTargetIsEmpty(databaseUserId
+        ? await userFinancialDataIsEmpty(databaseUserId)
+        : await localFinancialDataIsEmpty());
       setWipeConfirmText('');
       setPhase('ready');
     } catch (error) {
       restoreLogger.error('Wipe before restore failed', error);
       setFailure({
-        step: 'Erasing this login',
+        step: `Erasing this ${targetName}`,
         message: error instanceof Error ? error.message : String(error),
         partiallyRestored: false,
       });
       setPhase('failed');
     }
-  }, [databaseUserId, wipeConfirmText]);
+  }, [databaseUserId, cloudSessionPending, targetName, wipeConfirmText]);
 
   const handleRestore = useCallback(async () => {
-    if (!bundle || !databaseUserId) return;
+    if (!bundle || cloudSessionPending) return;
     setPhase('restoring');
     setFailure(null);
     setProgress(null);
     try {
-      const result = await restoreBackupBundle(bundle, databaseUserId, { onProgress: setProgress });
+      const result = databaseUserId
+        ? { ...await restoreBackupBundle(bundle, databaseUserId, { onProgress: setProgress }), notStoredLocally: [] }
+        : await restoreLocalBackupBundle(bundle, { onProgress: setProgress });
       await transactionCache.clear();
       await refreshAccountsAndTransactions();
       await refreshCategories();
@@ -194,10 +253,16 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       const message = error instanceof RestoreFailedError
         ? error.serverMessage
         : error instanceof Error ? error.message : String(error);
-      setFailure({ step, message, partiallyRestored: true });
+      // A local restore is one IndexedDB transaction: it either landed or it
+      // did not, so there is never a half-filled device to warn about.
+      setFailure({
+        step,
+        message,
+        partiallyRestored: Boolean(databaseUserId) && !(error instanceof LocalRestoreRefusedError),
+      });
       setPhase('failed');
     }
-  }, [bundle, databaseUserId, refreshAccountsAndTransactions, refreshCategories]);
+  }, [bundle, databaseUserId, cloudSessionPending, refreshAccountsAndTransactions, refreshCategories]);
 
   const percent = progress && progress.rowsTotal > 0
     ? Math.round((progress.rowsDone / progress.rowsTotal) * 100)
@@ -290,19 +355,20 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                   <AlertTriangleIcon className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" size={20} />
                   <div>
                     <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-                      This login already holds data, so the backup cannot go in yet
+                      This {targetName} already holds data, so the backup cannot go in yet
                     </p>
                     <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                      A restore only ever writes into an empty login. Pouring a backup on top of existing
-                      records would mix two datasets and re-date your history, so it is refused rather than
-                      attempted. To go ahead you have to erase everything in this login first — accounts,
-                      transactions, budgets, goals, the lot. That erasure is permanent and this backup file
-                      is the only way back, so keep it somewhere safe before you start.
+                      A restore only ever writes into an empty {targetName}. It REPLACES what is there
+                      rather than merging with it, so it is refused instead of quietly throwing away
+                      records you did not ask it to. To go ahead you have to erase everything in this
+                      {' '}{targetName} first — accounts, transactions, budgets, goals, the lot. That
+                      erasure is permanent and this backup file is the only way back, so keep it
+                      somewhere safe before you start.
                     </p>
                   </div>
                 </div>
                 <label className="block text-sm text-red-800 dark:text-red-300 mb-1">
-                  Type <span className="font-mono font-bold">{CONFIRM_PHRASE}</span> to erase this login
+                  Type <span className="font-mono font-bold">{CONFIRM_PHRASE}</span> to erase this {targetName}
                 </label>
                 <input
                   value={wipeConfirmText}
@@ -316,7 +382,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                   disabled={wipeConfirmText !== CONFIRM_PHRASE}
                   className="mt-3 px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Erase everything in this login
+                  Erase everything in this {targetName}
                 </button>
               </div>
             )}
@@ -325,7 +391,21 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
               <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4 flex items-start gap-3">
                 <CheckCircleIcon className="text-green-600 dark:text-green-400 mt-0.5 shrink-0" size={20} />
                 <p className="text-sm text-green-800 dark:text-green-300">
-                  This login is empty, so the backup can go straight in.
+                  This {targetName} is empty, so the backup can go straight in.
+                </p>
+              </div>
+            )}
+
+            {/* Only when it is true AND has a consequence: a file with nothing
+                in those tables has nothing to warn about, and a device is not
+                worse for lacking investments it was never going to show. */}
+            {!isCloudRestore && unstorableRows > 0 && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 flex items-start gap-3">
+                <AlertTriangleIcon className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" size={20} />
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  Part of this backup cannot be kept on this device — {unstorableLabels}. Everything else
+                  goes in as normal, and the file keeps the rest: sign in and restore the same file there
+                  to get it back.
                 </p>
               </div>
             )}
@@ -369,7 +449,9 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">Restore finished</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  These are the row counts the database reported, not what the file claimed.
+                  {isCloudRestore
+                    ? 'These are the row counts the database reported, not what the file claimed.'
+                    : 'These are the rows now on this device.'}
                 </p>
               </div>
             </div>
@@ -389,6 +471,24 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                 <span className="text-gray-900 dark:text-white tabular-nums">{formatCount(outcome.accountsRelinked)}</span>
               </li>
             </ul>
+            {/* Named, not counted: "3 investments were skipped" tells someone
+                nothing they can act on, whereas knowing the file still holds
+                them and where they would come back does. */}
+            {outcome.notStoredLocally.length > 0 && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  This device does not hold{' '}
+                  {outcome.notStoredLocally.map((entry) => entry.label.toLowerCase()).join(', ')}, so that
+                  part of the backup was not restored. It is still in the file — signing in and restoring
+                  the same file there would bring it back.
+                </p>
+                <ul className="text-xs text-amber-800 dark:text-amber-300 mt-2 space-y-0.5">
+                  {outcome.notStoredLocally.map((entry) => (
+                    <li key={entry.label}>{entry.label}: {entry.absence}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Only rendered when there is something to say. A line reading
                 "0 references could not be resolved" is noise that teaches the
                 user to skim past the line that will one day matter. */}
@@ -410,8 +510,8 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
               </div>
             )}
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Accounts, transactions and categories on screen have already been refreshed. Budgets, goals and
-              investments load elsewhere in the app, so reload the page to see everything at once.
+              Accounts, transactions and categories on screen have already been refreshed. Budgets and goals
+              load elsewhere in the app, so reload the page to see everything at once.
             </p>
           </div>
         )}
@@ -426,7 +526,7 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                   Stopped at: {failure.step}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Nothing further was attempted. The database said:
+                  Nothing further was attempted. {isCloudRestore ? 'The database said:' : 'The reason was:'}
                 </p>
               </div>
             </div>
@@ -436,12 +536,22 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
             <p className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300 font-mono break-words">
               {failure.message}
             </p>
-            {failure.partiallyRestored && (
+            {failure.partiallyRestored ? (
               <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
                 <p className="text-sm text-amber-900 dark:text-amber-200">
                   This login is now <strong>partly populated</strong> — some rows went in before the failure and
                   the rest did not. Do not use the app in this state and do not assume what you can see is
                   complete. To recover, erase this login and restore the same file again from the start.
+                </p>
+              </div>
+            ) : !isCloudRestore && (
+              // Worth saying plainly rather than leaving to be inferred: the
+              // local restore is one IndexedDB transaction, so a failure is
+              // never the frightening kind that leaves a device half-filled.
+              <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Nothing on this device was changed — the restore is written in one go, so it either
+                  lands completely or not at all. Your backup file is untouched; you can try it again.
                 </p>
               </div>
             )}

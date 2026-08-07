@@ -25,6 +25,7 @@ import { TransactionRow } from '../components/TransactionRow';
 // Lazy load list components that are conditionally rendered
 const InfiniteScrollTransactionList = lazyWithRecovery(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
+import { compareChronological } from '../utils/transactionSort';
 import { useDebounce } from '../hooks/useDebounce';
 import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 
@@ -375,25 +376,26 @@ const Transactions = React.memo(function Transactions() {
       });
   }, [filteredAndSortedTransactions, getDecimalTransactions]);
 
-  // Compute running balances per account
+  // Each transaction's running balance for ITS account.
+  //
+  // compareChronological, the same order the account register accumulates in
+  // and the same order useTransactionFilters displays a Date sort in. A local
+  // date-only sort left same-day rows to Array.prototype.sort's stability,
+  // which is not the same answer as the display's — so the newest row of a day
+  // did not carry the account's balance. Decimal, because a float running total
+  // over a whole account's history drifts.
   const runningBalances = useMemo(() => {
     const balanceMap = new Map<string, number>();
-    // Sort all transactions by date ascending for balance calculation
-    const allSorted = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const allSorted = [...transactions].sort(compareChronological);
 
-    // Build opening balances
-    const openingBalances = new Map<string, number>();
-    accounts.forEach(acc => openingBalances.set(acc.id, acc.openingBalance ?? 0));
-
-    // Track running balance per account
-    const accountBalances = new Map<string, number>();
-    accounts.forEach(acc => accountBalances.set(acc.id, acc.openingBalance ?? 0));
+    const accountBalances = new Map<string, DecimalInstance>();
+    accounts.forEach(acc => accountBalances.set(acc.id, toDecimal(acc.openingBalance ?? 0)));
 
     allSorted.forEach(t => {
-      const current = accountBalances.get(t.accountId) ?? 0;
-      const newBalance = current + t.amount;
-      accountBalances.set(t.accountId, newBalance);
-      balanceMap.set(t.id, newBalance);
+      const current = accountBalances.get(t.accountId) ?? toDecimal(0);
+      const next = current.plus(toDecimal(t.amount));
+      accountBalances.set(t.accountId, next);
+      balanceMap.set(t.id, next.toNumber());
     });
 
     return balanceMap;

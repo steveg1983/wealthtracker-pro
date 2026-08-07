@@ -21,9 +21,14 @@ export interface StorageItem<T = JsonValue> {
   options?: StorageOptions;
 }
 
+/**
+ * `StoredData<unknown>` rather than `StoredData<JsonValue>`: the value has
+ * already been through `encrypt` (a string) or is on its way to structured
+ * clone, so narrowing it here bought nothing except a cast at every call site.
+ */
 export interface BulkStorageItem {
   key: string;
-  value: StoredData<JsonValue>;
+  value: StoredData<unknown>;
 }
 
 export interface StorageEstimate {
