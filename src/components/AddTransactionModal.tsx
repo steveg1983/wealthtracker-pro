@@ -9,6 +9,7 @@ import MoneyInput from './common/MoneyInput';
 import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
+import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { parseMoneyInput } from '../utils/decimal';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
@@ -35,7 +36,12 @@ interface FormData {
 }
 
 export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps): React.JSX.Element {
-  const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
+  const { accounts, categories, getSubCategories, getDetailCategories } = useApp();
+  // Adds through the same path the edit modal uses, so the user's Large
+  // Transaction Warnings actually fire. This is the main way a transaction
+  // gets entered; adding via useApp directly skipped the alert entirely, which
+  // is why the setting looked broken.
+  const { addTransaction } = useTransactionNotifications();
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const { showSuccess, showError } = useToast();
@@ -53,7 +59,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       notes: ''
     },
     {
-      onSubmit: (data) => {
+      onSubmit: async (data) => {
         try {
           // Clear previous errors
           setValidationErrors({});
@@ -74,7 +80,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
           const amount = parseMoneyInput(validatedData.amount) ?? 0;
           const finalAmount = data.type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
           
-          addTransaction({
+          // Awaited so a failed write lands in the catch below rather than
+          // announcing success for a transaction that was never saved.
+          await addTransaction({
             description: validatedData.description,
             amount: finalAmount,
             type: data.type,
@@ -83,7 +91,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
             date: new Date(validatedData.date),
             notes: validatedData.notes,
           });
-          
+
           // Show success message
           showSuccess('Transaction added successfully');
           onClose();

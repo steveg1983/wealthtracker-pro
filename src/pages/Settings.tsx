@@ -1,32 +1,17 @@
-import { DatabaseIcon, TagIcon, PaletteIcon, BellIcon, EyeIcon } from '../components/icons';
-import { Link } from 'react-router-dom';
+import { DatabaseIcon, TagIcon, PaletteIcon } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import SyncStatusIndicator from '../components/SyncStatusIndicator';
 import SubscriptionStatus from '../components/SubscriptionStatus';
 
 export default function Settings() {
-  // Only the settings that have no other way in. App Settings and Data
-  // Management already sit in the Settings dropdown, and Categories and Tags
-  // live under Manage — repeating them here just gave the same page two
-  // front doors and made this panel look like the real navigation.
-  const settingsOptions = [
-    {
-      title: 'Notifications',
-      description: 'Configure push notifications and alerts',
-      icon: BellIcon,
-      path: '/settings/notifications',
-      color: 'bg-indigo-500'
-    },
-    {
-      title: 'Accessibility',
-      description: 'Monitor and improve accessibility compliance',
-      icon: EyeIcon,
-      path: '/settings/accessibility',
-      color: 'bg-pink-500'
-    }
-  ];
-
+  // The Quick Settings panel that used to sit here is gone with its last two
+  // cards. Notifications pointed at a push-notification page whose every
+  // control depended on a service worker this app does not ship, and
+  // Accessibility pointed at a panel of switches wired to nothing. The alert
+  // settings that DO work — budget alerts and large-transaction warnings —
+  // live on App Settings, and the accessibility features themselves are
+  // always on rather than optional.
   return (
     <PageWrapper title="Settings">
 
@@ -89,31 +74,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Quick Settings Links */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Settings</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {settingsOptions.map((option) => (
-            <Link
-              key={option.path}
-              to={option.path}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group"
-            >
-              <div className={`p-2 rounded-lg ${option.color} text-white group-hover:scale-110 transition-transform`}>
-                <option.icon size={18} />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white group-hover:text-primary transition-colors">
-                  {option.title}
-                </h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {option.description}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
     {/* id bumped again: the copy still promised categories and tags here, and
         those now live under Manage — a tip that names the wrong door is worse
         than no tip. */}

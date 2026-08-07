@@ -48,11 +48,10 @@ if (import.meta.env.DEV && sessionStorage.getItem('bootProfile') === '1') {
   }
 }
 
-// Reduced-motion preference (moved out of index.html so the CSP needs no
-// 'unsafe-inline' for scripts).
-if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  document.documentElement.classList.add('reduce-motion');
-}
+// Reduced motion is handled entirely in CSS, by the
+// `@media (prefers-reduced-motion: reduce)` block in index.css that flattens
+// every animation and transition. The `.reduce-motion` class this used to put
+// on <html> matched no selector anywhere, so it changed nothing.
 const disableServiceWorker = import.meta.env.VITE_DISABLE_SERVICE_WORKER === 'true';
 let runtimeControlSanitizationContext: {
   removedQueryParams: ('demo' | 'testMode')[];

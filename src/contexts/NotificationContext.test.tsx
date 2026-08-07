@@ -97,10 +97,14 @@ describe('NotificationContext', () => {
 
       expect(result.current.notifications).toEqual([]);
       expect(result.current.unreadCount).toBe(0);
-      // When localStorage is null, 'null' === 'true' is false
-      expect(result.current.budgetAlertsEnabled).toBe(false);
+      // A user who has never opened the alert settings gets both alerts ON.
+      // This previously asserted `false`, because the initialiser read the
+      // absent preference as `saved === 'true'` and so turned "never chosen"
+      // into "switched off" — while the catch fallback right beside it
+      // returned true. The default is now stated once and applies to both.
+      expect(result.current.budgetAlertsEnabled).toBe(true);
       expect(result.current.alertThreshold).toBe(80);
-      expect(result.current.largeTransactionAlertsEnabled).toBe(false);
+      expect(result.current.largeTransactionAlertsEnabled).toBe(true);
       expect(result.current.largeTransactionThreshold).toBe(500);
     });
 
@@ -157,8 +161,10 @@ describe('NotificationContext', () => {
       const { result } = renderHook(() => useNotifications(), { wrapper });
 
       expect(result.current.notifications).toEqual([]);
-      // parseInt('not a number') returns NaN, which the component doesn't handle
-      expect(result.current.alertThreshold).toBeNaN();
+      // Unparseable stored threshold falls back to the default. It used to
+      // become NaN, and a NaN threshold fails every `>=` comparison silently,
+      // so budget alerts would simply never fire again for that browser.
+      expect(result.current.alertThreshold).toBe(80);
     });
   });
 
@@ -978,7 +984,102 @@ describe('NotificationContext', () => {
         mockGoals,
         mockPreviousGoals
       );
-      expect(result.current.notifications).toEqual(mockNotifications);
+      // Labelled on the way in, because notificationService builds alerts from
+      // generic rules and cannot say what a batch is about — but the caller
+      // asking for goal progress always can. The label is what routes the
+      // alert to the Goals filter in the notification bell.
+      expect(result.current.notifications).toEqual(
+        mockNotifications.map((notification) => ({ ...notification, category: 'goal' }))
+      );
+    });
+  });
+
+  // The alerts computed here are rendered by the notification bell in the
+  // header, which reads the activity feed rather than this context. These
+  // tests cover the announcement that joins the two.
+  describe('activity feed bridge', () => {
+    const captureFeed = (): { entries: Array<Record<string, unknown>>; stop: () => void } => {
+      const entries: Array<Record<string, unknown>> = [];
+      const listener = (event: Event): void => {
+        entries.push((event as CustomEvent<Record<string, unknown>>).detail);
+      };
+      window.addEventListener('activity-logged', listener);
+      return { entries, stop: (): void => window.removeEventListener('activity-logged', listener) };
+    };
+
+    it('announces an accepted budget alert to the bell', () => {
+      const feed = captureFeed();
+      try {
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+
+        act(() => {
+          result.current.checkBudgetAlerts([
+            {
+              budgetId: 'budget-1',
+              categoryName: 'Groceries',
+              percentage: 120,
+              spent: 600,
+              budget: 500,
+              period: 'monthly',
+              type: 'danger',
+            },
+          ]);
+        });
+
+        expect(feed.entries).toHaveLength(1);
+        expect(feed.entries[0]).toMatchObject({
+          type: 'budget',
+          title: 'Budget Exceeded: Groceries',
+          actionUrl: '/budget',
+        });
+      } finally {
+        feed.stop();
+      }
+    });
+
+    it('announces a suppressed repeat only once', () => {
+      const feed = captureFeed();
+      try {
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+
+        const alert: BudgetAlert = {
+          budgetId: 'budget-1',
+          categoryName: 'Groceries',
+          percentage: 120,
+          spent: 600,
+          budget: 500,
+          period: 'monthly',
+          type: 'danger',
+        };
+
+        // The Budget page raises its alerts from a render effect, so the same
+        // alert is offered again on every recompute. The bell must hear it
+        // once, not once per render.
+        act(() => { result.current.checkBudgetAlerts([alert]); });
+        act(() => { result.current.checkBudgetAlerts([alert]); });
+
+        expect(feed.entries).toHaveLength(1);
+      } finally {
+        feed.stop();
+      }
+    });
+
+    it('keeps transient acknowledgements out of the feed', () => {
+      const feed = captureFeed();
+      try {
+        const { result } = renderHook(() => useNotifications(), { wrapper });
+
+        // "Report Saved" and friends carry no category: they are receipts for
+        // something the user just did, not alerts to work through later.
+        act(() => {
+          result.current.addNotification({ type: 'success', title: 'Report Saved' });
+        });
+
+        expect(result.current.notifications).toHaveLength(1);
+        expect(feed.entries).toHaveLength(0);
+      } finally {
+        feed.stop();
+      }
     });
   });
 

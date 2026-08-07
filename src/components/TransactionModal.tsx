@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { parseMoneyInput } from '../utils/decimal';
 import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
@@ -36,7 +37,10 @@ interface TransactionFormData {
 }
 
 export default function TransactionModal({ isOpen, onClose, transaction }: TransactionModalProps): React.JSX.Element | null {
-  const { accounts, addTransaction, updateTransaction } = useApp();
+  const { accounts, updateTransaction } = useApp();
+  // Same add path as the other transaction modals, so Large Transaction
+  // Warnings fire here too rather than only on the edit screen.
+  const { addTransaction } = useTransactionNotifications();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   
@@ -183,9 +187,9 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     setErrors({ ...errors, [fieldName]: error });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Mark all fields as touched
     setTouched({
       date: true,
@@ -217,7 +221,8 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     if (transaction) {
       updateTransaction(transaction.id, transactionData);
     } else {
-      addTransaction(transactionData);
+      // Awaited so the large-transaction check runs against a saved row.
+      await addTransaction(transactionData);
     }
 
     onClose();

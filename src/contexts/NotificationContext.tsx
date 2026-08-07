@@ -1,12 +1,32 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { notificationService, type BudgetAlertContext } from '../services/notificationService';
 import type { Goal, Budget, Transaction, Category } from '../types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { logActivity } from '../hooks/useActivityTracking';
 
 const NOTIFICATION_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+const NOTIFICATION_CATEGORIES = ['transaction', 'account', 'budget', 'goal'] as const;
+/**
+ * What the alert is ABOUT, as opposed to how loud it is (`NotificationType`).
+ *
+ * Only alerts that carry a category reach the notification bell — see the
+ * bridge effect below. That is deliberate: "Report Saved" and the other
+ * acknowledgements raised by the reports pages are momentary receipts, not
+ * things a user should have to dismiss from a feed tomorrow morning.
+ */
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+/** Where clicking the alert in the bell should take the user. */
+const CATEGORY_ROUTES: Record<NotificationCategory, string> = {
+  transaction: '/transactions',
+  account: '/accounts',
+  budget: '/budget',
+  goal: '/goals'
+};
 
 export interface Notification {
   id: string;
@@ -29,6 +49,8 @@ export interface Notification {
    * Persisted with the notification, so a reload does not re-raise it either.
    */
   dedupeKey?: string;
+  /** What this alert is about. Absent for transient acknowledgements. */
+  category?: NotificationCategory;
   action?: {
     label: string;
     onClick: () => void;
@@ -45,11 +67,52 @@ const MAX_RESTORED_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const STORAGE_KEY = 'money_management_notifications';
 
+/**
+ * What a user who has never opened the alert settings gets.
+ *
+ * Stated once, here, because the old code stated it twice and disagreed with
+ * itself: the initialiser did `saved === 'true'`, which turns "no stored
+ * preference" into OFF, while the catch fallback returned `true`. So the
+ * intended default only applied when localStorage threw. Reading a stored
+ * preference and choosing a default when there ISN'T one are two different
+ * questions, and `readStoredFlag` now asks them separately.
+ */
+const DEFAULT_BUDGET_ALERTS_ENABLED = true;
+const DEFAULT_ALERT_THRESHOLD = 80;
+const DEFAULT_LARGE_TRANSACTION_ALERTS_ENABLED = true;
+const DEFAULT_LARGE_TRANSACTION_THRESHOLD = 500;
+
+/** A stored on/off preference, or `fallback` when none has been saved. */
+function readStoredFlag(key: string, fallback: boolean): boolean {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved === null) return fallback;
+    return saved === 'true';
+  } catch {
+    return fallback;
+  }
+}
+
+/** A stored numeric preference, or `fallback` when none has been saved. */
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved === null) return fallback;
+    const parsed = parseInt(saved, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const isNotificationType = (value: unknown): value is NotificationType =>
   typeof value === 'string' && NOTIFICATION_TYPES.some((type): boolean => type === value);
+
+const isNotificationCategory = (value: unknown): value is NotificationCategory =>
+  typeof value === 'string' && NOTIFICATION_CATEGORIES.some((category): boolean => category === value);
 
 /**
  * A notification's timestamp as an instant. Declared a Date, but a restored
@@ -72,7 +135,7 @@ const timestampMs = (notification: Notification): number => {
  */
 function reviveNotification(value: unknown): Notification | null {
   if (!isRecord(value)) return null;
-  const { id, type, title, message, timestamp, read, dedupeKey } = value;
+  const { id, type, title, message, timestamp, read, dedupeKey, category } = value;
   if (typeof id !== 'string' || id === '') return null;
   if (!isNotificationType(type)) return null;
   if (typeof title !== 'string') return null;
@@ -89,8 +152,21 @@ function reviveNotification(value: unknown): Notification | null {
     ...(typeof message === 'string' ? { message } : {}),
     timestamp: time,
     read: read === true,
-    ...(typeof dedupeKey === 'string' ? { dedupeKey } : {})
+    ...(typeof dedupeKey === 'string' ? { dedupeKey } : {}),
+    ...(isNotificationCategory(category) ? { category } : {})
   };
+}
+
+/**
+ * Label a batch from notificationService with what it is about.
+ *
+ * The service builds its alerts from generic rules and so cannot say whether
+ * a given batch is budgets, transactions or goals — but the caller asking for
+ * them always knows, which is why the label is applied here rather than
+ * guessed from an id prefix later.
+ */
+function withCategory(notifications: Notification[], category: NotificationCategory): Notification[] {
+  return notifications.map((notification): Notification => ({ ...notification, category }));
 }
 
 /** Has this exact alert already been raised inside the dedupe window? */
@@ -184,47 +260,78 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     }
   });
 
-  const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_budget_alerts_enabled');
-      return saved === 'true';
-    } catch {
-      return true;
-    }
-  });
+  const [budgetAlertsEnabled, setBudgetAlertsEnabled] = useState((): boolean =>
+    readStoredFlag('money_management_budget_alerts_enabled', DEFAULT_BUDGET_ALERTS_ENABLED)
+  );
 
-  const [alertThreshold, setAlertThreshold] = useState((): number => {
-    try {
-      const saved = localStorage.getItem('money_management_alert_threshold');
-      return saved ? parseInt(saved, 10) : 80;
-    } catch {
-      return 80;
-    }
-  });
+  const [alertThreshold, setAlertThreshold] = useState((): number =>
+    readStoredNumber('money_management_alert_threshold', DEFAULT_ALERT_THRESHOLD)
+  );
 
-  const [largeTransactionAlertsEnabled, setLargeTransactionAlertsEnabled] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_large_transaction_alerts_enabled');
-      return saved === 'true';
-    } catch {
-      return true;
-    }
-  });
+  const [largeTransactionAlertsEnabled, setLargeTransactionAlertsEnabled] = useState((): boolean =>
+    readStoredFlag(
+      'money_management_large_transaction_alerts_enabled',
+      DEFAULT_LARGE_TRANSACTION_ALERTS_ENABLED
+    )
+  );
 
-  const [largeTransactionThreshold, setLargeTransactionThreshold] = useState((): number => {
-    try {
-      const saved = localStorage.getItem('money_management_large_transaction_threshold');
-      return saved ? parseInt(saved, 10) : 500;
-    } catch {
-      return 500;
-    }
-  });
+  const [largeTransactionThreshold, setLargeTransactionThreshold] = useState((): number =>
+    readStoredNumber('money_management_large_transaction_threshold', DEFAULT_LARGE_TRANSACTION_THRESHOLD)
+  );
   const { formatCurrency } = useCurrencyDecimal();
 
   const unreadCount = notifications.filter((n): boolean => !n.read).length;
 
   useEffect((): void => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+  }, [notifications]);
+
+  /**
+   * The bridge from the alerts computed here to the notification bell the app
+   * actually mounts.
+   *
+   * These alerts were correct, deduped and persisted into state that nothing
+   * rendered: the two components written to display them have no importers,
+   * while the header's bell reads the separate activity feed. Rather than swap
+   * the header over — which would trade one invisible feed for another and
+   * lose the activity entries users see today — accepted alerts are announced
+   * into that same feed.
+   *
+   * WHY from an effect rather than from inside addNotification: whether an
+   * alert is accepted is decided inside a `setNotifications` updater, and
+   * React re-runs updaters under StrictMode (which this app enables). Firing a
+   * browser event from there would post every alert to the feed twice in
+   * development. Watching the committed list instead asks the only question
+   * that matters — what actually landed — exactly once per alert, and covers
+   * addNotification and addNotifications with one piece of code.
+   *
+   * The first run only takes a census: alerts restored from a previous session
+   * are already old news and must not re-announce themselves on every reload.
+   */
+  const bridgedNotificationIds = useRef<Set<string> | null>(null);
+  useEffect((): void => {
+    if (bridgedNotificationIds.current === null) {
+      bridgedNotificationIds.current = new Set(notifications.map((n): string => n.id));
+      return;
+    }
+
+    for (const notification of notifications) {
+      if (bridgedNotificationIds.current.has(notification.id)) continue;
+      bridgedNotificationIds.current.add(notification.id);
+      if (notification.category === undefined) continue;
+
+      logActivity({
+        type: notification.category,
+        title: notification.title,
+        description: notification.message ?? '',
+        actionUrl: CATEGORY_ROUTES[notification.category]
+        // Deliberately no `amount`: the bell renders a bare amount green when
+        // positive and red when negative, which would paint a large EXPENSE
+        // green (the threshold check passes it a magnitude). The figure is
+        // already in the message, formatted the way the rest of the app
+        // writes money.
+      });
+    }
   }, [notifications]);
 
   useEffect((): void => {
@@ -336,6 +443,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
         type,
         title,
         message,
+        category: 'budget',
         // The budget and the BAND it has crossed — deliberately not the exact
         // percentage, which moves with every new transaction and would raise a
         // fresh "84%… 85%… 86%" alert all day. One warning and at most one
@@ -359,6 +467,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
         type: 'warning',
         title: 'Large Transaction Detected',
         message: `A large transaction of ${formatCurrency(amount)} was added: ${description}`,
+        category: 'transaction',
         action: {
           label: 'View Transactions',
           onClick: (): void => {
@@ -379,7 +488,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
 
     const newNotifications = notificationService.checkBudgetAlerts(budgets, transactions, categories, context);
     if (newNotifications.length > 0) {
-      addNotifications(newNotifications);
+      addNotifications(withCategory(newNotifications, 'budget'));
     }
   }, [budgetAlertsEnabled, addNotifications]);
 
@@ -388,14 +497,14 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
     
     const newNotifications = notificationService.checkTransactionAlerts(transaction, allTransactions);
     if (newNotifications.length > 0) {
-      addNotifications(newNotifications);
+      addNotifications(withCategory(newNotifications, 'transaction'));
     }
   }, [largeTransactionAlertsEnabled, addNotifications]);
 
   const checkGoalProgress = useCallback((goals: Goal[], previousGoals?: Goal[]): void => {
     const newNotifications = notificationService.checkGoalProgress(goals, previousGoals);
     if (newNotifications.length > 0) {
-      addNotifications(newNotifications);
+      addNotifications(withCategory(newNotifications, 'goal'));
     }
   }, [addNotifications]);
 

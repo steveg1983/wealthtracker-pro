@@ -52,8 +52,6 @@ const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories
 const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
 const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "security-settings" */ './pages/settings/SecuritySettings'));
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
-const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
-const AccessibilitySettings = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-settings" */ './pages/settings/AccessibilitySettings'));
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
@@ -318,16 +316,6 @@ function App(): React.JSX.Element {
                     <Route path="tags" element={
                       <ProtectedSuspense>
                         <Tags />
-                      </ProtectedSuspense>
-                    } />
-                    <Route path="notifications" element={
-                      <ProtectedSuspense>
-                        <Notifications />
-                      </ProtectedSuspense>
-                    } />
-                    <Route path="accessibility" element={
-                      <ProtectedSuspense>
-                        <AccessibilitySettings />
                       </ProtectedSuspense>
                     } />
                     <Route path="security" element={
