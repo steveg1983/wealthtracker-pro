@@ -134,6 +134,11 @@ describe('NotificationContext', () => {
           'money_management_alert_threshold': '90',
           'money_management_large_transaction_alerts_enabled': 'false',
           'money_management_large_transaction_threshold': '1000',
+          // A user who has been through the one-time repair, i.e. everybody
+          // after their first load. Without the marker these stored `false`es
+          // would be indistinguishable from the ones the old build wrote
+          // unasked, and the migration would (correctly) overwrite them.
+          'wt_alert_prefs_migrated_v1': 'true',
         };
         return values[key] || null;
       });
@@ -165,6 +170,124 @@ describe('NotificationContext', () => {
       // become NaN, and a NaN threshold fails every `>=` comparison silently,
       // so budget alerts would simply never fire again for that browser.
       expect(result.current.alertThreshold).toBe(80);
+    });
+  });
+
+  describe('one-time alert preference migration', () => {
+    const MIGRATION_KEY = 'wt_alert_prefs_migrated_v1';
+
+    /**
+     * The migration WRITES and the state initialisers then READ, so these tests
+     * need storage that actually remembers — the suite-wide getItem stub always
+     * answers from a fixed table and would hide the write entirely.
+     */
+    function primeStorage(initial: Record<string, string>): Record<string, string> {
+      const store = { ...initial };
+      mockLocalStorage.getItem.mockImplementation((key: string) => store[key] ?? null);
+      mockLocalStorage.setItem.mockImplementation((key: string, value: string) => {
+        store[key] = value;
+      });
+      return store;
+    }
+
+    afterEach(() => {
+      mockLocalStorage.setItem.mockImplementation(() => undefined);
+    });
+
+    it('turns the alert flags back on when the marker is absent', () => {
+      // Exactly what the old build left behind: it wrote "false" for both
+      // toggles on first mount, without anyone touching a switch.
+      const store = primeStorage({
+        'money_management_budget_alerts_enabled': 'false',
+        'money_management_large_transaction_alerts_enabled': 'false',
+      });
+
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+
+      expect(result.current.budgetAlertsEnabled).toBe(true);
+      expect(result.current.largeTransactionAlertsEnabled).toBe(true);
+      expect(store['money_management_budget_alerts_enabled']).toBe('true');
+      expect(store['money_management_large_transaction_alerts_enabled']).toBe('true');
+      expect(store[MIGRATION_KEY]).toBe('true');
+    });
+
+    it('leaves stored values alone once the marker exists, even when off', () => {
+      // Same stored `false`es, but this time they are a decision — made after
+      // the repair had already run. They must survive.
+      const store = primeStorage({
+        'money_management_budget_alerts_enabled': 'false',
+        'money_management_large_transaction_alerts_enabled': 'false',
+        [MIGRATION_KEY]: 'true',
+      });
+
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+
+      expect(result.current.budgetAlertsEnabled).toBe(false);
+      expect(result.current.largeTransactionAlertsEnabled).toBe(false);
+      expect(store['money_management_budget_alerts_enabled']).toBe('false');
+      expect(store['money_management_large_transaction_alerts_enabled']).toBe('false');
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
+        'money_management_budget_alerts_enabled',
+        'true'
+      );
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(
+        'money_management_large_transaction_alerts_enabled',
+        'true'
+      );
+    });
+
+    it('corrects the flags on the first read, not after a re-render', () => {
+      // The repair runs before the state initialisers read storage, so there is
+      // no frame in which the bell is silently switched off. Asserting on the
+      // FIRST rendered value rather than the settled one is what makes this a
+      // test of the ordering rather than of the outcome.
+      const seen: boolean[] = [];
+      primeStorage({ 'money_management_budget_alerts_enabled': 'false' });
+
+      function Probe(): null {
+        const { budgetAlertsEnabled } = useNotifications();
+        seen.push(budgetAlertsEnabled);
+        return null;
+      }
+
+      render(
+        <NotificationProvider>
+          <Probe />
+        </NotificationProvider>
+      );
+
+      expect(seen[0]).toBe(true);
+      expect(seen).not.toContain(false);
+    });
+
+    it('does not re-run once the marker has been written', () => {
+      // Two mounts of the same browser: the second must not write the flags
+      // again, or a user who switched alerts off between them would be
+      // overruled on their next page load.
+      const store = primeStorage({ 'money_management_budget_alerts_enabled': 'false' });
+
+      const first = renderHook(() => useNotifications(), { wrapper });
+      expect(first.result.current.budgetAlertsEnabled).toBe(true);
+      first.unmount();
+
+      // The user now deliberately switches budget alerts off.
+      store['money_management_budget_alerts_enabled'] = 'false';
+      mockLocalStorage.setItem.mockClear();
+
+      const second = renderHook(() => useNotifications(), { wrapper });
+      expect(second.result.current.budgetAlertsEnabled).toBe(false);
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith(MIGRATION_KEY, 'true');
+    });
+
+    it('still applies the defaults when localStorage cannot be read', () => {
+      mockLocalStorage.getItem.mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      const { result } = renderHook(() => useNotifications(), { wrapper });
+
+      expect(result.current.budgetAlertsEnabled).toBe(true);
+      expect(result.current.largeTransactionAlertsEnabled).toBe(true);
     });
   });
 

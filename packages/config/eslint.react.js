@@ -77,7 +77,7 @@ export const createEslintReactConfig = ({
     }
   },
   {
-    files: ['scripts/**/*.{ts,tsx}', 'src/hooks/useAccessibilityAudit.tsx', 'src/services/loggingService.ts'],
+    files: ['scripts/**/*.{ts,tsx}', 'src/services/loggingService.ts'],
     rules: {
       'no-console': 'off'
     }
