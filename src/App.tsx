@@ -28,6 +28,10 @@ import ConsentBanner from './components/ConsentBanner';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
 import { isMnyLocalImportRequested, loadMnyLocalSeed } from './utils/mnyLocalImport';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
+// The only page imported eagerly. It is tiny, and lazy-loading it would give it
+// a failure mode of its own — a chunk that will not load renders nothing, which
+// is the blank page this page exists to replace.
+import NotFound from './pages/NotFound';
 
 // Lazy load all pages for code splitting with preload support
 // Using webpack magic comments for better chunk naming and preloading hints
@@ -335,6 +339,10 @@ function App(): React.JSX.Element {
                     } />
                   </Route>
                         <Route path="forecasting" element={<RedirectWithSearch to="/budget" />} />
+                        {/* Last, so it only catches what nothing above claimed.
+                            Without it an unknown address rendered a blank page,
+                            which reads as a crash rather than a wrong URL. */}
+                        <Route path="*" element={<NotFound />} />
                       </Route>
                         </Routes>
                               </Router>
