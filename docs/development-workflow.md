@@ -55,6 +55,19 @@ npm run test:supabase-smoke
 
 The helper loads `.env.test.local` / `.env.test` / `.env.local`, validates the required keys, and runs the Supabase Vitest battery under the Node environment. If no smoke suites are present it logs a warning and exits gracefully.
 
+### When the credentials are absent
+
+Behaviour depends on where it runs, because the two cases mean different things:
+
+| | Missing credentials |
+| --- | --- |
+| **CI** (`CI` is set) | **Hard failure, exit 1.** The live-infra safety net must never degrade quietly to green — this job once reported success for months with no service-role key. |
+| **Local** | **Skipped, exit 0**, with a prominent warning and `Status: SKIPPED` in the run log. |
+
+Credentials are optional locally on purpose. `.env.test.local` is git-ignored, so it does **not** exist in a fresh clone or in any new `git worktree`; hard-failing there blocked every push from those checkouts, which pushed people towards `--no-verify` or towards copying live keys between directories. Both are worse than skipping a check the nightly workflow runs against real infrastructure anyway.
+
+The skip is never silent: it prints on every push and is recorded in the log, so it cannot masquerade as a pass. To run the suite locally, create `.env.test.local` using the key names in `.env.example`. To reproduce the CI behaviour, set `CI=true`.
+
 Each run writes a timestamped log to `logs/supabase-smoke/<ISO>_supabase-smoke.log` (plus `latest.log`), and the nightly GitHub workflow uploads the artifact so failures can be audited without digging through Actions logs.
 
 **Status**: ✅ **Operational** (2025-10-29) – `src/test/supabase/supabase-smoke.test.ts` seeds a profile + account, writes a transaction via the service role, verifies it via the anon client, asserts anon deletes are blocked by RLS, and cleans up. A dedicated workflow (`.github/workflows/supabase-smoke.yml`) runs nightly and on demand when the following repository secrets are present:
