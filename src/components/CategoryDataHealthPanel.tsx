@@ -11,8 +11,9 @@ import type { CategoryHealth } from '../utils/categoryHealth';
  * is clean — a permanent "all good" box would just be noise once it is.
  *
  * The counts come from the shared classifier (see utils/categoryHealth), so the
- * uncategorised figure here matches the review band on the report its link goes
- * to, transaction for transaction.
+ * uncategorised figure here matches what the Categorisation page offers to work
+ * through, transaction for transaction. The link goes THERE — to the tools that
+ * clear the backlog — not to a report that only restates the problem.
  */
 export default function CategoryDataHealthPanel({
   health,
@@ -48,7 +49,7 @@ export default function CategoryDataHealthPanel({
               ({formatCurrency(health.uncategorizedIn)} in · {formatCurrency(health.uncategorizedOut)} out)
             </span>
             <Link
-              to={preserveDemoParam('/reports/monthly-income-expenses', location.search)}
+              to={preserveDemoParam('/categorisation', location.search)}
               className="text-blue-700 dark:text-blue-400 hover:underline"
             >
               Review and categorise

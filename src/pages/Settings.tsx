@@ -1,4 +1,4 @@
-import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon } from '../components/icons';
+import { DatabaseIcon, TagIcon, PaletteIcon, BellIcon, EyeIcon } from '../components/icons';
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
@@ -6,35 +6,11 @@ import SyncStatusIndicator from '../components/SyncStatusIndicator';
 import SubscriptionStatus from '../components/SubscriptionStatus';
 
 export default function Settings() {
+  // Only the settings that have no other way in. App Settings and Data
+  // Management already sit in the Settings dropdown, and Categories and Tags
+  // live under Manage — repeating them here just gave the same page two
+  // front doors and made this panel look like the real navigation.
   const settingsOptions = [
-    {
-      title: 'App Settings',
-      description: 'Configure application behavior, personal info and appearance',
-      icon: Settings2Icon,
-      path: '/settings/app',
-      color: 'bg-orange-500'
-    },
-    {
-      title: 'Data Management', 
-      description: 'Import, export, and manage your financial data',
-      icon: DatabaseIcon,
-      path: '/settings/data',
-      color: 'bg-blue-500'
-    },
-    {
-      title: 'Categories',
-      description: 'Organize and manage transaction categories',
-      icon: TagIcon,
-      path: '/settings/categories',
-      color: 'bg-green-500'
-    },
-    {
-      title: 'Tags',
-      description: 'Manage transaction tags and labels',
-      icon: HashIcon,
-      path: '/settings/tags',
-      color: 'bg-purple-500'
-    },
     {
       title: 'Notifications',
       description: 'Configure push notifications and alerts',
@@ -116,7 +92,7 @@ export default function Settings() {
       {/* Quick Settings Links */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Settings</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {settingsOptions.map((option) => (
             <Link
               key={option.path}
@@ -138,12 +114,13 @@ export default function Settings() {
           ))}
         </div>
       </div>
-    {/* id bumped from `settings-intro`: import and export moved out to Manage,
-        so the old copy sent people here for something that is no longer here. */}
+    {/* id bumped again: the copy still promised categories and tags here, and
+        those now live under Manage — a tip that names the wrong door is worse
+        than no tip. */}
     <PageTip
-      id="settings-intro-2"
+      id="settings-intro-3"
       title="App settings"
-      description="Your name, currency, theme and which pages appear in the sidebar, plus categories, tags and notifications. Data Management here covers archiving, backups and cleaning up — bringing data in and getting it out now lives under Manage."
+      description="Your name, currency, theme and which pages appear in the sidebar, reached from the Settings menu above. Data Management covers archiving, backups and cleaning up — bringing data in and getting it out lives under Manage, alongside categories and tags."
     />
     </PageWrapper>
   );

@@ -1078,7 +1078,7 @@ export default function CategoriesSettings() {
                           setIsReassigning(false);
                         }
                       }}
-                      className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                      className="flex-1 justify-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
                       disabled={!reassignCategoryId || isReassigning}
                     >
                       {isReassigning ? 'Reassigning…' : 'Delete & Reassign'}
@@ -1176,7 +1176,7 @@ export default function CategoriesSettings() {
                           setIsMerging(false);
                         }
                       }}
-                      className="flex-1 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
+                      className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"
                       disabled={!mergeTargetId || isMerging}
                     >
                       {isMerging ? 'Merging…' : 'Merge'}
