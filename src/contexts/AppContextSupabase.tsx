@@ -11,6 +11,7 @@ import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';
+import { isSupabaseConfigured } from '../services/api/supabaseClient';
 import { PlanningService } from '../services/api/planningService';
 import { goalAchievementService } from '../services/goalAchievementService';
 import { getDefaultCategories } from '../data/defaultCategories';
@@ -22,6 +23,7 @@ import {
 } from '../utils/decimal-converters';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { normalizeTransactionDates } from '../utils/dateBoundary';
+import { initializeDemoData } from '../utils/demoData';
 import { TransactionService } from '../services/api/transactionService';
 import type { ServerAccountBalance } from '../utils/accountBalances';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
@@ -143,6 +145,26 @@ export interface AppContextType extends AppState {
    * category, enforced server-side. Returns the number actually updated.
    */
   applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
+  /**
+   * Rewrite the payee (description) on the named transactions — the Payee
+   * cleanup screen's one write.
+   *
+   * Every row goes through the SAME audited DataService.updateTransaction the
+   * edit modal uses, so each rename lands in financial_audit_log with its
+   * before and after. What differs is only the orchestration: the writes are
+   * awaited in small batches (never fired and forgotten), and React state is
+   * touched ONCE at the end — a per-row state update would re-map a 50k-row
+   * array and re-render the app for every transaction renamed.
+   *
+   * Resolves with the number of rows actually rewritten. A row that fails is
+   * counted out rather than aborting the batch, so a single bad id cannot
+   * strand the rest half-renamed with nothing to show for it.
+   */
+  renameTransactionDescriptions: (
+    ids: string[],
+    description: string,
+    onProgress?: (done: number) => void
+  ) => Promise<number>;
   /** Soft-archive an account's reconciled transactions on/before the cutoff. */
   archiveTransactionsBefore: (accountId: string, cutoff: Date) => Promise<number>;
   /** Bring an account's archived transactions back into the live register. */
@@ -322,6 +344,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       try {
         appLogger.info('Initializing app context', { userId: user?.id });
+
+        // Demo mode seeds its sample data into the same storage every read
+        // below goes through, and it is awaited HERE rather than fired from
+        // App's effect: the two used to race, and when the load won, demo mode
+        // came up empty and stayed empty. A no-op outside demo mode.
+        await initializeDemoData();
+
         // Initialize DataService with user info
         if (user) {
           appLogger.info('User found, initializing services');
@@ -786,6 +815,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       appLogger.error('Failed to apply category', error);
       throw error;
     }
+  }, []);
+
+  const renameTransactionDescriptions = useCallback(async (
+    ids: string[],
+    description: string,
+    onProgress?: (done: number) => void
+  ): Promise<number> => {
+    const newDescription = description.trim();
+    if (ids.length === 0 || newDescription === '') {
+      return 0;
+    }
+
+    // In the cloud each write is an independent RPC, so a handful in flight
+    // keeps a few thousand renames tolerable without opening a few thousand
+    // sockets. In local/demo mode every write re-reads and re-persists the
+    // WHOLE browser-local collection, so two in flight is a lost-update race —
+    // there the writes go strictly one at a time.
+    const isCloudSession = Boolean(userIdService.getCurrentDatabaseUserId()) && isSupabaseConfigured();
+    const BATCH_SIZE = isCloudSession ? 8 : 1;
+    const renamed = new Set<string>();
+    let failures = 0;
+
+    for (let start = 0; start < ids.length; start += BATCH_SIZE) {
+      const batch = ids.slice(start, start + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(id => DataService.updateTransaction(id, { description: newDescription }))
+      );
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          renamed.add(batch[index]);
+        } else {
+          failures++;
+          appLogger.error('Failed to rename payee on transaction', result.reason);
+        }
+      });
+      onProgress?.(Math.min(start + batch.length, ids.length));
+    }
+
+    if (renamed.size > 0) {
+      setTransactions(prev => prev.map(t =>
+        renamed.has(t.id) ? { ...t, description: newDescription } : t
+      ));
+    }
+
+    // Every single write failed: the caller asked for a rename and got none,
+    // so it must be able to say so rather than report "0 renamed" as success.
+    if (renamed.size === 0 && failures > 0) {
+      throw new Error('No payees could be renamed. Please try again.');
+    }
+
+    return renamed.size;
   }, []);
 
   const getTransactionSplits = useCallback(async (transactionId: string) => {
@@ -1445,6 +1525,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTransaction,
     setTransactionsCleared,
     applyCategoryToUncategorized,
+    renameTransactionDescriptions,
     archiveTransactionsBefore,
     unarchiveAccount,
     transactionSplits,

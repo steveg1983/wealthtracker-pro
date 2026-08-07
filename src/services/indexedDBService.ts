@@ -20,6 +20,14 @@ interface DBConfig {
   }[];
 }
 
+/**
+ * How long to wait for indexedDB.open before declaring it unavailable.
+ * Generous enough for a cold profile on a slow disk, short enough that a
+ * blocked database degrades to the localStorage fallback instead of leaving
+ * the user staring at an app that never finishes loading.
+ */
+const OPEN_TIMEOUT_MS = 10_000;
+
 class IndexedDBService {
   private dbName: string;
   private dbVersion: number;
@@ -99,7 +107,13 @@ class IndexedDBService {
       return this.initPromise;
     }
 
-    this.initPromise = this._doInit();
+    // A failed open must not be remembered as the answer forever: drop the
+    // cached promise so the next caller gets a fresh attempt rather than an
+    // instant replay of one bad moment (a blocked delete, a locked profile).
+    this.initPromise = this._doInit().catch((error: unknown) => {
+      this.initPromise = null;
+      throw error;
+    });
     return this.initPromise;
   }
 
@@ -120,19 +134,70 @@ class IndexedDBService {
         return;
       }
 
+      // An open request has no deadline of its own. While a delete or a
+      // version upgrade is waiting on some other connection, it fires no event
+      // at all — and every storage read in the app is awaiting this promise,
+      // so the whole session hangs on an empty screen with a silent console.
+      // Time out instead: callers fall back to localStorage and say so.
+      let settled = false;
+      const openTimeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        this.logger.error('IndexedDB open timed out', new Error(
+          `Opening ${this.dbName} took longer than ${OPEN_TIMEOUT_MS}ms — ` +
+          'another tab or window is most likely holding it open.'
+        ));
+        reject(new Error('Timed out opening IndexedDB'));
+      }, OPEN_TIMEOUT_MS);
+
+      const settle = (finish: () => void): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(openTimeout);
+        finish();
+      };
+
       request.onerror = (event) => {
         const error = (event.target as IDBOpenDBRequest).error;
         this.logger.error('IndexedDB error', error ?? undefined);
-        if (this.safariMode) {
-          reject(new Error('IndexedDB failed in Safari. This might be due to private browsing mode or storage restrictions.'));
-        } else {
-          reject(new Error('Failed to open IndexedDB: ' + (error?.message || 'Unknown error')));
-        }
+        settle(() => {
+          if (this.safariMode) {
+            reject(new Error('IndexedDB failed in Safari. This might be due to private browsing mode or storage restrictions.'));
+          } else {
+            reject(new Error('Failed to open IndexedDB: ' + (error?.message || 'Unknown error')));
+          }
+        });
+      };
+
+      // Another connection is holding the old version open, so this upgrade
+      // cannot start. Reject rather than wait for a resolution that may never
+      // come — the caller can fall back and try again later.
+      request.onblocked = () => {
+        this.logger.warn(`Opening ${this.dbName} is blocked by another open connection`);
+        settle(() => reject(new Error('IndexedDB upgrade blocked by another tab')));
       };
 
       request.onsuccess = (event) => {
-        this.db = (event.target as IDBOpenDBRequest).result;
-        resolve();
+        const db = (event.target as IDBOpenDBRequest).result;
+
+        // Yield the connection the moment another tab wants to upgrade or
+        // delete the database. Holding on blocks THEM indefinitely, and a
+        // blocked delete then wedges every later open in every tab — which is
+        // how clearing site data used to leave the app permanently empty.
+        // Each connection closes ITSELF here rather than calling close(),
+        // which would only ever close the current one and leave an older
+        // connection holding the block.
+        db.onversionchange = () => {
+          this.logger.warn('Another tab asked to change the database version; closing this connection');
+          db.close();
+          this.forget(db);
+        };
+        // The connection can also be closed out from under us (storage
+        // pressure, a completed delete). Forget it so the next call re-opens.
+        db.onclose = () => this.forget(db);
+
+        this.db = db;
+        settle(resolve);
       };
 
       request.onupgradeneeded = (event) => {
@@ -155,6 +220,18 @@ class IndexedDBService {
         });
       };
     });
+  }
+
+  /**
+   * Drop a connection this service is no longer using. The cached init promise
+   * means "the database is open", so it has to go with the connection —
+   * otherwise every later call resolves onto a handle that is already closed.
+   */
+  private forget(db: IDBDatabase): void {
+    if (this.db === db) {
+      this.db = null;
+      this.initPromise = null;
+    }
   }
 
   // Ensure database is initialized
@@ -412,6 +489,9 @@ class IndexedDBService {
       this.db.close();
       this.db = null;
     }
+    // The cached promise means "the database is open"; once it isn't, keeping
+    // it would make every later call resolve onto a connection that is gone.
+    this.initPromise = null;
   }
 }
 

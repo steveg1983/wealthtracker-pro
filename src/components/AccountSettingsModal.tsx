@@ -6,6 +6,14 @@ import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
 import type { Account as BaseAccount } from '../types';
 import ToggleSwitch from './ui/ToggleSwitch';
+import CardNumberGuidance from './CardNumberGuidance';
+import {
+  BANK_ACCOUNT_NUMBER_LENGTH,
+  CARD_NUMBER_LABEL,
+  formatSortCode,
+  keepLastFour,
+  nextAccountNumberValue
+} from '../utils/accountNumberInput';
 
 // Extend the base Account type with additional fields needed for settings
 // (type comes from BaseAccount — the single canonical union).
@@ -118,19 +126,27 @@ export default function AccountSettingsModal({
   }, [account, setFormData]);
 
 
-  const formatSortCode = (value: string) => {
-    // Remove all non-digits
-    const digits = value.replace(/\D/g, '');
-    
-    // Format as XX-XX-XX
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
+  const handleSortCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateField('sortCode', formatSortCode(e.target.value));
   };
 
-  const handleSortCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatSortCode(e.target.value);
-    updateField('sortCode', formatted);
+  // A card has no sort code and no 8-digit account number — the bank feed
+  // identifies it by the last 4 digits alone (see findCardMaskMatch in
+  // LinkBankAccountsModal). So the same stored field means "last 4" here and
+  // "full account number" for a current/savings account, and the form has to
+  // say which it is: without a hint, "Account Number" invites the whole 16
+  // digits, which would then live in the user's backups, JSON export and
+  // audit history for no benefit at all. The rules and the wording are shared
+  // with AddAccountModal, which asks for the same details at creation.
+  const isCreditCard = formData.type === 'credit';
+  const isBankAccount = formData.type === 'current' || formData.type === 'savings';
+
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateField('accountNumber', nextAccountNumberValue(e.target.value, isCreditCard));
+  };
+
+  const trimToLastFour = (): void => {
+    updateField('accountNumber', keepLastFour(formData.accountNumber));
   };
 
   if (!account) return null;
@@ -220,40 +236,47 @@ export default function AccountSettingsModal({
           </div>
 
           {/* Bank Details */}
-          {(formData.type === 'current' || formData.type === 'savings') && (
-            <>
-              <div>
-                <label htmlFor="sort-code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Sort Code
-                </label>
-                <input
-                  id="sort-code"
-                  type="text"
-                  value={formData.sortCode}
-                  onChange={handleSortCodeChange}
-                  placeholder="XX-XX-XX"
-                  maxLength={8}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  aria-label="Bank sort code"
-                />
-              </div>
+          {isBankAccount && (
+            <div>
+              <label htmlFor="sort-code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Sort Code
+              </label>
+              <input
+                id="sort-code"
+                type="text"
+                value={formData.sortCode}
+                onChange={handleSortCodeChange}
+                placeholder="XX-XX-XX"
+                maxLength={8}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                aria-label="Bank sort code"
+              />
+            </div>
+          )}
 
-              <div>
-                <label htmlFor="account-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Account Number
-                </label>
-                <input
-                  id="account-number"
-                  type="text"
+          {(isBankAccount || isCreditCard) && (
+            <div>
+              <label htmlFor="account-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {isCreditCard ? CARD_NUMBER_LABEL : 'Account Number'}
+              </label>
+              <input
+                id="account-number"
+                type="text"
+                inputMode="numeric"
+                value={formData.accountNumber}
+                onChange={handleAccountNumberChange}
+                placeholder={isCreditCard ? '1234' : '12345678'}
+                aria-label={isCreditCard ? 'Last four digits of the card number' : 'Bank account number'}
+                {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              />
+              {isCreditCard && (
+                <CardNumberGuidance
                   value={formData.accountNumber}
-                  onChange={(e) => updateField('accountNumber', e.target.value.replace(/\D/g, ''))}
-                  placeholder="12345678"
-                  aria-label="Bank account number"
-                  maxLength={8}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  onKeepLastFour={trimToLastFour}
                 />
-              </div>
-            </>
+              )}
+            </div>
           )}
 
           {/* Institution */}
