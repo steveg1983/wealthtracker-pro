@@ -17,7 +17,7 @@ import { userIdService } from '../userIdService';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
-import type { Account, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
+import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
 export interface AppData {
   accounts: Account[];
@@ -280,7 +280,7 @@ class DataServiceImpl {
     return newAccount;
   }
 
-  async updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
+  async updateAccount(id: string, updates: AccountUpdate): Promise<Account> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.accountService.updateAccount(id, updates, userId);
@@ -1484,7 +1484,7 @@ export class DataService {
     return this.service.createAccount(account);
   }
 
-  static updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
+  static updateAccount(id: string, updates: AccountUpdate): Promise<Account> {
     return this.service.updateAccount(id, updates);
   }
 

@@ -4,7 +4,7 @@ import DatePicker from './common/DatePicker';
 import MoneyInput from './common/MoneyInput';
 import { useModalForm } from '../hooks/useModalForm';
 import { parseMoneyInput } from '../utils/decimal';
-import type { Account as BaseAccount } from '../types';
+import type { Account as BaseAccount, AccountUpdate } from '../types';
 import ToggleSwitch from './ui/ToggleSwitch';
 import CardNumberGuidance from './CardNumberGuidance';
 import {
@@ -27,7 +27,7 @@ interface AccountSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   account: Account | null;
-  onSave: (accountId: string, updates: Partial<Account>) => void | Promise<void>;
+  onSave: (accountId: string, updates: AccountUpdate) => void | Promise<void>;
 }
 
 interface FormData {
@@ -78,7 +78,7 @@ export default function AccountSettingsModal({
       onSubmit: async (data) => {
         if (!account) return;
 
-        const updates: Partial<Account> = {
+        const updates: AccountUpdate = {
           type: data.type,
           institution: data.institution || undefined,
           // Display name only — bank-feed links key on connection/account ids
@@ -86,7 +86,13 @@ export default function AccountSettingsModal({
           // Never blank a name: an empty field leaves the current name as-is.
           ...(data.name.trim() !== '' ? { name: data.name.trim() } : {}),
           notes: data.notes || undefined,
-          sortCode: data.sortCode || undefined,
+          // A card has no sort code (see utils/accountNumberInput). The input is
+          // hidden for cards, so switching an account to Credit Card leaves the
+          // loaded value sitting in form state — send an explicit null to clear
+          // the stored one instead of writing it back. undefined would not do
+          // it: mapAccountToDb skips undefined fields, leaving the stale sort
+          // code in place, where findSmartMatch would still match on it.
+          sortCode: isCardAccountType(data.type) ? null : data.sortCode || undefined,
           // A card stores its last 4 digits and nothing else, whatever the
           // field was left holding — the trim happens here rather than while
           // typing so a pasted number loses its FIRST twelve, not its last four.

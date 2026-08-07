@@ -69,6 +69,19 @@ export interface Account {
   lowBalanceAlertEnabled?: boolean;
 }
 
+/**
+ * The fields an account update may write.
+ *
+ * Distinct from `Partial<Account>` because an update can CLEAR a field, which a
+ * stored Account never represents: `null` means "remove the stored value".
+ * `undefined` cannot express that — mapAccountToDb (services/api/accountService)
+ * skips undefined fields, so an undefined sortCode leaves the column untouched
+ * rather than emptying it. Any `Partial<Account>` is still a valid update.
+ */
+export type AccountUpdate = Partial<Omit<Account, 'sortCode'>> & {
+  sortCode?: string | null;
+};
+
 export interface Transaction {
   id: string;
   date: Date;
