@@ -260,7 +260,7 @@ describe('AccountSettingsModal', () => {
       const onSave = vi.fn();
       render(<AccountSettingsModal {...defaultProps} account={creditAccount} onSave={onSave} />);
 
-      fireEvent.change(screen.getByLabelText('Last four digits of the card number'), {
+      fireEvent.change(screen.getByLabelText(/Card Number/), {
         target: { value: '4929 1234 5678 9012' }
       });
       fireEvent.click(screen.getByText('Save Changes'));
@@ -275,7 +275,7 @@ describe('AccountSettingsModal', () => {
     it('keeps the whole entry in the field so the right four survive the save', () => {
       render(<AccountSettingsModal {...defaultProps} account={creditAccount} />);
 
-      const field = screen.getByLabelText('Last four digits of the card number');
+      const field = screen.getByLabelText(/Card Number/);
       fireEvent.change(field, { target: { value: '4929123456789012' } });
 
       // Capping the input would have left '4929' — the wrong four.
@@ -302,7 +302,7 @@ describe('AccountSettingsModal', () => {
     it('tells the user what will be stored rather than offering them a choice', () => {
       render(<AccountSettingsModal {...defaultProps} account={creditAccount} />);
 
-      fireEvent.change(screen.getByLabelText('Last four digits of the card number'), {
+      fireEvent.change(screen.getByLabelText(/Card Number/), {
         target: { value: '4929123456789012' }
       });
 
@@ -316,7 +316,7 @@ describe('AccountSettingsModal', () => {
       const onSave = vi.fn();
       render(<AccountSettingsModal {...defaultProps} account={creditAccount} onSave={onSave} />);
 
-      fireEvent.change(screen.getByLabelText('Last four digits of the card number'), {
+      fireEvent.change(screen.getByLabelText(/Card Number/), {
         target: { value: '' }
       });
       fireEvent.click(screen.getByText('Save Changes'));
