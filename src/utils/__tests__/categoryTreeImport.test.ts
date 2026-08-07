@@ -80,6 +80,34 @@ describe('planCategoryTreeImport', () => {
     expect(plan.detailsToCreate[0].category.name).toBe('Xfer to Deleted Account');
   });
 
+  it("marks Money's deleted-account transfer categories as adjustments, at both levels", () => {
+    // Money generates these when an account with transfers is deleted: the legs
+    // survive with no other side, which is an adjustment, not spending or income.
+    const tree: CategoryTreeGroup[] = [
+      { name: 'Xfer to Deleted Account', type: 'expense', children: [] },
+      { name: 'Xfer from Deleted Account', type: 'income', children: [] },
+    ];
+
+    const plan = planCategoryTreeImport(typeCategories, tree);
+
+    expect(plan.subsToCreate.map(s => s.isRevaluationCategory)).toEqual([true, true]);
+    expect(plan.detailsToCreate.map(d => d.category.isRevaluationCategory)).toEqual([true, true]);
+  });
+
+  it('does not sweep up ordinary categories that merely mention a transfer', () => {
+    // The match is Money's exact generated name and nothing looser — a real
+    // "Transfer to savings" is a real filing whose money genuinely moved.
+    const tree: CategoryTreeGroup[] = [
+      { name: 'Transfers', type: 'expense', children: ['Transfer to savings', 'Xfer to ISA'] },
+      { name: 'Deleted Account Fees', type: 'expense', children: [] },
+    ];
+
+    const plan = planCategoryTreeImport(typeCategories, tree);
+
+    expect(plan.subsToCreate.every(s => s.isRevaluationCategory === undefined)).toBe(true);
+    expect(plan.detailsToCreate.every(d => d.category.isRevaluationCategory === undefined)).toBe(true);
+  });
+
   it("dedupes against a 'both'-typed sub under the anchor (type is not part of the match)", () => {
     // A cross-section drag historically minted subs typed 'both' under a real
     // anchor. The planner treats them as existing; the context resolver must

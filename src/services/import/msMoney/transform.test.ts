@@ -123,6 +123,52 @@ describe('transformMsMoneyExport — categories', () => {
     expect(categories.find(c => c.id === 'mny-cat-202')?.isActive).toBe(false);
     expect(summary.categories.hidden).toBe(1);
   });
+
+  describe('Money’s generated "Xfer to/from Deleted Account" categories', () => {
+    // Money creates these when you delete an account that had transfers: the
+    // surviving legs are filed under them, one category per direction, at the
+    // top of each tree. A transfer with no other side is an adjustment.
+    const withDeletedAccountXfers = (): MnyExport => {
+      const base = build();
+      return {
+        ...base,
+        categories: [
+          ...base.categories,
+          { id: 315, name: 'Xfer from Deleted Account', parentId: 130, level: 1, fullPath: 'Xfer from Deleted Account', hidden: false, kind: 'income' },
+          { id: 316, name: 'Xfer to Deleted Account', parentId: 131, level: 1, fullPath: 'Xfer to Deleted Account', hidden: false, kind: 'expense' },
+        ],
+      };
+    };
+
+    it('arrive flagged as adjustments so they never count as income or spending', () => {
+      const { categories } = transformMsMoneyExport(withDeletedAccountXfers(), NOW);
+
+      expect(categories.find(c => c.id === 'mny-cat-316')?.isRevaluationCategory).toBe(true);
+      expect(categories.find(c => c.id === 'mny-cat-315')?.isRevaluationCategory).toBe(true);
+    });
+
+    it('keep Money’s own type and tree position — only the reporting changes', () => {
+      const { categories } = transformMsMoneyExport(withDeletedAccountXfers(), NOW);
+
+      const toDeleted = categories.find(c => c.id === 'mny-cat-316')!;
+      expect(toDeleted.type).toBe('expense');
+      expect(toDeleted.parentId).toBe('type-expense');
+      expect(toDeleted.level).toBe('sub');
+    });
+
+    it('are reported in the import summary rather than changed silently', () => {
+      const { summary } = transformMsMoneyExport(withDeletedAccountXfers(), NOW);
+
+      expect(summary.simplifications.some(s => s.includes('Xfer to/from Deleted Account'))).toBe(true);
+    });
+
+    it('leave every other category exactly as Money typed it', () => {
+      const { categories, summary } = transformMsMoneyExport(build(), NOW);
+
+      expect(categories.every(c => c.isRevaluationCategory === undefined)).toBe(true);
+      expect(summary.simplifications.some(s => s.includes('Deleted Account'))).toBe(false);
+    });
+  });
 });
 
 describe('transformMsMoneyExport — transactions', () => {

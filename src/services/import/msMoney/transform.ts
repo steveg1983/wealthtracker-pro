@@ -1,4 +1,5 @@
 import { toDecimal } from '../../../utils/decimal';
+import { isDeletedAccountTransferCategory } from '../../../utils/moneyCategoryArtefacts';
 import type { Account, Category, Transaction, TransactionSplit } from '../../../types';
 
 /**
@@ -207,7 +208,11 @@ function transformAccounts(
 
 // ── Categories (Money's 3-level tree → the app's type/sub/detail) ───────────
 
-function transformCategories(mny: MnyCategory[]): { categories: Category[]; hiddenCount: number } {
+function transformCategories(mny: MnyCategory[]): {
+  categories: Category[];
+  hiddenCount: number;
+  deletedAccountTransfers: number;
+} {
   const categories: Category[] = [
     { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
     { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
@@ -220,10 +225,20 @@ function transformCategories(mny: MnyCategory[]): { categories: Category[]; hidd
     { id: UNASSIGNED_CAT_ID, name: 'Unassigned (MS Money import)', type: 'both', level: 'detail', parentId: 'type-expense', isUnassignedBucket: true },
   ];
   let hiddenCount = 0;
+  let deletedAccountTransfers = 0;
 
   for (const c of mny) {
     if (c.level === 0) continue; // INCOME/EXPENSE roots → the app's system type ids
     if (c.hidden) hiddenCount++;
+    // Money's own "Xfer to/from Deleted Account" categories hold transfers whose
+    // other side went with the account that was deleted. A transfer with one
+    // side missing is an adjustment, not spending or earnings, so the category
+    // arrives flagged and the classifier keeps its rows out of both totals
+    // (utils/incomeExpense). Money's typing and tree position are left alone on
+    // purpose: the flag is what reports read, and moving the category would
+    // hide it from where its owner already knows to look for it.
+    const isDeletedAccountTransfer = isDeletedAccountTransferCategory(c.name);
+    if (isDeletedAccountTransfer) deletedAccountTransfers++;
     categories.push({
       id: catId(c.id),
       name: c.name,
@@ -233,9 +248,10 @@ function transformCategories(mny: MnyCategory[]): { categories: Category[]; hidd
       // Money "hidden" ≈ the app's inactive: kept for existing transactions,
       // hidden from the category pickers.
       isActive: !c.hidden,
+      ...(isDeletedAccountTransfer ? { isRevaluationCategory: true } : {}),
     });
   }
-  return { categories, hiddenCount };
+  return { categories, hiddenCount, deletedAccountTransfers };
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────
@@ -536,10 +552,21 @@ export function transformMsMoneyExport(exp: MnyExport, nowIso: string): MsMoneyI
     if (existing === undefined || t.date < existing) firstTxnByAccount.set(t.accountId, t.date);
   }
   const { accounts, cashPairs } = transformAccounts(exp.accounts, nowIso, firstTxnByAccount);
-  const { categories, hiddenCount } = transformCategories(exp.categories);
+  const { categories, hiddenCount, deletedAccountTransfers } = transformCategories(exp.categories);
   const transfer = buildTransferCategories(exp.accounts, exp.transactions);
   categories.push(...transfer.categories);
   const { transactions, splits, counts, simplifications } = transformTransactions(exp, transfer.byAccount);
+
+  // Said out loud rather than done quietly: the flag changes which line of every
+  // report these transactions appear on, and the user should learn that here
+  // instead of wondering later why a category is missing from their expenses.
+  if (deletedAccountTransfers > 0) {
+    simplifications.push(
+      `${deletedAccountTransfers} Microsoft Money "Xfer to/from Deleted Account" categor${deletedAccountTransfers === 1 ? 'y is' : 'ies are'} filed as adjustments. ` +
+      'These hold transfers whose other account was deleted in Money — money that moved but was neither earned nor spent — ' +
+      'so they are reported under gains, losses and adjustments instead of counting towards income or expenses.'
+    );
+  }
 
   const summary: MsMoneyImportSummary = {
     accounts: {

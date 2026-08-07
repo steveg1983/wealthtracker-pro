@@ -38,6 +38,11 @@ const ImportDataModal = lazyWithRecovery(() => import('../components/ImportDataM
 const CSVImportWizard = lazyWithRecovery(() => import('../components/CSVImportWizard'));
 const OFXImportModal = lazyWithRecovery(() => import('../components/OFXImportModal'));
 const QIFImportModal = lazyWithRecovery(() => import('../components/QIFImportModal'));
+// The SAME dialog Settings → Data Management opens. A restore has real rules
+// (empty login only, its own erase confirmation, its own partial-failure
+// reporting) and two copies of those rules would eventually disagree — so this
+// page borrows the one implementation rather than growing a second door.
+const RestoreBackupModal = lazyWithRecovery(() => import('../components/RestoreBackupModal'));
 
 const bankFormats = [
   'Barclays', 'HSBC', 'Lloyds', 'NatWest', 'Santander', 'Monzo', 'Starling',
@@ -59,6 +64,7 @@ export default function EnhancedImport(): React.JSX.Element {
   const [showCSVImportWizard, setShowCSVImportWizard] = useState(false);
   const [showOFXImportModal, setShowOFXImportModal] = useState(false);
   const [showQIFImportModal, setShowQIFImportModal] = useState(false);
+  const [showRestoreBackup, setShowRestoreBackup] = useState(false);
 
   const activeRules = importRulesService.getRules().filter(rule => rule.enabled);
 
@@ -117,7 +123,8 @@ export default function EnhancedImport(): React.JSX.Element {
             <div>
               <h1 className="text-3xl font-bold mb-2">Import Data</h1>
               <p className="text-white/70">
-                Every way to bring your data in — a full Microsoft Money migration, bank files, or another app.
+                Every way to bring your data in — a full Microsoft Money migration, your own backup file,
+                bank files, or another app.
               </p>
             </div>
             <UploadIcon size={48} className="text-white/80" />
@@ -139,6 +146,42 @@ export default function EnhancedImport(): React.JSX.Element {
             </span>
           </span>
         </button>
+
+        {/* ── Restore a whole backup ───────────────────────────────────
+            Sits directly under the Money migration because it is the other
+            whole-dataset operation, and because this is the page people come to
+            with a backup file in their downloads folder. The copy has to do two
+            honest jobs: separate a restore from the statement imports below it,
+            and stop it reading as a contradiction of the "Replaces all current
+            data" warning above — the Money import overwrites for you, a restore
+            refuses to and makes you erase the login yourself first. */}
+        <Section
+          title="Restore a whole backup"
+          description="Your own backup file, read back in. This is not another statement import."
+        >
+          {/* Named as the button actually reads on the Export page, and as the
+              restore dialog itself names it — a page and the dialog it opens
+              must not send someone looking for two different buttons. */}
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            A restore reads back the JSON file from <strong>Manage &rarr; Export &rarr; &ldquo;Download full
+            backup (JSON)&rdquo;</strong> — every account, transaction, budget and goal in one go. It is
+            not a CSV, OFX or QIF import and it cannot read a bank statement.
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            It only ever writes into an <strong>empty login</strong>. Unlike the Microsoft Money
+            migration above, it will not replace what is already here: if this login holds data the
+            restore stops and asks you to erase it first, which is a separate confirmation you type
+            out yourself.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <ActionButton
+              icon={UploadIcon}
+              title="Restore from a backup file"
+              description="A full JSON backup — into an empty login only"
+              onClick={() => setShowRestoreBackup(true)}
+            />
+          </div>
+        </Section>
 
         {/* ── From a bank or spreadsheet file ──────────────────────── */}
         <Section
@@ -256,6 +299,15 @@ export default function EnhancedImport(): React.JSX.Element {
         </Suspense>
       )}
 
+      {showRestoreBackup && (
+        <Suspense fallback={<LoadingState />}>
+          <RestoreBackupModal
+            isOpen={showRestoreBackup}
+            onClose={() => setShowRestoreBackup(false)}
+          />
+        </Suspense>
+      )}
+
       {showEnhancedWizard && (
         <Suspense fallback={<LoadingState />}>
           <EnhancedImportWizard
@@ -343,7 +395,7 @@ export default function EnhancedImport(): React.JSX.Element {
         </div>
       )}
 
-      <PageTip id="import-intro" title="Import your data" description="Migrate a Microsoft Money file, or upload CSV, OFX, or QIF files from your bank. WealthTracker auto-detects columns and matches your existing categories." />
+      <PageTip id="import-intro" title="Import your data" description="Migrate a Microsoft Money file, restore one of your own backups, or upload CSV, OFX, or QIF files from your bank. WealthTracker auto-detects columns and matches your existing categories." />
     </PageWrapper>
   );
 }

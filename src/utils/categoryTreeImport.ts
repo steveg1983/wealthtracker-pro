@@ -1,4 +1,5 @@
 import type { Category } from '../types';
+import { isDeletedAccountTransferCategory } from './moneyCategoryArtefacts';
 
 /** One Money-style category with its selectable subcategories. */
 export interface CategoryTreeGroup {
@@ -175,6 +176,12 @@ export function planCategoryTreeImport(
         level: 'sub',
         parentId: anchorId,
         isActive: true,
+        // A tree can carry Microsoft Money's generated "Xfer to/from Deleted
+        // Account" categories, which are transfers whose other side was deleted
+        // along with its account. They arrive as adjustments so the reports never
+        // count them as spending or earnings; the match is the exact Money name
+        // and nothing looser (see utils/moneyCategoryArtefacts).
+        ...(isDeletedAccountTransferCategory(group.name) ? { isRevaluationCategory: true } : {}),
       });
     }
 
@@ -200,6 +207,10 @@ export function planCategoryTreeImport(
             type: group.type,
             level: 'detail',
             isActive: true,
+            // Same rule as the group above — an empty group self-fills with a
+            // detail of the same name, so the flag has to reach both levels or
+            // the leaf that transactions are actually filed under would miss it.
+            ...(isDeletedAccountTransferCategory(detailName) ? { isRevaluationCategory: true } : {}),
           },
         });
       }
