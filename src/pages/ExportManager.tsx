@@ -12,7 +12,8 @@ import {
   TrashIcon,
   PlayIcon,
   RefreshCwIcon,
-  CheckIcon
+  CheckIcon,
+  AlertTriangleIcon
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
@@ -21,6 +22,8 @@ import { formatDateForInput } from '../utils/dateFormatter';
 import { LoadingState } from '../components/loading/LoadingState';
 import type { Investment } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import { DataService } from '../services/api/dataService';
+import { collectBackupBundle, downloadBackupBundle, type ExportProgress } from '../services/backupService';
 
 // The advanced report builder (templated PDF/Excel/CSV) and the dedicated Excel
 // exporter both used to live under Settings ▸ Data Management. They move here so
@@ -39,12 +42,15 @@ const exportManagerLogger = createScopedLogger('ExportManagerPage');
 type ActiveTab = 'export' | 'templates' | 'history';
 
 export default function ExportManager() {
-  const { transactions, accounts, budgets, goals, categories, tags, recurringTransactions } = useApp();
+  const { transactions, accounts } = useApp();
   const investments: Investment[] = []; // TODO: Add investments to AppContext
   const [activeTab, setActiveTab] = useState<ActiveTab>('export');
   const [templates, setTemplates] = useState<ExportTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showExcelExport, setShowExcelExport] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [backupProgress, setBackupProgress] = useState<ExportProgress | null>(null);
+  const [backupError, setBackupError] = useState('');
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     endDate: new Date(),
@@ -108,33 +114,37 @@ export default function ExportManager() {
     }
   };
 
-  // GDPR Art. 20 (portability) / Art. 15 (access): one click exports EVERY
-  // entity the app holds for the user as machine-readable JSON — unlike the
-  // configurable export above, nothing is filtered or optional.
-  const handleExportEverything = () => {
-    const bundle = {
-      exportedAt: new Date().toISOString(),
-      application: 'WealthTracker',
-      format: 'wealthtracker-complete-export-v1',
-      data: {
-        accounts,
-        transactions,
-        budgets,
-        goals,
-        categories,
-        tags,
-        recurringTransactions
-      }
-    };
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `wealthtracker-complete-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  // GDPR Art. 20 (portability) / Art. 15 (access), and — the part that used to
+  // be missing — an actual backup. This reads WHOLE ROWS out of the database
+  // rather than the app's React state, because state is a lossy picture of the
+  // database by design: it drops columns, skips tables with no screen behind
+  // them, and renames what is left into camelCase. A file built from it could
+  // never be poured back in, which is what Settings → Data Management can now
+  // do with this one. See services/backupService for the contract.
+  const handleExportEverything = async () => {
+    const { databaseId, clerkId } = DataService.getUserIds();
+    if (!databaseId) {
+      setBackupError('This session has no database identity yet, so there is nothing to read. Reload the page and try again.');
+      return;
+    }
+    setBackupError('');
+    setIsBackingUp(true);
+    setBackupProgress(null);
+    try {
+      const bundle = await collectBackupBundle(
+        { databaseUserId: databaseId, clerkUserId: clerkId },
+        { onProgress: setBackupProgress }
+      );
+      downloadBackupBundle(bundle);
+    } catch (error) {
+      exportManagerLogger.error('Full backup failed', error);
+      // Say what the database said. A half-read backup that downloads anyway is
+      // the failure mode this whole feature exists to remove.
+      setBackupError(error instanceof Error ? error.message : 'The backup could not be completed.');
+    } finally {
+      setIsBackingUp(false);
+      setBackupProgress(null);
+    }
   };
 
   const handleUseTemplate = (template: ExportTemplate) => {
@@ -400,16 +410,59 @@ export default function ExportManager() {
                   Save as Template
                 </button>
 
-                <button
-                  onClick={handleExportEverything}
-                  title="Download every record we hold for you as machine-readable JSON (GDPR data portability)"
-                  className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <DownloadIcon size={16} />
-                  Export everything (JSON)
-                </button>
                 {/* NOTE: no "Schedule Report" button here by design — see the
                     scheduled-exports comment at the top of this file. */}
+              </div>
+
+              {/* ── The full backup ──────────────────────────────────────
+                  Given its own card rather than a slot in the button row
+                  above: it is the only export that can be RESTORED, and the
+                  only one that puts a readable copy of the user's entire
+                  financial life on their disk. Both facts need saying where
+                  the button is, not in a tooltip. */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Full backup</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">
+                  Every record we hold for you, straight from the database — accounts, transactions,
+                  splits, categories, budgets, goals, investments and the rest. This is the only export
+                  that can be restored: Settings &rarr; Data Management &rarr; Restore from backup reads
+                  it back. It also satisfies a data-portability request.
+                </p>
+
+                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 mb-4 flex items-start gap-3">
+                  <AlertTriangleIcon className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" size={18} />
+                  <p className="text-sm text-amber-900 dark:text-amber-200">
+                    This file is plain, readable JSON and it is <strong>not encrypted</strong>. Anyone who
+                    opens it can see every account name, balance and transaction you have. Keep it
+                    somewhere you would be willing to keep a bank statement — not a shared drive, not a
+                    Downloads folder you never empty.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => { void handleExportEverything(); }}
+                  disabled={isBackingUp}
+                  className="flex items-center gap-2 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBackingUp ? <RefreshCwIcon size={16} className="animate-spin" /> : <DownloadIcon size={16} />}
+                  {isBackingUp ? 'Reading your data…' : 'Download full backup (JSON)'}
+                </button>
+
+                {/* A real dataset is 50k+ transactions and 50+ round trips, so
+                    the button reports what it is on rather than sitting silent
+                    long enough to look broken. */}
+                {backupProgress && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3" aria-live="polite">
+                    {backupProgress.entity.replace(/_/g, ' ')} ({backupProgress.entityNumber} of{' '}
+                    {backupProgress.entityCount}) — {backupProgress.rows.toLocaleString()} rows
+                  </p>
+                )}
+
+                {backupError && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-3">
+                    The backup stopped and no file was written: {backupError}
+                  </p>
+                )}
               </div>
             </div>
 

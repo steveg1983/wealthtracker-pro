@@ -5,7 +5,6 @@
   "src/services/__tests__/realtimePriceService.helpers.test.ts",
   "src/services/__tests__/predictiveLoadingService.test.ts",
   "src/services/__tests__/scheduledReportService.test.ts",
-  "src/services/__tests__/automaticBackupService.test.ts",
   "src/services/__tests__/storageAdapter.test.ts",
   "src/services/themeSchedulingService.test.ts",
   "src/services/base/BaseService.test.ts",

@@ -8,7 +8,7 @@ import { toDecimal } from '../utils/decimal';
  * Hook that automatically logs activities when app data changes
  */
 export function useActivityLogger() {
-  const { transactions, accounts, budgets, goals } = useApp();
+  const { transactions, accounts, goals } = useApp();
 
   // "New transaction" means a row that APPEARED during this session — never
   // one that merely loaded. The previous check compared the newest row's DATE
@@ -66,39 +66,17 @@ export function useActivityLogger() {
     });
   }, [accounts]);
 
-  // Track budget updates
-  useEffect(() => {
-    if (budgets.length === 0) return;
-
-    // Check for budget alerts
-    budgets.forEach(budget => {
-      const spent = Math.abs(transactions
-        .filter(t => t.category === budget.categoryId && t.amount < 0)
-        .reduce((sum, t) => sum + t.amount, 0));
-
-      const percentage = (spent / budget.amount) * 100;
-      const alertKey = `budget_alert_${budget.id}_${new Date().getMonth()}`;
-      const alreadyAlerted = localStorage.getItem(alertKey);
-
-      if (percentage >= 90 && !alreadyAlerted) {
-        logActivity({
-          type: 'budget',
-          title: 'Budget Alert',
-          description: `${budget.categoryId} budget is ${formatDecimal(percentage, 0)}% spent`,
-          actionUrl: '/budget'
-        });
-        localStorage.setItem(alertKey, 'true');
-      } else if (percentage >= 75 && percentage < 90 && alreadyAlerted !== '75') {
-        logActivity({
-          type: 'budget',
-          title: 'Budget Warning',
-          description: `${budget.categoryId} budget is ${formatDecimal(percentage, 0)}% spent`,
-          actionUrl: '/budget'
-        });
-        localStorage.setItem(alertKey, '75');
-      }
-    });
-  }, [budgets, transactions]);
+  // Budget alerts are NOT raised here. They belong to NotificationContext,
+  // which honours the user's own Budget Alerts toggle and their chosen
+  // threshold, and which measures spending the same way the Budget page draws
+  // its cards. The version that used to live here ignored both settings
+  // (hard-coded 90%/75%), summed only whole negative transactions in the
+  // matching category — no split lines, no refunds netted, no budget period —
+  // and titled the alert with the raw category id. Seen side by side it
+  // reported "cat-transportation budget is 917% spent" for a budget the
+  // Budget page correctly showed at 140%. Being the only budget alert the user
+  // could actually see is what hid the fact that the real one rendered
+  // nowhere.
 
   // Track goal progress
   useEffect(() => {

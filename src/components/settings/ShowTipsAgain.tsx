@@ -18,7 +18,7 @@ export default function ShowTipsAgain(): React.JSX.Element {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mt-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Page Tips</h3>
 
       <div className="flex flex-wrap items-center justify-between gap-4">

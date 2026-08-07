@@ -16,10 +16,9 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
-// NOTE: performanceService / automaticBackupService are dynamically imported
-// in the startup effect below — static imports would pull them (and their
-// dependency graphs) into the main chunk for code that only runs after first
-// paint.
+// NOTE: performanceService is dynamically imported in the startup effect
+// below — a static import would pull it (and its dependency graph) into the
+// main chunk for code that only runs after first paint.
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
@@ -53,8 +52,6 @@ const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories
 const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
 const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "security-settings" */ './pages/settings/SecuritySettings'));
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
-const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
-const AccessibilitySettings = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-settings" */ './pages/settings/AccessibilitySettings'));
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
@@ -113,19 +110,12 @@ function App(): React.JSX.Element {
       performanceService.init();
     });
 
-    void import('./services/automaticBackupService').then(({ automaticBackupService }) => {
-      automaticBackupService.initializeBackups();
+    // Retired 2026-08-07: automaticBackupService and its 'perform-backup'
+    // service-worker listener. It snapshotted twelve localStorage keys the
+    // Supabase app never writes, into IndexedDB on the same machine, encrypted
+    // with a key it immediately discarded. Real backup/restore now lives in
+    // services/backupService (Manage → Export, Settings → Data Management).
 
-      // Handle service worker messages
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data.type === 'perform-backup') {
-            automaticBackupService.performBackup();
-          }
-        });
-      }
-    });
-    
     // Preload commonly accessed routes when browser is idle
     preloadWhenIdle(Dashboard);
     preloadWhenIdle(Transactions);
@@ -326,16 +316,6 @@ function App(): React.JSX.Element {
                     <Route path="tags" element={
                       <ProtectedSuspense>
                         <Tags />
-                      </ProtectedSuspense>
-                    } />
-                    <Route path="notifications" element={
-                      <ProtectedSuspense>
-                        <Notifications />
-                      </ProtectedSuspense>
-                    } />
-                    <Route path="accessibility" element={
-                      <ProtectedSuspense>
-                        <AccessibilitySettings />
                       </ProtectedSuspense>
                     } />
                     <Route path="security" element={

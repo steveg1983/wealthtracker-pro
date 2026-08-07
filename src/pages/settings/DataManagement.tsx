@@ -26,7 +26,16 @@ const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveMa
 // went with them; real account reconciliation lives at /reconciliation.
 const DuplicateSweepModal = lazyWithRecovery(() => import('../../components/DuplicateSweepModal'));
 const BankConnections = lazyWithRecovery(() => import('../../components/BankConnections'));
-const AutomaticBackupSettings = lazyWithRecovery(() => import('../../components/AutomaticBackupSettings'));
+
+// Retired 2026-08-07: Automatic Backups. Three separate reasons, each fatal on
+// its own. "Test Backup Now" returned silently when backups were disabled —
+// which was the default — and then showed a success toast anyway. The payload
+// it would have written reads twelve localStorage keys that the Supabase app
+// never writes, so the "backup" was essentially an empty file. And "Encrypt
+// Backups", on by default, generated a key, encrypted with it and threw it
+// away, making its own output unreadable by anyone, forever. What replaces it
+// is a real export (Manage → Export) and a real restore (below).
+const RestoreBackupModal = lazyWithRecovery(() => import('../../components/RestoreBackupModal'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
@@ -38,6 +47,7 @@ export default function DataManagementSettings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
   const [showDuplicateSweep, setShowDuplicateSweep] = useState(false);
+  const [showRestoreBackup, setShowRestoreBackup] = useState(false);
   const [showBankConnections, setShowBankConnections] = useState(initialBankingOpsUrlState.modalOpen);
   const [showBankConnectionsWithCriticalFilter, setShowBankConnectionsWithCriticalFilter] = useState(initialBankingOpsUrlState.onlyAboveThreshold);
   const [showBankConnectionsWithOpsEventType, setShowBankConnectionsWithOpsEventType] = useState(initialBankingOpsUrlState.eventType);
@@ -157,11 +167,25 @@ export default function DataManagementSettings() {
         </Suspense>
       </Section>
 
-      {/* ── Backups ────────────────────────────────────────────── */}
-      <Section title="Backups" description="Schedule automatic backups of your data.">
-        <Suspense fallback={<LoadingState />}>
-          <AutomaticBackupSettings />
-        </Suspense>
+      {/* ── Backup & restore ───────────────────────────────────── */}
+      <Section
+        title="Backup and restore"
+        description="A backup is defined by its restore. Download the file from Manage → Export, and bring it back here."
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <LinkCard
+            to="/export-manager"
+            icon={DownloadIcon}
+            title="Download a backup"
+            description="Every record, straight from the database, as plain JSON"
+          />
+          <ActionButton
+            icon={UploadIcon}
+            title="Restore from backup"
+            description="Read a backup file back in — only into an empty login"
+            onClick={() => setShowRestoreBackup(true)}
+          />
+        </div>
       </Section>
 
       {/* ── Tools ──────────────────────────────────────────────── */}
@@ -301,6 +325,16 @@ export default function DataManagementSettings() {
           <DuplicateSweepModal
             isOpen={showDuplicateSweep}
             onClose={() => setShowDuplicateSweep(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Restore from backup */}
+      {showRestoreBackup && (
+        <Suspense fallback={<LoadingState />}>
+          <RestoreBackupModal
+            isOpen={showRestoreBackup}
+            onClose={() => setShowRestoreBackup(false)}
           />
         </Suspense>
       )}
