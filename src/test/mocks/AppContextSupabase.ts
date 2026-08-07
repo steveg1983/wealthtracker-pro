@@ -7,6 +7,7 @@ import {
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category, DismissalKind, SuggestionDismissal } from '../../types';
+import type { TestDataSeedResult } from '../../utils/testDataset';
 import type {
   DecimalAccount,
   DecimalBudget,
@@ -34,7 +35,15 @@ const baseValue = {
   isLoading: false,
   clearAllData: asyncNoop,
   exportData: () => JSON.stringify({ accounts, transactions, budgets, goals, categories }),
-  loadTestData: noop,
+  // Async and counting, like the real thing: callers await it and read the
+  // result to report what was created.
+  loadTestData: async (): Promise<TestDataSeedResult> => ({
+    categoriesCreated: 0,
+    accounts: 0,
+    transactions: 0,
+    budgets: 0,
+    goals: 0
+  }),
   addAccount: noop,
   updateAccount: noop,
   deleteAccount: noop,

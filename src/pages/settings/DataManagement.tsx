@@ -36,10 +36,11 @@ const BankConnections = lazyWithRecovery(() => import('../../components/BankConn
 // away, making its own output unreadable by anyone, forever. What replaces it
 // is a real export (Manage → Export) and a real restore (below).
 const RestoreBackupModal = lazyWithRecovery(() => import('../../components/RestoreBackupModal'));
+const LoadTestDataModal = lazyWithRecovery(() => import('../../components/LoadTestDataModal'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, loadTestData, hasTestData, isUsingSupabase } = useApp();
+  const { accounts, transactions, budgets, clearAllData, hasTestData, isUsingSupabase } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
@@ -92,11 +93,6 @@ export default function DataManagementSettings() {
       setClearError(error instanceof Error ? error.message : 'Failed to delete data.');
       setIsClearing(false);
     }
-  };
-
-  const handleLoadTestData = () => {
-    loadTestData();
-    setShowTestDataConfirm(false);
   };
 
   const closeBankConnections = () => {
@@ -258,41 +254,15 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      {/* Test Data Confirmation Dialog */}
+      {/* Load test data — the dialog owns the whole run (confirm → progress →
+          what was actually created), so it is mounted only while open. */}
       {showTestDataConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <DatabaseIcon className="text-purple-500" size={24} />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              This will load sample data to help you explore the app's features. The test data includes:
-            </p>
-            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-6">
-              <li>5 sample accounts</li>
-              <li>Multiple transactions</li>
-              <li>Example budgets</li>
-            </ul>
-            <p className="text-sm text-orange-600 dark:text-orange-400 mb-6">
-              Note: This will add to your existing data, not replace it.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowTestDataConfirm(false)}
-                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLoadTestData}
-                className="flex-1 justify-center px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
-              >
-                Load Test Data
-              </button>
-            </div>
-          </div>
-        </div>
+        <Suspense fallback={<LoadingState />}>
+          <LoadTestDataModal
+            isOpen={showTestDataConfirm}
+            onClose={() => setShowTestDataConfirm(false)}
+          />
+        </Suspense>
       )}
 
       {/* Tool modals — mounted ONLY while open. Rendering a React.lazy

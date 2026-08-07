@@ -3,6 +3,7 @@
  */
 
 import type { Account, Transaction, Budget, Goal, Category, RecurringTransaction, Investment } from './index';
+import type { TestDataProgress, TestDataSeedResult } from '../utils/testDataset';
 
 export interface Tag {
   id: string;
@@ -37,5 +38,13 @@ export interface AppState {
   // Utility methods
   clearAllData: () => Promise<void>;
   exportData: () => string;
-  loadTestData: () => void;
+  /**
+   * Create the sample dataset in whichever store this session is backed by,
+   * through the ordinary service layer. Resolves with what was actually
+   * written; rejects if a write failed, so the caller can say so rather than
+   * closing on a silent no-op.
+   */
+  loadTestData: (
+    onProgress?: (progress: TestDataProgress) => void
+  ) => Promise<TestDataSeedResult>;
 }

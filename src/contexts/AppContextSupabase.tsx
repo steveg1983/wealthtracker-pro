@@ -24,6 +24,13 @@ import {
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { normalizeTransactionDates } from '../utils/dateBoundary';
 import { initializeDemoData } from '../utils/demoData';
+import {
+  buildTestDataset,
+  planTestDataCategories,
+  type TestDataPhase,
+  type TestDataProgress,
+  type TestDataSeedResult
+} from '../utils/testDataset';
 import { TransactionService } from '../services/api/transactionService';
 import type { ServerAccountBalance } from '../utils/accountBalances';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
@@ -652,22 +659,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addAccount = useCallback(async (account: Omit<Account, 'id'> & { initialBalance?: number }) => {
     try {
       appLogger.info('Adding account', account);
-      
-      if (!user?.id) {
-        throw new Error('User not authenticated');
-      }
-      
+
       const accountToCreate = {
         ...account,
         balance: account.initialBalance || account.balance || 0,
         initialBalance: account.initialBalance || account.balance || 0,
         isActive: account.isActive !== undefined ? account.isActive : true
       };
-      
-      // Create in database directly and wait for response
-      const newAccount = await SimpleAccountService.createAccount(user.id, accountToCreate);
+
+      // Create in the database directly and wait for the response.
+      //
+      // Without a Clerk user this used to throw "User not authenticated" and
+      // stop there, which made adding an account impossible in demo/local mode
+      // — SimpleAccountService needs a Clerk id to resolve a database user and
+      // has no local branch at all. DataService is the same service layer every
+      // other write in this context already relies on for that case
+      // (updateAccount, deleteAccount and addTransaction all go through it),
+      // and it writes to the storage the local reads come from. It also carries
+      // the guard that matters: a signed-in session whose database id has not
+      // resolved yet is refused rather than quietly diverted into browser
+      // storage.
+      const newAccount = user?.id
+        ? await SimpleAccountService.createAccount(user.id, accountToCreate)
+        : await DataService.createAccount(accountToCreate);
       appLogger.info('Account created', newAccount);
-      
+
       // Add to state
       setAccounts(prev => [...prev, newAccount]);
       
@@ -1499,10 +1515,170 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRecurringTransactions([]);
   }, []);
 
-  const loadTestData = useCallback(() => {
-    // Load test data - this would be implemented with actual test data
-    appLogger.info('Loading test data');
-  }, []);
+  /**
+   * Create the sample dataset in this login.
+   *
+   * Every row goes through the ordinary context operation for its kind —
+   * addCategory, addAccount, addTransaction, addBudget, addGoal — so a seeded
+   * account is written, audited and balanced exactly like one the user typed
+   * in, and it works the same in a cloud login as in demo mode because those
+   * operations already know which store they are talking to. Nothing here
+   * writes to localStorage on its own; that was the bug the demo seed had.
+   *
+   * The writes are awaited one at a time rather than fired off in parallel.
+   * They are not independent: a transaction needs its account's id and its
+   * category's id to exist first, and each transaction's balance adjustment is
+   * a read-modify-write on the same account row. Firing N of those at once is
+   * how balances drift.
+   *
+   * ADDS, never replaces: there is no delete or overwrite in this function. A
+   * category the login already has is reused by name, not duplicated; accounts
+   * and transactions are always new rows alongside whatever is there.
+   */
+  const loadTestData = useCallback(async (
+    onProgress?: (progress: TestDataProgress) => void
+  ): Promise<TestDataSeedResult> => {
+    const dataset = buildTestDataset();
+    const report = (phase: TestDataPhase, fraction: number, message: string): void => {
+      onProgress?.({ phase, fraction, message });
+    };
+
+    // 1. Categories. A transaction filed under a category id this login does
+    // not have is invisible in every category view, so the ids are resolved
+    // against the login's OWN categories first and anything missing is created
+    // before a single transaction is written. A freshly cleared login can be
+    // missing even the type-level anchors; the plan creates those too.
+    report('categories', 0, 'Checking categories…');
+    const plan = planTestDataCategories(dataset.categories, categories);
+    const categoryIdByName = new Map<string, string>(plan.resolved);
+    for (const [index, planned] of plan.toCreate.entries()) {
+      const parentId = planned.parentKey
+        ? categoryIdByName.get(planned.parentKey)
+        : planned.category.parentId;
+      const created = await addCategory({ ...planned.category, parentId });
+      categoryIdByName.set(planned.key, created.id);
+      report('categories', 0.1 * ((index + 1) / plan.toCreate.length),
+        `Adding categories… ${index + 1} of ${plan.toCreate.length}`);
+    }
+
+    // 2. Accounts, each opened at the balance that makes its closing balance
+    // come out right once step 3 has run (see buildTestDataset).
+    const accountIdByKey = new Map<string, string>();
+    for (const [index, account] of dataset.accounts.entries()) {
+      report('accounts', 0.1 + 0.1 * (index / dataset.accounts.length),
+        `Creating accounts… ${index + 1} of ${dataset.accounts.length}`);
+      const created = await addAccount({
+        name: account.name,
+        type: account.type,
+        balance: account.openingBalance,
+        initialBalance: account.openingBalance,
+        openingBalance: account.openingBalance,
+        currency: account.currency,
+        institution: account.institution,
+        accountNumber: account.accountNumber,
+        isActive: true,
+        lastUpdated: new Date()
+      });
+      accountIdByKey.set(account.key, created.id);
+    }
+
+    // 3. Transactions. Each one moves its account's balance through the same
+    // atomic path a hand-typed transaction takes.
+    let transactionsCreated = 0;
+    for (const [index, transaction] of dataset.transactions.entries()) {
+      const accountId = accountIdByKey.get(transaction.accountKey);
+      const category = categoryIdByName.get(transaction.categoryName.toLowerCase());
+      if (!accountId || !category) {
+        // Unreachable given steps 1 and 2, and left as a throw rather than a
+        // skip: a silently short seed is the failure this whole feature exists
+        // to stop repeating.
+        throw new Error(`Sample transaction "${transaction.description}" has no account or category to file under`);
+      }
+      await addTransaction({
+        date: transaction.date,
+        description: transaction.description,
+        amount: transaction.amount,
+        category,
+        accountId,
+        type: transaction.type,
+        tags: transaction.tags,
+        notes: transaction.notes
+      });
+      transactionsCreated += 1;
+      report('transactions', 0.2 + 0.6 * ((index + 1) / dataset.transactions.length),
+        `Adding transactions… ${index + 1} of ${dataset.transactions.length}`);
+    }
+
+    // 4. Budgets, filed against the same resolved category ids.
+    let budgetsCreated = 0;
+    for (const [index, budget] of dataset.budgets.entries()) {
+      const categoryId = categoryIdByName.get(budget.categoryName.toLowerCase());
+      if (!categoryId) {
+        throw new Error(`Sample budget "${budget.name}" has no category to file under`);
+      }
+      await addBudget({
+        name: budget.name,
+        categoryId,
+        amount: budget.amount,
+        period: budget.period,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      budgetsCreated += 1;
+      report('budgets', 0.8 + 0.05 * ((index + 1) / dataset.budgets.length),
+        `Adding budgets… ${index + 1} of ${dataset.budgets.length}`);
+    }
+
+    // 5. Goals. `category` here is a label the user typed, not a reference.
+    let goalsCreated = 0;
+    for (const [index, goal] of dataset.goals.entries()) {
+      await addGoal({
+        name: goal.name,
+        type: goal.type,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        targetDate: goal.targetDate,
+        category: goal.category,
+        priority: goal.priority,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      goalsCreated += 1;
+      report('goals', 0.85 + 0.05 * ((index + 1) / dataset.goals.length),
+        `Adding goals… ${index + 1} of ${dataset.goals.length}`);
+    }
+
+    // 6. Re-read what was actually stored. The optimistic updates each
+    // operation made are correct, but re-reading is what proves it: the
+    // balances now on screen are the ones the database computed, not the ones
+    // this function predicted.
+    report('refreshing', 0.9, 'Reloading your data…');
+    await refreshAccountsAndTransactions();
+    if (plan.toCreate.length > 0) {
+      await refreshCategories();
+    }
+    const planningUserId = userIdService.getCurrentDatabaseUserId();
+    const [reloadedBudgets, reloadedGoals] = await Promise.all([
+      PlanningService.getBudgets(planningUserId),
+      PlanningService.getGoals(planningUserId)
+    ]);
+    setBudgets(reloadedBudgets);
+    setGoals(reloadedGoals);
+    report('refreshing', 1, 'Done.');
+
+    const result: TestDataSeedResult = {
+      categoriesCreated: plan.toCreate.length,
+      accounts: accountIdByKey.size,
+      transactions: transactionsCreated,
+      budgets: budgetsCreated,
+      goals: goalsCreated
+    };
+    appLogger.info('Test data loaded', result);
+    return result;
+  }, [categories, addCategory, addAccount, addTransaction, addBudget, addGoal,
+    refreshAccountsAndTransactions, refreshCategories]);
 
   const value: AppContextType = {
     // State
