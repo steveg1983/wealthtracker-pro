@@ -389,6 +389,26 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                 <span className="text-gray-900 dark:text-white tabular-nums">{formatCount(outcome.accountsRelinked)}</span>
               </li>
             </ul>
+            {/* Only rendered when there is something to say. A line reading
+                "0 references could not be resolved" is noise that teaches the
+                user to skim past the line that will one day matter. */}
+            {outcome.danglingRefs.length > 0 && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  {formatCount(outcome.danglingRefs.length)}{' '}
+                  {outcome.danglingRefs.length === 1 ? 'reference points' : 'references point'} at a row the
+                  backup file does not contain — for example a transaction filed under a category that was
+                  never exported. Those rows were restored with the reference left as it was rather than
+                  blanked, so nothing was thrown away, but they may show as uncategorised or unlinked.
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-2">
+                  First affected: {outcome.danglingRefs.slice(0, 3)
+                    .map((ref) => `${ref.entity}.${ref.field}`)
+                    .join(', ')}
+                  {outcome.danglingRefs.length > 3 && '…'}
+                </p>
+              </div>
+            )}
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Accounts, transactions and categories on screen have already been refreshed. Budgets, goals and
               investments load elsewhere in the app, so reload the page to see everything at once.

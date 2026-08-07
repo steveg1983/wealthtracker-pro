@@ -4,12 +4,13 @@ import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_CATEGORY_TREE } from '../../data/defaultCategoryTree';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
+import EditCategoryModal from '../../components/EditCategoryModal';
 import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
 import { computeCategoryHealth } from '../../utils/categoryHealth';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon, MergeIcon } from '../../components/icons';
-import { PlusIcon, XIcon, CheckIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
+import { PlusIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
 import type { Category as AppCategory, CategoryMergeResult } from '../../types';
 import { IconButton } from '../../components/icons/IconButton';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
@@ -63,14 +64,9 @@ interface SortableCategoryProps {
   isMergeMode: boolean;
   /** Set when merge mode is on and this row cannot be merged; the row dims and says why. */
   mergeBlockedReason?: string | null;
-  isEditing: boolean;
-  editingName: string;
   onEdit: () => void;
   onDelete: () => void;
   onMerge: () => void;
-  onNameChange: (name: string) => void;
-  onSave: () => void;
-  onCancel: () => void;
   onClick?: () => void;
   children?: React.ReactNode;
   isDraggable?: boolean;
@@ -82,14 +78,9 @@ function SortableCategory({
   isDeleteMode,
   isMergeMode,
   mergeBlockedReason: mergeBlocked,
-  isEditing,
-  editingName,
   onEdit,
   onDelete,
   onMerge,
-  onNameChange,
-  onSave,
-  onCancel,
   onClick,
   children,
   isDraggable = true
@@ -133,84 +124,47 @@ function SortableCategory({
             </div>
           )}
           {!isEditMode && !isDraggable && <span className="w-4" />}
-          {isEditing ? (
-            <input
-              type="text"
-              value={editingName}
-              onChange={(e) => onNameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onSave();
-                else if (e.key === 'Escape') onCancel();
-              }}
-              className="px-2 py-1 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white flex-1"
-              autoFocus
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <div
-              title={
-                mergeUnavailable
-                  ? mergeBlocked ?? undefined
-                  : isMergeMode
-                    ? `Merge "${category.name}" into another category`
+          <div
+            title={
+              mergeUnavailable
+                ? mergeBlocked ?? undefined
+                : isMergeMode
+                  ? `Merge "${category.name}" into another category`
+                  : isEditMode
+                    ? `Edit "${category.name}"`
                     : undefined
+            }
+            className={`flex items-center gap-2 flex-1 ${
+              mergeUnavailable
+                ? 'cursor-not-allowed'
+                : isMergeMode || (!isEditMode && !isDeleteMode && onClick)
+                  ? 'cursor-pointer'
+                  : ''
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isMergeMode) {
+                onMerge();
+              } else if (isDeleteMode) {
+                onDelete();
+              } else if (isEditMode) {
+                onEdit();
+              } else if (onClick) {
+                onClick();
               }
-              className={`flex items-center gap-2 flex-1 ${
-                mergeUnavailable
-                  ? 'cursor-not-allowed'
-                  : isMergeMode || (!isEditMode && !isDeleteMode && onClick)
-                    ? 'cursor-pointer'
-                    : ''
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isMergeMode) {
-                  onMerge();
-                } else if (isDeleteMode) {
-                  onDelete();
-                } else if (isEditMode) {
-                  onEdit();
-                } else if (onClick) {
-                  onClick();
-                }
-              }}
-            >
-              <span className={`${category.level === 'sub' ? 'font-medium' : ''} text-gray-900 dark:text-white ${
-                mergeUnavailable ? '' :
-                isMergeMode ? 'hover:text-primary dark:hover:text-primary' :
-                isDeleteMode ? 'hover:text-red-600 dark:hover:text-red-400' :
-                isEditMode ? 'hover:text-primary dark:hover:text-primary' :
-                !isEditMode && !isDeleteMode ? 'hover:text-primary dark:hover:text-primary' : ''
-              }`}>
-                {category.name}
-              </span>
-            </div>
-          )}
+            }}
+          >
+            <span className={`${category.level === 'sub' ? 'font-medium' : ''} text-gray-900 dark:text-white ${
+              mergeUnavailable ? '' :
+              isMergeMode ? 'hover:text-primary dark:hover:text-primary' :
+              isDeleteMode ? 'hover:text-red-600 dark:hover:text-red-400' :
+              'hover:text-primary dark:hover:text-primary'
+            }`}>
+              {category.name}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <IconButton
-                onClick={onSave}
-                icon={<CheckIcon size={16} />}
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-gray-700"
-                aria-label="Save category name"
-              />
-              <IconButton
-                onClick={onCancel}
-                icon={<XIcon size={16} />}
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-gray-700"
-                aria-label="Cancel editing"
-              />
-            </>
-          ) : (
-            <>{children}</>
-          )}
-        </div>
+        <div className="flex items-center gap-2">{children}</div>
       </div>
     </div>
   );
@@ -319,7 +273,6 @@ export default function CategoriesSettings() {
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingCategoryName, setEditingCategoryName] = useState('');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
   const [isReassigning, setIsReassigning] = useState(false);
@@ -539,7 +492,7 @@ export default function CategoriesSettings() {
     }
   };
 
-  const startEditing = (categoryId: string, categoryName: string) => {
+  const startEditing = (categoryId: string) => {
     // Transfer category names track their account ("To/From <account name>");
     // rename the account instead and the category follows automatically.
     const category = categories.find(c => c.id === categoryId);
@@ -550,21 +503,16 @@ export default function CategoriesSettings() {
       return;
     }
     setEditingCategoryId(categoryId);
-    setEditingCategoryName(categoryName);
   };
 
-  const saveEdit = () => {
-    if (editingCategoryId && editingCategoryName.trim()) {
-      updateCategory(editingCategoryId, { name: editingCategoryName.trim() });
-      setEditingCategoryId(null);
-      setEditingCategoryName('');
-    }
-  };
-
-  const cancelEdit = () => {
-    setEditingCategoryId(null);
-    setEditingCategoryName('');
-  };
+  /**
+   * The category open in the properties dialog. Read from `categories` rather
+   * than held in state so the dialog always shows the row as it IS — a merge or
+   * a refresh underneath it cannot leave a stale copy on screen.
+   */
+  const editingCategory = editingCategoryId
+    ? categories.find(c => c.id === editingCategoryId) ?? null
+    : null;
 
   /**
    * Everything that would be orphaned if this category disappeared: whole
@@ -714,14 +662,9 @@ export default function CategoriesSettings() {
                       isDeleteMode={isDeleteMode}
                       isMergeMode={isMergeMode}
                       mergeBlockedReason={isMergeMode ? mergeBlockedReason(subCategory, categories) : null}
-                      isEditing={editingCategoryId === subCategory.id}
-                      editingName={editingCategoryName}
-                      onEdit={() => startEditing(subCategory.id, subCategory.name)}
+                      onEdit={() => startEditing(subCategory.id)}
                       onDelete={() => handleDelete(subCategory.id)}
                       onMerge={() => handleMerge(subCategory.id)}
-                      onNameChange={setEditingCategoryName}
-                      onSave={saveEdit}
-                      onCancel={cancelEdit}
                       onClick={() => handleCategoryClick(subCategory.id, subCategory.name)}
                       isDraggable={true}
                     >
@@ -759,14 +702,9 @@ export default function CategoriesSettings() {
                                   isDeleteMode={isDeleteMode}
                                   isMergeMode={isMergeMode}
                                   mergeBlockedReason={isMergeMode ? mergeBlockedReason(detailCategory, categories) : null}
-                                  isEditing={editingCategoryId === detailCategory.id}
-                                  editingName={editingCategoryName}
-                                  onEdit={() => startEditing(detailCategory.id, detailCategory.name)}
+                                  onEdit={() => startEditing(detailCategory.id)}
                                   onDelete={() => handleDelete(detailCategory.id)}
                                   onMerge={() => handleMerge(detailCategory.id)}
-                                  onNameChange={setEditingCategoryName}
-                                  onSave={saveEdit}
-                                  onCancel={cancelEdit}
                                   onClick={() => handleCategoryClick(detailCategory.id, detailCategory.name)}
                                   isDraggable={true}
                                 >
@@ -882,7 +820,7 @@ export default function CategoriesSettings() {
                 </>
               ) : (
                 <>
-                  <li>Click on any category name to rename it</li>
+                  <li>Click on any category name to rename it, or to say it holds adjustments rather than income or spending</li>
                   <li>Drag detail categories to different subcategories to reorganize them</li>
                   <li>Toggle Merge Mode to join two categories, or Delete Mode to remove one</li>
                   <li>Default categories can be edited just like custom ones</li>
@@ -958,14 +896,9 @@ export default function CategoriesSettings() {
                       isDeleteMode={isDeleteMode}
                       isMergeMode={isMergeMode}
                       mergeBlockedReason={isMergeMode ? mergeBlockedReason(category, categories) : null}
-                      isEditing={editingCategoryId === category.id}
-                      editingName={editingCategoryName}
-                      onEdit={() => startEditing(category.id, category.name)}
+                      onEdit={() => startEditing(category.id)}
                       onDelete={() => handleDelete(category.id)}
                       onMerge={() => handleMerge(category.id)}
-                      onNameChange={setEditingCategoryName}
-                      onSave={saveEdit}
-                      onCancel={cancelEdit}
                       onClick={() => handleCategoryClick(category.id, category.name)}
                       isDraggable={false}
                     >
@@ -1187,6 +1120,22 @@ export default function CategoriesSettings() {
             })()}
           </div>
         </div>
+      )}
+
+      {/* Category properties — name, and whether it reports as an adjustment */}
+      {editingCategory && (
+        <EditCategoryModal
+          isOpen={true}
+          onClose={() => setEditingCategoryId(null)}
+          category={editingCategory}
+          // The DIRECT count, not the group's rolled-up figure: the flag applies
+          // to this category alone, so this is what actually moves.
+          directTransactionCount={categoryTransactionCounts.get(editingCategory.id) ?? 0}
+          hasChildren={categories.some(c => c.parentId === editingCategory.id)}
+          onSave={async ({ name, isRevaluationCategory }) => {
+            await updateCategory(editingCategory.id, { name, isRevaluationCategory });
+          }}
+        />
       )}
 
       {/* Category Creation Modal */}

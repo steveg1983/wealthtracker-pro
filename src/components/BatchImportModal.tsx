@@ -34,11 +34,10 @@ interface FileInfo {
 }
 
 export default function BatchImportModal({ isOpen, onClose }: BatchImportModalProps): React.JSX.Element {
-  const { accounts, transactions, addTransaction, hasTestData, clearAllData } = useApp();
+  const { accounts, transactions, addTransaction } = useApp();
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(-1);
-  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [importSummary, setImportSummary] = useState<{
     totalFiles: number;
     successfulFiles: number;
@@ -220,16 +219,12 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
     }
   };
 
+  // Retired 2026-08-07: the "Clear Test Data?" gate that used to stand in front
+  // of this. It read a flag nothing could keep true, and clearing called a
+  // context reset that only emptied React state — on a cloud login the rows it
+  // claimed to remove were back on the next load. This import only ever adds,
+  // and the file list says so; see the note above the Start button.
   const startBatchImport = async () => {
-    if (hasTestData && !showTestDataWarning) {
-      setShowTestDataWarning(true);
-      return;
-    }
-
-    if (hasTestData) {
-      clearAllData();
-    }
-
     setIsProcessing(true);
     setImportSummary(null);
 
@@ -264,7 +259,6 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
   const reset = () => {
     setFiles([]);
     setImportSummary(null);
-    setShowTestDataWarning(false);
   };
 
   const getFileIcon = (type: FileInfo['type']) => {
@@ -293,29 +287,7 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
       size="xl"
     >
       <div className="p-6">
-        {showTestDataWarning && hasTestData ? (
-          <div className="text-center">
-            <AlertCircleIcon size={48} className="mx-auto text-yellow-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Clear Test Data?</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              You have test data loaded. Importing real data will clear all existing test data.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setShowTestDataWarning(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={startBatchImport}
-                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
-              >
-                Clear Test Data & Import
-              </button>
-            </div>
-          </div>
-        ) : importSummary ? (
+        {importSummary ? (
           <div className="text-center">
             <CheckIcon size={48} className="mx-auto text-blue-600 mb-4" />
             <h3 className="text-lg font-semibold mb-4">Import Complete!</h3>
@@ -482,6 +454,21 @@ export default function BatchImportModal({ isOpen, onClose }: BatchImportModalPr
                         style={{ width: `${((currentFileIndex + 1) / files.length) * 100}%` }}
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* What the import will actually do, stated before it runs.
+                    Every path here only ADDS: no existing transaction is
+                    changed or removed, and rows matching one already loaded are
+                    skipped and counted as duplicates. */}
+                {!isProcessing && (
+                  <div className="mb-6 flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                    <AlertCircleIcon size={18} className="mt-0.5 flex-shrink-0" />
+                    <p>
+                      These transactions are added to your existing data — nothing is
+                      replaced or deleted. Anything matching a transaction you already
+                      have is skipped and counted as a duplicate.
+                    </p>
                   </div>
                 )}
 

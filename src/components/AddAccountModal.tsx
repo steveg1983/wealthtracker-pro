@@ -7,6 +7,14 @@ import { Building2Icon, WalletIcon, CreditCardIcon, TrendingUpIcon, PiggyBankIco
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { parseMoneyInput } from '../utils/decimal';
+import CardNumberGuidance from './CardNumberGuidance';
+import {
+  BANK_ACCOUNT_NUMBER_LENGTH,
+  CARD_NUMBER_LABEL,
+  formatSortCode,
+  keepLastFour,
+  nextAccountNumberValue
+} from '../utils/accountNumberInput';
 
 interface AccountPrefill {
   name?: string;
@@ -49,13 +57,6 @@ const currencies = [
   { value: 'USD', label: 'US Dollar', symbol: '$' },
   { value: 'EUR', label: 'Euro', symbol: '€' },
 ];
-
-const formatSortCode = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}`;
-};
 
 export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCreated }: AddAccountModalProps): React.JSX.Element {
   const { addAccount } = useApp();
@@ -119,8 +120,10 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
         throw new Error('Please enter a valid balance');
       }
       
-      // Strip formatting from sort code for storage (XX-XX-XX → XXXXXX)
-      const rawSortCode = formData.sortCode.replace(/\D/g, '');
+      // Strip formatting from sort code for storage (XX-XX-XX → XXXXXX).
+      // A credit card has no sort code, so anything typed before the type was
+      // switched to Credit Card is not part of what is being created.
+      const rawSortCode = formData.type === 'credit' ? '' : formData.sortCode.replace(/\D/g, '');
 
       const newAccountPayload: Omit<Account, 'id'> & { initialBalance?: number } = {
         name: formData.name.trim(),
@@ -173,6 +176,8 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
   const selectedType = accountTypes.find(t => t.value === formData.type);
   const selectedCurrency = currencies.find(c => c.value === formData.currency);
+  const isCreditCard = formData.type === 'credit';
+  const isBankAccount = formData.type === 'current' || formData.type === 'savings';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add New Account" size="lg">
@@ -320,41 +325,55 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
               </div>
             </div>
 
-            {/* Sort Code & Account Number (UK bank accounts) */}
-            {(formData.type === 'current' || formData.type === 'savings') && (
-              <div className="grid grid-cols-2 gap-4">
+            {/* Bank details: sort code + account number for a UK bank account,
+                the card's last 4 digits for a credit card. A card has no sort
+                code, and its digits are what links it to a bank feed — asking
+                for them here saves creating the card and then having to reopen
+                it in Account Settings to add them. */}
+            {(isBankAccount || isCreditCard) && (
+              <div className={isBankAccount ? 'grid grid-cols-2 gap-4' : undefined}>
+                {isBankAccount && (
+                  <div>
+                    <label htmlFor="add-account-sort-code" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                      Sort Code
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
+                    </label>
+                    <input
+                      id="add-account-sort-code"
+                      type="text"
+                      value={formData.sortCode}
+                      onChange={(e) => updateField('sortCode', formatSortCode(e.target.value))}
+                      className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
+                      placeholder="XX-XX-XX"
+                      maxLength={8}
+                      aria-label="Bank sort code"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                    Sort Code
+                  <label htmlFor="add-account-number" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                    {isCreditCard ? CARD_NUMBER_LABEL : 'Account Number'}
                     <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
                   </label>
                   <input
+                    id="add-account-number"
                     type="text"
-                    value={formData.sortCode}
-                    onChange={(e) => updateField('sortCode', formatSortCode(e.target.value))}
-                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
-                    placeholder="XX-XX-XX"
-                    maxLength={8}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                    Account Number
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
+                    inputMode="numeric"
                     value={formData.accountNumber}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, '');
-                      updateField('accountNumber', digits.slice(0, 8));
-                    }}
+                    onChange={(e) => updateField('accountNumber', nextAccountNumberValue(e.target.value, isCreditCard))}
                     className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
-                    placeholder="12345678"
-                    maxLength={8}
+                    placeholder={isCreditCard ? '1234' : '12345678'}
+                    aria-label={isCreditCard ? 'Last four digits of the card number' : 'Bank account number'}
+                    {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
                     disabled={isSubmitting}
                   />
+                  {isCreditCard && (
+                    <CardNumberGuidance
+                      value={formData.accountNumber}
+                      onKeepLastFour={() => updateField('accountNumber', keepLastFour(formData.accountNumber))}
+                    />
+                  )}
                 </div>
               </div>
             )}

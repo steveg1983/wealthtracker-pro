@@ -25,7 +25,7 @@ import { initClerkSafariCompat } from './utils/clerkSafarifix';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
 import SafariWarning from './components/SafariWarning';
 import ConsentBanner from './components/ConsentBanner';
-import { isDemoMode, initializeDemoData } from './utils/demoData';
+import { isDemoMode } from './utils/demoData';
 import { isMnyLocalImportRequested, loadMnyLocalSeed } from './utils/mnyLocalImport';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 // The only page imported eagerly. It is tiny, and lazy-loading it would give it
@@ -54,6 +54,7 @@ const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-setti
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
 const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories" */ './pages/settings/Categories'));
 const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
+const PayeeCleanup = lazyWithPreload(() => import(/* webpackChunkName: "payee-cleanup" */ './pages/settings/PayeeCleanup'));
 const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "security-settings" */ './pages/settings/SecuritySettings'));
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
@@ -94,16 +95,15 @@ function App(): React.JSX.Element {
     
     initApp();
     
-    // Initialize demo mode if requested
-    if (isDemoMode()) {
-      // DEV-ONLY: ?demo=true&mnyimport=local loads the local MS Money seed
-      // instead of the demo sample data (a no-op in production builds).
-      if (isMnyLocalImportRequested()) {
-        void loadMnyLocalSeed();
-      } else {
-        initializeDemoData();
-        // Demo mode activated - Using sample data for UI/UX testing
-      }
+    // DEV-ONLY: ?demo=true&mnyimport=local loads the local MS Money seed
+    // instead of the demo sample data (a no-op in production builds).
+    //
+    // The demo SAMPLE data is no longer seeded here. This effect runs after
+    // AppContext's — child effects go first — so seeding from here raced the
+    // very load that consumes it. AppContext now awaits initializeDemoData()
+    // before its first read, which is the only ordering that can be relied on.
+    if (isDemoMode() && isMnyLocalImportRequested()) {
+      void loadMnyLocalSeed();
     }
     
     // Simplified storage check - don't auto-clear
@@ -320,6 +320,11 @@ function App(): React.JSX.Element {
                     <Route path="tags" element={
                       <ProtectedSuspense>
                         <Tags />
+                      </ProtectedSuspense>
+                    } />
+                    <Route path="payees" element={
+                      <ProtectedSuspense>
+                        <PayeeCleanup />
                       </ProtectedSuspense>
                     } />
                     <Route path="security" element={

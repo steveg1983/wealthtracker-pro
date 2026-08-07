@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from '../services/storageAdapter';
+import { storageAdapter, STORAGE_KEYS } from '../services/storageAdapter';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
@@ -57,22 +57,25 @@ export async function loadMnyLocalSeed(): Promise<void> {
     }
     const seed = (await res.json()) as MnySeed;
 
-    // Mirror initializeDemoData's storage contract exactly: the wealthtracker_-
-    // prefixed keys, plus the transaction-splits key, then force the
-    // localStorage→IndexedDB migration so the fresh seed is picked up.
-    window.localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(seed.accounts));
-    window.localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(seed.transactions));
-    window.localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(seed.categories));
-    window.localStorage.setItem(STORAGE_KEYS.TRANSACTION_SPLITS, JSON.stringify(seed.transactionSplits));
-    // Empty out the other demo collections so nothing stale lingers.
-    window.localStorage.setItem(STORAGE_KEYS.BUDGETS, '[]');
-    window.localStorage.setItem(STORAGE_KEYS.GOALS, '[]');
-    window.localStorage.setItem(STORAGE_KEYS.RECURRING, '[]');
+    // Mirror initializeDemoData's storage contract exactly: write through
+    // storageAdapter, which is where the app READS from. Writing the
+    // wealthtracker_* keys straight into localStorage only worked while
+    // IndexedDB happened to hold nothing for them — once it did, the seed was
+    // invisible and this harness loaded an empty app.
+    await Promise.all([
+      storageAdapter.set(STORAGE_KEYS.ACCOUNTS, seed.accounts),
+      storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, seed.transactions),
+      storageAdapter.set(STORAGE_KEYS.CATEGORIES, seed.categories),
+      storageAdapter.set(STORAGE_KEYS.TRANSACTION_SPLITS, seed.transactionSplits),
+      // Empty out the other demo collections so nothing stale lingers.
+      storageAdapter.set(STORAGE_KEYS.BUDGETS, []),
+      storageAdapter.set(STORAGE_KEYS.GOALS, []),
+      storageAdapter.set(STORAGE_KEYS.RECURRING, [])
+    ]);
     // demoMode flag keeps the app in local mode (the demo=true param already
     // bypassed auth); it does NOT re-seed sample data — that only runs for
     // isDemoMode() with the mnyimport param absent.
     window.localStorage.setItem('demoMode', 'true');
-    window.sessionStorage.removeItem('wt_migration_completed');
     window.sessionStorage.setItem(LOADED_FLAG, 'true');
 
     logger.info('MS Money local seed injected', {

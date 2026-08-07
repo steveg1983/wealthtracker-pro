@@ -526,6 +526,11 @@ export function planCloudImport(
         parent_id: parentId,
         is_system: c.isSystem === true,
         is_transfer_category: c.isTransferCategory === true,
+        // Carried through like every other category flag. Without this column the
+        // adjustment marking the transform puts on Money's "Xfer to/from Deleted
+        // Account" categories survived a local import but was silently dropped on
+        // the way to the cloud, so the same file reported differently in each.
+        is_revaluation_category: c.isRevaluationCategory === true,
         is_unassigned_bucket: c.isUnassignedBucket === true,
         account_id: c.accountId ? acctId.get(c.accountId) ?? null : null,
         is_active: c.isActive !== false,

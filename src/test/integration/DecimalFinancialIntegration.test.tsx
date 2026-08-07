@@ -7,7 +7,7 @@ import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import { __setAppContextValue, __resetAppContextValue } from '../mocks/AppContextSupabase';
-import { markOnboardingComplete, dismissTestDataWarning } from '../utils/testPreferences';
+import { markOnboardingComplete } from '../utils/testPreferences';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
 import Dashboard from '../../pages/Dashboard';
 import Budget from '../../pages/Budget';
@@ -53,7 +53,6 @@ describe('Decimal Financial Integration Tests', () => {
     localStorage.clear();
     sessionStorage.clear();
     markOnboardingComplete();
-    dismissTestDataWarning();
     __resetAppContextValue();
   });
 

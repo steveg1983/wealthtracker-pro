@@ -4,7 +4,7 @@ import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 
 const AddTransactionModal = lazyWithRecovery(() => import('./AddTransactionModal'));
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, TargetIcon, HashIcon, SearchIcon, PieChartIcon, ShieldIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, CalendarIcon, UsersIcon } from '../components/icons';
 import { SidebarLink, TopNavItem, TopNavDropdown } from './layout/NavComponents';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -301,12 +301,13 @@ export default function Layout(): React.JSX.Element {
               items={[
                 { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
                 { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
+                { to: '/settings/payees', icon: UsersIcon, label: 'Payees' },
                 { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
                 { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
                 { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
                 { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/settings/categories', '/settings/tags', '/enhanced-import', '/export-manager', '/documents', '/investments']}
+              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/enhanced-import', '/export-manager', '/documents', '/investments']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -595,6 +596,7 @@ export default function Layout(): React.JSX.Element {
                       <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/payees" icon={UsersIcon} label="Payees" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />

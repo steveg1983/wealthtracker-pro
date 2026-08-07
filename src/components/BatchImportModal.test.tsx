@@ -70,8 +70,6 @@ vi.mock('../contexts/AppContextSupabase', () => ({
     ],
     transactions: [],
     addTransaction: vi.fn(),
-    hasTestData: false,
-    clearAllData: vi.fn(),
   })),
 }));
 

@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { toDecimal } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { isDemoModeRuntimeAllowed } from './runtimeMode';
+import { storageAdapter, STORAGE_KEYS } from '../services/storageAdapter';
+import { isMnyLocalImportRequested } from './mnyLocalImport';
 
 export { isDemoModeRuntimeAllowed } from './runtimeMode';
 
@@ -21,20 +23,17 @@ export const isDemoMode = (): boolean => {
   return new URLSearchParams(window.location.search).get('demo') === 'true';
 };
 
-// Demo user data
-export const demoUser = {
-  id: 'demo-user-001',
-  email: 'demo@wealthtracker.app',
-  firstName: 'Demo',
-  lastName: 'User',
-  fullName: 'Demo User',
-  imageUrl: null,
-};
-
-// Demo accounts
+// Demo accounts.
+//
+// The ids are FIXED, not uuidv4(). They are minted at module scope, so a
+// generated id changed on every page load — and anything the app keys by
+// account id (the archive manager's per-account overrides, saved balances,
+// bookmarked /accounts/:id links) silently pointed at an account that no
+// longer existed. Demo sessions should behave like real ones, where an
+// account keeps its identity.
 export const demoAccounts = [
   {
-    id: uuidv4(),
+    id: 'demo-account-checking',
     name: 'Main Checking',
     type: 'checking',
     balance: 5234.56,
@@ -46,7 +45,7 @@ export const demoAccounts = [
     updatedAt: new Date().toISOString(),
   },
   {
-    id: uuidv4(),
+    id: 'demo-account-savings',
     name: 'Savings Account',
     type: 'savings',
     balance: 25000.00,
@@ -58,7 +57,7 @@ export const demoAccounts = [
     updatedAt: new Date().toISOString(),
   },
   {
-    id: uuidv4(),
+    id: 'demo-account-investment',
     name: 'Investment Portfolio',
     type: 'investment',
     balance: 45678.90,
@@ -70,7 +69,7 @@ export const demoAccounts = [
     updatedAt: new Date().toISOString(),
     holdings: [
       {
-        id: uuidv4(),
+        id: 'demo-holding-aapl',
         symbol: 'AAPL',
         name: 'Apple Inc.',
         shares: 50,
@@ -82,7 +81,7 @@ export const demoAccounts = [
         allocation: 20.3
       },
       {
-        id: uuidv4(),
+        id: 'demo-holding-googl',
         symbol: 'GOOGL',
         name: 'Alphabet Inc.',
         shares: 25,
@@ -94,7 +93,7 @@ export const demoAccounts = [
         allocation: 7.7
       },
       {
-        id: uuidv4(),
+        id: 'demo-holding-msft',
         symbol: 'MSFT',
         name: 'Microsoft Corporation',
         shares: 30,
@@ -106,7 +105,7 @@ export const demoAccounts = [
         allocation: 25.0
       },
       {
-        id: uuidv4(),
+        id: 'demo-holding-vti',
         symbol: 'VTI',
         name: 'Vanguard Total Stock Market ETF',
         shares: 40,
@@ -118,7 +117,7 @@ export const demoAccounts = [
         allocation: 20.6
       },
       {
-        id: uuidv4(),
+        id: 'demo-holding-bnd',
         symbol: 'BND',
         name: 'Vanguard Total Bond Market ETF',
         shares: 100,
@@ -130,7 +129,7 @@ export const demoAccounts = [
         allocation: 16.4
       },
       {
-        id: uuidv4(),
+        id: 'demo-holding-cash',
         symbol: 'CASH',
         name: 'Cash & Money Market',
         shares: 1,
@@ -144,7 +143,7 @@ export const demoAccounts = [
     ]
   },
   {
-    id: uuidv4(),
+    id: 'demo-account-credit',
     name: 'Credit Card',
     type: 'credit',
     balance: -2345.67,
@@ -218,7 +217,7 @@ export const generateDemoTransactions = (count: number = 50) => {
 // Demo budgets
 export const demoBudgets = [
   {
-    id: uuidv4(),
+    id: 'demo-budget-groceries',
     name: 'Monthly Expenses',
     category: 'Groceries',
     amount: 600.00,
@@ -229,7 +228,7 @@ export const demoBudgets = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-budget-dining',
     name: 'Dining Out',
     category: 'Restaurants',
     amount: 400.00,
@@ -240,7 +239,7 @@ export const demoBudgets = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-budget-entertainment',
     name: 'Entertainment',
     category: 'Entertainment',
     amount: 200.00,
@@ -251,7 +250,7 @@ export const demoBudgets = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-budget-transport',
     name: 'Transportation',
     category: 'Transportation',
     amount: 300.00,
@@ -266,7 +265,7 @@ export const demoBudgets = [
 // Demo goals
 export const demoGoals = [
   {
-    id: uuidv4(),
+    id: 'demo-goal-emergency-fund',
     name: 'Emergency Fund',
     targetAmount: 10000.00,
     currentAmount: 6500.00,
@@ -277,7 +276,7 @@ export const demoGoals = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-goal-vacation',
     name: 'Vacation Fund',
     targetAmount: 5000.00,
     currentAmount: 2100.00,
@@ -288,7 +287,7 @@ export const demoGoals = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-goal-new-car',
     name: 'New Car Down Payment',
     targetAmount: 8000.00,
     currentAmount: 3200.00,
@@ -343,7 +342,7 @@ export const demoCategories = [
 // Demo recurring transactions
 export const demoRecurringTransactions = [
   {
-    id: uuidv4(),
+    id: 'demo-recurring-netflix',
     name: 'Netflix Subscription',
     amount: -15.99,
     category: 'Entertainment',
@@ -353,7 +352,7 @@ export const demoRecurringTransactions = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-recurring-spotify',
     name: 'Spotify Premium',
     amount: -9.99,
     category: 'Entertainment',
@@ -363,7 +362,7 @@ export const demoRecurringTransactions = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-recurring-gym',
     name: 'Gym Membership',
     amount: -49.99,
     category: 'Healthcare',
@@ -373,7 +372,7 @@ export const demoRecurringTransactions = [
     isActive: true,
   },
   {
-    id: uuidv4(),
+    id: 'demo-recurring-salary',
     name: 'Salary',
     amount: 3500.00,
     category: 'Salary',
@@ -384,65 +383,49 @@ export const demoRecurringTransactions = [
   },
 ];
 
-// Demo data provider hook
-export const useDemoData = () => {
-  if (!isDemoMode()) {
-    return null;
-  }
-  
-  return {
-    user: demoUser,
-    accounts: demoAccounts,
-    transactions: generateDemoTransactions(100),
-    budgets: demoBudgets,
-    goals: demoGoals,
-    categories: demoCategories,
-    recurringTransactions: demoRecurringTransactions,
-  };
-};
-
-// Helper to inject demo data into localStorage
-export const initializeDemoData = () => {
+/**
+ * Seed the demo sample data, through the SAME storage the app reads from.
+ *
+ * This used to write the wealthtracker_* keys straight into localStorage and
+ * then clear the `wt_migration_completed` flag, on the understanding that
+ * storageAdapter would carry them into encrypted IndexedDB on its next init.
+ * Nothing in the app ever calls storageAdapter.init(), so that migration never
+ * ran and the flag meant nothing: the seed was only ever visible through the
+ * adapter's "not in IndexedDB, so try localStorage" fallback. The moment
+ * IndexedDB held any value for one of those keys — an empty array, which
+ * Settings → Data Management → Clear All Data is enough to produce — the
+ * fallback stopped being consulted, and demo mode was empty forever no matter
+ * how many times the page was reloaded with ?demo=true.
+ *
+ * Going through storageAdapter puts the seed exactly where the reads look, and
+ * keeps the localStorage fallback for browsers where IndexedDB is unavailable
+ * (the adapter already falls back on write). AppContext awaits this before its
+ * first read, so seeding and loading can no longer race.
+ */
+export const initializeDemoData = async (): Promise<void> => {
   if (!isDemoMode()) return;
-  
-  // Store demo data in localStorage for the app to use
-  const demoData = {
-    accounts: demoAccounts,
-    transactions: generateDemoTransactions(100),
-    budgets: demoBudgets,
-    goals: demoGoals,
-    categories: demoCategories,
-    recurringTransactions: demoRecurringTransactions,
-  };
-  
-  // Keys MUST be the wealthtracker_-prefixed STORAGE_KEYS names: the app
-  // reads through encryptedStorage (IndexedDB), and storageAdapter migrates
-  // only prefixed localStorage keys across on first init. The old unprefixed
-  // keys ('transactions', …) were read by nothing — demo mode had been
-  // seeding dead keys since the encrypted-storage migration.
+  // The DEV-only Money import seeds the same keys from a real file and reloads
+  // the page itself. Sample data would only fight it.
+  if (isMnyLocalImportRequested()) return;
+
   localStorage.setItem('demoMode', 'true');
-  localStorage.setItem('wealthtracker_accounts', JSON.stringify(demoData.accounts));
-  localStorage.setItem('wealthtracker_transactions', JSON.stringify(demoData.transactions));
-  localStorage.setItem('wealthtracker_budgets', JSON.stringify(demoData.budgets));
-  localStorage.setItem('wealthtracker_goals', JSON.stringify(demoData.goals));
-  localStorage.setItem('wealthtracker_categories', JSON.stringify(demoData.categories));
-  localStorage.setItem('wealthtracker_recurring', JSON.stringify(demoData.recurringTransactions));
-  // Force the localStorage→IndexedDB migration for this session so freshly
-  // seeded demo data is picked up even when the flag was already set.
-  sessionStorage.removeItem('wt_migration_completed');
 
-  demoLogger.info('📊 Demo mode initialized with sample data');
-};
+  // Only seed when there is nothing to show. A demo session that has been used
+  // holds the visitor's own edits, and a reload must not throw those away —
+  // which is also what makes the fixed account ids above worth having.
+  const existingAccounts = await storageAdapter.get<unknown[]>(STORAGE_KEYS.ACCOUNTS);
+  if (Array.isArray(existingAccounts) && existingAccounts.length > 0) {
+    return;
+  }
 
-// Clear demo data
-export const clearDemoData = () => {
-  localStorage.removeItem('demoMode');
-  localStorage.removeItem('accounts');
-  localStorage.removeItem('transactions');
-  localStorage.removeItem('budgets');
-  localStorage.removeItem('goals');
-  localStorage.removeItem('categories');
-  localStorage.removeItem('recurringTransactions');
-  
-  demoLogger.info('🧹 Demo data cleared');
+  await Promise.all([
+    storageAdapter.set(STORAGE_KEYS.ACCOUNTS, demoAccounts),
+    storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, generateDemoTransactions(100)),
+    storageAdapter.set(STORAGE_KEYS.BUDGETS, demoBudgets),
+    storageAdapter.set(STORAGE_KEYS.GOALS, demoGoals),
+    storageAdapter.set(STORAGE_KEYS.CATEGORIES, demoCategories),
+    storageAdapter.set(STORAGE_KEYS.RECURRING, demoRecurringTransactions),
+  ]);
+
+  demoLogger.info('Demo mode seeded with sample data');
 };

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Dashboard from '../../pages/Dashboard';
-import { markOnboardingComplete, dismissTestDataWarning } from '../utils/testPreferences';
+import { markOnboardingComplete } from '../utils/testPreferences';
 import { AppProvider } from '../../contexts/AppContextSupabase';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
@@ -49,9 +49,7 @@ describe('Dashboard Interactions Integration', () => {
     localStorage.clear();
     sessionStorage.clear();
     markOnboardingComplete();
-    dismissTestDataWarning();
     localStorage.setItem('onboardingCompleted', 'true');
-    localStorage.setItem('testDataWarningDismissed', 'true');
     localStorage.setItem('dashboardKeyAccounts', JSON.stringify([]));
   });
 

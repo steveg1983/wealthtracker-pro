@@ -36,10 +36,11 @@ const BankConnections = lazyWithRecovery(() => import('../../components/BankConn
 // away, making its own output unreadable by anyone, forever. What replaces it
 // is a real export (Manage → Export) and a real restore (below).
 const RestoreBackupModal = lazyWithRecovery(() => import('../../components/RestoreBackupModal'));
+const LoadTestDataModal = lazyWithRecovery(() => import('../../components/LoadTestDataModal'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, loadTestData, hasTestData, isUsingSupabase } = useApp();
+  const { accounts, transactions, budgets, resetLoadedData, isUsingSupabase } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
@@ -69,9 +70,10 @@ export default function DataManagementSettings() {
   const [clearConfirmText, setClearConfirmText] = useState('');
   const [clearError, setClearError] = useState('');
 
-  // ACTUALLY delete everything. clearAllData() only resets in-memory state —
-  // on cloud the data all came back on the next load, which made the button a
-  // lie. Now the same proven wipe the MS Money migration uses runs first, then
+  // ACTUALLY delete everything. The store has to be wiped first — the context's
+  // resetLoadedData only forgets the loaded copy, so on cloud the data all came
+  // back on the next load, which made the button a lie. The same proven wipe the
+  // MS Money migration uses runs first, then the loaded snapshot is dropped, then
   // the app reloads to re-read the (empty) truth.
   const handleClearData = async () => {
     setIsClearing(true);
@@ -84,7 +86,7 @@ export default function DataManagementSettings() {
       } else {
         wipeLocalData(STORAGE_KEYS);
       }
-      await clearAllData();
+      await resetLoadedData();
       setShowDeleteConfirm(false);
       window.location.reload();
     } catch (error) {
@@ -92,11 +94,6 @@ export default function DataManagementSettings() {
       setClearError(error instanceof Error ? error.message : 'Failed to delete data.');
       setIsClearing(false);
     }
-  };
-
-  const handleLoadTestData = () => {
-    loadTestData();
-    setShowTestDataConfirm(false);
   };
 
   const closeBankConnections = () => {
@@ -119,53 +116,24 @@ export default function DataManagementSettings() {
         <h1 className="text-3xl font-bold text-white">Data Management</h1>
       </div>
 
-      {hasTestData && (
-        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <AlertCircleIcon className="text-orange-600 dark:text-orange-400 mt-0.5" size={20} />
-          <div>
-            <p className="font-medium text-orange-800 dark:text-orange-200">Test Data Active</p>
-            <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-              You currently have test data loaded. When importing real bank data, you'll be prompted to clear this test data first.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Import & Export moved to Manage ─────────────────────────
-          Bringing data in and getting it out are data-admin tasks, so they now
-          live under Manage where all data tools sit together. These signposts
-          keep muscle memory from dead-ending here. */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Import &amp; export moved to Manage</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Every way to bring data in or get it out now lives in one place under Manage.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <LinkCard
-            to="/enhanced-import"
-            icon={UploadIcon}
-            title="Import Data"
-            description="Microsoft Money, bank files (CSV/OFX/QIF), other apps and import rules"
-          />
-          <LinkCard
-            to="/export-manager"
-            icon={DownloadIcon}
-            title="Export Data"
-            description="Reports, Excel, templates and a full machine-readable backup"
-          />
-        </div>
-      </div>
+      {/* Retired 2026-08-07: the orange "Test Data Active" banner and the
+          "Reload Test Data" button label. Both read a `hasTestData` flag that
+          nothing could keep true to reality — delete the seeded accounts by
+          hand, restore a backup over the top, or clear data on another device
+          and a stored boolean still claims sample data is present. The seeded
+          rows are ordinary rows; the app cannot tell them apart, so it should
+          not claim to. */}
 
       {/* Bank connection MANAGEMENT lives on the Accounts page now; this page
           keeps only the URL-driven modal below so ops alert deep links
           (banking incident emails) keep working. */}
 
-      {/* ── Archive ────────────────────────────────────────────── */}
-      <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
-        <Suspense fallback={<LoadingState />}>
-          <ArchiveManager />
-        </Suspense>
-      </Section>
+      {/* Section order is deliberate: the short action cards first, then the
+          long Archive list, then the Danger Zone LAST — "Clear All Data" must
+          never be something you scroll past on the way to anything else.
+          Retired 2026-08-07: the "Import & export moved to Manage" signpost. It
+          announced a move that has long since settled, and the nav already
+          offers Manage. */}
 
       {/* ── Backup & restore ───────────────────────────────────── */}
       <Section
@@ -195,6 +163,13 @@ export default function DataManagementSettings() {
         </div>
       </Section>
 
+      {/* ── Archive ────────────────────────────────────────────── */}
+      <Section title="Archive" description="Keep the live register fast by hiding older, reconciled transactions. Nothing is deleted — balances and reports stay exact.">
+        <Suspense fallback={<LoadingState />}>
+          <ArchiveManager />
+        </Suspense>
+      </Section>
+
       {/* ── Danger Zone ────────────────────────────────────────── */}
       <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-white dark:bg-gray-800 shadow-sm p-6 mb-6">
         <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-1">Danger Zone</h3>
@@ -206,7 +181,7 @@ export default function DataManagementSettings() {
           >
             <span className="shrink-0 grid place-items-center h-9 w-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"><DatabaseIcon size={18} /></span>
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-gray-900 dark:text-white">{hasTestData ? 'Reload Test Data' : 'Load Test Data'}</span>
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">Load Test Data</span>
               <span className="block text-xs text-gray-500 dark:text-gray-400">Adds sample data to explore features</span>
             </span>
           </button>
@@ -276,41 +251,15 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      {/* Test Data Confirmation Dialog */}
+      {/* Load test data — the dialog owns the whole run (confirm → progress →
+          what was actually created), so it is mounted only while open. */}
       {showTestDataConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <DatabaseIcon className="text-purple-500" size={24} />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              This will load sample data to help you explore the app's features. The test data includes:
-            </p>
-            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-6">
-              <li>5 sample accounts</li>
-              <li>Multiple transactions</li>
-              <li>Example budgets</li>
-            </ul>
-            <p className="text-sm text-orange-600 dark:text-orange-400 mb-6">
-              Note: This will add to your existing data, not replace it.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowTestDataConfirm(false)}
-                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLoadTestData}
-                className="flex-1 justify-center px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
-              >
-                Load Test Data
-              </button>
-            </div>
-          </div>
-        </div>
+        <Suspense fallback={<LoadingState />}>
+          <LoadTestDataModal
+            isOpen={showTestDataConfirm}
+            onClose={() => setShowTestDataConfirm(false)}
+          />
+        </Suspense>
       )}
 
       {/* Tool modals — mounted ONLY while open. Rendering a React.lazy

@@ -1,4 +1,4 @@
-// Helpers to neutralise onboarding/test-data modals during Vitest runs
+// Helpers to neutralise the onboarding modal during Vitest runs
 // Ensure test suites see the dashboard without onboarding overlays
 import { createScopedLogger } from '../../loggers/scopedLogger';
 
@@ -14,18 +14,9 @@ export function markOnboardingComplete() {
   }
 }
 
-export function dismissTestDataWarning() {
-  try {
-    localStorage.setItem('testDataWarningDismissed', 'true');
-  } catch (error) {
-    logger.warn('Failed to dismiss test data warning', error);
-  }
-}
-
 export function resetOnboardingFlags() {
   try {
     localStorage.removeItem('onboardingCompleted');
-    localStorage.removeItem('testDataWarningDismissed');
     sessionStorage.removeItem('onboardingCompleted');
   } catch (error) {
     logger.warn('Failed to reset onboarding flags', error);

@@ -571,6 +571,305 @@ export function transactionDateRange(bundle: BackupBundle): { first: string; las
   return first && last ? { first, last } : null;
 }
 
+// ── Giving every row a new identity ─────────────────────────────────────────
+
+/**
+ * Every primary key in the backup set is a bare `id uuid` that is unique across
+ * the WHOLE Supabase project, not per user. The export preserves those ids, so
+ * restoring a file into a SECOND login tries to insert rows whose ids already
+ * belong to the first one, and Postgres refuses with
+ * `duplicate key value violates unique constraint "accounts_pkey"`.
+ *
+ * That is not an edge case, it is the main reason a backup exists: "my account
+ * is gone, I made a new one, put my file back". `user_financial_data_is_empty`
+ * cannot see the clash — it counts rows owned by the target user, and the rows
+ * in the way are owned by someone else.
+ *
+ * So every row gets a fresh id on the way in, and every reference to it is
+ * rewritten to match.
+ *
+ * WHY UNCONDITIONALLY, rather than only when a collision is detected: one code
+ * path is far easier to trust than two, and the two-path version would put the
+ * rarely-exercised branch in charge of exactly the case that matters. There is
+ * also nothing to preserve — a restore only ever runs into an empty login, so by
+ * the time these rows land the originals have either been wiped or belong to a
+ * different account. Keeping the old ids buys nothing and costs the one bug this
+ * whole section exists to kill.
+ */
+
+/**
+ * Which columns of each entity point at another row in the backup.
+ *
+ * Read off the live schema (information_schema plus pg_constraint), not off
+ * memory: several of these have no foreign key behind them and would not show up
+ * in an FK listing — `recurring_transactions.account_id` is a bare uuid, and the
+ * TEXT `category` columns are the ones most likely to be forgotten.
+ *
+ * Deliberately absent:
+ *  • `user_id` on every table — restore_user_chunk overwrites it with the target
+ *    login's id. Remapping it here would be undone a moment later.
+ *  • `accounts.plaid_connection_id` and `transactions.connection_id` — they
+ *    point at bank_connections, which a backup deliberately does not carry, and
+ *    the RPC strips both before inserting.
+ *  • the jsonb columns (`metadata`, `widgets`, `settings`) — nothing in the app
+ *    writes a row id into any of them; they hold layout and display settings.
+ */
+interface EntityReferences {
+  /** Columns typed uuid whose value is another backed-up row's id. */
+  readonly uuid?: readonly string[];
+  /**
+   * TEXT columns that hold a row id.
+   *
+   * These are gated on the value LOOKING like a uuid, because the same column is
+   * free text in some rows: `goals.category` holds a label a person typed, while
+   * `transactions.category` holds a category's uuid. A label is not a reference
+   * and must not be counted as a dangling one.
+   */
+  readonly textId?: readonly string[];
+  /** uuid[] columns where every element is a row id. */
+  readonly uuidArray?: readonly string[];
+}
+
+const ENTITY_REFERENCES: Readonly<Record<BackupEntity, EntityReferences>> = {
+  accounts: { uuid: ['parent_account_id'] },
+  categories: { uuid: ['parent_id', 'account_id'] },
+  transactions: {
+    uuid: ['account_id', 'category_id', 'transfer_account_id', 'linked_transfer_id', 'linked_transfer_split_id'],
+    // `category` duplicates category_id as text and is what most of the app
+    // actually reads. Miss it and every categorised transaction comes back
+    // filed under a category id that no longer exists — silently, because
+    // nothing constrains it.
+    textId: ['category'],
+  },
+  transaction_splits: {
+    uuid: ['transaction_id', 'transfer_account_id', 'linked_transfer_id'],
+    textId: ['category'],
+  },
+  budgets: { uuid: ['category_id'], textId: ['category'] },
+  goals: { uuid: ['account_id'], textId: ['category'] },
+  goal_contributions: { uuid: ['goal_id', 'transaction_id'] },
+  investments: { uuid: ['account_id'] },
+  investment_transactions: { uuid: ['investment_id'] },
+  recurring_transactions: { uuid: ['account_id'], textId: ['category'] },
+  notifications: {},
+  dashboard_layouts: {},
+  widget_preferences: {},
+  // subject_key is handled separately below — it is a composite, not a plain id.
+  suggestion_dismissals: { uuidArray: ['subject_ids'] },
+};
+
+/**
+ * Whether a string is shaped like a uuid.
+ *
+ * Only used to tell a reference from a label in the TEXT columns and inside
+ * subject_key. Columns actually typed uuid are looked up directly — anything in
+ * one of those IS an id, whatever it looks like.
+ */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The separator src/utils/suggestionDismissals.ts joins dismissal keys with. */
+const DISMISSAL_KEY_SEPARATOR = '|';
+
+/**
+ * A reference that resolved to nothing — the row it named is not in the file.
+ *
+ * Left exactly as it was rather than blanked. A value we cannot explain is not
+ * the same as a value we know to be absent, and overwriting it would destroy the
+ * only evidence of what the row used to point at. Counted instead, so a restore
+ * can say so rather than quietly detaching data.
+ */
+export interface DanglingReference {
+  entity: string;
+  /** The row's NEW id, so it can be found in the database after the restore. */
+  rowId: string;
+  field: string;
+  /** The id that named nothing in the file. */
+  value: string;
+}
+
+export interface RemapResult {
+  bundle: BackupBundle;
+  /** Original id → fresh id, for every row in the file. */
+  idMap: ReadonlyMap<string, string>;
+  danglingRefs: DanglingReference[];
+}
+
+/**
+ * Rewrite the ids inside a dismissal key.
+ *
+ * suggestion_dismissals.subject_key is TEXT, but it is built out of row ids —
+ * `<id>|<id>` sorted, or `split:<id>|txn:<id>`, or `<kind>|<id>|<id>` (see
+ * src/utils/suggestionDismissals.ts). Remapping subject_ids while leaving this
+ * alone would break every dismissal the user has made: the sweep recomputes the
+ * key from the rows it finds, gets the new ids, and matches nothing — so every
+ * suggestion the user has already refused comes back.
+ *
+ * The bare ids are re-sorted afterwards because canonicalSubjectKey sorts them,
+ * and fresh ids do not sort the way the originals did. Segments carrying a role
+ * prefix stay where they are: legDismissalKey deliberately does not sort, since
+ * its two halves live in different tables.
+ */
+function remapDismissalKey(
+  key: string,
+  lookup: (id: string) => string | undefined,
+  onDangling: (value: string) => void
+): string {
+  const segments = key.split(DISMISSAL_KEY_SEPARATOR);
+
+  const remapped = segments.map((segment) => {
+    const colon = segment.indexOf(':');
+    const prefix = colon >= 0 ? segment.slice(0, colon + 1) : '';
+    const value = colon >= 0 ? segment.slice(colon + 1) : segment;
+    // A segment that is not a uuid is a kind tag like "duplicate" or "claimed".
+    if (!UUID_PATTERN.test(value)) return segment;
+    const replacement = lookup(value);
+    if (replacement === undefined) {
+      onDangling(value);
+      return segment;
+    }
+    return prefix + replacement;
+  });
+
+  // Positions that held a BARE uuid — the ones canonicalSubjectKey sorted.
+  const barePositions: number[] = [];
+  segments.forEach((segment, index) => {
+    if (UUID_PATTERN.test(segment)) barePositions.push(index);
+  });
+
+  const wasSorted = barePositions.every(
+    (index, i) => i === 0 || segments[barePositions[i - 1]] <= segments[index]
+  );
+  if (wasSorted && barePositions.length > 1) {
+    // Default comparator, matching canonicalSubjectKey's own `[...ids].sort()`.
+    const sorted = barePositions.map((index) => remapped[index]).sort();
+    barePositions.forEach((index, i) => { remapped[index] = sorted[i]; });
+  }
+
+  return remapped.join(DISMISSAL_KEY_SEPARATOR);
+}
+
+/**
+ * Give every row in the bundle a fresh id and rewrite every reference to match.
+ *
+ * Pure: the only impurity is id generation, and that is injectable so a test can
+ * hold it still. Returns a new bundle rather than editing the one passed in, so
+ * a failed restore can be retried from the file as it was read.
+ *
+ * `newId` defaults to crypto.randomUUID, which the app already relies on
+ * elsewhere and polyfills for older Safari in utils/safariCompat.
+ */
+export function remapBackupIds(
+  bundle: BackupBundle,
+  newId: () => string = () => crypto.randomUUID()
+): RemapResult {
+  // One map for every table rather than one per table. Ids here are uuids from
+  // the same generator, so a value cannot mean one row in accounts and another
+  // in categories — and subject_key needs exactly this, because it mixes
+  // transaction ids with transaction_split ids in a single string.
+  const idMap = new Map<string, string>();
+  for (const entity of BACKUP_ENTITIES) {
+    for (const row of bundle.data[entity]) {
+      const id = readString(row, 'id');
+      if (id && !idMap.has(id)) idMap.set(id, newId());
+    }
+  }
+
+  const lookup = (id: string): string | undefined => idMap.get(id);
+  const danglingRefs: DanglingReference[] = [];
+
+  const data = {} as Record<BackupEntity, BackupRow[]>;
+  for (const entity of BACKUP_ENTITIES) {
+    const spec = ENTITY_REFERENCES[entity];
+    data[entity] = bundle.data[entity].map((row) => {
+      const original = readString(row, 'id');
+      const rowId = (original && idMap.get(original)) ?? original ?? '(no id)';
+      const next: BackupRow = { ...row };
+      if (original) next.id = idMap.get(original) ?? original;
+
+      const note = (field: string, value: string): void => {
+        danglingRefs.push({ entity, rowId, field, value });
+      };
+
+      for (const field of spec.uuid ?? []) {
+        const value = readString(row, field);
+        if (!value) continue;
+        const replacement = lookup(value);
+        if (replacement === undefined) note(field, value);
+        else next[field] = replacement;
+      }
+
+      for (const field of spec.textId ?? []) {
+        const value = readString(row, field);
+        // Not uuid-shaped means it is a label, not a reference to anything.
+        if (!value || !UUID_PATTERN.test(value)) continue;
+        const replacement = lookup(value);
+        if (replacement === undefined) note(field, value);
+        else next[field] = replacement;
+      }
+
+      for (const field of spec.uuidArray ?? []) {
+        const value = row[field];
+        if (!Array.isArray(value)) continue;
+        next[field] = value.map((element) => {
+          if (typeof element !== 'string') return element;
+          const replacement = lookup(element);
+          if (replacement === undefined) {
+            note(field, element);
+            return element;
+          }
+          return replacement;
+        });
+      }
+
+      if (entity === 'suggestion_dismissals') {
+        const key = readString(row, 'subject_key');
+        if (key) {
+          next.subject_key = remapDismissalKey(key, lookup, (value) => note('subject_key', value));
+        }
+      }
+
+      return next;
+    });
+  }
+
+  // The links payload travels separately to finalize_user_restore, so it needs
+  // the same treatment — remapping the rows and forgetting this would restore
+  // every transfer pointing at the id it had in the old login.
+  const account_parents: AccountParentLink[] = bundle.links.account_parents.map((link) => {
+    const id = idMap.get(link.id) ?? link.id;
+    const parent = idMap.get(link.parent_account_id);
+    if (parent === undefined) {
+      danglingRefs.push({ entity: 'links.account_parents', rowId: id, field: 'parent_account_id', value: link.parent_account_id });
+    }
+    return { id, parent_account_id: parent ?? link.parent_account_id };
+  });
+
+  const transaction_links: TransactionLink[] = bundle.links.transaction_links.map((link) => {
+    const id = idMap.get(link.id) ?? link.id;
+    const remapLink = (field: 'linked_transfer_id' | 'linked_transfer_split_id'): string | null => {
+      const value = link[field];
+      if (!value) return null;
+      const replacement = idMap.get(value);
+      if (replacement === undefined) {
+        danglingRefs.push({ entity: 'links.transaction_links', rowId: id, field, value });
+        return value;
+      }
+      return replacement;
+    };
+    return {
+      id,
+      linked_transfer_id: remapLink('linked_transfer_id'),
+      linked_transfer_split_id: remapLink('linked_transfer_split_id'),
+    };
+  });
+
+  return {
+    bundle: { ...bundle, data, links: { account_parents, transaction_links } },
+    idMap,
+    danglingRefs,
+  };
+}
+
 // ── Putting it back ─────────────────────────────────────────────────────────
 
 export interface RestoreStep {
@@ -657,6 +956,12 @@ export interface RestoreOutcome {
   restored: { label: string; rows: number }[];
   accountsRelinked: number;
   transactionsRelinked: number;
+  /**
+   * References in the file that named a row the file does not contain. Left as
+   * they were, and reported rather than swallowed — a restore that silently
+   * detaches data is the one failure a backup must never have.
+   */
+  danglingRefs: DanglingReference[];
 }
 
 /** bigint comes back from PostgREST as a JSON number, but never assume it. */
@@ -727,8 +1032,13 @@ export async function restoreBackupBundle(
   const client = requireClient(options.client);
   const restored: { label: string; rows: number }[] = [];
 
+  // Every id in the file is replaced before a single row is sent. See
+  // remapBackupIds for why this happens on every restore and not just the ones
+  // that would otherwise collide.
+  const { bundle: remapped, danglingRefs } = remapBackupIds(bundle);
+
   for (const [index, step] of RESTORE_STEPS.entries()) {
-    const rows = rowsForStep(bundle, step);
+    const rows = rowsForStep(remapped, step);
     const report = (rowsDone: number): void => options.onProgress?.({
       stepNumber: index + 1,
       stepCount: RESTORE_STEPS.length + 1, // +1 for the finalize pass below
@@ -760,13 +1070,13 @@ export async function restoreBackupBundle(
     stepCount: RESTORE_STEPS.length + 1,
     label: 'Reconnecting transfers and nested accounts',
     rowsDone: 0,
-    rowsTotal: bundle.links.account_parents.length + bundle.links.transaction_links.length,
+    rowsTotal: remapped.links.account_parents.length + remapped.links.transaction_links.length,
   });
 
   const { data: finalized, error: finalizeError } = await client.rpc('finalize_user_restore', {
     p_links: {
-      account_parents: bundle.links.account_parents,
-      transaction_links: bundle.links.transaction_links,
+      account_parents: remapped.links.account_parents,
+      transaction_links: remapped.links.transaction_links,
     },
     p_user_id: databaseUserId,
   });
@@ -779,5 +1089,6 @@ export async function restoreBackupBundle(
     restored,
     accountsRelinked: asCount(typeof summary.accounts_relinked === 'number' ? summary.accounts_relinked : 0),
     transactionsRelinked: asCount(typeof summary.transactions_relinked === 'number' ? summary.transactions_relinked : 0),
+    danglingRefs,
   };
 }
