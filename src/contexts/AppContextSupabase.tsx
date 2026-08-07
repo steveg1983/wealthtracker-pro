@@ -36,6 +36,7 @@ import type { ServerAccountBalance } from '../utils/accountBalances';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
 import type {
   Account,
+  AccountUpdate,
   Transaction,
   TransactionSplit,
   TransactionSplitInput,
@@ -64,7 +65,7 @@ export interface Tag {
 export interface AppContextType extends AppState {
   // Account operations
   addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
-  updateAccount: (id: string, updates: Partial<Account>) => Promise<void>;
+  updateAccount: (id: string, updates: AccountUpdate) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
 
   // Transaction operations — async so callers can surface save failures.
@@ -697,7 +698,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const updateAccount = useCallback(async (id: string, updates: Partial<Account>) => {
+  const updateAccount = useCallback(async (id: string, updates: AccountUpdate) => {
     try {
       recentLocalUpdateRef.current = Date.now();
       const updatedAccount = await DataService.updateAccount(id, updates);

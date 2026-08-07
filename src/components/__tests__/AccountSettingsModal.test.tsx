@@ -131,6 +131,48 @@ describe('AccountSettingsModal', () => {
       });
     });
 
+    it('clears the stored sort code when the type is switched to credit card', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
+
+      const typeLabel = screen.getByText('Account Type');
+      const typeSelect = typeLabel.parentElement?.querySelector('select');
+      expect(typeSelect).toBeTruthy();
+
+      await userEvent.selectOptions(typeSelect!, 'credit');
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      // A card has no sort code, so the value loaded from the previous bank
+      // type must be cleared rather than written back. null, not undefined:
+      // mapAccountToDb skips undefined fields, which would leave the stale sort
+      // code on the card for findSmartMatch to match against.
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc-1', expect.objectContaining({
+          type: 'credit',
+          sortCode: null
+        }));
+      });
+    });
+
+    it('keeps the stored sort code for a bank account type', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
+
+      const typeLabel = screen.getByText('Account Type');
+      const typeSelect = typeLabel.parentElement?.querySelector('select');
+      expect(typeSelect).toBeTruthy();
+
+      await userEvent.selectOptions(typeSelect!, 'savings');
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc-1', expect.objectContaining({
+          type: 'savings',
+          sortCode: '12-34-56'
+        }));
+      });
+    });
+
     it('has sort code input with correct attributes', () => {
       render(<AccountSettingsModal {...defaultProps} />);
       

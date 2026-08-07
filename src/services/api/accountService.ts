@@ -1,6 +1,6 @@
 
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
-import type { Account } from '../../types';
+import type { Account, AccountUpdate } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
@@ -238,7 +238,7 @@ class AccountServiceImpl {
     }
   }
 
-  async updateAccount(id: string, updates: Partial<Account>, userId?: string): Promise<Account> {
+  async updateAccount(id: string, updates: AccountUpdate, userId?: string): Promise<Account> {
     if (!this.isSupabaseReady()) {
       const accounts = await this.readAccounts();
       const index = accounts.findIndex(account => account.id === id);
@@ -441,7 +441,7 @@ export class AccountService {
     return this.service.createAccount(userId, account);
   }
 
-  static updateAccount(id: string, updates: Partial<Account>, userId?: string): Promise<Account> {
+  static updateAccount(id: string, updates: AccountUpdate, userId?: string): Promise<Account> {
     return this.service.updateAccount(id, updates, userId);
   }
 
