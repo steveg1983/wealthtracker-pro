@@ -324,6 +324,37 @@ NEWFILEUID:NONE
       expect(result.transactions.map(t => t.sequence)).toEqual([0, 1]);
     });
 
+    it('counts the rows it had to skip rather than losing them in silence', () => {
+      // Dropping a row the file describes is a payment that will not be in the
+      // register. The caller has to be able to say so.
+      const withUnusableRow = validOFXContent.replace('<FITID>2024012001\n', '');
+
+      expect(ofxImportService.parseOFX(withUnusableRow).unreadableRows).toBe(1);
+      expect(ofxImportService.parseOFX(validOFXContent).unreadableRows).toBe(0);
+    });
+
+    it('survives an unreadable TRNAMT instead of failing the whole import', () => {
+      // `new Decimal('N/A')` THROWS, exactly as it does for a BALAMT of
+      // '5000.00CR'. Reading TRNAMT straight through Decimal cost the user
+      // every transaction in the file over one malformed tag.
+      const withJunkAmount = validOFXContent.replace('<TRNAMT>2500.00', '<TRNAMT>N/A');
+
+      const result = ofxImportService.parseOFX(withJunkAmount);
+      expect(result.transactions).toHaveLength(2);
+      expect(result.unreadableRows).toBe(1);
+      // Never NaN: a NaN amount poisons every balance downstream.
+      expect(result.transactions.some(t => Number.isNaN(t.amount))).toBe(false);
+      expect(result.transactions.map(t => t.sequence)).toEqual([0, 1]);
+    });
+
+    it('carries the unreadable count through the import path to the caller', async () => {
+      const withJunkAmount = validOFXContent.replace('<TRNAMT>2500.00', '<TRNAMT>N/A');
+
+      const result = await ofxImportService.importTransactions(withJunkAmount, mockAccounts, []);
+      expect(result.unreadableRows).toBe(1);
+      expect(result.transactions).toHaveLength(2);
+    });
+
     it('records a zero LEDGERBAL as a real closing balance of 0.00', () => {
       // ABSENT and ZERO are different, and only one of them means "the file
       // says nothing". A zero ledger balance is a statement of fact and is

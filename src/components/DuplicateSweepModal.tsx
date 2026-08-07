@@ -6,7 +6,9 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useAccountNames } from '../hooks/useAccountNames';
 import {
   deleteBlockOf,
+  deleteRefusalFor,
   findDuplicateCandidates,
+  needsConfirmation,
   type DeleteBlock,
   type DuplicateCandidate,
 } from '../utils/duplicateSweep';
@@ -29,6 +31,15 @@ import type { SuggestionDismissal, Transaction } from '../types';
  * user has to say which of the two copies goes. The scan cannot know which one
  * is the real one — one may be reconciled, categorised or carry a note the
  * other does not — so it never guesses.
+ *
+ * The scan finds in two tiers (see utils/duplicateSweep), and this screen keeps
+ * them apart on purpose. Pairs whose WORDING agrees as well as their money are
+ * near-certain. Pairs found only because the money and the day agree are
+ * evidence: a renamed payee looks exactly like that, and so do two separate
+ * payments of the same size. Those carry an extra confirmation that the user
+ * has to give pair by pair — and the button is gated by
+ * `deleteRefusalFor`, not by this component's opinion, so the rule holds
+ * wherever it is asked from.
  *
  * Three shapes of row are refused outright, with the reason said out loud
  * rather than the row being quietly hidden (see utils/duplicateSweep):
@@ -83,6 +94,11 @@ const shortDate = (date: Date | string): string =>
 const longDate = (date: Date | string): string =>
   new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
+const gapPhrase = (daysApart: number): string => {
+  const days = Math.round(daysApart);
+  return days === 0 ? 'on the same day' : `${days} day${days === 1 ? '' : 's'} apart`;
+};
+
 export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
   const {
     transactions, categories, deleteTransaction,
@@ -94,9 +110,12 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
   const accountName = useAccountNames();
 
   const [windowDays, setWindowDays] = useState<WindowDays>(3);
+  const [accountFilter, setAccountFilter] = useState('');
   const [reviewing, setReviewing] = useState<DuplicateCandidate | null>(null);
   /** Which copy the user has chosen to delete, inside the review. */
   const [chosenId, setChosenId] = useState<string | null>(null);
+  /** The answer to "these two are one payment" — for the weaker tier only. */
+  const [confirmedSame, setConfirmedSame] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // A refusal that has not yet been answered "and never again?".
   const [dismissPrompt, setDismissPrompt] = useState<DuplicateCandidate | null>(null);
@@ -142,9 +161,33 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
     const key = duplicateDismissalKey(candidate.a, candidate.b);
     return !dismissed.has(key) && !dismissedDuplicateKeys.has(key);
   });
-  const visible = live
-    .slice(0, CAP)
-    .sort((a, b) => sortDir * compareCandidates(a, b, sortKey, accountName));
+
+  /**
+   * Every account the sweep found something in. The scan already covers the
+   * whole history in one run; this is so a user who has cleaned one account can
+   * see at a glance which of the others still have work in them, and take one
+   * at a time without leaving the screen.
+   */
+  const accountsWithWork = (() => {
+    const counts = new Map<string, number>();
+    for (const candidate of live) {
+      counts.set(candidate.a.accountId, (counts.get(candidate.a.accountId) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([id, count]) => ({ id, name: accountName(id), count }))
+      .sort((a, b) => compareText(a.name, b.name));
+  })();
+  // A filter whose account has since been emptied would hide everything with no
+  // way back, so a stale choice falls back to showing all of them.
+  const scopedAccount = accountsWithWork.some(a => a.id === accountFilter) ? accountFilter : '';
+  const inScope = scopedAccount ? live.filter(c => c.a.accountId === scopedAccount) : live;
+
+  // Sort BEFORE the cap: sorting the first 300 of an arbitrary order just
+  // reshuffles the same 300, which is no use to someone working through a long
+  // list looking for the oldest or the largest.
+  const sorted = [...inScope].sort((a, b) => sortDir * compareCandidates(a, b, sortKey, accountName));
+  const wordingAgrees = sorted.filter(c => !needsConfirmation(c));
+  const needsYourEye = sorted.filter(c => needsConfirmation(c));
 
   const sortBy = (key: SortKey): void => {
     if (sortKey === key) {
@@ -161,11 +204,20 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
     // Nothing is pre-selected, deliberately: the scan cannot tell which copy is
     // the real one, and a pre-ticked delete is how the wrong row goes.
     setChosenId(null);
+    setConfirmedSame(false);
   };
 
   /** The row the user has picked, when it is genuinely deletable. */
   const chosen = reviewing && chosenId
     ? [reviewing.a, reviewing.b].find(t => t.id === chosenId) ?? null
+    : null;
+
+  /**
+   * The single source of truth for whether this delete may happen. Asked here
+   * to draw the button, and asked again before the delete actually runs.
+   */
+  const refusal = reviewing && chosen
+    ? deleteRefusalFor(reviewing, chosen, confirmedSame)
     : null;
 
   /**
@@ -192,7 +244,10 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
   };
 
   const handleDelete = async (): Promise<void> => {
-    if (!chosen) return;
+    if (!reviewing || !chosen) return;
+    // Asked again, not inherited from the disabled button: a disabled attribute
+    // is a hint to a mouse, and this is the last point before a row is gone.
+    if (deleteRefusalFor(reviewing, chosen, confirmedSame) !== null) return;
     setDeleting(true);
     try {
       const money = formatCurrency(Math.abs(chosen.amount));
@@ -204,6 +259,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
       );
       setReviewing(null);
       setChosenId(null);
+      setConfirmedSame(false);
     } catch (error) {
       // Verbatim: the database's own refusal names the precondition that
       // failed, and a silent failure on a delete is the worst outcome here.
@@ -313,6 +369,102 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
     );
   };
 
+  /** The likeness evidence, said in the terms of the tier the pair is in. */
+  const likeness = (candidate: DuplicateCandidate): string => {
+    if (!needsConfirmation(candidate)) return `${Math.round(candidate.score)}% alike`;
+    return candidate.descriptionOverlap === 0
+      ? 'Not one word in common'
+      : `${Math.round(candidate.descriptionOverlap * 100)}% of the words in common`;
+  };
+
+  const renderTable = (rows: DuplicateCandidate[], total: number): React.JSX.Element => (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+            {([
+              ['date', 'Date', 'Sort by date'],
+              ['account', 'Account', 'Sort by account name'],
+              ['description', 'Description', 'Sort by description'],
+              ['amount', 'Amount', 'Sort by amount size'],
+            ] as const).map(([key, label, hint]) => (
+              <th key={key} className="text-center pb-2 font-medium">
+                <button
+                  type="button"
+                  onClick={() => sortBy(key)}
+                  className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                  title={hint}
+                >
+                  {label}{arrow(key)}
+                </button>
+              </th>
+            ))}
+            <th className="pb-2 w-24"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(candidate => {
+            const first = earlier(candidate);
+            const sameWording = candidate.a.description === candidate.b.description;
+            return (
+              <tr
+                key={duplicateDismissalKey(candidate.a, candidate.b)}
+                onClick={() => review(candidate)}
+                className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top"
+                title="Look at both copies of this"
+              >
+                <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {shortDate(first.date)}
+                  {candidate.daysApart > 0 && (
+                    <span className="ml-1 text-xs text-gray-400">
+                      +{Math.round(candidate.daysApart)}d
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="block truncate max-w-[140px]">
+                    {accountName(candidate.a.accountId)}
+                  </span>
+                </td>
+                <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span className="block truncate max-w-[260px] text-gray-900 dark:text-white">
+                    {candidate.a.description}
+                  </span>
+                  {!sameWording && (
+                    <span className="block truncate max-w-[260px] text-xs">
+                      and “{candidate.b.description}”
+                    </span>
+                  )}
+                  <span className="block text-xs mt-0.5">{likeness(candidate)}</span>
+                </td>
+                <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                  {formatCurrency(Math.abs(candidate.a.amount))}
+                </td>
+                <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => review(candidate)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Review
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+          {total > CAP && (
+            <tr>
+              <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                Showing the first {CAP.toLocaleString()} of {total.toLocaleString()} —
+                settle these, then run this again for the rest.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
   const bothBlocked = reviewing !== null
     && deleteBlockOf(reviewing.a) !== null
     && deleteBlockOf(reviewing.b) !== null;
@@ -329,10 +481,10 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
 
         <div className="flex flex-wrap items-center gap-3 mb-3">
           <p className="text-sm text-gray-600 dark:text-gray-400 flex-1 min-w-[16rem]">
-            Rows in the <strong>same account</strong> for the same amount, to the penny, with the
-            same or nearly the same description, a few days apart — what a bank feed and an import
-            of the same payment look like. Two matching rows in <em>different</em> accounts are not
-            here: that is a transfer, and “Match transfers” is where it belongs.
+            Every account is swept at once. Rows in the <strong>same account</strong> for the same
+            amount, to the penny, a few days apart — what a bank feed and an import of the same
+            payment look like. Two matching rows in <em>different</em> accounts are not here: that
+            is a transfer, and “Match transfers” is where it belongs.
           </p>
           <label className="text-sm text-gray-600 dark:text-gray-400">
             Within{' '}
@@ -348,6 +500,26 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
           </label>
         </div>
 
+        {/* Only worth a control when there is more than one account to choose
+            between — otherwise it is a menu with one thing on it. */}
+        {accountsWithWork.length > 1 && (
+          <label className="block mb-3 text-sm text-gray-600 dark:text-gray-400">
+            Account{' '}
+            <select
+              value={scopedAccount}
+              onChange={e => setAccountFilter(e.target.value)}
+              className="ml-1 px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white max-w-full"
+            >
+              <option value="">All accounts</option>
+              {accountsWithWork.map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.count.toLocaleString()})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         {!dismissalsChecked ? (
           <p className="text-center py-10 text-gray-500 dark:text-gray-400">
             Checking which of these you have already dealt with…
@@ -359,93 +531,45 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
             {duplicateDismissals.length > 0 ? ', or left out at your request below' : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                  {([
-                    ['date', 'Date', 'Sort by date'],
-                    ['account', 'Account', 'Sort by account name'],
-                    ['description', 'Description', 'Sort by description'],
-                    ['amount', 'Amount', 'Sort by amount size'],
-                  ] as const).map(([key, label, hint]) => (
-                    <th key={key} className="text-center pb-2 font-medium">
-                      <button
-                        type="button"
-                        onClick={() => sortBy(key)}
-                        className="hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-                        title={hint}
-                      >
-                        {label}{arrow(key)}
-                      </button>
-                    </th>
-                  ))}
-                  <th className="pb-2 w-24"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map(candidate => {
-                  const first = earlier(candidate);
-                  const sameWording = candidate.a.description === candidate.b.description;
-                  return (
-                    <tr
-                      key={duplicateDismissalKey(candidate.a, candidate.b)}
-                      onClick={() => review(candidate)}
-                      className="border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors align-top"
-                      title="Look at both copies of this"
-                    >
-                      <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {shortDate(first.date)}
-                        {candidate.daysApart > 0 && (
-                          <span className="ml-1 text-xs text-gray-400">
-                            +{Math.round(candidate.daysApart)}d
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 text-sm text-gray-700 dark:text-gray-300">
-                        <span className="block truncate max-w-[140px]">
-                          {accountName(candidate.a.accountId)}
-                        </span>
-                      </td>
-                      <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
-                        <span className="block truncate max-w-[260px] text-gray-900 dark:text-white">
-                          {candidate.a.description}
-                        </span>
-                        {!sameWording && (
-                          <span className="block truncate max-w-[260px] text-xs">
-                            and “{candidate.b.description}”
-                          </span>
-                        )}
-                        <span className="block text-xs mt-0.5">
-                          {Math.round(candidate.score)}% alike
-                        </span>
-                      </td>
-                      <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                        {formatCurrency(Math.abs(candidate.a.amount))}
-                      </td>
-                      <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => review(candidate)}
-                          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          Review
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {live.length > CAP && (
-                  <tr>
-                    <td colSpan={5} className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
-                      Showing the first {CAP.toLocaleString()} of {live.length.toLocaleString()} —
-                      settle these, then run this again for the rest.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {wordingAgrees.length > 0 && (
+              // Named regions, because the two tables carry the same column
+              // headings: without this a screen reader meets "Sort by date"
+              // twice with nothing to say which list it sorts.
+              <section className="mb-6" aria-labelledby="duplicates-wording-agrees">
+                <h3
+                  id="duplicates-wording-agrees"
+                  className="text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  Same money, same wording
+                </h3>
+                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                  Same account, the same amount to the penny, and the two rows read as the same
+                  payee. Until one copy goes, that payment is counted twice in the balance.
+                </p>
+                {renderTable(wordingAgrees.slice(0, CAP), wordingAgrees.length)}
+              </section>
+            )}
+
+            {needsYourEye.length > 0 && (
+              <section aria-labelledby="duplicates-needs-your-eye">
+                <h3
+                  id="duplicates-needs-your-eye"
+                  className="text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  Same money, different wording — your call
+                </h3>
+                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                  Same account and the same amount to the penny, but the two rows are worded
+                  differently. That is what a payee you renamed looks like — and it is also what
+                  two separate payments of the same size look like. Nothing here can tell them
+                  apart, so each pair has to be confirmed by you before either copy can be
+                  deleted.
+                </p>
+                {renderTable(needsYourEye.slice(0, CAP), needsYourEye.length)}
+              </section>
+            )}
+          </>
         )}
 
         <DismissedSuggestionsSection
@@ -465,7 +589,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
               ? 'Checking…'
               : live.length === 0
                 ? 'Nothing to sort out here.'
-                : `${live.length.toLocaleString()} to look at — each one is decided on its own.`}
+                : 'Each one is decided on its own — nothing is deleted until you choose a copy.'}
           </p>
           <button
             type="button"
@@ -490,14 +614,22 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
           <ModalBody>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               These two rows are in <strong>{accountName(reviewing.a.accountId)}</strong> for the
-              same amount,{' '}
-              {reviewing.daysApart === 0
-                ? 'on the same day'
-                : `${Math.round(reviewing.daysApart)} day${Math.round(reviewing.daysApart) === 1 ? '' : 's'} apart`}
-              , and read as the same payee. That is what an import landing on top of a bank feed
-              looks like — but it is also what a genuine repeat payment looks like, so{' '}
-              <strong>nothing here can tell which</strong>. Choose the copy to delete, or leave
-              them both alone.
+              same amount, {gapPhrase(reviewing.daysApart)}
+              {needsConfirmation(reviewing) ? (
+                <>
+                  , but they are worded differently. That is what a payee you renamed looks like —
+                  and also what two separate payments of the same size look like.{' '}
+                  <strong>Nothing here can tell which</strong>, so say so yourself before choosing
+                  a copy to delete.
+                </>
+              ) : (
+                <>
+                  , and read as the same payee. That is what an import landing on top of a bank
+                  feed looks like — but it is also what a genuine repeat payment looks like, so{' '}
+                  <strong>nothing here can tell which</strong>. Choose the copy to delete, or leave
+                  them both alone.
+                </>
+              )}
             </p>
 
             <fieldset>
@@ -508,6 +640,22 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
               </div>
             </fieldset>
 
+            {/* The extra step the weaker tier costs. It is the user's own
+                statement about this one pair, which is exactly what no bulk
+                action could ever provide on their behalf. */}
+            {needsConfirmation(reviewing) && !bothBlocked && (
+              <label className="mt-4 flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={confirmedSame}
+                  disabled={deleting}
+                  onChange={e => setConfirmedSame(e.target.checked)}
+                  className="mt-0.5 rounded border-gray-300"
+                />
+                <span>I have read both rows and they are one payment recorded twice.</span>
+              </label>
+            )}
+
             {bothBlocked ? (
               <div className="mt-4 flex items-start gap-2 rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
                 <AlertTriangleIcon size={16} className="mt-0.5 flex-shrink-0" />
@@ -516,6 +664,11 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
                   together, as explained above. Unpick that first, then run this again.
                 </p>
               </div>
+            ) : refusal === 'not-confirmed' ? (
+              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                Tick the box above to say these two really are one payment. Nothing is deleted
+                until you do.
+              </p>
             ) : chosen ? (
               <div className="mt-4 flex items-start gap-2 rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300">
                 <AlertTriangleIcon size={16} className="mt-0.5 flex-shrink-0" />
@@ -538,6 +691,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
                   setDismissPrompt(reviewing);
                   setReviewing(null);
                   setChosenId(null);
+                  setConfirmedSame(false);
                 }}
                 className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
@@ -545,7 +699,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
               </button>
               <button
                 type="button"
-                disabled={deleting || chosen === null}
+                disabled={deleting || chosen === null || refusal !== null}
                 onClick={() => void handleDelete()}
                 className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-red-700 text-white hover:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

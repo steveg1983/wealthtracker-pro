@@ -1,6 +1,6 @@
 import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
-import { parseMoneyInput, toDecimal, toNumber } from '../utils/decimal';
+import { parseMoneyInput } from '../utils/decimal';
 import { findAccountByOfxIdentifiers } from '../utils/ofxAccountIdentifiers';
 import { isSelfTransferCategory } from '../utils/transferMatch';
 import {
@@ -65,6 +65,15 @@ interface OFXParseResult {
   currency?: string;
   startDate?: string;
   endDate?: string;
+  /**
+   * <STMTTRN> blocks the parser could not turn into a transaction — no date,
+   * no amount, an amount that is not a number, or no FITID to identify it by.
+   *
+   * Counted rather than merely skipped because each one is a payment the file
+   * describes and this import will not record. Silently dropping it leaves a
+   * register that cannot be reconciled and nothing to say why.
+   */
+  unreadableRows: number;
 }
 
 export class OFXImportService {
@@ -82,10 +91,10 @@ export class OFXImportService {
     
     // Parse account information
     const account = this.parseAccountInfo(ofxContent);
-    
+
     // Parse transactions
-    const transactions = this.parseTransactions(ofxContent);
-    
+    const { transactions, unreadableRows } = this.parseTransactions(ofxContent);
+
     // Parse balance
     const balance = this.parseBalance(ofxContent);
     
@@ -103,7 +112,8 @@ export class OFXImportService {
       balance,
       currency,
       startDate: startDate ? this.parseOFXDate(startDate) : undefined,
-      endDate: endDate ? this.parseOFXDate(endDate) : undefined
+      endDate: endDate ? this.parseOFXDate(endDate) : undefined,
+      unreadableRows
     };
   }
   
@@ -165,15 +175,23 @@ export class OFXImportService {
   }
   
   /**
-   * Parse transactions from OFX
+   * Parse transactions from OFX, and say how many rows were unreadable.
+   *
+   * The amount goes through parseMoneyInput for the same reason parseBalance
+   * does: `new Decimal('N/A')` THROWS, and a throw here would abort the whole
+   * import over one malformed tag — the user would lose an entire statement to
+   * a row their bank got wrong. A row whose TRNAMT cannot be read is left out
+   * and counted, never guessed at and never imported as NaN, which would
+   * poison every balance downstream.
    */
-  private parseTransactions(content: string): OFXTransaction[] {
+  private parseTransactions(content: string): { transactions: OFXTransaction[]; unreadableRows: number } {
     const transactions: OFXTransaction[] = [];
-    
+    let unreadableRows = 0;
+
     // Find all transaction blocks
     const transactionPattern = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
     let match;
-    
+
     while ((match = transactionPattern.exec(content)) !== null) {
       const transBlock = match[1];
       
@@ -195,25 +213,30 @@ export class OFXImportService {
       
       const refNum = this.readTag(transBlock, 'REFNUM');
       
-      if (datePosted && amountStr && fitId) {
-        transactions.push({
-          type,
-          datePosted: this.parseOFXDate(datePosted),
-          amount: toNumber(toDecimal(amountStr)),
-          fitId: fitId.trim(),
-          name: this.cleanString(name),
-          memo: memo ? this.cleanString(memo) : undefined,
-          checkNum: checkNum || undefined,
-          refNum: refNum || undefined,
-          // Position among the rows KEPT, not among the <STMTTRN> blocks seen:
-          // a block missing a date, amount or FITID is skipped above, and
-          // counting it would leave a gap that reads as a lost transaction.
-          sequence: transactions.length
-        });
+      const amount = amountStr === null ? null : parseMoneyInput(amountStr);
+
+      if (!datePosted || amount === null || !fitId) {
+        unreadableRows++;
+        continue;
       }
+
+      transactions.push({
+        type,
+        datePosted: this.parseOFXDate(datePosted),
+        amount,
+        fitId: fitId.trim(),
+        name: this.cleanString(name),
+        memo: memo ? this.cleanString(memo) : undefined,
+        checkNum: checkNum || undefined,
+        refNum: refNum || undefined,
+        // Position among the rows KEPT, not among the <STMTTRN> blocks seen:
+        // a block missing a date, amount or FITID is skipped above, and
+        // counting it would leave a gap that reads as a lost transaction.
+        sequence: transactions.length
+      });
     }
-    
-    return transactions;
+
+    return { transactions, unreadableRows };
   }
   
   /**
@@ -481,6 +504,12 @@ export class OFXImportService {
     /** How many rows were left out as already held. */
     duplicates: number;
     newTransactions: number;
+    /**
+     * Rows in the file this import could not read at all — see
+     * OFXParseResult.unreadableRows. Nothing was written for them, so a caller
+     * that does not surface this is losing payments in silence.
+     */
+    unreadableRows: number;
   }> {
     const parseResult = this.parseOFX(ofxContent);
 
@@ -605,7 +634,8 @@ export class OFXImportService {
       statementRows,
       duplicateMatches,
       duplicates: skipped.size,
-      newTransactions: transactions.length
+      newTransactions: transactions.length,
+      unreadableRows: parseResult.unreadableRows
     };
   }
 }

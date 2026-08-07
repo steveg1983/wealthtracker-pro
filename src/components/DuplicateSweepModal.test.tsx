@@ -4,7 +4,9 @@
  * What these pin is everything that makes a DELETE safe to hand to a user:
  * nothing is pre-selected, the consequence is on screen before the button
  * works, a row that is holding a transfer or a split together cannot be chosen
- * at all, and a refusal can be made to stick.
+ * at all, a refusal can be made to stick — and a pair the scan found only
+ * because the money and the day agree cannot reach the delete at all until the
+ * user has said, about that one pair, that they are the same payment.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -60,6 +62,21 @@ const CATEGORIES: Category[] = [
 /** The commonest real case: a bank feed and an import of the same payment. */
 const FEED = txn({ id: 'feed', cleared: true });
 const IMPORTED = txn({ id: 'import', isImported: true });
+
+/**
+ * The pair the old scoring could never see: the user renamed the payee, so the
+ * two rows share not one word. Same account, same day, same money to the penny
+ * is all that is left of the evidence.
+ */
+const RENAMED = txn({ id: 'renamed', amount: -410, description: 'Nadia' });
+const AS_IMPORTED = txn({
+  id: 'as-imported',
+  amount: -410,
+  isImported: true,
+  description: 'Immediate Faster Payment (Online) to B EXAMPLE 07-FEB-2027',
+});
+
+const CONFIRMATION = 'I have read both rows and they are one payment recorded twice.';
 
 const renderModal = (): void => {
   render(<DuplicateSweepModal isOpen onClose={vi.fn()} />);
@@ -124,6 +141,201 @@ describe('DuplicateSweepModal — finding the same payment twice', () => {
 
     await waitFor(() => expect(deleteTransaction).toHaveBeenCalledTimes(1));
     expect(deleteTransaction).toHaveBeenCalledWith('import');
+  });
+});
+
+describe('DuplicateSweepModal — the pair whose payee was renamed', () => {
+  beforeEach(() => {
+    __setAppContextValue({ transactions: [RENAMED, AS_IMPORTED], categories: CATEGORIES });
+  });
+
+  it('lists it in its own section, and says what the evidence actually is', () => {
+    renderModal();
+
+    expect(screen.getByText('Same money, different wording — your call')).toBeInTheDocument();
+    // Not a percentage dressed up as certainty: the wording agreeing is the
+    // one thing this pair has NOT got, and the user is told so.
+    const row = screen.getByTitle('Look at both copies of this');
+    expect(within(row).getByText('Not one word in common')).toBeInTheDocument();
+    expect(within(row).getByText('£410.00')).toBeInTheDocument();
+  });
+
+  it('will not delete on a chosen copy alone — the pair has to be confirmed', () => {
+    renderModal();
+    openReview();
+
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+
+    const deleteButton = screen.getByRole('button', { name: 'Delete the copy I chose' });
+    expect(deleteButton).toBeDisabled();
+    expect(screen.getByText(/Tick the box above to say these two really are one payment/))
+      .toBeInTheDocument();
+    // The consequence is not shown yet either: nothing is going to happen.
+    expect(screen.queryByText(/deleted for good/)).not.toBeInTheDocument();
+  });
+
+  it('enables the delete only once the user has said the two are one payment', () => {
+    renderModal();
+    openReview();
+
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getByLabelText(CONFIRMATION));
+
+    expect(screen.getByText(/deleted for good/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete the copy I chose' })).toBeEnabled();
+  });
+
+  it('confirming without choosing a copy still deletes nothing', () => {
+    renderModal();
+    openReview();
+
+    fireEvent.click(screen.getByLabelText(CONFIRMATION));
+
+    expect(screen.getByRole('button', { name: 'Delete the copy I chose' })).toBeDisabled();
+    expect(screen.getByText(/Pick one and this will say exactly what deleting it does/))
+      .toBeInTheDocument();
+  });
+
+  it('deletes exactly the copy chosen, once both answers are in', async () => {
+    const deleteTransaction = vi.fn(async () => {});
+    __setAppContextValue({ deleteTransaction });
+    renderModal();
+    openReview();
+
+    // The imported copy goes and the renamed one — the row carrying the name
+    // its owner will recognise — stays. Which of the two the scan happened to
+    // call "first" is not the user's business.
+    const copies = screen.getByRole('group', { name: 'Choose the copy to delete' });
+    const importedCard = within(copies).getByText(AS_IMPORTED.description).closest('label');
+    if (!importedCard) throw new Error('the imported copy should be a choosable card');
+    fireEvent.click(within(importedCard).getByRole('radio'));
+    fireEvent.click(screen.getByLabelText(CONFIRMATION));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the copy I chose' }));
+
+    await waitFor(() => expect(deleteTransaction).toHaveBeenCalledTimes(1));
+    expect(deleteTransaction).toHaveBeenCalledWith('as-imported');
+  });
+
+  it('starts every pair unconfirmed — an answer about one pair is not an answer about the next', () => {
+    __setAppContextValue({
+      transactions: [
+        RENAMED,
+        AS_IMPORTED,
+        txn({ id: 'other-renamed', amount: -88.5, description: 'Gym' }),
+        txn({ id: 'other-imported', amount: -88.5, description: 'DD FITNESS GROUP 5521' }),
+      ],
+      categories: CATEGORIES,
+    });
+    renderModal();
+
+    expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(2);
+    fireEvent.click(screen.getAllByTitle('Look at both copies of this')[0]);
+    fireEvent.click(screen.getByLabelText(CONFIRMATION));
+    expect(screen.getByLabelText(CONFIRMATION)).toBeChecked();
+
+    // Leave that pair alone and open the next one.
+    fireEvent.click(screen.getByRole('button', { name: 'Not a duplicate — leave both' }));
+    fireEvent.click(screen.getByRole('button', { name: 'No — just this once' }));
+    fireEvent.click(screen.getByTitle('Look at both copies of this'));
+
+    expect(screen.getByLabelText(CONFIRMATION)).not.toBeChecked();
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    expect(screen.getByRole('button', { name: 'Delete the copy I chose' })).toBeDisabled();
+  });
+});
+
+describe('DuplicateSweepModal — the bar has not moved', () => {
+  it('a pair whose wording agrees deletes in exactly the steps it always did', async () => {
+    // THE SAFETY TEST. Widening what the scan can SEE must not widen what a
+    // user can destroy — and it must not put a new hoop in front of the pairs
+    // that were always safe either.
+    const deleteTransaction = vi.fn(async () => {});
+    __setAppContextValue({
+      transactions: [FEED, IMPORTED], categories: CATEGORIES, deleteTransaction,
+    });
+    renderModal();
+    openReview();
+
+    expect(screen.queryByLabelText(CONFIRMATION)).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete the copy I chose' }));
+
+    await waitFor(() => expect(deleteTransaction).toHaveBeenCalledWith('feed'));
+  });
+
+  it('offers nothing that could delete a pair the user has not opened', () => {
+    // No select-all, no per-row tick, no "delete all duplicates". The only
+    // route to a delete is through one pair's review, and the wider tier adds
+    // a confirmation on top of that. A list-level control is how a widened
+    // scan would have turned into lost money.
+    __setAppContextValue({
+      transactions: [FEED, IMPORTED, RENAMED, AS_IMPORTED], categories: CATEGORIES,
+    });
+    renderModal();
+
+    expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(2);
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.textContent ?? '').not.toMatch(/delete|remove|all/i);
+    }
+  });
+
+  it('will not delete a row the wider rule found once its copy is chosen and unconfirmed, however the button is pressed', async () => {
+    // The disabled attribute is a hint to a mouse. The handler asks the same
+    // gate again, so a click that reaches it anyway still does nothing.
+    const deleteTransaction = vi.fn(async () => {});
+    __setAppContextValue({
+      transactions: [RENAMED, AS_IMPORTED], categories: CATEGORIES, deleteTransaction,
+    });
+    renderModal();
+    openReview();
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+
+    const deleteButton = screen.getByRole('button', { name: 'Delete the copy I chose' });
+    deleteButton.removeAttribute('disabled');
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => expect(screen.getByText(/Tick the box above/)).toBeInTheDocument());
+    expect(deleteTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('DuplicateSweepModal — every account in one sweep', () => {
+  it('sweeps accounts the user has not visited, and lets them take one at a time', () => {
+    __setAppContextValue({
+      transactions: [
+        FEED,
+        IMPORTED,
+        txn({ id: 'joint-a', accountId: 'acc-joint', amount: -410, description: 'Nadia' }),
+        txn({
+          id: 'joint-b',
+          accountId: 'acc-joint',
+          amount: -410,
+          description: 'Immediate Faster Payment (Online) to B EXAMPLE',
+        }),
+      ],
+      categories: CATEGORIES,
+    });
+    renderModal();
+
+    expect(screen.getAllByTitle('Look at both copies of this')).toHaveLength(2);
+    expect(screen.getByText('Current account')).toBeInTheDocument();
+    expect(screen.getByText('Joint account')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Account/), { target: { value: 'acc-joint' } });
+
+    const rows = screen.getAllByTitle('Look at both copies of this');
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]).getByText('Joint account')).toBeInTheDocument();
+  });
+
+  it('offers no account chooser when everything found is in one account', () => {
+    // Nothing to say, so nothing rendered.
+    __setAppContextValue({ transactions: [FEED, IMPORTED], categories: CATEGORIES });
+    renderModal();
+
+    expect(screen.queryByLabelText(/Account/)).not.toBeInTheDocument();
   });
 });
 

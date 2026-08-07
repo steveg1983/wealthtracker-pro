@@ -463,9 +463,19 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {parseResult.statementRows.length} transactions found
                 </p>
+                {/* A row the file describes and this import will not record.
+                    Left unsaid, the register simply would not reconcile and
+                    nothing would explain why. */}
+                {parseResult.unreadableRows > 0 && (
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                    {parseResult.unreadableRows === 1
+                      ? 'One row in this file could not be read and will be missing from the register.'
+                      : `${parseResult.unreadableRows} rows in this file could not be read and will be missing from the register.`}
+                  </p>
+                )}
               </div>
             </div>
-            
+
             {/* Account Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

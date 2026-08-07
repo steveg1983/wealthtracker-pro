@@ -50,6 +50,12 @@ interface FileInfo {
   bankBalanceSet?: string;
   /** Set when that write failed — the transactions still landed. */
   bankBalanceWarning?: string;
+  /**
+   * Rows the file describes that the parser could not use. Reported because a
+   * payment that goes missing between the bank's file and the register, with
+   * nothing said about it, is a register that cannot be reconciled.
+   */
+  unreadableRows?: number;
 }
 
 interface ImportSummary {
@@ -217,6 +223,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
           let duplicates = 0;
           let bankBalanceSet: string | undefined;
           let bankBalanceWarning: string | undefined;
+          let unreadableRows = 0;
 
           switch (fileInfo.type) {
             case 'csv': {
@@ -277,6 +284,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                 imported++;
               }
               duplicates = result.duplicates;
+              unreadableRows = result.unreadableRows;
 
               const balanceOutcome = await applyStatementBankBalance(result, bankBalancesWrittenThisRun);
               bankBalanceSet = balanceOutcome.note;
@@ -311,7 +319,8 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
               imported,
               duplicates,
               bankBalanceSet,
-              bankBalanceWarning
+              bankBalanceWarning,
+              unreadableRows
             } : f
           ));
           
@@ -587,6 +596,13 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                           {file.bankBalanceWarning && (
                             <p className="text-xs text-yellow-600 dark:text-yellow-400">
                               {file.bankBalanceWarning}
+                            </p>
+                          )}
+                          {file.unreadableRows !== undefined && file.unreadableRows > 0 && (
+                            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                              {file.unreadableRows === 1
+                                ? 'one row could not be read and is missing from the register'
+                                : `${file.unreadableRows} rows could not be read and are missing from the register`}
                             </p>
                           )}
                         </div>
