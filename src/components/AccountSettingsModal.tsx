@@ -197,10 +197,11 @@ export default function AccountSettingsModal({
 
           {/* Account Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="account-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Account Type
             </label>
             <select
+              id="account-type"
               value={formData.type}
               onChange={(e) => updateField('type', e.target.value as Account['type'])}
               className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -272,7 +273,10 @@ export default function AccountSettingsModal({
                 value={formData.accountNumber}
                 onChange={handleAccountNumberChange}
                 placeholder={isCreditCard ? '1234' : '12345678'}
-                aria-label={isCreditCard ? 'Last four digits of the card number' : 'Bank account number'}
+                // See AddAccountModal: an aria-label here would override the
+                // visible card label with wording that does not contain it
+                // (WCAG 2.5.3 Label in Name).
+                aria-label={isCreditCard ? undefined : 'Bank account number'}
                 {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
@@ -282,10 +286,11 @@ export default function AccountSettingsModal({
 
           {/* Institution */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="account-institution" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Institution
             </label>
             <input
+              id="account-institution"
               type="text"
               value={formData.institution}
               onChange={(e) => updateField('institution', e.target.value)}
@@ -318,9 +323,10 @@ export default function AccountSettingsModal({
           {/* Low Balance Alert */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {/* Not a <label>: the control is a switch button, named via aria-labelledby */}
+              <span id="low-balance-alert-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Low Balance Alert
-              </label>
+              </span>
               <ToggleSwitch
                 checked={!!formData.lowBalanceAlertEnabled}
                 onChange={v => updateField('lowBalanceAlertEnabled', v)}
@@ -329,7 +335,7 @@ export default function AccountSettingsModal({
                 // which a closed account has left. Say so rather than let the
                 // user arm an alert that can never fire.
                 disabled={!formData.isActive}
-                aria-label="Toggle low balance alert"
+                aria-labelledby="low-balance-alert-label"
               />
             </div>
             {!formData.isActive && (
@@ -348,7 +354,6 @@ export default function AccountSettingsModal({
                   onChange={(value) => updateField('lowBalanceThreshold', value)}
                   placeholder="e.g. 500"
                   className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  aria-label="Low balance threshold amount"
                 />
               </div>
             )}
@@ -356,10 +361,11 @@ export default function AccountSettingsModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="account-notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Notes
             </label>
             <textarea
+              id="account-notes"
               value={formData.notes}
               onChange={(e) => updateField('notes', e.target.value)}
               rows={3}

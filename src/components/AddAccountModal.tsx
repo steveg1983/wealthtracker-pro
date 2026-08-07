@@ -203,10 +203,11 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
             {/* Account Name */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              <label htmlFor="add-account-name" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                 Account Name *
               </label>
               <input
+                id="add-account-name"
                 type="text"
                 value={formData.name}
                 onChange={(e) => updateField('name', e.target.value)}
@@ -220,10 +221,11 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
             {/* Account Type */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              {/* Not a <label>: the control is a group of buttons, not a single input */}
+              <span id="add-account-type-label" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                 Account Type *
-              </label>
-              <div className="grid grid-cols-2 gap-3">
+              </span>
+              <div role="group" aria-labelledby="add-account-type-label" className="grid grid-cols-2 gap-3">
                 {accountTypes.map((type) => {
                   const Icon = type.icon;
                   const isSelected = formData.type === type.value;
@@ -233,6 +235,8 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                       type="button"
                       onClick={() => updateField('type', type.value as AccountFormData['type'])}
                       disabled={isSubmitting}
+                      // Selection is otherwise conveyed by colour alone.
+                      aria-pressed={isSelected}
                       className={`p-3 rounded-xl border-2 transition-all duration-200 ${
                         isSelected
                           ? 'border-primary bg-[#1a2332]/10 dark:bg-primary/20'
@@ -265,7 +269,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
             <div className="grid grid-cols-2 gap-4">
               {/* Current Balance */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                <label htmlFor="add-account-balance" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                   Current Balance *
                 </label>
                 <div className="relative">
@@ -273,6 +277,7 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     {selectedCurrency?.symbol}
                   </span>
                   <MoneyInput
+                    id="add-account-balance"
                     // Credit cards and loans start negative.
                     allowNegative
                     value={formData.balance}
@@ -286,10 +291,11 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
               {/* Currency */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                <label htmlFor="add-account-currency" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                   Currency *
                 </label>
                 <select
+                  id="add-account-currency"
                   value={formData.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
                   disabled={isSubmitting}
@@ -313,13 +319,14 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
 
             {/* Institution */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              <label htmlFor="add-account-institution" className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                 Financial Institution
                 <span className="text-xs font-normal text-gray-500 dark:text-gray-400 ml-2">(Optional)</span>
               </label>
               <div className="relative">
                 <Building2Icon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
+                  id="add-account-institution"
                   type="text"
                   value={formData.institution}
                   onChange={(e) => updateField('institution', e.target.value)}
@@ -369,7 +376,11 @@ export default function AddAccountModal({ isOpen, onClose, prefill, onAccountCre
                     onChange={(e) => updateField('accountNumber', nextAccountNumberValue(e.target.value, isCreditCard))}
                     className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-3 focus:ring-primary/20 focus:border-primary dark:text-white transition-all duration-200"
                     placeholder={isCreditCard ? '1234' : '12345678'}
-                    aria-label={isCreditCard ? 'Last four digits of the card number' : 'Bank account number'}
+                    // No aria-label for a card: it would override the visible
+                    // "Card Number — last 4 digits only" with wording that does
+                    // not contain it, so speaking the visible label would not
+                    // reach the field (WCAG 2.5.3 Label in Name).
+                    aria-label={isCreditCard ? undefined : 'Bank account number'}
                     {...(isBankAccount ? { maxLength: BANK_ACCOUNT_NUMBER_LENGTH } : {})}
                     disabled={isSubmitting}
                   />
