@@ -10,6 +10,11 @@ const matcher = /supabase/i;
 const logDir = path.join(rootDir, 'logs', 'supabase-smoke');
 const timestamp = new Date();
 
+// Whether absent credentials are fatal. GitHub Actions and effectively every
+// other runner set CI=true; set it by hand to reproduce the CI behaviour
+// locally. Anything other than an explicit 'false' counts as CI.
+const isCI = Boolean(process.env.CI) && process.env.CI !== 'false';
+
 function loadEnvFile(filePath) {
   try {
     const content = readFileSync(filePath, 'utf8');
@@ -101,16 +106,53 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.VITE_SUPABASE_SERVICE
   missingKeys.push('SUPABASE_SERVICE_ROLE_KEY');
 }
 if (missingKeys.length > 0) {
-  console.error('[supabase-smoke] Missing required env vars:', missingKeys.join(', '));
-  console.error('[supabase-smoke] Provide them in your shell or .env.test.local before running.');
+  // In CI, absent credentials are a real failure and must stay loud. This job
+  // once silently skipped for months because SUPABASE_SERVICE_ROLE_KEY was
+  // unset, reporting success the whole time — see .github/workflows/supabase-smoke.yml.
+  if (isCI) {
+    console.error('[supabase-smoke] Missing required env vars:', missingKeys.join(', '));
+    console.error('[supabase-smoke] Running in CI, where this is a hard failure — the live-infra');
+    console.error('[supabase-smoke] safety net cannot silently degrade to green.');
+    await writeLog({
+      status: 'FAILED',
+      note: `Missing env vars in CI: ${missingKeys.join(', ')}`,
+      stdout: '',
+      stderr: '',
+      tests: []
+    });
+    process.exit(1);
+  }
+
+  // Locally, these credentials are optional. Hard-failing here blocked every
+  // push from any checkout without .env.test.local — including every fresh git
+  // worktree — which pushed people towards `--no-verify` or towards copying
+  // live keys between directories. Both are worse than skipping a check that
+  // the nightly workflow runs against real infrastructure anyway.
+  //
+  // Skipped, not silent: this prints on every push and is recorded as SKIPPED
+  // in the log, so it can never masquerade as a passing run.
+  console.warn('');
+  console.warn('  ┌─────────────────────────────────────────────────────────────────┐');
+  console.warn('  │  SUPABASE SMOKE SKIPPED — no credentials in this checkout        │');
+  console.warn('  └─────────────────────────────────────────────────────────────────┘');
+  console.warn(`  Missing: ${missingKeys.join(', ')}`);
+  console.warn('  These tests run against live Supabase, so they need real values.');
+  console.warn('');
+  console.warn('  To run them here, create .env.test.local in this directory');
+  console.warn('  (git-ignored) using the key names in .env.example.');
+  console.warn('');
+  console.warn('  Skipping locally. The nightly Supabase Smoke workflow still runs');
+  console.warn('  this against real infrastructure with CI secrets, and fails loudly');
+  console.warn('  if they are absent.');
+  console.warn('');
   await writeLog({
-    status: 'FAILED',
-    note: `Missing env vars: ${missingKeys.join(', ')}`,
+    status: 'SKIPPED',
+    note: `Missing env vars locally (not CI): ${missingKeys.join(', ')}`,
     stdout: '',
     stderr: '',
     tests: []
   });
-  process.exit(1);
+  process.exit(0);
 }
 
 process.env.RUN_SUPABASE_REAL_TESTS = 'true';
