@@ -6,6 +6,11 @@ import {
   readOfxAccountIdentifiers
 } from '../utils/ofxAccountIdentifiers';
 import { keepLastFour } from '../utils/accountNumberInput';
+import { formatStatementDay, planStatementBankBalance } from '../utils/statementBankBalance';
+// The account's OWN currency, not the user's display currency: a statement
+// states a figure in the currency the account is held in, and the reconciliation
+// screen compares it in that currency too.
+import { formatCurrency } from '../utils/currency-decimal';
 import { Modal } from './common/Modal';
 import {
   UploadIcon,
@@ -41,6 +46,10 @@ type ImportOutcome =
       savedDetails?: { accountName: string; summary: string };
       /** Set when saving those details failed — the transactions still landed. */
       savedDetailsError?: string;
+      /** Set when the statement's closing balance became the Bank Balance. */
+      bankBalance?: { amount: string; dateAsOf: string };
+      /** Set when writing that balance failed — the transactions still landed. */
+      bankBalanceError?: string;
     }
   | {
       success: false;
@@ -124,10 +133,40 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     parseResult?.matchConfidence === 'identifier' &&
     parseResult.matchedAccount?.id === selectedAccountId;
 
+  // What this file would do to the account's Bank Balance — the figure
+  // Reconciliation measures against, and the reason finalising means anything.
+  // Worked out here so the preview can state it before the user commits, and
+  // again at import time against the account the money actually went into.
+  const bankBalancePlan = useMemo(
+    () =>
+      planStatementBankBalance(parseResult?.statementBalance, selectedAccount, {
+        // The destination is on screen with the figure next to it, and Import
+        // is disabled until an account is chosen — this is not a silent guess.
+        destinationConfirmed: true
+      }),
+    [parseResult, selectedAccount]
+  );
+
   // Automatic when the destination is a decision (the user picked it, or the
   // account's own recorded details are the file's), off when it is a guess.
   const saveDetailsByDefault = accountIsUserChoice || matchIsCertain;
   const saveDetails = detailsToSave !== null && (saveDetailsOverride ?? saveDetailsByDefault);
+
+  // One line about the consequence, or nothing at all. Only rendered once a
+  // destination is chosen, because until then there is no account to talk about.
+  const bankBalanceNotice = useMemo((): string | null => {
+    if (!parseResult || !selectedAccount) return null;
+
+    if (bankBalancePlan.kind === 'set') {
+      return `${selectedAccount.name}'s Bank Balance will be set to ${formatCurrency(bankBalancePlan.amount, selectedAccount.currency)}, as at ${formatStatementDay(bankBalancePlan.dateAsOf)} — the figure Reconciliation checks your cleared transactions against.`;
+    }
+
+    if (bankBalancePlan.kind === 'stale') {
+      return `${selectedAccount.name}'s Bank Balance will be left as it is: it already holds ${formatCurrency(bankBalancePlan.recordedBalance, selectedAccount.currency)} dated ${formatStatementDay(bankBalancePlan.recordedDate)}, which is later than this statement.`;
+    }
+
+    return `This file doesn't state a closing balance, so ${selectedAccount.name}'s Bank Balance stays as it is and Reconciliation has nothing to check these transactions against. You can enter it there by hand.`;
+  }, [bankBalancePlan, parseResult, selectedAccount]);
 
   const handleAccountChange = useCallback((accountId: string) => {
     setSelectedAccountId(accountId);
@@ -222,13 +261,43 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         }
       }
 
+      // The statement's closing balance becomes the account's Bank Balance,
+      // exactly as a bank feed's would. ONLY bankBalance and its date are
+      // written — never `balance`, which is the ledger the transactions above
+      // have already moved; writing the statement total on top of it would
+      // count the same money twice.
+      //
+      // Recomputed against the real destination for the same reason the
+      // details plan is, and kept as its own write so that a failure here
+      // cannot be mistaken for a failure to save the bank details.
+      let bankBalance: { amount: string; dateAsOf: string } | undefined;
+      let bankBalanceError: string | undefined;
+      const balancePlan = planStatementBankBalance(result.statementBalance, account, {
+        destinationConfirmed: true
+      });
+
+      if (balancePlan.kind === 'set' && account) {
+        try {
+          await updateAccount(account.id, balancePlan.updates);
+          bankBalance = {
+            amount: formatCurrency(balancePlan.amount, account.currency),
+            dateAsOf: formatStatementDay(balancePlan.dateAsOf)
+          };
+        } catch (error) {
+          logger.error('Failed to set bank balance from OFX statement', error);
+          bankBalanceError = `The transactions imported fine, but ${account.name}'s Bank Balance couldn't be updated — Reconciliation will still compare against the old figure. You can type it in there.`;
+        }
+      }
+
       setImportResult({
         success: true,
         imported: result.newTransactions,
         duplicates: result.duplicates,
         account,
         savedDetails,
-        savedDetailsError
+        savedDetailsError,
+        bankBalance,
+        bankBalanceError
       });
     } catch (error) {
       logger.error('Import error', error);
@@ -300,7 +369,10 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                     <li>• Automatic duplicate detection using transaction IDs</li>
                     <li>• Smart account matching based on account numbers</li>
                     <li>• Preserves transaction reference numbers</li>
-                    <li>• Imports cleared transactions with exact dates</li>
+                    <li>• Sets the account&apos;s Bank Balance from the statement&apos;s closing balance</li>
+                    {/* Said plainly because it changed: rows used to arrive
+                        pre-cleared, which skipped the check the file is for. */}
+                    <li>• Leaves the transactions for you to reconcile against the statement</li>
                   </ul>
                 </div>
               </div>
@@ -401,6 +473,15 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                   </p>
                 </div>
               )}
+
+              {/* The Bank Balance is what makes finalising a reconciliation
+                  mean anything, so what this file does to it is said before it
+                  happens rather than discovered on the reconciliation screen. */}
+              {bankBalanceNotice && (
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                  {bankBalanceNotice}
+                </p>
+              )}
             </div>
 
             {/* Import Options */}
@@ -476,6 +557,20 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                 {importResult.duplicates > 0 && (
                   <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
                     Skipped {importResult.duplicates} duplicate transactions
+                  </p>
+                )}
+
+                {importResult.bankBalance && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                    Bank Balance set to {importResult.bankBalance.amount}, as at{' '}
+                    {importResult.bankBalance.dateAsOf}. Reconciliation now has
+                    something to check these transactions against.
+                  </p>
+                )}
+
+                {importResult.bankBalanceError && (
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
+                    {importResult.bankBalanceError}
                   </p>
                 )}
 

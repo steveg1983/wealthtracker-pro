@@ -171,6 +171,10 @@ const persistAccountsAndLinks = async (
   });
 
   const nowIso = new Date().toISOString();
+  // The day the bank's figure is true for. Recorded so a manually imported
+  // statement can tell whether it is older than what the feed already holds —
+  // without it, last March's statement would overwrite this morning's sync.
+  const balanceAsOfDay = nowIso.slice(0, 10);
   const externalAccountIds = new Set<string>();
 
   for (const account of accounts) {
@@ -219,6 +223,7 @@ const persistAccountsAndLinks = async (
           ...(hasUserName ? {} : { name: account.name }),
           type: account.type,
           bank_balance: account.balance,
+          bank_balance_date: balanceAsOfDay,
           currency: account.currency,
           institution: connection.institution_name,
           is_active: true,
@@ -255,6 +260,7 @@ const persistAccountsAndLinks = async (
           type: account.type,
           balance: account.balance,
           bank_balance: account.balance,
+          bank_balance_date: balanceAsOfDay,
           initial_balance: account.balance,
           currency: account.currency,
           institution: connection.institution_name,

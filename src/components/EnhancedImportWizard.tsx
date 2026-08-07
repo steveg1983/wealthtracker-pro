@@ -19,6 +19,12 @@ import {
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { isDuplicateImport } from '../utils/importDedupe';
+import {
+  formatStatementDay,
+  planStatementBankBalance,
+  type BankBalanceRecord
+} from '../utils/statementBankBalance';
+import { formatCurrency } from '../utils/currency-decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
@@ -40,6 +46,10 @@ interface FileInfo {
   imported?: number;
   duplicates?: number;
   bankFormat?: string;
+  /** Set when this file's closing balance became the account's Bank Balance. */
+  bankBalanceSet?: string;
+  /** Set when that write failed — the transactions still landed. */
+  bankBalanceWarning?: string;
 }
 
 interface ImportSummary {
@@ -50,7 +60,7 @@ interface ImportSummary {
 }
 
 export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImportWizardProps): React.JSX.Element {
-  const { accounts, transactions, addTransaction, categories } = useApp();
+  const { accounts, transactions, addTransaction, categories, updateAccount } = useApp();
   const logger = useMemo(() => createScopedLogger('EnhancedImportWizard'), []);
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('files');
@@ -138,20 +148,66 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
   // clear button called a context reset that only emptied React state, so on a
   // cloud login the data came back on the next load. The Review step now says
   // plainly what the import does to existing data.
+  /**
+   * Give the account the statement's own closing balance, so Reconciliation
+   * has something to check the rows just imported against.
+   *
+   * Only ever `bankBalance` — never `balance`, which the transactions have
+   * already moved.
+   *
+   * Only on an IDENTIFIER match: this wizard never asks which account an OFX
+   * file belongs to, so anything less is a guess made with nobody watching.
+   * A guess is good enough to place transactions, which stay visible and
+   * removable; it is not good enough to redefine what an account reconciles
+   * against.
+   */
+  const applyStatementBankBalance = async (
+    result: Awaited<ReturnType<typeof ofxImportService.importTransactions>>,
+    writtenThisRun: Map<string, BankBalanceRecord>
+  ): Promise<{ note?: string; warning?: string }> => {
+    const account = result.matchedAccount;
+    if (!account) return {};
+
+    const plan = planStatementBankBalance(
+      result.statementBalance,
+      writtenThisRun.get(account.id) ?? account,
+      { destinationConfirmed: result.matchConfidence === 'identifier' }
+    );
+    if (plan.kind !== 'set') return {};
+
+    try {
+      await updateAccount(account.id, plan.updates);
+      writtenThisRun.set(account.id, plan.updates);
+      return {
+        note: `Bank Balance ${formatCurrency(plan.amount, account.currency)} as at ${formatStatementDay(plan.dateAsOf)}`
+      };
+    } catch (error) {
+      // The transactions are already in; report what did not happen instead of
+      // failing the file.
+      logger.error('Failed to set bank balance from statement', error as Error);
+      return { warning: `Couldn't update ${account.name}'s Bank Balance` };
+    }
+  };
+
   const processFiles = async () => {
     setIsProcessing(true);
     setCurrentStep('result');
-    
+
     let totalImported = 0;
     let totalDuplicates = 0;
     let successfulFiles = 0;
-    
+    // Statements written during THIS run, because `accounts` is React state and
+    // does not refresh between files: without it, two statements for one
+    // account would both be judged against the account as it stood before the
+    // run, and the older could overwrite the newer.
+    const bankBalancesWrittenThisRun = new Map<string, BankBalanceRecord>();
+
     try {
       for (let i = 0; i < files.length; i++) {
         const fileInfo = files[i];
         setCurrentFileIndex(i);
-        
-        setFiles(prev => prev.map((f, index) => 
+
+        setFiles(prev => prev.map((f, index) =>
           index === i ? { ...f, status: 'processing' } : f
         ));
 
@@ -159,6 +215,8 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
           const content = await fileInfo.file.text();
           let imported = 0;
           let duplicates = 0;
+          let bankBalanceSet: string | undefined;
+          let bankBalanceWarning: string | undefined;
 
           switch (fileInfo.type) {
             case 'csv': {
@@ -219,9 +277,13 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                 imported++;
               }
               duplicates = result.duplicates;
+
+              const balanceOutcome = await applyStatementBankBalance(result, bankBalancesWrittenThisRun);
+              bankBalanceSet = balanceOutcome.note;
+              bankBalanceWarning = balanceOutcome.warning;
               break;
             }
-            
+
             case 'qif': {
               const result = await qifImportService.importTransactions(
                 content,
@@ -242,12 +304,14 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
             }
           }
 
-          setFiles(prev => prev.map((f, index) => 
-            index === i ? { 
-              ...f, 
+          setFiles(prev => prev.map((f, index) =>
+            index === i ? {
+              ...f,
               status: 'success',
               imported,
-              duplicates
+              duplicates,
+              bankBalanceSet,
+              bankBalanceWarning
             } : f
           ));
           
@@ -511,6 +575,18 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                           {file.duplicates && file.duplicates > 0 && (
                             <p className="text-xs text-gray-600 dark:text-gray-400">
                               {file.duplicates} duplicates
+                            </p>
+                          )}
+                          {/* Present only when a balance was actually written,
+                              so nothing renders when nothing happened. */}
+                          {file.bankBalanceSet && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              {file.bankBalanceSet}
+                            </p>
+                          )}
+                          {file.bankBalanceWarning && (
+                            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                              {file.bankBalanceWarning}
                             </p>
                           )}
                         </div>

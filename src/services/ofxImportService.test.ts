@@ -266,6 +266,62 @@ NEWFILEUID:NONE
       expect(result.account.accountType).toBe('CREDITCARD');
     });
 
+    it('reads the closing balance from LEDGERBAL, never from AVAILBAL', () => {
+      // AVAILBAL on a card is the REMAINING CREDIT, so a £20 debt on a £3,300
+      // limit publishes 3280 there. Taken as the bank balance it would tell the
+      // user their card was thousands in credit.
+      const ofxWithAvailableBalance = validOFXContent.replace(
+        '</LEDGERBAL>',
+        `</LEDGERBAL>
+<AVAILBAL>
+<BALAMT>3280.00
+<DTASOF>20240131235959[0:GMT]
+</AVAILBAL>`
+      );
+
+      const result = ofxImportService.parseOFX(ofxWithAvailableBalance);
+      expect(result.balance).toEqual({ amount: 5000, dateAsOf: '2024-01-31' });
+    });
+
+    it('offers no balance when the file has only an available balance', () => {
+      const ofxWithoutLedger = validOFXContent.replace(
+        /<LEDGERBAL>[\s\S]*?<\/LEDGERBAL>/g,
+        `<AVAILBAL>
+<BALAMT>3280.00
+<DTASOF>20240131235959[0:GMT]
+</AVAILBAL>`
+      );
+
+      const result = ofxImportService.parseOFX(ofxWithoutLedger);
+      expect(result.balance).toBeUndefined();
+    });
+
+    it('survives an unreadable BALAMT instead of failing the whole import', () => {
+      // `new Decimal('12.34CR')` throws; one odd tag must not cost the user
+      // their transactions.
+      const ofxWithJunkBalance = validOFXContent.replace('<BALAMT>5000.00', '<BALAMT>5000.00CR');
+
+      const result = ofxImportService.parseOFX(ofxWithJunkBalance);
+      expect(result.balance).toBeUndefined();
+      expect(result.transactions).toHaveLength(3);
+    });
+
+    it('keeps a card statement\'s negative closing balance negative', () => {
+      // OFX signs the balance the same way it signs the transactions beside
+      // it, and this app stores a liability negative — so it passes straight
+      // through. Negating it here (as the TrueLayer card API needs) would turn
+      // a debt into an asset.
+      const creditCardOFX = validOFXContent
+        .replace('<BANKACCTFROM>', '<CCACCTFROM>')
+        .replace('</BANKACCTFROM>', '</CCACCTFROM>')
+        .replace('<ACCTTYPE>CHECKING', '<ACCTTYPE>CREDITCARD')
+        .replace('<BALAMT>5000.00', '<BALAMT>-1234.56');
+
+      const result = ofxImportService.parseOFX(creditCardOFX);
+      expect(result.account.isCreditCardStatement).toBe(true);
+      expect(result.balance?.amount).toBe(-1234.56);
+    });
+
     it('reads the account tags from the account section, not from anywhere in the file', () => {
       // A payee address block carrying its own <BANKID> must not become the
       // statement's sort code.
@@ -410,6 +466,30 @@ NEWFILEUID:NONE
       // Every one, not "none happened to be true" — a partly-cleared import is
       // the shape that hides a row nobody checked.
       expect(result.transactions.every(t => t.cleared === false)).toBe(true);
+    });
+
+    it('hands the statement\'s closing balance to the caller', async () => {
+      // Parsed and then dropped, this was the bug: the file states the very
+      // figure Reconciliation shows as "Bank Balance N/A".
+      const result = await ofxImportService.importTransactions(
+        validOFXContent,
+        mockAccounts,
+        []
+      );
+
+      expect(result.statementBalance).toEqual({ amount: 5000, dateAsOf: '2024-01-31' });
+    });
+
+    it('reports no closing balance when the file states none', async () => {
+      const ofxWithoutBalance = validOFXContent.replace(/<LEDGERBAL>[\s\S]*?<\/LEDGERBAL>/g, '');
+
+      const result = await ofxImportService.importTransactions(
+        ofxWithoutBalance,
+        mockAccounts,
+        []
+      );
+
+      expect(result.statementBalance).toBeUndefined();
     });
 
     it('imports transactions successfully', async () => {

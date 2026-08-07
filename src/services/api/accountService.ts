@@ -33,6 +33,7 @@ const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
   accountNumber: 'account_number',
   creditLimit: 'credit_limit',
   bankBalance: 'bank_balance',
+  bankBalanceDate: 'bank_balance_date',
   lastReconciledDate: 'last_reconciled_date',
   lowBalanceAlertEnabled: 'low_balance_alert_enabled',
   lowBalanceThreshold: 'low_balance_threshold',
@@ -58,6 +59,8 @@ function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown>
     ...row,
     type: row.type === 'checking' ? 'current' : row.type,
     bankBalance: row.bank_balance ?? null,
+    // A DATE arrives as 'YYYY-MM-DD' and stays that way — see Account.
+    bankBalanceDate: row.bank_balance_date != null ? String(row.bank_balance_date) : null,
     lastReconciledDate: row.last_reconciled_date ?? null,
     openingBalance: row.initial_balance ?? row.opening_balance,
     // Without this the fallback load path silently dropped the opening-balance

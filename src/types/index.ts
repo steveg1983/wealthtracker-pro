@@ -52,6 +52,18 @@ export interface Account {
   creditLimit?: number;
   subtype?: string;
   bankBalance?: number | null;
+  /**
+   * The day `bankBalance` is true for — a calendar day, 'YYYY-MM-DD'.
+   *
+   * A string rather than a Date on purpose. The column is a Postgres DATE: a
+   * day with no time and no zone. Wrapping it in a Date invents a midnight,
+   * and a midnight has to belong to some zone — which is how a statement dated
+   * the 31st comes to be displayed as the 30th west of Greenwich. Kept as the
+   * day itself, storage, comparison and display are all exact, and "is this
+   * statement older than what we already hold?" is a string comparison that
+   * cannot drift.
+   */
+  bankBalanceDate?: string | null;
   lastReconciledDate?: Date | null;
   lowBalanceThreshold?: number;
   lowBalanceAlertEnabled?: boolean;

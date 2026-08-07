@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import BatchImportModal from './BatchImportModal';
+import { ofxImportService } from '../services/ofxImportService';
+import type { Account } from '../types';
 
 // Mock services
 vi.mock('../services/enhancedCsvImportService', () => ({
@@ -14,7 +16,8 @@ vi.mock('../services/enhancedCsvImportService', () => ({
 
 vi.mock('../services/ofxImportService', () => ({
   ofxImportService: {
-    parseOFX: vi.fn(() => ({ accounts: [], transactions: [] }))
+    parseOFX: vi.fn(() => ({ accounts: [], transactions: [] })),
+    importTransactions: vi.fn()
   }
 }));
 
@@ -63,13 +66,23 @@ vi.mock('./icons', () => ({
 }));
 
 // Mock useApp hook
+const mockAddTransaction = vi.fn();
+const mockUpdateAccount = vi.fn();
+const mockBatchAccount: Account = {
+  id: 'acc1',
+  name: 'Checking',
+  type: 'checking',
+  balance: 1000,
+  currency: 'USD',
+  lastUpdated: new Date('2026-01-01'),
+};
+
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: vi.fn(() => ({
-    accounts: [
-      { id: 'acc1', name: 'Checking', type: 'checking', balance: 1000, createdAt: new Date(), currency: 'USD' }
-    ],
+    accounts: [mockBatchAccount],
     transactions: [],
-    addTransaction: vi.fn(),
+    addTransaction: mockAddTransaction,
+    updateAccount: mockUpdateAccount,
   })),
 }));
 
@@ -170,8 +183,85 @@ describe('BatchImportModal (Simplified)', () => {
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(<BatchImportModal {...defaultProps} onClose={onClose} />);
-    
+
     fireEvent.click(screen.getByLabelText('Close modal'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  /**
+   * This screen never asks which account an OFX file belongs to: files are
+   * matched automatically and the result is a list of counts. So the statement
+   * balance is only written when the FILE named the account — the account's
+   * own recorded sort code / account number being the one in the file — and
+   * never on a name-and-type guess nobody is there to check.
+   */
+  describe('Setting the Bank Balance from a statement', () => {
+    type ImportResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
+
+    const importResult = (overrides: Partial<ImportResult> = {}): ImportResult => ({
+      transactions: [],
+      matchedAccount: mockBatchAccount,
+      ofxAccount: {
+        accountId: '12345678',
+        bankId: '123456',
+        accountType: 'CHECKING',
+        isCreditCardStatement: false,
+      },
+      matchConfidence: 'identifier',
+      statementBalance: { amount: 5000, dateAsOf: '2026-03-31' },
+      duplicates: 0,
+      newTransactions: 0,
+      ...overrides,
+    });
+
+    const importOfxFile = async (result: ImportResult): Promise<void> => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(result);
+
+      render(<BatchImportModal {...defaultProps} />);
+
+      const file = new File([''], 'statement.ofx', { type: 'application/x-ofx' });
+      // jsdom's File has no usable text() in this environment.
+      file.text = vi.fn().mockResolvedValue('OFX content');
+
+      fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+        target: { files: [file] }
+      });
+      await waitFor(() => {
+        expect(screen.getByText('Import All Files')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Import All Files'));
+      await waitFor(() => {
+        expect(screen.getByText(/Import Complete/)).toBeInTheDocument();
+      });
+    };
+
+    it('sets the Bank Balance when the file named the account itself', async () => {
+      await importOfxFile(importResult());
+
+      expect(mockUpdateAccount).toHaveBeenCalledWith('acc1', {
+        bankBalance: 5000,
+        bankBalanceDate: '2026-03-31'
+      });
+    });
+
+    it('never writes `balance` — that is the ledger, not the bank\'s figure', async () => {
+      await importOfxFile(importResult());
+
+      const written = mockUpdateAccount.mock.calls.flatMap(([, updates]) => Object.keys(updates));
+      expect(written).not.toContain('balance');
+    });
+
+    it('will not set a Bank Balance on an account it merely guessed', async () => {
+      await importOfxFile(importResult({ matchConfidence: 'heuristic' }));
+
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the file states no closing balance', async () => {
+      await importOfxFile(importResult({ statementBalance: undefined }));
+
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
   });
 });

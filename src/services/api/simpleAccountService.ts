@@ -41,6 +41,7 @@ type DbAccount = {
   updated_at?: Date;
   last_updated?: Date;
   bank_balance?: number | null;
+  bank_balance_date?: string | null;
   last_reconciled_date?: string | null;
   sort_code?: string | null;
   account_number?: string | null;
@@ -66,6 +67,8 @@ function transformAccountFromDb(row: Record<string, unknown>): Account {
     updatedAt: dbAccount.updated_at,
     lastUpdated: dbAccount.updated_at || dbAccount.created_at,
     bankBalance: dbAccount.bank_balance ?? null,
+    // A DATE arrives as 'YYYY-MM-DD' and stays that way — see Account.
+    bankBalanceDate: dbAccount.bank_balance_date ?? null,
     lastReconciledDate: dbAccount.last_reconciled_date ?? null,
     sortCode: dbAccount.sort_code ?? '',
     accountNumber: dbAccount.account_number ?? '',
@@ -80,6 +83,7 @@ function transformAccountFromDb(row: Record<string, unknown>): Account {
 const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
   openingBalance: 'initial_balance',
   bankBalance: 'bank_balance',
+  bankBalanceDate: 'bank_balance_date',
   lastReconciledDate: 'last_reconciled_date',
   isActive: 'is_active',
   sortCode: 'sort_code',

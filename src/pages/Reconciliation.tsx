@@ -11,6 +11,7 @@ import ReconciliationTransactionList from '../components/reconciliation/Reconcil
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { preserveRuntimeControlParams } from '../utils/runtimeMode';
+import { todayIsoDay } from '../utils/statementBankBalance';
 import type { Transaction } from '../types';
 
 export default function Reconciliation() {
@@ -218,7 +219,15 @@ export default function Reconciliation() {
 
   const handleBankBalanceChange = useCallback((newBalance: number) => {
     if (selectedAccountId) {
-      updateAccount(selectedAccountId, { bankBalance: newBalance });
+      // Dated as well as set. A figure typed here is what the bank says TODAY,
+      // and recording that keeps bank_balance_date describing the balance it
+      // sits beside — otherwise a hand-typed correction would inherit the date
+      // of whatever statement was imported last, and a later import of that
+      // statement's successor could be judged stale against it.
+      updateAccount(selectedAccountId, {
+        bankBalance: newBalance,
+        bankBalanceDate: todayIsoDay()
+      });
     }
   }, [selectedAccountId, updateAccount]);
 
