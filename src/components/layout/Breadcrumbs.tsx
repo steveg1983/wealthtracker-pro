@@ -30,8 +30,7 @@ const routeLabels: Record<string, string> = {
   'export-manager': 'Export Data',
   'documents': 'Documents',
   'open-banking': 'Open Banking',
-  'reconciliation': 'Reconciliation',
-  'ai-features': 'AI Features'
+  'reconciliation': 'Reconciliation'
 };
 
 // Mobile-only back link to the parent route. Deliberately not a breadcrumb

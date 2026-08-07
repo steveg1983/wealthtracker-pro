@@ -20,28 +20,10 @@ export default function AppSettings() {
     setTheme,
     themeSchedule,
     setThemeSchedule,
-    showBudget,
-    setShowBudget,
-    showGoals,
-    setShowGoals,
     showInvestments,
     setShowInvestments,
     showEnhancedInvestments,
     setShowEnhancedInvestments,
-    showAIAnalytics,
-    setShowAIAnalytics,
-    showTaxPlanning,
-    setShowTaxPlanning,
-    showHousehold,
-    setShowHousehold,
-    showBusinessFeatures,
-    setShowBusinessFeatures,
-    showFinancialPlanning,
-    setShowFinancialPlanning,
-    showDataIntelligence,
-    setShowDataIntelligence,
-    showSummaries,
-    setShowSummaries,
     enableGoalCelebrations,
     setEnableGoalCelebrations
   } = usePreferences();
@@ -66,21 +48,10 @@ export default function AppSettings() {
     { value: 'scheduled', label: 'Scheduled', icon: ClockIcon },
   ];
 
+  // Only the investment pages are optional. The other toggles that used to live
+  // here gated nothing — their pages are either always in the sidebar or have
+  // been retired — so hiding them misled people into thinking they had an effect.
   const pageToggles = [
-    {
-      title: 'Budget',
-      description: 'Show budget planning and tracking features',
-      value: showBudget,
-      onChange: setShowBudget,
-      icon: showBudget ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Goals',
-      description: 'Show financial goals and milestones',
-      value: showGoals,
-      onChange: setShowGoals,
-      icon: showGoals ? EyeIcon : EyeOffIcon
-    },
     {
       title: 'Investments',
       description: 'Show investment portfolio tracking',
@@ -94,55 +65,6 @@ export default function AppSettings() {
       value: showEnhancedInvestments,
       onChange: setShowEnhancedInvestments,
       icon: showEnhancedInvestments ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'AI Analytics',
-      description: 'Show AI-powered insights and recommendations',
-      value: showAIAnalytics,
-      onChange: setShowAIAnalytics,
-      icon: showAIAnalytics ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Tax Planning',
-      description: 'Show tax planning and optimization tools',
-      value: showTaxPlanning,
-      onChange: setShowTaxPlanning,
-      icon: showTaxPlanning ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Household',
-      description: 'Show household management features',
-      value: showHousehold,
-      onChange: setShowHousehold,
-      icon: showHousehold ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Business Features',
-      description: 'Show business expense and invoice management',
-      value: showBusinessFeatures,
-      onChange: setShowBusinessFeatures,
-      icon: showBusinessFeatures ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Financial Planning',
-      description: 'Show retirement and financial planning tools',
-      value: showFinancialPlanning,
-      onChange: setShowFinancialPlanning,
-      icon: showFinancialPlanning ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Data Intelligence',
-      description: 'Show advanced data analytics and insights',
-      value: showDataIntelligence,
-      onChange: setShowDataIntelligence,
-      icon: showDataIntelligence ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Summaries',
-      description: 'Show financial summaries and reports',
-      value: showSummaries,
-      onChange: setShowSummaries,
-      icon: showSummaries ? EyeIcon : EyeOffIcon
     }
   ];
 
