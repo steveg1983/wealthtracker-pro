@@ -2,7 +2,7 @@ import { useState, Suspense, useMemo } from 'react';
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, EditIcon, LinkIcon, WrenchIcon, LightbulbIcon, XCircleIcon, type IconProps } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, XCircleIcon, type IconProps } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
@@ -15,11 +15,16 @@ const ArchiveManager = lazyWithRecovery(() => import('../../components/ArchiveMa
 // Lazy load heavy components to reduce initial bundle size. Import and export
 // tools moved to the Manage pages (see the link cards below); what remains here
 // is genuine data administration — cleanup tools, backups, and the danger zone.
+//
+// Retired 2026-08-07: Validate & Clean, Smart Categorization, Bulk Edit and
+// Reconcile Accounts. Validate & Clean was the dangerous one — it compared
+// category IDs against category NAMES, so it called almost every transaction
+// invalid and offered to reset them all, and since the app only loads active
+// accounts it read every transaction in a closed account as orphaned and
+// offered to delete it. Smart Categorization promised AI and delivered string
+// matching behind a fake progress spinner. Bulk Edit and Reconcile Accounts
+// went with them; real account reconciliation lives at /reconciliation.
 const DuplicateSweepModal = lazyWithRecovery(() => import('../../components/DuplicateSweepModal'));
-const BulkTransactionEdit = lazyWithRecovery(() => import('../../components/BulkTransactionEdit'));
-const TransactionReconciliation = lazyWithRecovery(() => import('../../components/TransactionReconciliation'));
-const DataValidation = lazyWithRecovery(() => import('../../components/DataValidation'));
-const SmartCategorizationSettings = lazyWithRecovery(() => import('../../components/SmartCategorizationSettings'));
 const BankConnections = lazyWithRecovery(() => import('../../components/BankConnections'));
 const AutomaticBackupSettings = lazyWithRecovery(() => import('../../components/AutomaticBackupSettings'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
@@ -33,10 +38,6 @@ export default function DataManagementSettings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
   const [showDuplicateSweep, setShowDuplicateSweep] = useState(false);
-  const [showBulkEdit, setShowBulkEdit] = useState(false);
-  const [showReconciliation, setShowReconciliation] = useState(false);
-  const [showDataValidation, setShowDataValidation] = useState(false);
-  const [showSmartCategorization, setShowSmartCategorization] = useState(false);
   const [showBankConnections, setShowBankConnections] = useState(initialBankingOpsUrlState.modalOpen);
   const [showBankConnectionsWithCriticalFilter, setShowBankConnectionsWithCriticalFilter] = useState(initialBankingOpsUrlState.onlyAboveThreshold);
   const [showBankConnectionsWithOpsEventType, setShowBankConnectionsWithOpsEventType] = useState(initialBankingOpsUrlState.eventType);
@@ -164,13 +165,9 @@ export default function DataManagementSettings() {
       </Section>
 
       {/* ── Tools ──────────────────────────────────────────────── */}
-      <Section title="Tools" description="Tidy up, reconcile, and improve your data.">
+      <Section title="Tools" description="Tidy up your data.">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <ActionButton icon={LightbulbIcon} title="Smart Categorization" description="Auto-categorize with AI" onClick={() => setShowSmartCategorization(true)} />
           <ActionButton icon={SearchIcon} title="Find Duplicates" description="The same payment recorded twice" onClick={() => setShowDuplicateSweep(true)} />
-          <ActionButton icon={EditIcon} title="Bulk Edit" description="Change many at once" onClick={() => setShowBulkEdit(true)} />
-          <ActionButton icon={LinkIcon} title="Reconcile Accounts" description="Match against statements" onClick={() => setShowReconciliation(true)} />
-          <ActionButton icon={WrenchIcon} title="Validate & Clean" description="Find and fix data issues" onClick={() => setShowDataValidation(true)} />
         </div>
       </Section>
 
@@ -294,10 +291,9 @@ export default function DataManagementSettings() {
 
       {/* Tool modals — mounted ONLY while open. Rendering a React.lazy
           component (even closed, returning null) forces its chunk to download
-          AND runs its hooks: the duplicate scan and DataValidation's full-data
-          sweep were executing on every visit to this page. Gating on the
-          show-flag defers chunk + work to first open (the Suspense fallback
-          covers the brief load). */}
+          AND runs its hooks: the duplicate scan was executing on every visit to
+          this page. Gating on the show-flag defers chunk + work to first open
+          (the Suspense fallback covers the brief load). */}
 
       {/* Find duplicates */}
       {showDuplicateSweep && (
@@ -307,56 +303,6 @@ export default function DataManagementSettings() {
             onClose={() => setShowDuplicateSweep(false)}
           />
         </Suspense>
-      )}
-
-      {/* Bulk Edit */}
-      {showBulkEdit && (
-        <Suspense fallback={<LoadingState />}>
-          <BulkTransactionEdit
-            isOpen={showBulkEdit}
-            onClose={() => setShowBulkEdit(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* Reconciliation */}
-      {showReconciliation && (
-        <Suspense fallback={<LoadingState />}>
-          <TransactionReconciliation
-            isOpen={showReconciliation}
-            onClose={() => setShowReconciliation(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* Data Validation */}
-      {showDataValidation && (
-        <Suspense fallback={<LoadingState />}>
-          <DataValidation
-            isOpen={showDataValidation}
-            onClose={() => setShowDataValidation(false)}
-          />
-        </Suspense>
-      )}
-
-      {/* Smart Categorization Modal */}
-      {showSmartCategorization && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Categorization</h2>
-              <button
-                onClick={() => setShowSmartCategorization(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <XCircleIcon size={24} />
-              </button>
-            </div>
-            <Suspense fallback={<LoadingState />}>
-              <SmartCategorizationSettings />
-            </Suspense>
-          </div>
-        </div>
       )}
 
       {/* Bank Connections Modal */}

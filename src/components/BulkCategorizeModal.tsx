@@ -252,8 +252,8 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                         <td className="block sm:table-cell min-w-0 py-2 sm:pr-3">
                           <span className="flex items-center gap-1.5">
                             {group.direction === 'expense'
-                              ? <ArrowDownIcon size={12} className="text-red-500 flex-shrink-0" />
-                              : <ArrowUpIcon size={12} className="text-green-600 flex-shrink-0" />}
+                              ? <ArrowDownIcon size={12} className="text-red-600 dark:text-red-400 flex-shrink-0" />
+                              : <ArrowUpIcon size={12} className="text-green-600 dark:text-green-400 flex-shrink-0" />}
                             <button
                               type="button"
                               onClick={() => setDrillGroup(group)}
@@ -299,7 +299,14 @@ export default function BulkCategorizeModal({ isOpen, onClose }: Props): React.J
                         <td className="block sm:table-cell py-2 sm:pr-3 text-sm text-right tabular-nums text-gray-700 dark:text-gray-300">
                           {group.count.toLocaleString()}
                         </td>
-                        <td className="block sm:table-cell py-2 sm:pr-3 text-sm text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                        {/* group.total is a magnitude, so the colour comes from
+                            group.direction — the same signal as the arrow, so the
+                            two can never disagree. */}
+                        <td className={`block sm:table-cell py-2 sm:pr-3 text-sm text-right tabular-nums whitespace-nowrap ${
+                          group.direction === 'expense'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-green-600 dark:text-green-400'
+                        }`}>
                           {formatCurrency(group.total)}
                         </td>
                         <td className="block sm:table-cell col-span-3 sm:col-auto pb-3 pt-0 sm:py-2">

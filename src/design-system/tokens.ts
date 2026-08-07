@@ -20,6 +20,18 @@ export const colors = {
     950: '#030712',
   },
   
+  // The WealthTracker brand navy. Mirrors --color-primary / --color-secondary in
+  // index.css, so anything structural (focus rings, accents) can be drawn from
+  // the app's own identity instead of a generic blue. 400 exists because a navy
+  // dark enough to read on white is invisible on a near-black panel.
+  navy: {
+    300: '#cbd5e1',
+    400: '#94a3b8',
+    500: '#64748b',
+    600: '#2d3a4d', // --color-secondary
+    700: '#1a2332', // --color-primary
+  },
+
   // Brand colors
   blue: {
     50: '#eff6ff',

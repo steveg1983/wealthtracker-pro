@@ -91,16 +91,17 @@
 }
 
 /* Checkbox / radio / range controls (app-wide).
-   - accent-color pins them to the app blue (#2563eb) so they never inherit the
+   - accent-color pins them to the app's own navy so they never inherit the
      viewer's OS accent colour (a green macOS accent was making every box and
-     slider green).
+     slider green). It follows --color-border-focus so light and dark modes
+     stay in step — a navy tick is invisible on a near-black panel.
    - On desktop (pointer: fine) checkboxes/radios are a crisp, professional
      size rather than the chunky finger-target look; touch devices keep the
      larger target from the media query above. PC/Mac-first professional app. */
 input[type="checkbox"],
 input[type="radio"],
 input[type="range"] {
-  accent-color: #2563eb;
+  accent-color: var(--color-border-focus, #1a2332);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -133,16 +134,32 @@ input[type="range"] {
   --color-income: #0d9f6f;
   --color-expense: #d94052;
   --color-accent: #d4a843;
-  /* Keyboard-focus outline colour (consumed by accessibility-colors.css).
-     The accent blue — the old navy #2d3a4d was near-invisible in dark mode. */
-  --focus-ring-color: #2563eb;
-  --color-border-focus: #2563eb;
+  /* Keyboard-focus outline + interactive-control colour (consumed by
+     accessibility-colors.css and Button.tsx).
+
+     This is the app's own navy, not a generic blue: a bright blue ring around a
+     navy-and-white app read as borrowed chrome. Navy on the light surfaces it
+     actually sits against clears the 3:1 that WCAG 2.4.11 asks of a focus
+     indicator with room to spare.
+
+     Dark mode CANNOT use it — navy on a near-black panel is invisible, which is
+     what sent this to #2563eb in the first place. The .dark block below keeps a
+     light slate from the same family instead, so the ring stays visible without
+     reintroducing the off-brand blue. Change one, check the other. */
+  --focus-ring-color: #1a2332;
+  --color-border-focus: #1a2332;
+}
+
+.dark {
+  /* Light enough to read against gray-900 panels; still the navy family. */
+  --focus-ring-color: #94a3b8;
+  --color-border-focus: #94a3b8;
 }
 
 /* The colour-theme variants (green/red/pink primary swaps) were retired
-   2026-07-10: WealthTracker has one brand identity — the navy scheme in :root
-   with the #2563eb accent — plus light/dark modes. (Both of the 2026-07-10
-   audit's colour regressions lived in theme-variant CSS.) */
+   2026-07-10: WealthTracker has one brand identity — the navy scheme in :root,
+   accents included — plus light/dark modes. (Both of the 2026-07-10 audit's
+   colour regressions lived in theme-variant CSS.) */
 
 /* Apply primary color to common elements */
 .bg-primary {

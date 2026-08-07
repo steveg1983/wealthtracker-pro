@@ -35,7 +35,9 @@ const lightBase: SemanticColors = {
     primary: colors.gray[200],
     secondary: colors.gray[300],
     tertiary: colors.gray[100],
-    focus: colors.blue[500],
+    // The app's own navy, not a generic blue — applyTheme writes this to
+    // --color-border-focus, which draws the ring around focused dialogs.
+    focus: colors.navy[700],
   },
   interactive: {
     primary: colors.blue[600],
@@ -91,7 +93,9 @@ const darkBase: SemanticColors = {
     primary: colors.gray[700],
     secondary: colors.gray[600],
     tertiary: colors.gray[800],
-    focus: colors.blue[400],
+    // Light end of the navy family: the 700 used in light mode would vanish
+    // against a gray-900 panel, and a focus ring you cannot see is a WCAG fail.
+    focus: colors.navy[400],
   },
   interactive: {
     primary: colors.blue[500],

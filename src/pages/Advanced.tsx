@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
-import { MagicWandIcon, LightbulbIcon, FileTextIcon, CalculatorIcon, UsersIcon, BriefcaseIcon, DatabaseIcon, PieChartIcon } from '../components/icons';
+import { MagicWandIcon, FileTextIcon, CalculatorIcon, UsersIcon, BriefcaseIcon, DatabaseIcon, PieChartIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 
 export default function Advanced() {
@@ -21,13 +21,6 @@ export default function Advanced() {
       icon: MagicWandIcon,
       link: '/ai-analytics',
       enabled: showAIAnalytics
-    },
-    {
-      title: 'AI Features',
-      description: 'Automated features and smart suggestions',
-      icon: LightbulbIcon,
-      link: '/ai-features',
-      enabled: true
     },
     {
       title: 'Custom Reports',

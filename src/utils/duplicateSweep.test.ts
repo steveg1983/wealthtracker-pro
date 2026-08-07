@@ -34,6 +34,51 @@ describe('findDuplicateCandidates', () => {
     expect(found[0].daysApart).toBe(0);
   });
 
+  it('never offers two DIFFERENT amounts, however alike they otherwise read', () => {
+    // The pair that shipped: same payee, one day apart, £24.99 against £36.95.
+    // Under the weighted score that was 82 against a threshold of 80 — date and
+    // description alone contributed 55 of it — so a 48% amount gap was offered
+    // as a duplicate. The amount is a gate now, not 40% of an opinion.
+    const found = findDuplicateCandidates(
+      [
+        txn({ id: 'a', amount: -24.99, description: 'APPLE.COM/BILL HOLLYHILL', date: new Date('2026-08-05') }),
+        txn({ id: 'b', amount: -36.95, description: 'APPLE.COM/BILL HOLLYHILL', date: new Date('2026-08-04') }),
+      ],
+      { windowDays: 3 }
+    );
+    expect(found).toEqual([]);
+  });
+
+  it('still pairs rows that match to the penny', () => {
+    const found = findDuplicateCandidates(
+      [
+        txn({ id: 'a', amount: -24.99, description: 'APPLE.COM/BILL HOLLYHILL', date: new Date('2026-08-05') }),
+        txn({ id: 'b', amount: -24.99, description: 'APPLE.COM/BILL HOLLYHILL', date: new Date('2026-08-04') }),
+      ],
+      { windowDays: 3 }
+    );
+    expect(keysOf(found)).toEqual(['a+b']);
+  });
+
+  it('a penny apart is a different payment, not a duplicate', () => {
+    const found = findDuplicateCandidates(
+      [
+        txn({ id: 'a', amount: -24.99 }),
+        txn({ id: 'b', amount: -25.01 }),
+      ],
+      { windowDays: 3 }
+    );
+    expect(found).toEqual([]);
+  });
+
+  it('equal and OPPOSITE is not a duplicate — that is a transfer', () => {
+    const found = findDuplicateCandidates(
+      [txn({ id: 'out', amount: -24.99 }), txn({ id: 'in', amount: 24.99 })],
+      { windowDays: 3 }
+    );
+    expect(found).toEqual([]);
+  });
+
   it('never pairs rows in DIFFERENT accounts — that is a transfer, not a duplicate', () => {
     // Equal and opposite would be the transfer sweep's business; equal and
     // IDENTICAL across two accounts is still not one payment recorded twice.

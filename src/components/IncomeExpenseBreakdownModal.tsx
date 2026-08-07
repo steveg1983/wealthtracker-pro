@@ -227,6 +227,11 @@ export default function IncomeExpenseBreakdownModal({
       ? 'text-red-600 dark:text-red-400'
       : '';
 
+  // Money in reads green, money out reads red — used for rows, section subtotals
+  // and the footer total, so a section can never disagree with the rows inside it.
+  const signedColour = (amount: number): string =>
+    amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
   const arrow = (key: SortKey): string => (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '');
 
   // Headings sit CENTRED over their columns — the app-wide convention.
@@ -245,7 +250,7 @@ export default function IncomeExpenseBreakdownModal({
 
   const renderRow = (t: SplitExpandedTransaction) => {
     const value = valueOf(t);
-    const rowColour = colourClass || (value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400');
+    const rowColour = colourClass || signedColour(value);
     return (
       <tr
         key={t.id}
@@ -360,7 +365,7 @@ export default function IncomeExpenseBreakdownModal({
                           ({section.rows.length})
                         </span>
                       </td>
-                      <td className={`block sm:table-cell py-1.5 text-xs font-semibold text-right tabular-nums ${colourClass || 'text-gray-600 dark:text-gray-300'}`}>
+                      <td className={`block sm:table-cell py-1.5 text-xs font-semibold text-right tabular-nums ${colourClass || signedColour(section.subtotal)}`}>
                         {section.subtotal < 0
                           ? `-${formatCurrency(Math.abs(section.subtotal))}`
                           : formatCurrency(section.subtotal)}
@@ -389,7 +394,7 @@ export default function IncomeExpenseBreakdownModal({
               ) : (
                 <tr className="flex items-center justify-between sm:table-row border-t-2 border-gray-200 dark:border-gray-600">
                   <td colSpan={3} className="block sm:table-cell pt-3 text-sm font-semibold text-gray-900 dark:text-white">Total</td>
-                  <td className={`block sm:table-cell pt-3 text-sm font-bold text-right tabular-nums ${colourClass}`}>
+                  <td className={`block sm:table-cell pt-3 text-sm font-bold text-right tabular-nums ${colourClass || (total !== null ? signedColour(total) : '')}`}>
                     {total !== null ? formatCurrency(total) : ''}
                   </td>
                 </tr>
