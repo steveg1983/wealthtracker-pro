@@ -99,7 +99,7 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
 
 /** File the panel's transaction under the To/From Savings category and save. */
 async function fileUnderToFromSavings() {
-  render(<QuickEditTransactionPanel transaction={source} onClose={vi.fn()} />);
+  render(<QuickEditTransactionPanel transaction={source} onDismiss={vi.fn()} />);
 
   // Open the category picker and choose "To/From Savings"
   fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
@@ -151,7 +151,7 @@ describe('QuickEditTransactionPanel — transfer flow', () => {
   });
 
   it("rejects the source account's own To/From category", async () => {
-    render(<QuickEditTransactionPanel transaction={source} onClose={vi.fn()} />);
+    render(<QuickEditTransactionPanel transaction={source} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
     fireEvent.click(screen.getByText('To/From Current Account'));

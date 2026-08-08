@@ -87,7 +87,7 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
   });
 
   it('says "Suggested" in words, not only in colour', () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onClose={vi.fn()} />);
+    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
 
     // Colour alone would say nothing to anyone who cannot see it, and nothing
     // at all in a screenshot pasted into an email.
@@ -95,7 +95,7 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
   });
 
   it('offers a one-click confirm that changes nothing but who vouched for it', async () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onClose={vi.fn()} />);
+    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
@@ -112,7 +112,7 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
     render(
       <QuickEditTransactionPanel
         transaction={{ ...suggested, categoryConfirmed: true }}
-        onClose={vi.fn()}
+        onDismiss={vi.fn()}
       />
     );
 
@@ -129,13 +129,13 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
     const noFlag: Transaction = { ...suggested };
     delete noFlag.categoryConfirmed;
 
-    render(<QuickEditTransactionPanel transaction={noFlag} onClose={vi.fn()} />);
+    render(<QuickEditTransactionPanel transaction={noFlag} onDismiss={vi.fn()} />);
 
     expect(screen.queryByText('Suggested')).not.toBeInTheDocument();
   });
 
   it('records a plain Save as confirmation — the user looked and let it stand', async () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onClose={vi.fn()} />);
+    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -148,7 +148,7 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
   });
 
   it('drops the suggested styling the moment the user picks something else', () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onClose={vi.fn()} />);
+    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
 
     expect(screen.getByText('Suggested')).toBeInTheDocument();
 

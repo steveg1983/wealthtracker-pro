@@ -114,9 +114,64 @@
 //! of. Two category RPCs that DO exist are named in [`verbs`] as deliberately not
 //! done.
 //!
+//! Then **the restore family** — four functions and the whole of
+//! `20260807083000_user_data_restore.sql`, ported together because none of them
+//! means anything alone: the emptiness question exists to gate the restore, the
+//! wipe exists to make the answer true, and the finalize exists to close what the
+//! restore had to leave open.
+//!
+//! * [`verbs::user_financial_data_is_empty`] — the only verb in the crate that
+//!   opens no transaction and writes nothing. Three tables, not "any data", and
+//!   the narrowness is the design.
+//! * [`verbs::wipe_user_financial_data`] — "delete everything", and the verb that
+//!   found a defect in `schema.sql`: two rules that are each individually right
+//!   combined to refuse an account deletion the cloud performs, which made a wipe
+//!   impossible on any file holding one linked transfer.
+//! * [`verbs::restore_user_chunk`] — the only verb that takes arbitrary JSON, and
+//!   therefore the only one with a translation layer ([`backup`]) between the
+//!   payload and the tables. Five refusals whose ORDER includes two measured
+//!   surprises, sixteen entities' worth of column mapping, and DESIGN.md's
+//!   divergence 9 — the money a cloud backup keeps in a JSON blob that this
+//!   schema bans by CHECK.
+//! * [`verbs::finalize_user_restore`] — the second pass, ported even though R-11
+//!   removes the need for one, because the links are a separate payload in the
+//!   file and both engines must apply them the same way. The one verb that holds
+//!   `_rpc_guard('restore')`, and the one whose audit row could not be written as
+//!   the cloud writes it.
+//!
+//! And **the account snap**, [`verbs::link_bank_account_snap`], which belongs
+//! with them for one reason: it is the only function in the schema that assigns
+//! an absolute balance, and understanding why that is not a contradiction of B-2
+//! is the same piece of reasoning a restore needs about `accounts.balance` being
+//! authoritative (X-8).
+//!
+//! Then the two that close the ledger core:
+//!
+//! * [`verbs::delete_unused_categories`] — the category family's fourth and last
+//!   verb, and the only one in the crate whose every protection is a `WHERE`
+//!   clause rather than a refusal. Porting it found the measured hole in the
+//!   promise its own migration makes (a referenced child dies with its named
+//!   parent, on BOTH engines), the one shape in which the FILE refuses on the
+//!   function's behalf, and the one place where the cloud's single statement
+//!   cannot be a single statement here without changing the number it answers
+//!   with.
+//! * [`verbs::verify_integrity`] — **the only verb in this crate that is not a
+//!   port of anything.** The cloud has no such function, no such view and no
+//!   equivalent; the local edition needs one because it has no second
+//!   implementation to be checked against. Seventeen checks, fifteen rules and
+//!   two suspicions, each one proved to fire by a spec that plants its violation.
+//!   Its specs are the first in the verb harness to run on one engine, because
+//!   there is no other engine to run them on.
+//!
 //! What is deliberately NOT here is as much of the design as what is: no
 //! absolute balance setter, no verb that accepts SQL, and no general-purpose
 //! writer for the columns that have dedicated verbs. See [`verbs`].
+//!
+//! One thing the restore family deliberately does not port, named here so nobody
+//! has to re-derive it: **`backupService.remapBackupIds`**. Ids are remapped on
+//! the CLIENT, before a single row is sent, and the RPCs insert what they are
+//! handed verbatim. [`backup`] says so at its head, and a Rust copy of that
+//! function would be a second implementation of a rule the TypeScript owns.
 
 #![deny(missing_docs)]
 #![warn(clippy::pedantic)]
@@ -128,6 +183,7 @@
 #![allow(clippy::doc_markdown)]
 
 pub mod audit;
+pub mod backup;
 pub mod db;
 pub mod error;
 pub mod money;

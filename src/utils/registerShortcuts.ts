@@ -191,14 +191,20 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
         keys: ['a', 'b', 'c', '…'],
         what: 'Type a few letters to jump to the next transaction whose description starts with them. Keep pressing one letter to walk through every payee beginning with it.',
       },
-      { keys: ['Esc'], what: 'Clear the highlight, and put the add bar back at the bottom.' },
+      { keys: ['Esc'], what: 'Let go of the highlighted row — and the quick edit box under it.' },
     ],
   },
   {
     title: 'The highlighted transaction',
     shortcuts: [
-      { keys: ['Enter'], what: 'Open it in the full editor.' },
-      { keys: ['F2'], what: 'Jump down into the quick edit bar. Esc brings you back to the list.' },
+      {
+        keys: ['Enter'],
+        what: 'Open it in the full editor — splits, tags and everything the quick edit box has no room for.',
+      },
+      {
+        keys: ['F2'],
+        what: 'Put the cursor in the quick edit box under the row, opening it if it was closed.',
+      },
       {
         keys: ['Space'],
         what: 'Reconcile it, or un-reconcile it if it already is — the same tick the R column shows. Mid-way through typing a payee it types a space instead, so two-word names still find their row.',
@@ -211,6 +217,23 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
       {
         keys: ['Mod', 'D'],
         what: "Copy it into the add bar as a new transaction dated today — nothing is saved until you press Add.",
+      },
+    ],
+  },
+  {
+    // The box that opens under a clicked row: date, description, category,
+    // Save. Its two keys are worth printing because they are what make a
+    // categorising run continuous — the alternative is reaching for the mouse
+    // on every transaction.
+    title: 'The quick edit box under a row',
+    shortcuts: [
+      {
+        keys: ['Enter'],
+        what: 'Save the row. In the Category box the first Enter picks the highlighted category and the next one saves.',
+      },
+      {
+        keys: ['Esc'],
+        what: 'Close the box and go back to the list, leaving the row highlighted. Anything you had typed and not saved is dropped.',
       },
     ],
   },
@@ -236,7 +259,10 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
   {
     title: 'The rest of the page',
     shortcuts: [
-      { keys: ['+'], what: 'Start a new transaction — the cursor lands in the Date box of the add bar.' },
+      {
+        keys: ['+'],
+        what: 'Start a new transaction — the cursor lands in the Date box of the add bar, and the highlighted row is let go of.',
+      },
       { keys: ['Mod', 'F'], what: 'Open Search & filters with the cursor already in the search box.' },
       { keys: ['?'], what: 'Show this list.' },
     ],

@@ -74,6 +74,24 @@ function canonicalise(row) {
   return canonical;
 }
 
+/**
+ * JSON with object keys in a stable order, arrays left alone.
+ *
+ * `judge` compares an expected value against a returned one by string equality,
+ * which for a nested object makes KEY ORDER load-bearing — and key order is not
+ * semantic in JSON. Without this, a spec asserting a `verify_integrity` finding
+ * fails with a diff whose two sides read identically, which is the worst kind of
+ * failure message. Arrays are NOT sorted: the order of `findings` is part of
+ * that verb's contract and a spec that gets it wrong must say so.
+ */
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function show(value) {
   return value === undefined ? '(absent)' : JSON.stringify(value);
 }
@@ -99,7 +117,7 @@ function judge(spec, engine, result) {
     for (const [field, expected] of Object.entries(spec.result ?? {})) {
       const wanted = forEngine(expected, engine);
       const got = result.row?.[field];
-      if (JSON.stringify(got) !== JSON.stringify(wanted)) {
+      if (stableJson(got) !== stableJson(wanted)) {
         problems.push(`result.${field}: expected ${show(wanted)}, got ${show(got)}`);
       }
     }
@@ -219,6 +237,10 @@ for (const spec of specs) {
   const problems = { sqlite: [], postgres: [] };
 
   for (const engine of ENGINES) {
+    // A DECLARED skip is not a failure and not a pass: the engine has nothing to
+    // run, said so in prose, and the spec's parity says "not-comparable". The
+    // loader has already refused any other combination.
+    if (spec.skip?.[engine] !== undefined) continue;
     try {
       results[engine] = (engine === 'sqlite' ? sqlite : postgres).run(spec);
     } catch (error) {
@@ -233,7 +255,14 @@ for (const spec of specs) {
   let parityOk = false;
   let parityNote = 'one engine only — parity not established';
   let parityLabel = 'n/a';
-  if (results.sqlite && results.postgres) {
+  if (spec.parity === 'not-comparable') {
+    // The one case where running a single engine is the whole point. It is
+    // still reported as what it is: an assertion about one engine, contributing
+    // nothing to the parity table.
+    parityOk = true;
+    parityLabel = 'not-comparable';
+    parityNote = `not-comparable (as declared) — ${spec.reason}`;
+  } else if (results.sqlite && results.postgres) {
     const observed = observedParity(spec, results);
     parityOk = observed.verdict === spec.parity;
     parityLabel = parityOk ? observed.verdict : `MISDECLARED (${observed.verdict})`;
@@ -250,7 +279,8 @@ for (const spec of specs) {
   out(`   ${spec.title}`);
   for (const engine of ENGINES) {
     const result = results[engine];
-    out(`   ${pad(engine, 10)} ${result ? summarise(result) : 'not run'}`);
+    const skipped = spec.skip?.[engine];
+    out(`   ${pad(engine, 10)} ${skipped ? `skipped   ${skipped}` : (result ? summarise(result) : 'not run')}`);
     for (const problem of problems[engine]) out(`   ${pad('', 10)} ✗ ${problem}`);
   }
   out(`   ${pad('parity', 10)} ${parityNote}`);
@@ -260,8 +290,8 @@ for (const spec of specs) {
   rows.push({
     invariant: spec.invariant,
     id: spec.id,
-    postgres: describe(results.postgres),
-    sqlite: describe(results.sqlite),
+    postgres: spec.skip?.postgres ? 'skipped: no counterpart' : describe(results.postgres),
+    sqlite: spec.skip?.sqlite ? 'skipped: no counterpart' : describe(results.sqlite),
     parity: parityLabel,
     ok: !specFailed,
   });
@@ -295,7 +325,12 @@ for (const row of rows) {
 }
 out('');
 const divergences = rows.filter((r) => r.parity === 'divergent').length;
-out(`${rows.length} verb specs · ${rows.length - failures} passed · ${failures} failed · ${errors} harness errors · ${divergences} declared divergences`);
+const singleEngine = rows.filter((r) => r.parity === 'not-comparable').length;
+out(
+  `${rows.length} verb specs · ${rows.length - failures} passed · ${failures} failed · ` +
+  `${errors} harness errors · ${divergences} declared divergences · ` +
+  `${singleEngine} single-engine (a verb the cloud does not have)`,
+);
 
 sqlite.close();
 process.exit(failures > 0 || errors > 0 ? 1 : 0);

@@ -129,6 +129,20 @@ const renderRegister = (path: string): void => {
 
 const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Register transactions' });
 
+/**
+ * The add bar at the foot of the page — a landmark of its own, because the
+ * quick-edit box up in the register has a Date and a Description too, and
+ * "the description box" has to say which.
+ */
+const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
+
+/** The quick-edit box, wherever the register has drawn it. */
+const quickEditBox = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit-panel]');
+  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+  return el;
+};
+
 /** The transaction the register says is active, by its description. */
 const activeRowText = (): string => {
   const id = grid().getAttribute('aria-activedescendant');
@@ -565,18 +579,22 @@ describe('Account register — copying a row into the add bar', () => {
 
     fireEvent.keyDown(grid(), { key: 'd', ctrlKey: true });
 
-    // The add bar is back (the quick editor and it share one slot), carrying
-    // the row's description and the size of its amount…
-    const description = await screen.findByPlaceholderText('Description');
+    // The add bar carries the row's description and the size of its amount…
+    const description = within(addBar()).getByLabelText('Description');
     expect(description).toHaveValue('Sandpiper Fuel');
-    expect(screen.getByLabelText('Amount')).toHaveValue('52.00');
+    expect(within(addBar()).getByLabelText('Amount')).toHaveValue('52.00');
     // …dated today, not the row's own date.
     const today = new Date();
     const dd = String(today.getDate()).padStart(2, '0');
     const mm = String(today.getMonth() + 1).padStart(2, '0');
-    expect(screen.getByLabelText('Transaction date')).toHaveValue(`${dd}/${mm}/${today.getFullYear()}`);
+    expect(within(addBar()).getByLabelText('Date')).toHaveValue(`${dd}/${mm}/${today.getFullYear()}`);
     // Nothing has been saved, and the cursor is where the edit will be made.
     expect(document.activeElement).toBe(description);
+    // And the row was let go of: two half-finished edits on one screen — a
+    // quick-edit box still open up in the register, a draft down here — is
+    // exactly the confusion this avoids.
+    expect(grid().getAttribute('aria-activedescendant')).toBeNull();
+    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
   });
 });
 
@@ -587,10 +605,13 @@ describe('Account register — starting a new transaction', () => {
 
     expect(fireEvent.keyDown(grid(), { key: '+' })).toBe(false);
 
-    const date = await screen.findByLabelText('Transaction date');
-    expect(document.activeElement).toBe(date);
-    // The highlight let go, because the add bar took the quick editor's place.
+    const date = within(addBar()).getByLabelText('Date');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(date);
+    });
+    // The highlight let go, and the quick-edit box with it.
     expect(grid().getAttribute('aria-activedescendant')).toBeNull();
+    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
   });
 });
 
@@ -626,6 +647,13 @@ describe('Account register — the shortcut list', () => {
     expect(within(dialog).getByText(/Jump to the first or the last transaction/)).toBeInTheDocument();
     expect(within(dialog).getByText(/the same tick the R column shows/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Open the other half of a transfer/)).toBeInTheDocument();
+    // The quick-edit box's own two keys, which is where most of the work in
+    // this register actually happens. A printed list that stops at the row
+    // level would be describing half the register.
+    expect(within(dialog).getByText(/The quick edit box under a row/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/the first Enter picks the highlighted category/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Close the box and go back to the list/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Put the cursor in the quick edit box under the row/)).toBeInTheDocument();
     // And says out loud which keys the browser would not let it have.
     expect(within(dialog).getByText(/keeps those for opening its own windows and tabs/)).toBeInTheDocument();
   });
@@ -655,40 +683,63 @@ describe('Account register — the shortcut list', () => {
 });
 
 describe('Account register — F2 and the way back', () => {
-  it('puts the cursor in the quick edit bar, and Escape brings it back to the list', async () => {
+  it('puts the cursor in the quick edit box, and Escape brings it back to the list', async () => {
     await openRegister();
     highlight('Marigold Insurance');
 
     expect(fireEvent.keyDown(grid(), { key: 'F2' })).toBe(false);
 
-    const dockDate = screen.getByLabelText('Transaction date');
+    const boxDate = within(quickEditBox()).getByLabelText('Transaction date');
     await waitFor(() => {
-      expect(document.activeElement).toBe(dockDate);
+      expect(document.activeElement).toBe(boxDate);
     });
 
     // The date field opens its calendar on focus and answers the first Escape
-    // itself; the second reaches the bar and hands the keyboard back.
-    fireEvent.keyDown(dockDate, { key: 'Escape' });
-    fireEvent.keyDown(dockDate, { key: 'Escape' });
+    // itself; the second reaches the box and hands the keyboard back.
+    fireEvent.keyDown(boxDate, { key: 'Escape' });
+    fireEvent.keyDown(boxDate, { key: 'Escape' });
 
     expect(document.activeElement).toBe(grid());
-    // Still on the same row, so the next arrow key carries on where it was.
+    // Still on the same row, so the next arrow key carries on where it was —
+    // but the box itself has gone, which is the whole of what Escape promised.
     expect(activeRowText()).toContain('Marigold Insurance');
+    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
   });
 
-  it('does not fire again when the bar comes back for another row', async () => {
+  it('opens the box again on a row whose box had been closed', async () => {
+    await openRegister();
+    highlight('Marigold Insurance');
+    fireEvent.keyDown(grid(), { key: 'Escape' }); // let go of the row entirely
+    highlight('Marigold Insurance');             // …and take it again
+
+    within(quickEditBox()).getByLabelText('Transaction date');
+
+    // Esc closes the box, leaving the row where it was…
+    fireEvent.keyDown(within(quickEditBox()).getByLabelText('Description'), { key: 'Escape' });
+    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(activeRowText()).toContain('Marigold Insurance');
+
+    // …and F2 brings it straight back, rather than being a dead key on a row
+    // that is plainly still selected.
+    expect(fireEvent.keyDown(grid(), { key: 'F2' })).toBe(false);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(within(quickEditBox()).getByLabelText('Transaction date'));
+    });
+  });
+
+  it('does not fire again when the box comes back for another row', async () => {
     await openRegister();
     highlight('Marigold Insurance');
     fireEvent.keyDown(grid(), { key: 'F2' });
     await waitFor(() => {
-      expect(document.activeElement).toBe(screen.getByLabelText('Transaction date'));
+      expect(document.activeElement).toBe(within(quickEditBox()).getByLabelText('Transaction date'));
     });
 
-    // Clear the highlight (the bar unmounts) and pick a row again.
+    // Clear the highlight (the box unmounts) and pick a row again.
     fireEvent.keyDown(grid(), { key: 'Escape' });
     highlight('Thistledown Books');
 
-    await screen.findByLabelText('Transaction date');
+    within(quickEditBox()).getByLabelText('Transaction date');
     // The cursor stays with the register — a stale F2 must not steal it back.
     expect(document.activeElement).toBe(grid());
   });

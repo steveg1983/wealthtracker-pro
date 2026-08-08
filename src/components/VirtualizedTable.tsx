@@ -13,6 +13,26 @@ export interface Column<T> {
   resizable?: boolean;
 }
 
+/**
+ * An editor (or anything else) drawn immediately BENEATH one row, inside the
+ * list, displacing every row below it — Microsoft Money's inline transaction
+ * form, and the shape the register's quick edit takes.
+ *
+ * The three fields travel together on purpose: a key with no height would leave
+ * the virtualised list doing its row maths against a row it cannot measure.
+ * `height` is therefore a NUMBER of pixels, and the detail must honour it —
+ * react-window positions rows by arithmetic, not by measuring the DOM, so a
+ * detail that grew taller than it declared would be painted over by the row
+ * beneath it.
+ */
+export interface RowDetail<T> {
+  /** The key (see getItemKey) of the row the detail hangs beneath. */
+  key: string;
+  /** Exactly how tall the detail is, in px. */
+  height: number;
+  render: (item: T) => ReactNode;
+}
+
 export interface VirtualizedTableProps<T> {
   items: T[];
   columns: Column<T>[];
@@ -52,6 +72,8 @@ export interface VirtualizedTableProps<T> {
    * markup is byte-for-byte what it was.
    */
   rowDomId?: (rowKey: string) => string;
+  /** See RowDetail — an editor drawn under one row, pushing the rest down. */
+  rowDetail?: RowDetail<T> | null;
 }
 
 // Table header component
@@ -250,7 +272,8 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   scrollToKey,
   scrollToAlign,
   scrollToBottomToken,
-  rowDomId
+  rowDomId,
+  rowDetail
 }: VirtualizedTableProps<T>) {
   // Resolve the deep-link key to its position in the CURRENT row order, so
   // the list can centre it regardless of sort or filters.
@@ -259,6 +282,31 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     const index = items.findIndex((item, i) => getItemKey(item, i) === scrollToKey);
     return index >= 0 ? index : undefined;
   }, [items, getItemKey, scrollToKey]);
+
+  // Which row is carrying the detail right now, or -1 for none. Resolved
+  // against the CURRENT order, like the scroll target above, so a re-sort moves
+  // the detail with its row rather than stranding it on whatever now sits at
+  // that position.
+  const detailIndex = useMemo(() => {
+    if (!rowDetail) return -1;
+    return items.findIndex((item, i) => getItemKey(item, i) === rowDetail.key);
+  }, [items, getItemKey, rowDetail]);
+
+  /**
+   * The height of each row: the ordinary one, plus the detail on the one row
+   * that carries it.
+   *
+   * A plain number while nothing is expanded, so the list stays on
+   * react-window's FixedSizeList — cheaper, and the path every other table
+   * here uses. A new function identity whenever the expanded row moves, which
+   * is what tells VirtualizedList to make react-window forget its cached row
+   * offsets.
+   */
+  const itemHeight = useMemo<number | ((index: number) => number)>(() => {
+    if (detailIndex < 0 || !rowDetail) return rowHeight;
+    const detailHeight = rowDetail.height;
+    return (index: number): number => (index === detailIndex ? rowHeight + detailHeight : rowHeight);
+  }, [detailIndex, rowDetail, rowHeight]);
 
   // Memoize row renderer
   const renderRow = useCallback((item: T, index: number, style: React.CSSProperties) => {
@@ -288,6 +336,8 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
       ? rowClassName(item, index) 
       : rowClassName || '';
 
+    const detail = rowDetail && index === detailIndex ? rowDetail.render(item) : null;
+
     const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-colors duration-150';
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
     // Only apply hover effects if not selected. No scale: these rows sit in
@@ -297,9 +347,16 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     // Don't apply stripe classes to selected rows
     const stripeClass = !isSelected && index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : !isSelected ? 'bg-white dark:bg-gray-900' : '';
 
-    return (
+    // With a detail below it the row no longer owns react-window's slot: the
+    // wrapper does, and the row keeps exactly its own height so the detail gets
+    // the rest. On the non-virtualised path there is no slot and no height in
+    // the style at all — rows size to their content there, and forcing one
+    // would resize every table in the app.
+    const lineHeight = style.height === undefined ? undefined : rowHeight;
+
+    const rowLine = (
       <div
-        style={{...style, overflow: 'visible'}}
+        style={detail ? { height: lineHeight, overflow: 'visible' } : { ...style, overflow: 'visible' }}
         id={rowDomId?.(itemKey)}
         role={rowDomId ? 'row' : undefined}
         aria-selected={rowDomId ? isSelected : undefined}
@@ -317,7 +374,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
             />
           </div>
         )}
-        
+
         {columns.map((column) => (
           <div
             key={column.key}
@@ -330,6 +387,35 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         ))}
       </div>
     );
+
+    if (!detail || !rowDetail) return rowLine;
+
+    // grid → rowgroup → row → gridcell: the detail is a row of the grid in its
+    // own right, holding one cell that spans the table. Anything looser (a bare
+    // div between the grid and its rows) is a structure a screen reader is
+    // entitled to ignore, and it would take the transaction row with it.
+    //
+    // No onClick on the wrapper: clicking inside the editor must never count as
+    // clicking the row, which would open the full modal over the box the user
+    // is typing in.
+    return (
+      <div
+        style={{ ...style, overflow: 'visible' }}
+        role={rowDomId ? 'rowgroup' : undefined}
+        className="flex flex-col"
+      >
+        {rowLine}
+        <div
+          role={rowDomId ? 'row' : undefined}
+          style={{ height: rowDetail.height }}
+          className="shrink-0"
+        >
+          <div role={rowDomId ? 'gridcell' : undefined} className="h-full">
+            {detail}
+          </div>
+        </div>
+      </div>
+    );
   }, [
     columns,
     getItemKey,
@@ -338,7 +424,10 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     selectedItems,
     onSelectionChange,
     showCheckbox,
-    rowDomId
+    rowDomId,
+    rowDetail,
+    detailIndex,
+    rowHeight
   ]);
 
   
@@ -390,7 +479,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         items={items}
         renderItem={renderRow as (item: unknown, index: number, style: React.CSSProperties) => React.ReactElement}
         getItemKey={getItemKey as (item: unknown, index: number) => string}
-        itemHeight={rowHeight}
+        itemHeight={itemHeight}
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoading={isLoading}

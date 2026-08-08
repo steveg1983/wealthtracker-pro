@@ -66,6 +66,22 @@
 --          original, verbatim, minus the one column amendment (2) declared
 --          this copy ahead by.)
 --         Specs: specs/r12-*.
+--
+-- AMENDED 2026-08-08 (4), in BOTH copies together, by the verb harness again:
+--         v_integrity_violations gained `entity` and `severity` columns and the
+--         TWO INGEST CHECKS PHASE1-PLAN §2.5 owes it — fifteen checks become
+--         seventeen, fifteen hard and two advisory — and v_integrity_ok now
+--         counts only the hard ones. The section's own header comment was also
+--         CORRECTED: it claimed every check had a Postgres twin the differential
+--         harness could compare names against, and there is no such twin; the
+--         correction carries the trace that establishes it.
+--         Both copies were edited in the same change and diffed to prove they
+--         differ by this header and by amendment (2)'s one column alone:
+--             diff <(tail -n +88 scripts/local-sqlite/schema.sql |
+--                      sed '/-- Has a human vouched/,/^$/d') \
+--                  <scratchpad>/local-core/schema.sql   -> no output
+--         (88 = this header is 85 lines and two blank ones.)
+--         Specs: verb-specs/integrity-*.
 -- ============================================================================
 
 
@@ -1120,9 +1136,70 @@ CREATE INDEX idx_goal_contributions_goal ON goal_contributions(goal_id, date);
 -- no column list, so the declaration still says it, and this trigger must not
 -- pre-empt it. Deleting an account still takes its transactions (R-1), its
 -- To/From category (C-3/C-5) and its holdings (R-9) exactly as before.
+--
+-- ── THE LINK CLEAR, AND WHY IT IS PART OF THE SAME TRIGGER ──────────────────
+-- ADDED 2026-08-08, by the wipe port, which could not wipe. Two things that are
+-- each individually right combine into a refusal the cloud does not have:
+--
+--   * `transactions_linked_has_target` — a LOCAL CHECK ("a linked transfer must
+--     name the other account"). The cloud has no such constraint; the rule lives
+--     procedurally inside its RPCs. MEASURED on the reference cluster: the only
+--     CHECKs on public.transactions are the type enum, the provider enum and the
+--     import-provenance pair.
+--   * the two `transfer_account_id = NULL` statements above, which exist ONLY
+--     because SQLite has no `ON DELETE SET NULL (column)`.
+--
+-- The trigger is BEFORE DELETE, so it nulls `transfer_account_id` while
+-- `linked_transfer_id` is still set — a state that lasts one statement and that
+-- the CHECK refuses. MEASURED, both engines, on a linked pair whose far side is
+-- deleted:
+--
+--   postgres  ok       — 2 rows survive; the survivor reads transfer_account_id
+--                        NULL, linked_transfer_id NULL
+--   sqlite    REFUSED  — CHECK constraint failed: transactions_linked_has_target
+--   sqlite    REFUSED  — the same, for a split leg:
+--                        transaction_splits_linked_has_target
+--
+-- Postgres reaches BOTH nulls because the two are independent foreign-key
+-- actions: `transfer_account_id` is SET NULL by the account key, and
+-- `linked_transfer_id` is SET NULL by the transactions key when the counterpart
+-- row — which lives IN the account being deleted — cascades away. It never sees
+-- the half-nulled row because it never has to evaluate a constraint that would
+-- object to one.
+--
+-- So the three UPDATEs below do the SAME work Postgres's own keys do, in the one
+-- order that never produces a row the CHECK can object to: clear the LINKS whose
+-- counterpart is about to cascade FIRST, then clear the targets. Note the
+-- condition — a link is cleared only when the row (or split line) it names lives
+-- in the account going away, which is exactly the set the cascade would have
+-- nulled. A link pointing somewhere else is left alone.
+--
+-- The consequence if this is ever removed: `wipe_user_financial_data` — "delete
+-- everything" — is REFUSED outright on any file containing one linked transfer,
+-- which is every real file. The refusal names a CHECK about transfer targets
+-- while the user is trying to erase the whole ledger, and there is no way
+-- through it from the UI.
+--
+-- The verb still owes `_rpc_guard('leg')` on top of this: clearing a linked
+-- leg's `linked_transfer_id` is an UPDATE of a watched column and
+-- `trg_protect_linked_leg` raises `split_leg_locked` for it. MEASURED: with the
+-- widened trigger and NO guard the split-leg case still refuses, and with the
+-- guard it succeeds and the surviving line reads NULL/NULL. That is R-5 working
+-- as designed, not a second defect — the guard is the caller's to hold.
 CREATE TRIGGER trg_unnest_account_references
 BEFORE DELETE ON accounts
 BEGIN
+  UPDATE transactions
+     SET linked_transfer_id       = NULL,
+         linked_transfer_split_id = NULL
+   WHERE user_id = OLD.user_id
+     AND (linked_transfer_id IN (SELECT id FROM transactions WHERE account_id = OLD.id)
+       OR linked_transfer_split_id IN (SELECT s.id FROM transaction_splits s
+                                         JOIN transactions t ON t.id = s.transaction_id
+                                        WHERE t.account_id = OLD.id));
+  UPDATE transaction_splits SET linked_transfer_id = NULL
+   WHERE user_id = OLD.user_id
+     AND linked_transfer_id IN (SELECT id FROM transactions WHERE account_id = OLD.id);
   UPDATE transactions       SET transfer_account_id = NULL
    WHERE transfer_account_id = OLD.id AND user_id = OLD.user_id;
   UPDATE transaction_splits SET transfer_account_id = NULL
@@ -1371,16 +1448,36 @@ CREATE TABLE widget_preferences (
 -- single highest-leverage artifact in the local core: every procedural
 -- invariant that a future code path might drop is caught here.
 --
--- Each of these has a Postgres twin, textually different but semantically
--- identical, so the differential harness can compare violation NAMES across
--- engines. The Postgres twin of B-1 already exists as the verification query
--- at 20260808090000:292-299 and 20260807200000:100-110.
+-- CORRECTED 2026-08-08. This comment used to say *"each of these has a Postgres
+-- twin, textually different but semantically identical, so the differential
+-- harness can compare violation NAMES across engines"*. It does not. TRACED:
+-- `grep -rn verify_integrity` over `supabase/`, `api/` and `src/` returns
+-- nothing but this file and its own specs; there is no `CREATE VIEW` anywhere in
+-- `supabase/migrations/`; and the only Postgres relatives of any of these are two
+-- one-off verification SELECTs a migration runs once and discards
+-- (20260808090000:292-299 and 20260807200000:100-110, both of B-1 alone). So
+-- verify_integrity is a LOCAL-ONLY facility with no differential oracle, and the
+-- specs that prove it say so — `crates/wealth-core/src/verbs/verify_integrity.rs`
+-- carries the whole argument.
+--
+-- Two columns beyond the original three, added 2026-08-08 with the two ingest
+-- checks (PHASE1-PLAN §2.5):
+--
+--   entity    which table the subject lives in, so a caller can resolve the id
+--             without knowing every check by name
+--   severity  'violation' (a rule of the ledger is broken) or 'warning' (a
+--             HEURISTIC — see the two ingest checks at the foot). v_integrity_ok
+--             counts only 'violation', so adding advisory checks cannot make the
+--             existing "must be empty" assertion flaky.
 
 CREATE VIEW v_integrity_violations AS
 
   -- B-1: balance = initial_balance + SUM(amount). Not enforceable by any
   --      constraint in either engine.
-  SELECT 'balance_identity' AS check_name, a.id AS subject,
+  SELECT 'balance_identity' AS check_name,
+         'account'          AS entity,
+         a.id               AS subject,
+         'violation'        AS severity,
          'account balance is not initial_balance + sum(transactions)' AS detail
     FROM accounts a
     LEFT JOIN (SELECT account_id, SUM(amount_minor) AS total
@@ -1389,7 +1486,8 @@ CREATE VIEW v_integrity_violations AS
 
 UNION ALL
   -- S-1: split lines sum exactly to their parent.
-  SELECT 'split_sum', t.id, 'split lines do not sum to the parent amount'
+  SELECT 'split_sum', 'transaction', t.id, 'violation',
+         'split lines do not sum to the parent amount'
     FROM transactions t
     JOIN (SELECT transaction_id, SUM(amount_minor) AS total, COUNT(*) AS n
             FROM transaction_splits GROUP BY transaction_id) s
@@ -1398,14 +1496,16 @@ UNION ALL
 
 UNION ALL
   -- S-2: a split parent has at least two lines (20260713100000:185).
-  SELECT 'split_min_lines', t.id, 'a split has fewer than two lines'
+  SELECT 'split_min_lines', 'transaction', t.id, 'violation',
+         'a split has fewer than two lines'
     FROM transactions t
    WHERE t.is_split = 1
      AND (SELECT COUNT(*) FROM transaction_splits s WHERE s.transaction_id = t.id) < 2
 
 UNION ALL
   -- S-3: an unsplit transaction has no lines.
-  SELECT 'orphan_split_lines', s.transaction_id, 'split lines on a transaction that is not split'
+  SELECT 'orphan_split_lines', 'transaction', s.transaction_id, 'violation',
+         'split lines on a transaction that is not split'
     FROM transaction_splits s
     JOIN transactions t ON t.id = s.transaction_id
    WHERE t.is_split = 0
@@ -1414,7 +1514,8 @@ UNION ALL
 UNION ALL
   -- T-1: transfer links are MUTUAL. Enforced nowhere in the cloud; only
   --      repair_claimed_transfer even checks it (20260805145035:327-331).
-  SELECT 'transfer_link_not_mutual', a.id, 'this row links to one that does not link back'
+  SELECT 'transfer_link_not_mutual', 'transaction', a.id, 'violation',
+         'this row links to one that does not link back'
     FROM transactions a
     LEFT JOIN transactions b ON b.id = a.linked_transfer_id
    WHERE a.linked_transfer_id IS NOT NULL
@@ -1424,7 +1525,8 @@ UNION ALL
 UNION ALL
   -- T-2: the two sides of a transfer are exactly opposite and non-zero
   --      (20260716100000:108-111).
-  SELECT 'transfer_amounts_not_opposite', a.id, 'linked transfer sides are not exact opposites'
+  SELECT 'transfer_amounts_not_opposite', 'transaction', a.id, 'violation',
+         'linked transfer sides are not exact opposites'
     FROM transactions a
     JOIN transactions b ON b.id = a.linked_transfer_id
    WHERE a.linked_transfer_split_id IS NULL
@@ -1432,7 +1534,8 @@ UNION ALL
 
 UNION ALL
   -- T-3: a transfer's two sides are in different accounts.
-  SELECT 'transfer_same_account', a.id, 'both sides of this transfer are in one account'
+  SELECT 'transfer_same_account', 'transaction', a.id, 'violation',
+         'both sides of this transfer are in one account'
     FROM transactions a
     JOIN transactions b ON b.id = a.linked_transfer_id
    WHERE a.account_id = b.account_id
@@ -1440,14 +1543,16 @@ UNION ALL
 UNION ALL
   -- T-4: a split-line leg is opposite to the LINE, never the parent
   --      (20260720120000:15-17).
-  SELECT 'split_leg_amounts_not_opposite', s.id, 'a split leg and its counterpart are not exact opposites'
+  SELECT 'split_leg_amounts_not_opposite', 'split_line', s.id, 'violation',
+         'a split leg and its counterpart are not exact opposites'
     FROM transaction_splits s
     JOIN transactions c ON c.id = s.linked_transfer_id
    WHERE s.amount_minor = 0 OR c.amount_minor <> -s.amount_minor
 
 UNION ALL
   -- T-5: a counterpart that names a split line must be named back by it.
-  SELECT 'split_leg_link_not_mutual', c.id, 'this row names a split line that does not name it back'
+  SELECT 'split_leg_link_not_mutual', 'transaction', c.id, 'violation',
+         'this row names a split line that does not name it back'
     FROM transactions c
     LEFT JOIN transaction_splits s ON s.id = c.linked_transfer_split_id
    WHERE c.linked_transfer_split_id IS NOT NULL
@@ -1457,7 +1562,8 @@ UNION ALL
   -- R-3: transactions.category and transaction_splits.category are TEXT with
   --      no FK, in BOTH engines. Danglers are reported, not rejected — the
   --      legacy 'transfer-in'/'transfer-out' sentinels are legal values.
-  SELECT 'dangling_category_ref', t.id, 'category text names no category of this user'
+  SELECT 'dangling_category_ref', 'transaction', t.id, 'violation',
+         'category text names no category of this user'
     FROM transactions t
    WHERE t.category IS NOT NULL
      AND trim(t.category) <> ''
@@ -1465,25 +1571,29 @@ UNION ALL
      AND NOT EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category AND c.user_id = t.user_id)
 
 UNION ALL
-  SELECT 'dangling_split_category_ref', s.id, 'split line category names no category of this user'
+  SELECT 'dangling_split_category_ref', 'split_line', s.id, 'violation',
+         'split line category names no category of this user'
     FROM transaction_splits s
    WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.id = s.category AND c.user_id = s.user_id)
 
 UNION ALL
   -- C-3: every account has exactly one transfer category
   --      (20260708140000:57-78).
-  SELECT 'account_missing_transfer_category', a.id, 'this account has no To/From category'
+  SELECT 'account_missing_transfer_category', 'account', a.id, 'violation',
+         'this account has no To/From category'
     FROM accounts a
    WHERE NOT EXISTS (SELECT 1 FROM categories c WHERE c.account_id = a.id AND c.is_transfer_category = 1)
 
 UNION ALL
-  SELECT 'account_multiple_transfer_categories', a.id, 'this account has more than one To/From category'
+  SELECT 'account_multiple_transfer_categories', 'account', a.id, 'violation',
+         'this account has more than one To/From category'
     FROM accounts a
    WHERE (SELECT COUNT(*) FROM categories c WHERE c.account_id = a.id AND c.is_transfer_category = 1) > 1
 
 UNION ALL
   -- A-1: the audit chain is dense and links.
-  SELECT 'audit_chain_broken', l.id, 'this audit row does not chain to its predecessor'
+  SELECT 'audit_chain_broken', 'audit_entry', l.id, 'violation',
+         'this audit row does not chain to its predecessor'
     FROM financial_audit_log l
     LEFT JOIN financial_audit_log p ON p.seq = l.seq - 1
    WHERE (l.seq > (SELECT MIN(seq) FROM financial_audit_log))
@@ -1492,11 +1602,64 @@ UNION ALL
 UNION ALL
   -- I-1: an account nested under another must not itself be a parent
   --      (one level only — the (Cash) pairing, 20260722090000).
-  SELECT 'account_nesting_too_deep', a.id, 'a nested account is itself a parent'
+  SELECT 'account_nesting_too_deep', 'account', a.id, 'violation',
+         'a nested account is itself a parent'
     FROM accounts a
    WHERE a.parent_account_id IS NOT NULL
-     AND EXISTS (SELECT 1 FROM accounts c WHERE c.parent_account_id = a.id);
+     AND EXISTS (SELECT 1 FROM accounts c WHERE c.parent_account_id = a.id)
 
--- The one-line answer.
+-- ── The two INGEST checks (PHASE1-PLAN §2.5) ────────────────────────────────
+--
+-- Everything above catches a ledger that contradicts itself. Neither of the two
+-- commonest ingest disasters does that: a card statement imported with inverted
+-- signs, and an <AVAILBAL> stored where a <LEDGERBAL> belongs, both produce data
+-- that is internally consistent and entirely wrong. MEASURED before these were
+-- written (`scratchpad/local-core/probe-integrity1.mjs`, cases 16 and 17): both
+-- shapes were planted and the fifteen checks above reported NOTHING.
+--
+-- They are HEURISTICS and are labelled as such: a credit card genuinely can be
+-- in credit, and a bank figure genuinely can disagree with an unreconciled
+-- ledger. They report `severity = 'warning'`, v_integrity_ok ignores warnings,
+-- and the app is expected to phrase them as a question rather than a verdict.
+--
+-- Both are narrowed to `type = 'credit'` deliberately. That is the whole card
+-- population — accounts_type_check has no 'card' — and it is the only kind where
+-- "positive means you are owed money" is the wrong reading. A loan or a mortgage
+-- carries the same sign convention but is never fed by a statement importer
+-- making this decision per row, so widening them would buy false positives
+-- without buying a catch.
+
+UNION ALL
+  -- TS-F1/TS-F2. A card's stored balance is -current; a positive one means
+  -- either a genuine credit balance or an importer that got the sign backwards.
+  -- The provenance test is what makes it worth reporting: a hand-typed positive
+  -- balance is a decision, an imported one is a guess.
+  SELECT 'card_account_sign_implausible', 'account', a.id, 'warning',
+         'a credit account is in credit and its rows were imported — the statement''s signs may be inverted'
+    FROM accounts a
+   WHERE a.type = 'credit'
+     AND a.balance_minor > 0
+     AND EXISTS (SELECT 1 FROM transactions t
+                  WHERE t.account_id = a.id
+                    AND (t.import_source IS NOT NULL OR t.external_transaction_id IS NOT NULL))
+
+UNION ALL
+  -- TS-I1/TS-I2. <AVAILBAL> is remaining credit: positive, and larger than the
+  -- balance it was mistaken for. The predicate is PHASE1-PLAN §2.5's, spelled
+  -- without sign(): SQLite's sign() needs SQLITE_ENABLE_MATH_FUNCTIONS, and
+  -- `bank_balance_minor * balance_minor < 0` would overflow int64 at the bounded
+  -- extremes and silently become a float. Two comparisons say the same thing
+  -- exactly.
+  SELECT 'bank_balance_implausible', 'account', a.id, 'warning',
+         'the bank figure disagrees with the ledger by more than the ledger itself — an available balance may have been stored as a bank balance'
+    FROM accounts a
+   WHERE a.type = 'credit'
+     AND a.bank_balance_minor IS NOT NULL
+     AND ((a.bank_balance_minor > 0 AND a.balance_minor < 0)
+       OR (a.bank_balance_minor < 0 AND a.balance_minor > 0))
+     AND abs(a.bank_balance_minor - a.balance_minor) > abs(a.balance_minor);
+
+-- The one-line answer. WARNINGS ARE NOT COUNTED: the two ingest checks are
+-- heuristics, and a file that trips one is not thereby corrupt.
 CREATE VIEW v_integrity_ok AS
-  SELECT (SELECT COUNT(*) FROM v_integrity_violations) = 0 AS ok;
+  SELECT (SELECT COUNT(*) FROM v_integrity_violations WHERE severity = 'violation') = 0 AS ok;

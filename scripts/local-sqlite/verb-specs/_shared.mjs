@@ -732,6 +732,12 @@ export function balanceOf(accountId, expect) {
  * Asserted on EVERY verb spec, including the refusals, because B-1 is the
  * invariant the whole application rests on and neither schema enforces it. A
  * verb that refuses must leave it holding just as much as one that accepts.
+ *
+ * ONE FAMILY IS EXEMPT, and it is the family that proves the rule: the
+ * `integrity-*` specs plant violations on purpose, and one of them plants a
+ * broken B-1. Asserting B-1 there would be asserting that the fixture failed to
+ * do its job. They assert `v_integrity_ok` instead, which is the same question
+ * asked by the thing under test.
  */
 export function balanceIdentityHolds(accountId) {
   return {
@@ -1354,6 +1360,537 @@ export function storedAmount(transactionId, expect) {
         FROM transactions WHERE id = '${transactionId}'), 'ABSENT')`,
     postgres: `SELECT COALESCE((SELECT amount::text FROM public.transactions
         WHERE id = '${transactionId}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+// ── The restore family's fixtures ──────────────────────────────────────────
+//
+// A restore refuses unless the login is empty (X-1), and the base fixture is
+// not, so almost every spec in this family clears it first.
+
+/**
+ * The login, emptied — by hand, not by the wipe verb.
+ *
+ * Deliberately plain DELETEs on both engines rather than a call to
+ * `wipe_user_financial_data`, for two reasons. The wipe WRITES AUDIT ROWS, and a
+ * restore spec that then counts the audit log would be counting the setup; and
+ * the SQLite side has no way to call a Rust verb from a setup string, so the two
+ * engines would be cleared by different code doing different amounts of work.
+ *
+ * Accounts first is X-3 and it is not optional on either engine: deleting the
+ * categories while their accounts stand raises `transfer_category_protected`.
+ */
+export const wiped = {
+  sqlite: `
+    DELETE FROM accounts     WHERE user_id = '${USER}';
+    DELETE FROM transactions WHERE user_id = '${USER}';
+    DELETE FROM categories   WHERE user_id = '${USER}';`,
+  postgres: `
+    DELETE FROM public.accounts     WHERE user_id = '${USER}';
+    DELETE FROM public.transactions WHERE user_id = '${USER}';
+    DELETE FROM public.categories   WHERE user_id = '${USER}';`,
+};
+
+/** Ids for the rows a backup file puts back. Nothing in the fixture uses them. */
+export const RESTORED_ACCOUNT = 'a0000000-0000-0000-0000-0000000000f1';
+export const RESTORED_SAVINGS = 'a0000000-0000-0000-0000-0000000000f2';
+export const RESTORED_ROW = '70000000-0000-0000-0000-0000000000f1';
+export const RESTORED_OTHER = '70000000-0000-0000-0000-0000000000f2';
+export const RESTORED_TRANSFER_ROOT = 'c0000000-0000-0000-0000-0000000000f8';
+export const RESTORED_TO_FROM = 'c0000000-0000-0000-0000-0000000000f9';
+
+/**
+ * A whole `accounts` row, as a backup file holds one.
+ *
+ * "Whole" is the contract, not a courtesy: `jsonb_populate_recordset` does not
+ * apply column defaults, so the cloud REFUSES a row missing any NOT NULL key —
+ * MEASURED, on `low_balance_alert_enabled`, which has a default and is refused
+ * anyway. Every NOT NULL column of `public.accounts` is therefore present here.
+ *
+ * `user_id` is deliberately the STRANGER's: X-6 says every restored row is
+ * re-owned to the caller, and a fixture that already had the right owner could
+ * not tell a re-owning from a copy.
+ *
+ * Money is a STRING. A JSON number is an IEEE-754 double by the time any parser
+ * has read it, and a spec for a ledger should not contain one.
+ */
+export function backupAccount(overrides = {}) {
+  return {
+    id: RESTORED_ACCOUNT,
+    user_id: STRANGER,
+    name: 'Everyday',
+    type: 'checking',
+    currency: 'GBP',
+    balance: '-25.00',
+    initial_balance: '0.00',
+    is_active: true,
+    low_balance_alert_enabled: false,
+    metadata: {},
+    created_at: '2019-01-01T00:00:00+00:00',
+    updated_at: '2019-01-01T00:00:00+00:00',
+    ...overrides,
+  };
+}
+
+/** A whole `transactions` row, same contract. */
+export function backupTransaction(overrides = {}) {
+  return {
+    id: RESTORED_ROW,
+    user_id: STRANGER,
+    account_id: RESTORED_ACCOUNT,
+    description: 'Corner shop',
+    amount: '-25.00',
+    type: 'expense',
+    date: '2019-05-04',
+    is_cleared: false,
+    is_split: false,
+    archived: false,
+    category_confirmed: true,
+    is_recurring: false,
+    metadata: {},
+    created_at: '2019-05-04T00:00:00+00:00',
+    updated_at: '2019-05-04T00:00:00+00:00',
+    ...overrides,
+  };
+}
+
+/** A whole `categories` row, same contract. */
+export function backupCategory(overrides = {}) {
+  return {
+    id: RESTORED_TRANSFER_ROOT,
+    user_id: STRANGER,
+    name: 'Transfer',
+    type: 'both',
+    level: 'type',
+    is_system: false,
+    is_transfer_category: false,
+    is_revaluation_category: false,
+    is_unassigned_bucket: false,
+    is_active: true,
+    created_at: '2019-01-01T00:00:00+00:00',
+    updated_at: '2019-01-01T00:00:00+00:00',
+    ...overrides,
+  };
+}
+
+/** One chunk of a restore, in the shape both engines are handed. */
+export function chunk(entity, rows) {
+  return { entity, rows };
+}
+
+/** How many rows one table holds for the fixture's login. */
+export function rowCount(name, table, expect, where = '') {
+  const clause = where ? ` AND ${where}` : '';
+  return {
+    name,
+    sqlite: `SELECT COUNT(*) FROM ${table} WHERE user_id = '${USER}'${clause}`,
+    postgres: `SELECT COUNT(*) FROM public.${table} WHERE user_id = '${USER}'${clause}`,
+    expect,
+  };
+}
+
+/** One restored account's stored balance and initial balance, as decimals. */
+export function storedBalances(accountId, expect) {
+  const decimal = (column) =>
+    `(CASE WHEN ${column} < 0 THEN '-' ELSE '' END || CAST(abs(${column}) / 100 AS TEXT)
+      || '.' || substr('0' || CAST(abs(${column}) % 100 AS TEXT), -2, 2))`;
+  return {
+    name: `stored_balances_${accountId.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT ${decimal('balance_minor')} || '/' || ${decimal('initial_balance_minor')}
+              FROM accounts WHERE id = '${accountId}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT balance::text || '/' || initial_balance::text
+                FROM public.accounts WHERE id = '${accountId}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/** The day one row's updated_at falls on — X-4's whole subject. */
+export function updatedDay(table, id, expect) {
+  return {
+    name: `updated_day_${id.slice(-4)}`,
+    sqlite: `SELECT COALESCE((SELECT substr(updated_at, 1, 10) FROM ${table} WHERE id = '${id}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+                FROM public.${table} WHERE id = '${id}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/**
+ * An emptied login with ONE account back in it, planted directly.
+ *
+ * The restore verb takes one chunk per differential spec (the cloud RPC takes
+ * one entity per call), so a spec about restoring TRANSACTIONS needs their
+ * account to be there already. Planted rather than restored, so that the spec
+ * asserts one thing.
+ *
+ * The account is deliberately at −25.00 with no transactions against it, which is
+ * the state a real restore reaches between the accounts chunk and the
+ * transactions chunk: B-1 does not hold in the middle of a restore and is not
+ * expected to.
+ */
+export const wipedWithOneAccount = {
+  sqlite: `${wiped.sqlite}
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor, updated_at)
+      VALUES ('${RESTORED_ACCOUNT}', '${USER}', 'Everyday', 'checking', -2500, 0, '2019-01-01T00:00:00.000Z');`,
+  postgres: `${wiped.postgres}
+    INSERT INTO public.accounts (id, user_id, name, type, balance, initial_balance, updated_at)
+      VALUES ('${RESTORED_ACCOUNT}', '${USER}', 'Everyday', 'checking', -25.00, 0.00, '2019-01-01T00:00:00Z');`,
+};
+
+// ── The prune's fixtures ───────────────────────────────────────────────────
+//
+// `delete_unused_categories` starts from exactly what `merge_categories` starts
+// from: an ordinary expense leaf under Outgoings that nothing refers to. Rather
+// than mint a second identical pair, the prune specs name the merge pair's ids
+// through these aliases, so a reader of either family sees a name that means
+// something in it.
+
+/** The leaf a prune is asked to remove. */
+export const PRUNABLE = MERGE_SOURCE;
+/** A second one, for the batch cases. */
+export const SECOND_PRUNABLE = MERGE_TARGET;
+/** Both of them. */
+export const prunablePair = mergeablePair;
+
+/**
+ * Corner shop filed under [`PRUNABLE`] through the UUID column ALONE.
+ *
+ * The measured hole in the prune's transaction check: it reads
+ * `t.category = c.id::text` and nothing else, so a row filed only through
+ * `category_id` does not save its category and has the column nulled out from
+ * under it by the foreign key (`probe-prune1.sh`,
+ * `p-used-by-transaction-uuid-only`). The budget check reads BOTH columns; this
+ * one does not, and the asymmetry is the cloud's own.
+ */
+export const filedUnderThePrunableByUuidAlone = {
+  sqlite: `
+    UPDATE transactions SET category = NULL, category_id = '${PRUNABLE}'
+     WHERE id = '${CORNER_SHOP}';`,
+  postgres: `
+    UPDATE public.transactions SET category = NULL, category_id = '${PRUNABLE}'::uuid
+     WHERE id = '${CORNER_SHOP}';`,
+};
+
+/** A budget naming [`PRUNABLE`] through the uuid column alone — which DOES save it. */
+export const budgetOnThePrunableByUuidAlone = {
+  sqlite: `
+    INSERT INTO budgets (id, user_id, name, amount_minor, period, category_id, start_date)
+      VALUES ('${BUDGET}', '${USER}', 'Food', 10000, 'monthly', '${PRUNABLE}', '2024-01-01');`,
+  postgres: `
+    INSERT INTO public.budgets (id, user_id, name, amount, period, category_id, start_date)
+      VALUES ('${BUDGET}', '${USER}', 'Food', 100.00, 'monthly', '${PRUNABLE}'::uuid, '2024-01-01');`,
+};
+
+/** A leaf under [`PRUNABLE`], so the batch has a parent and a child in it. */
+export const PRUNABLE_CHILD = 'c0000000-0000-0000-0000-0000000000c1';
+/** And one under THAT, for the three-generation case. */
+export const PRUNABLE_GRANDCHILD = 'c0000000-0000-0000-0000-0000000000c2';
+
+export const prunableChild = childOf(PRUNABLE, PRUNABLE_CHILD);
+export const prunableGrandchild = childOf(PRUNABLE_CHILD, PRUNABLE_GRANDCHILD);
+
+/**
+ * Move an account's To/From category UNDER a prunable one.
+ *
+ * The only route to the one refusal this verb can produce, and it is a refusal
+ * the FILE raises rather than the function: naming both the parent and the
+ * To/From child means the child no longer keeps its parent alive, the parent is
+ * deleted, and `parent_id ON DELETE CASCADE` walks the protected row into C-5's
+ * trigger. The category's id is minted by a trigger on both engines, so it is
+ * reached through its ACCOUNT here and named through a sub-SELECT in the payload
+ * nowhere — which is why the spec that uses this also needs
+ * [`namedTransferCategories`] to give it an id a payload can carry.
+ */
+export function transferCategoryUnder(parentId, accountId) {
+  return {
+    sqlite: `UPDATE categories SET parent_id = '${parentId}'
+              WHERE account_id = '${accountId}' AND is_transfer_category = 1;`,
+    postgres: `UPDATE public.categories SET parent_id = '${parentId}'
+                WHERE account_id = '${accountId}' AND is_transfer_category;`,
+  };
+}
+
+/** Is this category still in the file? `GONE` when the prune took it. */
+export function categoryPresent(categoryId, expect) {
+  return {
+    name: `category_present_${categoryId.slice(-4)}`,
+    sqlite: `SELECT CASE WHEN EXISTS (SELECT 1 FROM categories WHERE id = '${categoryId}')
+                    THEN 'HERE' ELSE 'GONE' END`,
+    postgres: `SELECT CASE WHEN EXISTS (SELECT 1 FROM public.categories WHERE id = '${categoryId}')
+                      THEN 'HERE' ELSE 'GONE' END`,
+    expect,
+  };
+}
+
+/** How many To/From categories the file holds, whoever they belong to. */
+export function transferCategoryCount(expect) {
+  return {
+    name: 'transfer_categories',
+    sqlite: 'SELECT COUNT(*) FROM categories WHERE is_transfer_category = 1',
+    postgres: 'SELECT COUNT(*) FROM public.categories WHERE is_transfer_category',
+    expect,
+  };
+}
+
+// ── verify_integrity's fixtures: seventeen ways to break a file ────────────
+//
+// Every other fixture in this file builds a state the ledger is happy with.
+// These build states it is NOT, because a check nobody can plant is a check
+// nobody can prove. They are SQLITE-ONLY — `verify_integrity` has no cloud
+// counterpart at all, so there is no second engine to plant anything on, and
+// the specs that use them declare `parity: 'not-comparable'`.
+//
+// Each plant was measured before it was written
+// (`scratchpad/local-core/probe-integrity1.mjs`): it must fire the check it is
+// for, and every other check it fires is named in the spec that uses it.
+
+/** A card, for the two ingest checks. `credit` is the schema's only card type. */
+export const CARD = 'a0000000-0000-0000-0000-0000000000ca';
+/** One row against it, provenance set or not depending on the plant. */
+export const IMPORTED_ROW = '70000000-0000-0000-0000-0000000000f0';
+/** The Transfer type root the base fixture seeds — a second To/From hangs here. */
+export const TRANSFER_ROOT = 'c0000000-0000-0000-0000-000000000001';
+/** Two audit rows, planted to break the chain between them. */
+export const AUDIT_FIRST = 'e0000000-0000-0000-0000-000000000001';
+export const AUDIT_SECOND = 'e0000000-0000-0000-0000-000000000002';
+
+/** B-1, broken by one penny — the smallest lie a balance can tell. */
+export const aBalanceThatIsOneOut = {
+  sqlite: `UPDATE accounts SET balance_minor = balance_minor + 1 WHERE id = '${EVERYDAY}';`,
+};
+
+/** S-1: two lines that add up to less than their parent. */
+export const aSplitThatDoesNotSum = {
+  sqlite: `
+    INSERT INTO _rpc_guard VALUES ('split');
+    UPDATE transactions SET is_split = 1, category = '' WHERE id = '${CORNER_SHOP}';
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order) VALUES
+      ('${LEG_LINE}',   '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -1000, 0),
+      ('${PLAIN_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -1000, 1);
+    DELETE FROM _rpc_guard;`,
+};
+
+/**
+ * S-2: a split with ONE line, and that line summing exactly to the parent — so
+ * `split_min_lines` fires alone and `split_sum` has nothing to say.
+ */
+export const aSplitWithOneLine = {
+  sqlite: `
+    INSERT INTO _rpc_guard VALUES ('split');
+    UPDATE transactions SET is_split = 1, category = '' WHERE id = '${CORNER_SHOP}';
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order)
+      VALUES ('${LEG_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -2500, 0);
+    DELETE FROM _rpc_guard;`,
+};
+
+/** S-3: a line hanging off a row that is not split at all. */
+export const linesOnARowThatIsNotSplit = {
+  sqlite: `
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order)
+      VALUES ('${LEG_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -2500, 0);`,
+};
+
+/** T-1: one side names the other and is not named back. Amounts opposite, so T-2 stays quiet. */
+export const aLinkNobodyReturns = {
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              transfer_account_id) VALUES
+      ('${OTHER_LEG}', '${USER}', '${EVERYDAY}',  'To savings',    -1500, 'transfer', '2024-04-01', '${RAINY_DAY}'),
+      ('${THIS_LEG}',  '${USER}', '${RAINY_DAY}', 'From everyday',  1500, 'transfer', '2024-04-01', '${EVERYDAY}');
+    UPDATE accounts SET balance_minor = balance_minor - 1500 WHERE id = '${EVERYDAY}';
+    UPDATE accounts SET balance_minor = balance_minor + 1500 WHERE id = '${RAINY_DAY}';
+    UPDATE transactions SET linked_transfer_id = '${THIS_LEG}' WHERE id = '${OTHER_LEG}';`,
+};
+
+/**
+ * T-2: a mutual pair whose amounts are not opposites.
+ *
+ * It fires TWICE — once per side — because the check reads every row that names
+ * another and compares. That is the honest answer: both rows are wrong about the
+ * same movement, and a report naming one of them would leave the other looking
+ * innocent.
+ */
+export const linkedSidesThatAreNotOpposites = {
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              transfer_account_id) VALUES
+      ('${OTHER_LEG}', '${USER}', '${EVERYDAY}',  'To savings',    -1500, 'transfer', '2024-04-01', '${RAINY_DAY}'),
+      ('${THIS_LEG}',  '${USER}', '${RAINY_DAY}', 'From everyday',  2000, 'transfer', '2024-04-01', '${EVERYDAY}');
+    UPDATE accounts SET balance_minor = balance_minor - 1500 WHERE id = '${EVERYDAY}';
+    UPDATE accounts SET balance_minor = balance_minor + 2000 WHERE id = '${RAINY_DAY}';
+    UPDATE transactions SET linked_transfer_id = '${THIS_LEG}'  WHERE id = '${OTHER_LEG}';
+    UPDATE transactions SET linked_transfer_id = '${OTHER_LEG}' WHERE id = '${THIS_LEG}';`,
+};
+
+/**
+ * T-3: both sides of one transfer sitting in the same account.
+ *
+ * `transactions_transfer_two_accounts` forbids a row pointing at its OWN
+ * account, so both rows point at a third one — which is the only shape the
+ * schema will hold, and exactly the shape a bad import produces.
+ */
+export const bothSidesInOneAccount = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+      VALUES ('${HOLIDAY_FUND}', '${USER}', 'Holiday fund', 'savings', 0, 0);
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              transfer_account_id) VALUES
+      ('${OTHER_LEG}', '${USER}', '${EVERYDAY}', 'Out', -1000, 'transfer', '2024-04-01', '${HOLIDAY_FUND}'),
+      ('${THIS_LEG}',  '${USER}', '${EVERYDAY}', 'In',   1000, 'transfer', '2024-04-01', '${HOLIDAY_FUND}');
+    UPDATE transactions SET linked_transfer_id = '${THIS_LEG}'  WHERE id = '${OTHER_LEG}';
+    UPDATE transactions SET linked_transfer_id = '${OTHER_LEG}' WHERE id = '${THIS_LEG}';`,
+};
+
+/** T-4: a leg and its counterpart that do not cancel — compared against the LINE. */
+export const aLegAndACounterpartThatDisagree = {
+  sqlite: `
+    INSERT INTO _rpc_guard VALUES ('split');
+    UPDATE transactions SET is_split = 1, category = '' WHERE id = '${CORNER_SHOP}';
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              transfer_account_id)
+      VALUES ('${LEG_COUNTERPART}', '${USER}', '${RAINY_DAY}', 'Counterpart', 2000, 'transfer',
+              '2024-03-01', '${EVERYDAY}');
+    UPDATE accounts SET balance_minor = balance_minor + 2000 WHERE id = '${RAINY_DAY}';
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order,
+                                    transfer_account_id, linked_transfer_id)
+      VALUES ('${LEG_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -1500, 0,
+              '${RAINY_DAY}', '${LEG_COUNTERPART}');
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order)
+      VALUES ('${PLAIN_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -1000, 1);
+    UPDATE transactions SET linked_transfer_split_id = '${LEG_LINE}' WHERE id = '${LEG_COUNTERPART}';
+    DELETE FROM _rpc_guard;`,
+};
+
+/** T-5: a counterpart naming a split line that does not name it back. */
+export const aCounterpartTheLineIgnores = {
+  sqlite: `
+    INSERT INTO _rpc_guard VALUES ('split');
+    UPDATE transactions SET is_split = 1, category = '' WHERE id = '${CORNER_SHOP}';
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              transfer_account_id)
+      VALUES ('${LEG_COUNTERPART}', '${USER}', '${RAINY_DAY}', 'Counterpart', 1500, 'transfer',
+              '2024-03-01', '${EVERYDAY}');
+    UPDATE accounts SET balance_minor = balance_minor + 1500 WHERE id = '${RAINY_DAY}';
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order) VALUES
+      ('${LEG_LINE}',   '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -1500, 0),
+      ('${PLAIN_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}', -1000, 1);
+    UPDATE transactions SET linked_transfer_split_id = '${LEG_LINE}' WHERE id = '${LEG_COUNTERPART}';
+    DELETE FROM _rpc_guard;`,
+};
+
+/** The id no category in this file has. */
+export const NO_SUCH_CATEGORY = 'c0000000-0000-0000-0000-0000000000ff';
+
+/** R-3: a transaction filed under a category id nothing answers to. */
+export const aTransactionFiledUnderNothing = {
+  sqlite: `UPDATE transactions SET category = '${NO_SUCH_CATEGORY}' WHERE id = '${CORNER_SHOP}';`,
+};
+
+/** R-3, the legacy sentinel — a legal value, and the control for the check above. */
+export const aTransactionFiledUnderTheSentinel = {
+  sqlite: `UPDATE transactions SET category = 'transfer-out' WHERE id = '${CORNER_SHOP}';`,
+};
+
+/** R-3 for a split LINE, whose category has no sentinel exemption at all. */
+export const aSplitLineFiledUnderNothing = {
+  sqlite: `
+    INSERT INTO _rpc_guard VALUES ('split');
+    UPDATE transactions SET is_split = 1, category = '' WHERE id = '${CORNER_SHOP}';
+    INSERT INTO transaction_splits (id, transaction_id, user_id, category, amount_minor, sort_order) VALUES
+      ('${LEG_LINE}',   '${CORNER_SHOP}', '${USER}', '${NO_SUCH_CATEGORY}', -1500, 0),
+      ('${PLAIN_LINE}', '${CORNER_SHOP}', '${USER}', '${WEEKLY_SHOP}',      -1000, 1);
+    DELETE FROM _rpc_guard;`,
+};
+
+/** C-3, the second one: a second To/From category for an account that has one. */
+export const aSecondToFromCategory = {
+  sqlite: `
+    INSERT INTO categories (id, user_id, name, type, level, parent_id, is_transfer_category, account_id)
+      VALUES ('${NO_SUCH_CATEGORY}', '${USER}', 'To/From Everyday (again)', 'both', 'detail',
+              '${TRANSFER_ROOT}', 1, '${EVERYDAY}');`,
+};
+
+/** A-1: two audit rows where the second does not carry the first's hash. */
+export const anAuditChainThatDoesNotChain = {
+  sqlite: `
+    INSERT INTO financial_audit_log (id, user_id, entity, entity_id, action, after_data, seq, prev_hash, row_hash)
+      VALUES ('${AUDIT_FIRST}', '${USER}', 'transaction', '${CORNER_SHOP}', 'create', '{}', 1, NULL, 'aaaa');
+    INSERT INTO financial_audit_log (id, user_id, entity, entity_id, action, after_data, seq, prev_hash, row_hash)
+      VALUES ('${AUDIT_SECOND}', '${USER}', 'transaction', '${CORNER_SHOP}', 'create', '{}', 2, 'not-aaaa', 'bbbb');`,
+};
+
+/** A-1, the other half: a hole where a sequence number should be. */
+export const anAuditChainWithAHoleInIt = {
+  sqlite: `
+    INSERT INTO financial_audit_log (id, user_id, entity, entity_id, action, after_data, seq, prev_hash, row_hash)
+      VALUES ('${AUDIT_FIRST}', '${USER}', 'transaction', '${CORNER_SHOP}', 'create', '{}', 1, NULL, 'aaaa');
+    INSERT INTO financial_audit_log (id, user_id, entity, entity_id, action, after_data, seq, prev_hash, row_hash)
+      VALUES ('${AUDIT_SECOND}', '${USER}', 'transaction', '${CORNER_SHOP}', 'create', '{}', 3, 'aaaa', 'cccc');`,
+};
+
+/** I-1: three accounts in a chain, so the middle one is nested AND a parent. */
+export const anAccountNestedTwoDeep = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+      VALUES ('${HOLIDAY_FUND}', '${USER}', 'Holiday fund', 'savings', 0, 0);
+    UPDATE accounts SET parent_account_id = '${EVERYDAY}'   WHERE id = '${RAINY_DAY}';
+    UPDATE accounts SET parent_account_id = '${RAINY_DAY}'  WHERE id = '${HOLIDAY_FUND}';`,
+};
+
+/** INGEST-1: a card in credit whose rows came out of a file. */
+export const aCardWhoseSignsWereInverted = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+      VALUES ('${CARD}', '${USER}', 'Card', 'credit', 5000, 0);
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              import_source, import_source_id)
+      VALUES ('${IMPORTED_ROW}', '${USER}', '${CARD}', 'Shop', 5000, 'income', '2024-04-01', 'ofx', 'ofx-1');`,
+};
+
+/** INGEST-1's control: the same balance, typed in by a person. */
+export const aCardInCreditNobodyImported = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+      VALUES ('${CARD}', '${USER}', 'Card', 'credit', 5000, 0);
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date)
+      VALUES ('${IMPORTED_ROW}', '${USER}', '${CARD}', 'Refund', 5000, 'income', '2024-04-01');`,
+};
+
+/** INGEST-2: remaining credit stored where the bank's own figure belongs. */
+export const anAvailableBalanceStoredAsABankBalance = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor,
+                          bank_balance_minor, bank_balance_date)
+      VALUES ('${CARD}', '${USER}', 'Card', 'credit', -1000, 0, 400000, '2024-04-01');
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date)
+      VALUES ('${IMPORTED_ROW}', '${USER}', '${CARD}', 'Shop', -1000, 'expense', '2024-04-01');`,
+};
+
+/** INGEST-2's control: a card and a bank that agree. */
+export const aBankBalanceThatAgrees = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor,
+                          bank_balance_minor, bank_balance_date)
+      VALUES ('${CARD}', '${USER}', 'Card', 'credit', -1000, 0, -1000, '2024-04-01');
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date)
+      VALUES ('${IMPORTED_ROW}', '${USER}', '${CARD}', 'Shop', -1000, 'expense', '2024-04-01');`,
+};
+
+/** The file's own one-line verdict, which must agree with the verb's. */
+export function integrityOk(expect) {
+  return {
+    name: 'v_integrity_ok',
+    sqlite: "SELECT CASE WHEN (SELECT ok FROM v_integrity_ok) = 1 THEN 'ok' ELSE 'not-ok' END",
+    expect,
+  };
+}
+
+/** How many rows the view reports, of either severity. */
+export function violationRows(expect) {
+  return {
+    name: 'rows_in_the_view',
+    sqlite: 'SELECT COUNT(*) FROM v_integrity_violations',
     expect,
   };
 }

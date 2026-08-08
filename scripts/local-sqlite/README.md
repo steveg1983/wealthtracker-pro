@@ -588,6 +588,31 @@ it. Two things in there are worth knowing before writing a spec:
 5. **Observed parity**, computed from 1/3/4 with the label ignored. A divergence
    that quietly stops diverging is a FAILURE.
 
+### One engine, when there is only one to run
+
+`parity: 'not-comparable'` plus `skip: { postgres: '<why>' }` says the other
+engine has no counterpart to compare against. It is the same declaration
+`lib/specs.mjs` has always carried for a constraint only one schema has, and it
+arrived in the VERB harness on 2026-08-08 for `verify_integrity`, which is **not
+a port of anything**: the cloud has no such function, no such view and no
+equivalent (traced in `crates/wealth-core/src/verbs/verify_integrity.rs`; the
+only Postgres relatives are two throwaway verification SELECTs inside
+migrations).
+
+Three things stop it becoming a way to duck a comparison:
+
+* the loader refuses `skip` without `not-comparable` and refuses
+  `not-comparable` without exactly one skip, so the two declarations cannot
+  disagree;
+* a skipped engine must state WHY, in prose, in the spec file;
+* the runner reports it in the parity table as `not-comparable` and counts it
+  separately in the summary line, so a family of single-engine specs cannot be
+  read as a family of passes.
+
+A verb that HAS a cloud counterpart cannot use it, because the Postgres driver
+maps verbs by name and a spec that skipped Postgres for a mapped verb would be
+declaring a comparison it could have made.
+
 ## The bridge
 
 `crates/wealth-core` exposes `wealth-core-cli` behind `--features cli`: JSON
@@ -670,12 +695,33 @@ Each of these was executed, then reverted.
 | swap the source and target guard blocks | **every one of the twenty-eight merge specs passed**, and only `tests/category_family.rs::the_source_guards_run_in_the_order_the_cloud_checks_them` failed. That is a finding, not a pass: no spec made a source guard and a target guard true at the same time. `merge-the-source-is-judged-before-the-target` was written for it, and with that spec present the same break fails differentially — SQLite says `merge_target_is_group`, Postgres says `merge_source_has_children`, both engines refuse, and only the **named** expectation catches it |
 | disable the confirm verb's blank-category guard | three specs fail and all three go `MISDECLARED (divergent)`: blank, NULL and whitespace rows are all marked vouched-for, `audit_shape` goes from `NONE` to three `transaction/update` rows, and the split-parent spec's flag flips. One crate test fails with them. The three-shapes-of-blank fixture is what makes this catch a port that only checked `IS NULL` |
 
+**From the ledger-core close — the prune and the checker (2026-08-08, 259 specs):**
+
+| break | result |
+| --- | --- |
+| neuter one integrity check (`WHERE 1 = 0 AND …` on `dangling_category_ref`) | `integrity-r3-a-transaction-filed-under-a-category-nothing-answers-to` fails three ways: `ok` flips to true, `violations` to 0, and `findings` to `[]`. The spec asserts the whole finding — check, entity, id, severity and the sentence a person is shown — so a check that stops firing cannot be mistaken for a file that got better |
+| break C-5 (`WHEN 0 AND OLD.is_transfer_category = 1`) | `prune-a-to-from-category-reached-by-cascade-refuses-the-whole-batch` fails four ways — SQLite **accepts** where Postgres refuses, the parent AND the protected To/From category are both GONE, and the transfer-category count drops to 1 — with `MISDECLARED (divergent)`. Two crate tests fail with it. This is the C-5 interplay reproduced on demand: without the trigger the cascade quietly deletes an account's transfer bookkeeping through a category the caller never named |
+| remove the deepest-first ordering (sort by id alone) | `prune-three-generations-named-together-are-counted-as-three` fails: `deleted` is 2, not 3, and parity goes `MISDECLARED (divergent)`. **The two-row spec beside it still passed** — the child's id happens to sort before the parent's, so id order IS deepest-first for that pair, by luck. Recorded because a family that only tested the pair would have been asserting an accident; the three-generation spec is the one that bites |
+
 `cargo test` fails alongside every one of these; the counts are in the table.
 
-### Current run, and what became of the five failures
+### Current run
 
-**172 verb specs · 172 pass · 3 declared divergences**, 2026-08-08, against a
-reference cluster rebuilt from the full migration history.
+**259 verb specs · 259 pass · 7 declared divergences · 24 single-engine**,
+2026-08-08, against a reference cluster rebuilt from the full migration history.
+`npm run test:local-sqlite` is 66/66 and `cargo test` is 203.
+
+The count in this section has been behind twice, and the drift is worth one
+line rather than a quiet edit: it read **172** while the suite had already grown
+to 217 with the restore family, and this batch adds 42 (18 for
+`delete_unused_categories`, 24 for `verify_integrity`). The 24 are all
+single-engine, so the number of specs that actually COMPARE two engines is 235.
+
+### What became of five failures, 2026-08-08
+
+**172 verb specs · 172 pass · 3 declared divergences** was the state at the time
+this was written, against a reference cluster rebuilt from the full migration
+history.
 
 It was 167/5 for most of that day. All five were specs of the "a row filed
 against an account it does not own" family, and all five failed because
@@ -934,3 +980,69 @@ mutation table above is where it earned its keep.
   accepted set is now enumerated in `wire::Flag`, measured one `psql` cast per
   value, and it is also what makes `is_cleared: ''` refuse **by name** instead of
   as a deserialiser error.
+- **`delete_unused_categories` promises something it does not deliver, on BOTH
+  engines.** `20260708160000`'s header says the RPC re-checks everything
+  server-side so *"a stale client can never destroy referenced data"*. Measured
+  (`scratchpad/local-core/probe-prune1.sh` `p-cascade-eats-a-referenced-child`,
+  `probe-prune2.sh` `p2-grandchild-referenced-parents-named`): name a parent and
+  a child together, with the CHILD referenced by a transaction, and the child's
+  own check skips it — while the parent's "child outside the batch" check passes
+  *because the child is in the batch*. The parent is deleted and
+  `parent_id ON DELETE CASCADE` takes the referenced child with it, leaving the
+  transaction filed under an id nothing answers to. The same route eats a
+  budget's `category_id` (nulled by the key) and a budget's `category` text
+  (left dangling). It is REPRODUCED in the local port rather than fixed — a port
+  that tidied it would refuse a prune the cloud performs — and the local edition
+  reports the wreckage instead, through `verify_integrity`'s
+  `dangling_category_ref`.
+- **The same function has a second, smaller hole one clause wide.** Its
+  transaction check reads `t.category = c.id::text` and nothing else, while its
+  budget check two clauses later reads `b.category` **and** `b.category_id`. So a
+  transaction filed only through the uuid column does not save its category:
+  measured, the category is deleted and the column is nulled by the foreign key,
+  leaving nothing behind — the one case in this family where even
+  `verify_integrity` has nothing to report, because a NULL is not a dangler.
+- **A function with no `RAISE` in it can still refuse, and this one does.**
+  Twenty measured cases produced no exception from `delete_unused_categories`
+  itself; every protection in it is a `WHERE` clause. But name a prunable
+  category together with a To/From category sitting under it and the cascade
+  walks the protected row into C-5's `BEFORE DELETE` trigger:
+  `transfer_category_protected`, whole batch lost, on both engines. Worth
+  recording because "this RPC never refuses" is exactly the kind of summary that
+  gets written into a client's error handling.
+- **The cloud's single-statement `DELETE` cannot be a single statement locally
+  without changing the number it returns.** Postgres decides which rows to delete
+  from one snapshot and counts each; SQLite scans, deletes the parent, the
+  cascade removes the child, and by the time the scan reaches the child there is
+  nothing left to count. Measured: parent + child answers **2** in the cloud and
+  **1** in SQLite, and three generations answers **3** against **1** — with the
+  same six categories left in the file either way. A disagreement about the
+  answer, not about the ledger, and the answer is what the import summary shows.
+  The port qualifies the rows first and deletes them deepest-first, which makes
+  all twenty cases match.
+- **`verify_integrity` has no cloud counterpart at all**, and `schema.sql` said
+  it did. The section header claimed *"each of these has a Postgres twin …  so
+  the differential harness can compare violation NAMES across engines"*. Traced
+  three ways — `grep -rn verify_integrity` over `supabase/`, `api/` and `src/`;
+  no `CREATE VIEW` anywhere in `supabase/migrations/`; the only relatives are two
+  throwaway verification SELECTs inside migrations, both of B-1 alone — and
+  corrected in place. The consequence is structural rather than cosmetic: the
+  checker is the local edition's only defence against a rule silently ceasing to
+  hold, its specs are the first in this harness that cannot be differential, and
+  `parity: 'not-comparable'` exists in the verb harness because of it.
+- **Fifteen checks caught none of the two commonest ingest disasters.** Planted a
+  card statement with inverted signs and an `<AVAILBAL>` stored where a
+  `<LEDGERBAL>` belongs (`probe-integrity1.mjs`, cases 16 and 17): the view
+  reported **nothing** for either, because both produce data that is internally
+  consistent and entirely wrong. PHASE1-PLAN §2.5's two addendum checks are now
+  in the view as `warning`s, with `v_integrity_ok` counting only violations so a
+  heuristic can never condemn a file.
+- **One integrity check cannot be reached backwards.** The obvious way to plant
+  `account_missing_transfer_category` is to delete a To/From category — and C-5
+  refuses, so deleting the Transfer anchor to force it aborts the whole statement
+  with `transfer_category_protected`. It is reachable only forwards, by creating
+  an account whose owner has no Transfer anchor for C-3's trigger to hang a
+  category from. Which means the fixture every ownership spec in this harness has
+  used since the transfer family — a second login with one account — has been
+  carrying an integrity violation all along, and nothing until now could report
+  it.

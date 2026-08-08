@@ -137,7 +137,20 @@ export class SqliteVerbEngine {
       }
 
       const outcome = parsed.ok ? 'ok' : 'refused';
-      const row = parsed.ok ? (parsed.result?.transaction ?? null) : null;
+      // THE ROW THE TWO ENGINES ARE COMPARED ON
+      // ---------------------------------------
+      // Twelve verbs return a transaction, and that is what `transaction`
+      // carries. The restore family and the account snap return no transaction
+      // at all — counts, a boolean, an accounts row — so each projects the
+      // RPC's OWN return value under `answer`, and the Postgres driver builds
+      // the same object with jsonb_build_object.
+      //
+      // `answer` is an explicit key rather than "the whole result when there is
+      // no transaction", deliberately: a result also carries `audit_seq` and
+      // `audit_row_hash`, which are local-only and would be compared against a
+      // Postgres side that has neither. A verb decides what it is comparable ON;
+      // the harness does not guess.
+      const row = parsed.ok ? (parsed.result?.transaction ?? parsed.result?.answer ?? null) : null;
 
       // Re-open on a FRESH connection: the assertions must read the file, not
       // the writer's view of it.

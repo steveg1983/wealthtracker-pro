@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
@@ -216,10 +216,13 @@ describe('Account register — open, closed, and gone', () => {
     fireEvent.mouseDown(button);
     fireEvent.click(button);
 
-    // The deep-linked row arrives selected, docked in the quick-edit panel.
-    const description = await screen.findByLabelText('Description');
-    expect(description).toHaveValue('Synthetic closed row');
-    expect(document.querySelector('[data-quick-edit-panel]')).not.toBeNull();
+    // The deep-linked row arrives selected, with its quick-edit box open on it.
+    const box = await waitFor(() => {
+      const el = document.querySelector('[data-quick-edit-panel]');
+      if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+      return el;
+    });
+    expect(within(box).getByLabelText('Description')).toHaveValue('Synthetic closed row');
   });
 
   it('leaves the account closed when the re-open fails', async () => {
