@@ -19,6 +19,11 @@ export default function OpenBanking() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
+  // What a sync that ran but did not finish could not do. "Shown via connection
+  // status" was never true of a healthy connection with an unfinished job —
+  // e.g. accounts the bank gave no balance for, which are deliberately not
+  // opened at a made-up figure and so simply are not there.
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   const loadConnections = useCallback(async () => {
     try {
@@ -99,10 +104,12 @@ export default function OpenBanking() {
     setSyncingIds(prev => new Set(prev).add(connectionId));
     try {
       bankConnectionService.setAuthTokenProvider(() => getToken());
-      await bankConnectionService.syncConnection(connectionId);
+      const result = await bankConnectionService.syncConnection(connectionId);
+      setSyncNotice(result.success ? null : (result.errors[0] ?? 'The bank sync did not complete.'));
       await loadConnections();
     } catch {
-      // Sync errors are shown via connection status
+      // A thrown sync failure flips the connection's own status (error /
+      // reauth_required), which the list below shows.
     } finally {
       setSyncingIds(prev => {
         const next = new Set(prev);
@@ -209,6 +216,27 @@ export default function OpenBanking() {
           Bank connections are secured with 256-bit encryption
         </p>
       </div>
+
+      {/* A sync that ran but could not finish the job. Amber, not red: the
+          connection works and syncing again usually completes it. */}
+      {syncNotice && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertCircleIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
+            <div className="flex-1">
+              <p className="font-medium text-amber-800 dark:text-amber-200">Bank sync incomplete</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{syncNotice}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSyncNotice(null)}
+              className="text-sm text-amber-700 dark:text-amber-300 underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Connected Banks */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
@@ -15,6 +14,9 @@ import {
 } from '../utils/transactionSplits';
 import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
+import DeleteTransactionConfirm from './DeleteTransactionConfirm';
+import SuggestedCategoryBadge from './SuggestedCategoryBadge';
+import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
@@ -679,6 +681,25 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     };
   }, [transaction, accounts, hideJumpToAccountId]);
 
+  /**
+   * Is the category in the picker still only the app's guess?
+   *
+   * Read from the STORED row, exactly as the quick-edit panel does — provenance
+   * is a fact about what is saved, not about what is currently typed into a
+   * form. The second half is what makes it live: the moment the user picks
+   * something else it is their choice, and the badge comes off as they make it
+   * rather than after a save and a round trip.
+   *
+   * `splitActive` and the transfer check keep it off the two shapes where the
+   * field is not a single category to agree with at all.
+   */
+  const showingSuggestion =
+    transaction !== null &&
+    formData.type !== 'transfer' &&
+    !splitActive &&
+    isConfirmableSuggestion(transaction) &&
+    formData.category === (transaction.category ?? '');
+
   // What deleting this row would leave behind in the other account. Null for an
   // ordinary transaction, and then the confirmation says nothing extra.
   const deleteStranding = useMemo(
@@ -686,6 +707,34 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     [transaction, transactions, accounts]
   );
 
+  /**
+   * A closed editor owns no dialogs.
+   *
+   * Callers differ: the register unmounts this component on close, while the
+   * Transactions page leaves it mounted with isOpen=false. In the second case a
+   * delete confirmation left standing outlived the editor it belonged to — and
+   * now that the confirmation traps focus, that would strand the user in a
+   * dialog about a form they can no longer see. Clearing the flag also stops a
+   * stale one springing open the next time the editor is opened.
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      setShowDeleteConfirm(false);
+    }
+  }, [isOpen]);
+
+  /**
+   * Delete, then leave — unchanged.
+   *
+   * Where focus lands afterwards is worth stating, because two restorations
+   * meet here. The confirmation returns focus to whatever opened it (this
+   * modal's Delete button), and the Modal returns focus to whatever was focused
+   * before it opened (the register grid, the transactions table). Closing takes
+   * the Delete button with it, so restoring to a detached element is a no-op
+   * and the Modal's restoration is the one that lands: the user comes back to
+   * the list they deleted from. Cancelling, where the editor stays, puts focus
+   * back on its Delete button as it should.
+   */
   const handleDelete = () => {
     if (!transaction) return;
     deleteTransaction(transaction.id);
@@ -874,6 +923,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <TagIcon size={16} />
                   {formData.type === 'transfer' ? 'Transfer To' : splitActive ? 'Split Categories' : 'Category'}
+                  {/* The same badge the register and the quick-edit panel show,
+                      so a row cannot look like a guess in one place and the
+                      user's own choice in another. Display only: there is no
+                      Confirm button here because saving IS the confirmation —
+                      the update path records a category the user looked at and
+                      let stand, or changed, as one they vouch for. */}
+                  {showingSuggestion && (
+                    <SuggestedCategoryBadge
+                      size="field"
+                      title="The app filled this in. Saving records that you have checked it — leave it as it is, or pick a different category."
+                    />
+                  )}
                 </label>
                 {formData.type !== 'transfer' && (
                   <button
@@ -1283,41 +1344,23 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
         </form>
       </Modal>
 
-        {/* Delete confirmation — portalled: a transformed ancestor would
-            re-anchor position:fixed and hide it behind the portalled Modal. */}
-        {showDeleteConfirm && createPortal(
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Delete Transaction?
-              </h3>
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
-                Are you sure you want to delete this transaction? This action cannot be undone.
-              </p>
-              {/* Only for a linked transfer, where the damage happens in an
-                  account the user is not looking at. */}
-              {deleteStranding && (
-                <p className="text-sm sm:text-base text-yellow-800 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
-                  {deleteStranding.message}
-                </p>
-              )}
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
+        {/* The register's delete confirmation, shared: role="alertdialog" so the
+            consequence is announced on arrival, Delete focused so a keyboard
+            answers it, Escape cancels, focus trapped between the two buttons
+            and RETURNED on the way out. The editor's own inline version had
+            none of that, and a delete reached through the editor is the same
+            delete with the same stranding warning — it must not be answered on
+            worse terms than one reached from the register.
+
+            `isOpen` guards it as well as the flag: see the effect above, which
+            explains why a closed editor must not leave a dialog behind. */}
+        {isOpen && showDeleteConfirm && transaction && (
+          <DeleteTransactionConfirm
+            transaction={transaction}
+            stranding={deleteStranding}
+            onConfirm={handleDelete}
+            onCancel={() => setShowDeleteConfirm(false)}
+          />
         )}
 
         {/* Money-style transfer confirmation (match-or-create) */}

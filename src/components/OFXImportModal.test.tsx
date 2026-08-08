@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import OFXImportModal from './OFXImportModal';
 import { ofxImportService } from '../services/ofxImportService';
+import { transactionImportService } from '../services/transactionImportService';
+import { importTransactionsLocally } from '../services/localTransactionImportService';
 import type { Account } from '../types';
 
 type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
@@ -104,8 +106,10 @@ vi.mock('./loading/LoadingState', () => ({
 }));
 
 // Mock AppContext
-const mockAddTransaction = vi.fn();
 const mockUpdateAccount = vi.fn();
+const mockRefreshAccountsAndTransactions = vi.fn().mockResolvedValue(undefined);
+/** Flipped per test to exercise the cloud path and the local one. */
+let mockIsUsingSupabase = false;
 const mockAccount = (overrides: Partial<Account> & Pick<Account, 'id' | 'name' | 'type'>): Account => ({
   balance: 0,
   currency: 'GBP',
@@ -156,9 +160,14 @@ vi.mock('../contexts/AppContextSupabase', () => ({
     accounts: mockAccounts,
     transactions: mockTransactions,
     categories: mockCategories,
-    addTransaction: mockAddTransaction,
-    updateAccount: mockUpdateAccount
+    updateAccount: mockUpdateAccount,
+    isUsingSupabase: mockIsUsingSupabase,
+    refreshAccountsAndTransactions: mockRefreshAccountsAndTransactions
   })
+}));
+
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ getToken: vi.fn().mockResolvedValue('test-token') })
 }));
 
 // Mock OFX import service
@@ -166,6 +175,22 @@ vi.mock('../services/ofxImportService', () => ({
   ofxImportService: {
     importTransactions: vi.fn()
   }
+}));
+
+/**
+ * The two write paths. Both are mocked, because what this file tests is what
+ * the modal REPORTS about a write — and the only way to test that honestly is
+ * to control what the write says it did.
+ */
+vi.mock('../services/transactionImportService', () => ({
+  transactionImportService: {
+    setAuthTokenProvider: vi.fn(),
+    importInChunks: vi.fn()
+  }
+}));
+
+vi.mock('../services/localTransactionImportService', () => ({
+  importTransactionsLocally: vi.fn()
 }));
 
 // Mock window methods
@@ -189,6 +214,15 @@ describe('OFXImportModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsUsingSupabase = false;
+    // Default: the write does what it was asked. Tests that care about a
+    // failing write override this.
+    vi.mocked(importTransactionsLocally).mockImplementation(
+      async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
+    );
+    vi.mocked(transactionImportService.importInChunks).mockImplementation(
+      async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
+    );
   });
 
   /**
@@ -679,8 +713,15 @@ describe('OFXImportModal', () => {
         expect(screen.getByText('Imported 1 transactions to Current Account')).toBeInTheDocument();
         expect(screen.getByTestId('check-icon')).toBeInTheDocument();
       });
-      
-      expect(mockAddTransaction).toHaveBeenCalledWith({ id: 'trans1', amount: 100, description: 'Test' });
+
+      // One awaited, atomic write for the whole file — not a row at a time.
+      expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
+      expect(importTransactionsLocally).toHaveBeenCalledWith(
+        'acc1',
+        [{ id: 'trans1', amount: 100, description: 'Test' }]
+      );
+      // And the register is re-read, so the screen shows what actually landed.
+      expect(mockRefreshAccountsAndTransactions).toHaveBeenCalled();
     });
 
     it('shows duplicate count in success message', async () => {
@@ -739,6 +780,233 @@ describe('OFXImportModal', () => {
         const btn = screen.queryByTestId('loading-button');
         expect(btn === null || btn.getAttribute('data-loading') === 'false').toBe(true);
       });
+    });
+  });
+
+  /**
+   * What the modal says when the write does not do what the file asked.
+   *
+   * The old modal fired `addTransaction` per row without awaiting, then read
+   * its success line off `result.newTransactions` — the PARSER's offer. A row
+   * that never reached the database changed nothing on screen. These tests hold
+   * the two apart: the file offers three, the write confirms two, and the modal
+   * must say two and name the third.
+   */
+  describe('When some rows do not land', () => {
+    const day = new Date('2024-02-05');
+    const threeRows: ImportTransactionsResult['transactions'] = [
+      { ...sampleTransaction, description: 'DIRECT DEBIT THAMES WATER', amount: -12.75, date: day, statementSequence: 0 },
+      { ...sampleTransaction, description: 'STANDING ORDER OUT', amount: -300, date: day, statementSequence: 1 },
+      { ...sampleTransaction, description: 'TWO WAY SWEEP IN', amount: 312.75, date: day, statementSequence: 2 }
+    ];
+
+    const openAndImport = async (): Promise<void> => {
+      const parsed = createMockImportResult({
+        transactions: threeRows,
+        statementRows: threeRows.map((t, i) => statementRow(t, `fit-${i}`)),
+        matchedAccount: mockAccounts[1],
+        matchConfidence: 'identifier',
+        // The parser's offer — deliberately different from what lands.
+        newTransactions: 3,
+        statementBalance: { amount: 5000, dateAsOf: '2026-03-31' }
+      });
+
+      vi.mocked(ofxImportService.importTransactions)
+        .mockResolvedValueOnce(parsed)
+        .mockResolvedValueOnce(parsed);
+
+      render(<OFXImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('ofx-upload')!, {
+        target: { files: [new File(['OFX content'], 'test.ofx', { type: 'application/ofx' })] }
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('loading-button')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('loading-button'));
+    };
+
+    it('reports what LANDED, not what the file offered', async () => {
+      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+        inserted: 2,
+        alreadyPresent: 0,
+        total: 3,
+        complete: false,
+        error: 'QuotaExceededError'
+      });
+
+      await openAndImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Part of this statement is missing')).toBeInTheDocument();
+      });
+      expect(screen.getByText(/2 of 3 transactions reached Savings Account/)).toBeInTheDocument();
+      // The parser's own count must not appear as an achievement anywhere.
+      expect(screen.queryByText('Import Successful!')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Imported 3 transactions/)).not.toBeInTheDocument();
+    });
+
+    it('names the payment that is missing, and what its absence means', async () => {
+      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+        inserted: 2,
+        alreadyPresent: 0,
+        total: 3,
+        complete: false,
+        error: 'QuotaExceededError'
+      });
+
+      await openAndImport();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/This payment is not in the register, so the account will not agree with your statement/)
+        ).toBeInTheDocument();
+      });
+      // Date, payee and amount: enough to find it on the paper statement.
+      expect(screen.getByText('05/02/2024 · TWO WAY SWEEP IN · £312.75')).toBeInTheDocument();
+      // And what to do about it.
+      expect(screen.getByText(/Import the same file again/)).toBeInTheDocument();
+      expect(screen.getByText(/What stopped it: QuotaExceededError/)).toBeInTheDocument();
+    });
+
+    it('holds back the Bank Balance and says why', async () => {
+      // Setting a statement's closing figure on a register that only holds part
+      // of that statement produces an unexplained difference in Reconciliation.
+      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+        inserted: 2,
+        alreadyPresent: 0,
+        total: 3,
+        complete: false,
+        error: 'QuotaExceededError'
+      });
+
+      await openAndImport();
+
+      await waitFor(() => {
+        expect(screen.getByText(/Bank Balance was left as it was/)).toBeInTheDocument();
+      });
+      expect(screen.getByText(/a difference with no explanation/)).toBeInTheDocument();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('says plainly when nothing at all was written', async () => {
+      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+        inserted: 0,
+        alreadyPresent: 0,
+        total: 3,
+        complete: false,
+        error: 'The account these transactions were being imported into no longer exists.'
+      });
+
+      await openAndImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Nothing was imported')).toBeInTheDocument();
+      });
+      expect(
+        screen.getByText(/None of the 3 transactions in this file reached Savings Account, and nothing else was changed/)
+      ).toBeInTheDocument();
+      expect(mockUpdateAccount).not.toHaveBeenCalled();
+    });
+
+    it('still reports the true count when everything lands', async () => {
+      await openAndImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Imported 3 transactions to Savings Account')).toBeInTheDocument();
+      expect(screen.queryByText(/is missing/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/not added a second time/)).not.toBeInTheDocument();
+    });
+
+    it('counts rows the database already held apart from the ones it wrote', async () => {
+      // What a re-posted chunk, or a statement offering rows this account
+      // already has under the bank's own id, looks like on screen. Adding the
+      // two figures together would claim work that did not happen; leaving the
+      // second out would report rows as missing when they are in the register.
+      mockIsUsingSupabase = true;
+      vi.mocked(transactionImportService.importInChunks).mockResolvedValueOnce({
+        inserted: 3,
+        alreadyPresent: 2,
+        total: 3,
+        complete: true
+      });
+
+      await openAndImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Imported 1 transactions to Savings Account')).toBeInTheDocument();
+      expect(
+        screen.getByText(/2 more were already recorded in Savings Account under the same bank transaction ids/)
+      ).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * The bank's own order within a day has to survive the trip to the database,
+   * or the register is back to guessing which of a day's transactions came
+   * first. The modal's job is to hand the drafts over unaltered.
+   */
+  describe('statementSequence', () => {
+    const day = new Date('2024-02-05');
+    const ordered: ImportTransactionsResult['transactions'] = [
+      { ...sampleTransaction, description: 'DIRECT DEBIT', amount: -12.75, date: day, statementSequence: 0 },
+      { ...sampleTransaction, description: 'STANDING ORDER OUT', amount: -300, date: day, statementSequence: 1 },
+      { ...sampleTransaction, description: 'TWO WAY SWEEP IN', amount: 312.75, date: day, statementSequence: 2 }
+    ];
+
+    const importThrough = async (viaCloud: boolean): Promise<void> => {
+      mockIsUsingSupabase = viaCloud;
+      const parsed = createMockImportResult({
+        transactions: ordered,
+        statementRows: ordered.map((t, i) => statementRow(t, `fit-${i}`)),
+        matchedAccount: mockAccounts[1],
+        newTransactions: 3
+      });
+      vi.mocked(ofxImportService.importTransactions)
+        .mockResolvedValueOnce(parsed)
+        .mockResolvedValueOnce(parsed);
+
+      render(<OFXImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('ofx-upload')!, {
+        target: { files: [new File(['OFX content'], 'test.ofx', { type: 'application/ofx' })] }
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('loading-button')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('loading-button'));
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+    };
+
+    it('hands the ordinal to the cloud write', async () => {
+      await importThrough(true);
+
+      expect(transactionImportService.importInChunks).toHaveBeenCalledWith(
+        'acc2',
+        expect.arrayContaining([
+          expect.objectContaining({ description: 'DIRECT DEBIT', statementSequence: 0 }),
+          expect.objectContaining({ description: 'STANDING ORDER OUT', statementSequence: 1 }),
+          expect.objectContaining({ description: 'TWO WAY SWEEP IN', statementSequence: 2 })
+        ]),
+        // And says these rows carry the bank's own FITID, which is what the
+        // database keys them by — see transactionImportService.provenanceFor.
+        { source: 'ofx' }
+      );
+    });
+
+    it('hands the ordinal to the local write', async () => {
+      await importThrough(false);
+
+      expect(importTransactionsLocally).toHaveBeenCalledWith(
+        'acc2',
+        expect.arrayContaining([
+          expect.objectContaining({ description: 'TWO WAY SWEEP IN', statementSequence: 2 })
+        ])
+      );
     });
   });
 

@@ -732,6 +732,13 @@ export interface RemapResult {
  * and fresh ids do not sort the way the originals did. Segments carrying a role
  * prefix stay where they are: legDismissalKey deliberately does not sort, since
  * its two halves live in different tables.
+ *
+ * Payee cleanup's keys are made of TEXT rather than ids and must come through
+ * here character for character. They do, by construction and without a special
+ * case: every segment is role-prefixed (`payee-cleanup:merchant:…`), so none is
+ * ever treated as a bare id or re-sorted, and the value behind that prefix
+ * always contains a further ':' — which no uuid can — so it can neither look up
+ * as an id nor be reported as a dangling one.
  */
 function remapDismissalKey(
   key: string,

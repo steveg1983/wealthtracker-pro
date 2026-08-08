@@ -18,6 +18,9 @@ import { buildCategoryNameLookup } from './categoryNames';
  * Percentages are deliberately NULL rather than infinite when the comparison
  * window holds nothing for that line — "up 100%" from zero is a lie, and the
  * UI says "new" instead.
+ *
+ * A category that carried money BOTH ways gets one row per side, never one
+ * blended line — see `accumulate`.
  */
 
 export type ComparisonBasis = 'previous-period' | 'same-period-last-year';
@@ -78,6 +81,12 @@ export interface ComparisonFigure {
 }
 
 export interface ComparisonCategoryRow extends ComparisonFigure {
+  /**
+   * What identifies the ROW — the category id is not enough, because a
+   * direction-neutral category has one row per side (see `accumulate`). Use
+   * this as the React key; use `categoryId` to look the category up.
+   */
+  rowId: string;
   categoryId: string;
   /** "Parent : Child" — a category id must never reach the screen. */
   name: string;
@@ -107,17 +116,47 @@ function figureOf(current: number, previous: number): ComparisonFigure {
   };
 }
 
+type Bucket = 'income' | 'expense';
+
+/** Which row a category's money lands in: one per category PER SIDE. */
+interface RowIdentity {
+  bucket: Bucket;
+  categoryId: string;
+}
+
+function rowIdOf(bucket: Bucket, categoryId: string): string {
+  return `${bucket}:${categoryId}`;
+}
+
+/**
+ * Totals a side's rows into one entry per (category, SIDE).
+ *
+ * Both sides are kept apart deliberately, the same way
+ * `buildMonthlyCategoryMatrix` builds its income and expense halves
+ * separately. A direction-neutral ('both') category is filed by the money's
+ * own direction — the shipped "Account Adjustments" is one — so the SAME
+ * category can carry money in and money out. Adding those together would
+ * report a figure that is neither: £100 received and £40 spent is not £140 of
+ * anything, and the change and percentage columns would compound the error.
+ * Two rows, one per side, is what the reader can actually act on.
+ *
+ * Within a side the netting is unchanged: spending is stored negative, so
+ * negating makes both sides positive magnitudes and a refund credit nets its
+ * category down (the same convention `categoryNetting` uses for the spending
+ * breakdown).
+ */
 function accumulate(
   rows: SplitExpandedTransaction[],
-  bucket: 'income' | 'expense',
-  into: Map<string, ReturnType<typeof toDecimal>>
+  bucket: Bucket,
+  into: Map<string, ReturnType<typeof toDecimal>>,
+  identities: Map<string, RowIdentity>
 ): void {
   for (const row of rows) {
     if (!row.category) continue;
-    // Spending is stored negative — negate so both sides read as positive
-    // magnitudes and a refund credit nets its category down.
     const value = bucket === 'income' ? toDecimal(row.amount) : toDecimal(row.amount).negated();
-    into.set(row.category, (into.get(row.category) ?? toDecimal(0)).plus(value));
+    const rowId = rowIdOf(bucket, row.category);
+    identities.set(rowId, { bucket, categoryId: row.category });
+    into.set(rowId, (into.get(rowId) ?? toDecimal(0)).plus(value));
   }
 }
 
@@ -127,7 +166,9 @@ export function buildPeriodComparison(
   categories: Category[]
 ): PeriodComparison {
   const categoryName = buildCategoryNameLookup(categories);
-  const bucketOf = new Map<string, 'income' | 'expense'>();
+  // Every row either window produced, keyed by side and category — so a row's
+  // side is what it IS, never whichever set of rows was counted last.
+  const identities = new Map<string, RowIdentity>();
 
   const currentTotals = new Map<string, ReturnType<typeof toDecimal>>();
   const previousTotals = new Map<string, ReturnType<typeof toDecimal>>();
@@ -137,30 +178,30 @@ export function buildPeriodComparison(
     [previous.incomeRows, 'income', previousTotals],
     [previous.expenseRows, 'expense', previousTotals],
   ] as const) {
-    accumulate(rows, bucket, into);
-    for (const row of rows) {
-      if (row.category) bucketOf.set(row.category, bucket);
-    }
+    accumulate(rows, bucket, into, identities);
   }
 
   const zero = toDecimal(0);
-  const categoryRows: ComparisonCategoryRow[] = [...new Set([...currentTotals.keys(), ...previousTotals.keys()])]
-    .map(categoryId => ({
+  const categoryRows: ComparisonCategoryRow[] = [...identities]
+    .map(([rowId, { bucket, categoryId }]) => ({
+      rowId,
       categoryId,
       name: categoryName(categoryId),
-      bucket: bucketOf.get(categoryId) ?? 'expense',
+      bucket,
       ...figureOf(
-        (currentTotals.get(categoryId) ?? zero).toNumber(),
-        (previousTotals.get(categoryId) ?? zero).toNumber()
+        (currentTotals.get(rowId) ?? zero).toNumber(),
+        (previousTotals.get(rowId) ?? zero).toNumber()
       ),
     }))
     // Biggest MOVE first — the point of the report is what changed. Ties fall
-    // back to the current figure, then the name, so the order never wobbles.
+    // back to the current figure, then the name, then the side (the two halves
+    // of one 'both' category can tie on all three), so the order never wobbles.
     .sort(
       (a, b) =>
         Math.abs(b.change) - Math.abs(a.change) ||
         Math.abs(b.current) - Math.abs(a.current) ||
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) ||
+        (a.bucket === b.bucket ? 0 : a.bucket === 'income' ? -1 : 1)
     );
 
   const income = figureOf(current.income.toNumber(), previous.income.toNumber());

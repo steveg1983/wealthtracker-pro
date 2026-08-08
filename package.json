@@ -51,6 +51,8 @@
     "test:smoke": "vitest run",
     "handoff:update": "echo 'No handoff snapshots configured'",
     "test:supabase-smoke": "RUN_SUPABASE_REAL_TESTS=true node scripts/run-supabase-smoke.mjs",
+    "test:local-sqlite": "node --disable-warning=ExperimentalWarning scripts/local-sqlite/run.mjs",
+    "port:coverage": "node scripts/port-coverage/run.mjs",
     "banking:smoke": "node scripts/run-banking-api-smoke.mjs",
     "banking:rollout": "bash scripts/apply-banking-ops-rollout.sh",
     "db:migrate": "supabase db push --include-roles --db-url \"$SUPABASE_DB_URL\"",

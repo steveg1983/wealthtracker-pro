@@ -555,6 +555,10 @@ export class OFXImportService {
         type,
         accountId: destinationAccountId,
         category: '',
+        // A blank category has nothing to vouch for, so it starts confirmed;
+        // the auto-categorise pass below is the ONLY thing in this importer
+        // that can turn it into a guess, and it says so when it does.
+        categoryConfirmed: true,
         // Deliberately NOT cleared, despite the file coming from the bank.
         // "Cleared" here does not mean the bank has processed it — it means the
         // USER has checked it against their statement and finalised the
@@ -590,6 +594,13 @@ export class OFXImportService {
             // payment" produces on an account whose own sweeps share it.
             !isSelfTransferCategory(options.categories, suggestions[0].categoryId, destinationAccountId)) {
           transaction.category = suggestions[0].categoryId;
+          // The app's opinion, not the user's. Marked so the register can show
+          // it as a suggestion and offer one-click agreement: a filled-in
+          // category that looked identical to a chosen one is precisely what
+          // made "have I checked this row?" unanswerable on a fresh import.
+          // The category is still APPLIED — a good guess saves the typing, and
+          // it counts in reports exactly as it did before.
+          transaction.categoryConfirmed = false;
         }
       }
 

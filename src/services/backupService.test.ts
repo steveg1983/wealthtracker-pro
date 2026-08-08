@@ -16,7 +16,11 @@ import {
   validateBackupBundle,
   type BackupRow,
 } from './backupService';
-import { canonicalSubjectKey } from '../utils/suggestionDismissals';
+import {
+  canonicalSubjectKey,
+  payeeLineDismissalKey,
+  payeeMerchantDismissalKey,
+} from '../utils/suggestionDismissals';
 
 // Every value below is invented. The shapes mirror the database's own columns
 // (snake_case, whole rows) because that is exactly what a real backup carries.
@@ -749,6 +753,43 @@ describe('remapBackupIds', () => {
     expect(bundle.data.suggestion_dismissals[0].subject_key).toBe(
       `duplicate|${canonicalSubjectKey([String(idMap.get(T_OUT)), String(idMap.get(T_IN))])}`
     );
+  });
+
+  it('carries a payee-cleanup key through untouched — it names text, not rows', () => {
+    // Payee cleanup's refusals are about payee TEXT, so their key must come out
+    // of a restore character for character: rewrite any part of it and every
+    // suggestion the owner refused is offered all over again.
+    //
+    // The adversarial case, deliberately: one payee's text IS one of the file's
+    // own transaction ids, and the merchant token is uuid-shaped too. Both would
+    // be rewritten if they reached the remapper as bare segments — the role
+    // prefix and the tag inside each value are what stop them.
+    const uuidShapedMerchant = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
+    const groupKey = payeeMerchantDismissalKey(uuidShapedMerchant);
+    const lineKey = payeeLineDismissalKey(uuidShapedMerchant, T_SHOP);
+
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-08T09:30:00.000Z',
+      data: {
+        transactions: [{ id: T_SHOP, date: '2021-06-06', amount: -80 }],
+        suggestion_dismissals: [
+          { id: DISMISSAL, kind: 'payee-merchant', subject_key: groupKey, subject_ids: [] },
+          { id: uid('3', 2), kind: 'payee-line', subject_key: lineKey, subject_ids: [] },
+        ],
+      },
+    });
+
+    const { bundle, idMap, danglingRefs } = remapBackupIds(source, sequentialIds());
+
+    // The transaction really did get a fresh id — so this is not vacuous.
+    expect(bundle.data.transactions[0].id).toBe(idMap.get(T_SHOP));
+    expect(bundle.data.transactions[0].id).not.toBe(T_SHOP);
+
+    expect(bundle.data.suggestion_dismissals[0].subject_key).toBe(groupKey);
+    expect(bundle.data.suggestion_dismissals[1].subject_key).toBe(lineKey);
+    // And nothing in either key was mistaken for a reference that went nowhere.
+    expect(danglingRefs).toEqual([]);
   });
 
   it('reports nothing dangling for a file whose references all resolve', () => {

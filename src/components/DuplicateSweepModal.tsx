@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -17,9 +18,11 @@ import {
   duplicateDismissalKey,
   duplicateDismissalSubjectIds,
 } from '../utils/suggestionDismissals';
+import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import DismissSuggestionPrompt from './sweeps/DismissSuggestionPrompt';
 import DismissedSuggestionsSection from './sweeps/DismissedSuggestionsSection';
-import { AlertTriangleIcon } from './icons';
+import GroupedAccountOptions from './common/GroupedAccountOptions';
+import { AlertTriangleIcon, ArrowUpRightIcon } from './icons';
 import type { SuggestionDismissal, Transaction } from '../types';
 
 /**
@@ -46,6 +49,11 @@ import type { SuggestionDismissal, Transaction } from '../types';
  * deleting one would leave something else in the ledger pointing at nothing.
  * The user still needs to know the two rows look identical — they can unpick
  * the transfer or the split themselves and come back.
+ *
+ * Every row here also has a way OUT to itself — the register, centred on the
+ * row, where the neighbours and the running balance are. Two evidence cards
+ * cannot settle every case ("is this the standing order or the manual one?"),
+ * and the answer is usually in the rows around it. See `openInRegister`.
  */
 
 interface Props {
@@ -55,9 +63,26 @@ interface Props {
 
 const CAP = 300;
 
-/** How far apart two copies of the same payment are allowed to be. */
-const WINDOW_CHOICES = [3, 7, 14] as const;
+/**
+ * How far apart two copies of the same payment are allowed to be, in days.
+ *
+ * "Within N" means the two dates are at most N days apart, inclusive — so
+ * "within 1 day" is the same day or the day either side of it, which is the
+ * tightest a feed-versus-import overlap ever is. It is the narrowest choice on
+ * purpose rather than the default: a bank feed can post a card payment two or
+ * three days after the import already carried it, and 3 stays the default so
+ * that the sweep's reach does not silently shrink for everyone.
+ *
+ * The window is also the yardstick the date score is measured against (see
+ * duplicateScan.dateScoreOf), so a NARROWER window is strictly stricter: at 3
+ * days a pair one day apart still scores 83 on date, at 1 day the same pair
+ * scores 50 and its wording has to carry more of the case.
+ */
+const WINDOW_CHOICES = [1, 3, 7, 14] as const;
 type WindowDays = (typeof WINDOW_CHOICES)[number];
+
+/** "1 day", not "1 days" — the singular is the whole reason this exists. */
+const windowLabel = (days: WindowDays): string => `${days} day${days === 1 ? '' : 's'}`;
 
 type SortKey = 'date' | 'account' | 'description' | 'amount';
 
@@ -101,13 +126,15 @@ const gapPhrase = (daysApart: number): string => {
 
 export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.JSX.Element {
   const {
-    transactions, categories, deleteTransaction,
+    accounts, transactions, categories, deleteTransaction,
     suggestionDismissals, suggestionDismissalsStatus, refreshSuggestionDismissals,
     dismissSuggestion, restoreSuggestion,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { showSuccess, showError } = useToast();
   const accountName = useAccountNames();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [windowDays, setWindowDays] = useState<WindowDays>(3);
   const [accountFilter, setAccountFilter] = useState('');
@@ -162,20 +189,35 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
     return !dismissed.has(key) && !dismissedDuplicateKeys.has(key);
   });
 
+  /** Account id → type, for the filter's banding. Closed accounts are not in
+      the context list, so theirs is unknown and files under the catch-all —
+      the honest answer, and their name already reads "… (closed)". */
+  const accountTypeById = useMemo(
+    () => new Map(accounts.map(account => [account.id, account.type])),
+    [accounts]
+  );
+
   /**
    * Every account the sweep found something in. The scan already covers the
    * whole history in one run; this is so a user who has cleaned one account can
    * see at a glance which of the others still have work in them, and take one
    * at a time without leaving the screen.
+   *
+   * Unsorted here on purpose: the dropdown bands these into the app's account
+   * sections and alphabetises inside each one (GroupedAccountOptions), and a
+   * second ordering applied first would be thrown away.
    */
   const accountsWithWork = (() => {
     const counts = new Map<string, number>();
     for (const candidate of live) {
       counts.set(candidate.a.accountId, (counts.get(candidate.a.accountId) ?? 0) + 1);
     }
-    return [...counts.entries()]
-      .map(([id, count]) => ({ id, name: accountName(id), count }))
-      .sort((a, b) => compareText(a.name, b.name));
+    return [...counts.entries()].map(([id, count]) => ({
+      id,
+      name: accountName(id),
+      type: accountTypeById.get(id) ?? '',
+      count,
+    }));
   })();
   // A filter whose account has since been emptied would hide everything with no
   // way back, so a stale choice falls back to showing all of them.
@@ -198,6 +240,24 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
     }
   };
   const arrow = (key: SortKey): string => (sortKey === key ? (sortDir === 1 ? ' ↑' : ' ↓') : '');
+
+  /**
+   * Leave the sweep and land on the row itself, centred in its account's
+   * register with the surrounding rows and the running balance around it —
+   * the one thing an evidence card cannot show. Same mechanic as the
+   * transaction editor's "See this transaction in …" (buildTransactionRegisterPath),
+   * not a second one.
+   *
+   * The modal is closed FIRST so it is not left hanging over the register it
+   * just opened; Data Management unmounts it on close, so this sitting's
+   * account filter and window go with it and a return trip starts fresh at
+   * "All accounts" within 3 days. Nothing about the sweep is stored between
+   * sittings today, and a delete tool is not the place to invent that.
+   */
+  const openInRegister = useCallback((transaction: Transaction): void => {
+    onClose();
+    navigate(buildTransactionRegisterPath(transaction.accountId, transaction.id, location.search));
+  }, [navigate, location.search, onClose]);
 
   const review = (candidate: DuplicateCandidate): void => {
     setReviewing(candidate);
@@ -303,69 +363,94 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
   };
 
   /**
-   * One copy as an evidence card, and the radio that chooses it for deletion.
+   * One copy as an evidence card: the radio that chooses it for DELETION, and
+   * a separate way in to LOOK at it. Those two are not allowed to be mistaken
+   * for one another, so they are built differently on purpose:
    *
-   * A real `input type="radio"` inside a `label`, not a styled div: the two
-   * cards are a genuine either/or, and the native control brings the keyboard
-   * behaviour and the grouping with it. An undeletable copy is disabled, with
-   * the reason underneath — visible, because "why can't I delete this one?" is
-   * the question that would otherwise send the user round in circles.
+   *  - the radio and the whole body of the card are one `<label>`, so clicking
+   *    the evidence selects the copy — a genuine either/or, with the native
+   *    control's keyboard behaviour and grouping;
+   *  - the way in sits OUTSIDE that label, below the rule, as a plain text
+   *    button in the app's "leaving for context" idiom (arrow glyph, primary
+   *    text, no card chrome). Outside the label is the load-bearing part: a
+   *    click on it cannot fall through to the radio, so "let me look at this
+   *    one" can never come out as "delete this one". It is its own tab stop.
+   *
+   * A real `input type="radio"`, not a styled div. An undeletable copy is
+   * disabled, with the reason underneath — visible, because "why can't I
+   * delete this one?" is the question that would otherwise send the user round
+   * in circles — and its way in stays live, since going and unpicking the
+   * transfer or the split is exactly what that user has to do next.
    */
   const renderCopy = (transaction: Transaction, label: string): React.JSX.Element => {
     const block = deleteBlockOf(transaction);
     const category = categoryName(transaction.category);
     const isChosen = chosenId === transaction.id;
     return (
-      <label
+      <div
         key={transaction.id}
-        className={`flex items-start gap-3 rounded-xl border p-4 transition-all ${
+        className={`rounded-xl border p-4 transition-all ${
           block
-            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 cursor-not-allowed'
+            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40'
             : isChosen
-              ? 'border-red-400 dark:border-red-500 bg-red-50/60 dark:bg-red-900/20 cursor-pointer'
-              : 'border-gray-200 dark:border-gray-700 hover:border-primary cursor-pointer'
+              ? 'border-red-400 dark:border-red-500 bg-red-50/60 dark:bg-red-900/20'
+              : 'border-gray-200 dark:border-gray-700 hover:border-primary'
         }`}
       >
-        <input
-          type="radio"
-          name="duplicate-copy"
-          value={transaction.id}
-          checked={isChosen}
-          disabled={block !== null || deleting}
-          onChange={() => setChosenId(transaction.id)}
-          className="mt-1 rounded-full border-gray-300"
-        />
-        <span className="min-w-0">
-          <span className="block text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            {label}
-          </span>
-          <span className={`block text-lg font-bold tabular-nums ${transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-            {formatCurrency(Math.abs(transaction.amount))}
-          </span>
-          <span className="mt-1 block text-sm text-gray-900 dark:text-white break-words">
-            {transaction.description}
-          </span>
-          <span className="block text-xs text-gray-500 dark:text-gray-400">
-            {longDate(transaction.date)}
-          </span>
-          <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-            {category ? `Filed as ${category}` : 'Not categorised'}
-            {transaction.cleared === true && ' · reconciled'}
-            {transaction.isImported === true && ' · imported'}
-          </span>
-          {transaction.notes && (
-            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400 break-words">
-              {transaction.notes}
+        <label className={`flex items-start gap-3 ${block ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+          <input
+            type="radio"
+            name="duplicate-copy"
+            value={transaction.id}
+            checked={isChosen}
+            disabled={block !== null || deleting}
+            onChange={() => setChosenId(transaction.id)}
+            className="mt-1 rounded-full border-gray-300"
+          />
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              {label}
             </span>
-          )}
-          {block && (
-            <span className="mt-2 flex items-start gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-              <AlertTriangleIcon size={12} className="mt-0.5 flex-shrink-0" />
-              <span>{BLOCK_REASONS[block](transaction)}</span>
+            <span className={`block text-lg font-bold tabular-nums ${transaction.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+              {formatCurrency(Math.abs(transaction.amount))}
             </span>
-          )}
-        </span>
-      </label>
+            <span className="mt-1 block text-sm text-gray-900 dark:text-white break-words">
+              {transaction.description}
+            </span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              {longDate(transaction.date)}
+            </span>
+            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+              {category ? `Filed as ${category}` : 'Not categorised'}
+              {transaction.cleared === true && ' · reconciled'}
+              {transaction.isImported === true && ' · imported'}
+            </span>
+            {transaction.notes && (
+              <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400 break-words">
+                {transaction.notes}
+              </span>
+            )}
+            {block && (
+              <span className="mt-2 flex items-start gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <AlertTriangleIcon size={12} className="mt-0.5 flex-shrink-0" />
+                <span>{BLOCK_REASONS[block](transaction)}</span>
+              </span>
+            )}
+          </span>
+        </label>
+        {/* Named for the ACCESSIBLE name, because both copies are in the same
+            account and two buttons reading the same words tell a screen-reader
+            user nothing about which row they are about to open. */}
+        <button
+          type="button"
+          onClick={() => openInRegister(transaction)}
+          aria-label={`See the ${label.toLowerCase()} in ${accountName(transaction.accountId)}`}
+          className="mt-3 inline-flex items-center gap-1.5 border-t border-gray-100 dark:border-gray-700 pt-3 w-full text-sm font-medium text-primary hover:text-secondary"
+        >
+          <ArrowUpRightIcon size={14} />
+          See this row in the register
+        </button>
+      </div>
     );
   };
 
@@ -399,7 +484,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
                 </button>
               </th>
             ))}
-            <th className="pb-2 w-24"></th>
+            <th className="pb-2 w-28"></th>
           </tr>
         </thead>
         <tbody>
@@ -440,14 +525,31 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
                 <td className="py-2 text-sm font-medium text-right tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
                   {formatCurrency(Math.abs(candidate.a.amount))}
                 </td>
+                {/* The row itself opens the review — one meaning per click.
+                    The second way out lives in this cell, which already stops
+                    the row's own handler, so it cannot make a row click
+                    ambiguous. It lands on the EARLIER copy: both are in one
+                    account within the window, so the other is a few rows away
+                    on the same screen, in date order with the running balance. */}
                 <td className="py-2 text-right" onClick={e => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    onClick={() => review(candidate)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Review
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => review(candidate)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      Review
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openInRegister(first)}
+                      aria-label={`See these two rows in ${accountName(candidate.a.accountId)}`}
+                      className="inline-flex items-center gap-1 px-1 text-xs font-medium text-primary hover:text-secondary"
+                    >
+                      <ArrowUpRightIcon size={12} />
+                      In the register
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
@@ -494,7 +596,7 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
               className="ml-1 px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               {WINDOW_CHOICES.map(days => (
-                <option key={days} value={days}>{days} days</option>
+                <option key={days} value={days}>{windowLabel(days)}</option>
               ))}
             </select>
           </label>
@@ -511,11 +613,14 @@ export default function DuplicateSweepModal({ isOpen, onClose }: Props): React.J
               className="ml-1 px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white max-w-full"
             >
               <option value="">All accounts</option>
-              {accountsWithWork.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.name} ({account.count.toLocaleString()})
-                </option>
-              ))}
+              {/* Banded and alphabetised exactly as every other account
+                  dropdown in the app: with sixty accounts a flat list is a
+                  wall of names. The count each one still carries is the point
+                  of the control — which accounts still have work in them. */}
+              <GroupedAccountOptions
+                accounts={accountsWithWork}
+                formatLabel={account => `${account.name} (${account.count.toLocaleString()})`}
+              />
             </select>
           </label>
         )}

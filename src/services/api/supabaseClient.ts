@@ -43,6 +43,13 @@ type Database = {
         Args: { p_ids: string[]; p_category: string; p_user_id: string };
         Returns: number;
       };
+      // Agree with the app's suggested category. Takes no category on purpose:
+      // it only flips category_confirmed, so it cannot move a category or a
+      // balance however it is called (20260808100000_category_provenance.sql).
+      confirm_transaction_categories: {
+        Args: { p_ids: string[]; p_user_id: string };
+        Returns: number;
+      };
       set_transaction_splits: {
         Args: {
           p_transaction_id: string;

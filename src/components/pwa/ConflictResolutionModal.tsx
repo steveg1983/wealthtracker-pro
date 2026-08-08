@@ -7,7 +7,8 @@ import React, { useMemo } from 'react';
 import { useOfflineOperations } from '../../pwa/offline-storage';
 import { Modal } from '../common/Modal';
 import { AlertTriangleIcon, CheckIcon } from '../icons';
-import { formatCurrency } from '../../utils/formatters';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
 import { format } from 'date-fns';
 import {
   AccountConflict,
@@ -32,6 +33,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   conflict
 }) => {
   const { resolveConflict } = useOfflineOperations();
+  const { formatCurrency } = useCurrencyDecimal();
   const [selectedResolution, setSelectedResolution] = React.useState<'client' | 'server'>('server');
   const [isResolving, setIsResolving] = React.useState(false);
   const logger = useMemo(() => createScopedLogger('ConflictResolutionModal'), []);
@@ -166,7 +168,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
 
         <div className="border-t pt-4 dark:border-gray-700">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            Difference: {formatCurrency(Math.abs(client.balance - server.balance))}
+            Difference: {formatCurrency(toDecimal(client.balance).minus(server.balance).abs())}
           </p>
           <p className="text-xs text-gray-500">
             Consider reviewing recent transactions to ensure all are accounted for.
@@ -204,10 +206,10 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             <tr>
               <td className="py-2">Remaining</td>
               <td className="text-center">
-                {formatCurrency((client.amount || 0) - (client.spent || 0))}
+                {formatCurrency(toDecimal(client.amount || 0).minus(client.spent || 0))}
               </td>
               <td className="text-center">
-                {formatCurrency((server.amount || 0) - (server.spent || 0))}
+                {formatCurrency(toDecimal(server.amount || 0).minus(server.spent || 0))}
               </td>
             </tr>
           </tbody>

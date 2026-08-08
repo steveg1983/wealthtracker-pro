@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { AlertTriangleIcon, CheckIcon, MergeIcon } from '../icons';
-import { formatCurrency } from '../../utils/formatters';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { format } from 'date-fns';
 import { ConflictResolutionService, ConflictAnalysis } from '../../services/conflictResolutionService';
 import { ConflictData, SyncConflict } from '../../types/syncConflict';
@@ -26,6 +26,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
   analysis: providedAnalysis,
   onResolve
 }) => {
+  const { formatCurrency } = useCurrencyDecimal();
   const [selectedResolution, setSelectedResolution] = useState<'client' | 'server' | 'merge'>('merge');
   const [fieldSelections, setFieldSelections] = useState<Record<string, 'client' | 'server'>>({});
   const [isResolving, setIsResolving] = useState(false);

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { offlineService } from '../services/offlineService';
 import { AlertCircleIcon, CheckIcon, XIcon } from './icons';
-import { formatCurrency } from '../utils/formatters';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Button } from './common/Button';
 import type { Transaction } from '../types';
 
@@ -319,6 +319,8 @@ interface TransactionPreviewProps {
 }
 
 function TransactionPreview({ transaction }: TransactionPreviewProps): React.JSX.Element {
+  const { formatCurrency } = useCurrencyDecimal();
+
   if (!transaction) {
     return (
       <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">

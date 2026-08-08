@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type {
+  BalanceUnavailableReason,
   SyncAccountsRequest,
   SyncAccountsResponse
 } from '../../src/types/banking-api.js';
@@ -19,11 +20,21 @@ import {
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts, fetchCardBalance, fetchCards } from '../_lib/truelayer.js';
 import {
-  cardBalanceToAppBalance,
   cardDisplayName,
   cardMask
 } from '../../src/services/banking/cardNormalization.js';
 import { selectAdoptableAccountId, type AdoptionCandidate } from '../../src/services/banking/accountMatching.js';
+import {
+  accountBalanceSnapshot,
+  balanceForDisplay,
+  cardBalanceSnapshot,
+  isAnySeedingDeferred,
+  planBankBalanceRefresh,
+  planNewAccountSeeding,
+  resolveBalanceSnapshot,
+  type BankBalanceSnapshot,
+  type NewAccountSeedPlan
+} from '../../src/services/banking/bankBalanceSnapshot.js';
 
 const inferMask = (account: {
   account_number?: {
@@ -73,7 +84,8 @@ interface SyncedTrueLayerAccount {
   externalAccountId: string;
   name: string;
   type: string;
-  balance: number;
+  /** What the bank said it holds — or that it said nothing. Never a stand-in 0. */
+  balance: BankBalanceSnapshot;
   currency: string;
   mask?: string;
   accountNumber?: string | null;
@@ -85,6 +97,27 @@ interface SyncedTrueLayerAccount {
 interface LinkedAccountRow {
   account_id: string;
   external_account_id: string;
+}
+
+/** An account this sync could not read a balance for, and why. */
+interface UnreadBalance {
+  name: string;
+  reason: BalanceUnavailableReason;
+}
+
+interface PersistOutcome {
+  /**
+   * Names of accounts this run did NOT create, because the connection had no
+   * bank-reported balance to seed every new account from. Actionable: they are
+   * missing from the user's account list until the next sync adds them.
+   */
+  notCreated: string[];
+  /**
+   * Every account whose balance the bank did not report. For an existing
+   * account the only consequence is that bank_balance keeps its previous
+   * value and previous date — the ledger is untouched.
+   */
+  unreadBalances: UnreadBalance[];
 }
 
 /**
@@ -152,7 +185,15 @@ const persistAccountsAndLinks = async (
     institution_name: string;
   },
   accounts: SyncedTrueLayerAccount[]
-): Promise<void> => {
+): Promise<PersistOutcome> => {
+  const outcome: PersistOutcome = {
+    notCreated: [],
+    unreadBalances: accounts.flatMap((account) =>
+      account.balance.status === 'unavailable'
+        ? [{ name: account.name, reason: account.balance.reason }]
+        : []
+    )
+  };
   const linkedResult = await supabase
     .from('linked_accounts')
     .select('account_id, external_account_id')
@@ -176,6 +217,23 @@ const persistAccountsAndLinks = async (
   // without it, last March's statement would overwrite this morning's sync.
   const balanceAsOfDay = nowIso.slice(0, 10);
   const externalAccountIds = new Set<string>();
+
+  // Decide the seeding of every account BEFORE writing any of them, because
+  // the decision is all-or-nothing for this connection.
+  //
+  // Auto-creation only ever runs on a connection's first sync — once any link
+  // exists, an unlinked external account is left for the Link Accounts modal
+  // (below). So creating four accounts and deferring the fifth would strand
+  // that fifth one: the next sync would find links and skip it for good, and
+  // "sync again to add it" would be untrue. Defer them together, create them
+  // together, and the retry the user is told about is a retry that works.
+  const seedPlans = new Map<string, NewAccountSeedPlan>(
+    accounts.map((account) => [
+      account.externalAccountId,
+      planNewAccountSeeding(account.balance, balanceAsOfDay)
+    ])
+  );
+  const seedingDeferred = isAnySeedingDeferred(seedPlans.values());
 
   for (const account of accounts) {
     externalAccountIds.add(account.externalAccountId);
@@ -217,13 +275,18 @@ const persistAccountsAndLinks = async (
       // by the atomic transaction RPCs — so overwriting it here would silently
       // discard manual entries and break balance = initial_balance + Σtxns
       // (audit finding #12). See migration 20260613090000 for the invariant.
+      //
+      // And when the bank reported nothing, neither column moves: the figure
+      // already stored stays, still carrying the date it was true for. Writing
+      // today's date over an unread balance would tell the reconciliation
+      // screen that this morning's reading confirmed a number nobody read.
+      const balanceRefresh = planBankBalanceRefresh(account.balance, balanceAsOfDay);
       const updateResult = await supabase
         .from('accounts')
         .update({
           ...(hasUserName ? {} : { name: account.name }),
           type: account.type,
-          bank_balance: account.balance,
-          bank_balance_date: balanceAsOfDay,
+          ...balanceRefresh,
           currency: account.currency,
           institution: connection.institution_name,
           is_active: true,
@@ -252,16 +315,26 @@ const persistAccountsAndLinks = async (
         continue;
       }
 
+      // A new account is seeded with the bank's figure in all three balance
+      // columns at once. Without a figure there is nothing honest to seed it
+      // with: 0 would assert the account is empty, and the first import's
+      // rebase (initial_balance -= Σ) would then build on a number nobody
+      // reported. So the account is not created at all this run — an account
+      // the user can see is missing beats an account that lies about its
+      // balance — and the caller tells them to sync again.
+      const seedPlan = seedPlans.get(account.externalAccountId);
+      if (seedingDeferred || seedPlan?.action !== 'seed') {
+        outcome.notCreated.push(account.name);
+        continue;
+      }
+
       const insertAccountResult = await supabase
         .from('accounts')
         .insert({
           user_id: userId,
           name: account.name,
           type: account.type,
-          balance: account.balance,
-          bank_balance: account.balance,
-          bank_balance_date: balanceAsOfDay,
-          initial_balance: account.balance,
+          ...seedPlan.fields,
           currency: account.currency,
           institution: connection.institution_name,
           is_active: true,
@@ -305,7 +378,7 @@ const persistAccountsAndLinks = async (
     .map((row) => row.external_account_id);
 
   if (staleExternalAccountIds.length === 0) {
-    return;
+    return outcome;
   }
 
   const deleteStaleLinksResult = await supabase
@@ -317,6 +390,27 @@ const persistAccountsAndLinks = async (
   if (deleteStaleLinksResult.error) {
     throw new Error(`Failed to remove stale linked accounts: ${deleteStaleLinksResult.error.message}`);
   }
+
+  return outcome;
+};
+
+/**
+ * The sentence the user reads when accounts were left out. It names the
+ * consequence — which accounts are missing — rather than a count, and gives
+ * the two ways to fix it. Both lists are named, because they can differ: the
+ * bank may have failed on one account while the whole batch was held back.
+ */
+const describeAccountsNotCreated = (
+  institutionName: string,
+  outcome: PersistOutcome
+): string => {
+  const unread = outcome.unreadBalances.map((entry) => entry.name).join(', ');
+  const missing = outcome.notCreated.join(', ');
+  const one = outcome.notCreated.length === 1;
+  const opening = unread
+    ? `${institutionName} didn't report a balance for ${unread}.`
+    : `${institutionName} didn't report the balances needed to open these accounts.`;
+  return `${opening} Rather than open an account at a balance your bank never gave, ${missing} ${one ? 'was' : 'were'} not added — sync again to add ${one ? 'it' : 'them'}, or add ${one ? 'it' : 'them'} yourself and use Link Accounts.`;
 };
 
 async function handler(req: VercelRequest, res: VercelResponse) {
@@ -357,15 +451,15 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
       const syncedAccounts = await Promise.all(
         truelayerAccounts.map(async (account): Promise<SyncedTrueLayerAccount> => {
-          let balance = 0;
-          try {
-            const fetchedBalance = await fetchAccountBalance(accessToken, account.account_id);
-            if (typeof fetchedBalance === 'number' && Number.isFinite(fetchedBalance)) {
-              balance = fetchedBalance;
-            }
-          } catch {
-            // Balance endpoint failures should not block account discovery.
-          }
+          // Retried, then believed — including when the answer is "no figure".
+          // The old code caught the failure and left `balance` at its initial
+          // 0, which the seeding path below then wrote to three columns as a
+          // fact. A 401 is re-thrown from here so withTrueLayerAccessToken can
+          // refresh the token and replay the whole operation.
+          const balance = await resolveBalanceSnapshot(
+            () => fetchAccountBalance(accessToken, account.account_id),
+            accountBalanceSnapshot
+          );
 
           const type = mapAccountType(account.account_type);
           // A card can arrive on the ACCOUNTS surface too (account_type
@@ -395,12 +489,14 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       const syncedCards = await Promise.all(
         truelayerCards.map(async (card): Promise<SyncedTrueLayerAccount> => {
           // Card `current` = amount OWED (positive) → app liability (negative).
-          let balance = 0;
-          try {
-            balance = cardBalanceToAppBalance(await fetchCardBalance(accessToken, card.account_id));
-          } catch {
-            // Balance endpoint failures should not block discovery.
-          }
+          // An issuer that sends no balance used to arrive here as 0 twice
+          // over: the catch left it at 0, and cardBalanceToAppBalance turned a
+          // null `current` into 0 as well — "we could not reach Amex" and "you
+          // owe Amex nothing" were the same value.
+          const balance = await resolveBalanceSnapshot(
+            () => fetchCardBalance(accessToken, card.account_id),
+            cardBalanceSnapshot
+          );
 
           return {
             externalAccountId: card.account_id,
@@ -421,28 +517,46 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return [...syncedAccounts, ...syncedCards];
     });
 
-    await persistAccountsAndLinks(supabase, auth.userId, connection, accounts);
+    const outcome = await persistAccountsAndLinks(supabase, auth.userId, connection, accounts);
 
+    // The connection itself is healthy — the bank answered, it simply did not
+    // answer one balance call — so it keeps its connected status and the sync
+    // is recorded as having run. What did not finish is reported per-sync.
     await markConnectionSyncSuccess(supabase, connection.id, auth.userId);
+    const partialNote = outcome.notCreated.length > 0
+      ? `Not added (no bank balance to open them with): ${outcome.notCreated.join(', ')}`
+      : outcome.unreadBalances.length > 0
+        ? `Bank balance not refreshed for: ${outcome.unreadBalances.map((entry) => entry.name).join(', ')}`
+        : null;
     await supabase.from('sync_history').insert({
       connection_id: connection.id,
       sync_type: 'accounts',
-      status: 'success',
+      status: partialNote ? 'partial' : 'success',
       records_synced: accounts.length,
+      ...(partialNote ? { error: partialNote.slice(0, 2000) } : {}),
       created_at: new Date().toISOString()
     });
 
+    // An account that was not created is missing from the user's books, so the
+    // sync did not succeed and says so — the UI turns `error` into a "Bank
+    // sync incomplete" warning. A stale bank_balance on an EXISTING account is
+    // not a failure: nothing was written, the ledger is untouched, and the
+    // figure still on screen carries the date it was true for.
     const response: SyncAccountsResponse = {
-      success: true,
+      success: outcome.notCreated.length === 0,
       accountsSynced: accounts.length,
       accounts: accounts.map((account) => ({
         id: account.externalAccountId,
         name: account.name,
         type: account.type,
-        balance: account.balance,
+        balance: balanceForDisplay(account.balance),
         currency: account.currency,
         mask: account.mask
-      }))
+      })),
+      ...(outcome.unreadBalances.length > 0 ? { balancesUnavailable: outcome.unreadBalances } : {}),
+      ...(outcome.notCreated.length > 0
+        ? { error: describeAccountsNotCreated(connection.institution_name, outcome) }
+        : {})
     };
     return res.status(200).json(response);
   } catch (error) {

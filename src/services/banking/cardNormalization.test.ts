@@ -38,9 +38,12 @@ describe('cardBalanceToAppBalance', () => {
     expect(cardBalanceToAppBalance(-15.5)).toBe(15.5);
   });
 
-  it('returns 0 for missing values — and NEVER falls back to available credit', () => {
-    expect(cardBalanceToAppBalance(null)).toBe(0);
-    expect(cardBalanceToAppBalance(undefined)).toBe(0);
+  it('refuses a non-figure rather than reporting it as nothing owed', () => {
+    // The old contract answered 0 here, so an issuer that sent no balance was
+    // recorded as a card with nothing on it. Callers must handle "no figure"
+    // themselves — see cardBalanceSnapshot.
+    expect(() => cardBalanceToAppBalance(Number.NaN)).toThrow(/finite/);
+    expect(() => cardBalanceToAppBalance(Number.POSITIVE_INFINITY)).toThrow(/finite/);
   });
 
   it('never emits -0', () => {

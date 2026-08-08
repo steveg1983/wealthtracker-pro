@@ -749,6 +749,58 @@ NEWFILEUID:NONE
       expect(result.transactions[2].category).toBe(''); // No suggestion
     });
 
+    /**
+     * The category is still applied — a good guess saves the typing — but it
+     * must arrive MARKED as a guess. A filled-in category that looked identical
+     * to a chosen one is the whole reason "have I checked this row?" was
+     * unanswerable after an import.
+     */
+    it('marks an auto-categorized row as SUGGESTED, not as the user\'s choice', async () => {
+      vi.mocked(smartCategorizationService.learnFromTransactions).mockImplementation(() => {});
+      vi.mocked(smartCategorizationService.suggestCategories).mockImplementation(transaction =>
+        transaction.description?.includes('Grocery')
+          ? [{ categoryId: 'food', confidence: 0.8, reason: 'Merchant match' }]
+          : []
+      );
+
+      const result = await ofxImportService.importTransactions(
+        validOFXContent,
+        mockAccounts,
+        existingTransactions,
+        { autoCategorize: true, categories: mockCategories }
+      );
+
+      const guessed = result.transactions[0];
+      expect(guessed.category).toBe('food');
+      expect(guessed.categoryConfirmed).toBe(false);
+    });
+
+    it('leaves a row the categoriser said nothing about CONFIRMED — a blank is not a guess', async () => {
+      vi.mocked(smartCategorizationService.suggestCategories).mockReturnValue([]);
+
+      const result = await ofxImportService.importTransactions(
+        validOFXContent,
+        mockAccounts,
+        existingTransactions,
+        { autoCategorize: true, categories: mockCategories }
+      );
+
+      expect(result.transactions.every(t => t.category === '')).toBe(true);
+      // Nothing was suggested, so nothing is outstanding: an uncategorised row
+      // is a different chore, with its own screen and its own count.
+      expect(result.transactions.every(t => t.categoryConfirmed === true)).toBe(true);
+    });
+
+    it('imports with no categoriser at all as confirmed', async () => {
+      const result = await ofxImportService.importTransactions(
+        validOFXContent,
+        mockAccounts,
+        existingTransactions
+      );
+
+      expect(result.transactions.every(t => t.categoryConfirmed === true)).toBe(true);
+    });
+
     it('respects confidence threshold for auto-categorization', async () => {
       (smartCategorizationService.suggestCategories as any).mockReturnValue([
         { categoryId: 'food', confidence: 0.6, reason: 'Low confidence' }
@@ -758,14 +810,16 @@ NEWFILEUID:NONE
         validOFXContent,
         mockAccounts,
         existingTransactions,
-        { 
+        {
           autoCategorize: true,
           categories: mockCategories
         }
       );
 
-      // All categories should be empty due to low confidence
+      // All categories should be empty due to low confidence — and a category
+      // that was never applied leaves nothing to confirm.
       expect(result.transactions.every(t => t.category === '')).toBe(true);
+      expect(result.transactions.every(t => t.categoryConfirmed === true)).toBe(true);
     });
 
     it('handles unmatched account', async () => {

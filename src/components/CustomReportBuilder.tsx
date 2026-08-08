@@ -14,6 +14,7 @@ import {
   SaveIcon
 } from './icons';
 import DatePicker from './common/DatePicker';
+import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 
@@ -518,11 +519,10 @@ export default function CustomReportBuilder({
               onChange={handleAccountSelection}
               className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px] max-w-full"
             >
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
+              {/* The app's account sections, alphabetical inside each: a
+                  multi-select is where a flat list of sixty hurts most, since
+                  the user is picking several and has to find each one. */}
+              <GroupedAccountOptions accounts={accounts} />
             </select>
           )}
 

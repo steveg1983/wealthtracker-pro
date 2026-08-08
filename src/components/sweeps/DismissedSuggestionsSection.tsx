@@ -21,6 +21,12 @@ const KIND_LABELS: Record<DismissalKind, string> = {
   'transfer-leg': 'Not a match for that split line',
   stranded: 'Left as it is',
   duplicate: 'Not a duplicate',
+  // Payee cleanup owns its own list (DismissedPayeeSuggestions): these are
+  // refusals about payee TEXT and carry no rows, so this section — which
+  // describes a dismissal from the transactions it named — cannot show them.
+  // Labelled all the same, so the two kinds can never reach a sweep unnamed.
+  'payee-merchant': 'Not one merchant',
+  'payee-line': 'Not part of that merchant',
 };
 
 interface Props {

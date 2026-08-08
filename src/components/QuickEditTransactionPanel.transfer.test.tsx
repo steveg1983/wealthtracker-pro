@@ -76,6 +76,7 @@ vi.mock('../contexts/AppContextSupabase', () => ({
     linkTransferPair: mocks.linkTransferPair,
     createTransferCounterpart: mocks.createTransferCounterpart,
     applyCategoryToUncategorized: vi.fn(async () => 0),
+    confirmTransactionCategories: vi.fn(async () => 0),
   }),
 }));
 

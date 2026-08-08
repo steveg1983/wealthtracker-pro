@@ -559,8 +559,10 @@ function dismissalToRow(app: Record<string, unknown>): BackupRow {
   const row: BackupRow = {};
   put(row, 'id', text(app.id));
   put(row, 'kind', text(app.kind));
-  // subject_key is TEXT built out of row ids, and remapBackupIds rewrites and
-  // re-sorts it. Carrying it as-is is what keeps a refused suggestion refused.
+  // subject_key is TEXT — row ids for the sweeps' kinds, which remapBackupIds
+  // rewrites and re-sorts, and role-prefixed payee text for payee cleanup's,
+  // which it leaves alone. Carrying it as-is, whichever it is, is what keeps a
+  // refused suggestion refused.
   put(row, 'subject_key', text(app.subjectKey));
   put(row, 'subject_ids', textArray(app.subjectIds) ?? []);
   put(row, 'dismissed_at', timestampColumn(app.dismissedAt));

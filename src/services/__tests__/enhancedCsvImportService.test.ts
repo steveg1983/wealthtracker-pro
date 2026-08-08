@@ -109,6 +109,73 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     expect(logger.warn).toHaveBeenCalledWith('Cannot parse date: invalid-date, using today\'s date');
   });
 
+  /**
+   * A CSV's category column is the user's own data — they chose the file and
+   * they told the wizard which column it is. The smart categoriser's guess is
+   * not. Both end up in the same field, so only the flag can tell them apart.
+   */
+  describe('category provenance', () => {
+    const csv = 'Date,Description,Amount,Category\n2025-06-01,Supermarket,-40.00,det-groceries';
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' },
+      { sourceColumn: 'Category', targetField: 'category' }
+    ];
+    const csvWithoutCategory = 'Date,Description,Amount\n2025-06-01,Supermarket,-40.00';
+    const mappingsWithoutCategory = mappings.slice(0, 3);
+
+    it('treats a MAPPED category column as confirmed', async () => {
+      rulesService.applyRules.mockImplementation((t: Partial<Transaction>) => t);
+      const service = createService();
+
+      const result = await service.importTransactions(csv, mappings, [], new Map(), {
+        skipDuplicates: false,
+        autoCategorize: true,
+        categories: []
+      });
+
+      expect(result.items[0].category).toBe('det-groceries');
+      expect(result.items[0].categoryConfirmed).toBe(true);
+    });
+
+    it('marks a GUESSED category as suggested', async () => {
+      rulesService.applyRules.mockImplementation((t: Partial<Transaction>) => t);
+      categorizationService.suggestCategories.mockReturnValue([
+        { categoryId: 'det-groceries', confidence: 0.9, reason: 'Merchant match' }
+      ]);
+      const service = createService();
+
+      const result = await service.importTransactions(
+        csvWithoutCategory,
+        mappingsWithoutCategory,
+        [],
+        new Map(),
+        { skipDuplicates: false, autoCategorize: true, categories: [] }
+      );
+
+      expect(result.items[0].category).toBe('det-groceries');
+      expect(result.items[0].categoryConfirmed).toBe(false);
+    });
+
+    it('leaves a row nothing was guessed for confirmed, category or not', async () => {
+      rulesService.applyRules.mockImplementation((t: Partial<Transaction>) => t);
+      categorizationService.suggestCategories.mockReturnValue([]);
+      const service = createService();
+
+      const result = await service.importTransactions(
+        csvWithoutCategory,
+        mappingsWithoutCategory,
+        [],
+        new Map(),
+        { skipDuplicates: false, autoCategorize: true, categories: [] }
+      );
+
+      expect(result.items[0].category).toBeUndefined();
+      expect(result.items[0].categoryConfirmed).toBe(true);
+    });
+  });
+
   it('stores income positive and expenses negative from a single signed amount column', async () => {
     const service = createService();
     const csv = 'Date,Description,Amount\n2025-06-01,Salary,2500.00\n2025-06-02,Coffee,-12.50';

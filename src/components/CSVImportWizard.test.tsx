@@ -7,22 +7,50 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CSVImportWizard from './CSVImportWizard';
+import { enhancedCsvImportService } from '../services/enhancedCsvImportService';
+import { transactionImportService } from '../services/transactionImportService';
+import { importTransactionsLocally } from '../services/localTransactionImportService';
+
+const mockRefreshAccountsAndTransactions = vi.fn().mockResolvedValue(undefined);
+/** Flipped per test to exercise the cloud path and the local one. */
+let mockIsUsingSupabase = false;
 
 // Mock all dependencies
 vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: [
-      { id: 'acc-1', name: 'Checking Account', type: 'checking' },
-      { id: 'acc-2', name: 'Savings Account', type: 'savings' },
+      { id: 'acc-1', name: 'Checking Account', type: 'checking', currency: 'GBP' },
+      { id: 'acc-2', name: 'Savings Account', type: 'savings', currency: 'GBP' },
     ],
     transactions: [],
-    addTransaction: vi.fn(),
     addAccount: vi.fn(),
     categories: [
       { id: 'cat-1', name: 'Food', type: 'expense' },
       { id: 'cat-2', name: 'Income', type: 'income' },
     ],
+    isUsingSupabase: mockIsUsingSupabase,
+    refreshAccountsAndTransactions: mockRefreshAccountsAndTransactions,
   }),
+}));
+
+vi.mock('@clerk/clerk-react', () => ({
+  useAuth: () => ({ getToken: vi.fn().mockResolvedValue('test-token') }),
+}));
+
+/**
+ * Both write paths are mocked, because what these tests check is what the
+ * wizard REPORTS about a write — which can only be checked by controlling what
+ * the write says it did.
+ */
+vi.mock('../services/transactionImportService', () => ({
+  transactionImportService: {
+    setAuthTokenProvider: vi.fn(),
+    importInChunks: vi.fn(),
+  },
+}));
+
+vi.mock('../services/localTransactionImportService', () => ({
+  importTransactionsLocally: vi.fn(),
 }));
 
 vi.mock('../services/enhancedCsvImportService', () => ({
@@ -150,6 +178,15 @@ describe('CSVImportWizard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsUsingSupabase = false;
+    // Default: the write does what it was asked. Tests about a failing write
+    // override this.
+    vi.mocked(importTransactionsLocally).mockImplementation(
+      async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
+    );
+    vi.mocked(transactionImportService.importInChunks).mockImplementation(
+      async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
+    );
   });
 
   afterEach(() => {
@@ -441,6 +478,245 @@ describe('CSVImportWizard', () => {
     it('displays action buttons', () => {
       expect(screen.getByText('Import More')).toBeInTheDocument();
       expect(screen.getByText('Done')).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * What the wizard says a write did, as opposed to what the file offered.
+   *
+   * The old loop fired `addTransaction` per row without awaiting and then read
+   * the Imported tile off the PARSER's `success` count — so a file whose rows
+   * never reached the database still reported them as imported. These tests
+   * hold the two numbers apart.
+   */
+  describe('reporting what actually landed', () => {
+    /** Two rows for Checking Account, invented. */
+    const twoRows = [
+      {
+        date: new Date('2023-01-15'),
+        description: 'GROCERY STORE',
+        amount: -85.5,
+        category: 'Food',
+        accountId: 'acc-1',
+        type: 'expense' as const,
+        tags: [],
+        notes: ''
+      },
+      {
+        date: new Date('2023-01-16'),
+        description: 'SALARY',
+        amount: 2000,
+        category: 'Income',
+        accountId: 'acc-1',
+        type: 'income' as const,
+        tags: [],
+        notes: ''
+      }
+    ];
+
+    const parsedAs = (items: unknown[], overrides: Record<string, unknown> = {}) => ({
+      success: items.length,
+      failed: 0,
+      duplicates: 0,
+      items,
+      errors: [],
+      ...overrides
+    });
+
+    const runImport = async (): Promise<void> => {
+      const user = userEvent.setup();
+      renderWizard(true);
+
+      const file = new File(['Date,Description,Amount\n2023-01-15,Test,-10.00'], 'test.csv', { type: 'text/csv' });
+      await user.upload(screen.getByLabelText(/select file/i), file);
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('Next'));
+      await user.click(screen.getByTestId('loading-button'));
+    };
+
+    it('writes each account in one awaited batch, not a row at a time', async () => {
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+      });
+      expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
+      expect(importTransactionsLocally).toHaveBeenCalledWith(
+        'acc-1',
+        expect.arrayContaining([
+          expect.objectContaining({ description: 'GROCERY STORE', accountId: 'acc-1' }),
+          expect.objectContaining({ description: 'SALARY', accountId: 'acc-1' })
+        ])
+      );
+      expect(mockRefreshAccountsAndTransactions).toHaveBeenCalled();
+    });
+
+    it('carries the category provenance the service set', async () => {
+      // The wizard rebuilds each row to hand it to the write, so this mapper is
+      // the one place the flag can be lost. Lost, the app's own guess arrives
+      // indistinguishable from a category the user chose.
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
+        parsedAs([
+          { ...twoRows[0], categoryConfirmed: false },
+          { ...twoRows[1], categoryConfirmed: true }
+        ])
+      );
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+      });
+      expect(importTransactionsLocally).toHaveBeenCalledWith('acc-1', [
+        expect.objectContaining({ description: 'GROCERY STORE', categoryConfirmed: false }),
+        expect.objectContaining({ description: 'SALARY', categoryConfirmed: true })
+      ]);
+    });
+
+    it('shows the Imported tile as what LANDED, not what the file offered', async () => {
+      // The file offers two; the write confirms one. The tile must say one.
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+        inserted: 1,
+        alreadyPresent: 0,
+        total: 2,
+        complete: false,
+        error: 'QuotaExceededError'
+      });
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Imported')).toBeInTheDocument();
+      });
+      const tile = screen.getByText('Imported').parentElement;
+      expect(tile).toHaveTextContent('1');
+      expect(tile).not.toHaveTextContent('2');
+    });
+
+    it('names the row that never landed, and what its absence means', async () => {
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+        inserted: 1,
+        alreadyPresent: 0,
+        total: 2,
+        complete: false,
+        error: 'QuotaExceededError'
+      });
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Part of this file is missing')).toBeInTheDocument();
+      });
+      expect(screen.getByText('1 transaction never reached Checking Account')).toBeInTheDocument();
+      expect(screen.getByText('16/01/2023 · SALARY · £2,000.00')).toBeInTheDocument();
+      expect(screen.getByText(/will not agree with the statement this file came from/)).toBeInTheDocument();
+      expect(screen.getByText(/What stopped it: QuotaExceededError/)).toBeInTheDocument();
+      // And the count on the tile is what landed, not what was parsed.
+      expect(screen.queryByText('Import Complete!')).not.toBeInTheDocument();
+    });
+
+    it('splits a multi-account file into one atomic batch per account', async () => {
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
+        parsedAs([...twoRows, { ...twoRows[0], description: 'TRANSFER IN', accountId: 'acc-2' }])
+      );
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+      });
+      expect(importTransactionsLocally).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(importTransactionsLocally).mock.calls.map(call => call[0]))
+        .toEqual(['acc-1', 'acc-2']);
+    });
+
+    it('keeps one account\'s failure from cancelling another account\'s rows', async () => {
+      // Separate accounts have nothing to do with each other; refusing to file
+      // the working one helps nobody, so long as the failure is named.
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
+        parsedAs([...twoRows, { ...twoRows[0], description: 'TRANSFER IN', accountId: 'acc-2' }])
+      );
+      vi.mocked(importTransactionsLocally)
+        .mockResolvedValueOnce({ inserted: 2, alreadyPresent: 0, total: 2, complete: true })
+        .mockResolvedValueOnce({ inserted: 0, alreadyPresent: 0, total: 1, complete: false, error: 'offline' });
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('1 transaction never reached Savings Account')).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/never reached Checking Account/)).not.toBeInTheDocument();
+    });
+
+    it('says when rows name an account that does not exist, instead of dropping them', async () => {
+      // This is the silent case: the old type guard skipped these rows while
+      // the Imported tile went on counting them.
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
+        parsedAs([
+          twoRows[0],
+          { ...twoRows[1], accountId: 'default', accountName: 'Barclays Everyday' }
+        ])
+      );
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('1 transaction had no account to go into')).toBeInTheDocument();
+      });
+      expect(screen.getByText(/Barclays Everyday.*you have no account of that name/)).toBeInTheDocument();
+      // One row routed, so one row landed — not the parser's two.
+      expect(importTransactionsLocally).toHaveBeenCalledWith('acc-1', [
+        expect.objectContaining({ description: 'GROCERY STORE' })
+      ]);
+    });
+
+    it('says when no Account column was mapped at all', async () => {
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
+        parsedAs(twoRows.map(row => ({ ...row, accountId: undefined })))
+      );
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Nothing was imported')).toBeInTheDocument();
+      });
+      expect(screen.getByText(/No column is mapped to/)).toBeInTheDocument();
+      expect(importTransactionsLocally).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a thrown import instead of leaving a dead button', async () => {
+      vi.mocked(enhancedCsvImportService.importTransactions).mockRejectedValueOnce(
+        new Error('Unclosed quote on line 4')
+      );
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      });
+      expect(screen.getByText(/Nothing was imported and nothing was changed/)).toBeInTheDocument();
+      expect(screen.getByText(/What went wrong: Unclosed quote on line 4/)).toBeInTheDocument();
+      // Still on Preview, with the mappings intact, so it can be retried.
+      expect(screen.getByText('Preview Import')).toBeInTheDocument();
+    });
+
+    it('uses the cloud endpoint when signed in', async () => {
+      mockIsUsingSupabase = true;
+      vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+
+      await runImport();
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+      });
+      expect(transactionImportService.importInChunks).toHaveBeenCalledTimes(1);
+      expect(importTransactionsLocally).not.toHaveBeenCalled();
     });
   });
 

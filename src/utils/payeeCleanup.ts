@@ -1,5 +1,6 @@
 import type { Transaction } from '../types';
 import { toDecimal } from './decimal';
+import { payeeLineDismissalKey, payeeMerchantDismissalKey } from './suggestionDismissals';
 
 /**
  * The pure half of the Payee cleanup screen: count the distinct payees a
@@ -214,17 +215,51 @@ export function filterPayees(summaries: PayeeSummary[], query: string): PayeeSum
 }
 
 /**
+ * The suggestions the user has already refused, as the subject keys the
+ * dismissal table stores (see utils/suggestionDismissals). Keys rather than
+ * decoded text, so this filter compares exactly what was persisted.
+ */
+export interface RefusedSuggestions {
+  /** Whole suggested merchants — kind 'payee-merchant'. */
+  merchants: ReadonlySet<string>;
+  /** Single payees kept out of a merchant — kind 'payee-line'. */
+  lines: ReadonlySet<string>;
+}
+
+const NOTHING_REFUSED: RefusedSuggestions = {
+  merchants: new Set<string>(),
+  lines: new Set<string>(),
+};
+
+/**
  * The payees that look like one merchant split across many references.
  *
  * Only clusters with at least two distinct payee texts are returned — a
  * merchant that already has one consistent name has nothing to clean up, and
  * listing it as a "suggestion" would be noise. Ordered by how many
  * transactions the cluster would tidy, because that is the size of the win.
+ *
+ * `refused` is applied HERE rather than at the caller so that everything the
+ * screen shows about a cluster is already true: a refused line is out of the
+ * members and out of the transaction count, and a cluster left with fewer than
+ * two payees stops being offered at all, because there is nothing left to merge.
  */
-export function buildPayeeClusters(summaries: PayeeSummary[]): PayeeCluster[] {
+export function buildPayeeClusters(
+  summaries: PayeeSummary[],
+  refused: RefusedSuggestions = NOTHING_REFUSED
+): PayeeCluster[] {
   const byKey = new Map<string, PayeeSummary[]>();
   for (const summary of summaries) {
     if (summary.merchantKey === null) continue;
+    // Building a key per payee costs an allocation each, over a register that
+    // can hold tens of thousands of them — so it is only done when there is
+    // something to compare against.
+    if (
+      refused.lines.size > 0 &&
+      refused.lines.has(payeeLineDismissalKey(summary.merchantKey, summary.description))
+    ) {
+      continue;
+    }
     const members = byKey.get(summary.merchantKey);
     if (members) {
       members.push(summary);
@@ -236,6 +271,7 @@ export function buildPayeeClusters(summaries: PayeeSummary[]): PayeeCluster[] {
   const clusters: PayeeCluster[] = [];
   for (const [key, members] of byKey) {
     if (members.length < 2) continue;
+    if (refused.merchants.has(payeeMerchantDismissalKey(key))) continue;
     clusters.push({
       key,
       members,

@@ -214,6 +214,13 @@ export class ImportRulesService {
       case 'setCategory':
         if (action.value) {
           result.category = action.value;
+          // A rule is a standing instruction the user wrote themselves —
+          // "anything matching TESCO is Groceries" — so the category it sets is
+          // their decision, not the app guessing. It must also OVERRIDE a
+          // suggestion the categoriser had already pencilled in, because rules
+          // run last and win: leaving the row marked as a guess would ask the
+          // user to re-confirm the rule they authored.
+          result.categoryConfirmed = true;
         }
         break;
       

@@ -4,7 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput } from '../utils/decimal';
 import { Transaction } from '../types';
 import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
-import { formatCurrency } from '../utils/formatters';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 const logger = createScopedLogger('RecurringTransactions');
@@ -55,6 +55,7 @@ const calculateNextDate = (currentDate: string, frequency: RecurrenceFrequency):
 
 export default function RecurringTransactions(): React.JSX.Element {
   const { addTransaction } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [templates, setTemplates] = useState<RecurringTemplate[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<RecurringTemplate | null>(null);

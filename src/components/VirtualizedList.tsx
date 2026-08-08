@@ -16,12 +16,29 @@ export interface VirtualizedListProps<T> {
   estimatedItemSize?: number;
   threshold?: number;
   /**
-   * Index to bring into view, CENTRED in the viewport — the deep-link "jump
-   * to this row" affordance. Applied whenever the value changes; retried
-   * briefly because AutoSizer's first pass renders at height 0 and a scroll
-   * issued then silently clamps to the top.
+   * Index to bring into view — the deep-link "jump to this row" affordance.
+   * Applied whenever the value changes; retried briefly because AutoSizer's
+   * first pass renders at height 0 and a scroll issued then silently clamps
+   * to the top.
    */
   scrollToIndex?: number;
+  /**
+   * How to place that row: CENTRED (the default, and what a deep-link jump
+   * wants — the row lands in the middle of an unfamiliar list) or NEAREST,
+   * which scrolls the least amount that brings the row fully into view and
+   * does nothing at all when it is already visible. Keyboard row-stepping
+   * uses nearest: centring on every arrow key would heave the whole list
+   * under the user one line at a time.
+   */
+  scrollToAlign?: 'center' | 'nearest';
+  /**
+   * A pulse asking the list to park at its FOOT (last item fully visible).
+   * Any change to a truthy value performs the scroll once; 0/undefined means
+   * nothing was asked. A pulse rather than a boolean because "show me the
+   * end" is an event, not a state — the user must be free to scroll away
+   * afterwards without the list dragging them back.
+   */
+  scrollToBottomToken?: number;
   onItemsRendered?: (props: {
     visibleStartIndex: number;
     visibleStopIndex: number;
@@ -69,6 +86,8 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   estimatedItemSize = 80,
   threshold = 100,
   scrollToIndex,
+  scrollToAlign = 'center',
+  scrollToBottomToken,
   onItemsRendered
 }: VirtualizedListProps<T>) {
   const listRef = useRef<List | VariableSizeList | null>(null);
@@ -125,39 +144,89 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   // Determine if we should enable virtual scrolling
   const shouldVirtualize = items.length > threshold;
 
-  // Centre the requested row. react-window owns the maths on the virtual
-  // path; on the plain path it is offsetTop against the scroll container.
-  // Retried at 0/100/300ms: AutoSizer's first pass is zero-height, and a
-  // scroll issued against a zero-height list clamps to the top.
+  // Bring the requested row into view. react-window owns the maths on the
+  // virtual path; on the plain path it is rect arithmetic against the scroll
+  // container. Retried at 0/100/300ms: AutoSizer's first pass is zero-height,
+  // and a scroll issued against a zero-height list clamps to the top.
   useEffect(() => {
     if (scrollToIndex === undefined || scrollToIndex < 0 || scrollToIndex >= items.length) return;
     const apply = (): void => {
       if (listRef.current) {
-        listRef.current.scrollToItem(scrollToIndex, 'center');
+        // react-window's 'auto' is exactly "nearest": it scrolls the minimum
+        // needed and stays put when the row is already on screen.
+        listRef.current.scrollToItem(scrollToIndex, scrollToAlign === 'nearest' ? 'auto' : 'center');
         return;
       }
       const container = plainContainerRef.current;
       const row = container?.children[scrollToIndex] as HTMLElement | undefined;
-      if (container && row) {
-        // offsetTop answers to the nearest POSITIONED ancestor, which the
-        // container is not — rects are unambiguous.
-        const delta = row.getBoundingClientRect().top - container.getBoundingClientRect().top;
-        container.scrollTop = Math.max(
-          0,
-          container.scrollTop + delta - container.clientHeight / 2 + row.clientHeight / 2
-        );
+      if (!container || !row) return;
+      // offsetTop answers to the nearest POSITIONED ancestor, which the
+      // container is not — rects are unambiguous.
+      const delta = row.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      const rowTop = container.scrollTop + delta;
+      if (scrollToAlign === 'nearest') {
+        // offsetHeight, not clientHeight: these rows carry a bottom border, and
+        // a row scrolled to within its own border width is still cut off.
+        const rowBottom = rowTop + row.offsetHeight;
+        if (rowTop < container.scrollTop) {
+          container.scrollTop = rowTop;
+        } else if (rowBottom > container.scrollTop + container.clientHeight) {
+          container.scrollTop = rowBottom - container.clientHeight;
+        }
+        return;
       }
+      container.scrollTop = Math.max(
+        0,
+        rowTop - container.clientHeight / 2 + row.clientHeight / 2
+      );
     };
     apply();
     const timers = [setTimeout(apply, 100), setTimeout(apply, 300)];
     return () => timers.forEach(clearTimeout);
-  }, [scrollToIndex, items.length]);
+  }, [scrollToIndex, scrollToAlign, items.length]);
+
+  // The item count as of the latest render, for the foot-scroll below. Read
+  // through a ref so that scroll fires ONCE per pulse: with items.length in
+  // the effect's dependencies, every later change to the list (a new
+  // transaction, a background refresh) would re-run it and drag a user who had
+  // scrolled away back to the end.
+  const itemCountRef = useRef(items.length);
+  useEffect(() => {
+    itemCountRef.current = items.length;
+  }, [items.length]);
+
+  // Park at the foot. Same retry schedule and for the same reason as above.
+  useEffect(() => {
+    if (!scrollToBottomToken) return;
+    const apply = (): void => {
+      const count = itemCountRef.current;
+      if (count === 0) return;
+      if (listRef.current) {
+        listRef.current.scrollToItem(count - 1, 'end');
+        return;
+      }
+      const container = plainContainerRef.current;
+      // Beyond the maximum is fine: the DOM clamps scrollTop to
+      // scrollHeight - clientHeight, which IS the foot.
+      if (container) container.scrollTop = container.scrollHeight;
+    };
+    apply();
+    const timers = [setTimeout(apply, 100), setTimeout(apply, 300)];
+    return () => timers.forEach(clearTimeout);
+  }, [scrollToBottomToken]);
 
 
-  // Render non-virtualized list for small datasets
+  // Render non-virtualized list for small datasets.
+  // data-virtualized-list marks the element that actually scrolls on this path
+  // (the virtualised path scrolls react-window's own outer element), so the
+  // scroll behaviour can be asserted rather than assumed.
   if (!shouldVirtualize) {
     return (
-      <div ref={plainContainerRef} className={`flex-1 min-h-0 overflow-y-auto ${className}`}>
+      <div
+        ref={plainContainerRef}
+        data-virtualized-list
+        className={`flex-1 min-h-0 overflow-y-auto ${className}`}
+      >
         {items.map((item, index) => (
           <div key={getItemKey(item, index)}>
             {renderItem(item, index, {})}

@@ -13,6 +13,7 @@ import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
+import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
 
 export default function Investments() {
   const { accounts, transactions, updateAccount } = useApp();
@@ -599,9 +600,9 @@ export default function Investments() {
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Choose an account...</option>
-                  {investmentAccounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name}</option>
-                  ))}
+                  {/* Grouped and alphabetised like every other account
+                      dropdown in the app. */}
+                  <GroupedAccountOptions accounts={investmentAccounts} />
                 </select>
               </div>
               

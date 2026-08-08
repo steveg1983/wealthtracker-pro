@@ -56,6 +56,14 @@ export default function ReportExportBar({
     setIsGenerating(true);
     try {
       const categoryName = buildCategoryNameLookup(categories);
+      // The SAME netted totals the Spending by category report lists, so the
+      // printed table and the screen agree row for row. It is netted per
+      // category and drops any whose refunds exceeded its spending (a share of
+      // spending cannot be negative), so these rows can add up to MORE than
+      // `flows.expenses` — the summary's Expenses figure. That divergence is
+      // real and deliberate; generatePDFReport compares the two and prints the
+      // same disclosure the screen shows, so neither figure is presented as
+      // the other.
       const netTotals = computeExpenseCategoryNetTotals(rows, categories);
       const totalExpenses = netTotals.reduce((sum, entry) => sum.plus(toDecimal(entry.value)), toDecimal(0));
       const netIncome = flows.income.minus(flows.expenses);

@@ -6,7 +6,9 @@ import {
   filterPayees,
   buildPayeeClusters,
   planRename,
+  type RefusedSuggestions,
 } from './payeeCleanup';
+import { payeeLineDismissalKey, payeeMerchantDismissalKey } from './suggestionDismissals';
 
 /**
  * The payee texts in these tests are the real shapes from the owner's
@@ -175,6 +177,108 @@ describe('buildPayeeClusters', () => {
   it('leaves out a payee that is already spelled one way', () => {
     // BOOTS needs no cleanup; listing it as a suggestion would be noise.
     expect(buildPayeeClusters(rows).map((c) => c.key)).not.toContain('BOOTS');
+  });
+});
+
+/**
+ * The owner's complaint, in his words: "if you go through and you do not want
+ * them the same for whatever good reason, they will continue to pop up in the
+ * suggestions". These pin the fix at the only place it can be pinned — the
+ * function that recomputes the suggestions from scratch every time the screen
+ * opens. If a refusal is not applied HERE, it is not applied at all.
+ */
+describe('buildPayeeClusters — suggestions the user has refused', () => {
+  const rows = summarisePayees([
+    txn({ id: 'a', description: 'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK' }),
+    txn({ id: 'b', description: 'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK' }),
+    txn({ id: 'c', description: 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK' }),
+    txn({ id: 'd', description: 'DEBIT INTEREST TO 28FEB2026 INT' }),
+    txn({ id: 'e', description: 'DEBIT INTEREST TO 30APR2026 INT' }),
+  ]);
+
+  const refusing = (over: Partial<RefusedSuggestions>): RefusedSuggestions => ({
+    merchants: new Set<string>(),
+    lines: new Set<string>(),
+    ...over,
+  });
+
+  it('never offers a merchant the user refused, however often the screen re-runs', () => {
+    const refused = refusing({
+      merchants: new Set([payeeMerchantDismissalKey('AMAZON.CO.UK')]),
+    });
+
+    for (let run = 0; run < 3; run++) {
+      const keys = buildPayeeClusters(rows, refused).map((c) => c.key);
+      expect(keys).not.toContain('AMAZON.CO.UK');
+      // And only that one: refusing a guess must not silence the others.
+      expect(keys).toEqual(['DEBIT INTEREST TO']);
+    }
+  });
+
+  it('stays refused when a new reference for that merchant arrives', () => {
+    // The decision recorded is about the GROUPING, not about the payees that
+    // happened to be under it on the day. A key built from the member set would
+    // change the moment one import landed, and put the refused suggestion
+    // straight back in front of the user who had already said no to it.
+    const laterRows = summarisePayees([
+      txn({ id: 'a', description: 'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK' }),
+      txn({ id: 'b', description: 'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK' }),
+      txn({ id: 'new', description: 'AMZNMKTPLACE*9QQ4RT2K1 AMAZON.CO.UK' }),
+    ]);
+
+    expect(
+      buildPayeeClusters(laterRows, refusing({
+        merchants: new Set([payeeMerchantDismissalKey('AMAZON.CO.UK')]),
+      }))
+    ).toEqual([]);
+  });
+
+  it('drops a refused payee from its suggestion and tells the truth about the rest', () => {
+    const refused = refusing({
+      lines: new Set([
+        payeeLineDismissalKey('AMAZON.CO.UK', 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK'),
+      ]),
+    });
+
+    const amazon = buildPayeeClusters(rows, refused).find((c) => c.key === 'AMAZON.CO.UK');
+    expect(amazon?.members.map((m) => m.description)).toEqual([
+      'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK',
+      'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK',
+    ]);
+    // The chip's own counts have to move with it, or the screen offers to
+    // rename three payees and renames two.
+    expect(amazon?.transactionCount).toBe(2);
+  });
+
+  it('stops offering a merchant whose refused payees leave nothing to merge', () => {
+    const refused = refusing({
+      lines: new Set([
+        payeeLineDismissalKey('AMAZON.CO.UK', 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK'),
+        payeeLineDismissalKey('AMAZON.CO.UK', 'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK'),
+      ]),
+    });
+
+    // One payee left is not a cleanup, it is a single name spelled one way.
+    expect(buildPayeeClusters(rows, refused).map((c) => c.key)).toEqual(['DEBIT INTEREST TO']);
+  });
+
+  it('keeps a refusal to the merchant it was made under', () => {
+    // The same payee text filed against a different merchant is a different
+    // statement, and must not silently hide this one.
+    const refused = refusing({
+      lines: new Set([
+        payeeLineDismissalKey('DEBIT INTEREST TO', 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK'),
+      ]),
+    });
+
+    const amazon = buildPayeeClusters(rows, refused).find((c) => c.key === 'AMAZON.CO.UK');
+    expect(amazon?.members).toHaveLength(3);
+  });
+
+  it('offers everything when nothing has been refused', () => {
+    expect(buildPayeeClusters(rows, refusing({})).map((c) => c.key)).toEqual([
+      'AMAZON.CO.UK', 'DEBIT INTEREST TO',
+    ]);
   });
 });
 

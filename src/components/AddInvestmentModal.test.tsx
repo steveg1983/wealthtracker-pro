@@ -67,18 +67,24 @@ const mockUpdateField = vi.fn((field: string, value: unknown) => {
   mockFormData = { ...mockFormData, [field]: value };
 });
 
-const mockHandleSubmit = vi.fn((e: React.FormEvent) => {
+const mockHandleSubmit = vi.fn(async (e: React.FormEvent) => {
   e.preventDefault();
   const onSubmit = mockModalFormOptions.onSubmit;
   if (onSubmit) {
-    onSubmit(mockFormData);
+    // AWAITED, mirroring the real hook: an un-awaited call here would make a
+    // rejected write invisible to the test in exactly the way it used to be
+    // invisible to the user.
+    await onSubmit(mockFormData);
   }
 });
 
 let mockModalFormOptions: {
-  onSubmit?: (data: unknown) => void;
+  onSubmit?: (data: unknown) => void | Promise<void>;
   onClose?: () => void;
 } = {};
+
+/** What the real hook exposes after a rejected onSubmit. */
+let mockErrors: Record<string, string> = {};
 
 vi.mock('../hooks/useModalForm', () => ({
   useModalForm: (initialData: unknown, options: unknown) => {
@@ -87,7 +93,9 @@ vi.mock('../hooks/useModalForm', () => ({
       formData: mockFormData,
       updateField: mockUpdateField,
       handleSubmit: mockHandleSubmit,
-      setFormData: mockSetFormData
+      setFormData: mockSetFormData,
+      errors: mockErrors,
+      isSubmitting: false
     };
   }
 }));
@@ -120,6 +128,8 @@ global.alert = mockAlert;
 describe('AddInvestmentModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockErrors = {};
+    mockAddTransaction.mockResolvedValue(undefined);
     // Reset form data before each test
     mockFormData = {
       selectedAccountId: '',
@@ -488,6 +498,53 @@ describe('AddInvestmentModal', () => {
           description: 'Buy: Microsoft (MSFT) - 5 units @ $300.00/unit'
         })
       );
+    });
+  });
+
+  /**
+   * A purchase that did not save.
+   *
+   * The write used to be fired and forgotten: the modal closed and reset on the
+   * click, the rejected promise went nowhere, and the only evidence that a
+   * holding had not been recorded was its absence from the account, possibly
+   * weeks later. It is now awaited, so a failure reaches the form.
+   */
+  describe('When the write fails', () => {
+    const validData = {
+      selectedAccountId: '1',
+      investmentType: 'share' as const,
+      stockCode: 'EXMPL',
+      name: 'Example Holdings plc',
+      units: '10',
+      pricePerUnit: '150',
+      fees: '5',
+      stampDuty: '0',
+      date: '2024-01-15',
+      notes: ''
+    };
+
+    it('awaits the write, so a rejection reaches the form', async () => {
+      mockAddTransaction.mockRejectedValueOnce(new Error('offline'));
+      render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
+
+      // The promise onSubmit returns must reject — un-awaited, it resolved
+      // immediately and the failure was swallowed.
+      await expect(mockModalFormOptions.onSubmit!(validData)).rejects.toThrow('offline');
+    });
+
+    it('says the investment was not saved, and that nothing moved', async () => {
+      mockErrors = { submit: 'offline' };
+      render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
+
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent(/not saved, so it is not in the account and the balance has not moved/);
+      expect(alert).toHaveTextContent('What went wrong: offline');
+    });
+
+    it('says nothing when the write succeeded', () => {
+      render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 

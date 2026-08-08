@@ -1012,6 +1012,158 @@ describe('TransactionService (deterministic fallback)', () => {
       expect(logger.error).toHaveBeenCalled();
     });
   });
+
+  /**
+   * The local twin of update_transaction_atomic's provenance rule. Written in
+   * the service, not in each editor, so signed-in and signed-out behave the
+   * same — a rule enforced in only one of the two is a rule that drifts.
+   */
+  describe('updateTransaction — category provenance in local mode', () => {
+    const localService = (rows: Transaction[]) => {
+      const storage = createStorage(rows);
+      return {
+        storage,
+        service: createTransactionService({
+          isSupabaseConfigured: () => false,
+          storageAdapter: storage,
+          logger,
+          now,
+          uuid
+        })
+      };
+    };
+
+    it('treats a category CHANGE as confirmation', async () => {
+      const { service } = localService([
+        baseTransaction({ id: 'txn-1', category: 'cat-guessed', categoryConfirmed: false })
+      ]);
+
+      const updated = await service.updateTransaction('txn-1', { category: 'cat-chosen' });
+
+      expect(updated.category).toBe('cat-chosen');
+      expect(updated.categoryConfirmed).toBe(true);
+    });
+
+    it('leaves provenance alone for an edit that is not about the category', async () => {
+      const { service } = localService([
+        baseTransaction({ id: 'txn-1', category: 'cat-guessed', categoryConfirmed: false })
+      ]);
+
+      const updated = await service.updateTransaction('txn-1', { description: 'Renamed payee' });
+
+      expect(updated.categoryConfirmed).toBe(false);
+    });
+
+    it('honours an explicit flag — letting a suggestion stand is a decision too', async () => {
+      const { service } = localService([
+        baseTransaction({ id: 'txn-1', category: 'cat-guessed', categoryConfirmed: false })
+      ]);
+
+      const updated = await service.updateTransaction('txn-1', {
+        category: 'cat-guessed',
+        categoryConfirmed: true
+      });
+
+      expect(updated.category).toBe('cat-guessed');
+      expect(updated.categoryConfirmed).toBe(true);
+    });
+  });
+
+  describe('confirmTransactionCategories', () => {
+    it('flips only genuinely suggested rows in local mode and returns the count', async () => {
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', category: 'cat-a', categoryConfirmed: false }),
+        baseTransaction({ id: 'txn-2', category: 'cat-b', categoryConfirmed: false }),
+        // Already the user's own choice — re-confirming it would be a second
+        // write and a second audit entry for a decision already recorded.
+        baseTransaction({ id: 'txn-3', category: 'cat-c', categoryConfirmed: true }),
+        // No flag at all: a row from a database without the migration, or from
+        // the local store. Reads as confirmed, so there is nothing to do.
+        baseTransaction({ id: 'txn-4', category: 'cat-d' })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const count = await service.confirmTransactionCategories(['txn-1', 'txn-2', 'txn-3', 'txn-4']);
+
+      expect(count).toBe(2);
+      const stored = storage.snapshot();
+      expect(stored.map(t => t.categoryConfirmed)).toEqual([true, true, true, undefined]);
+    });
+
+    it('never changes a category — only who vouched for it', async () => {
+      const storage = createStorage([
+        baseTransaction({ id: 'txn-1', category: 'cat-a', categoryConfirmed: false })
+      ]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      await service.confirmTransactionCategories(['txn-1']);
+
+      expect(storage.snapshot()[0].category).toBe('cat-a');
+    });
+
+    it('returns 0 and performs no write for an empty id list', async () => {
+      const storage = createStorage([baseTransaction({ id: 'txn-1' })]);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      expect(await service.confirmTransactionCategories([])).toBe(0);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('calls the confirm_transaction_categories RPC with owner scope in Supabase mode', async () => {
+      const rpc = vi.fn(async () => ({ data: 2, error: null }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      const count = await service.confirmTransactionCategories(['a', 'b'], 'user-1');
+
+      expect(count).toBe(2);
+      // No category argument: the RPC is incapable of changing what was filed,
+      // only of recording that the user agrees with it.
+      expect(rpc).toHaveBeenCalledWith('confirm_transaction_categories', {
+        p_ids: ['a', 'b'],
+        p_user_id: 'user-1'
+      });
+    });
+
+    it('throws when the RPC reports an error', async () => {
+      const rpc = vi.fn(async () => ({ data: null, error: { message: 'boom' } }));
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: { rpc } as unknown as never
+      });
+
+      await expect(service.confirmTransactionCategories(['a'], 'user-1')).rejects.toThrow();
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
 });
 
 // Audit finding L10: the atomic RPCs default p_user_id to NULL, and NULL means
@@ -1044,6 +1196,7 @@ describe('TransactionService — owner id cannot be silently omitted', () => {
     ['updateTransaction', s => s.updateTransaction('txn-1', { description: 'edited' })],
     ['setTransactionsCleared', s => s.setTransactionsCleared(['txn-1'], true)],
     ['applyCategoryToUncategorized', s => s.applyCategoryToUncategorized(['txn-1'], 'cat-1')],
+    ['confirmTransactionCategories', s => s.confirmTransactionCategories(['txn-1'])],
     ['setTransactionSplits', s => s.setTransactionSplits('txn-1', [
       { category: 'cat-1', amount: 10 },
       { category: 'cat-2', amount: 15 }

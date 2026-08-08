@@ -1043,4 +1043,70 @@ LGroceries
       expect(result.unmatchedCategories).toEqual([{ name: 'Groceries', count: 1 }]);
     });
   });
+
+  /**
+   * The distinction the whole feature turns on. A QIF states its own categories
+   * — Money filed that payment under Groceries because the USER filed it under
+   * Groceries — so a matched file category is the user's own data arriving back,
+   * not the app forming an opinion. Only the smart-categoriser fallback guesses.
+   */
+  describe('category provenance', () => {
+    const appCategories: Category[] = [
+      { id: 'sub-food', name: 'Food', type: 'expense', level: 'sub' },
+      { id: 'det-groceries', name: 'Groceries', type: 'expense', level: 'detail', parentId: 'sub-food' }
+    ];
+
+    const qifWithCategory = `!Type:Bank
+D13/01/2024
+T-40.00
+PSupermarket
+LFood:Groceries
+^`;
+
+    const qifWithoutCategory = `!Type:Bank
+D13/01/2024
+T-40.00
+PSupermarket
+^`;
+
+    it('treats a category the FILE stated as confirmed — it is the user\'s own data', async () => {
+      const result = await qifImportService.importTransactions(qifWithCategory, 'acc1', [], {
+        categories: appCategories
+      });
+
+      expect(result.transactions[0].category).toBe('det-groceries');
+      expect(result.transactions[0].categoryConfirmed).toBe(true);
+    });
+
+    it('marks a category the app GUESSED as suggested', async () => {
+      vi.mocked(smartCategorizationService.learnFromTransactions).mockImplementation(() => {});
+      vi.mocked(smartCategorizationService.suggestCategories).mockReturnValue([
+        { categoryId: 'det-groceries', confidence: 0.9, reason: 'Merchant match' }
+      ]);
+
+      const result = await qifImportService.importTransactions(
+        qifWithoutCategory,
+        'acc1',
+        [{ id: 'existing', date: new Date('2024-01-01'), amount: -1, description: 'x', category: 'det-groceries', accountId: 'acc1', type: 'expense' }],
+        { categories: appCategories, autoCategorize: true }
+      );
+
+      expect(result.transactions[0].category).toBe('det-groceries');
+      expect(result.transactions[0].categoryConfirmed).toBe(false);
+    });
+
+    it('never lets a guess overwrite what the file said', async () => {
+      vi.mocked(smartCategorizationService.suggestCategories).mockReturnValue([
+        { categoryId: 'det-groceries', confidence: 0.99, reason: 'Merchant match' }
+      ]);
+
+      const result = await qifImportService.importTransactions(qifWithCategory, 'acc1', [], {
+        categories: appCategories,
+        autoCategorize: true
+      });
+
+      // Same id either way, so the FLAG is what proves which path filled it.
+      expect(result.transactions[0].categoryConfirmed).toBe(true);
+    });
+  });
 });

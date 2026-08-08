@@ -37,8 +37,21 @@ export interface VirtualizedTableProps<T> {
   onColumnReorder?: (fromKey: string, toKey: string) => void;
   /** Opt-in: drag a header's right edge to resize. New width in px. */
   onColumnResize?: (key: string, width: number) => void;
-  /** Key of a row to bring into view, centred — the deep-link jump. */
+  /** Key of a row to bring into view — the deep-link jump. */
   scrollToKey?: string | null;
+  /** How to place that row: centred (default) or the least scroll that shows it. */
+  scrollToAlign?: 'center' | 'nearest';
+  /** A pulse asking the list to park at its foot. See VirtualizedList. */
+  scrollToBottomToken?: number;
+  /**
+   * Opt-in ARIA grid semantics, for a table an owning container drives from
+   * the keyboard. Supply it and every row renders as role="row" carrying this
+   * DOM id — so the owner can point aria-activedescendant at the active row,
+   * the pattern this codebase's comboboxes already use — with its cells as
+   * gridcells and the header as a row of columnheaders. Leave it off and the
+   * markup is byte-for-byte what it was.
+   */
+  rowDomId?: (rowKey: string) => string;
 }
 
 // Table header component
@@ -54,7 +67,8 @@ const TableHeader = memo(function TableHeader<T>({
   sortColumn,
   sortDirection,
   onColumnReorder,
-  onColumnResize
+  onColumnResize,
+  gridSemantics = false
 }: {
   columns: Column<T>[];
   headerClassName?: string;
@@ -68,6 +82,8 @@ const TableHeader = memo(function TableHeader<T>({
   sortDirection?: 'asc' | 'desc';
   onColumnReorder?: (fromKey: string, toKey: string) => void;
   onColumnResize?: (key: string, width: number) => void;
+  /** See VirtualizedTableProps.rowDomId — the header half of the same opt-in. */
+  gridSemantics?: boolean;
 }) {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
@@ -122,7 +138,10 @@ const TableHeader = memo(function TableHeader<T>({
   }, [onSort, sortColumn, sortDirection]);
 
   return (
-    <div className={`flex items-center border-b border-gray-300 dark:border-gray-500 ${headerClassName || 'bg-gray-100 dark:bg-gray-700'}`}>
+    <div
+      role={gridSemantics ? 'row' : undefined}
+      className={`flex items-center border-b border-gray-300 dark:border-gray-500 ${headerClassName || 'bg-gray-100 dark:bg-gray-700'}`}
+    >
       {showCheckbox && (
         <div className="px-4 py-3 w-12">
           <input
@@ -141,6 +160,16 @@ const TableHeader = memo(function TableHeader<T>({
         return (
           <div
             key={column.key}
+            role={gridSemantics ? 'columnheader' : undefined}
+            // Which way this column is sorted, announced rather than left to
+            // the ↑/↓ glyph a screen reader cannot interpret.
+            aria-sort={
+              !gridSemantics || !column.sortable || !onSort
+                ? undefined
+                : sortColumn === column.key
+                  ? (sortDirection === 'desc' ? 'descending' : 'ascending')
+                  : 'none'
+            }
             draggable={reorderable}
             onDragStart={reorderable ? (e) => {
               setDragKey(column.key);
@@ -218,7 +247,10 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   threshold = 100,
   onColumnReorder,
   onColumnResize,
-  scrollToKey
+  scrollToKey,
+  scrollToAlign,
+  scrollToBottomToken,
+  rowDomId
 }: VirtualizedTableProps<T>) {
   // Resolve the deep-link key to its position in the CURRENT row order, so
   // the list can centre it regardless of sort or filters.
@@ -268,6 +300,9 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     return (
       <div
         style={{...style, overflow: 'visible'}}
+        id={rowDomId?.(itemKey)}
+        role={rowDomId ? 'row' : undefined}
+        aria-selected={rowDomId ? isSelected : undefined}
         className={`${baseRowClass} ${stripeClass} ${clickableClass} ${!isSelected ? hoverClass : ''} ${computedRowClassName}`}
         onClick={handleRowClick}
       >
@@ -286,6 +321,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         {columns.map((column) => (
           <div
             key={column.key}
+            role={rowDomId ? 'gridcell' : undefined}
             className={`px-3 py-2 overflow-hidden ${column.className || ''}`}
             style={{ width: column.width }}
           >
@@ -301,7 +337,8 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     rowClassName,
     selectedItems,
     onSelectionChange,
-    showCheckbox
+    showCheckbox,
+    rowDomId
   ]);
 
   
@@ -322,6 +359,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
           sortDirection={sortDirection}
           onColumnReorder={onColumnReorder}
           onColumnResize={onColumnResize}
+          gridSemantics={!!rowDomId}
         />
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           {emptyMessage}
@@ -345,6 +383,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         sortDirection={sortDirection}
         onColumnReorder={onColumnReorder}
         onColumnResize={onColumnResize}
+        gridSemantics={!!rowDomId}
       />
 
       <VirtualizedList
@@ -357,6 +396,8 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         isLoading={isLoading}
         threshold={threshold}
         scrollToIndex={scrollToIndex}
+        scrollToAlign={scrollToAlign}
+        scrollToBottomToken={scrollToBottomToken}
       />
     </div>
   );

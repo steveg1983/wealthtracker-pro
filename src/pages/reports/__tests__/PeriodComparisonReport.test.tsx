@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PreferencesProvider } from '../../../contexts/PreferencesContext';
@@ -278,6 +278,62 @@ describe('PeriodComparisonReport — which accounts, and which comparison', () =
       expect(screen.queryByRole('checkbox', { name: 'Synthetic Current' })).not.toBeInTheDocument();
       expect(accountTrigger()).toHaveFocus();
       expect(figureOf('Expenses')).toBe('£100.00');
+    });
+  });
+
+  /**
+   * "Account Adjustments" ships direction-neutral ('both'), so the classifier
+   * files it by the money's own direction and one category lands on BOTH
+   * sides. What the reader must never be shown is the two added together.
+   */
+  describe('a category filed both ways', () => {
+    beforeEach(() => {
+      useMarch2026();
+      __setAppContextValue({
+        categories: [
+          ...CATEGORIES,
+          { id: 'grp-adjust', name: 'Adjustments', type: 'both', level: 'sub', parentId: 'type-expense' },
+          { id: 'cat-adjust', name: 'Account Adjustments', type: 'both', level: 'detail', parentId: 'grp-adjust' },
+        ],
+        transactions: [
+          txn({ id: 'a1', amount: 100, type: 'income', category: 'cat-adjust' }),
+          txn({ id: 'a2', amount: -40, category: 'cat-adjust' }),
+        ],
+      });
+    });
+
+    it('lists what came in and what went out separately, never one row of both', () => {
+      renderReport();
+
+      // Each side is its own row, and each drills into its own transactions.
+      expect(figureOf('Adjustments : Account Adjustments (income), this period')).toBe('£100.00');
+      expect(figureOf('Adjustments : Account Adjustments (expenses), this period')).toBe('£40.00');
+      // £140 is neither what was earned nor what was spent.
+      expect(screen.queryByText('£140.00')).not.toBeInTheDocument();
+
+      // And each side agrees with the summary card above it.
+      expect(figureOf('Income')).toBe('£100.00');
+      expect(figureOf('Expenses')).toBe('£40.00');
+    });
+
+    it('gives the two rows separate identities', () => {
+      const warnings: unknown[][] = [];
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+        warnings.push(args);
+      });
+
+      renderReport();
+      errorSpy.mockRestore();
+
+      const table = screen.getByRole('table');
+      const named = within(table).getAllByText('Adjustments : Account Adjustments');
+      expect(named).toHaveLength(2);
+      // Told apart in words, not by colour or position alone.
+      expect(within(table).getAllByText('income').length).toBeGreaterThan(0);
+      expect(within(table).getAllByText('expense').length).toBeGreaterThan(0);
+      // Two rows keyed by the category id alone would be the same row twice,
+      // and React would say so.
+      expect(warnings.flat().filter(arg => typeof arg === 'string' && /same key/i.test(arg))).toEqual([]);
     });
   });
 
