@@ -7,6 +7,34 @@
 // All data is invented. Money is minor units on the SQLite side and decimal on
 // the Postgres side — that is the whole point of writing both by hand.
 
+/**
+ * A SECOND LOGIN, and one account it owns.
+ *
+ * R-12's whole subject. Everything the r12-* specs do is name
+ * `a0000000-…-000009` from a row owned by `1111…`, which the composite keys
+ * added by 20260808170000 (cloud) and by "THE OWNERSHIP PAIRING" in
+ * schema.sql (local) refuse.
+ *
+ * Kept deliberately BARE: no transactions, no goals, no holdings. Every r12
+ * spec plants only what it needs on top, so a spec that passes because of
+ * somebody else's fixture row cannot exist.
+ */
+export const secondLogin = {
+  sqlite: `
+    INSERT INTO users (id, email) VALUES
+      ('22222222-2222-2222-2222-222222222222', 'stranger@example.test');
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+      VALUES ('a0000000-0000-0000-0000-000000000009', '22222222-2222-2222-2222-222222222222',
+              'Not yours', 'checking', 0, 0);`,
+
+  postgres: `
+    INSERT INTO public.users (id, clerk_id, email) VALUES
+      ('22222222-2222-2222-2222-222222222222', 'clerk_local_sqlite_stranger', 'stranger@example.test');
+    INSERT INTO public.accounts (id, user_id, name, type, balance, initial_balance)
+      VALUES ('a0000000-0000-0000-0000-000000000009', '22222222-2222-2222-2222-222222222222',
+              'Not yours', 'checking', 0.00, 0.00);`,
+};
+
 /** The fixture's transaction turned into an ordinary two-line split. */
 export const splitParent = {
   sqlite: `

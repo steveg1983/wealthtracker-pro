@@ -1,0 +1,58 @@
+[package]
+name = "wealth-core"
+version = "0.1.0"
+description = "WealthTracker local edition — the command layer that owns every money write."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "wealth_core"
+path = "src/lib.rs"
+
+# The differential harness's bridge. JSON command in on stdin, JSON result out
+# on stdout — see src/bin/wealth_core_cli.rs for why this shape and not a native
+# node addon.
+#
+# `required-features` is the point: a plain `cargo build` does NOT build it, and
+# Cargo never builds a *dependency's* bin targets, so the Tauri shell that later
+# depends on this crate as a library cannot ship it by accident.
+[[bin]]
+name = "wealth-core-cli"
+path = "src/bin/wealth_core_cli.rs"
+required-features = ["cli"]
+
+[features]
+default = []
+cli = []
+
+[dependencies]
+# `bundled` compiles SQLite from source and links it statically. Deliberate:
+# macOS ships 3.43 in some releases and STRICT tables need 3.37+, deferred
+# foreign keys and the schema's partial indexes need more, and a local edition
+# whose constraint behaviour depends on which laptop it was built on is not a
+# guarantee. The version is pinned by the crate, asserted at startup.
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+# Money code must not contain a silent panic path.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+# Every arithmetic operation on money is checked explicitly.
+arithmetic_side_effects = "deny"
+float_arithmetic = "deny"
+cast_possible_truncation = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"

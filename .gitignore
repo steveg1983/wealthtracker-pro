@@ -1,4 +1,8 @@
 node_modules
+# Rust build output for the local edition core (crates/). Cargo.lock IS tracked
+# — a financial core pins its dependency graph — but target/ is a build cache
+# and is several hundred MB with a statically linked SQLite in it.
+crates/target/
 coverage/
 coverage*.json
 coverage.lcov

@@ -256,6 +256,9 @@
     "supabase/migrations/20260808090000_transaction_statement_sequence.sql": {"status":"pending","ids":["#81","B-1","B-2","TS-I4"],"cited_by":["AUDIT3","DESIGN"]},
     "supabase/migrations/20260808100000_category_provenance.sql": {"status":"pending","cited_by":["AUDIT3"]},
     "supabase/migrations/20260808120000_payee_cleanup_dismissals.sql": {"status":"pending","cited_by":["AUDIT3"]},
-    "supabase/migrations/20260808140000_file_import_idempotency.sql": {"status":"pending"}
+    "supabase/migrations/20260808140000_file_import_idempotency.sql": {"status":"pending"},
+    "supabase/migrations/20260808150000_create_honours_is_cleared.sql": {"status":"pending"},
+    "supabase/migrations/20260808170000_rows_cannot_name_a_foreign_account.sql": {"status":"pending"},
+    "supabase/migrations/20260808180000_apply_category_skips_split_parents.sql": {"status":"pending"}
   }
 }

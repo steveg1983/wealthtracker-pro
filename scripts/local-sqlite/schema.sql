@@ -30,7 +30,44 @@
 --                  <scratchpad>/local-core/schema.sql   -> no output
 --         (35 = this header is 34 lines; the rest is the original, verbatim.)
 --         Specs: specs/c3-*, specs/c4-*, specs/c5-*.
+--
+-- AMENDED 2026-08-08 (2), by the verb harness: transactions.category_confirmed
+--         was missing. The design draft predates
+--         supabase/migrations/20260808100000_category_provenance.sql, which
+--         added the column to the cloud AND to create_transaction_atomic's
+--         column list. Porting that RPC without the column is not possible, so
+--         the column was added here with the cloud's default (1 = confirmed)
+--         and the cloud's reasoning quoted at the definition.
+--         This copy is now AHEAD of the scratchpad draft by that one column;
+--         the draft is a design document and this file is what executes, so
+--         when the two are reconciled this is the direction the change travels.
+--         Specs: verb-specs/create-transaction-carries-*.spec.mjs.
+--
+-- AMENDED 2026-08-08 (3), in BOTH copies together, discharging the parity
+--         obligation recorded at
+--         supabase/migrations/20260808170000_rows_cannot_name_a_foreign_account
+--         .sql:241-249. The cloud widened SEVEN foreign keys from (account) to
+--         (account, owner) so that "this row's account belongs to this row's
+--         user" is a shape the table will accept rather than a WHERE clause
+--         every writer must remember. Until this file matched, the two engines
+--         disagreed about what a LEGAL ROW IS, and the differential harness was
+--         measuring a difference in schemas rather than a difference in
+--         implementations — which is the one thing it must never do.
+--         The same seven keys are here, plus the anchor they point at
+--         (accounts_id_user_unique). See "THE OWNERSHIP PAIRING" below for the
+--         one place the two engines had to reach the same behaviour by
+--         different mechanisms: SQLite has no `ON DELETE SET NULL (column)`.
+--         Both copies were edited in the same change and diffed to prove they
+--         differ by this header and by amendment (2)'s one column alone:
+--             diff <(tail -n +72 scripts/local-sqlite/schema.sql |
+--                      sed '/-- Has a human vouched/,/^$/d') \
+--                  <scratchpad>/local-core/schema.sql   -> no output
+--         (72 = this header is 69 lines and two blank ones; the rest is the
+--          original, verbatim, minus the one column amendment (2) declared
+--          this copy ahead by.)
+--         Specs: specs/r12-*.
 -- ============================================================================
+
 
 -- ============================================================================
 -- WealthTracker — local edition core schema (SQLite)
@@ -70,6 +107,73 @@
 --    deliberately strands a transfer's other leg — is inert unless the opening
 --    code sets PRAGMA foreign_keys = ON. That PRAGMA belongs in the Rust
 --    connection setup where no caller can forget it.
+--
+-- ── THE OWNERSHIP PAIRING (R-12 — new, and not one of DESIGN.md's 87) ───────
+--
+-- Every reference to an account carries the account's OWNER alongside its id,
+-- and the target is `accounts (id, user_id)` rather than `accounts (id)`. Seven
+-- keys, listed at their definitions:
+--
+--     transactions.account_id                 CASCADE
+--     transactions.transfer_account_id        clear (see below)
+--     transaction_splits.transfer_account_id  clear
+--     accounts.parent_account_id              clear
+--     categories.account_id                   CASCADE
+--     goals.account_id                        clear
+--     investments.account_id                  CASCADE
+--
+-- WHY, in the cloud's words
+-- (20260808170000_rows_cannot_name_a_foreign_account.sql:27-42): row-level
+-- security gates on user_id alone, referential-integrity checks are exempt from
+-- row-level security by design, and so a single-column key answered "does this
+-- account exist?" while nobody was left to answer "does it belong to the same
+-- person as this row?". A row filed against a stranger's account is invisible
+-- to that stranger and counted by every aggregate that reaches their data
+-- through account_id.
+--
+-- A local file has ONE login and no RLS, so that particular attack is not the
+-- local reason. The local reason is the harness: a differential harness whose
+-- two schemas disagree about what a legal row is measures the schemas, not the
+-- implementations. And a restore is a real path — a backup carrying a row whose
+-- account belongs to a login that is not this one is exactly the shape this
+-- refuses, and the shape a local edition WILL be handed (X-9, id remapping).
+--
+-- THE ANCHOR. SQLite, like Postgres, requires the parent columns of a composite
+-- foreign key to be collectively UNIQUE. `accounts.id` is already the primary
+-- key, so `(id, user_id)` could not have been non-unique — the index below
+-- exists solely so that the pair is a legal foreign-key TARGET. Without it
+-- every child insert fails with `foreign key mismatch - "transactions"
+-- referencing "accounts"` (verified) rather than with anything about ownership.
+--
+-- THE ONE DIVERGENCE, IN MECHANISM AND NOT IN BEHAVIOUR. Four of the seven were
+-- `ON DELETE SET NULL`, and the cloud keeps them so by naming the column:
+-- `ON DELETE SET NULL (transfer_account_id)`, PostgreSQL 15+. **SQLite has no
+-- such syntax and no such behaviour.** MEASURED (probe-composite-fk.mjs,
+-- SQLite 3.50.0):
+--
+--     ON DELETE SET NULL (pid)   -> near "(": syntax error
+--     ON DELETE SET NULL on a composite key, child user_id NULLABLE
+--                                -> BOTH columns nulled: {uid: null, pid: null}
+--     the same with user_id NOT NULL
+--                                -> the parent DELETE is REFUSED:
+--                                   "NOT NULL constraint failed: c2.uid"
+--
+-- So a bare SET NULL here would not merely null too much; it would make
+-- "delete an account somebody transferred to" impossible — which is the exact
+-- failure the cloud's guard 1 refuses to ship (20260808170000:274-287).
+--
+-- The four keys are therefore declared with SQLite's default action (NO ACTION,
+-- checked immediately) and the clearing is done by `trg_unnest_account_
+-- references`, a BEFORE DELETE trigger on accounts that nulls ONLY the account
+-- column. Behaviour is identical, including the part nobody would think to
+-- check: a native SQLite SET NULL fires the child's own triggers, so the
+-- updated_at bump that the FK action used to cause still happens, from the
+-- trigger's UPDATE instead. MEASURED both ways (probe-fk-triggers.mjs, cases A
+-- and C: `updated_at = BUMPED` either way).
+--
+-- And the arrangement fails LOUD rather than quiet: if the trigger ever stopped
+-- reaching a referencing row, the account DELETE would be refused by the key
+-- instead of silently orphaning it.
 --
 -- ── OVERFLOW ARITHMETIC (this is why the bounds are what they are) ──────────
 --
@@ -198,10 +302,15 @@ CREATE TABLE accounts (
   opening_balance_date TEXT,
   archive_through_date TEXT,
 
-  -- The investment/(Cash) pairing. ON DELETE SET NULL so losing the investment
-  -- account gracefully un-nests the cash account rather than blocking the
-  -- delete (20260722090000_investment_cash_pairing.sql:17-25).
-  parent_account_id   TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+  -- The investment/(Cash) pairing. The clearing is done by
+  -- trg_unnest_account_references so that losing the investment account
+  -- gracefully un-nests the cash account rather than blocking the delete
+  -- (20260722090000_investment_cash_pairing.sql:17-25) — see "THE OWNERSHIP
+  -- PAIRING" for why the ON DELETE clause cannot say so itself here.
+  -- The key is at the foot of this table: self-referential, so an account may
+  -- only be paired with an account of the SAME OWNER, which was always the
+  -- intent and never the rule (20260808170000:105-109).
+  parent_account_id   TEXT,
 
   institution         TEXT,
   account_number      TEXT,
@@ -234,11 +343,27 @@ CREATE TABLE accounts (
     (opening_balance_date IS NULL OR opening_balance_date LIKE '____-__-__') AND
     (archive_through_date IS NULL OR archive_through_date LIKE '____-__-__')),
 
-  CONSTRAINT accounts_currency_shaped CHECK (length(currency) = 3 AND currency = upper(currency))
+  CONSTRAINT accounts_currency_shaped CHECK (length(currency) = 3 AND currency = upper(currency)),
+
+  -- R-12, self-referential. Twin of accounts_parent_account_id_user_fkey
+  -- (20260808170000:486-490). No ON DELETE clause: SQLite cannot null one
+  -- column of a composite key, so trg_unnest_account_references does it.
+  FOREIGN KEY (parent_account_id, user_id) REFERENCES accounts(id, user_id)
 ) STRICT;
 
 CREATE INDEX idx_accounts_user       ON accounts(user_id);
 CREATE INDEX idx_accounts_parent     ON accounts(parent_account_id) WHERE parent_account_id IS NOT NULL;
+
+-- R-12's ANCHOR. Redundant as a uniqueness claim — id is the primary key — and
+-- that is the point: it exists so that (id, user_id) is a legal foreign-key
+-- TARGET, which is the only way a child row can be made to carry its account's
+-- owner. Twin of accounts_id_user_unique (20260808170000:426-427).
+--
+-- SQLite needs this for a second reason Postgres does not have: the parent
+-- columns of a composite key must be covered by a UNIQUE INDEX specifically,
+-- and without one every child insert fails with "foreign key mismatch" — a
+-- message about the SCHEMA that says nothing about the row. Verified.
+CREATE UNIQUE INDEX accounts_id_user_unique ON accounts(id, user_id);
 
 
 -- ============================================================================
@@ -252,7 +377,13 @@ CREATE TABLE categories (
   type         TEXT NOT NULL CHECK (type IN ('income','expense','both')),
   level        TEXT NOT NULL CHECK (level IN ('type','sub','detail')),
   parent_id    TEXT REFERENCES categories(id) ON DELETE CASCADE,
-  account_id   TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+
+  -- R-12 pairs this with user_id; the key is at the foot of the table. A
+  -- category filed against a stranger's account is a category nothing can ever
+  -- clean up through the UI (20260808170000:110-116). ON DELETE CASCADE is
+  -- unchanged from the single-column key it replaced, and needs no column list:
+  -- the account going takes the whole row.
+  account_id   TEXT,
   color        TEXT,
   icon         TEXT,
   is_system                INTEGER NOT NULL DEFAULT 0 CHECK (is_system IN (0,1)),
@@ -275,7 +406,10 @@ CREATE TABLE categories (
   -- carrying two of them has no defined meaning in utils/incomeExpense.ts.
   -- NEW — the cloud has no such constraint.
   CONSTRAINT categories_flags_exclusive
-    CHECK (is_transfer_category + is_revaluation_category + is_unassigned_bucket <= 1)
+    CHECK (is_transfer_category + is_revaluation_category + is_unassigned_bucket <= 1),
+
+  -- R-12. Twin of categories_account_id_user_fkey (20260808170000:499-503).
+  FOREIGN KEY (account_id, user_id) REFERENCES accounts(id, user_id) ON DELETE CASCADE
 ) STRICT;
 
 -- initial-schema.sql:938. NULLs are distinct in a UNIQUE index in BOTH engines
@@ -295,7 +429,13 @@ CREATE INDEX idx_categories_transfer ON categories(user_id, is_transfer_category
 CREATE TABLE transactions (
   id            TEXT PRIMARY KEY,
   user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  account_id    TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+
+  -- The ledger's own account reference, and the defect
+  -- 20260808170000_rows_cannot_name_a_foreign_account.sql was written for.
+  -- R-12 pairs it with user_id; the key is at the foot of the table. ON DELETE
+  -- CASCADE is unchanged and needs no column list — the account going takes the
+  -- row entire.
+  account_id    TEXT NOT NULL,
   description   TEXT NOT NULL,
 
   -- Signed, minor units. Expenses negative, income positive — the convention
@@ -327,8 +467,29 @@ CREATE TABLE transactions (
   -- (20260808090000_transaction_statement_sequence.sql:75-78).
   statement_sequence INTEGER,
 
+  -- Has a human vouched for `category`?
+  -- (20260808100000_category_provenance.sql:104-107). 0 = the app guessed it
+  -- (the smart categoriser on a file import, payee memory on a bank feed) and
+  -- nobody has agreed yet; 1 = the user typed, picked or edited it, or their
+  -- own imported file stated it. DEFAULT 1 for the reason the cloud gives:
+  -- "any writer that does not know about provenance produces a confirmed row,
+  -- and existing history reads as confirmed". Counts in reports identically
+  -- either way — this records who decided, never what was decided.
+  --
+  -- No index, matching the cloud's stated reasoning: nothing filters on it
+  -- server-side, and an index no query uses is write cost with no read benefit.
+  category_confirmed INTEGER NOT NULL DEFAULT 1 CHECK (category_confirmed IN (0,1)),
+
   -- Transfer structure (20260716100000, 20260720120000).
-  transfer_account_id      TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+  --
+  -- R-12's WEAKEST link and the reason the pairing is not optional: the cloud's
+  -- create_transaction_atomic copies transfer_account_id straight out of the
+  -- caller's payload with no ownership check at all (20260808150000:196), so
+  -- this one was reachable through a TRUSTED RPC and not only through a raw
+  -- insert. MEASURED on the reference cluster before the key existed: accepted;
+  -- after: refused (probe-fk-verbs.sql, P1). The key is at the foot of the
+  -- table, and the clearing is trg_unnest_account_references'.
+  transfer_account_id      TEXT,
   linked_transfer_id       TEXT REFERENCES transactions(id) ON DELETE SET NULL
                              DEFERRABLE INITIALLY DEFERRED,
   linked_transfer_split_id TEXT REFERENCES transaction_splits(id) ON DELETE SET NULL
@@ -415,7 +576,12 @@ CREATE TABLE transactions (
     CHECK (linked_transfer_id IS NULL OR linked_transfer_id <> id),
 
   CONSTRAINT transactions_timestamps_shaped
-    CHECK (created_at LIKE '____-__-__T%Z' AND updated_at LIKE '____-__-__T%Z')
+    CHECK (created_at LIKE '____-__-__T%Z' AND updated_at LIKE '____-__-__T%Z'),
+
+  -- R-12. Twins of transactions_account_id_user_fkey (20260808170000:439-443)
+  -- and transactions_transfer_account_id_user_fkey (:456-460).
+  FOREIGN KEY (account_id, user_id)          REFERENCES accounts(id, user_id) ON DELETE CASCADE,
+  FOREIGN KEY (transfer_account_id, user_id) REFERENCES accounts(id, user_id)
 ) STRICT;
 
 -- ── Indexes. Measured, not guessed. ────────────────────────────────────────
@@ -507,8 +673,12 @@ CREATE TABLE transaction_splits (
   memo           TEXT,
   sort_order     INTEGER NOT NULL DEFAULT 0,
 
-  -- Split-line transfer legs (20260720120000:40-44).
-  transfer_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+  -- Split-line transfer legs (20260720120000:40-44). A split leg moves money to
+  -- an account the same way a transfer does and is written by the same class of
+  -- payload, so R-12 pairs it with user_id too (20260808170000:100-104); the
+  -- key is at the foot of the table and the clearing is
+  -- trg_unnest_account_references'.
+  transfer_account_id TEXT,
   linked_transfer_id  TEXT REFERENCES transactions(id) ON DELETE SET NULL
                         DEFERRABLE INITIALLY DEFERRED,
 
@@ -525,7 +695,11 @@ CREATE TABLE transaction_splits (
   -- A linked leg must name the account on the other side
   -- (20260806094058:314-331). NEW as a constraint.
   CONSTRAINT transaction_splits_linked_has_target
-    CHECK (linked_transfer_id IS NULL OR transfer_account_id IS NOT NULL)
+    CHECK (linked_transfer_id IS NULL OR transfer_account_id IS NOT NULL),
+
+  -- R-12. Twin of transaction_splits_transfer_account_id_user_fkey
+  -- (20260808170000:470-474).
+  FOREIGN KEY (transfer_account_id, user_id) REFERENCES accounts(id, user_id)
 ) STRICT;
 
 CREATE INDEX idx_splits_transaction ON transaction_splits(transaction_id, sort_order);
@@ -884,7 +1058,9 @@ CREATE TABLE goals (
   category            TEXT,
   priority            TEXT CHECK (priority IS NULL OR priority IN ('low','medium','high')),
   status              TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','paused','canceled')),
-  account_id          TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+  -- R-12 pairs this with user_id (20260808170000:510-514); the key is at the
+  -- foot of the table, the clearing is trg_unnest_account_references'.
+  account_id          TEXT,
   contribution_frequency TEXT CHECK (contribution_frequency IS NULL OR contribution_frequency IN ('daily','weekly','biweekly','monthly','yearly')),
   auto_contribute     INTEGER NOT NULL DEFAULT 0 CHECK (auto_contribute IN (0,1)),
   icon                TEXT,
@@ -895,7 +1071,10 @@ CREATE TABLE goals (
   updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   CONSTRAINT goals_money_bounded CHECK (
     target_amount_minor  BETWEEN -1000000000000000 AND 1000000000000000 AND
-    current_amount_minor BETWEEN -1000000000000000 AND 1000000000000000)
+    current_amount_minor BETWEEN -1000000000000000 AND 1000000000000000),
+
+  -- R-12. Twin of goals_account_id_user_fkey (20260808170000:510-514).
+  FOREIGN KEY (account_id, user_id) REFERENCES accounts(id, user_id)
 ) STRICT;
 CREATE INDEX idx_goals_user ON goals(user_id);
 
@@ -910,6 +1089,49 @@ CREATE TABLE goal_contributions (
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 ) STRICT;
 CREATE INDEX idx_goal_contributions_goal ON goal_contributions(goal_id, date);
+
+
+-- ── R-12: clearing an account reference without clearing its owner ──────────
+-- The SET NULL half of the ownership pairing, done by hand because SQLite will
+-- not do it. Read "THE OWNERSHIP PAIRING" at the head of this file first; the
+-- short version is that `ON DELETE SET NULL` on a composite key nulls EVERY
+-- child key column, `user_id` is NOT NULL on all four of these tables, and
+-- SQLite has no `ON DELETE SET NULL (column)` to name just the one. MEASURED:
+-- a bare SET NULL turns "delete an account somebody transferred to" into
+-- `NOT NULL constraint failed`.
+--
+-- So those four keys carry NO on-delete action — SQLite's default, NO ACTION,
+-- checked immediately — and this trigger clears the references first. It runs
+-- BEFORE the account row goes, which is the whole reason it works: by the time
+-- the key is checked there is nothing left pointing at the row.
+--
+-- Each UPDATE names the owner as well as the account. That is redundant TODAY,
+-- because the very keys this trigger serves guarantee a referencing row shares
+-- the account's owner — and it is deliberate: if that guarantee were ever lost,
+-- this trigger would leave the stray row behind and the account DELETE would be
+-- REFUSED by the key rather than silently orphaning it. Loud, not quiet.
+--
+-- It lives here rather than beside the other triggers because a trigger body
+-- may not name a table that does not exist yet, and `goals` is defined above
+-- this line and below those.
+--
+-- WHAT IT DOES NOT DO: the three CASCADE keys (transactions.account_id,
+-- categories.account_id, investments.account_id) are untouched — CASCADE needs
+-- no column list, so the declaration still says it, and this trigger must not
+-- pre-empt it. Deleting an account still takes its transactions (R-1), its
+-- To/From category (C-3/C-5) and its holdings (R-9) exactly as before.
+CREATE TRIGGER trg_unnest_account_references
+BEFORE DELETE ON accounts
+BEGIN
+  UPDATE transactions       SET transfer_account_id = NULL
+   WHERE transfer_account_id = OLD.id AND user_id = OLD.user_id;
+  UPDATE transaction_splits SET transfer_account_id = NULL
+   WHERE transfer_account_id = OLD.id AND user_id = OLD.user_id;
+  UPDATE goals              SET account_id = NULL
+   WHERE account_id = OLD.id AND user_id = OLD.user_id;
+  UPDATE accounts           SET parent_account_id = NULL
+   WHERE parent_account_id = OLD.id AND user_id = OLD.user_id;
+END;
 
 
 -- ============================================================================
@@ -936,7 +1158,11 @@ CREATE INDEX idx_goal_contributions_goal ON goal_contributions(goal_id, date);
 CREATE TABLE investments (
   id                 TEXT PRIMARY KEY,
   user_id            TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  account_id         TEXT REFERENCES accounts(id) ON DELETE CASCADE,
+  -- R-12 pairs this with user_id; the key is at the foot of the table. Holdings
+  -- roll up into a portfolio figure, so one filed against a stranger's account
+  -- moves a number nobody can explain (20260808170000:119-121). ON DELETE
+  -- CASCADE unchanged.
+  account_id         TEXT,
   symbol             TEXT NOT NULL,
   name               TEXT NOT NULL,
   asset_type         TEXT NOT NULL CHECK (asset_type IN
@@ -953,7 +1179,10 @@ CREATE TABLE investments (
   last_updated       TEXT,
   notes              TEXT,
   created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  updated_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+
+  -- R-12. Twin of investments_account_id_user_fkey (20260808170000:522-525).
+  FOREIGN KEY (account_id, user_id) REFERENCES accounts(id, user_id) ON DELETE CASCADE
 ) STRICT;
 CREATE INDEX idx_investments_user    ON investments(user_id);
 CREATE INDEX idx_investments_account ON investments(account_id) WHERE account_id IS NOT NULL;
