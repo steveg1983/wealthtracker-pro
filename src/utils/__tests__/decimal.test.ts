@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { 
-  toDecimal, 
-  toNumber, 
-  toStorageNumber, 
-  sumDecimals, 
-  calculatePercentage, 
-  decimalsEqual 
+import {
+  toDecimal,
+  toNumber,
+  toStorageNumber,
+  sumDecimals,
+  calculatePercentage
 } from '../decimal';
 
 describe('Decimal Utilities', () => {
@@ -86,27 +85,6 @@ describe('Decimal Utilities', () => {
     it('handles Decimal inputs', () => {
       const result = calculatePercentage(toDecimal(50), toDecimal(20));
       expect(result.toString()).toBe('10');
-    });
-  });
-
-  describe('decimalsEqual', () => {
-    it('returns true for equal values', () => {
-      expect(decimalsEqual(123.45, 123.45)).toBe(true);
-      expect(decimalsEqual(toDecimal(100), 100)).toBe(true);
-    });
-
-    it('returns false for different values', () => {
-      expect(decimalsEqual(123.45, 123.461)).toBe(false);
-    });
-
-    it('uses tolerance for near-equal values', () => {
-      expect(decimalsEqual(100, 100.009)).toBe(true); // Within 0.01 tolerance
-      expect(decimalsEqual(100, 100.011)).toBe(false); // Outside tolerance
-    });
-
-    it('respects custom tolerance', () => {
-      expect(decimalsEqual(100, 100.05, 0.1)).toBe(true);
-      expect(decimalsEqual(100, 100.11, 0.1)).toBe(false);
     });
   });
 });

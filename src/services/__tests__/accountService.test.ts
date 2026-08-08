@@ -1,9 +1,69 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createAccountService, AccountService } from '../api/accountService';
+import { createAccountService, AccountService, type AccountServiceOptions } from '../api/accountService';
 import type { Account } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
 const fixedNow = new Date('2025-07-01T10:00:00.000Z');
+
+type InjectedClient = NonNullable<AccountServiceOptions['supabaseClient']>;
+
+/** A stand-in for the Supabase client, narrowed to the one method used here. */
+const asInjectedClient = (stub: { from: (table: string) => unknown }): InjectedClient =>
+  stub as InjectedClient;
+
+/**
+ * A Supabase double covering both halves of a guarded update: the `select('type')`
+ * that asks what kind of account this is, and the update itself. It records what
+ * was written AND whether the type had to be read at all, so a test can prove
+ * both the truncation and that it costs nothing when it is not needed.
+ */
+const createAccountsClient = (options: {
+  storedType?: unknown;
+  typeReadFails?: boolean;
+} = {}) => {
+  const writes: Record<string, unknown>[] = [];
+  let typeReads = 0;
+  const returnedRow = { id: 'acct-1', name: 'Card', type: 'credit', balance: 0, currency: 'GBP' };
+
+  interface UpdateChain {
+    eq: (column: string, value: string) => UpdateChain;
+    select: () => { single: () => Promise<{ data: Record<string, unknown>; error: null }> };
+  }
+  const updateChain: UpdateChain = {
+    eq: () => updateChain,
+    select: () => ({ single: async () => ({ data: returnedRow, error: null }) })
+  };
+
+  // The type read is scoped by id and, when the caller knows it, user_id — so
+  // its `eq` chains like the update's does.
+  interface ReadChain {
+    eq: (column: string, value: string) => ReadChain;
+    single: () => Promise<{ data: { type: unknown } | null; error: null | { message: string } }>;
+  }
+  const readChain: ReadChain = {
+    eq: () => readChain,
+    single: async () => {
+      typeReads += 1;
+      return options.typeReadFails
+        ? { data: null, error: { message: 'no such row' } }
+        : { data: { type: options.storedType }, error: null };
+    }
+  };
+
+  const stub = {
+    from: () => ({
+      select: (columns: string) => (columns === 'type'
+        ? readChain
+        : { eq: () => ({ single: async () => ({ data: returnedRow, error: null }) }) }),
+      update: (payload: Record<string, unknown>) => {
+        writes.push(payload);
+        return updateChain;
+      }
+    })
+  };
+
+  return { client: asInjectedClient(stub), writes, typeReadCount: () => typeReads };
+};
 
 const createStorage = (initial: Account[] = []) => {
   const store = new Map<string, Account[]>([[STORAGE_KEYS.ACCOUNTS, initial]]);
@@ -97,9 +157,9 @@ describe('AccountService (deterministic fallback)', () => {
     const single = vi.fn(async () => ({
       data: {
         id: 'acct-1',
-        name: 'GREEN S A',
+        name: 'Everyday Account',
         type: 'checking',
-        initial_balance: -18243.14,
+        initial_balance: -125.40,
         is_active: true,
         low_balance_alert_enabled: true,
         low_balance_threshold: '150.00'
@@ -126,7 +186,7 @@ describe('AccountService (deterministic fallback)', () => {
     const result = await service.updateAccount('acct-1', {
       lowBalanceAlertEnabled: true,
       lowBalanceThreshold: 150,
-      openingBalance: -18243.14
+      openingBalance: -125.40
     });
 
     // Write side: camelCase → snake_case; the overdrawn balance is fine.
@@ -134,14 +194,14 @@ describe('AccountService (deterministic fallback)', () => {
     expect(capturedUpdate).toMatchObject({
       low_balance_alert_enabled: true,
       low_balance_threshold: 150,
-      initial_balance: -18243.14
+      initial_balance: -125.40
     });
     expect(capturedUpdate).not.toHaveProperty('lowBalanceAlertEnabled');
 
     // Read side: snake_case → camelCase, numeric threshold coerced to a number.
     expect(result.lowBalanceAlertEnabled).toBe(true);
     expect(result.lowBalanceThreshold).toBe(150);
-    expect(result.openingBalance).toBe(-18243.14);
+    expect(result.openingBalance).toBe(-125.40);
   });
 
   it('allows static AccountService reconfiguration for tests', async () => {
@@ -199,6 +259,112 @@ describe('AccountService (deterministic fallback)', () => {
       expect(from).toHaveBeenCalledWith('accounts');
       expect(eqUser).toHaveBeenCalledWith('user_id', 'user-1');
       expect(eqActive).toHaveBeenCalledWith('is_active', false);
+    });
+  });
+
+  describe('card numbers reaching accounts.account_number', () => {
+    // Card-shaped but invented. A full one stored anywhere lives on in every
+    // backup, JSON export and audit row taken afterwards.
+    const pan = '1111222233334444';
+
+    const cloudService = (client: InjectedClient) => createAccountService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now,
+      uuid,
+      supabaseClient: client
+    });
+
+    it('stores only the last four when a CARD is updated through the service layer', async () => {
+      // The path the account forms do NOT cover: no modal here, just a caller
+      // handing the service a full card number, which is what an importer or a
+      // script does.
+      const { client, writes, typeReadCount } = createAccountsClient({ storedType: 'credit' });
+
+      await cloudService(client).updateAccount('acct-1', { accountNumber: pan });
+
+      expect(typeReadCount()).toBe(1);
+      expect(writes).toHaveLength(1);
+      expect(writes[0].account_number).toBe('4444');
+      // Not merely truncated in one field — the number is nowhere in the write.
+      expect(JSON.stringify(writes[0])).not.toContain(pan);
+    });
+
+    it('leaves a bank account number whole — 8 digits IS the number', async () => {
+      const { client, writes } = createAccountsClient({ storedType: 'checking' });
+
+      await cloudService(client).updateAccount('acct-1', { accountNumber: '12345678' });
+
+      expect(writes[0].account_number).toBe('12345678');
+    });
+
+    it('treats a payload that switches the account to a card as a card write', async () => {
+      const { client, writes, typeReadCount } = createAccountsClient({ storedType: 'checking' });
+
+      await cloudService(client).updateAccount('acct-1', { type: 'credit', accountNumber: pan });
+
+      // The payload answers the question, so the stored type is never read.
+      expect(typeReadCount()).toBe(0);
+      expect(writes[0].account_number).toBe('4444');
+    });
+
+    it('reads nothing extra for an update that does not touch the account number', async () => {
+      const { client, writes, typeReadCount } = createAccountsClient({ storedType: 'credit' });
+
+      await cloudService(client).updateAccount('acct-1', { name: 'Renamed' });
+
+      expect(typeReadCount()).toBe(0);
+      expect(writes[0]).not.toHaveProperty('account_number');
+    });
+
+    it('refuses the write when the stored type cannot be read', async () => {
+      // Truncating on a guess would destroy a real 8-digit bank number; storing
+      // on a guess is the leak this exists to stop. So neither happens.
+      const { client, writes } = createAccountsClient({ typeReadFails: true });
+
+      await expect(cloudService(client).updateAccount('acct-1', { accountNumber: pan }))
+        .rejects.toThrow(/account type/i);
+      expect(writes).toHaveLength(0);
+    });
+
+    it('truncates on the local path too, which is what backups are built from', async () => {
+      const storage = createStorage([baseAccount({ id: 'acct-1', type: 'credit' })]);
+      const service = createAccountService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const updated = await service.updateAccount('acct-1', { accountNumber: pan });
+
+      expect(updated.accountNumber).toBe('4444');
+      expect(storage.snapshot()[0].accountNumber).toBe('4444');
+    });
+
+    it('truncates a card number handed to a local create', async () => {
+      const storage = createStorage([]);
+      const service = createAccountService({
+        isSupabaseConfigured: () => false,
+        storageAdapter: storage,
+        logger,
+        now,
+        uuid
+      });
+
+      const { id: _id, lastUpdated: _lastUpdated, ...input } = baseAccount({
+        type: 'credit',
+        accountNumber: pan
+      });
+      const created = await service.createAccount(
+        'user',
+        input as Omit<Account, 'id' | 'created_at' | 'updated_at'>
+      );
+
+      expect(created.accountNumber).toBe('4444');
+      expect(storage.snapshot()[0].accountNumber).toBe('4444');
     });
   });
 });

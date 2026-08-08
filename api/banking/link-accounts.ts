@@ -9,6 +9,7 @@ import { setCorsHeaders } from '../_lib/cors.js';
 import { createErrorResponse } from '../_lib/http-error.js';
 import { getUserTrueLayerConnection } from '../_lib/banking-sync.js';
 import { withSentry } from '../_lib/sentry.js';
+import { linkedAccountNumberForStorage } from '../../src/utils/accountNumberInput.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (setCorsHeaders(req, res)) {
@@ -38,11 +39,13 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 404, 'Connection not found', 'not_found');
     }
 
-    // Validate all accountIds belong to this user
+    // Validate all accountIds belong to this user. The stored `type` comes back
+    // with them because it decides whether the number in the request body is a
+    // card number — see the truncation below.
     const accountIds = body.links.map((l) => l.accountId);
     const { data: userAccounts, error: accountsError } = await supabase
       .from('accounts')
-      .select('id')
+      .select('id, type')
       .eq('user_id', auth.userId)
       .in('id', accountIds);
 
@@ -50,6 +53,9 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       return createErrorResponse(res, 500, `Failed to validate accounts: ${accountsError.message}`, 'internal_error');
     }
 
+    const storedTypeByAccountId = new Map<string, unknown>(
+      (userAccounts ?? []).map((a: { id: string; type: unknown }) => [a.id, a.type])
+    );
     const validAccountIds = new Set((userAccounts ?? []).map((a: { id: string }) => a.id));
     const invalidIds = accountIds.filter((id) => !validAccountIds.has(id));
     if (invalidIds.length > 0) {
@@ -86,9 +92,29 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       // findAdoptableAccountId). Link time is the primary account-binding path,
       // so without this the re-adoption key would be missing for manually
       // linked accounts.
+      //
+      // A card's number is cut to its last 4 HERE as well as in the browser
+      // (LinkBankAccountsModal), because a request body is not evidence of
+      // anything: this handler holds the service-role key, and whatever it
+      // writes to accounts.account_number is what every later backup, JSON
+      // export and audit row will carry. A card reached through TrueLayer's
+      // accounts surface publishes account_number.number — the full card number
+      // — so the client trimming it is a convenience, not a guarantee. A bank
+      // account number is a different thing and is stored whole.
       const identifierFields: Record<string, string> = {};
       if (link.sortCode) identifierFields.sort_code = link.sortCode;
-      if (link.accountNumber) identifierFields.account_number = link.accountNumber;
+      if (link.accountNumber) {
+        const storableAccountNumber = linkedAccountNumberForStorage(
+          link.accountNumber,
+          link.kind === 'card',
+          storedTypeByAccountId.get(link.accountId)
+        );
+        // A value with no digits in it leaves nothing to store, and an empty
+        // string is not an identifier: leave the column as it was.
+        if (storableAccountNumber) {
+          identifierFields.account_number = storableAccountNumber;
+        }
+      }
       if (Object.keys(identifierFields).length > 0) {
         const { error: idError } = await supabase
           .from('accounts')

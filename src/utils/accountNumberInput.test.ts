@@ -3,11 +3,14 @@ import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_LAST_FOUR_LENGTH,
   accountNumberForStorage,
+  accountNumberUpdateForStorage,
   formatCardNumberForDisplay,
   formatSortCode,
   hasMoreThanLastFour,
   isCardAccountType,
+  isCardAccountTypeValue,
   keepLastFour,
+  linkedAccountNumberForStorage,
   nextAccountNumberValue
 } from './accountNumberInput';
 
@@ -77,6 +80,70 @@ describe('isCardAccountType', () => {
   });
 });
 
+describe('isCardAccountTypeValue', () => {
+  it('answers the same question for a value that never went through the types', () => {
+    // What a `type` column reads back as, and what a request body carries.
+    expect(isCardAccountTypeValue('credit')).toBe(true);
+    expect(isCardAccountTypeValue('checking')).toBe(false);
+    expect(isCardAccountTypeValue(undefined)).toBe(false);
+    expect(isCardAccountTypeValue(null)).toBe(false);
+    expect(isCardAccountTypeValue(7)).toBe(false);
+    expect(isCardAccountTypeValue({ type: 'credit' })).toBe(false);
+  });
+});
+
+describe('accountNumberUpdateForStorage', () => {
+  const pan = '1111222233334444';
+
+  it('cuts a card number down when the STORED type says card', () => {
+    // The importer's shape: an account number and nothing else.
+    expect(accountNumberUpdateForStorage({ accountNumber: pan }, 'credit'))
+      .toEqual({ accountNumber: '4444' });
+  });
+
+  it('leaves a bank account number whole — 8 digits IS the number', () => {
+    expect(accountNumberUpdateForStorage({ accountNumber: '12345678' }, 'checking'))
+      .toEqual({ accountNumber: '12345678' });
+  });
+
+  it('follows the type in the payload when it carries one', () => {
+    // Switching an account to Credit Card and setting its number in the same
+    // save is a card write, whatever the row used to be.
+    expect(accountNumberUpdateForStorage({ type: 'credit', accountNumber: pan }, 'checking'))
+      .toEqual({ type: 'credit', accountNumber: '4444' });
+
+    // And the reverse: a card being turned into a current account keeps the
+    // number the payload declares as a bank one.
+    expect(accountNumberUpdateForStorage({ type: 'current', accountNumber: '12345678' }, 'credit'))
+      .toEqual({ type: 'current', accountNumber: '12345678' });
+  });
+
+  it('leaves an update that does not touch the account number alone', () => {
+    // Absent means "not being written" — this must never blank a stored number
+    // nobody asked to change.
+    const updates = { name: 'Renamed', balance: 12 };
+    expect(accountNumberUpdateForStorage(updates, 'credit')).toBe(updates);
+  });
+
+  it('carries every other field through untouched', () => {
+    expect(accountNumberUpdateForStorage(
+      { name: 'Renamed', sortCode: null, accountNumber: pan },
+      'credit'
+    )).toEqual({ name: 'Renamed', sortCode: null, accountNumber: '4444' });
+  });
+
+  it('cannot be made to keep more than 4 digits of a card', () => {
+    const longestPan = '1111222233334444555';
+    for (let length = 1; length <= longestPan.length; length += 1) {
+      const guarded = accountNumberUpdateForStorage(
+        { accountNumber: longestPan.slice(0, length) },
+        'credit'
+      );
+      expect(guarded.accountNumber?.length ?? 0).toBeLessThanOrEqual(CARD_LAST_FOUR_LENGTH);
+    }
+  });
+});
+
 describe('accountNumberForStorage', () => {
   it('stores only the last 4 of a card, whatever it was handed', () => {
     expect(accountNumberForStorage('4929123456789012', true)).toBe('9012');
@@ -110,6 +177,28 @@ describe('accountNumberForStorage', () => {
 
   it('keeps a short card entry as typed rather than padding it out', () => {
     expect(accountNumberForStorage('12', true)).toBe('12');
+  });
+});
+
+describe('linkedAccountNumberForStorage', () => {
+  const pan = '1111222233334444';
+
+  it('trusts the STORED account type, not the request body', () => {
+    // The client says nothing about cards; the row being linked to is one.
+    expect(linkedAccountNumberForStorage(pan, false, 'credit')).toBe('4444');
+  });
+
+  it('trusts the request body only in the direction that truncates', () => {
+    // A number from the cards surface is a card number whatever the local row
+    // is called…
+    expect(linkedAccountNumberForStorage(pan, true, 'checking')).toBe('4444');
+    // …but a client claiming "not a card" cannot unlock a card row.
+    expect(linkedAccountNumberForStorage(pan, false, 'credit')).toBe('4444');
+  });
+
+  it('leaves a bank account number whole — 8 digits IS the number', () => {
+    expect(linkedAccountNumberForStorage('12345678', false, 'checking')).toBe('12345678');
+    expect(linkedAccountNumberForStorage('12345678', false, undefined)).toBe('12345678');
   });
 });
 

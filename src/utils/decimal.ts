@@ -50,12 +50,12 @@ export function calculatePercentage(value: DecimalInstance | number, percentage:
   return toDecimal(value).times(toDecimal(percentage)).dividedBy(100);
 }
 
-/**
- * Check if two decimal values are equal (within 0.01 tolerance for rounding)
- */
-export function decimalsEqual(a: DecimalInstance | number, b: DecimalInstance | number, tolerance: number = 0.01): boolean {
-  return toDecimal(a).minus(toDecimal(b)).abs().lessThanOrEqualTo(tolerance);
-}
+// decimalsEqual() was deleted here, uncalled: it compared two money values with
+// a DEFAULT tolerance of £0.01, so a penny of difference read as equality. In
+// this app a penny is a discrepancy — reconciliation exists to find it — and
+// every live comparison is exact. A tolerance belongs at the one call site that
+// can justify one, spelled out, not as a default nobody passing two numbers
+// would think to look for.
 
 /**
  * Parse user-entered money text into a storage-safe number (2dp, HALF_UP).

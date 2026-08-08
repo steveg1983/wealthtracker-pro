@@ -2,6 +2,11 @@
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import type { Account, AccountUpdate } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
+import {
+  accountNumberForStorage,
+  accountNumberUpdateForStorage,
+  isCardAccountType
+} from '../../utils/accountNumberInput';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
 type SupabaseClientLike = typeof supabase;
@@ -121,6 +126,66 @@ class AccountServiceImpl {
     await this.storage.set(STORAGE_KEYS.ACCOUNTS, accounts);
   }
 
+  /**
+   * The `type` this account is stored with, read straight off the row.
+   *
+   * Raw rather than mapped: the column's own value (which says 'checking' where
+   * the app says 'current'), because that is what isCardAccountTypeValue is
+   * asked about. A row whose type cannot be read throws, and the account number
+   * is not written at all — truncating on a guess would destroy a real 8-digit
+   * bank number, and storing on a guess is the leak this exists to stop.
+   */
+  private async readStoredAccountType(id: string, userId?: string): Promise<unknown> {
+    const client = this.supabaseClient!;
+    // Scoped exactly like the update it guards: RLS does the work, the optional
+    // user_id filter is the same belt-and-braces the write below carries.
+    let query = client
+      .from('accounts')
+      .select('type')
+      .eq('id', id);
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    const { data, error } = await query.single();
+
+    if (error || !data) {
+      this.logger.error('Error reading account type before storing an account number:', error);
+      throw new Error('Could not confirm the account type, so its account number was not saved');
+    }
+
+    return (data as Record<string, unknown>).type;
+  }
+
+  /**
+   * An update with its account number cut to the last 4 digits when the row is
+   * a card.
+   *
+   * The account forms trim before they save, but a form only covers the callers
+   * that remember it; this is the boundary that holds regardless. Without it an
+   * importer, a script or a future caller writes a full card number into
+   * accounts.account_number, and from there into every backup, JSON export and
+   * audit row taken afterwards. A bank account number is a different thing and
+   * is stored whole.
+   *
+   * Costs nothing on the updates that do not touch the account number, which is
+   * nearly all of them.
+   */
+  private async cardSafeUpdates(
+    id: string,
+    updates: AccountUpdate,
+    userId?: string
+  ): Promise<AccountUpdate> {
+    if (updates.accountNumber === undefined) {
+      return updates;
+    }
+    // The payload answers it when it carries a type; otherwise the stored one
+    // decides, and failing to read it refuses the write rather than guessing.
+    const storedType = updates.type === undefined
+      ? await this.readStoredAccountType(id, userId)
+      : undefined;
+    return accountNumberUpdateForStorage(updates, storedType);
+  }
+
   async getAccounts(userId: string): Promise<Account[]> {
     if (!this.isSupabaseReady()) {
       return this.readAccounts();
@@ -191,7 +256,13 @@ class AccountServiceImpl {
         lastUpdated: now,
         balance: account.balance || 0,
         currency: account.currency || 'USD',
-        type: account.type || 'checking'
+        type: account.type || 'checking',
+        // Local storage is no safer a home for a card number than the database:
+        // it is what the backup file and the JSON export are built from.
+        accountNumber: accountNumberForStorage(
+          account.accountNumber,
+          isCardAccountType(account.type)
+        )
       } as Account;
 
       const accounts = await this.readAccounts();
@@ -249,7 +320,7 @@ class AccountServiceImpl {
 
       const updated: Account = {
         ...accounts[index],
-        ...updates,
+        ...accountNumberUpdateForStorage(updates, accounts[index].type),
         lastUpdated: this.now()
       } as Account;
 
@@ -260,7 +331,7 @@ class AccountServiceImpl {
 
     try {
       const client = this.supabaseClient!;
-      const dbUpdates = mapAccountToDb(updates as unknown as Record<string, unknown>);
+      const dbUpdates = mapAccountToDb(await this.cardSafeUpdates(id, updates, userId));
       // RLS already scopes writes to the authenticated user; the optional
       // user_id filter is defence-in-depth so a caller that knows the owner
       // can never touch a mis-routed row even if RLS were ever relaxed.
@@ -352,42 +423,16 @@ class AccountServiceImpl {
     }
   }
 
-  async updateBalance(id: string, newBalance: number): Promise<void> {
-    if (!this.isSupabaseReady()) {
-      const accounts = await this.readAccounts();
-      const index = accounts.findIndex(account => account.id === id);
-
-      if (index !== -1) {
-        accounts[index].balance = newBalance;
-        accounts[index].lastUpdated = this.now();
-        await this.persistAccounts(accounts);
-      }
-      return;
-    }
-
-    try {
-      const client = this.supabaseClient!;
-      const { error } = await client
-        .from('accounts')
-        .update({ balance: newBalance } as never)
-        .eq('id', id);
-
-      if (error) {
-        this.logger.error('Error updating balance:', error);
-        throw new Error(handleSupabaseError(error));
-      }
-    } catch (error) {
-      this.logger.error('AccountService.updateBalance error:', error as Error);
-      throw error;
-    }
-  }
-
-  // recalculateBalance() removed (re-audit #27): it summed transactions with
-  // float `reduce((sum, t) => sum + t.amount, 0)`, wrote the result straight to
-  // accounts.balance with no audit entry, and had no caller (not in the
-  // DataService Pick type). The canonical, audited balance path is the atomic
-  // transaction RPCs. A SQL recompute (balance = initial + Σamount) should be
-  // an audited RPC if ever needed — not a float reduce in the service layer.
+  // Neither recalculateBalance() nor updateBalance() lives here any more, and
+  // for the same reason: both SET accounts.balance to an absolute figure, with
+  // no audit entry, outside the atomic transaction RPCs that are the only
+  // sanctioned way a balance moves (`balance = balance ± amount` — see the
+  // ledger invariant in migration 20260613090000). recalculateBalance summed
+  // transactions with a float reduce; updateBalance simply overwrote whatever
+  // the caller passed, so a stale figure would have silently discarded every
+  // transaction written since it was read. Both had zero callers. If a
+  // recompute is ever needed it belongs in an audited RPC, not in the service
+  // layer.
 
   subscribeToAccounts(userId: string, callback: (payload: unknown) => void): () => void {
     if (!this.isSupabaseReady()) {
@@ -451,10 +496,6 @@ export class AccountService {
 
   static getAccountById(id: string): Promise<Account | null> {
     return this.service.getAccountById(id);
-  }
-
-  static updateBalance(id: string, newBalance: number): Promise<void> {
-    return this.service.updateBalance(id, newBalance);
   }
 
   static subscribeToAccounts(userId: string, callback: (payload: unknown) => void): () => void {

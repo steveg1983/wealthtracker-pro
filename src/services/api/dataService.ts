@@ -16,6 +16,11 @@ import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
+import {
+  accountNumberForStorage,
+  accountNumberUpdateForStorage,
+  isCardAccountType
+} from '../../utils/accountNumberInput';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
@@ -273,6 +278,12 @@ class DataServiceImpl {
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const newAccount: Account = {
       ...account,
+      // Local mode is no safer a home for a card number than the cloud: this
+      // storage is what the backup file and the JSON export are built from.
+      accountNumber: accountNumberForStorage(
+        account.accountNumber,
+        isCardAccountType(account.type)
+      ),
       id: this.generateId()
     } as Account;
     accounts.push(newAccount);
@@ -293,7 +304,10 @@ class DataServiceImpl {
       throw new Error('Account not found');
     }
 
-    accounts[index] = { ...accounts[index], ...updates } as Account;
+    accounts[index] = {
+      ...accounts[index],
+      ...accountNumberUpdateForStorage(updates, accounts[index].type)
+    } as Account;
     await this.persistCollection(STORAGE_KEYS.ACCOUNTS, accounts);
     return accounts[index];
   }

@@ -1,3 +1,7 @@
+import type { AccountType } from './accountType';
+
+export type { AccountType };
+
 export interface Holding {
   ticker: string;
   name: string;
@@ -16,7 +20,7 @@ export interface Holding {
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'liability' | 'mortgage' | 'assets' | 'other' | 'checking';
+  type: AccountType;
   balance: number;
   currency: string;
   institution?: string;

@@ -6,7 +6,11 @@
 import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
-import { accountNumberForStorage, isCardAccountType } from '../../utils/accountNumberInput';
+import {
+  accountNumberForStorage,
+  accountNumberUpdateForStorage,
+  isCardAccountType
+} from '../../utils/accountNumberInput';
 import type { Account } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -253,6 +257,55 @@ class SimpleAccountServiceImpl {
     }
   }
 
+  /**
+   * The `type` this account is stored with, read straight off the row (the
+   * column's own value, which says 'checking' where the app says 'current').
+   * A row whose type cannot be read throws, so the account number is not
+   * written at all: truncating on a guess would destroy a real 8-digit bank
+   * number, and storing on a guess is the leak the caller exists to stop.
+   */
+  private async readStoredAccountType(
+    client: NonNullable<SupabaseClientLike>,
+    accountId: string
+  ): Promise<unknown> {
+    const { data, error } = await client
+      .from('accounts')
+      .select('type')
+      .eq('id', accountId)
+      .single();
+
+    if (error || !data) {
+      this.logger.error('[SimpleAccountService] Error reading account type:', error);
+      throw new Error('Could not confirm the account type, so its account number was not saved');
+    }
+
+    return (data as Record<string, unknown>).type;
+  }
+
+  /**
+   * The twin of the guarantee on the insert below: a credit account's number is
+   * a card number, and a full one written here would live on in every backup
+   * and export taken afterwards. Callers already trim; this is what holds when
+   * a new one forgets to.
+   *
+   * An update need not carry the account's type, so where it does not the
+   * stored one is read. Updates that do not touch the account number — nearly
+   * all of them — cost nothing.
+   */
+  private async cardSafeUpdates(
+    client: NonNullable<SupabaseClientLike>,
+    accountId: string,
+    updates: Partial<Account>
+  ): Promise<Partial<Account>> {
+    if (updates.accountNumber === undefined) {
+      return updates;
+    }
+    const storedType = updates.type === undefined
+      ? await this.readStoredAccountType(client, accountId)
+      : undefined;
+    return accountNumberUpdateForStorage(updates, storedType);
+  }
+
   async updateAccount(accountId: string, updates: Partial<Account>): Promise<Account> {
     const client = this.clientReady;
     try {
@@ -260,7 +313,7 @@ class SimpleAccountServiceImpl {
         throw new Error('Supabase not configured');
       }
 
-      const dbUpdates = mapAccountUpdatesToDb(updates);
+      const dbUpdates = mapAccountUpdatesToDb(await this.cardSafeUpdates(client, accountId, updates));
       const { data, error } = await client
         .from('accounts')
         .update(dbUpdates as never)

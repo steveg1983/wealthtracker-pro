@@ -74,6 +74,33 @@ describe('DataService (deterministic fallback)', () => {
     );
   });
 
+  it('keeps only the last four of a card number on the local account paths', async () => {
+    // Local storage is what the backup file and the JSON export are built from,
+    // so a full card number is no safer here than in the database.
+    const pan = '1111222233334444';
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'card-1', type: 'credit' })]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+
+    const updated = await service.updateAccount('card-1', { accountNumber: pan });
+    expect(updated.accountNumber).toBe('4444');
+
+    const created = await service.createAccount(
+      baseAccount({ id: undefined as never, type: 'credit', accountNumber: pan })
+    );
+    expect(created.accountNumber).toBe('4444');
+
+    expect(JSON.stringify(storage.snapshot(STORAGE_KEYS.ACCOUNTS))).not.toContain(pan);
+  });
+
   it('creates transactions locally and updates account balances', async () => {
     const storage = createStorage({
       [STORAGE_KEYS.ACCOUNTS]: [baseAccount()],
