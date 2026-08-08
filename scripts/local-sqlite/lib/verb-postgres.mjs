@@ -290,6 +290,32 @@ const VERBS = {
        FROM public.transactions t
       WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
 
+  // THE INGEST PAIR IS COMPARED ON ITS OWN ANSWER TOO
+  // -------------------------------------------------
+  // Both RPCs return jsonb — `{inserted, skipped, idempotent}` and
+  // `{inserted, skipped}` — and neither returns a transaction, so like the
+  // restore family they are compared on that object and everything it cannot
+  // carry (the rows, the balances, the audit trail, which category a guess
+  // picked) is asserted through `state` SELECTs.
+  //
+  // `->'rows'` is NOT coalesced in either, deliberately: an absent key must
+  // arrive as SQL NULL so the first refusal — "p_rows must be a jsonb array" —
+  // stays reachable from a payload rather than being smoothed over by the
+  // driver. The split writer's `p_splits` is passed the same way for the same
+  // reason.
+  import_transactions: (payloadLiteral) =>
+    `SELECT public.import_transactions_atomic(
+              (${payloadLiteral}::jsonb->>'user_id')::uuid,
+              (${payloadLiteral}::jsonb->>'account_id')::uuid,
+              ${payloadLiteral}::jsonb->'rows')
+       INTO v_row;`,
+
+  import_bank_transactions: (payloadLiteral) =>
+    `SELECT public.import_bank_transactions_atomic(
+              (${payloadLiteral}::jsonb->>'user_id')::uuid,
+              ${payloadLiteral}::jsonb->'rows')
+       INTO v_row;`,
+
   // THE RESTORE FAMILY IS COMPARED ON ITS OWN ANSWER
   // ------------------------------------------------
   // None of these four returns a transaction, so there is no row for the

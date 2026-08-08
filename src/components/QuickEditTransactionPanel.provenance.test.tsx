@@ -147,6 +147,22 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
     expect(updates.categoryConfirmed).toBe(true);
   });
 
+  /**
+   * Confirm still leads. The run buttons swapped round (Save & Next took the
+   * lead from Save, because a run is what this box is for), and the one thing
+   * that must NOT have moved with them is the button a freshly imported row is
+   * really asking about: agreeing with the guess is the answer nine times in
+   * ten, and it belongs at the near end of the row.
+   */
+  it('keeps Confirm first, ahead of the run buttons', () => {
+    render(
+      <QuickEditTransactionPanel transaction={suggested} onNext={vi.fn()} onDismiss={vi.fn()} />
+    );
+
+    const buttons = screen.getAllByRole('button').filter(b => b.textContent !== '');
+    expect(buttons.map(b => b.textContent)).toEqual(['Confirm', 'Save & Next', 'Save']);
+  });
+
   it('drops the suggested styling the moment the user picks something else', () => {
     render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
 

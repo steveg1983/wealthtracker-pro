@@ -163,6 +163,34 @@
 //!   Its specs are the first in the verb harness to run on one engine, because
 //!   there is no other engine to run them on.
 //!
+//! And then **the ingest pair** — the two RPCs through which every transaction
+//! that was not typed by a person arrives. They are ported together because they
+//! are the same operation told by two different informants, and almost
+//! everything interesting about either is a place where they DISAGREE:
+//!
+//! * [`verbs::import_transactions`] — the file importer (OFX, QIF, CSV), and the
+//!   only verb in the crate whose headline is a thing that must NOT happen
+//!   twice. Its live definition is four migrations deep and the newest is the one
+//!   that matters: a chunk carrying import keys can be re-posted after a lost
+//!   response without moving the balance a second time. Five refusals whose ORDER
+//!   is measured, including one genuine surprise — a malformed request is named
+//!   before the caller is told the account is not theirs.
+//! * [`verbs::import_bank_transactions`] — the bank feed, which a local file will
+//!   probably never have. It is ported anyway because a restored cloud backup
+//!   carries feed-written rows, and because **B-4's first-import rebase lives
+//!   here and nowhere else**: the one place in the schema where an import moves
+//!   `initial_balance` instead of `balance`. Its precondition (TS-F7) is not
+//!   satisfied by the cloud that calls it, and the verb's documentation says so
+//!   rather than quietly correcting it.
+//!
+//! What the pair says about the design: the two things a port is most likely to
+//! get wrong here are both about ORDER rather than about arithmetic — the order
+//! the refusals fire in, and the order the rows are read in — and neither can be
+//! reasoned out from the SQL. Both were measured. The third is a tie-break that
+//! **does not exist**: `payee_memory_category` orders on three keys and the cloud's
+//! answer below the third is an artefact of its query plan, so the port states a
+//! fourth of its own and says out loud that it is not a port of anything.
+//!
 //! What is deliberately NOT here is as much of the design as what is: no
 //! absolute balance setter, no verb that accepts SQL, and no general-purpose
 //! writer for the columns that have dedicated verbs. See [`verbs`].

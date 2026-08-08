@@ -1894,3 +1894,319 @@ export function violationRows(expect) {
     expect,
   };
 }
+
+// ── The ingest pair's fixtures ─────────────────────────────────────────────
+//
+// Two verbs, two shapes of starting state, and one rule they share with every
+// other fragment in this file: B-1 holds BEFORE the verb runs, so a spec that
+// asserts the identity afterwards is asserting the verb rather than the
+// fixture.
+
+/** The account a bank feed created. */
+export const FED = 'a0000000-0000-0000-0000-0000000000fe';
+/** A second account of the same login, for the user-scoped-index specs. */
+export const SECOND_ACCOUNT = 'a0000000-0000-0000-0000-00000000000c';
+/** A row already imported from a file, under a stated key. */
+export const ALREADY_IMPORTED = '70000000-0000-0000-0000-0000000000d1';
+/** A row the feed already wrote. */
+export const ALREADY_FED = '70000000-0000-0000-0000-0000000000d2';
+/** Two ordinary expense leaves, for payee memory to choose between. */
+export const GROCERIES = 'c0000000-0000-0000-0000-0000000000e4';
+export const FUEL = 'c0000000-0000-0000-0000-0000000000e5';
+
+/** A second account belonging to this login, empty. */
+export const secondAccount = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor)
+      VALUES ('${SECOND_ACCOUNT}', '${USER}', 'Second', 'checking', 0, 0);`,
+  postgres: `
+    INSERT INTO public.accounts (id, user_id, name, type, balance, initial_balance)
+      VALUES ('${SECOND_ACCOUNT}', '${USER}', 'Second', 'checking', 0.00, 0.00);`,
+};
+
+/**
+ * A −4.25 row already imported under `ofx` / `fitid:1`, with the balance moved.
+ *
+ * Everyday ends at −29.25. This is what a chunk that has already been POSTed
+ * looks like from the database's side, which is the whole subject of
+ * 20260808140000: the browser cannot tell a lost response from a lost request.
+ */
+export const anAlreadyImportedRow = {
+  sqlite: `
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              import_source, import_source_id)
+      VALUES ('${ALREADY_IMPORTED}', '${USER}', '${EVERYDAY}', 'Coffee', -425, 'expense', '2024-05-01',
+              'ofx', 'fitid:1');
+    UPDATE accounts SET balance_minor = balance_minor - 425 WHERE id = '${EVERYDAY}';`,
+  postgres: `
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date,
+                                     import_source, import_source_id)
+      VALUES ('${ALREADY_IMPORTED}', '${USER}', '${EVERYDAY}', 'Coffee', -4.25, 'expense', '2024-05-01',
+              'ofx', 'fitid:1');
+    UPDATE public.accounts SET balance = balance - 4.25 WHERE id = '${EVERYDAY}';`,
+};
+
+/**
+ * An account seeded the way `api/banking/sync-accounts.ts:255-273` seeds one:
+ * `balance = bank_balance = initial_balance = the snapshot`, and no history.
+ *
+ * That is TS-F7's precondition, and B-1 holds on it (Σ is zero), which is
+ * exactly why the shortfall it describes is invisible until you ask what
+ * `initial_balance` is supposed to MEAN.
+ */
+export const aFeedCreatedAccount = {
+  sqlite: `
+    INSERT INTO accounts (id, user_id, name, type, balance_minor, initial_balance_minor,
+                          bank_balance_minor, bank_balance_date)
+      VALUES ('${FED}', '${USER}', 'Fed account', 'checking', 10000, 10000, 10000, '2024-05-01');`,
+  postgres: `
+    INSERT INTO public.accounts (id, user_id, name, type, balance, initial_balance,
+                                 bank_balance, bank_balance_date)
+      VALUES ('${FED}', '${USER}', 'Fed account', 'checking', 100.00, 100.00, 100.00, '2024-05-01');`,
+};
+
+/** The same account, no longer on its first import: one feed row already in it. */
+export const aFeedAccountWithHistory = {
+  sqlite: `${aFeedCreatedAccount.sqlite}
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              external_transaction_id, external_provider)
+      VALUES ('${ALREADY_FED}', '${USER}', '${FED}', 'Old feed row', -1000, 'expense', '2024-01-01',
+              'old-1', 'truelayer');
+    UPDATE accounts SET initial_balance_minor = initial_balance_minor + 1000 WHERE id = '${FED}';`,
+  postgres: `${aFeedCreatedAccount.postgres}
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date,
+                                     external_transaction_id, external_provider)
+      VALUES ('${ALREADY_FED}', '${USER}', '${FED}', 'Old feed row', -10.00, 'expense', '2024-01-01',
+              'old-1', 'truelayer');
+    UPDATE public.accounts SET initial_balance = initial_balance + 10.00 WHERE id = '${FED}';`,
+};
+
+/** The same account with a FILE-imported row in it, which is not feed history. */
+export const aFeedAccountWithAFileImport = {
+  sqlite: `${aFeedCreatedAccount.sqlite}
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              import_source, import_source_id)
+      VALUES ('${ALREADY_IMPORTED}', '${USER}', '${FED}', 'Filed', -500, 'expense', '2024-01-01',
+              'ofx', 'ofx-9');
+    UPDATE accounts SET initial_balance_minor = initial_balance_minor + 500 WHERE id = '${FED}';`,
+  postgres: `${aFeedCreatedAccount.postgres}
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date,
+                                     import_source, import_source_id)
+      VALUES ('${ALREADY_IMPORTED}', '${USER}', '${FED}', 'Filed', -5.00, 'expense', '2024-01-01',
+              'ofx', 'ofx-9');
+    UPDATE public.accounts SET initial_balance = initial_balance + 5.00 WHERE id = '${FED}';`,
+};
+
+/** Two expense leaves under Outgoings, for payee memory to choose between. */
+export const twoFilingChoices = {
+  sqlite: `
+    INSERT INTO categories (id, user_id, name, type, level, parent_id) VALUES
+      ('${GROCERIES}', '${USER}', 'Groceries', 'expense', 'detail', '${OUTGOINGS}'),
+      ('${FUEL}',      '${USER}', 'Fuel',      'expense', 'detail', '${OUTGOINGS}');`,
+  postgres: `
+    INSERT INTO public.categories (id, user_id, name, type, level, parent_id) VALUES
+      ('${GROCERIES}', '${USER}', 'Groceries', 'expense', 'detail', '${OUTGOINGS}'),
+      ('${FUEL}',      '${USER}', 'Fuel',      'expense', 'detail', '${OUTGOINGS}');`,
+};
+
+/**
+ * A payee history in the FED account: two rows filed under Groceries and a
+ * LATER one under Fuel.
+ *
+ * The shape 20260722140000 was written for — "file one Amazon order as
+ * Household : Repairs and every subsequent Amazon import inherits Repairs,
+ * however many dozens of Consumables rows preceded it". Most-recent picks Fuel;
+ * most-common picks Groceries.
+ */
+export function aPayeeHistory(payee = 'BIG SHOP') {
+  const rows = [
+    ['70000000-0000-0000-0000-0000000000c1', -1000, '2024-01-01', GROCERIES],
+    ['70000000-0000-0000-0000-0000000000c2', -1100, '2024-02-01', GROCERIES],
+    ['70000000-0000-0000-0000-0000000000c3', -1200, '2024-03-01', FUEL],
+  ];
+  const total = rows.reduce((sum, [, minor]) => sum + minor, 0);
+  return {
+    sqlite: `${twoFilingChoices.sqlite}
+      INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date, category) VALUES
+        ${rows.map(([id, minor, date, category]) =>
+          `('${id}', '${USER}', '${FED}', '${payee}', ${minor}, 'expense', '${date}', '${category}')`).join(',\n        ')};
+      UPDATE accounts SET initial_balance_minor = initial_balance_minor - (${total}) WHERE id = '${FED}';`,
+    postgres: `${twoFilingChoices.postgres}
+      INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date, category) VALUES
+        ${rows.map(([id, minor, date, category]) =>
+          `('${id}', '${USER}', '${FED}', '${payee}', ${(minor / 100).toFixed(2)}, 'expense', '${date}', '${category}')`).join(',\n        ')};
+      UPDATE public.accounts SET initial_balance = initial_balance - (${(total / 100).toFixed(2)}) WHERE id = '${FED}';`,
+  };
+}
+
+/**
+ * One row under each category, SAME count, different dates — the tie the cloud
+ * breaks on `MAX(date)`.
+ */
+export const aPayeeTiedOnCount = {
+  sqlite: `${twoFilingChoices.sqlite}
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date, category) VALUES
+      ('70000000-0000-0000-0000-0000000000c1', '${USER}', '${FED}', 'BIG SHOP', -1000, 'expense', '2024-01-01', '${GROCERIES}'),
+      ('70000000-0000-0000-0000-0000000000c2', '${USER}', '${FED}', 'BIG SHOP', -1100, 'expense', '2024-02-01', '${FUEL}');
+    UPDATE accounts SET initial_balance_minor = initial_balance_minor + 2100 WHERE id = '${FED}';`,
+  postgres: `${twoFilingChoices.postgres}
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date, category) VALUES
+      ('70000000-0000-0000-0000-0000000000c1', '${USER}', '${FED}', 'BIG SHOP', -10.00, 'expense', '2024-01-01', '${GROCERIES}'),
+      ('70000000-0000-0000-0000-0000000000c2', '${USER}', '${FED}', 'BIG SHOP', -11.00, 'expense', '2024-02-01', '${FUEL}');
+    UPDATE public.accounts SET initial_balance = initial_balance + 21.00 WHERE id = '${FED}';`,
+};
+
+/**
+ * Same count, same date, DIFFERENT `created_at` — the last tie-break the cloud
+ * actually states. Below this there is no rule at all, which is why no spec
+ * goes further down; see import_bank_transactions.rs.
+ */
+export const aPayeeTiedOnDate = {
+  sqlite: `${twoFilingChoices.sqlite}
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date, category, created_at) VALUES
+      ('70000000-0000-0000-0000-0000000000c1', '${USER}', '${FED}', 'BIG SHOP', -1000, 'expense', '2024-01-01', '${GROCERIES}', '2021-01-01T00:00:00.000Z'),
+      ('70000000-0000-0000-0000-0000000000c2', '${USER}', '${FED}', 'BIG SHOP', -1100, 'expense', '2024-01-01', '${FUEL}',      '2020-01-01T00:00:00.000Z');
+    UPDATE accounts SET initial_balance_minor = initial_balance_minor + 2100 WHERE id = '${FED}';`,
+  postgres: `${twoFilingChoices.postgres}
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date, category, created_at) VALUES
+      ('70000000-0000-0000-0000-0000000000c1', '${USER}', '${FED}', 'BIG SHOP', -10.00, 'expense', '2024-01-01', '${GROCERIES}', '2021-01-01T00:00:00Z'),
+      ('70000000-0000-0000-0000-0000000000c2', '${USER}', '${FED}', 'BIG SHOP', -11.00, 'expense', '2024-01-01', '${FUEL}',      '2020-01-01T00:00:00Z');
+    UPDATE public.accounts SET initial_balance = initial_balance + 21.00 WHERE id = '${FED}';`,
+};
+
+/** A stranger's account that already holds the provider id a sync is about to offer. */
+export const aStrangersFedAccount = {
+  sqlite: `${secondUser.sqlite}
+    INSERT INTO transactions (id, user_id, account_id, description, amount_minor, type, date,
+                              external_transaction_id)
+      VALUES ('${ALREADY_FED}', '${STRANGER}', '${SOMEONE_ELSES_ACCOUNT}', 'Theirs', -100, 'expense', '2024-01-01', 'n-1');
+    UPDATE accounts SET initial_balance_minor = initial_balance_minor + 100 WHERE id = '${SOMEONE_ELSES_ACCOUNT}';`,
+  postgres: `${secondUser.postgres}
+    INSERT INTO public.transactions (id, user_id, account_id, description, amount, type, date,
+                                     external_transaction_id)
+      VALUES ('${ALREADY_FED}', '${STRANGER}', '${SOMEONE_ELSES_ACCOUNT}', 'Theirs', -1.00, 'expense', '2024-01-01', 'n-1');
+    UPDATE public.accounts SET initial_balance = initial_balance + 1.00 WHERE id = '${SOMEONE_ELSES_ACCOUNT}';`,
+};
+
+// ── Assertions the ingest specs share ──────────────────────────────────────
+
+/**
+ * How a row that arrived through an import is filed, as one canonical string:
+ * `category-name | confirmed=yes/no | cleared=yes/no | seq=<n>`.
+ *
+ * Found by DESCRIPTION rather than by id, because neither engine's import path
+ * lets a caller name the row's id — the RPC mints it — so there is no id a spec
+ * could assert on. The category is rendered by NAME for the reason `splitLines`
+ * gives: an id says nothing to a reader and a To/From id is unknowable.
+ */
+export function importedRow(description, expect) {
+  const shape = (engine) => {
+    const category = engine === 'sqlite'
+      ? `COALESCE((SELECT c.name FROM categories c WHERE c.id = t.category), COALESCE(t.category, '-'))`
+      : `COALESCE((SELECT c.name FROM public.categories c WHERE c.id::text = t.category), COALESCE(t.category, '-'))`;
+    const flag = (column) => (engine === 'sqlite'
+      ? `CASE WHEN t.${column} = 1 THEN 'yes' ELSE 'no' END`
+      : `CASE WHEN t.${column} THEN 'yes' ELSE 'no' END`);
+    return `${category} || ' | confirmed=' || ${flag('category_confirmed')}
+              || ' | cleared=' || ${flag('is_cleared')}
+              || ' | seq=' || COALESCE(CAST(t.statement_sequence AS TEXT), '-')`;
+  };
+  const table = (engine) => (engine === 'sqlite' ? 'transactions' : 'public.transactions');
+  return {
+    name: `imported_row_${description.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
+    sqlite: `SELECT COALESCE((SELECT ${shape('sqlite')} FROM ${table('sqlite')} t
+               WHERE t.description = '${description}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${shape('postgres')} FROM ${table('postgres')} t
+                 WHERE t.description = '${description}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/** The provenance one imported row carries, as `[source][id]`. */
+export function importProvenance(description, expect) {
+  const shape = `'[' || COALESCE(import_source, '-') || '][' || COALESCE(import_source_id, '-') || ']'`;
+  return {
+    name: `import_provenance_${description.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
+    sqlite: `SELECT COALESCE((SELECT ${shape} FROM transactions WHERE description = '${description}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${shape} FROM public.transactions WHERE description = '${description}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/** `category`/`notes` on an imported row, with EMPTY kept apart from NULL. */
+export function importedText(description, column, expect) {
+  const wrap = (cast) => `CASE WHEN ${cast} IS NULL THEN 'NULL'
+                              WHEN ${cast} = '' THEN 'EMPTY' ELSE ${cast} END`;
+  return {
+    name: `imported_${column}_${description.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
+    sqlite: `SELECT COALESCE((SELECT ${wrap(column)} FROM transactions
+               WHERE description = '${description}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${wrap(`${column}::text`)} FROM public.transactions
+                 WHERE description = '${description}'), 'ABSENT')`,
+    expect,
+  };
+}
+
+/**
+ * The audit rows one call wrote, as `entity/action` × count, in the order the
+ * writes happened.
+ *
+ * `auditShape` sorts by `entity, action`, which is right for a verb that writes
+ * one of each and wrong here: an import writes N transaction rows and then one
+ * account row, and "did the account movement come last" is part of the contract.
+ * Ordered by the audit table's own insertion order on both engines — `seq`
+ * locally, `ctid` on the cloud, which has no sequence column.
+ */
+export function auditTrail(expect) {
+  return {
+    name: 'audit_trail',
+    sqlite: `SELECT COALESCE((SELECT group_concat(entry, ',') FROM (
+               SELECT entity || '/' || action AS entry
+                 FROM financial_audit_log ORDER BY seq)), 'NONE')`,
+    postgres: `SELECT COALESCE((SELECT string_agg(entity || '/' || action, ',' ORDER BY ctid)
+                 FROM public.financial_audit_log), 'NONE')`,
+    expect,
+  };
+}
+
+/** Which accounts got an `account/update` audit row, in write order. */
+export function accountsAudited(expect) {
+  return {
+    name: 'accounts_audited',
+    sqlite: `SELECT COALESCE((SELECT group_concat(tail, ',') FROM (
+               SELECT substr(entity_id, -4) AS tail FROM financial_audit_log
+                WHERE entity = 'account' ORDER BY seq)), 'NONE')`,
+    postgres: `SELECT COALESCE((SELECT string_agg(right(entity_id::text, 4), ',' ORDER BY ctid)
+                 FROM public.financial_audit_log WHERE entity = 'account'), 'NONE')`,
+    expect,
+  };
+}
+
+/**
+ * How a FEED row was filed, found by the provider's own id.
+ *
+ * The feed specs cannot use [`importedRow`], which finds a row by description:
+ * a payee-memory fixture deliberately gives the incoming row the SAME
+ * description as the history that teaches it, so a description lookup would
+ * match four rows and the subquery would fail rather than assert. The provider
+ * id is the one thing that is unique to the row under test.
+ */
+export function fedRow(externalId, expect) {
+  const shape = (engine) => {
+    const category = engine === 'sqlite'
+      ? `COALESCE((SELECT c.name FROM categories c WHERE c.id = t.category), COALESCE(t.category, '-'))`
+      : `COALESCE((SELECT c.name FROM public.categories c WHERE c.id::text = t.category), COALESCE(t.category, '-'))`;
+    const flag = (column) => (engine === 'sqlite'
+      ? `CASE WHEN t.${column} = 1 THEN 'yes' ELSE 'no' END`
+      : `CASE WHEN t.${column} THEN 'yes' ELSE 'no' END`);
+    return `${category} || ' | confirmed=' || ${flag('category_confirmed')} || ' | cleared=' || ${flag('is_cleared')}`;
+  };
+  return {
+    name: `fed_row_${externalId.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}`,
+    sqlite: `SELECT COALESCE((SELECT ${shape('sqlite')} FROM transactions t
+               WHERE t.external_transaction_id = '${externalId}'), 'ABSENT')`,
+    postgres: `SELECT COALESCE((SELECT ${shape('postgres')} FROM public.transactions t
+                 WHERE t.external_transaction_id = '${externalId}'), 'ABSENT')`,
+    expect,
+  };
+}

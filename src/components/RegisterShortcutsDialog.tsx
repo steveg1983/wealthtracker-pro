@@ -37,7 +37,8 @@ export default function RegisterShortcutsDialog({
           These work while the transaction list itself has the keyboard — click any row
           once, and it does. Typing in the search box or the add bar is never
           interrupted, and the quick edit box that opens under a clicked row keeps its
-          own two keys (below).
+          own keys (below): in there, Enter accepts what you typed and the Enter after
+          it saves and moves you on.
         </p>
 
         <div className="space-y-6">
