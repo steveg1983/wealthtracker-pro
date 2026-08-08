@@ -13,7 +13,7 @@ import type { Account, Category, Transaction } from '../../types';
 
 /**
  * The quick-edit box where Microsoft Money puts it: in the register, under the
- * row it is about, with Enter to save and Escape to be rid of it.
+ * row it is about, worked entirely from the keyboard and shut with Escape.
  *
  * The owner's words: "when you click on a transaction, that kind of box appears
  * sort of in the transaction list, directly below the transaction line itself…
@@ -21,14 +21,23 @@ import type { Account, Category, Transaction } from '../../types';
  * could also press 'escape' to hide that quick edit box and just see the
  * transaction list."
  *
- * So four things have to hold, and each has a test here:
+ * And the rhythm he asked for once he had used it: "if I am trying to do a list
+ * of categories, you almost want to do save & next and then the next line
+ * defaults into the category box again, so you can just start typing the search
+ * again… Maybe the same if you are in description."
+ *
+ * So five things have to hold, and each has a test here:
  *   1. the box opens BELOW the clicked row, inside the list, not at the foot
  *      of the page;
- *   2. Enter saves — from the description, and from a category just chosen;
- *   3. Enter belongs to whatever already wants it: an open category list
+ *   2. Enter ACCEPTS what was typed and hands over Save & Next; the next Enter
+ *      saves and moves on. Two keystrokes, the same two every row;
+ *   3. the box that opens on the next row puts the cursor back in the field
+ *      the run is working down — category, description or date;
+ *   4. Enter belongs to whatever already wants it: an open category list
  *      chooses with it, a button is pressed by it, and neither also saves;
- *   4. Escape closes the box and leaves the row highlighted; the next Escape
- *      lets go of the row.
+ *   5. every way the box closes — Save, Escape, the × — hands the keyboard
+ *      back to the list with the row still highlighted, so the arrow keys
+ *      carry on rather than scrolling.
  *
  * WHAT JSDOM CANNOT DO: no layout. That the rows below visibly move down, that
  * nothing jumps when the box opens, and that the box's calendar and category
@@ -102,7 +111,24 @@ const quickEditBox = (): HTMLElement => {
 
 const boxIsShowing = (): boolean => document.querySelector('[data-quick-edit-panel]') !== null;
 
-const descriptionField = (): HTMLElement => within(quickEditBox()).getByLabelText('Description');
+const descriptionField = (): HTMLInputElement => {
+  const el = within(quickEditBox()).getByLabelText('Description');
+  if (!(el instanceof HTMLInputElement)) throw new Error('the description is not an input');
+  return el;
+};
+
+const dateField = (): HTMLElement => within(quickEditBox()).getByLabelText('Transaction date');
+
+const categorySearch = (): HTMLElement =>
+  within(quickEditBox()).getByPlaceholderText('Search or select category…');
+
+/** The run button — the one a field's Enter hands the cursor to. */
+const saveAndNext = (): HTMLElement => within(quickEditBox()).getByRole('button', { name: 'Save & Next' });
+
+/** The button that ENDS a run: saves, closes, keyboard back to the list. */
+const saveButton = (): HTMLElement => within(quickEditBox()).getByRole('button', { name: 'Save' });
+
+const calendarIsShowing = (): boolean => document.querySelector('[data-datepicker-panel]') !== null;
 
 /** The transaction the register says is active, by its description. */
 const activeRowText = (): string => {
@@ -205,13 +231,37 @@ describe('Account register — the quick-edit box opens under the row', () => {
   });
 });
 
-describe('Account register — Enter in the quick-edit box saves', () => {
-  it('saves the edited description without a button being pressed', async () => {
+describe('Account register — Enter accepts, and the Enter after it moves you on', () => {
+  it('offers Save & Next first, and says so under the buttons', async () => {
     await openRegister();
     clickRow('Sandpiper Foods');
 
+    // Left to right, the run button leads: it is the one the cursor lands on
+    // and the one pressed a hundred times filing a statement. Save is the way
+    // to stop, not the way to carry on.
+    const buttons = within(quickEditBox()).getAllByRole('button');
+    expect(buttons.map(b => b.textContent)).toEqual(['Save & Next', 'Save', '']);
+
+    expect(
+      within(quickEditBox()).getByText('Enter accepts · Enter again saves & moves on · Esc closes')
+    ).toBeInTheDocument();
+  });
+
+  it('accepts the typed description on the first Enter, and saves on the next', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    descriptionField().focus();
     fireEvent.change(descriptionField(), { target: { value: 'Sandpiper Foods Ltd' } });
     fireEvent.keyDown(descriptionField(), { key: 'Enter' });
+
+    // Nothing is written yet — the first Enter is "yes, that's what I meant" —
+    // and the cursor is on the button that will write it.
+    expect(updateTransaction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(saveAndNext());
+
+    await user.keyboard('{Enter}');
 
     await waitFor(() => {
       expect(updateTransaction).toHaveBeenCalledTimes(1);
@@ -221,13 +271,34 @@ describe('Account register — Enter in the quick-edit box saves', () => {
       category: 'det-groceries',
       categoryConfirmed: true,
     }));
-    // Saving is not leaving: the row stays put, the box stays open on it, and
-    // the full editor was never in the way.
     expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
-    expect(boxIsShowing()).toBe(true);
   });
 
-  it('picks the category on the first Enter and saves on the next', async () => {
+  it('lands on the next row in the SAME field, with the old text selected', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    descriptionField().focus();
+    fireEvent.change(descriptionField(), { target: { value: 'Sandpiper Foods Ltd' } });
+    fireEvent.keyDown(descriptionField(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    });
+    expect(activeRowText()).toContain('Cobblestone Cafe');
+
+    // The whole point of the run: the cursor is already where the work is, and
+    // the old text is selected so typing REPLACES it — which is what tidying a
+    // column of bank descriptions actually is.
+    const next = descriptionField();
+    expect(document.activeElement).toBe(next);
+    expect(next.selectionStart).toBe(0);
+    expect(next.selectionEnd).toBe('Cobblestone Cafe'.length);
+  });
+
+  it('picks the category on the first Enter and lands back in the category on the next row', async () => {
     const user = userEvent.setup();
     await openRegister();
     clickRow('Sandpiper Foods');
@@ -237,18 +308,16 @@ describe('Account register — Enter in the quick-edit box saves', () => {
     // list on any click inside it, so a synthetic click aimed at the search
     // box would shut the very list it opened.
     fireEvent.click(within(quickEditBox()).getByRole('combobox', { name: 'Category' }));
-    const search = within(quickEditBox()).getByPlaceholderText('Search or select category…');
-    fireEvent.change(search, { target: { value: 'Takeaway' } });
-    fireEvent.keyDown(search, { key: 'ArrowDown' });
+    fireEvent.change(categorySearch(), { target: { value: 'Takeaway' } });
+    fireEvent.keyDown(categorySearch(), { key: 'ArrowDown' });
 
     // The first Enter belongs to the open list: it chooses, and saves nothing.
-    fireEvent.keyDown(search, { key: 'Enter' });
+    fireEvent.keyDown(categorySearch(), { key: 'Enter' });
     expect(updateTransaction).not.toHaveBeenCalled();
     expect(within(quickEditBox()).getByRole('combobox', { name: 'Category' })).toHaveTextContent('Takeaway');
 
-    // The cursor is on Save, where the next Enter presses it — "enter a
-    // category and then press enter" ends with the row saved.
-    expect(document.activeElement).toBe(within(quickEditBox()).getByRole('button', { name: 'Save' }));
+    // The cursor is on Save & Next, where the next Enter presses it.
+    expect(document.activeElement).toBe(saveAndNext());
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
@@ -258,6 +327,130 @@ describe('Account register — Enter in the quick-edit box saves', () => {
       category: 'det-takeaway',
       categoryConfirmed: true,
     }));
+
+    // "…and then the next line defaults into the category box again, so you can
+    // just start typing the search again": open, empty, and holding the cursor.
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(categorySearch());
+    });
+    expect(categorySearch()).toHaveValue('');
+  });
+
+  it('keeps the run going row after row, not just for the first hop', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    clickRow('Aldwych Bakery');
+
+    // The box is REBUILT on each row it moves to — it is drawn inside the row
+    // it belongs to, so a new row means a new box — and the field being worked
+    // down has to survive that. One hop could pass on a remembered field that
+    // is thrown away on the next; three rows in a row cannot.
+    const runOneRow = async (): Promise<void> => {
+      fireEvent.click(within(quickEditBox()).getByRole('combobox', { name: 'Category' }));
+      fireEvent.change(categorySearch(), { target: { value: 'Takeaway' } });
+      fireEvent.keyDown(categorySearch(), { key: 'ArrowDown' });
+      fireEvent.keyDown(categorySearch(), { key: 'Enter' });
+      expect(document.activeElement).toBe(saveAndNext());
+      await user.keyboard('{Enter}');
+    };
+
+    await runOneRow();
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Sandpiper Foods');
+    });
+    // Landed in the category, so this row's edit starts where the last one did:
+    // the search is already open and holding the cursor.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(categorySearch());
+    });
+
+    fireEvent.change(categorySearch(), { target: { value: 'Takeaway' } });
+    fireEvent.keyDown(categorySearch(), { key: 'ArrowDown' });
+    fireEvent.keyDown(categorySearch(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(categorySearch());
+    });
+    expect(updateTransaction).toHaveBeenCalledTimes(2);
+    expect(updateTransaction.mock.calls.map(call => call[0])).toEqual(['txn-0', 'txn-1']);
+  });
+
+  it('settles a date on the first Enter, and lands on the next date without the calendar', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    // Focusing the date field opens its calendar, and its own Enter settles it
+    // — that IS the accept, so the cursor moves on to the run button from
+    // there just as it does from the description.
+    fireEvent.focus(dateField());
+    expect(calendarIsShowing()).toBe(true);
+    fireEvent.keyDown(dateField(), { key: 'Enter' });
+    expect(document.activeElement).toBe(saveAndNext());
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(dateField());
+    });
+    // Shut. A calendar unfurling over the next three transactions on every row
+    // of a run would hide the very list being worked down. (F2 still opens it:
+    // that is someone asking to edit this row, not a run passing through.)
+    expect(calendarIsShowing()).toBe(false);
+  });
+
+  it('starts a run in the date field when no field was touched at all', async () => {
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    // Opened and moved straight on: nothing to be sticky about, so the cursor
+    // goes where F2 puts it — the first field.
+    fireEvent.click(saveAndNext());
+
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(dateField());
+    });
+    expect(calendarIsShowing()).toBe(false);
+  });
+
+  it('puts the working word on the button that was actually pressed', async () => {
+    // Held open on purpose, so the in-flight moment can be looked at.
+    const pending: { release: (() => void) | null } = { release: null };
+    updateTransaction.mockImplementationOnce(
+      () => new Promise<void>(resolve => { pending.release = (): void => resolve(); })
+    );
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    // Held by reference, because its NAME is the thing under test: it stops
+    // being "Save & Next" for as long as the write takes.
+    const runButton = saveAndNext();
+    fireEvent.click(runButton);
+
+    // Both are disabled while a write is in flight, but only the one the user
+    // pressed says what it is doing — the other must not claim the work.
+    await waitFor(() => {
+      expect(runButton).toHaveTextContent('Saving…');
+    });
+    expect(saveButton()).toHaveTextContent('Save');
+
+    pending.release?.();
+    await waitFor(() => {
+      expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    });
   });
 
   it('writes the transaction ONCE when Enter presses a button', async () => {
@@ -265,8 +458,7 @@ describe('Account register — Enter in the quick-edit box saves', () => {
     await openRegister();
     clickRow('Sandpiper Foods');
 
-    const saveAndNext = within(quickEditBox()).getByRole('button', { name: 'Save & Next' });
-    saveAndNext.focus();
+    saveAndNext().focus();
     await user.keyboard('{Enter}');
 
     // The button's own Enter is the press. The box must not ALSO save on the
@@ -284,17 +476,118 @@ describe('Account register — Enter in the quick-edit box saves', () => {
   });
 
   it('says what is wrong instead of saving an empty description', async () => {
+    const user = userEvent.setup();
     await openRegister();
     clickRow('Sandpiper Foods');
 
+    descriptionField().focus();
     fireEvent.change(descriptionField(), { target: { value: '   ' } });
     fireEvent.keyDown(descriptionField(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
 
-    // The same complaint the Save button makes — Enter is that button, not a
-    // quieter way past it. (The wording is the app's shared error map's, which
-    // generalises "Description is required" to the field-agnostic line.)
+    // The same complaint the button makes, because it IS the button being
+    // pressed. (The wording is the app's shared error map's, which generalises
+    // "Description is required" to the field-agnostic line.)
     expect(await screen.findByText('This field is required')).toBeInTheDocument();
     expect(updateTransaction).not.toHaveBeenCalled();
+    // And nothing moved on: the row, and the typing, are still there to fix.
+    expect(boxIsShowing()).toBe(true);
+    expect(activeRowText()).toContain('Sandpiper Foods');
+  });
+
+  it('gives the keyboard back to the run button when the save itself fails', async () => {
+    const user = userEvent.setup();
+    updateTransaction.mockImplementationOnce(async () => {
+      // WHAT JSDOM DOES NOT DO: a real browser blurs a button the moment it is
+      // disabled, and every button here disables itself while its write is in
+      // flight. jsdom leaves the focus where it was, so without this the test
+      // would prove nothing at all. Done here because here is where the real
+      // thing happens — inside the write, as the button greys out.
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement) focused.blur();
+      throw new Error('The connection dropped.');
+    });
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    descriptionField().focus();
+    fireEvent.change(descriptionField(), { target: { value: 'Sandpiper Foods Ltd' } });
+    fireEvent.keyDown(descriptionField(), { key: 'Enter' });
+    await user.keyboard('{Enter}');
+
+    // Without putting it back, a failed save ends with the message on screen
+    // and the keyboard on nothing at all.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(saveAndNext());
+    });
+    // Still open, still holding what was typed, so pressing Enter again retries
+    // exactly the same edit.
+    expect(boxIsShowing()).toBe(true);
+    expect(descriptionField()).toHaveValue('Sandpiper Foods Ltd');
+    expect(activeRowText()).toContain('Sandpiper Foods');
+  });
+});
+
+describe('Account register — the last row of the register ends the run', () => {
+  it('offers no Save & Next, and its Save hands the keyboard back', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    clickRow('Thistledown Books');
+
+    // Nothing below it, so nothing pretends there is: no wrap to the top, and
+    // no button that would do nothing.
+    expect(within(quickEditBox()).queryByRole('button', { name: 'Save & Next' })).not.toBeInTheDocument();
+    expect(
+      within(quickEditBox()).getByText('Enter accepts · Enter again saves · Esc closes')
+    ).toBeInTheDocument();
+
+    descriptionField().focus();
+    fireEvent.keyDown(descriptionField(), { key: 'Enter' });
+    // The same two keystrokes; the run button is simply Save here.
+    expect(document.activeElement).toBe(saveButton());
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(updateTransaction).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(boxIsShowing()).toBe(false);
+    });
+    expect(document.activeElement).toBe(grid());
+    expect(activeRowText()).toContain('Thistledown Books');
+    // …and the arrows work from the row that was saved.
+    expect(fireEvent.keyDown(grid(), { key: 'ArrowUp' })).toBe(false);
+    expect(activeRowText()).toContain('Cobblestone Cafe');
+  });
+});
+
+describe('Account register — the box hands the keyboard back when it closes', () => {
+  it('lets the arrow keys carry on the moment a save closes the box', async () => {
+    const user = userEvent.setup();
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    const save = within(quickEditBox()).getByRole('button', { name: 'Save' });
+    save.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(updateTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    // The owner's report: "press Enter to save, then the down arrow scrolls the
+    // transactions list instead of moving to the next transaction."
+    //
+    // Fired wherever the keyboard actually is, because that is all the user
+    // does — press Down. If the box left the focus on a button of its own (or
+    // on nothing at all), the register never sees the key, nothing is
+    // prevented, and the browser scrolls the list instead.
+    const focused = document.activeElement instanceof HTMLElement ? document.activeElement : document.body;
+    expect(fireEvent.keyDown(focused, { key: 'ArrowDown' })).toBe(false);
+    expect(activeRowText()).toContain('Cobblestone Cafe');
+
+    // …because the box shut and put the keyboard back on the list.
+    expect(boxIsShowing()).toBe(false);
+    expect(document.activeElement).toBe(grid());
   });
 });
 

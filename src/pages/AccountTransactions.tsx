@@ -13,7 +13,10 @@ import BulkDeleteTransactionsConfirm from '../components/BulkDeleteTransactionsC
 import RegisterSelectionBar from '../components/RegisterSelectionBar';
 import RegisterShortcutsDialog from '../components/RegisterShortcutsDialog';
 import AccountSettingsModal from '../components/AccountSettingsModal';
-import QuickEditTransactionPanel, { QUICK_EDIT_BOX_HEIGHT } from '../components/QuickEditTransactionPanel';
+import QuickEditTransactionPanel, {
+  QUICK_EDIT_BOX_HEIGHT,
+  type QuickEditFocusRequest,
+} from '../components/QuickEditTransactionPanel';
 import SuggestedCategoryBadge from '../components/SuggestedCategoryBadge';
 import CategorySelector from '../components/CategorySelector';
 import PageTip from '../components/PageTip';
@@ -382,10 +385,15 @@ export default function AccountTransactions() {
    */
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   /**
-   * F2's request for the quick-edit box to take the cursor. A boolean, and
-   * handed straight back when honoured, so a re-mount can never replay it.
+   * A request for the quick-edit box to take the cursor, and which field.
+   *
+   * Two things ask: F2 (the date field, calendar and all), and the landing
+   * after a Save & Next (whichever field the run is working down). Held here
+   * rather than inside the box because the box is redrawn on the row it moves
+   * to, and a request has to survive that hop to be honoured on the other side.
+   * Handed straight back when honoured, so nothing can replay it.
    */
-  const [quickEditFocusRequested, setQuickEditFocusRequested] = useState(false);
+  const [quickEditFocus, setQuickEditFocus] = useState<QuickEditFocusRequest | null>(null);
   /** Which quick-add field to put the cursor in once the bar is on screen. */
   const [quickAddFocus, setQuickAddFocus] = useState<'date' | 'description' | null>(null);
   /** A pulse asking the search box for the cursor once the filter panel opens. */
@@ -1122,19 +1130,33 @@ export default function AccountTransactions() {
     setQuickAddFocus(null);
   }, [quickAddFocus]);
 
-  const handleQuickEditFocusHandled = useCallback(() => setQuickEditFocusRequested(false), []);
+  const handleQuickEditFocusHandled = useCallback(() => setQuickEditFocus(null), []);
   /**
-   * Escape (or the ×) in the quick-edit box: close it, keep the row
-   * highlighted, and hand the keyboard back to the list.
+   * The quick-edit box closing — Escape, the ×, or a finished Save: put it
+   * away, keep the row highlighted, and hand the keyboard back to the list.
    *
-   * Both halves matter. Without the close, Escape would not do what the box
-   * plainly looks like it should; without the focus, F2 would be a one-way
-   * door and the way back to the arrow keys would be a mouse.
+   * Both halves matter, and the second is the one that was missing. Without the
+   * close, Escape would not do what the box plainly looks like it should.
+   * Without the focus, the keyboard is left on a button inside a box that is
+   * about to be taken off screen — and the register ignores everything inside
+   * that box on purpose, so the next arrow key was scrolling the list instead
+   * of moving the highlight.
    */
   const handleQuickEditDismiss = useCallback(() => {
     setQuickEditOpen(false);
     tableWrapRef.current?.focus({ preventScroll: true });
   }, []);
+
+  /**
+   * Save & Next: step the highlight on, and tell the box that opens on the
+   * next row where to put the cursor — the field the user was last in, so a
+   * run of categories (or descriptions, or dates) carries straight on.
+   */
+  const handleQuickEditNext = useCallback((currentId: string, landOn: QuickEditFocusRequest) => {
+    if (advanceToNextTransaction(currentId)) {
+      setQuickEditFocus(landOn);
+    }
+  }, [advanceToNextTransaction]);
 
   /**
    * The quick-edit box, as the register draws it: inside the list, attached to
@@ -1157,19 +1179,19 @@ export default function AccountTransactions() {
           transaction={target}
           onNext={
             getNextTransactionId(target.id)
-              ? () => { advanceToNextTransaction(target.id); }
+              ? (landOn) => { handleQuickEditNext(target.id, landOn); }
               : undefined
           }
-          focusFirstField={quickEditFocusRequested}
-          onFocusFirstFieldHandled={handleQuickEditFocusHandled}
+          focusRequest={quickEditFocus}
+          onFocusRequestHandled={handleQuickEditFocusHandled}
           onDismiss={handleQuickEditDismiss}
         />
       ),
     };
   }, [
     quickEditOpen, hasMultiSelection, isEditModalOpen, quickEditTarget,
-    getNextTransactionId, advanceToNextTransaction,
-    quickEditFocusRequested, handleQuickEditFocusHandled, handleQuickEditDismiss,
+    getNextTransactionId, handleQuickEditNext,
+    quickEditFocus, handleQuickEditFocusHandled, handleQuickEditDismiss,
   ]);
 
   /**
@@ -1301,7 +1323,11 @@ export default function AccountTransactions() {
         if (!activeRow || hasMultiSelection) return;
         claim();
         setQuickEditOpen(true);
-        setQuickEditFocusRequested(true);
+        // The date field, calendar and all: F2 is someone asking to EDIT this
+        // row, and the calendar is most of what the date field is for. A Save &
+        // Next landing on the same field asks for it shut — see the box's
+        // QuickEditFocusRequest.
+        setQuickEditFocus({ field: 'date', openCalendar: true });
         // The box lives in the register itself now, so an expanded table is no
         // obstacle: it is on screen either way, and collapsing it would undo
         // something the user asked for.
@@ -2627,7 +2653,7 @@ export default function AccountTransactions() {
       <PageTip
         id="register-keyboard"
         title="This register runs on the keyboard"
-        description="Click any row and a quick edit box opens under it — Enter saves, Esc closes it again. The arrow keys move the highlight (and the box with it), Enter on the list opens the full editor, Space reconciles and Delete removes. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
+        description="Click any row and a quick edit box opens under it — Enter accepts what you typed, and the Enter after it saves and moves you to the next transaction with the cursor back in the same field. Esc closes the box again. The arrow keys move the highlight (and the box with it), Enter on the list opens the full editor, Space reconciles and Delete removes. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
       />
     </div>
   );

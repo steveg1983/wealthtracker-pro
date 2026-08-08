@@ -647,11 +647,14 @@ describe('Account register — the shortcut list', () => {
     expect(within(dialog).getByText(/Jump to the first or the last transaction/)).toBeInTheDocument();
     expect(within(dialog).getByText(/the same tick the R column shows/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Open the other half of a transfer/)).toBeInTheDocument();
-    // The quick-edit box's own two keys, which is where most of the work in
-    // this register actually happens. A printed list that stops at the row
-    // level would be describing half the register.
+    // The quick-edit box's own keys, which is where most of the work in this
+    // register actually happens. A printed list that stops at the row level
+    // would be describing half the register — and one that still promised the
+    // OLD rule ("Enter saves") would be describing a register that no longer
+    // exists. The rhythm is two Enters now, and the list says so.
     expect(within(dialog).getByText(/The quick edit box under a row/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/the first Enter picks the highlighted category/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Accept what you have just typed or picked/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/type, Enter, Enter, type, Enter, Enter/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Close the box and go back to the list/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Put the cursor in the quick edit box under the row/)).toBeInTheDocument();
     // And says out loud which keys the browser would not let it have.

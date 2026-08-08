@@ -86,6 +86,20 @@ interface CategorySelectorProps {
    * money and has no other side to create.
    */
   transferSourceAccountId?: string;
+  /**
+   * A pulse — any change to this number — asking the picker to open with an
+   * empty search box and the cursor already in it.
+   *
+   * For a keyboard run down the register: Save & Next moves to the next
+   * transaction and the user carries straight on typing the category, without
+   * reaching for the mouse to open a list they were already in. A closed
+   * combobox cannot be typed into, so "put the cursor in the category" and
+   * "open the list" are one thing here rather than two.
+   *
+   * Zero (and absent) mean "nothing has been asked for", so a picker that
+   * merely mounts with the prop wired up never opens itself.
+   */
+  openSearchToken?: number;
 }
 
 /**
@@ -112,6 +126,7 @@ export default function CategorySelector({
   allowGroupSelection = false,
   includeTransferTargets = false,
   transferSourceAccountId,
+  openSearchToken,
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -385,6 +400,14 @@ export default function CategorySelector({
   const handleInputClick = (): void => {
     setShowDropdown(!showDropdown);
   };
+
+  // A caller asking for the cursor (see openSearchToken). The search input is
+  // autoFocused as it mounts, so opening the list IS handing over the keyboard.
+  useEffect(() => {
+    if (!openSearchToken) return;
+    setSearchTerm('');
+    setShowDropdown(true);
+  }, [openSearchToken]);
 
   // ── Keyboard support (combobox pattern) ────────────────────────────────────
   // The native <select> this component replaced was fully keyboard-operable;

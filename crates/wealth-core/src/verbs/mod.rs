@@ -72,6 +72,24 @@
 //! direction of travel is reversed and the id space that needs remapping is the
 //! destination's.
 //!
+//! # `import_transactions` means the RPC, not PHASE1-PLAN §3.2's planner
+//!
+//! There are two things in the Phase 1 documents with that name and they are not
+//! the same verb. [`import_transactions`] here is the port of
+//! `import_transactions_atomic` — the WRITE path that exists in the cloud today,
+//! which takes rows whose fields have already been decided and stores them.
+//! PHASE1-PLAN §3.2's `import_transactions` is a larger, later thing: the
+//! admission-control verb over `RawRow`, which decides what a file's TEXT means
+//! (§3.1: *"TypeScript finds the records and their fields as text. Rust decides
+//! what the text means"*) and enforces some thirty invariants that have no SQL
+//! side at all — the date-order question, the sign question, D-3's zero-amount
+//! rule, TS-I9's four cleared policies.
+//!
+//! When that verb is built it is the layer ABOVE this one, and this one is what
+//! it ends in. Naming it here rather than leaving it to be discovered, because
+//! two things called `import_transactions` is exactly how the wrong one gets
+//! called.
+//!
 //! # Deliberately not done YET, and named so nobody has to re-derive it
 //!
 //! Nothing in the category family is now outstanding.
@@ -166,6 +184,8 @@
 //! | [`link_bank_account_snap`] | no, and proven so | no |
 //! | [`delete_unused_categories`] | no, and proven so — it deletes a category, and the cascade's only writes are `category_id` columns nothing watches | no |
 //! | [`verify_integrity`] | no — it opens no transaction and writes nothing | no |
+//! | [`import_transactions`] | no, and proven so — nothing on `transactions` fires on INSERT | no |
+//! | [`import_bank_transactions`] | no, same measurement | no |
 //!
 //! The restore family adds a **third** flag to the table, which the first twelve
 //! verbs never needed: `_rpc_guard('restore')`, held by
@@ -279,6 +299,25 @@
 //! it down was the fix; here the refusal IS the answer, the cloud gives the same
 //! answer, and both engines lose the whole batch. The verb holds nothing.
 //!
+//! ## The ingest pair, and the first time the answer was cheap
+//!
+//! Both import verbs need **nothing**, and for once the reason is short enough
+//! to state in a sentence: they INSERT into `transactions`, and not one of that
+//! table's seven triggers fires on an INSERT. Every split protection is
+//! `BEFORE UPDATE OF`, the archive sweep is `AFTER UPDATE OF is_cleared`, and the
+//! dismissal prune is `AFTER DELETE`. It was still measured rather than reasoned
+//! (`scratchpad/local-core/probe-ingest-sqlite.mjs` lists the triggers and counts
+//! the INSERT ones), because "no trigger watches this" is exactly the claim the
+//! merge verb's port disproved for a column everybody had assumed was unwatched.
+//!
+//! The other half of each verb — the `accounts` UPDATE — is watched by
+//! `trg_sync_transfer_category_for_account` (`AFTER UPDATE OF name, is_active`,
+//! neither of which either verb writes) and by `trg_accounts_updated_at`, which
+//! stands down of its own accord because both verbs write `updated_at`
+//! themselves. `tests/ingest.rs` asserts the guard table empty after a
+//! successful import on each verb, so "no guard" is an assertion rather than a
+//! paragraph.
+//!
 //! [`verify_integrity`] is outside the table's premise entirely — it is the
 //! second read-only verb in the crate — and it is the one place where the guard
 //! table itself is a subject rather than a tool: `schema.sql` records that a
@@ -298,6 +337,8 @@ mod create_transfer_counterpart;
 mod delete_transaction;
 mod delete_unused_categories;
 mod finalize_user_restore;
+mod import_bank_transactions;
+mod import_transactions;
 mod link_bank_account_snap;
 mod link_split_line_transfer;
 mod link_transfer_pair;
@@ -335,6 +376,13 @@ pub use delete_unused_categories::{
 pub use finalize_user_restore::{
     finalize_user_restore, AccountParent, FinalizeAnswer, FinalizeUserRestore,
     FinalizeUserRestoreResult, RestoreLinks, TransactionLink,
+};
+pub use import_bank_transactions::{
+    import_bank_transactions, BankRow, FeedAnswer, ImportBankTransactions,
+    ImportBankTransactionsResult,
+};
+pub use import_transactions::{
+    import_transactions, ImportAnswer, ImportRow, ImportTransactions, ImportTransactionsResult,
 };
 pub use link_bank_account_snap::{
     link_bank_account_snap, LinkBankAccountSnap, LinkBankAccountSnapResult,
@@ -379,7 +427,7 @@ pub use wipe_user_financial_data::{
 use serde::Serialize;
 use std::collections::BTreeSet;
 
-use crate::error::{CoreError, CoreResult};
+use crate::error::{CoreError, CoreResult, Refusal};
 
 /// Anything serialisable, as the audit column's TEXT.
 fn json_of<T: Serialize>(value: &T) -> CoreResult<String> {
@@ -433,4 +481,29 @@ fn distinct_ids(named: &[String]) -> BTreeSet<&str> {
 /// produces, and the wider test is the safer one.
 fn is_blank_category(category: Option<&str>) -> bool {
     category.is_none_or(|value| value.trim().is_empty())
+}
+
+/// A row inside a batch that serde could not read, as a refusal with a NAME.
+///
+/// The two ingest verbs deserialise their rows one at a time inside the loop, so
+/// the row's own errors never pass through the CLI's top-level `boundary_code`
+/// and would otherwise all arrive as `invalid_command`. That matters for exactly
+/// one of them: `deny_unknown_fields` is this crate's DECLARED divergence from
+/// both import RPCs — the cloud discards a key it does not know, the local
+/// edition refuses it — and a divergence reported under the same code as a
+/// malformed request is indistinguishable from one. The caller is meant to be
+/// able to tell a typo from a rejection; `unknown_field` is how.
+///
+/// Matched on serde's prefix rather than reconstructed, because the rest of the
+/// message names the offending key and lists the ones that were expected, and
+/// that is the half a person needs.
+fn row_error(error: &serde_json::Error) -> CoreError {
+    let message = error.to_string();
+    if message.starts_with("unknown field") {
+        return CoreError::Refused(Refusal::named("unknown_field", &message).with_hint(
+            "The cloud RPC discards a key it does not recognise; the local edition refuses it, so \
+             a misspelled field cannot be silently dropped.",
+        ));
+    }
+    CoreError::InvalidCommand(message)
 }

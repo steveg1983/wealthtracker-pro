@@ -222,14 +222,18 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
   },
   {
     // The box that opens under a clicked row: date, description, category,
-    // Save. Its two keys are worth printing because they are what make a
-    // categorising run continuous — the alternative is reaching for the mouse
+    // Save & Next, Save. Its keys are worth printing because they are what make
+    // a categorising run continuous — the alternative is reaching for the mouse
     // on every transaction.
     title: 'The quick edit box under a row',
     shortcuts: [
       {
         keys: ['Enter'],
-        what: 'Save the row. In the Category box the first Enter picks the highlighted category and the next one saves.',
+        what: 'Accept what you have just typed or picked, and hand the cursor to Save & Next. In the Category box the same Enter chooses the highlighted category first.',
+      },
+      {
+        keys: ['Enter'],
+        what: 'Pressed again, on Save & Next: saves the row, moves to the next one, and puts the cursor back in the field you were in — so a run of categories is type, Enter, Enter, type, Enter, Enter. On the last transaction there is nothing to move to, so it simply saves and closes.',
       },
       {
         keys: ['Esc'],

@@ -54,15 +54,16 @@ use wealth_core::error::CoreError;
 use wealth_core::verbs::{
     apply_category_to_uncategorized, clear_transfer_links, confirm_transaction_categories,
     create_transaction, create_transfer_counterpart, delete_transaction,
-    delete_unused_categories, finalize_user_restore, link_bank_account_snap,
-    link_split_line_transfer, link_transfer_pair, merge_categories, repair_claimed_transfer,
-    restore_user_chunk, set_transaction_splits_with_legs, update_transaction,
-    user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
-    ApplyCategoryToUncategorized, ClearTransferLinks, ConfirmTransactionCategories,
-    CreateTransaction, CreateTransferCounterpart, DeleteTransaction, DeleteUnusedCategories,
-    FinalizeUserRestore, LinkBankAccountSnap, LinkSplitLineTransfer, LinkTransferPair,
-    MergeCategories, RepairClaimedTransfer, RestoreUserChunk, SetTransactionSplitsWithLegs,
-    UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
+    delete_unused_categories, finalize_user_restore, import_bank_transactions,
+    import_transactions, link_bank_account_snap, link_split_line_transfer, link_transfer_pair,
+    merge_categories, repair_claimed_transfer, restore_user_chunk,
+    set_transaction_splits_with_legs, update_transaction, user_financial_data_is_empty,
+    verify_integrity, wipe_user_financial_data, ApplyCategoryToUncategorized, ClearTransferLinks,
+    ConfirmTransactionCategories, CreateTransaction, CreateTransferCounterpart, DeleteTransaction,
+    DeleteUnusedCategories, FinalizeUserRestore, ImportBankTransactions, ImportTransactions,
+    LinkBankAccountSnap, LinkSplitLineTransfer, LinkTransferPair, MergeCategories,
+    RepairClaimedTransfer, RestoreUserChunk, SetTransactionSplitsWithLegs, UpdateTransaction,
+    UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
 };
 
 /// A command, as the harness sends it.
@@ -122,6 +123,17 @@ enum Command {
     // The account snap: service-role only in the cloud, and the one function in
     // the schema that assigns an absolute balance without breaking B-1.
     LinkBankAccountSnap(Box<LinkBankAccountSnap>),
+    // The ingest surface. Two verb strings, each spelled as the function it
+    // ports minus the `_atomic` every verb in this crate drops.
+    //
+    // PHASE1-PLAN §3.2 also lists an `import_transactions`, and it is NOT this
+    // one: that is the admission-control verb over `RawRow`, which decides what
+    // a file's text MEANS before anything is stored. This is the write path such
+    // a verb would end in — the port of the RPC that exists today. Named here
+    // rather than left to be discovered, because two things called
+    // `import_transactions` is exactly how the wrong one gets called.
+    ImportTransactions(Box<ImportTransactions>),
+    ImportBankTransactions(Box<ImportBankTransactions>),
     // The only verb here that is NOT a port: the cloud has no verify_integrity,
     // no view and no equivalent, and the verb's module documentation carries the
     // trace that establishes it. Its payload is `{}` — it takes not even an
@@ -321,6 +333,12 @@ fn run() -> Result<Response, String> {
         }
         Command::LinkBankAccountSnap(payload) => {
             link_bank_account_snap(&mut connection, *payload).and_then(as_json)
+        }
+        Command::ImportTransactions(payload) => {
+            import_transactions(&mut connection, *payload).and_then(as_json)
+        }
+        Command::ImportBankTransactions(payload) => {
+            import_bank_transactions(&mut connection, *payload).and_then(as_json)
         }
         // The second verb that needs no `&mut`, and for the same reason as the
         // first: it writes nothing.

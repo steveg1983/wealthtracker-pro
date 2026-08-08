@@ -32,6 +32,22 @@ interface DatePickerProps {
    * default, so every existing field renders byte-for-byte as it did.
    */
   usePortal?: boolean;
+  /**
+   * A pulse — any change to this number — asking the field for the cursor with
+   * the calendar left SHUT, and the current date selected ready to be typed
+   * over.
+   *
+   * For the register's Save & Next run, where the app moves the cursor rather
+   * than the user: the same field, row after row, and a calendar unfurling over
+   * the next three transactions every time would hide the very list being
+   * worked down. Focusing or clicking the field BY HAND still opens it — that
+   * is what a click means, and F2 keeps it — so this changes nothing anywhere
+   * the prop is left off.
+   *
+   * Zero (and absent) mean "nothing has been asked for", so a field that
+   * merely mounts with the prop wired up never steals the cursor.
+   */
+  focusWithoutCalendarToken?: number;
 }
 
 /** The calendar's own size, needed to decide whether it fits below the field. */
@@ -109,10 +125,15 @@ export default function DatePicker({
   'aria-describedby': ariaDescribedBy,
   size = 'md',
   usePortal = false,
+  focusWithoutCalendarToken,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Up only for the length of a programmatic focus() (see the effect below):
+  // it is what tells the focus handler this one was the app's doing, not the
+  // user's, and the calendar should stay shut.
+  const suppressOpenRef = useRef(false);
   // The portaled calendar lives outside containerRef, so the outside-click
   // check has to know about it separately — otherwise clicking a day would
   // count as "outside", close the calendar, and the day's own click would
@@ -346,10 +367,25 @@ export default function DatePicker({
   const nowYear = new Date().getFullYear();
   const nowMonth = new Date().getMonth();
 
+  // A caller asking for the cursor with the calendar shut. Focus events are
+  // delivered synchronously, so the flag is up for exactly this focus() and
+  // nothing else — it can never survive to swallow a click the user makes
+  // afterwards.
+  useEffect(() => {
+    if (!focusWithoutCalendarToken) return;
+    const input = inputRef.current;
+    if (!input) return;
+    suppressOpenRef.current = true;
+    input.focus();
+    input.select();
+    suppressOpenRef.current = false;
+  }, [focusWithoutCalendarToken]);
+
   // Focusing or clicking the field opens the calendar and leaves it open: the
   // field is typeable now, so a second click is someone placing the caret, not
   // asking for the calendar to go away. Escape and outside clicks close it.
   const openPicker = () => {
+    if (suppressOpenRef.current) return;
     if (isOpen) return;
     setView('days');
     setIsOpen(true);

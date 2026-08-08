@@ -438,7 +438,12 @@ Neither engine is handed a shape the other never saw, and the alternative —
 letting each side have its own payload — is precisely how two implementations
 stop being comparable.
 
-### The twelve verbs, and what each one is for
+### The verbs, and what each one is for
+
+Twenty-one, and the list is the order they were ported in. The first twelve are
+the ledger and its families; the restore family, the prune and the checker close
+the ledger core; the ingest pair opens the surface through which every
+transaction that nobody typed arrives.
 
 | verb | ported from | why it is in Phase 1 |
 | --- | --- | --- |
@@ -454,6 +459,8 @@ stop being comparable.
 | `merge_categories` | `20260805214322:82-396` | the largest refusal list in the schema — **seventeen** sites, sixteen codes, all reachable (the commissioning brief said twelve). Four reference surfaces moved in one transaction, three new audited entities, and the second verb in the crate to need an `_rpc_guard` |
 | `apply_category_to_uncategorized` | `20260808180000:230-262` (which restored the guard `20260808100000:387` dropped from `20260713100000:275`, itself a redefinition of `20260708100000:200`) | payee memory across the blanks. Ported from the LIVE definition — and tracing all four is how the port found the regression below |
 | `confirm_transaction_categories` | `20260808100000:440-478` | the smallest verb in the crate, and the only one whose safety comes from an argument that is **not there**: it takes no category, so it cannot change one |
+| `import_transactions` | `20260808140000:234-402` (four definitions deep: `20260709120000:20` → `20260808090000:162` → `20260808100000:183`) | every file import in the app, and the one verb whose headline is a thing that must not happen **twice**. Five refusals whose ORDER is measured — including a genuine surprise, a malformed request being named before the caller is told the account is not theirs — and an `idempotent` flag that describes THE REQUEST rather than the function |
+| `import_bank_transactions` | `20260808100000:552-724` (over `20260807180000` over `20260722140000:53` over `20260708100000` over `20260613090000`) | the bank feed's whole write path, ported for a local edition that will probably never have a feed — because a restored cloud backup carries feed-written rows, and because **B-4's first-import rebase lives here and nowhere else**: the only place in the schema where an import moves `initial_balance` instead of `balance` |
 
 **Not ported, and neither is an omission.** The transfer-category lifecycle
 (`create_transfer_category_for_account`, `sync_transfer_category_for_account`,
@@ -463,10 +470,20 @@ and C-5. And there is **no create/update/delete-category verb because the cloud
 has no such RPC** — `PlanningService` writes the table directly
 (`planningService.ts:479`, `:567`, `:638`), so the authority for those operations
 is the table plus its constraints, which the 64 constraint specs already cover.
-Two category RPCs that DO exist are deliberately outside this batch and named in
-`verbs/mod.rs`: `migrate_categories_atomic` (first-cloud-load seeding, which has
-no meaning in a file that was never on the cloud) and `delete_unused_categories`
-(a straightforward port, simply not in this batch).
+One category RPC that DOES exist is deliberately not ported and the decision is
+written down in `verbs/mod.rs`: `migrate_categories_atomic`, the one-way door
+between the localStorage id space and the cloud's uuids, which has no meaning in
+a file that was never on the cloud. `delete_unused_categories` was the other name
+on that list and it is ported.
+
+**`import_transactions` here means the RPC, not PHASE1-PLAN §3.2's planner.**
+There are two things in the Phase 1 documents with that name. The verb in this
+table is the port of `import_transactions_atomic` — the write path that exists
+today, which stores rows whose fields have already been decided. §3.2's
+`import_transactions` is the later, larger admission-control verb over `RawRow`,
+which decides what a file's TEXT means and enforces some thirty invariants with
+no SQL side at all. When it is built it is the layer above this one; naming both
+here is cheaper than discovering the ambiguity from a bug.
 
 The split writer is the only one whose RPC does not return a transaction row —
 it returns `{is_split, split_count, amount, counterparts}` — so
@@ -703,19 +720,29 @@ Each of these was executed, then reverted.
 | break C-5 (`WHEN 0 AND OLD.is_transfer_category = 1`) | `prune-a-to-from-category-reached-by-cascade-refuses-the-whole-batch` fails four ways — SQLite **accepts** where Postgres refuses, the parent AND the protected To/From category are both GONE, and the transfer-category count drops to 1 — with `MISDECLARED (divergent)`. Two crate tests fail with it. This is the C-5 interplay reproduced on demand: without the trigger the cascade quietly deletes an account's transfer bookkeeping through a category the caller never named |
 | remove the deepest-first ordering (sort by id alone) | `prune-three-generations-named-together-are-counted-as-three` fails: `deleted` is 2, not 3, and parity goes `MISDECLARED (divergent)`. **The two-row spec beside it still passed** — the child's id happens to sort before the parent's, so id order IS deepest-first for that pair, by luck. Recorded because a family that only tested the pair would have been asserting an accident; the three-generation spec is the one that bites |
 
+**From the ingest pair (2026-08-08, 308 specs):**
+
+| break | result |
+| --- | --- |
+| remove the conflict target: drop `ON CONFLICT (user_id, import_source, import_source_id) DO NOTHING` from the file importer's INSERT | **3 verb specs fail and all three go `MISDECLARED (divergent)`** — SQLite raises `constraint_violated` where Postgres skips the row, the overlapping-chunk spec loses its new row (`rows_in_account` 2 not 3, balance `-29.25` not `-31.75`, `audit_trail` NONE), and 2 of the 18 crate tests fail with them. This is the double-post protection reproduced in the negative: with the clause gone, a re-posted chunk no longer inserts twice — it fails the import outright, which is the *other* half of what the migration bought |
+| put back the rule `20260722140000` replaced: `ORDER BY MAX(date) DESC` alone, without `COUNT(*) DESC` | 2 verb specs fail, both `MISDECLARED (divergent)`: `fed_row_n_1` comes back `Fuel` where both engines say `Groceries`. **`cargo test` still passes**, and that is the finding rather than a gap — the crate tests cover the tie the CLOUD has no rule for, which is unaffected by dropping the count. The habit rule has no local-only half, so the differential harness is the only thing that can catch it, and it does |
+| disable B-4's first-import branch (`backfill: false && …`) | **6 verb specs fail**, all `MISDECLARED (divergent)`, and every one of them on `stored_balances`: `100.00/112.00` becomes `88.00/100.00`, `100.00/120.00` becomes `80.00/100.00`, and the two-account sync moves both accounts' `balance` instead of both accounts' opening figures. 3 of the 18 crate tests fail with them. Note which specs failed: four of the six are not B-4 specs at all — they are dedupe and provenance specs that happen to assert the balances afterwards, which is what asserting state on every spec buys |
+
 `cargo test` fails alongside every one of these; the counts are in the table.
 
 ### Current run
 
-**259 verb specs · 259 pass · 7 declared divergences · 24 single-engine**,
+**308 verb specs · 308 pass · 9 declared divergences · 24 single-engine**,
 2026-08-08, against a reference cluster rebuilt from the full migration history.
-`npm run test:local-sqlite` is 66/66 and `cargo test` is 203.
+`npm run test:local-sqlite` is 66/66 and `cargo test` is 237.
 
 The count in this section has been behind twice, and the drift is worth one
 line rather than a quiet edit: it read **172** while the suite had already grown
-to 217 with the restore family, and this batch adds 42 (18 for
-`delete_unused_categories`, 24 for `verify_integrity`). The 24 are all
-single-engine, so the number of specs that actually COMPARE two engines is 235.
+to 217 with the restore family, then 259 with the prune and the checker. The
+ingest pair adds 49 — 22 for `import_transactions` and 27 for
+`import_bank_transactions`, all of them two-engine — so 284 of the 308 actually
+COMPARE two engines and 24 (`verify_integrity`, which is not a port of anything)
+run on one.
 
 ### What became of five failures, 2026-08-08
 
@@ -866,6 +893,47 @@ has one writer), so there is nothing to send. It is ported anyway, and the
 mutation table above is where it earned its keep.
 
 ## Findings this harness produced
+
+- **A refusal order nobody would have chosen, and the port keeps it.**
+  `import_transactions_atomic` runs its four provenance checks BEFORE it reads
+  the account, so a request aimed at an account the caller does not own is told
+  that its own keys are malformed first. MEASURED with both faults true at once
+  (`probe-ingest1.sh` §3). It leaks nothing — every one of those checks reads the
+  payload alone — but a port that tidied the order would answer *"not your
+  account"* to a client bug, and the client would retry for ever against the
+  right account. `import-a-repeated-key-is-named-before-the-account-is-looked-at`
+  is the spec, and it needs both faults in one payload to say anything at all.
+- **Payee memory has a tie-break that does not exist.**
+  `payee_memory_category` orders on `COUNT(*) DESC, MAX(date) DESC,
+  MAX(created_at) DESC`, and two rows written by one import share all three.
+  MEASURED (`probe-ingest4.sh`, repeated three times): for `{Aaa, Zzz}` the answer
+  is `Zzz` whichever was inserted first, and for `{Groceries, Fuel}` it is
+  whichever was inserted *second*. Those two observations contradict each other,
+  so it is not a rule — it is the plan's grouping order surfacing. The port
+  therefore states a fourth key of its own (`category ASC`), documents it as a
+  **strengthening where the cloud has no rule**, and deliberately writes NO
+  differential spec for a total tie: a spec that constructed one would be
+  asserting the artefact. The three ties the cloud *does* specify each have a
+  spec; the fourth is a crate test.
+- **The bank importer's ownership check has a hole, and it is measured rather
+  than closed.** The account is verified in the SECOND loop, which visits only
+  accounts that received a row — so a sync whose rows are ALL skipped by the
+  dedupe never checks the account at all, and answers `{inserted 0, skipped 1}`
+  for an account belonging to somebody else. MEASURED on both engines.
+  `feed-an-account-whose-rows-were-all-skipped-is-never-checked` reproduces it on
+  purpose, because a local port that closed it would stop being a port; in the
+  cloud the exposure is bounded by the function being service-role only with
+  exactly one caller.
+- **B-4's rebase is arithmetically right and starts from a figure that is not.**
+  The first feed import moves `initial_balance` by the batch's sum, and B-1
+  survives it exactly — which is what makes the shortfall invisible.
+  `api/banking/sync-accounts.ts:255-273` seeds a feed-created account with
+  `initial_balance` set to TODAY's snapshot, so what the rebase leaves behind is
+  "the balance ninety days ago" rather than an opening balance, and every
+  transaction older than the provider's window is missing from both sides of the
+  identity. That is TS-F7. It is recorded in the verb rather than fixed, because
+  the fix is to the cloud's account seeding and a local edition that quietly
+  disagreed would no longer be a port.
 
 - **`create_transaction_atomic` silently stopped honouring `is_cleared` — found,
   and now repaired.** `20260707120000:117` added it; `20260808090000:96-98` says
