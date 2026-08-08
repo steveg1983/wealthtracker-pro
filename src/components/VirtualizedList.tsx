@@ -29,8 +29,22 @@ export interface VirtualizedListProps<T> {
    * does nothing at all when it is already visible. Keyboard row-stepping
    * uses nearest: centring on every arrow key would heave the whole list
    * under the user one line at a time.
+   *
+   * A row that has just grown an editor inside it wants centre too — the row
+   * being worked on belongs in the middle, with its neighbours either side.
+   * The register's full rule is written out in AccountTransactions.
    */
   scrollToAlign?: 'center' | 'nearest';
+  /**
+   * A count that says "asked again".
+   *
+   * scrollToIndex alone answers "which row", and a request for the row that is
+   * already the target is not a change React can see. So a caller that needs
+   * the SAME row placed the SAME way a second time — the register re-centring a
+   * row whose editor has just been re-opened, after the user has scrolled off
+   * somewhere else — bumps this instead, and the scroll runs again.
+   */
+  scrollToToken?: number;
   /**
    * A pulse asking the list to park at its FOOT (last item fully visible).
    * Any change to a truthy value performs the scroll once; 0/undefined means
@@ -87,6 +101,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   threshold = 100,
   scrollToIndex,
   scrollToAlign = 'center',
+  scrollToToken,
   scrollToBottomToken,
   onItemsRendered
 }: VirtualizedListProps<T>) {
@@ -170,6 +185,11 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   // virtual path; on the plain path it is rect arithmetic against the scroll
   // container. Retried at 0/100/300ms: AutoSizer's first pass is zero-height,
   // and a scroll issued against a zero-height list clamps to the top.
+  //
+  // Declared AFTER the re-measure above, and that order is load-bearing: a
+  // render that both grows a row (an editor opening inside it) and asks for
+  // that row to be brought into view must forget the old heights first, or the
+  // scroll is computed against the geometry the list had a moment ago.
   useEffect(() => {
     if (scrollToIndex === undefined || scrollToIndex < 0 || scrollToIndex >= items.length) return;
     const apply = (): void => {
@@ -205,7 +225,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
     apply();
     const timers = [setTimeout(apply, 100), setTimeout(apply, 300)];
     return () => timers.forEach(clearTimeout);
-  }, [scrollToIndex, scrollToAlign, items.length]);
+  }, [scrollToIndex, scrollToAlign, scrollToToken, items.length]);
 
   // The item count as of the latest render, for the foot-scroll below. Read
   // through a ref so that scroll fires ONCE per pulse: with items.length in

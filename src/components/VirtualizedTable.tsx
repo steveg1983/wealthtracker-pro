@@ -61,6 +61,12 @@ export interface VirtualizedTableProps<T> {
   scrollToKey?: string | null;
   /** How to place that row: centred (default) or the least scroll that shows it. */
   scrollToAlign?: 'center' | 'nearest';
+  /**
+   * A count that says "asked again". Change it — leaving scrollToKey and
+   * scrollToAlign alone — to re-issue the SAME request, which is how a caller
+   * re-centres a row the user has since scrolled away from. See VirtualizedList.
+   */
+  scrollToToken?: number;
   /** A pulse asking the list to park at its foot. See VirtualizedList. */
   scrollToBottomToken?: number;
   /**
@@ -271,6 +277,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
   onColumnResize,
   scrollToKey,
   scrollToAlign,
+  scrollToToken,
   scrollToBottomToken,
   rowDomId,
   rowDetail
@@ -296,17 +303,36 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
    * The height of each row: the ordinary one, plus the detail on the one row
    * that carries it.
    *
-   * A plain number while nothing is expanded, so the list stays on
-   * react-window's FixedSizeList — cheaper, and the path every other table
-   * here uses. A new function identity whenever the expanded row moves, which
-   * is what tells VirtualizedList to make react-window forget its cached row
-   * offsets.
+   * ─ WHY A TABLE THAT CAN EXPAND STAYS A FUNCTION EVEN WHEN NOTHING IS ────────
+   * VirtualizedList picks between react-window's two list components by asking
+   * whether this is a number or a function. They are DIFFERENT COMPONENT TYPES,
+   * so going from one to the other unmounts the scroll container and mounts a
+   * fresh one — and a fresh list is at offset zero, the top of the register.
+   *
+   * That was the owner's bug: "Sometimes when I update the category and then
+   * press 'save & next', I get kicked back to the start of the transaction
+   * list, which for my HSBC Premier Current Account is 2008." Every way of
+   * putting the quick-edit box away — Escape, the ×, the Save that ends a run,
+   * opening the full editor over it — took the row's extra height away with it,
+   * turned this back into a number, and teleported eleven thousand rows to
+   * 2008. It looked intermittent because the ways that OPEN the box also ask
+   * for a row to be scrolled to, which hid the jump by immediately correcting
+   * it; the ways that CLOSE it ask for nothing, so the top is where you stayed.
+   *
+   * So the shape is decided by whether this table can expand a row AT ALL —
+   * which is what passing the rowDetail prop says, null or not — and never by
+   * whether one happens to be expanded this second. Tables that never pass it
+   * keep the cheaper fixed-size list exactly as before.
    */
+  const canExpandRows = rowDetail !== undefined;
   const itemHeight = useMemo<number | ((index: number) => number)>(() => {
-    if (detailIndex < 0 || !rowDetail) return rowHeight;
-    const detailHeight = rowDetail.height;
+    if (!canExpandRows) return rowHeight;
+    // detailIndex is -1 when nothing is expanded, and also when the expanded
+    // row is not in the current list (a filter hid it) — in both cases every
+    // row is its ordinary height, and no row is a special case.
+    const detailHeight = detailIndex >= 0 && rowDetail ? rowDetail.height : 0;
     return (index: number): number => (index === detailIndex ? rowHeight + detailHeight : rowHeight);
-  }, [detailIndex, rowDetail, rowHeight]);
+  }, [canExpandRows, detailIndex, rowDetail, rowHeight]);
 
   // Memoize row renderer
   const renderRow = useCallback((item: T, index: number, style: React.CSSProperties) => {
@@ -480,12 +506,19 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         renderItem={renderRow as (item: unknown, index: number, style: React.CSSProperties) => React.ReactElement}
         getItemKey={getItemKey as (item: unknown, index: number) => string}
         itemHeight={itemHeight}
+        // What react-window should assume about rows it has not measured yet.
+        // Left at its 80px default it was guessing nearly twice the truth for a
+        // 44px register, which skews the total height — and with it every offset
+        // computed from the end of the list, including where "centre this row"
+        // lands. The rows are all this tall; say so.
+        estimatedItemSize={rowHeight}
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoading={isLoading}
         threshold={threshold}
         scrollToIndex={scrollToIndex}
         scrollToAlign={scrollToAlign}
+        scrollToToken={scrollToToken}
         scrollToBottomToken={scrollToBottomToken}
       />
     </div>

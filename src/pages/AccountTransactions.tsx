@@ -108,6 +108,64 @@ const SORT_FIELD_LABELS: Record<TransactionSortField, string> = {
 };
 
 /**
+ * How the register brings a row into view — and the one rule that decides it.
+ *
+ * ─ THE RULE ───────────────────────────────────────────────────────────────
+ * Opening or moving the QUICK-EDIT BOX centres the row it is about. Moving
+ * only the HIGHLIGHT does not.
+ *
+ *   What just happened                          Alignment
+ *   ──────────────────────────────────────────  ─────────
+ *   A ?txn= deep link arrived                   centre
+ *   A click opened the box on a row             centre
+ *   F2 opened (or re-opened) the box            centre
+ *   Save & Next stepped an editor to the next   centre
+ *   Save & Previous stepped it back             centre
+ *   Arrow / Page / Home / End / type-ahead      nearest
+ *   A delete moved the highlight to the next    nearest
+ *   A second click opened the full editor       neither — the modal is the view
+ *   Escape let go of the row                    neither — nothing is being worked
+ *
+ * WHY CENTRE FOR THE BOX. The owner: "It is nice to see the transactions above
+ * and below the one you are working on." A box that opens at the foot of the
+ * screen shows its row and nothing after it; centred, the row being worked has
+ * its neighbours either side, which is how a register is read. Both ends clamp
+ * — react-window's 'center' and the non-virtualised path's arithmetic alike
+ * stop at the top and at the foot — so the first and last few rows simply sit
+ * as near the middle as the list allows, which is the exception he named.
+ *
+ * The box is part of its row's height (see RowDetail), so centring the row
+ * centres the row and its box together.
+ *
+ * WHY NOT FOR THE HIGHLIGHT. Centring on every keystroke would heave the whole
+ * register under the user one line at a time; 'nearest' lets the highlight walk
+ * down the screen and moves the list only when it reaches the edge. That holds
+ * whether or not the box happens to be open — an arrow key is browsing, and
+ * browsing should not move the page.
+ */
+type RowScrollAlign = 'center' | 'nearest';
+
+interface RowScrollRequest {
+  rowId: string;
+  align: RowScrollAlign;
+  /**
+   * Which request this is.
+   *
+   * Asking for the same row with the same alignment twice is not a change React
+   * can see, so without a count F2 on a row the user has since scrolled away
+   * from would sit there doing nothing at all.
+   */
+  token: number;
+}
+
+/** The same kind of request again, counted — see RowScrollRequest.token. */
+const nextRowScroll = (
+  previous: RowScrollRequest | null,
+  rowId: string,
+  align: RowScrollAlign
+): RowScrollRequest => ({ rowId, align, token: (previous?.token ?? 0) + 1 });
+
+/**
  * Is this element somewhere the user is TYPING?
  *
  * Every keyboard shortcut on this page defers to it: a register that swallows
@@ -344,7 +402,7 @@ export default function AccountTransactions() {
     // categorisation drill sends them), so the row arrives ready to edit
     // rather than merely pointed at.
     setQuickEditOpen(true);
-    setRowScroll({ rowId: txn, align: 'center' });
+    setRowScroll(previous => nextRowScroll(previous, txn, 'center'));
   }, [transactions, location.search]);
 
   const toggleColumn = useCallback((key: string) => {
@@ -405,15 +463,13 @@ export default function AccountTransactions() {
   /** The type-ahead search in progress: what has been typed, and when. */
   const typeAheadRef = useRef<{ buffer: string; at: number }>({ buffer: '', at: 0 });
   /**
-   * The row the register should bring into view, and how.
+   * The row the register should bring into view, how, and which request it is.
    *
-   * 'center' is the deep link: an unfamiliar row in an unfamiliar place, so it
-   * lands in the middle. 'nearest' is a keyboard step, which scrolls the least
-   * amount that shows the row and nothing at all when it is already visible.
-   * Manual row CLICKS set neither — a click means the row is already on screen,
-   * and yanking the viewport would fight the user's own scrolling.
+   * Which alignment each thing that can happen asks for — and why — is written
+   * out once, at RowScrollRequest above. Null means nothing has been asked for:
+   * the list stays exactly where the user left it.
    */
-  const [rowScroll, setRowScroll] = useState<{ rowId: string; align: 'center' | 'nearest' } | null>(null);
+  const [rowScroll, setRowScroll] = useState<RowScrollRequest | null>(null);
   
   // State for quick add form
   const [quickAddForm, setQuickAddForm] = useState({
@@ -706,12 +762,12 @@ export default function AccountTransactions() {
     // has simply moved from the foot of the page to the row it is about.
     setSelectedTransactionId(item.id);
     setQuickEditOpen(true);
-    // The row grows by the height of the box, so the box can open below the
-    // fold on a row that was itself perfectly visible. 'nearest' scrolls the
-    // least amount that shows the WHOLE row — box included — and does nothing
-    // at all when it already fits, so a click in the middle of the register
-    // never yanks the viewport.
-    setRowScroll({ rowId: item.id, align: 'nearest' });
+    // …in the MIDDLE of the register, with the transactions either side of it
+    // still readable. The owner's ask, and the reason the box is worth opening
+    // where it opens: a row clicked near the foot would otherwise put its box
+    // half off the screen, and a row clicked anywhere shows only what follows
+    // it. See RowScrollRequest for the whole rule.
+    setRowScroll(previous => nextRowScroll(previous, item.id, 'center'));
   }, [selectedTransactionId, quickEditOpen, openFullEditor]);
 
   const quickEditTarget = useMemo(
@@ -801,14 +857,13 @@ export default function AccountTransactions() {
     const nextTransaction = transactionsWithBalance.find(t => t.id === nextId) ?? null;
     setSelectedTransactionId(nextId);
     setSelectedTransaction(nextTransaction);
-    // Save & Next has to SHOW you the next one. Working down a freshly
-    // imported statement, the row it moves to is the one just below the fold
-    // within a screenful — the quick editor then names a transaction that is
-    // nowhere on screen, and the user is editing blind. 'nearest' scrolls the
-    // least amount that brings it into view and does nothing when it is
-    // already there, so a whole visible page can be worked through without the
-    // list moving at all.
-    setRowScroll({ rowId: nextId, align: 'nearest' });
+    // Save & Next has to SHOW you the next one — and show it in the same place
+    // every time. The box moves to it, so the row it moves to is centred like
+    // any other row the box opens on: working down a statement, each row in
+    // turn arrives mid-screen with its neighbours either side, rather than the
+    // work creeping towards the foot of the register a line at a time. See
+    // RowScrollRequest.
+    setRowScroll(previous => nextRowScroll(previous, nextId, 'center'));
     return true;
   }, [getNextTransactionId, transactionsWithBalance]);
 
@@ -829,8 +884,10 @@ export default function AccountTransactions() {
     const previousTransaction = transactionsWithBalance.find(t => t.id === previousId) ?? null;
     setSelectedTransactionId(previousId);
     setSelectedTransaction(previousTransaction);
-    // Same reason as Save & Next above, in the other direction.
-    setRowScroll({ rowId: previousId, align: 'nearest' });
+    // Same reason as Save & Next above, in the other direction — and centred
+    // for the same reason too: a run that centres going forwards and does not
+    // going back would shift the register under anyone stepping either way.
+    setRowScroll(previous => nextRowScroll(previous, previousId, 'center'));
     return true;
   }, [getPreviousTransactionId, transactionsWithBalance]);
 
@@ -938,7 +995,10 @@ export default function AccountTransactions() {
     }
     setSelectedTransactionId(next.id);
     setSelectedTransaction(next);
-    setRowScroll({ rowId: next.id, align: 'nearest' });
+    // Moving the HIGHLIGHT, not the box: the least scroll that shows the row,
+    // and nothing at all while it is already on screen. See RowScrollRequest
+    // for why this one stays 'nearest' when the click and the box centre.
+    setRowScroll(previous => nextRowScroll(previous, next.id, 'nearest'));
     return true;
   }, [navigableRows, selectedTransactionId]);
 
@@ -1330,8 +1390,10 @@ export default function AccountTransactions() {
         setQuickEditFocus({ field: 'date', openCalendar: true });
         // The box lives in the register itself now, so an expanded table is no
         // obstacle: it is on screen either way, and collapsing it would undo
-        // something the user asked for.
-        setRowScroll({ rowId: activeRow.id, align: 'nearest' });
+        // something the user asked for. Centred, like every other way the box
+        // opens — including on the row it is already on, which is why the
+        // request carries a count (see RowScrollRequest.token).
+        setRowScroll(previous => nextRowScroll(previous, activeRow.id, 'center'));
         break;
       }
       case ' ': {
@@ -1531,7 +1593,10 @@ export default function AccountTransactions() {
     if (selectedTransactionId === target.id) {
       setSelectedTransactionId(successorId);
       setSelectedTransaction(successorId ? transactionsWithBalance.find(t => t.id === successorId) ?? null : null);
-      setRowScroll(successorId ? { rowId: successorId, align: 'nearest' } : null);
+      // 'nearest', which here means "don't move": the successor takes the
+      // deleted row's own place on screen, so there is nothing to scroll to and
+      // centring would move the register for no reason at all.
+      setRowScroll(previous => (successorId ? nextRowScroll(previous, successorId, 'nearest') : null));
     }
   }, [
     deleteConfirmTransaction, deleteTransaction, getNextTransactionId, getPreviousTransactionId,
@@ -2315,6 +2380,7 @@ export default function AccountTransactions() {
           rowHeight={compactView ? 36 : 44}
           scrollToKey={rowScroll?.rowId ?? null}
           scrollToAlign={rowScroll?.align}
+          scrollToToken={rowScroll?.token}
           scrollToBottomToken={footScrollToken}
           rowDetail={quickEditRowDetail}
           selectedItems={selectedIdSet}

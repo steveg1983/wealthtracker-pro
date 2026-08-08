@@ -675,8 +675,36 @@ export default function QuickEditTransactionPanel({
           )}
         </div>
 
-        {/* Actions */}
+        {/* Actions — the small print where the field LABELS are, the buttons
+            where the field INPUTS are.
+
+            The owner: "Move the Save & Next and Save buttons below the text and
+            the text above. Those buttons should be the same level as date /
+            description and category." So this column takes the same two-part
+            shape as every field beside it: something small and grey on top,
+            something 42px tall underneath, and the box reads as one row of
+            controls rather than two staggered ones.
+
+            items-end on the row above is what holds the alignment: whatever
+            height the hint takes (it wraps, deliberately — see its own note),
+            the buttons stay on the inputs' line because they are the last thing
+            in their column. The column holds the same two things it always did,
+            so the box is exactly as tall as it was — QUICK_EDIT_BOX_HEIGHT is
+            unchanged, and the register's row arithmetic with it. */}
         <div className="flex flex-col items-end gap-1">
+          {/* The rhythm nobody would guess, said where it is used, and said as
+              consequences rather than key names. Capped and allowed to wrap so
+              it never widens this column and squeezes the fields. The printed
+              list (? or View ▸ Keyboard shortcuts) carries the rest.
+
+              It changes on the last row because there is nothing to move on to
+              there, and a hint that promises a move that cannot happen is worse
+              than no hint at all. */}
+          <span className="max-w-[15rem] text-right text-[11px] leading-tight text-gray-500 dark:text-gray-400 pr-1">
+            {onNext
+              ? 'Enter accepts · Enter again saves & moves on · Esc closes'
+              : 'Enter accepts · Enter again saves · Esc closes'}
+          </span>
           <div className="flex items-center gap-2">
             {/* "Confirm" only appears when there is a guess to agree with, and it
                 sits FIRST because on a freshly imported row it is the action the
@@ -725,19 +753,6 @@ export default function QuickEditTransactionPanel({
               <XIcon size={16} />
             </button>
           </div>
-          {/* The rhythm nobody would guess, said where it is used, and said as
-              consequences rather than key names. Capped and allowed to wrap so
-              it never widens this column and squeezes the fields. The printed
-              list (? or View ▸ Keyboard shortcuts) carries the rest.
-
-              It changes on the last row because there is nothing to move on to
-              there, and a hint that promises a move that cannot happen is worse
-              than no hint at all. */}
-          <span className="max-w-[15rem] text-right text-[11px] leading-tight text-gray-500 dark:text-gray-400 pr-1">
-            {onNext
-              ? 'Enter accepts · Enter again saves & moves on · Esc closes'
-              : 'Enter accepts · Enter again saves · Esc closes'}
-          </span>
         </div>
       </div>
 

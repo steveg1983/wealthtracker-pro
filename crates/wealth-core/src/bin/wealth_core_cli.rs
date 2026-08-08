@@ -49,6 +49,12 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use serde::{Deserialize, Serialize};
+use wealth_core::admission::{
+    plan_account_identifier_match, plan_account_identifiers, plan_category_admission,
+    plan_cleared_flag, plan_feed_overlap, plan_statement_bank_balance, plan_statement_duplicates,
+    PlanAccountIdentifierMatch, PlanAccountIdentifiers, PlanCategoryAdmission, PlanClearedFlag,
+    PlanFeedOverlap, PlanStatementBankBalance, PlanStatementDuplicates,
+};
 use wealth_core::db;
 use wealth_core::error::CoreError;
 use wealth_core::verbs::{
@@ -139,6 +145,75 @@ enum Command {
     // trace that establishes it. Its payload is `{}` — it takes not even an
     // owner, because integrity is a property of the file.
     VerifyIntegrity(Box<VerifyIntegrity>),
+    // ── The admission surface ────────────────────────────────────────────────
+    //
+    // Seven commands that decide what a parsed row MEANS, and write nothing.
+    // They are dispatched by `plan` below, BEFORE the database is opened, and
+    // sending one with `--db` is a fault: see that function for why the refusal
+    // is worth more than the convenience.
+    //
+    // None of these is a port of a Postgres function — there is none to port.
+    // Their oracle is the TypeScript module each one names, executed side by
+    // side with this binary by `scripts/local-sqlite/admission.mjs`.
+    PlanStatementDuplicates(Box<PlanStatementDuplicates>),
+    PlanStatementBankBalance(Box<PlanStatementBankBalance>),
+    PlanFeedOverlap(Box<PlanFeedOverlap>),
+    PlanClearedFlag(Box<PlanClearedFlag>),
+    PlanAccountIdentifiers(Box<PlanAccountIdentifiers>),
+    PlanAccountIdentifierMatch(Box<PlanAccountIdentifierMatch>),
+    PlanCategoryAdmission(Box<PlanCategoryAdmission>),
+}
+
+/// The admission commands, answered without a database.
+///
+/// `Err(command)` hands a write verb back untouched, so the write dispatch
+/// below stays exhaustive: a verb added to `Command` and forgotten here falls
+/// through to that match and fails to compile, which is the failure everybody
+/// wants and nobody gets from a catch-all on both sides.
+fn plan(command: Command) -> Result<Result<serde_json::Value, CoreError>, Command> {
+    match command {
+        Command::PlanStatementDuplicates(payload) => {
+            Ok(as_json(plan_statement_duplicates(&payload)))
+        }
+        Command::PlanStatementBankBalance(payload) => {
+            Ok(as_json(plan_statement_bank_balance(&payload)))
+        }
+        Command::PlanFeedOverlap(payload) => Ok(as_json(plan_feed_overlap(&payload))),
+        Command::PlanClearedFlag(payload) => Ok(as_json(plan_cleared_flag(&payload))),
+        Command::PlanAccountIdentifiers(payload) => Ok(as_json(plan_account_identifiers(&payload))),
+        Command::PlanAccountIdentifierMatch(payload) => {
+            Ok(as_json(plan_account_identifier_match(&payload)))
+        }
+        Command::PlanCategoryAdmission(payload) => Ok(as_json(plan_category_admission(&payload))),
+        other => Err(other),
+    }
+}
+
+/// One verb's outcome, as the wire's response.
+///
+/// A storage fault is `Err`: the runner must be able to tell "the verb refused"
+/// from "the harness is broken", and the two leave by different doors.
+fn respond(outcome: Result<serde_json::Value, CoreError>) -> Result<Response, String> {
+    Ok(match outcome {
+        Ok(result) => Response::Ok { ok: true, result },
+        Err(CoreError::Storage(error)) => return Err(format!("storage fault: {error}")),
+        Err(CoreError::Refused(refusal)) => Response::Error {
+            ok: false,
+            error: ErrorBody {
+                code: refusal.code().to_owned(),
+                message: refusal.message().to_owned(),
+                hint: refusal.hint().map(ToOwned::to_owned),
+            },
+        },
+        Err(error @ CoreError::InvalidCommand(_)) => Response::Error {
+            ok: false,
+            error: ErrorBody {
+                code: error.code().to_owned(),
+                message: error.to_string(),
+                hint: None,
+            },
+        },
+    })
 }
 
 #[derive(Debug, Serialize)]
@@ -241,10 +316,11 @@ fn run() -> Result<Response, String> {
         });
     }
 
-    let path = database.ok_or_else(|| "--db <path> is required".to_owned())?;
-
     if apply_schema {
-        let connection = rusqlite::Connection::open(&path).map_err(|error| error.to_string())?;
+        let path = database
+            .as_ref()
+            .ok_or_else(|| "--db <path> is required".to_owned())?;
+        let connection = rusqlite::Connection::open(path).map_err(|error| error.to_string())?;
         db::configure(&connection).map_err(|error| error.to_string())?;
         wealth_core::apply_schema(&connection).map_err(|error| error.to_string())?;
         return Ok(Response::Ok {
@@ -275,9 +351,32 @@ fn run() -> Result<Response, String> {
         }
     };
 
+    // THE ADMISSION SURFACE IS ANSWERED BEFORE A FILE EXISTS
+    // ------------------------------------------------------
+    // A `plan_*` command decides what a row MEANS; it does not write, and the
+    // easiest way to keep that true is for it never to be holding a database.
+    // Being handed one is therefore a FAULT rather than an ignored argument: a
+    // caller that passes `--db` to a planner has misunderstood which half of
+    // the surface it is talking to, and a silent success would leave it
+    // misunderstanding that until the day the planner grew a write.
+    let command = match plan(command) {
+        Ok(outcome) => {
+            if database.is_some() {
+                return Err(
+                    "a plan_* command decides what a row means and writes nothing, so it is \
+                     never handed a database; drop --db"
+                        .to_owned(),
+                );
+            }
+            return respond(outcome);
+        }
+        Err(command) => command,
+    };
+
+    let path = database.ok_or_else(|| "--db <path> is required".to_owned())?;
     let mut connection = db::open(&path).map_err(|error| error.to_string())?;
 
-    let outcome = match command {
+    let outcome: Result<serde_json::Value, CoreError> = match command {
         Command::CreateTransaction(payload) => {
             create_transaction(&mut connection, *payload).and_then(as_json)
         }
@@ -345,26 +444,23 @@ fn run() -> Result<Response, String> {
         Command::VerifyIntegrity(payload) => {
             verify_integrity(&connection, *payload).and_then(as_json)
         }
+        // A self-check with a name, and the same shape as the split writer's
+        // `split_write_inconsistent`: `plan` above answers every one of these
+        // and returns before a file is ever opened, so nothing can arrive here.
+        // Spelling the seven names out rather than writing `_` is what makes
+        // the compiler refuse a NEW verb that nobody dispatched — and if a plan
+        // verb is ever added to this arm and forgotten in `plan`, the caller is
+        // told so by name instead of being handed a connection.
+        Command::PlanStatementDuplicates(_)
+        | Command::PlanStatementBankBalance(_)
+        | Command::PlanFeedOverlap(_)
+        | Command::PlanClearedFlag(_)
+        | Command::PlanAccountIdentifiers(_)
+        | Command::PlanAccountIdentifierMatch(_)
+        | Command::PlanCategoryAdmission(_) => Err(CoreError::InvalidCommand(
+            "plan_dispatch_missed: an admission command reached the write dispatch".to_owned(),
+        )),
     };
 
-    Ok(match outcome {
-        Ok(result) => Response::Ok { ok: true, result },
-        Err(CoreError::Storage(error)) => return Err(format!("storage fault: {error}")),
-        Err(CoreError::Refused(refusal)) => Response::Error {
-            ok: false,
-            error: ErrorBody {
-                code: refusal.code().to_owned(),
-                message: refusal.message().to_owned(),
-                hint: refusal.hint().map(ToOwned::to_owned),
-            },
-        },
-        Err(error @ CoreError::InvalidCommand(_)) => Response::Error {
-            ok: false,
-            error: ErrorBody {
-                code: error.code().to_owned(),
-                message: error.to_string(),
-                hint: None,
-            },
-        },
-    })
+    respond(outcome)
 }

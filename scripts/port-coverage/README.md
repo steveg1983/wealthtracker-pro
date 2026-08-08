@@ -245,12 +245,26 @@ When Phase 1 gets its own pipeline, it slots in beside the differential harness
 — after lint and types, before the SQLite suite:
 
 ```yaml
-- run: npm run port:coverage       # every money file is dispositioned
-- run: npm run test:local-sqlite   # the ported ones actually behave
+- run: npm run port:coverage         # every money file is dispositioned
+- run: npm run test:local-sqlite     # the ported constraints actually fire
+- run: npm run test:local-verbs      # the ported verbs agree with the cloud
+- run: npm run test:local-admission  # the ported DECISIONS agree with the TypeScript
 ```
 
-That ordering is the point: the first job says nothing was forgotten, the second
-says what was remembered is correct. Neither claim is worth much alone.
+That ordering is the point: the first job says nothing was forgotten, the rest
+say what was remembered is correct. Neither claim is worth much alone.
+
+The third lane is the one that matters most to this gate, and it is worth a
+sentence. A `ported` mark on a `.sql` file names specs that compare the port
+against Postgres, so the claim is checkable by a machine that has never read the
+migration. A `ported` mark on a `.ts` file used to be a claim about a
+transliteration — somebody copied the Vitest cases across, and if the module
+changed afterwards nothing would say so. `npm run test:local-admission` runs the
+TypeScript module itself, so the four `.ts` files flipped in the 2026-08-08
+admission work are held to the shipped code rather than to a copy of it. The
+`note` fields on the seven files beside them record exactly which part of each
+is ported and which part is not, because a per-file status cannot say that and
+pretending otherwise is the mistake the audits kept making.
 
 Two conditions to meet before it becomes blocking, since it fails on day one by
 construction: a `pending` count that is a deliberate backlog rather than a

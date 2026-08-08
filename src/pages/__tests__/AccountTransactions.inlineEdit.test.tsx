@@ -247,6 +247,30 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     ).toBeInTheDocument();
   });
 
+  it('reads as one row: the small print on the label line, the buttons on the input line', async () => {
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    // The owner: "Move the Save & Next and Save buttons below the text and the
+    // text above. Those buttons should be the same level as date / description
+    // and category."
+    const hint = within(quickEditBox()).getByText('Enter accepts · Enter again saves & moves on · Esc closes');
+
+    // The hint comes FIRST in its column, which is what puts the buttons on the
+    // inputs' line: the column is bottom-aligned with the fields beside it, so
+    // whichever of the two is last is the one that lands on that line.
+    expect(hint.compareDocumentPosition(saveAndNext()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(saveAndNext().parentElement?.previousElementSibling).toBe(hint);
+
+    // …and they are the same height as the fields they line up with.
+    //
+    // WHAT JSDOM CANNOT DO: prove they LOOK level — it performs no layout, so
+    // the declared height is the contract and the eye is a browser check.
+    expect(descriptionField().className).toContain('h-[42px]');
+    expect(saveAndNext().className).toContain('h-[42px]');
+    expect(saveButton().className).toContain('h-[42px]');
+  });
+
   it('accepts the typed description on the first Enter, and saves on the next', async () => {
     const user = userEvent.setup();
     await openRegister();

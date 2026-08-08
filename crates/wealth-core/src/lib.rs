@@ -191,6 +191,23 @@
 //! answer below the third is an artefact of its query plan, so the port states a
 //! fourth of its own and says out loud that it is not a port of anything.
 //!
+//! And then [`admission`] — the surface the ingest verbs sit behind, and the
+//! first thing in this crate that is **not** a port of a Postgres function.
+//! The twenty-one verbs above all had an oracle: a live RPC to be compared
+//! against, row for row. These rules have none. They are the decisions
+//! TypeScript makes about what a parsed row MEANS before any of those verbs
+//! sees it — which of two rows is the same payment, which figure on a statement
+//! is the balance, whether a card number may be stored, whether a heuristic
+//! match may redefine what an account reconciles against — and PHASE1-PLAN §5
+//! counts 48 invariants of that class, 35 % of the inventory, with no SQL side
+//! at all.
+//!
+//! Their oracle is the TypeScript itself, and it is executed rather than
+//! transcribed: `scripts/local-sqlite/admission.mjs` drives the real module and
+//! this crate from one payload and compares the two answers. See [`admission`]
+//! for the dividing line, for the one divergence the money type forces at three
+//! sites, and for what is deliberately still outstanding.
+//!
 //! What is deliberately NOT here is as much of the design as what is: no
 //! absolute balance setter, no verb that accepts SQL, and no general-purpose
 //! writer for the columns that have dedicated verbs. See [`verbs`].
@@ -210,6 +227,7 @@
 // harder to read. Backticks are used here for things you could type.
 #![allow(clippy::doc_markdown)]
 
+pub mod admission;
 pub mod audit;
 pub mod backup;
 pub mod db;
