@@ -1,14 +1,20 @@
 /**
- * QuickEditTransactionPanel — Money-style transfer flow.
+ * The register's row editor — Money-style transfer flow.
  *
  * Filing a transaction under a "To/From <account>" category must open the
  * match-or-create confirmation instead of writing the category blindly, and
  * the confirmed action must run the atomic link/create operation.
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import QuickEditTransactionPanel from './QuickEditTransactionPanel';
+import {
+  QuickEditRowProvider,
+  QuickEditFieldCell,
+  QuickEditActionStrip,
+  type QuickEditRowProviderProps,
+} from './QuickEditRow';
 import type { Transaction } from '../types';
 
 const mocks = vi.hoisted(() => ({
@@ -97,9 +103,30 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   }),
 }));
 
-/** File the panel's transaction under the To/From Savings category and save. */
+/**
+ * The register's table, in the smallest form that is honest — see the note in
+ * QuickEditRow.provenance.test.tsx. The columns and the row's height belong to
+ * the register; what is under test here is what filing under a To/From
+ * category does.
+ */
+function RowEditor(props: Omit<QuickEditRowProviderProps, 'children'>): React.JSX.Element {
+  return (
+    <QuickEditRowProvider {...props}>
+      <div role="row">
+        <div role="gridcell"><QuickEditFieldCell field="date" /></div>
+        <div role="gridcell"><QuickEditFieldCell field="description" /></div>
+        <div role="gridcell"><QuickEditFieldCell field="category" /></div>
+      </div>
+      <div role="row">
+        <div role="gridcell"><QuickEditActionStrip /></div>
+      </div>
+    </QuickEditRowProvider>
+  );
+}
+
+/** File the row's transaction under the To/From Savings category and save. */
 async function fileUnderToFromSavings() {
-  render(<QuickEditTransactionPanel transaction={source} onDismiss={vi.fn()} />);
+  render(<RowEditor transaction={source} onDismiss={vi.fn()} />);
 
   // Open the category picker and choose "To/From Savings"
   fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
@@ -113,7 +140,7 @@ async function fileUnderToFromSavings() {
   });
 }
 
-describe('QuickEditTransactionPanel — transfer flow', () => {
+describe('The register row editor — transfer flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -151,7 +178,7 @@ describe('QuickEditTransactionPanel — transfer flow', () => {
   });
 
   it("rejects the source account's own To/From category", async () => {
-    render(<QuickEditTransactionPanel transaction={source} onDismiss={vi.fn()} />);
+    render(<RowEditor transaction={source} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
     fireEvent.click(screen.getByText('To/From Current Account'));

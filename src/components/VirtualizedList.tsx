@@ -2,6 +2,7 @@ import React, { memo, useCallback, useRef, useMemo, useEffect, ReactNode } from 
 import { FixedSizeList as List, VariableSizeList, ListChildComponentProps } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import AutoSizer from 'react-virtualized-auto-sizer';
+import { deliverScroll } from '../utils/deliverScroll';
 
 export interface VirtualizedListProps<T> {
   items: T[];
@@ -183,8 +184,14 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
 
   // Bring the requested row into view. react-window owns the maths on the
   // virtual path; on the plain path it is rect arithmetic against the scroll
-  // container. Retried at 0/100/300ms: AutoSizer's first pass is zero-height,
-  // and a scroll issued against a zero-height list clamps to the top.
+  // container.
+  //
+  // `apply` reports whether there was anything to scroll, and deliverScroll
+  // keeps asking until there is — because on the virtual path there routinely
+  // ISN'T. AutoSizer renders no children at all until the browser has measured
+  // it, so react-window does not exist during the commit that asks for the
+  // scroll, and the ref this function reaches for is null. See deliverScroll
+  // for why a blind three-shot retry was not enough.
   //
   // Declared AFTER the re-measure above, and that order is load-bearing: a
   // render that both grows a row (an editor opening inside it) and asks for
@@ -192,16 +199,20 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   // scroll is computed against the geometry the list had a moment ago.
   useEffect(() => {
     if (scrollToIndex === undefined || scrollToIndex < 0 || scrollToIndex >= items.length) return;
-    const apply = (): void => {
-      if (listRef.current) {
+    const apply = (): boolean => {
+      const list = listRef.current;
+      if (list) {
         // react-window's 'auto' is exactly "nearest": it scrolls the minimum
         // needed and stays put when the row is already on screen.
-        listRef.current.scrollToItem(scrollToIndex, scrollToAlign === 'nearest' ? 'auto' : 'center');
-        return;
+        list.scrollToItem(scrollToIndex, scrollToAlign === 'nearest' ? 'auto' : 'center');
+        return true;
       }
       const container = plainContainerRef.current;
-      const row = container?.children[scrollToIndex] as HTMLElement | undefined;
-      if (!container || !row) return;
+      const candidate = container?.children[scrollToIndex];
+      // Not a cast: the collection is of Elements, and only an HTMLElement has
+      // the box this arithmetic reads.
+      const row = candidate instanceof HTMLElement ? candidate : null;
+      if (!container || !row) return false;
       // offsetTop answers to the nearest POSITIONED ancestor, which the
       // container is not — rects are unambiguous.
       const delta = row.getBoundingClientRect().top - container.getBoundingClientRect().top;
@@ -215,16 +226,15 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
         } else if (rowBottom > container.scrollTop + container.clientHeight) {
           container.scrollTop = rowBottom - container.clientHeight;
         }
-        return;
+        return true;
       }
       container.scrollTop = Math.max(
         0,
         rowTop - container.clientHeight / 2 + row.clientHeight / 2
       );
+      return true;
     };
-    apply();
-    const timers = [setTimeout(apply, 100), setTimeout(apply, 300)];
-    return () => timers.forEach(clearTimeout);
+    return deliverScroll(apply);
   }, [scrollToIndex, scrollToAlign, scrollToToken, items.length]);
 
   // The item count as of the latest render, for the foot-scroll below. Read
@@ -237,24 +247,28 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
     itemCountRef.current = items.length;
   }, [items.length]);
 
-  // Park at the foot. Same retry schedule and for the same reason as above.
+  // Park at the foot. Delivered the same way and for the same reason as above —
+  // and with the same benefit for a second kind of "not there yet": a register
+  // whose rows have not arrived has nothing to be at the foot OF, so an empty
+  // list is a reason to ask again rather than a scroll to give up on.
   useEffect(() => {
     if (!scrollToBottomToken) return;
-    const apply = (): void => {
+    const apply = (): boolean => {
       const count = itemCountRef.current;
-      if (count === 0) return;
-      if (listRef.current) {
-        listRef.current.scrollToItem(count - 1, 'end');
-        return;
+      if (count === 0) return false;
+      const list = listRef.current;
+      if (list) {
+        list.scrollToItem(count - 1, 'end');
+        return true;
       }
       const container = plainContainerRef.current;
+      if (!container) return false;
       // Beyond the maximum is fine: the DOM clamps scrollTop to
       // scrollHeight - clientHeight, which IS the foot.
-      if (container) container.scrollTop = container.scrollHeight;
+      container.scrollTop = container.scrollHeight;
+      return true;
     };
-    apply();
-    const timers = [setTimeout(apply, 100), setTimeout(apply, 300)];
-    return () => timers.forEach(clearTimeout);
+    return deliverScroll(apply);
   }, [scrollToBottomToken]);
 
 
@@ -291,16 +305,22 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
               return isVariableHeight ? (
                 <VariableSizeList<ItemData<T>>
                   ref={(list) => {
-                    // Handle both refs
-                    if (list) {
-                      listRef.current = list;
-                      variableListRef.current = list;
-                      if (typeof ref === 'function') {
-                        ref(list);
-                      } else if (ref && 'current' in ref) {
-                        // Type assertion for mutable ref
-                        (ref as React.MutableRefObject<unknown>).current = list;
-                      }
+                    // Null included, deliberately. React calls a ref with null
+                    // as the element goes away, and dropping that call left
+                    // these two pointing at an UNMOUNTED list — which happens
+                    // for real: a search that narrows a virtualised register
+                    // below the threshold takes react-window off screen and
+                    // puts the plain list up instead. Every scroll after that
+                    // was issued to a dead component and silently did nothing,
+                    // while the live container sat there unscrolled. A ref that
+                    // outlives its element is not a cache, it is a lie.
+                    listRef.current = list;
+                    variableListRef.current = list;
+                    if (typeof ref === 'function') {
+                      ref(list);
+                    } else if (ref && 'current' in ref) {
+                      // Type assertion for mutable ref
+                      (ref as React.MutableRefObject<unknown>).current = list;
                     }
                   }}
                   height={height}
@@ -324,15 +344,18 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
               ) : (
                 <List<ItemData<T>>
                   ref={(list) => {
-                    // Handle both refs
-                    if (list) {
-                      listRef.current = list;
-                      if (typeof ref === 'function') {
-                        ref(list);
-                      } else if (ref && 'current' in ref) {
-                        // Type assertion for mutable ref
-                        (ref as React.MutableRefObject<unknown>).current = list;
-                      }
+                    // Null included — see the variable-height list above.
+                    listRef.current = list;
+                    // This one is not a VariableSizeList, so nothing here can
+                    // be told to forget its measurements; leaving a previous
+                    // list in that ref would aim resetAfterIndex at a component
+                    // that is no longer on screen.
+                    variableListRef.current = null;
+                    if (typeof ref === 'function') {
+                      ref(list);
+                    } else if (ref && 'current' in ref) {
+                      // Type assertion for mutable ref
+                      (ref as React.MutableRefObject<unknown>).current = list;
                     }
                   }}
                   height={height}

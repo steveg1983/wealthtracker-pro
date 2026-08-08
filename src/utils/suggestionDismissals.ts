@@ -1,4 +1,9 @@
-import type { DismissalKind, SuggestionDismissal, Transaction } from '../types';
+import type {
+  DismissalKind,
+  PayeeDismissalKind,
+  SuggestionDismissal,
+  Transaction,
+} from '../types';
 import type { StrandedFinding } from './strandedTransfers';
 import type { SplitLegSuggestion, TransferPairSuggestion } from './transferSweep';
 
@@ -167,11 +172,60 @@ export function payeeLineDismissalKey(merchantKey: string, description: string):
   return `${payeeSegment('merchant', merchantKey)}${SEPARATOR}${payeeSegment('payee', description)}`;
 }
 
+/**
+ * A payee the screen must stop showing AT ALL — the widest of the three
+ * refusals, and the only one that changes what the list contains rather than
+ * what is suggested about it.
+ *
+ * Keyed by the payee text ALONE, with no merchant beside it, because that is
+ * exactly the scope of the statement: "never bring this wording to me again on
+ * this page", whatever grouping some later scan draws around it. A key scoped
+ * to a merchant would leak the refusal back the moment the guess changed — a
+ * new reference arrives, the merchant token shifts, and a payee the user
+ * struck off is on screen again.
+ *
+ * One segment, role-prefixed and percent-encoded like the other two, so the
+ * restore path's id remapping cannot touch it (see the note above). It cannot
+ * collide with a merchant refusal — different role — nor with a line refusal,
+ * which always carries two segments.
+ */
+export function payeeHiddenDismissalKey(description: string): string {
+  return payeeSegment('payee', description);
+}
+
 /** What a payee-cleanup dismissal was about, as the user would recognise it. */
 export interface PayeeDismissalSubject {
-  merchant: string;
+  /**
+   * The suggested merchant — or null when the refusal names a payee alone,
+   * which is what hiding a payee from the screen does.
+   */
+  merchant: string | null;
   /** The payee text, or null when the whole suggested merchant was refused. */
   payee: string | null;
+}
+
+/**
+ * True for the kinds Payee cleanup owns, so a screen can narrow a mixed list of
+ * dismissals without listing the kinds at each call site — and so that adding a
+ * fourth one day is a compile error here rather than a payee refusal that
+ * quietly stops being displayed.
+ *
+ * A switch rather than an array lookup: the compiler checks it, no cast is
+ * needed to compare a wider union against a narrower one, and an unhandled kind
+ * cannot slip through as `false`.
+ */
+export function isPayeeDismissalKind(kind: DismissalKind): kind is PayeeDismissalKind {
+  switch (kind) {
+    case 'payee-merchant':
+    case 'payee-line':
+    case 'payee-hidden':
+      return true;
+    case 'transfer-pair':
+    case 'transfer-leg':
+    case 'stranded':
+    case 'duplicate':
+      return false;
+  }
 }
 
 /**
@@ -187,7 +241,13 @@ export function readPayeeDismissalKey(subjectKey: string): PayeeDismissalSubject
   if (segments.length < 1 || segments.length > 2) return null;
 
   const merchant = readPayeeSegment(segments[0], 'merchant');
-  if (merchant === null) return null;
+  if (merchant === null) {
+    // One PAYEE segment on its own is the third refusal: a payee hidden from
+    // the screen, which names no merchant because it belongs to none.
+    if (segments.length !== 1) return null;
+    const hidden = readPayeeSegment(segments[0], 'payee');
+    return hidden === null ? null : { merchant: null, payee: hidden };
+  }
   if (segments.length === 1) return { merchant, payee: null };
 
   const payee = readPayeeSegment(segments[1], 'payee');

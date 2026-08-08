@@ -14,22 +14,44 @@ export interface Column<T> {
 }
 
 /**
- * An editor (or anything else) drawn immediately BENEATH one row, inside the
- * list, displacing every row below it — Microsoft Money's inline transaction
- * form, and the shape the register's quick edit takes.
+ * An editor (or anything else) attached to ONE row: cells of its own inside
+ * that row, and a strip immediately beneath it that displaces every row below.
+ * Microsoft Money's inline transaction form, and the shape the register's quick
+ * edit takes.
  *
- * The three fields travel together on purpose: a key with no height would leave
- * the virtualised list doing its row maths against a row it cannot measure.
- * `height` is therefore a NUMBER of pixels, and the detail must honour it —
- * react-window positions rows by arithmetic, not by measuring the DOM, so a
- * detail that grew taller than it declared would be painted over by the row
- * beneath it.
+ * The heights travel with the render functions on purpose: a key with no height
+ * would leave the virtualised list doing its row maths against a row it cannot
+ * measure. They are therefore NUMBERS of pixels, and the detail must honour
+ * them — react-window positions rows by arithmetic, not by measuring the DOM,
+ * so a detail that grew taller than it declared would be painted over by the
+ * row beneath it.
  */
 export interface RowDetail<T> {
-  /** The key (see getItemKey) of the row the detail hangs beneath. */
+  /** The key (see getItemKey) of the row the detail belongs to. */
   key: string;
-  /** Exactly how tall the detail is, in px. */
+  /** Exactly how tall the strip beneath the row is, in px. */
   height: number;
+  /**
+   * What the row's OWN line is worth while it carries this detail, in px.
+   * Defaults to the table's rowHeight.
+   *
+   * A detail that merely hangs beneath its row leaves the row alone. One that
+   * has turned the row's cells INTO the editor needs the line taller than a
+   * line of text — and the arithmetic has to be told, because a row that
+   * quietly grew is a row the ones below it are painted over by.
+   */
+  rowHeight?: number;
+  /**
+   * What ONE cell holds while the row carries this detail — or undefined to
+   * leave the column's own accessor in charge of it.
+   *
+   * This is what lets the row ITSELF be the editor rather than a caption above
+   * one: the input sits in the cell whose value it edits, under the same
+   * column header, at the same width. Alignment by construction, rather than
+   * two layouts kept in step by hand.
+   */
+  renderCell?: (columnKey: string, item: T) => ReactNode | undefined;
+  /** The strip beneath the row. */
   render: (item: T) => ReactNode;
 }
 
@@ -330,8 +352,12 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     // detailIndex is -1 when nothing is expanded, and also when the expanded
     // row is not in the current list (a filter hid it) — in both cases every
     // row is its ordinary height, and no row is a special case.
-    const detailHeight = detailIndex >= 0 && rowDetail ? rowDetail.height : 0;
-    return (index: number): number => (index === detailIndex ? rowHeight + detailHeight : rowHeight);
+    const expanded = detailIndex >= 0 && rowDetail
+      // The row's own line (taller while its cells are the editor) plus the
+      // strip beneath it. Both come from the detail; neither is guessed at.
+      ? (rowDetail.rowHeight ?? rowHeight) + rowDetail.height
+      : rowHeight;
+    return (index: number): number => (index === detailIndex ? expanded : rowHeight);
   }, [canExpandRows, detailIndex, rowDetail, rowHeight]);
 
   // Memoize row renderer
@@ -362,7 +388,8 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
       ? rowClassName(item, index) 
       : rowClassName || '';
 
-    const detail = rowDetail && index === detailIndex ? rowDetail.render(item) : null;
+    const isEditorRow = !!rowDetail && index === detailIndex;
+    const detail = isEditorRow && rowDetail ? rowDetail.render(item) : null;
 
     const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-colors duration-150';
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
@@ -375,10 +402,12 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
 
     // With a detail below it the row no longer owns react-window's slot: the
     // wrapper does, and the row keeps exactly its own height so the detail gets
-    // the rest. On the non-virtualised path there is no slot and no height in
-    // the style at all — rows size to their content there, and forcing one
-    // would resize every table in the app.
-    const lineHeight = style.height === undefined ? undefined : rowHeight;
+    // the rest. That height is the detail's to declare — a row whose cells have
+    // become inputs is taller than a line of text — and it is declared here
+    // even on the non-virtualised path, where rows otherwise size to their own
+    // content: the same number has to be true on both paths, because the
+    // register's scroll arithmetic reads it back off the DOM on one of them.
+    const lineHeight = rowDetail?.rowHeight ?? (style.height === undefined ? undefined : rowHeight);
 
     const rowLine = (
       <div
@@ -401,29 +430,38 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
           </div>
         )}
 
-        {columns.map((column) => (
-          <div
-            key={column.key}
-            role={rowDomId ? 'gridcell' : undefined}
-            className={`px-3 py-2 overflow-hidden ${column.className || ''}`}
-            style={{ width: column.width }}
-          >
-            {column.accessor(item)}
-          </div>
-        ))}
+        {columns.map((column) => {
+          // The editor's own cell, where it has one. undefined is "not mine",
+          // and is not the same as null — a detail is entitled to empty a cell.
+          const edited = isEditorRow && rowDetail?.renderCell
+            ? rowDetail.renderCell(column.key, item)
+            : undefined;
+          return (
+            <div
+              key={column.key}
+              role={rowDomId ? 'gridcell' : undefined}
+              className={`px-3 py-2 overflow-hidden ${column.className || ''}`}
+              style={{ width: column.width }}
+            >
+              {edited === undefined ? column.accessor(item) : edited}
+            </div>
+          );
+        })}
       </div>
     );
 
     if (!detail || !rowDetail) return rowLine;
 
-    // grid → rowgroup → row → gridcell: the detail is a row of the grid in its
+    // grid → rowgroup → row → gridcell: the strip is a row of the grid in its
     // own right, holding one cell that spans the table. Anything looser (a bare
     // div between the grid and its rows) is a structure a screen reader is
     // entitled to ignore, and it would take the transaction row with it.
     //
-    // No onClick on the wrapper: clicking inside the editor must never count as
-    // clicking the row, which would open the full modal over the box the user
-    // is typing in.
+    // No onClick on the wrapper: clicking inside the strip must never count as
+    // clicking the row, which would open the full modal over the editor the
+    // user is working in. The cells the detail has taken over sit INSIDE the
+    // row, where the row's own onClick can reach them, so they stop their own
+    // clicks — see the register's field cells.
     return (
       <div
         style={{ ...style, overflow: 'visible' }}

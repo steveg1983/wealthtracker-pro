@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { createScopedLogger } from '../loggers/scopedLogger';
+import type { AccountType } from '../types/accountType';
 
 interface Holding {
   ticker: string;
@@ -21,7 +22,10 @@ interface Holding {
 interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other' | 'mortgage' | 'checking' | 'asset' | 'liability';
+  // The canonical union rather than a copy of it: this list had drifted from
+  // types/accountType, which is how a type the database allows could fail to
+  // assign here at all.
+  type: AccountType;
   balance: number;
   currency: string;
   institution?: string;

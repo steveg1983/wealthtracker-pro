@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { SuggestionDismissal } from '../types';
-import { readPayeeDismissalKey } from '../utils/suggestionDismissals';
+import type { PayeeDismissalKind, SuggestionDismissal } from '../types';
+import { isPayeeDismissalKind, readPayeeDismissalKey } from '../utils/suggestionDismissals';
 
 /**
  * The way back from a refused payee suggestion.
@@ -17,6 +17,36 @@ import { readPayeeDismissalKey } from '../utils/suggestionDismissals';
  * is a record of decisions already made and must not compete with the work
  * still to do above it.
  */
+
+/**
+ * What the user answered, in the words of the button they pressed — and, since
+ * the three refusals have three different consequences, in words that say which
+ * one this was. Keyed by the payee kinds alone, so a fourth kind is a compile
+ * error here rather than a blank column.
+ */
+const ANSWERS: Record<PayeeDismissalKind, string> = {
+  'payee-merchant': 'Not one merchant',
+  'payee-line': 'Not part of that merchant',
+  'payee-hidden': 'Hidden from this page',
+};
+
+/** What restoring this entry will bring back, said before it is pressed. */
+const RESTORES_TO: Record<PayeeDismissalKind, string> = {
+  'payee-merchant': 'Restore offers the grouping again',
+  'payee-line': 'Restore puts the payee back in that grouping',
+  'payee-hidden': 'Restore puts the payee back in the list',
+};
+
+/**
+ * A dismissal saved by a version that knew a kind this one does not is still
+ * the user's decision and still theirs to undo, so it is described in the
+ * vaguest words that stay true rather than dropped from the list.
+ */
+const answerFor = (kind: SuggestionDismissal['kind']): string =>
+  isPayeeDismissalKind(kind) ? ANSWERS[kind] : 'Left out in future';
+
+const restoresTo = (kind: SuggestionDismissal['kind']): string =>
+  isPayeeDismissalKind(kind) ? RESTORES_TO[kind] : 'Restore offers it again';
 
 interface Props {
   /** Already narrowed to the payee kinds. */
@@ -48,16 +78,20 @@ export default function DismissedPayeeSuggestions({
         </span>
       );
     }
+    // Three shapes, three consequences: a merchant with no payee is the whole
+    // grouping refused; a payee with no merchant is a payee struck off the
+    // screen; both together is one payee kept out of one grouping.
+    const scope = subject.payee === null
+      ? ' — and every payee under it'
+      : subject.merchant === null
+        ? ' — hidden from this page and from every suggestion on it'
+        : ` — kept out of ${subject.merchant}`;
     return (
       <>
         <span className="text-gray-900 dark:text-white break-words">
           {subject.payee ?? subject.merchant}
         </span>
-        <span className="text-gray-500 dark:text-gray-400">
-          {subject.payee === null
-            ? ' — and every payee under it'
-            : ` — kept out of ${subject.merchant}`}
-        </span>
+        <span className="text-gray-500 dark:text-gray-400">{scope}</span>
       </>
     );
   };
@@ -81,8 +115,8 @@ export default function DismissedPayeeSuggestions({
         </button>
       </div>
       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-        Suggestions you asked not to see again. No payee was renamed and none is hidden from the
-        list above — restoring one simply offers it as a shortcut again.
+        Suggestions you refused, and payees you asked this page to stop listing. Nothing was
+        renamed and no transaction changed — restoring one brings it straight back above.
       </p>
       {showing && (
         <div className="overflow-x-auto mt-3">
@@ -102,10 +136,14 @@ export default function DismissedPayeeSuggestions({
                   className="border-b border-gray-50 dark:border-gray-700/50 align-top"
                 >
                   <td className="py-2 text-sm">{describe(dismissal)}</td>
-                  <td className="py-2 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {dismissal.kind === 'payee-merchant'
-                      ? 'Not one merchant'
-                      : 'Not part of that merchant'}
+                  <td className="py-2 text-sm text-gray-600 dark:text-gray-400">
+                    {/* Which of the three refusals this was, and — because they
+                        undo to three different things — what pressing Restore
+                        beside it will bring back. */}
+                    <span className="block whitespace-nowrap">{answerFor(dismissal.kind)}</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                      {restoresTo(dismissal.kind)}
+                    </span>
                   </td>
                   <td className="py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {dismissal.dismissedAt.toLocaleDateString('en-GB', {

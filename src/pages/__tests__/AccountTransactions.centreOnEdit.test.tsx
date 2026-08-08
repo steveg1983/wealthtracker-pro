@@ -7,26 +7,26 @@ import { ToastProvider } from '../../contexts/ToastContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import { DataService } from '../../services/api/dataService';
-import { QUICK_EDIT_BOX_HEIGHT } from '../../components/QuickEditTransactionPanel';
+import { QUICK_EDIT_ROW_HEIGHT, QUICK_EDIT_STRIP_HEIGHT } from '../../components/QuickEditRow';
 import AccountTransactions from '../AccountTransactions';
 import type { Account, Category, Transaction } from '../../types';
 
 /**
  * Where the row you are WORKING ON sits on the screen.
  *
- * The owner, having used the inline quick-edit box: "Whenever you click on a
+ * The owner, having used the inline editor: "Whenever you click on a
  * transaction, and we have the quick edit box now coming up below, can we make
  * it so that the 'selected transaction' is always in the middle of the viewable
  * transactions box? … It is nice to see the transactions above and below the
  * one you are working on."
  *
  * So the rule, which is written out in full at RowScrollRequest in the register
- * itself: opening or moving the BOX centres its row; moving only the HIGHLIGHT
- * does not. Four things are proved here, and each is measured rather than
- * assumed — every assertion below reads the position the register's own
+ * itself: opening or moving the EDITOR centres its row; moving only the
+ * HIGHLIGHT does not. Four things are proved here, and each is measured rather
+ * than assumed — every assertion below reads the position the register's own
  * arithmetic actually put the list in:
  *
- *   1. a click centres the row it opened the box on, even when that row was
+ *   1. a click centres the row it opened the editor on, even when that row was
  *      perfectly visible already (which is exactly where the old behaviour did
  *      nothing at all);
  *   2. F2 re-centres — including on the row that was already the target, which
@@ -43,7 +43,8 @@ import type { Account, Category, Transaction } from '../../types';
  * arithmetic would be run against zeroes and prove nothing. The three figures
  * it reads (the viewport's height, each row's height, and where each row
  * starts) are stood in for here at their real sizes: a 400px viewport, 44px
- * rows, and the box's own declared height. Everything else is left at jsdom's
+ * rows, and — for the row being edited — the two heights the editor itself
+ * declares, its taller line and its strip. Everything else is left at jsdom's
  * defaults. What this canNOT show is what the result looks like — that the
  * movement is not distracting, that a click near the foot feels right rather
  * than lurching — and that is named in the handover as a browser check.
@@ -94,9 +95,14 @@ const isListContainer = (el: HTMLElement): boolean => el.hasAttribute('data-virt
 const isRowWrapper = (el: HTMLElement): boolean =>
   el.parentElement !== null && isListContainer(el.parentElement);
 
-/** How tall a row is: its line, plus the quick-edit box when it is open on it. */
+/**
+ * How tall a row is: its own line, or — while it is the editor — the taller
+ * line its fields need PLUS the strip beneath it.
+ */
 const heightOfWrapper = (el: HTMLElement): number =>
-  ROW_H + (el.querySelector('[data-quick-edit-panel]') ? QUICK_EDIT_BOX_HEIGHT : 0);
+  el.querySelector('[data-quick-edit="actions"]')
+    ? QUICK_EDIT_ROW_HEIGHT + QUICK_EDIT_STRIP_HEIGHT
+    : ROW_H;
 
 /** Where a row starts in the list's content: the sum of everything above it. */
 const topOfWrapper = (el: HTMLElement): number => {
@@ -176,16 +182,17 @@ const listViewport = (): HTMLElement => {
   return el;
 };
 
-const quickEditBox = (): HTMLElement => {
-  const el = document.querySelector('[data-quick-edit-panel]');
-  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+/** The strip under the row being edited — the buttons and the hint. */
+const strip = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit="actions"]');
+  if (!(el instanceof HTMLElement)) throw new Error('no row is being edited');
   return el;
 };
 
-const boxIsShowing = (): boolean => document.querySelector('[data-quick-edit-panel]') !== null;
+const isEditing = (): boolean => document.querySelector('[data-quick-edit="actions"]') !== null;
 
 const descriptionField = (): HTMLInputElement => {
-  const el = within(quickEditBox()).getByLabelText('Description');
+  const el = screen.getByLabelText('Transaction description');
   if (!(el instanceof HTMLInputElement)) throw new Error('the description is not an input');
   return el;
 };
@@ -201,9 +208,17 @@ const activeRowWrapper = (): HTMLElement => {
   return el;
 };
 
+/**
+ * What the active row holds: its text, AND what has been typed into the boxes
+ * it has become — the row being edited has no description TEXT, because that
+ * cell is an input now.
+ */
 const activeRowText = (): string => {
   const id = grid().getAttribute('aria-activedescendant');
-  return (id ? document.getElementById(id)?.textContent : '') ?? '';
+  const row = id ? document.getElementById(id) : null;
+  if (!row) return '';
+  const typed = Array.from(row.querySelectorAll('input')).map(input => input.value).join(' ');
+  return `${row.textContent ?? ''} ${typed}`;
 };
 
 /** How far down the visible viewport the highlighted row's middle sits, in px. */
@@ -265,7 +280,7 @@ describe('Account register — the row being worked on sits in the middle', () =
     listViewport().scrollTop = 700;
     clickRow(ROWS[20].description);
 
-    expect(boxIsShowing()).toBe(true);
+    expect(isEditing()).toBe(true);
     expect(activeRowText()).toContain(ROWS[20].description);
     // The whole point, in one number: the row and its box are centred on the
     // viewport, so there are transactions above it and transactions below it.
@@ -321,7 +336,7 @@ describe('Account register — F2 re-centres the row it re-opens the box on', ()
 
     // Escape puts the box away but keeps the row highlighted…
     fireEvent.keyDown(descriptionField(), { key: 'Escape' });
-    expect(boxIsShowing()).toBe(false);
+    expect(isEditing()).toBe(false);
     // …and the user goes off to look at the start of the year.
     listViewport().scrollTop = 0;
 
@@ -334,7 +349,7 @@ describe('Account register — F2 re-centres the row it re-opens the box on', ()
     // and the alignment are both exactly what they were when the click asked,
     // so nothing about the request has changed for React to notice, and the
     // register would sit at the top of the year with the box off screen.
-    expect(boxIsShowing()).toBe(true);
+    expect(isEditing()).toBe(true);
     expect(middleOfActiveRow()).toBe(VIEWPORT / 2);
   });
 });
@@ -347,7 +362,7 @@ describe('Account register — Save & Next keeps the work in the middle', () => 
     clickRow(ROWS[20].description);
     const startedAt = listViewport().scrollTop;
 
-    fireEvent.click(within(quickEditBox()).getByRole('button', { name: 'Save & Next' }));
+    fireEvent.click(within(strip()).getByRole('button', { name: 'Save & Next' }));
 
     await waitFor(() => {
       expect(descriptionField()).toHaveValue(ROWS[21].description);
@@ -361,7 +376,84 @@ describe('Account register — Save & Next keeps the work in the middle', () => 
   });
 });
 
-describe('Account register — the arrow keys do not move the page', () => {
+describe('Account register — the arrows move the LIST while the box is open', () => {
+  it('keeps the box in the middle as it walks down the register, and back up', async () => {
+    await openRegister();
+
+    listViewport().scrollTop = 700;
+    clickRow(ROWS[20].description);
+    expect(middleOfActiveRow()).toBe(VIEWPORT / 2);
+    const centredOn20 = listViewport().scrollTop;
+
+    fireEvent.keyDown(grid(), { key: 'ArrowDown' });
+
+    // The owner, on the register that did NOT do this: "it is not the list
+    // moving up and down and the highlighted box staying in the middle, it is
+    // the highlighted box that moves down or up the list." Row 21 was already
+    // fully visible, so "the least scroll that shows it" is no scroll at all —
+    // which is exactly what he was looking at, and why the list moving here is
+    // the whole assertion.
+    expect(activeRowText()).toContain(ROWS[21].description);
+    expect(isEditing()).toBe(true);
+    expect(middleOfActiveRow()).toBe(VIEWPORT / 2);
+    expect(listViewport().scrollTop).not.toBe(centredOn20);
+
+    fireEvent.keyDown(grid(), { key: 'ArrowUp' });
+
+    // Both directions, and the list comes back to where it was: the box holds
+    // the middle whichever way the work goes.
+    expect(activeRowText()).toContain(ROWS[20].description);
+    expect(middleOfActiveRow()).toBe(VIEWPORT / 2);
+    expect(listViewport().scrollTop).toBe(centredOn20);
+  });
+
+  it('centres a Page and an End the same way, box and all', async () => {
+    await openRegister();
+
+    listViewport().scrollTop = 700;
+    clickRow(ROWS[20].description);
+
+    fireEvent.keyDown(grid(), { key: 'PageDown' });
+    expect(isEditing()).toBe(true);
+    expect(middleOfActiveRow()).toBe(VIEWPORT / 2);
+
+    fireEvent.keyDown(grid(), { key: 'Home' });
+    // The register's own exception at the ends: there is nothing above the
+    // first row to show, so the list pins at the top and the row sits above the
+    // middle rather than scrolling off the start of the account.
+    expect(activeRowText()).toContain(ROWS[0].description);
+    expect(listViewport().scrollTop).toBe(0);
+    expect(middleOfActiveRow()).toBeLessThan(VIEWPORT / 2);
+  });
+
+  it('leaves the list alone while Shift is stretching a selection', async () => {
+    await openRegister();
+
+    listViewport().scrollTop = 700;
+    clickRow(ROWS[20].description);
+    const centred = listViewport().scrollTop;
+
+    // TWO of them, deliberately. When the editor was a box below the row it was
+    // exactly two rows tall, so centring row 21 without it landed on the very
+    // same offset as centring row 20 with it and a single Shift+arrow would
+    // have passed whatever this did. The editor's new geometry breaks that
+    // coincidence (790 against 768 after one), but two rows in the gap is 66px
+    // and no arithmetic can close it by accident.
+    fireEvent.keyDown(grid(), { key: 'ArrowDown', shiftKey: true });
+    fireEvent.keyDown(grid(), { key: 'ArrowDown', shiftKey: true });
+
+    // Shift+arrow is not moving a box, it is stretching a run — and the box is
+    // not on screen at all once more than one row is selected, so there would
+    // be nothing in the middle to keep there. The rows either side of the run
+    // are what the user is reading; dragging the register under them would make
+    // the reach of the selection harder to see, not easier.
+    expect(isEditing()).toBe(false);
+    expect(activeRowText()).toContain(ROWS[22].description);
+    expect(listViewport().scrollTop).toBe(centred);
+  });
+});
+
+describe('Account register — the arrow keys do not move the page while browsing', () => {
   it('scrolls the least amount that shows the row, and centres nothing', async () => {
     await openRegister();
 

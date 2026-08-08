@@ -57,11 +57,19 @@ interface CategorySelectorProps {
    */
   allowClear?: boolean;
   /**
-   * Trigger height. 'compact' matches the register quick-add dock's 32px
-   * fields — the default 42px trigger stood taller than every neighbour in
-   * that bottom-aligned row and floated its label above the others.
+   * Trigger height.
+   *
+   * 'compact' matches the register quick-add dock's 32px fields — the default
+   * 42px trigger stood taller than every neighbour in that bottom-aligned row
+   * and floated its label above the others.
+   *
+   * 'row' is for a picker that IS a register cell: 36px, the height the row
+   * being edited grows to, and text-sm so the category reads at the same size
+   * in the cell as it did a moment ago when it was a word rather than a
+   * picker. A 32px compact trigger sat 4px short of the fields beside it and
+   * shrank the type as you started editing.
    */
-  size?: 'default' | 'compact';
+  size?: 'default' | 'compact' | 'row';
   /**
    * Offer each GROUP itself as a choice ("All Food"), above its detail
    * categories. For budgets, where a limit on a whole group is the normal way
@@ -542,6 +550,8 @@ export default function CategorySelector({
           className={`w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm cursor-text flex items-center ${
             size === 'compact'
               ? 'px-2.5 py-1.5 h-auto sm:h-[32px] text-xs rounded-lg'
+              : size === 'row'
+              ? 'px-2 h-[36px] text-sm font-normal rounded-lg'
               : 'px-3 py-2 h-[42px] rounded-xl'
           }`}
           onClick={handleInputClick}

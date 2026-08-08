@@ -8,42 +8,52 @@ import { ToastProvider } from '../../contexts/ToastContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import { DataService } from '../../services/api/dataService';
+import { QUICK_EDIT_ROW_HEIGHT, QUICK_EDIT_STRIP_HEIGHT } from '../../components/QuickEditRow';
 import AccountTransactions from '../AccountTransactions';
 import type { Account, Category, Transaction } from '../../types';
 
 /**
- * The quick-edit box where Microsoft Money puts it: in the register, under the
- * row it is about, worked entirely from the keyboard and shut with Escape.
+ * The row IS the editor.
  *
- * The owner's words: "when you click on a transaction, that kind of box appears
- * sort of in the transaction list, directly below the transaction line itself…
- * if I enter a category and then press 'enter' it could save automatically… I
- * could also press 'escape' to hide that quick edit box and just see the
- * transaction list."
+ * The owner's first ask put a box in the register, under the row it was about:
+ * "when you click on a transaction, that kind of box appears sort of in the
+ * transaction list, directly below the transaction line itself… if I enter a
+ * category and then press 'enter' it could save automatically… I could also
+ * press 'escape' to hide that quick edit box and just see the transaction
+ * list."
+ *
+ * That box repeated Date, Description and Category as a second set of fields
+ * one line below the first, so every value appeared twice on screen at two
+ * different widths. His next ask closed the gap: highlight a row and the row
+ * ITSELF becomes the form — the Date cell a date picker, the Description cell a
+ * text box, the Category cell a combobox, each still under its own column
+ * header — with only a slim strip beneath carrying the buttons and the hint.
  *
  * And the rhythm he asked for once he had used it: "if I am trying to do a list
  * of categories, you almost want to do save & next and then the next line
  * defaults into the category box again, so you can just start typing the search
  * again… Maybe the same if you are in description."
  *
- * So five things have to hold, and each has a test here:
- *   1. the box opens BELOW the clicked row, inside the list, not at the foot
- *      of the page;
- *   2. Enter ACCEPTS what was typed and hands over Save & Next; the next Enter
+ * So six things have to hold, and each has a test here:
+ *   1. the fields are cells of the CLICKED ROW, under the columns they belong
+ *      to, and the strip below holds buttons and hint and nothing else;
+ *   2. a row that is not being edited is drawn exactly as it was;
+ *   3. Enter ACCEPTS what was typed and hands over Save & Next; the next Enter
  *      saves and moves on. Two keystrokes, the same two every row;
- *   3. the box that opens on the next row puts the cursor back in the field
+ *   4. the editor that opens on the next row puts the cursor back in the field
  *      the run is working down — category, description or date;
- *   4. Enter belongs to whatever already wants it: an open category list
+ *   5. Enter belongs to whatever already wants it: an open category list
  *      chooses with it, a button is pressed by it, and neither also saves;
- *   5. every way the box closes — Save, Escape, the × — hands the keyboard
+ *   6. every way the editor closes — Save, Escape, the × — hands the keyboard
  *      back to the list with the row still highlighted, so the arrow keys
  *      carry on rather than scrolling.
  *
- * WHAT JSDOM CANNOT DO: no layout. That the rows below visibly move down, that
- * nothing jumps when the box opens, and that the box's calendar and category
- * list escape the table rather than being clipped by it, are browser checks —
- * named as such in the handover. The geometry of the virtualised path is held
- * to account separately, in VirtualizedTable.rowDetail.test.tsx.
+ * WHAT JSDOM CANNOT DO: no layout. That the columns line up under their headers
+ * at real widths, that a 100px Date column holds a dd/mm/yyyy picker, that the
+ * taller editing row does not jar, and that the calendar and category list
+ * escape the table rather than being clipped by it, are browser checks — named
+ * as such in the handover. The geometry of the virtualised path is held to
+ * account separately, in VirtualizedTable.rowDetail.test.tsx.
  *
  * Every name, date and figure below is invented: this repo is public.
  */
@@ -103,38 +113,64 @@ const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Regi
 
 const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
 
-const quickEditBox = (): HTMLElement => {
-  const el = document.querySelector('[data-quick-edit-panel]');
-  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+/** The strip under the row being edited — the buttons and the hint. */
+const strip = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit="actions"]');
+  if (!(el instanceof HTMLElement)) throw new Error('no row is being edited');
   return el;
 };
 
-const boxIsShowing = (): boolean => document.querySelector('[data-quick-edit-panel]') !== null;
+/** The row that has BECOME the editor: the one whose cells hold the fields. */
+const editorRow = (): HTMLElement => {
+  const field = document.querySelector('[data-quick-edit="description"]');
+  const row = field?.closest('[role="row"]');
+  if (!(row instanceof HTMLElement)) throw new Error('no row is being edited');
+  return row;
+};
 
+const isEditing = (): boolean => document.querySelector('[data-quick-edit="actions"]') !== null;
+
+// The three fields are named rather than labelled — the column header is the
+// label — so they are found by the name a screen reader would read out. Which
+// is also what keeps them apart from the add bar's own Date and Description at
+// the foot of the page.
 const descriptionField = (): HTMLInputElement => {
-  const el = within(quickEditBox()).getByLabelText('Description');
+  const el = screen.getByLabelText('Transaction description');
   if (!(el instanceof HTMLInputElement)) throw new Error('the description is not an input');
   return el;
 };
 
-const dateField = (): HTMLElement => within(quickEditBox()).getByLabelText('Transaction date');
+const dateField = (): HTMLElement => screen.getByLabelText('Transaction date');
 
 const categorySearch = (): HTMLElement =>
-  within(quickEditBox()).getByPlaceholderText('Search or select category…');
+  screen.getByPlaceholderText('Search or select category…');
 
 /** The run button — the one a field's Enter hands the cursor to. */
-const saveAndNext = (): HTMLElement => within(quickEditBox()).getByRole('button', { name: 'Save & Next' });
+const saveAndNext = (): HTMLElement => within(strip()).getByRole('button', { name: 'Save & Next' });
 
-/** The button that ENDS a run: saves, closes, keyboard back to the list. */
-const saveButton = (): HTMLElement => within(quickEditBox()).getByRole('button', { name: 'Save' });
+/** The button that ENDS a run: saves, stops editing, keyboard back to the list. */
+const saveButton = (): HTMLElement => within(strip()).getByRole('button', { name: 'Save' });
 
 const calendarIsShowing = (): boolean => document.querySelector('[data-datepicker-panel]') !== null;
 
-/** The transaction the register says is active, by its description. */
+/** Which row the register says is active — its DOM id, whatever it holds. */
+const activeRowId = (): string | null => grid().getAttribute('aria-activedescendant');
+
+/**
+ * What the register's active row holds: its text, AND whatever has been typed
+ * into the boxes it has become.
+ *
+ * Both halves are needed now. A row being edited has no description TEXT — the
+ * cell is an input, and an input's value is not text content — so a helper that
+ * read only textContent could answer "which row is the highlight on?" for every
+ * row in the register except the one being worked on.
+ */
 const activeRowText = (): string => {
-  const id = grid().getAttribute('aria-activedescendant');
-  if (!id) return '';
-  return document.getElementById(id)?.textContent ?? '';
+  const id = activeRowId();
+  const row = id ? document.getElementById(id) : null;
+  if (!row) return '';
+  const typed = Array.from(row.querySelectorAll('input')).map(input => input.value).join(' ');
+  return `${row.textContent ?? ''} ${typed}`;
 };
 
 const openRegister = async (): Promise<void> => {
@@ -169,22 +205,89 @@ afterEach(() => {
   __resetAppContextValue();
 });
 
-describe('Account register — the quick-edit box opens under the row', () => {
-  it('is in the list itself, on the line below the transaction clicked', async () => {
+describe('Account register — the row itself becomes the editor', () => {
+  it('puts each field in the cell it edits, under the column it belongs to', async () => {
     await openRegister();
 
     clickRow('Sandpiper Foods');
 
-    // Inside the register, not underneath the whole page — the difference the
-    // owner asked for, and the reason the eye never leaves the line.
-    expect(grid().contains(quickEditBox())).toBe(true);
-
-    // And on the very next line: the rows below it are what move down.
-    const rows = within(grid()).getAllByRole('row');
-    const clicked = within(grid()).getByText('Sandpiper Foods').closest('[role="row"]');
-    const box = quickEditBox().closest('[role="row"]');
-    expect(rows.indexOf(box as HTMLElement)).toBe(rows.indexOf(clicked as HTMLElement) + 1);
+    // The row that was clicked is the row that is now the form: the fields are
+    // its own cells, not a second set of them somewhere else.
+    const row = editorRow();
+    expect(grid().contains(row)).toBe(true);
     expect(descriptionField()).toHaveValue('Sandpiper Foods');
+    expect(row.contains(descriptionField())).toBe(true);
+    expect(row.contains(dateField())).toBe(true);
+    expect(row.contains(within(row).getByRole('combobox', { name: 'Category' }))).toBe(true);
+
+    // …and each in the RIGHT cell. The register draws its columns in one order
+    // and the header in the same one, so a field is under its own header if and
+    // only if its cell has the same index as its column header. That is the
+    // whole of the alignment contract that can be checked without layout: what
+    // it LOOKS like at real widths is a browser check.
+    // The sorted column's header carries an arrow as well as its name.
+    const headers = within(grid())
+      .getAllByRole('columnheader')
+      .map(h => (h.textContent ?? '').replace(/[↑↓]/g, '').trim());
+    const cells = within(row).getAllByRole('gridcell');
+    const cellIndexOf = (el: HTMLElement): number =>
+      cells.indexOf(el.closest('[role="gridcell"]') as HTMLElement);
+    expect(cellIndexOf(dateField())).toBe(headers.indexOf('Date'));
+    expect(cellIndexOf(descriptionField())).toBe(headers.indexOf('Description'));
+    expect(cellIndexOf(within(row).getByRole('combobox', { name: 'Category' })))
+      .toBe(headers.indexOf('Category'));
+  });
+
+  it('leaves the money alone: Payment, Deposit and Balance still read as figures', async () => {
+    await openRegister();
+
+    clickRow('Sandpiper Foods');
+
+    // One editor per thing. Amounts belong to the full editor, and a register
+    // you can retype a balance into is a register nobody can trust — so the
+    // cells that carry money hold no input at all.
+    const row = editorRow();
+    expect(within(row).getByText('£31.15')).toBeInTheDocument();
+    expect(within(row).getByTestId('register-balance')).toBeInTheDocument();
+    expect(within(row).getAllByRole('textbox')).toHaveLength(2); // date + description
+  });
+
+  it('keeps the strip to buttons and a hint — no field appears twice', async () => {
+    await openRegister();
+
+    clickRow('Sandpiper Foods');
+
+    // The whole point of the change: there is no second Date, no second
+    // Description, no second Category anywhere below the row. What is left is
+    // the small print and the things you can do.
+    const actions = strip();
+    expect(within(actions).queryByRole('textbox')).not.toBeInTheDocument();
+    expect(within(actions).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(actions).getAllByRole('button').map(b => b.textContent))
+      .toEqual(['Save & Next', 'Save', '']);
+    expect(
+      within(actions).getByText('Enter accepts · Enter again saves & moves on · Esc closes')
+    ).toBeInTheDocument();
+
+    // And it is a row of the grid in its own right, on the line below the one
+    // being edited — the rows under it are what move down.
+    const rows = within(grid()).getAllByRole('row');
+    const stripRow = actions.closest('[role="row"]');
+    expect(rows.indexOf(stripRow as HTMLElement)).toBe(rows.indexOf(editorRow()) + 1);
+  });
+
+  it('draws every other row exactly as it drew it before', async () => {
+    await openRegister();
+
+    // Byte for byte: opening an editor on one row must not so much as re-space
+    // a neighbour. Anything that changes here changes it for eleven thousand
+    // rows at once.
+    const before = within(grid()).getByText('Thistledown Books').closest('[role="row"]')?.outerHTML;
+
+    clickRow('Sandpiper Foods');
+
+    const after = within(grid()).getByText('Thistledown Books').closest('[role="row"]')?.outerHTML;
+    expect(after).toBe(before);
   });
 
   it('leaves the add bar exactly where it was', async () => {
@@ -199,7 +302,7 @@ describe('Account register — the quick-edit box opens under the row', () => {
     expect(grid().contains(addBar())).toBe(false);
   });
 
-  it('counts the box as the row of the grid that it is', async () => {
+  it('counts the strip as the row of the grid that it is', async () => {
     await openRegister();
     // Header + the Opening Balance line + the transactions.
     expect(grid()).toHaveAttribute('aria-rowcount', String(ROWS.length + 2));
@@ -209,66 +312,74 @@ describe('Account register — the quick-edit box opens under the row', () => {
     expect(grid()).toHaveAttribute('aria-rowcount', String(ROWS.length + 3));
   });
 
-  it('opens the full editor only on a SECOND click, and re-opens a closed box on the first', async () => {
+  it('opens the full editor from a click OUTSIDE the fields, and never from one in them', async () => {
     await openRegister();
 
     clickRow('Sandpiper Foods');
     expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
 
-    // Escape puts the box away but keeps the row…
+    // Escape stops editing but keeps the row…
     fireEvent.keyDown(descriptionField(), { key: 'Escape' });
-    expect(boxIsShowing()).toBe(false);
+    expect(isEditing()).toBe(false);
 
-    // …so the next click is asking for the box back, not for the full editor.
+    // …so the next click is asking to edit it again, not for the full editor.
     clickRow('Sandpiper Foods');
-    expect(boxIsShowing()).toBe(true);
+    expect(isEditing()).toBe(true);
     expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
 
-    // With the box open, a second click means "everything else about this row".
-    clickRow('Sandpiper Foods');
+    // Clicking INTO a field is typing, not asking for anything else. This is
+    // new, and it is the one thing the row-as-editor had to get right: the
+    // fields now sit inside the very row whose click opens the modal.
+    fireEvent.click(descriptionField());
+    expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
+    expect(isEditing()).toBe(true);
+
+    // A click on the row that is NOT in a field still means "everything else
+    // about this row" — the amounts, the splits, the tags.
+    fireEvent.click(within(editorRow()).getByTestId('register-balance'));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Edit Transaction')).toBeInTheDocument();
   });
 });
 
 describe('Account register — Enter accepts, and the Enter after it moves you on', () => {
-  it('offers Save & Next first, and says so under the buttons', async () => {
+  it('offers Save & Next first, ahead of the way to stop', async () => {
     await openRegister();
     clickRow('Sandpiper Foods');
 
     // Left to right, the run button leads: it is the one the cursor lands on
     // and the one pressed a hundred times filing a statement. Save is the way
     // to stop, not the way to carry on.
-    const buttons = within(quickEditBox()).getAllByRole('button');
+    const buttons = within(strip()).getAllByRole('button');
     expect(buttons.map(b => b.textContent)).toEqual(['Save & Next', 'Save', '']);
-
-    expect(
-      within(quickEditBox()).getByText('Enter accepts · Enter again saves & moves on · Esc closes')
-    ).toBeInTheDocument();
   });
 
-  it('reads as one row: the small print on the label line, the buttons on the input line', async () => {
+  it('is half the height it was, and the arithmetic is declared rather than guessed', async () => {
     await openRegister();
     clickRow('Sandpiper Foods');
 
-    // The owner: "Move the Save & Next and Save buttons below the text and the
-    // text above. Those buttons should be the same level as date / description
-    // and category."
-    const hint = within(quickEditBox()).getByText('Enter accepts · Enter again saves & moves on · Esc closes');
-
-    // The hint comes FIRST in its column, which is what puts the buttons on the
-    // inputs' line: the column is bottom-aligned with the fields beside it, so
-    // whichever of the two is last is the one that lands on that line.
-    expect(hint.compareDocumentPosition(saveAndNext()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(saveAndNext().parentElement?.previousElementSibling).toBe(hint);
-
-    // …and they are the same height as the fields they line up with.
+    // The three fields are 36px, which is what a register row's own 8px of
+    // vertical cell padding leaves in the 52px the row grows to; the strip is
+    // 36. So being edited costs a row 8px of extra line and 36 of strip — 44,
+    // where the card this replaced was 88 on its own.
     //
-    // WHAT JSDOM CANNOT DO: prove they LOOK level — it performs no layout, so
-    // the declared height is the contract and the eye is a browser check.
-    expect(descriptionField().className).toContain('h-[42px]');
-    expect(saveAndNext().className).toContain('h-[42px]');
-    expect(saveButton().className).toContain('h-[42px]');
+    // WHAT JSDOM CANNOT DO: prove any of it LOOKS right — it performs no
+    // layout, so the declared heights are the contract and the eye is a browser
+    // check. The heights themselves are proved to be honoured by the
+    // virtualised list in VirtualizedTable.rowDetail.test.tsx.
+    expect(QUICK_EDIT_ROW_HEIGHT + QUICK_EDIT_STRIP_HEIGHT).toBe(88);
+    expect(descriptionField().className).toContain('h-[36px]');
+    expect(dateField().className).toContain('h-[36px]');
+    expect(saveAndNext().className).toContain('h-[28px]');
+    expect(saveButton().className).toContain('h-[28px]');
+
+    // And the register HANDS both numbers to the table, which is the half that
+    // can go wrong silently: the list positions rows by adding heights up, so a
+    // row that grew without saying so is a row the strip is painted over by,
+    // and every row below it sits 8px too high.
+    expect(editorRow().style.height).toBe(`${QUICK_EDIT_ROW_HEIGHT}px`);
+    const stripRow = strip().closest('[role="row"]');
+    expect((stripRow as HTMLElement).style.height).toBe(`${QUICK_EDIT_STRIP_HEIGHT}px`);
   });
 
   it('accepts the typed description on the first Enter, and saves on the next', async () => {
@@ -331,14 +442,14 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     // with fireEvent rather than user.type: the picker's trigger toggles the
     // list on any click inside it, so a synthetic click aimed at the search
     // box would shut the very list it opened.
-    fireEvent.click(within(quickEditBox()).getByRole('combobox', { name: 'Category' }));
+    fireEvent.click(within(editorRow()).getByRole('combobox', { name: 'Category' }));
     fireEvent.change(categorySearch(), { target: { value: 'Takeaway' } });
     fireEvent.keyDown(categorySearch(), { key: 'ArrowDown' });
 
     // The first Enter belongs to the open list: it chooses, and saves nothing.
     fireEvent.keyDown(categorySearch(), { key: 'Enter' });
     expect(updateTransaction).not.toHaveBeenCalled();
-    expect(within(quickEditBox()).getByRole('combobox', { name: 'Category' })).toHaveTextContent('Takeaway');
+    expect(within(editorRow()).getByRole('combobox', { name: 'Category' })).toHaveTextContent('Takeaway');
 
     // The cursor is on Save & Next, where the next Enter presses it.
     expect(document.activeElement).toBe(saveAndNext());
@@ -373,7 +484,7 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     // down has to survive that. One hop could pass on a remembered field that
     // is thrown away on the next; three rows in a row cannot.
     const runOneRow = async (): Promise<void> => {
-      fireEvent.click(within(quickEditBox()).getByRole('combobox', { name: 'Category' }));
+      fireEvent.click(within(editorRow()).getByRole('combobox', { name: 'Category' }));
       fireEvent.change(categorySearch(), { target: { value: 'Takeaway' } });
       fireEvent.keyDown(categorySearch(), { key: 'ArrowDown' });
       fireEvent.keyDown(categorySearch(), { key: 'Enter' });
@@ -503,6 +614,9 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     const user = userEvent.setup();
     await openRegister();
     clickRow('Sandpiper Foods');
+    // Held by id, not by name: the row's name is the very thing being emptied,
+    // so "is the highlight still on it" has to be asked of the row itself.
+    const editing = activeRowId();
 
     descriptionField().focus();
     fireEvent.change(descriptionField(), { target: { value: '   ' } });
@@ -515,8 +629,9 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     expect(await screen.findByText('This field is required')).toBeInTheDocument();
     expect(updateTransaction).not.toHaveBeenCalled();
     // And nothing moved on: the row, and the typing, are still there to fix.
-    expect(boxIsShowing()).toBe(true);
-    expect(activeRowText()).toContain('Sandpiper Foods');
+    expect(isEditing()).toBe(true);
+    expect(activeRowId()).toBe(editing);
+    expect(descriptionField()).toHaveValue('   ');
   });
 
   it('gives the keyboard back to the run button when the save itself fails', async () => {
@@ -546,7 +661,7 @@ describe('Account register — Enter accepts, and the Enter after it moves you o
     });
     // Still open, still holding what was typed, so pressing Enter again retries
     // exactly the same edit.
-    expect(boxIsShowing()).toBe(true);
+    expect(isEditing()).toBe(true);
     expect(descriptionField()).toHaveValue('Sandpiper Foods Ltd');
     expect(activeRowText()).toContain('Sandpiper Foods');
   });
@@ -560,9 +675,9 @@ describe('Account register — the last row of the register ends the run', () =>
 
     // Nothing below it, so nothing pretends there is: no wrap to the top, and
     // no button that would do nothing.
-    expect(within(quickEditBox()).queryByRole('button', { name: 'Save & Next' })).not.toBeInTheDocument();
+    expect(within(strip()).queryByRole('button', { name: 'Save & Next' })).not.toBeInTheDocument();
     expect(
-      within(quickEditBox()).getByText('Enter accepts · Enter again saves · Esc closes')
+      within(strip()).getByText('Enter accepts · Enter again saves · Esc closes')
     ).toBeInTheDocument();
 
     descriptionField().focus();
@@ -575,7 +690,7 @@ describe('Account register — the last row of the register ends the run', () =>
       expect(updateTransaction).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(boxIsShowing()).toBe(false);
+      expect(isEditing()).toBe(false);
     });
     expect(document.activeElement).toBe(grid());
     expect(activeRowText()).toContain('Thistledown Books');
@@ -591,7 +706,7 @@ describe('Account register — the box hands the keyboard back when it closes', 
     await openRegister();
     clickRow('Sandpiper Foods');
 
-    const save = within(quickEditBox()).getByRole('button', { name: 'Save' });
+    const save = within(strip()).getByRole('button', { name: 'Save' });
     save.focus();
     await user.keyboard('{Enter}');
     await waitFor(() => {
@@ -610,33 +725,33 @@ describe('Account register — the box hands the keyboard back when it closes', 
     expect(activeRowText()).toContain('Cobblestone Cafe');
 
     // …because the box shut and put the keyboard back on the list.
-    expect(boxIsShowing()).toBe(false);
+    expect(isEditing()).toBe(false);
     expect(document.activeElement).toBe(grid());
   });
 });
 
-describe('Account register — the pickers inside a box inside a list', () => {
+describe('Account register — the pickers inside a cell inside a list', () => {
   it('draws the calendar outside the table, and picking a date does not lose the row', async () => {
     await openRegister();
     clickRow('Sandpiper Foods');
 
-    const dateField = within(quickEditBox()).getByLabelText('Transaction date');
-    fireEvent.focus(dateField);
+    fireEvent.focus(dateField());
 
     const calendar = document.querySelector('[data-datepicker-panel]');
     if (!(calendar instanceof HTMLElement)) throw new Error('the calendar did not open');
     // Outside the register entirely: an in-flow calendar would be cut off by
-    // the table, which clips what overflows it.
+    // the table, which clips what overflows it — and now that the field is a
+    // CELL of the table, it is clipped by the cell as well.
     expect(grid().contains(calendar)).toBe(false);
 
     // The click that matters. The register deselects on a mousedown outside
     // the table — and this one IS outside the table — so without the
-    // calendar being recognised, the box would unmount underneath the finger
-    // and the date would never be set.
+    // calendar being recognised, the editor would unmount underneath the
+    // finger and the date would never be set.
     fireEvent.mouseDown(within(calendar).getByRole('button', { name: '15' }));
     fireEvent.click(within(calendar).getByRole('button', { name: '15' }));
 
-    expect(within(quickEditBox()).getByLabelText('Transaction date')).toHaveValue('15/01/2026');
+    expect(screen.getByLabelText('Transaction date')).toHaveValue('15/01/2026');
     expect(activeRowText()).toContain('Sandpiper Foods');
   });
 });
@@ -645,11 +760,11 @@ describe('Account register — Escape peels the box off first', () => {
   it('closes the box, keeps the row, and only then lets go of the row', async () => {
     await openRegister();
     clickRow('Sandpiper Foods');
-    expect(boxIsShowing()).toBe(true);
+    expect(isEditing()).toBe(true);
 
     // One: the box goes, the highlight stays — "just see the transaction list".
     fireEvent.keyDown(descriptionField(), { key: 'Escape' });
-    expect(boxIsShowing()).toBe(false);
+    expect(isEditing()).toBe(false);
     expect(activeRowText()).toContain('Sandpiper Foods');
     // …and the keyboard is back on the list, so the arrows carry straight on.
     expect(document.activeElement).toBe(grid());
@@ -680,7 +795,7 @@ describe('Account register — Escape peels the box off first', () => {
     // Keys aimed at the box's own controls are the box's: Delete on its
     // category picker clears the category, and must not offer to delete the
     // transaction; Space on a button presses it rather than reconciling.
-    const combobox = within(quickEditBox()).getByRole('combobox', { name: 'Category' });
+    const combobox = within(editorRow()).getByRole('combobox', { name: 'Category' });
     combobox.focus();
     fireEvent.keyDown(combobox, { key: 'Delete' });
 

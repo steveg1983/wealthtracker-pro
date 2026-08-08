@@ -18,7 +18,7 @@ import type { DismissalKind, SuggestionDismissal } from '../../types';
 
 const KINDS: readonly DismissalKind[] = [
   'transfer-pair', 'transfer-leg', 'stranded', 'duplicate',
-  'payee-merchant', 'payee-line',
+  'payee-merchant', 'payee-line', 'payee-hidden',
 ];
 
 const asText = (value: unknown): string | null => (typeof value === 'string' ? value : null);

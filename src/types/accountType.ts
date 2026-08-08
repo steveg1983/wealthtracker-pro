@@ -21,4 +21,10 @@ export type AccountType =
   | 'mortgage'
   | 'assets'
   | 'other'
-  | 'checking';
+  | 'checking'
+  // No form offers 'cash' and the MS Money import files it as 'current', but
+  // the accounts_type_check constraint has allowed it since the first schema
+  // (and still does — migration 20260720120000), so a stored row may say it.
+  // Listed here so the account mapper can carry such a row through as itself
+  // rather than quietly refiling someone's account as 'other'.
+  | 'cash';

@@ -115,10 +115,10 @@ const row = (description: string): HTMLElement => {
   return found;
 };
 
-/** The quick-edit box the register opens under a clicked row. */
-const quickEditBox = (): HTMLElement => {
-  const el = document.querySelector('[data-quick-edit-panel]');
-  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+/** The strip under the row the register has turned into an editor. */
+const strip = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit="actions"]');
+  if (!(el instanceof HTMLElement)) throw new Error('no row is being edited');
   return el;
 };
 
@@ -194,9 +194,9 @@ describe('Account register — a category the app guessed', () => {
     // The click opens the quick-edit box under that very row, and the box is
     // where confirm-or-edit lives. No second mechanism was invented for the
     // register, and nothing else stands between the click and the answer.
-    const confirm = within(quickEditBox()).getByRole('button', { name: 'Confirm' });
+    const confirm = within(strip()).getByRole('button', { name: 'Confirm' });
     expect(confirm).toBeInTheDocument();
-    expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue('Synthetic guessed row');
+    expect(screen.getByLabelText('Transaction description')).toHaveValue('Synthetic guessed row');
   });
 
   it('offers no Confirm when the row clicked is one the user already vouched for', async () => {
@@ -204,7 +204,7 @@ describe('Account register — a category the app guessed', () => {
 
     fireEvent.click(within(row('Synthetic vouched row')).getByText('Synthetic vouched row'));
 
-    expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue('Synthetic vouched row');
+    expect(screen.getByLabelText('Transaction description')).toHaveValue('Synthetic vouched row');
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
   });
 });

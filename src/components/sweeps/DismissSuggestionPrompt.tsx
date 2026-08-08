@@ -26,6 +26,14 @@ interface Props {
   /** Where the undo lives, named exactly as the section is labelled. */
   undoLocation?: string;
   saving: boolean;
+  /**
+   * What the Yes button should say while it waits, when "Saving…" is not
+   * enough. A refusal about several things at once is several writes, and a
+   * button that says the same word throughout looks stuck rather than busy —
+   * so a caller with a batch can put its progress here. Left off, the button
+   * reads exactly as it always has.
+   */
+  savingLabel?: string;
   onKeep: () => void;
   onDismiss: () => void;
 }
@@ -36,6 +44,7 @@ export default function DismissSuggestionPrompt({
   keepingMeans,
   undoLocation = 'Dismissed suggestions',
   saving,
+  savingLabel,
   onKeep,
   onDismiss,
 }: Props): React.JSX.Element {
@@ -82,7 +91,7 @@ export default function DismissSuggestionPrompt({
             disabled={saving}
             className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Saving…' : 'Yes — never offer it again'}
+            {saving ? (savingLabel ?? 'Saving…') : 'Yes — never offer it again'}
           </button>
         </div>
       </ModalFooter>

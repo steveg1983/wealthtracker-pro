@@ -7,6 +7,11 @@ import {
   accountNumberUpdateForStorage,
   isCardAccountType
 } from '../../utils/accountNumberInput';
+// The one account mapper. This service used to keep its own, which knew the
+// low-balance alert but not the bank details, while simpleAccountService's knew
+// the bank details but not the alert — and the app loaded accounts through that
+// one at boot and this one on every refresh. See accountMapping.
+import { mapAccountFromDb, mapAccountToDb } from './accountMapping';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
 type SupabaseClientLike = typeof supabase;
@@ -22,63 +27,6 @@ export interface AccountServiceOptions {
   logger?: Logger;
   now?: DateProvider;
   uuid?: UuidGenerator;
-}
-
-/** Map camelCase Account fields to snake_case DB columns for writes */
-const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
-  openingBalance: 'initial_balance',
-  openingBalanceDate: 'opening_balance_date',
-  isActive: 'is_active',
-  plaidConnectionId: 'plaid_connection_id',
-  plaidAccountId: 'plaid_account_id',
-  lastUpdated: 'last_updated',
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
-  sortCode: 'sort_code',
-  accountNumber: 'account_number',
-  creditLimit: 'credit_limit',
-  bankBalance: 'bank_balance',
-  bankBalanceDate: 'bank_balance_date',
-  lastReconciledDate: 'last_reconciled_date',
-  lowBalanceAlertEnabled: 'low_balance_alert_enabled',
-  lowBalanceThreshold: 'low_balance_threshold',
-  archiveThroughDate: 'archive_through_date',
-  parentAccountId: 'parent_account_id',
-};
-
-function mapAccountToDb(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (key === 'holdings' || key === 'tags') continue;
-    if (value === undefined) continue;
-    const dbKey = ACCOUNT_CAMEL_TO_DB[key] ?? key;
-    // DB constraint expects 'checking', frontend uses 'current'
-    result[dbKey] = key === 'type' && value === 'current' ? 'checking' : value;
-  }
-  return result;
-}
-
-/** Map snake_case DB row to camelCase Account fields for reads */
-function mapAccountFromDb(row: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...row,
-    type: row.type === 'checking' ? 'current' : row.type,
-    bankBalance: row.bank_balance ?? null,
-    // A DATE arrives as 'YYYY-MM-DD' and stays that way — see Account.
-    bankBalanceDate: row.bank_balance_date != null ? String(row.bank_balance_date) : null,
-    lastReconciledDate: row.last_reconciled_date ?? null,
-    openingBalance: row.initial_balance ?? row.opening_balance,
-    // Without this the fallback load path silently dropped the opening-balance
-    // date, so every balance walk seeded the lump at time-zero (see
-    // openingDates.ts). Mirrors simpleAccountService's mapping.
-    openingBalanceDate: row.opening_balance_date != null ? new Date(String(row.opening_balance_date)) : undefined,
-    isActive: row.is_active,
-    lastUpdated: row.last_updated ?? row.updated_at,
-    lowBalanceAlertEnabled: row.low_balance_alert_enabled === true,
-    lowBalanceThreshold: row.low_balance_threshold != null ? Number(row.low_balance_threshold) : undefined,
-    archiveThroughDate: row.archive_through_date != null ? new Date(String(row.archive_through_date)) : null,
-    parentAccountId: row.parent_account_id ?? null,
-  };
 }
 
 class AccountServiceImpl {
@@ -205,7 +153,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return (data || []).map(row => mapAccountFromDb(row as Record<string, unknown>)) as unknown as Account[];
+      return (data || []).map(mapAccountFromDb);
     } catch (error) {
       this.logger.error('AccountService.getAccounts error:', error as Error);
       return this.readAccounts();
@@ -237,7 +185,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return (data || []).map(row => mapAccountFromDb(row as Record<string, unknown>)) as unknown as Account[];
+      return (data || []).map(mapAccountFromDb);
     } catch (error) {
       this.logger.error('AccountService.getClosedAccounts error:', error as Error);
       return [];
@@ -302,7 +250,11 @@ class AccountServiceImpl {
       }
 
       this.logger.log('Account created successfully:', data);
-      return data as Account;
+      // Mapped, not cast. The raw row went back to the caller for years, which
+      // meant a freshly created account arrived in app state still spelling its
+      // type 'checking' and carrying not one camelCase field — the same class
+      // of gap as the two mappers this service used to disagree with.
+      return mapAccountFromDb(data);
     } catch (error) {
       this.logger.error('AccountService.createAccount error:', error as Error);
       throw error;
@@ -351,7 +303,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return mapAccountFromDb(data as Record<string, unknown>) as unknown as Account;
+      return mapAccountFromDb(data);
     } catch (error) {
       this.logger.error('AccountService.updateAccount error:', error as Error);
       throw error;
@@ -416,7 +368,7 @@ class AccountServiceImpl {
         throw new Error(handleSupabaseError(error));
       }
 
-      return mapAccountFromDb(data as Record<string, unknown>) as unknown as Account;
+      return mapAccountFromDb(data);
     } catch (error) {
       this.logger.error('AccountService.getAccountById error:', error as Error);
       throw error;

@@ -11,6 +11,11 @@ import {
   accountNumberUpdateForStorage,
   isCardAccountType
 } from '../../utils/accountNumberInput';
+// The one account mapper. This service used to keep its own, which knew the
+// bank details but not the low-balance alert, while accountService's knew the
+// alert but not the bank details — and the app loaded accounts through this
+// one at boot and that one on every refresh. See accountMapping.
+import { mapAccountFromDb, mapAccountToDb } from './accountMapping';
 import type { Account } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -31,83 +36,6 @@ export interface SimpleAccountServiceOptions {
 }
 
 const noop = () => {};
-
-type DbAccount = {
-  id: string;
-  name: string;
-  type: string;
-  balance: number;
-  currency: string;
-  institution?: string | null;
-  is_active?: boolean;
-  initial_balance?: number;
-  created_at?: Date;
-  updated_at?: Date;
-  last_updated?: Date;
-  bank_balance?: number | null;
-  bank_balance_date?: string | null;
-  last_reconciled_date?: string | null;
-  sort_code?: string | null;
-  account_number?: string | null;
-  credit_limit?: number | null;
-  notes?: string | null;
-  opening_balance_date?: string | null;
-  archive_through_date?: string | null;
-  parent_account_id?: string | null;
-};
-
-function transformAccountFromDb(row: Record<string, unknown>): Account {
-  const dbAccount = row as DbAccount;
-  return {
-    id: dbAccount.id,
-    name: dbAccount.name,
-    type: dbAccount.type === 'checking' ? 'current' : dbAccount.type,
-    balance: dbAccount.balance,
-    currency: dbAccount.currency,
-    institution: dbAccount.institution || '',
-    isActive: dbAccount.is_active,
-    openingBalance: dbAccount.initial_balance,
-    createdAt: dbAccount.created_at,
-    updatedAt: dbAccount.updated_at,
-    lastUpdated: dbAccount.updated_at || dbAccount.created_at,
-    bankBalance: dbAccount.bank_balance ?? null,
-    // A DATE arrives as 'YYYY-MM-DD' and stays that way — see Account.
-    bankBalanceDate: dbAccount.bank_balance_date ?? null,
-    lastReconciledDate: dbAccount.last_reconciled_date ?? null,
-    sortCode: dbAccount.sort_code ?? '',
-    accountNumber: dbAccount.account_number ?? '',
-    creditLimit: dbAccount.credit_limit,
-    notes: dbAccount.notes ?? '',
-    openingBalanceDate: dbAccount.opening_balance_date ? new Date(dbAccount.opening_balance_date) : undefined,
-    archiveThroughDate: dbAccount.archive_through_date ? new Date(dbAccount.archive_through_date) : null,
-    parentAccountId: dbAccount.parent_account_id ?? null,
-  } as Account;
-}
-
-const ACCOUNT_CAMEL_TO_DB: Record<string, string> = {
-  openingBalance: 'initial_balance',
-  bankBalance: 'bank_balance',
-  bankBalanceDate: 'bank_balance_date',
-  lastReconciledDate: 'last_reconciled_date',
-  isActive: 'is_active',
-  sortCode: 'sort_code',
-  accountNumber: 'account_number',
-  creditLimit: 'credit_limit',
-  lastUpdated: 'updated_at',
-  openingBalanceDate: 'opening_balance_date',
-  archiveThroughDate: 'archive_through_date',
-  parentAccountId: 'parent_account_id',
-};
-
-function mapAccountUpdatesToDb(updates: Partial<Account>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(updates)) {
-    const dbKey = ACCOUNT_CAMEL_TO_DB[key] ?? key;
-    // DB constraint expects 'checking', frontend uses 'current'
-    result[dbKey] = key === 'type' && value === 'current' ? 'checking' : value;
-  }
-  return result;
-}
 
 class SimpleAccountServiceImpl {
   private readonly client: SupabaseClientLike | null;
@@ -215,7 +143,7 @@ class SimpleAccountServiceImpl {
         throw error || new Error('Account creation returned no data');
       }
 
-      return transformAccountFromDb(data);
+      return mapAccountFromDb(data);
     } catch (error) {
       this.logger.error('[SimpleAccountService] Error creating account:', error as Error);
       throw error;
@@ -250,7 +178,7 @@ class SimpleAccountServiceImpl {
         throw error;
       }
 
-      return (data || []).map(transformAccountFromDb);
+      return (data || []).map(mapAccountFromDb);
     } catch {
       this.logger.warn('[SimpleAccountService] Using localStorage fallback');
       return this.localAccounts();
@@ -313,7 +241,7 @@ class SimpleAccountServiceImpl {
         throw new Error('Supabase not configured');
       }
 
-      const dbUpdates = mapAccountUpdatesToDb(await this.cardSafeUpdates(client, accountId, updates));
+      const dbUpdates = mapAccountToDb(await this.cardSafeUpdates(client, accountId, updates));
       const { data, error } = await client
         .from('accounts')
         .update(dbUpdates as never)
@@ -326,7 +254,7 @@ class SimpleAccountServiceImpl {
         throw error;
       }
 
-      return transformAccountFromDb(data);
+      return mapAccountFromDb(data);
     } catch (error) {
       this.logger.error('[SimpleAccountService] Error updating account:', error as Error);
       throw error;

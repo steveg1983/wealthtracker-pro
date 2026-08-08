@@ -191,7 +191,7 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
         keys: ['a', 'b', 'c', '…'],
         what: 'Type a few letters to jump to the next transaction whose description starts with them. Keep pressing one letter to walk through every payee beginning with it.',
       },
-      { keys: ['Esc'], what: 'Let go of the highlighted row — and the quick edit box under it.' },
+      { keys: ['Esc'], what: 'Let go of the highlighted row — and the editor it has open.' },
     ],
   },
   {
@@ -199,11 +199,11 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
     shortcuts: [
       {
         keys: ['Enter'],
-        what: 'Open it in the full editor — splits, tags and everything the quick edit box has no room for.',
+        what: 'Open it in the full editor — splits, tags, the amount, and everything else the row itself has no room for.',
       },
       {
         keys: ['F2'],
-        what: 'Put the cursor in the quick edit box under the row, opening it if it was closed.',
+        what: 'Put the cursor in the Date box of the highlighted row, turning the row into an editor if it was not one already.',
       },
       {
         keys: ['Space'],
@@ -221,11 +221,12 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
     ],
   },
   {
-    // The box that opens under a clicked row: date, description, category,
-    // Save & Next, Save. Its keys are worth printing because they are what make
-    // a categorising run continuous — the alternative is reaching for the mouse
-    // on every transaction.
-    title: 'The quick edit box under a row',
+    // Highlighting a row turns its own Date, Description and Category cells
+    // into boxes, with Save & Next and Save on a strip underneath. These keys
+    // are worth printing because they are what make a categorising run
+    // continuous — the alternative is reaching for the mouse on every
+    // transaction.
+    title: 'Editing the highlighted row in place',
     shortcuts: [
       {
         keys: ['Enter'],
@@ -237,7 +238,7 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
       },
       {
         keys: ['Esc'],
-        what: 'Close the box and go back to the list, leaving the row highlighted. Anything you had typed and not saved is dropped.',
+        what: 'Stop editing this row and go back to the list, leaving it highlighted. Anything you had typed and not saved is dropped.',
       },
     ],
   },

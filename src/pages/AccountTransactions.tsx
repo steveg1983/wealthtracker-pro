@@ -13,10 +13,16 @@ import BulkDeleteTransactionsConfirm from '../components/BulkDeleteTransactionsC
 import RegisterSelectionBar from '../components/RegisterSelectionBar';
 import RegisterShortcutsDialog from '../components/RegisterShortcutsDialog';
 import AccountSettingsModal from '../components/AccountSettingsModal';
-import QuickEditTransactionPanel, {
-  QUICK_EDIT_BOX_HEIGHT,
+import {
+  QuickEditRowProvider,
+  QuickEditFieldCell,
+  QuickEditActionStrip,
+  QUICK_EDIT_ROW_HEIGHT,
+  QUICK_EDIT_STRIP_HEIGHT,
+  type QuickEditField,
   type QuickEditFocusRequest,
-} from '../components/QuickEditTransactionPanel';
+} from '../components/QuickEditRow';
+import { isInsideQuickEdit } from '../utils/quickEditScope';
 import SuggestedCategoryBadge from '../components/SuggestedCategoryBadge';
 import CategorySelector from '../components/CategorySelector';
 import PageTip from '../components/PageTip';
@@ -26,6 +32,7 @@ import { VirtualizedTable, type Column, type RowDetail } from '../components/Vir
 import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
 import { LoadingState } from '../components/loading/LoadingState';
 import { compareChronological, compareTransactions, type TransactionSortField } from '../utils/transactionSort';
+import { createCategoryLabeller } from '../utils/categoryLabel';
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
@@ -92,6 +99,21 @@ const DEFAULT_HIDDEN_COLUMNS = ['amount', 'notes'];
 
 interface ArchiveState { range: ArchiveRange; from: string; to: string }
 
+/**
+ * Which column each editable field takes over while a row is being edited.
+ *
+ * The mapping is the whole of the alignment problem: the editor never places
+ * anything, it only says which cell it belongs in, and the cell is drawn by the
+ * table at the column's own width under the column's own header. Any column not
+ * named here — Payment, Deposit, Balance, R, Tags, Notes — stays exactly as it
+ * reads. Amounts are the full editor's job.
+ */
+const QUICK_EDIT_COLUMN_FIELDS: Readonly<Record<string, QuickEditField>> = {
+  date: 'date',
+  description: 'description',
+  category: 'category',
+};
+
 // Friendly labels for the View dropdown's column checkboxes.
 const COLUMN_LABELS: Record<string, string> = { reconciled: 'Reconciled (R)' };
 
@@ -111,37 +133,57 @@ const SORT_FIELD_LABELS: Record<TransactionSortField, string> = {
  * How the register brings a row into view — and the one rule that decides it.
  *
  * ─ THE RULE ───────────────────────────────────────────────────────────────
- * Opening or moving the QUICK-EDIT BOX centres the row it is about. Moving
- * only the HIGHLIGHT does not.
+ * WORKING a row centres it. BROWSING does not. The row EDITOR is what tells the
+ * two apart: while a row is an editor the user is working, and the row being
+ * worked belongs in the middle — wherever the highlight goes next.
  *
- *   What just happened                          Alignment
- *   ──────────────────────────────────────────  ─────────
- *   A ?txn= deep link arrived                   centre
- *   A click opened the box on a row             centre
- *   F2 opened (or re-opened) the box            centre
- *   Save & Next stepped an editor to the next   centre
- *   Save & Previous stepped it back             centre
- *   Arrow / Page / Home / End / type-ahead      nearest
- *   A delete moved the highlight to the next    nearest
- *   A second click opened the full editor       neither — the modal is the view
- *   Escape let go of the row                    neither — nothing is being worked
+ *   What just happened                            Alignment
+ *   ────────────────────────────────────────────  ─────────
+ *   A ?txn= deep link arrived                     centre
+ *   A click made a row the editor                 centre
+ *   F2 opened (or re-opened) the editor           centre
+ *   Save & Next stepped an editor to the next     centre
+ *   Save & Previous stepped it back               centre
+ *   Arrow / Page / Home / End / type-ahead,
+ *     with a row being EDITED                     centre
+ *   …the same keys with nothing being edited      nearest
+ *   Shift+arrow stretching a run of rows          nearest — see below
+ *   A delete moved the highlight to the next      nearest
+ *   A second click opened the full editor         neither — the modal is the view
+ *   Escape let go of the row                      neither — nothing is being worked
  *
- * WHY CENTRE FOR THE BOX. The owner: "It is nice to see the transactions above
- * and below the one you are working on." A box that opens at the foot of the
- * screen shows its row and nothing after it; centred, the row being worked has
- * its neighbours either side, which is how a register is read. Both ends clamp
- * — react-window's 'center' and the non-virtualised path's arithmetic alike
- * stop at the top and at the foot — so the first and last few rows simply sit
- * as near the middle as the list allows, which is the exception he named.
+ * WHY CENTRE FOR THE EDITOR. The owner: "It is nice to see the transactions
+ * above and below the one you are working on." A row edited at the foot of the
+ * screen shows nothing after it; centred, the row being worked has its
+ * neighbours either side, which is how a register is read. Both ends clamp —
+ * react-window's 'center' and the non-virtualised path's arithmetic alike stop
+ * at the top and at the foot — so the first and last few rows simply sit as
+ * near the middle as the list allows, which is the exception he named.
  *
- * The box is part of its row's height (see RowDetail), so centring the row
- * centres the row and its box together.
+ * An edited row is taller than a plain one and carries its strip of actions
+ * with it (see RowDetail), so centring the row centres the whole of it.
  *
- * WHY NOT FOR THE HIGHLIGHT. Centring on every keystroke would heave the whole
- * register under the user one line at a time; 'nearest' lets the highlight walk
- * down the screen and moves the list only when it reaches the edge. That holds
- * whether or not the box happens to be open — an arrow key is browsing, and
- * browsing should not move the page.
+ * WHY THE ARROWS FOLLOW THE EDITOR. They did not, and the owner said what that
+ * felt like: "When I click on a transaction it does put it in the middle, but
+ * when I use the up and down arrows, it is not the list moving up and down and
+ * the highlighted box staying in the middle, it is the highlighted box that
+ * moves down or up the list." Which is Money's register the wrong way round.
+ * Working down a statement, the thing that should hold still is the row being
+ * worked; the ledger scrolls beneath it. So an arrow WHILE A ROW IS BEING
+ * EDITED moves the editing, and moving it centres it — the same sentence as
+ * every other line in the table above.
+ *
+ * WHY NOT WHEN NOTHING IS BEING EDITED. A bare highlight walking the list is
+ * browsing, and re-centring the register on every keystroke would heave the
+ * whole page about one line at a time to no end. 'nearest' moves the list only
+ * when the highlight reaches an edge, which is what every list that has ever
+ * had arrow keys does.
+ *
+ * WHY SHIFT+ARROW STAYS NEAREST. It is stretching a SELECTION, not moving an
+ * editor: no row is an editor at all while more than one is selected (see
+ * quickEditRow), so there would be nothing in the middle to keep there, and
+ * dragging the register under a growing selection makes it harder to see how
+ * far it reaches.
  */
 type RowScrollAlign = 'center' | 'nearest';
 
@@ -397,10 +439,10 @@ export default function AccountTransactions() {
     pendingTxnRef.current = null;
     setSelectedTransaction(target);
     setSelectedTransactionId(txn);
-    // …with its quick-edit box already open. A ?txn= link is someone being
-    // sent to a particular transaction to DO something about it (the
-    // categorisation drill sends them), so the row arrives ready to edit
-    // rather than merely pointed at.
+    // …and already an editor. A ?txn= link is someone being sent to a
+    // particular transaction to DO something about it (the categorisation drill
+    // sends them), so the row arrives with its own boxes open rather than
+    // merely pointed at.
     setQuickEditOpen(true);
     setRowScroll(previous => nextRowScroll(previous, txn, 'center'));
   }, [transactions, location.search]);
@@ -432,24 +474,27 @@ export default function AccountTransactions() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   /**
-   * Whether the quick-edit box is open under the highlighted row.
+   * Whether the highlighted row is currently an EDITOR — its Date, Description
+   * and Category cells turned into boxes, with the strip of actions beneath it.
    *
    * Separate from the highlight itself, because Escape peels the two apart:
-   * the first one closes the box and leaves the row highlighted (the register
-   * is legible again), the second lets go of the row. It follows the highlight
-   * while it is open — arrowing down moves the box down with it, which is what
-   * Money's register does — and stays shut while it is shut, so someone who
-   * closed it to READ the list can arrow through it undisturbed.
+   * the first one stops the editing and leaves the row highlighted (the
+   * register is legible again), the second lets go of the row. It follows the
+   * highlight while it is on — arrowing down takes the editing down with it,
+   * which is what Money's register does — and stays off while it is off, so
+   * someone who stopped editing to READ the list can arrow through it
+   * undisturbed.
    */
   const [quickEditOpen, setQuickEditOpen] = useState(false);
   /**
-   * A request for the quick-edit box to take the cursor, and which field.
+   * A request for the row editor to take the cursor, and which field.
    *
    * Two things ask: F2 (the date field, calendar and all), and the landing
    * after a Save & Next (whichever field the run is working down). Held here
-   * rather than inside the box because the box is redrawn on the row it moves
-   * to, and a request has to survive that hop to be honoured on the other side.
-   * Handed straight back when honoured, so nothing can replay it.
+   * rather than inside the editor because the editor's cells are rebuilt on the
+   * row it moves to, and a request has to survive that hop to be honoured on
+   * the other side. Handed straight back when honoured, so nothing can replay
+   * it.
    */
   const [quickEditFocus, setQuickEditFocus] = useState<QuickEditFocusRequest | null>(null);
   /** Which quick-add field to put the cursor in once the bar is on screen. */
@@ -521,6 +566,23 @@ export default function AccountTransactions() {
     return effectiveOpeningDate(account, ownFirst, siblingFirst);
   }, [account, accounts, transactions, fullAccountTransactions]);
 
+  /**
+   * What the Category column says for a row — and the ONE function that
+   * answers it, for the cell and for the sort alike.
+   *
+   * They were two functions, and they disagreed: the cell showed
+   * "Food > Groceries" and "Transfer > Savings", the sort key was the leaf name
+   * alone and the empty string for any transfer entered by hand. Sorting by
+   * Category therefore tied every transfer with every uncategorised row and
+   * delivered the register in date order. One resolver is what stops that
+   * coming back — see createCategoryLabeller, and CategoryLabelFor for the
+   * whole account of it.
+   */
+  const categoryLabel = useMemo(
+    () => createCategoryLabeller(categories, accounts),
+    [categories, accounts]
+  );
+
   // Get account-specific transactions
   const accountTransactions = useMemo<Transaction[]>(() => {
     if (!account) return [];
@@ -549,13 +611,23 @@ export default function AccountTransactions() {
         return (
           t.description.toLowerCase().includes(search) ||
           t.amount.toString().includes(search) ||
-          (t.category && categories.find(c => c.id === t.category)?.name.toLowerCase().includes(search)) ||
+          // The SAME label the Category column shows and the Category sort
+          // orders by — so searching finds what the column reads. It used to
+          // match the leaf name alone, which meant typing "Bills" found nothing
+          // filed under "Bills > Water": the parent the user was looking at was
+          // the one part of the label the search could not see. It also gives
+          // transfers a searchable label at last ("Transfer > Savings"), which
+          // a leaf lookup could never resolve.
+          categoryLabel(t).toLowerCase().includes(search) ||
           (t.tags && t.tags.some((tag: string) => tag.toLowerCase().includes(search))) ||
           (t.notes && t.notes.toLowerCase().includes(search))
         );
       })
-      .sort((a, b) => compareTransactions(a, b, sortField, sortDirection, categories));
-  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categories]);
+      .sort((a, b) => compareTransactions(a, b, sortField, sortDirection, categoryLabel));
+    // categories is not a dependency: the only thing here that reads them is
+    // categoryLabel, which is memoised on exactly them (and on accounts) — so a
+    // renamed category rebuilds the labeller and this list follows.
+  }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categoryLabel]);
   
   // Calculate running balance
   const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
@@ -751,22 +823,26 @@ export default function AccountTransactions() {
     typeAheadRef.current = { buffer: '', at: 0 };
 
     if (selectedTransactionId === item.id && quickEditOpen) {
-      // A second click on a row already showing its box means "give me
-      // everything" — the full editor, with splits, tags and the rest.
+      // A second click on a row that is ALREADY an editor means "give me
+      // everything" — the full editor, with the amount, splits, tags and the
+      // rest. Never from inside one of the row's own boxes: those swallow their
+      // clicks, because clicking into the description is typing (see the
+      // editor's cell shell).
       setRowScroll(null);
       openFullEditor(item);
       return;
     }
-    // Otherwise: highlight it and open the quick-edit box directly beneath it,
-    // which is what a click on a transaction has always meant here — the box
-    // has simply moved from the foot of the page to the row it is about.
+    // Otherwise: highlight it and turn the row itself into the editor, which is
+    // what a click on a transaction has always meant here — the form has simply
+    // walked from the foot of the page, to a box under the row, to the row's
+    // own cells.
     setSelectedTransactionId(item.id);
     setQuickEditOpen(true);
     // …in the MIDDLE of the register, with the transactions either side of it
-    // still readable. The owner's ask, and the reason the box is worth opening
-    // where it opens: a row clicked near the foot would otherwise put its box
-    // half off the screen, and a row clicked anywhere shows only what follows
-    // it. See RowScrollRequest for the whole rule.
+    // still readable. The owner's ask, and the reason the row is worth bringing
+    // there: a row clicked near the foot would otherwise put its strip of
+    // actions half off the screen, and a row clicked anywhere shows only what
+    // follows it. See RowScrollRequest for the whole rule.
     setRowScroll(previous => nextRowScroll(previous, item.id, 'center'));
   }, [selectedTransactionId, quickEditOpen, openFullEditor]);
 
@@ -813,12 +889,15 @@ export default function AccountTransactions() {
       if (!target) return;
       if (
         target.closest('[data-transaction-table]') ||
-        target.closest('[data-quick-edit-panel]') ||
-        // The quick-edit box's calendar is drawn in a PORTAL on document.body
+        // The row editor's own parts, named in their own right: the fields sit
+        // inside the table above, but saying so here is what keeps this honest
+        // if the strip ever moves.
+        isInsideQuickEdit(target) ||
+        // The row editor's calendar is drawn in a PORTAL on document.body
         // (the transaction list would clip it), so a click on the 14th is
         // nowhere near the table in the DOM. Without this, picking a date
-        // would deselect the row and unmount the box mid-click — the same trap
-        // the listbox guard below covers for the category menu.
+        // would deselect the row and unmount its editor mid-click — the same
+        // trap the listbox guard below covers for the category menu.
         target.closest('[data-datepicker-panel]') ||
         // The bulk-action bar acts ON the selection — a mousedown there is
         // the opposite of clicking away from it, and deselecting first would
@@ -858,10 +937,10 @@ export default function AccountTransactions() {
     setSelectedTransactionId(nextId);
     setSelectedTransaction(nextTransaction);
     // Save & Next has to SHOW you the next one — and show it in the same place
-    // every time. The box moves to it, so the row it moves to is centred like
-    // any other row the box opens on: working down a statement, each row in
-    // turn arrives mid-screen with its neighbours either side, rather than the
-    // work creeping towards the foot of the register a line at a time. See
+    // every time. The editing moves to it, so the row it moves to is centred
+    // like any other row worked on: working down a statement, each row in turn
+    // arrives mid-screen with its neighbours either side, rather than the work
+    // creeping towards the foot of the register a line at a time. See
     // RowScrollRequest.
     setRowScroll(previous => nextRowScroll(previous, nextId, 'center'));
     return true;
@@ -995,12 +1074,26 @@ export default function AccountTransactions() {
     }
     setSelectedTransactionId(next.id);
     setSelectedTransaction(next);
-    // Moving the HIGHLIGHT, not the box: the least scroll that shows the row,
-    // and nothing at all while it is already on screen. See RowScrollRequest
-    // for why this one stays 'nearest' when the click and the box centre.
-    setRowScroll(previous => nextRowScroll(previous, next.id, 'nearest'));
+    // Which of the two things this key is doing decides where the row lands.
+    //
+    // While a row is being edited it is MOVING THE EDITING — the editor follows
+    // the highlight — so the row it moves to is centred, exactly as it is when
+    // a click or a Save & Next moves it. The owner, on the register that did
+    // not:
+    // "when I use the up and down arrows, it is not the list moving up and down
+    // and the highlighted box staying in the middle, it is the highlighted box
+    // that moves down or up the list."
+    //
+    // With nothing being edited it is browsing: the least scroll that shows
+    // the row, and nothing at all while it is already on screen.
+    //
+    // `extend` is Shift, and Shift is neither — it stretches a selection, and
+    // while more than one row is selected no row is an editor, so there is
+    // nothing to keep in the middle. The whole rule is at RowScrollRequest.
+    const align: RowScrollAlign = quickEditOpen && !extend ? 'center' : 'nearest';
+    setRowScroll(previous => nextRowScroll(previous, next.id, align));
     return true;
-  }, [navigableRows, selectedTransactionId]);
+  }, [navigableRows, selectedTransactionId, quickEditOpen]);
 
   /** Move by `delta` rows. Entering with nothing highlighted starts at an end. */
   const moveSelection = useCallback((delta: number, extend = false): boolean => {
@@ -1013,13 +1106,13 @@ export default function AccountTransactions() {
 
   // ── What the keys actually do ──────────────────────────────────────────────
 
-  /** Let go of the whole selection: no highlight, and no quick-edit box. */
+  /** Let go of the whole selection: no highlight, and nothing being edited. */
   const clearSelection = useCallback((): void => {
     setSelectionAnchorId(null);
     setSelectedTransactionId(null);
     setSelectedTransaction(null);
     setRowScroll(null);
-    // The box is about a row. With no row, there is nothing for it to be.
+    // The editing is about a row. With no row, there is nothing to edit.
     setQuickEditOpen(false);
   }, []);
 
@@ -1127,9 +1220,9 @@ export default function AccountTransactions() {
    * pressing Add.
    *
    * Two consequences worth knowing. The highlight is let go of — the user has
-   * moved on to a new transaction, and leaving a quick-edit box open on the
-   * old row while they type into the add bar would be two half-finished edits
-   * on one screen. And a SPLIT row copies as a plain draft, because its
+   * moved on to a new transaction, and leaving the old row open as an editor
+   * while they type into the add bar would be two half-finished edits on one
+   * screen. And a SPLIT row copies as a plain draft, because its
    * categorisation lives in lines this form has no way to hold.
    */
   const duplicateIntoQuickAdd = useCallback((row: TransactionWithBalance): void => {
@@ -1192,15 +1285,15 @@ export default function AccountTransactions() {
 
   const handleQuickEditFocusHandled = useCallback(() => setQuickEditFocus(null), []);
   /**
-   * The quick-edit box closing — Escape, the ×, or a finished Save: put it
-   * away, keep the row highlighted, and hand the keyboard back to the list.
+   * The editing stopping — Escape, the ×, or a finished Save: give the row its
+   * cells back, keep it highlighted, and hand the keyboard back to the list.
    *
    * Both halves matter, and the second is the one that was missing. Without the
-   * close, Escape would not do what the box plainly looks like it should.
-   * Without the focus, the keyboard is left on a button inside a box that is
-   * about to be taken off screen — and the register ignores everything inside
-   * that box on purpose, so the next arrow key was scrolling the list instead
-   * of moving the highlight.
+   * close, Escape would not do what the row plainly looks like it should.
+   * Without the focus, the keyboard is left on a button that is about to be
+   * taken off screen — and the register ignores everything inside the editor on
+   * purpose, so the next arrow key was scrolling the list instead of moving the
+   * highlight.
    */
   const handleQuickEditDismiss = useCallback(() => {
     setQuickEditOpen(false);
@@ -1208,7 +1301,7 @@ export default function AccountTransactions() {
   }, []);
 
   /**
-   * Save & Next: step the highlight on, and tell the box that opens on the
+   * Save & Next: step the highlight on, and tell the editor that opens on the
    * next row where to put the cursor — the field the user was last in, so a
    * run of categories (or descriptions, or dates) carries straight on.
    */
@@ -1219,40 +1312,39 @@ export default function AccountTransactions() {
   }, [advanceToNextTransaction]);
 
   /**
-   * The quick-edit box, as the register draws it: inside the list, attached to
-   * the underside of the row it is about, with every row below pushed down by
-   * exactly its height. Microsoft Money's shape, and the reason the register
-   * can be worked down without the eye ever leaving the line being edited.
+   * The transaction whose ROW is currently the editor, or null when none is.
    *
-   * Null — no box at all — in the three cases where a box would be a lie:
-   * nothing is highlighted, a RUN of rows is (the box edits one transaction),
-   * or the full editor is open over the top of it.
+   * Null in the three cases where an open editor would be a lie: nothing is
+   * highlighted, a RUN of rows is (the editor edits one transaction), or the
+   * full editor is open over the top of it.
    */
-  const quickEditRowDetail = useMemo<RowDetail<DisplayRow> | null>(() => {
-    if (!quickEditOpen || hasMultiSelection || isEditModalOpen || !quickEditTarget) return null;
-    const target = quickEditTarget;
-    return {
-      key: target.id,
-      height: QUICK_EDIT_BOX_HEIGHT,
-      render: () => (
-        <QuickEditTransactionPanel
-          transaction={target}
-          onNext={
-            getNextTransactionId(target.id)
-              ? (landOn) => { handleQuickEditNext(target.id, landOn); }
-              : undefined
-          }
-          focusRequest={quickEditFocus}
-          onFocusRequestHandled={handleQuickEditFocusHandled}
-          onDismiss={handleQuickEditDismiss}
-        />
-      ),
-    };
-  }, [
-    quickEditOpen, hasMultiSelection, isEditModalOpen, quickEditTarget,
-    getNextTransactionId, handleQuickEditNext,
-    quickEditFocus, handleQuickEditFocusHandled, handleQuickEditDismiss,
-  ]);
+  const quickEditRow = useMemo<TransactionWithBalance | null>(() => {
+    if (!quickEditOpen || hasMultiSelection || isEditModalOpen) return null;
+    return quickEditTarget;
+  }, [quickEditOpen, hasMultiSelection, isEditModalOpen, quickEditTarget]);
+
+  /**
+   * Whether this row's Category cell can become a picker at all.
+   *
+   * A transfer's category follows the account it faces, and a split's lives in
+   * its lines — neither is a choice this row can offer, so the cell is left
+   * showing what it always showed rather than turning into a control that
+   * would have to refuse.
+   */
+  const canEditCategoryInPlace =
+    quickEditRow !== null && quickEditRow.type !== 'transfer' && quickEditRow.isSplit !== true;
+
+  /**
+   * Save & Next, or nothing at all on the last row of the register.
+   *
+   * Nothing pretends there is somewhere to go: the strip shows no Save & Next
+   * there, and the save ends the run rather than wrapping round to the top.
+   */
+  const quickEditNext = useMemo<((landOn: QuickEditFocusRequest) => void) | undefined>(() => {
+    if (!quickEditRow || !getNextTransactionId(quickEditRow.id)) return undefined;
+    const currentId = quickEditRow.id;
+    return (landOn: QuickEditFocusRequest): void => { handleQuickEditNext(currentId, landOn); };
+  }, [quickEditRow, getNextTransactionId, handleQuickEditNext]);
 
   /**
    * Keys the register claims while the table has focus.
@@ -1261,9 +1353,9 @@ export default function AccountTransactions() {
    * and the quick-add bar sit OUTSIDE it, so typing in them is untouched by
    * construction rather than by a list of exceptions.
    *
-   * The quick-edit box is the one thing that is INSIDE it — that is the whole
-   * point of the box — so it gets the two guards at the top: nothing typed
-   * anywhere, and nothing at all from within the box, reaches these keys.
+   * The row editor is the one thing that is INSIDE it — that is the whole
+   * point of it — so it gets the two guards at the top: nothing typed anywhere,
+   * and nothing at all from within the editor, reaches these keys.
    *
    * preventDefault is called only when the register actually handled the key,
    * so an empty register still scrolls the page as it always did.
@@ -1286,13 +1378,13 @@ export default function AccountTransactions() {
    */
   const handleRegisterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (isTextEntryTarget(e.target)) return;
-    // The quick-edit box now sits INSIDE this grid, so its keys bubble through
-    // here. It owns every one of them: Space on its Save button must press the
-    // button, not reconcile the row; Delete on its category picker must clear
-    // the category, not offer to delete the transaction. The typing guard above
-    // covers its text fields; this covers its buttons and its comboboxes, which
-    // are not text at all.
-    if (e.target instanceof HTMLElement && e.target.closest('[data-quick-edit-panel]')) return;
+    // The row editor sits INSIDE this grid — its fields ARE cells of a row —
+    // so its keys bubble through here. It owns every one of them: Space on its
+    // Save button must press the button, not reconcile the row; Delete on its
+    // category picker must clear the category, not offer to delete the
+    // transaction. The typing guard above covers its text fields; this covers
+    // its buttons and its comboboxes, which are not text at all.
+    if (isInsideQuickEdit(e.target)) return;
     // A dialog owns the keyboard while it is open, and all of these render
     // over this.
     if (isEditModalOpen || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
@@ -1369,29 +1461,30 @@ export default function AccountTransactions() {
       case 'Enter': {
         if (!activeRow) return;
         claim();
-        // The FULL editor, whatever the quick-edit box is doing — the same
+        // The FULL editor, whatever the row's own boxes are doing — the same
         // openFullEditor a second click reaches, so the two cannot drift.
-        // (Enter INSIDE the box saves instead; the box handles its own keys
-        // and this handler never sees them — see the guard at the top.)
+        // (Enter INSIDE the editor accepts and then saves; the editor handles
+        // its own keys and this handler never sees them — see the guard at the
+        // top.)
         openFullEditor(activeRow);
         break;
       }
       case 'F2': {
-        // Straight into the quick-edit box, opening it if Escape had closed
-        // it. Never over a multi-row selection — the box edits ONE
-        // transaction, and it is not on screen then.
+        // Straight into the row's own Date box, turning the row into an
+        // editor if Escape had stopped it. Never over a multi-row selection —
+        // the editor edits ONE transaction, and no row is one then.
         if (!activeRow || hasMultiSelection) return;
         claim();
         setQuickEditOpen(true);
         // The date field, calendar and all: F2 is someone asking to EDIT this
         // row, and the calendar is most of what the date field is for. A Save &
-        // Next landing on the same field asks for it shut — see the box's
+        // Next landing on the same field asks for it shut — see the editor's
         // QuickEditFocusRequest.
         setQuickEditFocus({ field: 'date', openCalendar: true });
-        // The box lives in the register itself now, so an expanded table is no
-        // obstacle: it is on screen either way, and collapsing it would undo
-        // something the user asked for. Centred, like every other way the box
-        // opens — including on the row it is already on, which is why the
+        // The editing happens in the register itself, so an expanded table is
+        // no obstacle: it is on screen either way, and collapsing it would undo
+        // something the user asked for. Centred, like every other way editing
+        // begins — including on the row it is already on, which is why the
         // request carries a count (see RowScrollRequest.token).
         setRowScroll(previous => nextRowScroll(previous, activeRow.id, 'center'));
         break;
@@ -1435,11 +1528,11 @@ export default function AccountTransactions() {
         // One layer at a time: the multi-row selection first, the highlight
         // second. Anything left over belongs to whatever is above us.
         //
-        // The quick-edit box is a layer of its own, but it is peeled from
-        // INSIDE the box — an Escape with the cursor in the box closes it and
-        // leaves the row highlighted (see the box's own handler). An Escape
-        // aimed at the LIST is about the list: it lets go of the row, and the
-        // box, being about that row, goes with it.
+        // The editing is a layer of its own, but it is peeled from INSIDE the
+        // editor — an Escape with the cursor in one of the row's boxes stops
+        // the editing and leaves the row highlighted (see the editor's own
+        // handler). An Escape aimed at the LIST is about the list: it lets go
+        // of the row, and the editing, being about that row, goes with it.
         if (hasMultiSelection) {
           claim();
           setSelectionAnchorId(null);
@@ -1641,33 +1734,6 @@ export default function AccountTransactions() {
     if (firstError !== null) showError(firstError);
   }, [bulkDeletePlan, deleteTransaction, clearSelection, showSuccess, showError]);
   
-  // Get category display name
-  const getCategoryName = useCallback((categoryId: string, transaction?: TransactionWithBalance) => {
-    if (!categoryId) return '';
-
-    // For transfers, show target/source account name
-    if (transaction?.type === 'transfer' && transaction.transferAccountId) {
-      const targetAccount = accounts.find(a => a.id === transaction.transferAccountId);
-      const accountName = targetAccount?.name ?? 'Unknown';
-      if (categoryId === 'transfer-out' || categoryId === 'transfer-in') return `Transfer > ${accountName}`;
-    }
-
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) {
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
-        return '';
-      }
-      return '';
-    }
-
-    if (category.parentId) {
-      const parent = categories.find(c => c.id === category.parentId);
-      return parent ? `${parent.name} > ${category.name}` : category.name;
-    }
-
-    return category.name;
-  }, [categories, accounts]);
-
   // Define table columns for VirtualizedTable (base definitions; order + widths
   // are applied below from the persisted layout).
   const baseColumns: Column<DisplayRow>[] = useMemo(() => [
@@ -1721,7 +1787,8 @@ export default function AccountTransactions() {
       header: 'Category',
       width: '280px',
       accessor: (transaction) => {
-        const name = getCategoryName(transaction.category, transaction);
+        // The SAME resolver the sort orders this column by — see categoryLabel.
+        const name = categoryLabel(transaction);
         // The opening-balance lead line is a summary, not a transaction: it has
         // no category and nothing to vouch for.
         const suggested = !isOpeningBalanceRow(transaction) && isConfirmableSuggestion(transaction);
@@ -1866,7 +1933,7 @@ export default function AccountTransactions() {
       className: 'text-right',
       headerClassName: 'text-right'
     }
-  ], [formatCurrency, account?.currency, getCategoryName]);
+  ], [formatCurrency, account?.currency, categoryLabel]);
 
   // Apply the persisted order + widths on top of the base definitions.
   const columns: Column<DisplayRow>[] = useMemo(() => {
@@ -1883,6 +1950,51 @@ export default function AccountTransactions() {
   const handleColumnReorder = useCallback((fromKey: string, toKey: string) => {
     setColumnOrder(prev => moveColumnKey(orderColumnKeys(baseColumns.map(c => c.key), prev), fromKey, toKey));
   }, [baseColumns]);
+
+  /**
+   * Which fields the row can actually offer, in the order the register draws
+   * them.
+   *
+   * A column switched off in the View menu takes its editor with it: there is
+   * nowhere in the row for a field whose column is not on screen, and an editor
+   * that floated one somewhere else would be the very thing this change got rid
+   * of. Nothing is lost — Enter opens the full editor, which reaches every
+   * field of every row — and a keyboard run lands on a field that exists (see
+   * the editor's resolveField).
+   */
+  const quickEditFields = useMemo<QuickEditField[]>(() => {
+    const shown = new Set(columns.map(c => c.key));
+    return (['date', 'description', 'category'] as const).filter(field => {
+      if (!shown.has(field)) return false;
+      return field !== 'category' || canEditCategoryInPlace;
+    });
+  }, [columns, canEditCategoryInPlace]);
+
+  /**
+   * The row editor, as the register draws it: the row's own Date, Description
+   * and Category cells become the controls, and a slim strip beneath the row
+   * carries the actions, pushing every row below down by exactly its height.
+   *
+   * Microsoft Money's shape, and the reason the register can be worked down
+   * without the eye ever leaving the line being edited.
+   */
+  const quickEditRowDetail = useMemo<RowDetail<DisplayRow> | null>(() => {
+    if (!quickEditRow) return null;
+    const editableFields = new Set(quickEditFields);
+    return {
+      key: quickEditRow.id,
+      height: QUICK_EDIT_STRIP_HEIGHT,
+      rowHeight: QUICK_EDIT_ROW_HEIGHT,
+      renderCell: (columnKey) => {
+        const field = QUICK_EDIT_COLUMN_FIELDS[columnKey];
+        // undefined, not null: "this column is none of the editor's business",
+        // which leaves the cell reading exactly as it did.
+        if (!field || !editableFields.has(field)) return undefined;
+        return <QuickEditFieldCell field={field} />;
+      },
+      render: () => <QuickEditActionStrip />,
+    };
+  }, [quickEditRow, quickEditFields]);
 
   if (!account) {
     // Still finding out which of the three it is — the open list may not have
@@ -2345,6 +2457,20 @@ export default function AccountTransactions() {
         </p>
       )}
 
+      {/* The row editor's state, the keys it answers to and the writes it makes
+          — held ABOVE the table so that typing a description re-renders three
+          cells and a strip rather than eleven thousand rows, and mounted
+          ALWAYS, editor or no editor, because a wrapper that comes and goes
+          changes the shape of the tree beneath it and this register has already
+          been through what that does to a virtualised list. */}
+      <QuickEditRowProvider
+        transaction={quickEditRow}
+        fields={quickEditFields}
+        onNext={quickEditNext}
+        onDismiss={handleQuickEditDismiss}
+        focusRequest={quickEditFocus}
+        onFocusRequestHandled={handleQuickEditFocusHandled}
+      >
       {/* The register is one ARIA grid, focusable as a whole and driven from
           the keyboard: arrows and page keys walk the highlight, Enter opens the
           highlighted row, and aria-activedescendant tells a screen reader which
@@ -2359,9 +2485,10 @@ export default function AccountTransactions() {
         role="grid"
         aria-label={`${account.name} transactions`}
         // The header row counts, which is what puts the first transaction on
-        // row 2 — the same numbering the user sees. The open quick-edit box is
-        // a row of the grid too (one cell, holding the form), so it counts as
-        // one while it is there rather than leaving the total short.
+        // row 2 — the same numbering the user sees. The strip under a row
+        // being edited is a row of the grid too (one cell, holding the
+        // actions), so it counts as one while it is there rather than leaving
+        // the total short.
         aria-rowcount={displayRows.length + 1 + (quickEditRowDetail ? 1 : 0)}
         tabIndex={0}
         // Shift+arrow stretches the highlight over a run of rows, so a screen
@@ -2415,6 +2542,7 @@ export default function AccountTransactions() {
           }}
         />
       </div>
+      </QuickEditRowProvider>
 
       {/* Bottom dock — ONE always-visible bar (hidden only in expanded mode).
           Editing a transaction happens up in the register now, on the row
@@ -2719,7 +2847,7 @@ export default function AccountTransactions() {
       <PageTip
         id="register-keyboard"
         title="This register runs on the keyboard"
-        description="Click any row and a quick edit box opens under it — Enter accepts what you typed, and the Enter after it saves and moves you to the next transaction with the cursor back in the same field. Esc closes the box again. The arrow keys move the highlight (and the box with it), Enter on the list opens the full editor, Space reconciles and Delete removes. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
+        description="Click any row and the row itself becomes the editor: its Date, Description and Category turn into boxes where they already sit, with the buttons on a strip underneath. Enter accepts what you typed, and the Enter after it saves and moves you to the next transaction with the cursor back in the same field. Esc stops editing. The arrow keys move the highlight (and the editor with it), Enter on the list opens the full editor, Space reconciles and Delete removes. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
       />
     </div>
   );

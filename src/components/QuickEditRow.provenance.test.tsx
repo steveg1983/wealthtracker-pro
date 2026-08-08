@@ -1,5 +1,5 @@
 /**
- * QuickEditTransactionPanel — confirm or edit a suggested category.
+ * The register's row editor — confirm or edit a suggested category.
  *
  * The owner's requirement, in his words: "If it is a 'suggested' category, it
  * has a different colour or something and then the user has to somehow do an
@@ -12,9 +12,15 @@
  *   3. a category the user vouched for shows none of that.
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import QuickEditTransactionPanel from './QuickEditTransactionPanel';
+import {
+  QuickEditRowProvider,
+  QuickEditFieldCell,
+  QuickEditActionStrip,
+  type QuickEditRowProviderProps,
+} from './QuickEditRow';
 import type { Transaction } from '../types';
 
 const mocks = vi.hoisted(() => ({
@@ -81,13 +87,38 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   }),
 }));
 
-describe('QuickEditTransactionPanel — suggested categories', () => {
+/**
+ * The register's table, in the smallest form that is honest.
+ *
+ * The editor is no longer one component in one place: its fields are cells the
+ * row lends it and its buttons a strip beneath. Which cell goes under which
+ * column, how wide it is and how tall the row grows are the REGISTER's to
+ * arrange, and are proved there (AccountTransactions.inlineEdit); this stands
+ * them up in a plain row so the behaviour underneath can be asked about on its
+ * own.
+ */
+function RowEditor(props: Omit<QuickEditRowProviderProps, 'children'>): React.JSX.Element {
+  return (
+    <QuickEditRowProvider {...props}>
+      <div role="row">
+        <div role="gridcell"><QuickEditFieldCell field="date" /></div>
+        <div role="gridcell"><QuickEditFieldCell field="description" /></div>
+        <div role="gridcell"><QuickEditFieldCell field="category" /></div>
+      </div>
+      <div role="row">
+        <div role="gridcell"><QuickEditActionStrip /></div>
+      </div>
+    </QuickEditRowProvider>
+  );
+}
+
+describe('The register row editor — suggested categories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('says "Suggested" in words, not only in colour', () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
+    render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
 
     // Colour alone would say nothing to anyone who cannot see it, and nothing
     // at all in a screenshot pasted into an email.
@@ -95,7 +126,7 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
   });
 
   it('offers a one-click confirm that changes nothing but who vouched for it', async () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
+    render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
@@ -110,7 +141,7 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
 
   it('shows neither the badge nor the confirm button once the user has vouched', () => {
     render(
-      <QuickEditTransactionPanel
+      <RowEditor
         transaction={{ ...suggested, categoryConfirmed: true }}
         onDismiss={vi.fn()}
       />
@@ -129,13 +160,13 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
     const noFlag: Transaction = { ...suggested };
     delete noFlag.categoryConfirmed;
 
-    render(<QuickEditTransactionPanel transaction={noFlag} onDismiss={vi.fn()} />);
+    render(<RowEditor transaction={noFlag} onDismiss={vi.fn()} />);
 
     expect(screen.queryByText('Suggested')).not.toBeInTheDocument();
   });
 
   it('records a plain Save as confirmation — the user looked and let it stand', async () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
+    render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -149,22 +180,39 @@ describe('QuickEditTransactionPanel — suggested categories', () => {
 
   /**
    * Confirm still leads. The run buttons swapped round (Save & Next took the
-   * lead from Save, because a run is what this box is for), and the one thing
-   * that must NOT have moved with them is the button a freshly imported row is
-   * really asking about: agreeing with the guess is the answer nine times in
-   * ten, and it belongs at the near end of the row.
+   * lead from Save, because a run is what this editor is for), and the one
+   * thing that must NOT have moved with them is the button a freshly imported
+   * row is really asking about: agreeing with the guess is the answer nine
+   * times in ten, and it belongs at the near end of the strip.
    */
   it('keeps Confirm first, ahead of the run buttons', () => {
-    render(
-      <QuickEditTransactionPanel transaction={suggested} onNext={vi.fn()} onDismiss={vi.fn()} />
-    );
+    render(<RowEditor transaction={suggested} onNext={vi.fn()} onDismiss={vi.fn()} />);
 
     const buttons = screen.getAllByRole('button').filter(b => b.textContent !== '');
     expect(buttons.map(b => b.textContent)).toEqual(['Confirm', 'Save & Next', 'Save']);
   });
 
+  /**
+   * The badge moved with the button it belongs to.
+   *
+   * The Category cell IS the picker now, and there is no room beside a picker
+   * in a 280px column for a word as well — so the amber goes where the answer
+   * is: on the strip, immediately before the Confirm it is asking about. The
+   * register's own Category column still carries the identical badge on every
+   * row that is not being edited, which is what stops the mark disappearing
+   * from the page as an editor opens.
+   */
+  it('says it on the strip, beside the button that answers it', () => {
+    render(<RowEditor transaction={suggested} onNext={vi.fn()} onDismiss={vi.fn()} />);
+
+    const strip = document.querySelector('[data-quick-edit="actions"]');
+    if (!(strip instanceof HTMLElement)) throw new Error('no strip is showing');
+    expect(strip.contains(screen.getByText('Suggested'))).toBe(true);
+    expect(strip.contains(screen.getByRole('button', { name: 'Confirm' }))).toBe(true);
+  });
+
   it('drops the suggested styling the moment the user picks something else', () => {
-    render(<QuickEditTransactionPanel transaction={suggested} onDismiss={vi.fn()} />);
+    render(<RowEditor transaction={suggested} onDismiss={vi.fn()} />);
 
     expect(screen.getByText('Suggested')).toBeInTheDocument();
 

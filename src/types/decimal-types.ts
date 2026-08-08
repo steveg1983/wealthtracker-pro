@@ -1,5 +1,6 @@
 import type { DecimalInstance } from '@wealthtracker/utils';
 import type { Budget } from './index';
+import type { AccountType } from './accountType';
 
 /**
  * Decimal-based types for financial calculations
@@ -25,7 +26,9 @@ export interface DecimalHolding {
 export interface DecimalAccount {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'liability' | 'mortgage' | 'assets' | 'other' | 'checking';
+  // The canonical union rather than a copy of it: an Account converted to its
+  // Decimal twin must not be able to lose or fail on a type the app allows.
+  type: AccountType;
   balance: DecimalInstance;
   currency: string;
   institution?: string;

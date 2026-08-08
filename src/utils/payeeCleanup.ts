@@ -1,6 +1,10 @@
 import type { Transaction } from '../types';
 import { toDecimal } from './decimal';
-import { payeeLineDismissalKey, payeeMerchantDismissalKey } from './suggestionDismissals';
+import {
+  payeeHiddenDismissalKey,
+  payeeLineDismissalKey,
+  payeeMerchantDismissalKey,
+} from './suggestionDismissals';
 
 /**
  * The pure half of the Payee cleanup screen: count the distinct payees a
@@ -224,6 +228,34 @@ export interface RefusedSuggestions {
   merchants: ReadonlySet<string>;
   /** Single payees kept out of a merchant — kind 'payee-line'. */
   lines: ReadonlySet<string>;
+}
+
+/**
+ * The payees the user has struck off the screen entirely — kind 'payee-hidden'.
+ *
+ * Applied by REMOVING them from the summaries before anything else runs, rather
+ * than by teaching each consumer to skip them. That is what makes the promise
+ * cheap to keep: the list, the suggestions built from it, the transaction
+ * counts inside those suggestions and the "Showing X of Y" above them are all
+ * computed from this one array, so there is no path by which a hidden payee can
+ * come back in a count while staying out of the list. A suggestion left with
+ * fewer than two payees stops being offered on its own (buildPayeeClusters),
+ * which is exactly right: there is nothing left to merge.
+ *
+ * Nothing is deleted and no transaction changes — hiding is a fact about this
+ * screen only, undone from "Dismissed suggestions" at the foot of it.
+ */
+export function withoutHiddenPayees(
+  summaries: PayeeSummary[],
+  hidden: ReadonlySet<string>
+): PayeeSummary[] {
+  // Building a key per payee costs an allocation each over a register that can
+  // hold tens of thousands, so it is only done when there is something to
+  // compare against — the same rule buildPayeeClusters follows below.
+  if (hidden.size === 0) return summaries;
+  return summaries.filter(
+    (summary) => !hidden.has(payeeHiddenDismissalKey(summary.description))
+  );
 }
 
 const NOTHING_REFUSED: RefusedSuggestions = {
