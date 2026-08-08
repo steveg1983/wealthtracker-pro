@@ -35,8 +35,9 @@ export default function RegisterShortcutsDialog({
       <ModalBody>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
           These work while the transaction list itself has the keyboard — click any row
-          once, and it does. Typing in the search box, the add bar or the quick edit bar
-          is never interrupted.
+          once, and it does. Typing in the search box or the add bar is never
+          interrupted, and the quick edit box that opens under a clicked row keeps its
+          own two keys (below).
         </p>
 
         <div className="space-y-6">

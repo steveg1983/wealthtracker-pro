@@ -21,19 +21,67 @@
 //!   (`20260708140000`) all `RETURN trigger`; nothing calls them as functions.
 //!   They are C-3, C-4 and C-5 in `schema.sql`.
 //!
+//! # `migrate_categories_atomic` — OUT OF SCOPE, and this is the decision
+//!
+//! It was recorded here as *"needs a decision about what it would even do before
+//! it needs a port"*. This is that decision: **it is not ported, and it should
+//! not be.** Traced first, because "vestigial" would have been a much easier
+//! answer and it is not the true one.
+//!
+//! **It is live.** `planningService.ts:446`, from `ensureCategories`, called
+//! whenever a signed-in user's cloud category table is empty. Its live definition
+//! is `20260724100000:48-136`, the third of three (`20260611100000:36`,
+//! `20260723190000:54`), each recreating the previous one with one more column.
+//!
+//! **What it does** is four passes over a category tree the CLIENT is holding:
+//! mint a fresh uuid for every incoming id (pass 1), insert every row under its
+//! new id with `parent_id` deliberately NULL (pass 2), wire the parents through
+//! the map (pass 3), and then rewrite `transactions.category` and
+//! `budgets.category` through the same map (pass 4). It refuses with
+//! `categories_already_migrated` if the user has any category at all.
+//!
+//! **Why it exists**: the localStorage era gave categories ids like `'food'` and
+//! `'transfer-out'`, and the cloud's `categories.id` is a uuid. The function is
+//! the one-way door between those two id spaces, and pass 4 is the whole point —
+//! the references have to move in the same transaction as the rows, or a
+//! half-migrated user has transactions filed under ids nothing answers to.
+//!
+//! **Why a local file never needs it**: there is no second id space. A local file
+//! mints its own uuids at creation, and the two ways a category tree can arrive
+//! in one are both already covered by verbs that exist and are proven:
+//!
+//! * a **restore** — [`restore_user_chunk`] inserts categories under the ids the
+//!   backup carries, verbatim, and X-9 puts any remapping on the client, before a
+//!   single row is sent (`crate::backup` carries that argument);
+//! * a **seed** — a brand-new file's default set is inserted under ids the local
+//!   edition generates, so there is nothing to remap and nothing to be atomic
+//!   about beyond the insert itself. `categories` has no create/update/delete
+//!   verb precisely because the cloud has none either; the table and its
+//!   constraints are the authority.
+//!
+//! Porting it anyway would put a **second** category-tree writer in the crate,
+//! one whose only distinguishing behaviour — the id remap — is a translation
+//! between two id spaces the local edition does not have. Its idempotency guard
+//! would then be the only part still doing work, and that guard is
+//! [`user_financial_data_is_empty`]'s question asked about one table.
+//!
+//! The one thing that WOULD change this: a cloud→local migration path, where a
+//! user's cloud tree is pulled into a fresh file. That is DESIGN.md §9.1's
+//! explicitly out-of-scope *"cloud↔local sync"*, and if it is ever built it wants
+//! `migrate_categories_atomic`'s shape rather than its code, because the
+//! direction of travel is reversed and the id space that needs remapping is the
+//! destination's.
+//!
 //! # Deliberately not done YET, and named so nobody has to re-derive it
 //!
-//! Two category RPCs the client really does call are outside this batch, both
-//! from `planningService.ts`:
-//!
-//! * `migrate_categories_atomic` (`:446`) — first-cloud-load seeding, which
-//!   remaps every transaction and budget reference in one transaction. It has no
-//!   meaning in a local file that was never on the cloud, so it needs a decision
-//!   about *what it would even do* before it needs a port.
-//! * `delete_unused_categories` (`:511`) — the Money-set "replace" import's bulk
-//!   prune. Its live definition is `20260713100000:319`, it re-verifies every row
-//!   server-side, and it is a straightforward port. It is simply not in this
-//!   batch.
+//! Nothing in the category family is now outstanding.
+//! [`delete_unused_categories`] — the Money-set "replace" import's bulk prune,
+//! `planningService.ts:511` — was the last of the two named here, and it is
+//! ported. What it found is worth reading before touching it: the RPC has no
+//! refusal of its own, the FILE has one anyway through C-5, the "a stale client
+//! can never destroy referenced data" promise has a measured hole in it that the
+//! port reproduces on purpose, and the cloud's single-statement DELETE cannot be
+//! spelled as a single statement locally without changing the number it returns.
 //!
 //! # An obligation recorded before the verb that needs it existed — now DONE
 //!
@@ -61,10 +109,9 @@
 //! so found the **second** direction the addendum had not seen — a split parent
 //! whose own line is a leg, where the cascade fires
 //! `trg_protect_linked_leg_delete` instead. Its module documentation is the
-//! record. The four remaining paths (the duplicate sweep, the wipe, the
-//! restore's pre-clear, the transfer-unlink repair) still owe the same guard,
-//! and `delete_transaction::touches_a_transfer_leg` is the condition they should
-//! reuse rather than re-derive.
+//! record. `delete_transaction::touches_a_transfer_leg` is the condition the
+//! other paths should reuse rather than re-derive — and the two paragraphs below
+//! are what became of the four that were still owing when it was written.
 //!
 //! `create_transaction` and `update_transaction` delete no transaction, so
 //! neither carries the guard — and `update_transaction` deliberately does not
@@ -75,8 +122,23 @@
 //! whole of that path, and neither deletes a transaction — the unlink is an
 //! UPDATE of `linked_transfer_id` and the repair is three UPDATEs. So the
 //! obligation does not apply to them, which is a better outcome than discharging
-//! it. Three paths still owe the guard: the duplicate sweep, the wipe, and the
-//! restore's pre-clear.
+//! it.
+//!
+//! **The wipe and the restore's pre-clear are the same path**, and it is now
+//! discharged too: [`wipe_user_financial_data`] IS the pre-clear a restore
+//! demands, and it holds `_rpc_guard('leg')` conditionally, on the same condition
+//! [`delete_transaction`] uses. Its module documentation carries the measurement.
+//! One path is left owing the guard: the duplicate sweep.
+//!
+//! Discharging it also found the half of the obligation that was about the
+//! SCHEMA rather than about a verb. `trg_unnest_account_references` nulls
+//! `transfer_account_id` in a BEFORE DELETE trigger — a workaround for SQLite
+//! having no `ON DELETE SET NULL (column)` — which leaves a linked row
+//! half-cleared for one statement, and `transactions_linked_has_target` (a CHECK
+//! this schema has and the cloud does not) refuses that state. No guard could
+//! have helped: the refusal is a CHECK, not a trigger. So "delete everything" was
+//! refused outright on any file holding one linked transfer, and the repair is in
+//! `schema.sql` rather than in a verb.
 //!
 //! # Which guard belongs to which verb — settled by measurement
 //!
@@ -97,6 +159,22 @@
 //! | [`merge_categories`] | no — the CASE keeps a split parent's category blank | **conditionally** — it re-files split lines |
 //! | [`apply_category_to_uncategorized`] | **no, and it must not** — see below | no |
 //! | [`confirm_transaction_categories`] | no, and structurally so | no |
+//! | [`user_financial_data_is_empty`] | no — it opens no transaction and writes nothing | no |
+//! | [`wipe_user_financial_data`] | no | **conditionally** — the pre-clear, R-5 |
+//! | [`restore_user_chunk`] | no, and proven so on BOTH engines | no |
+//! | [`finalize_user_restore`] | no | no |
+//! | [`link_bank_account_snap`] | no, and proven so | no |
+//! | [`delete_unused_categories`] | no, and proven so — it deletes a category, and the cascade's only writes are `category_id` columns nothing watches | no |
+//! | [`verify_integrity`] | no — it opens no transaction and writes nothing | no |
+//!
+//! The restore family adds a **third** flag to the table, which the first twelve
+//! verbs never needed: `_rpc_guard('restore')`, held by
+//! [`finalize_user_restore`] alone. It is the twin of the cloud's
+//! `app.restore_in_progress` session flag, and it is the only flag in the schema
+//! that stands down a *convenience* rather than a *protection* — the `updated_at`
+//! triggers exist to stamp a timestamp on a row whose writer did not, and a
+//! restore is precisely the writer that did. That difference is why it is the one
+//! flag held unconditionally.
 //!
 //! The split writer's own module documentation carries the proof: every write it
 //! makes to a *linked* line changes only `memo`, `sort_order` and `updated_at`,
@@ -164,6 +242,53 @@
 //! verb's own documentation carries the evidence), so the local refusal is a
 //! faithful port. `_rpc_guard('split')` would make the local edition silently
 //! succeed where the cloud fails, which is a divergence dressed as a fix.
+//!
+//! ## The restore family, and a guard the cloud appears to need and does not
+//!
+//! [`restore_user_chunk`] is the one that looks most like it should hold
+//! something: the RPC opens with `set_config('app.split_rpc', '1', true)` and its
+//! comment says *"whitelists the split guard for this transaction so restored
+//! split parents can carry is_split = true"*. MEASURED on the reference cluster,
+//! by listing the triggers rather than reading the comment: every split
+//! protection in the cloud is `BEFORE UPDATE` —
+//! `trg_protect_split_transaction_fields` and `trg_sweep_reconciled_into_archive`
+//! both — and a restore only ever INSERTs. The same is true here, where all four
+//! `trg_protect_split_*` triggers are `BEFORE UPDATE OF`. So the answer is
+//! *none*, on both engines, and the cloud's `set_config` is belt-and-braces
+//! rather than a rule this port would have missed. Copying it would have meant
+//! standing S-5 down for the largest INSERT in the product on the strength of a
+//! comment.
+//!
+//! [`wipe_user_financial_data`] is the opposite case and the reason the guard
+//! question is asked per verb: it holds nothing that a reading of its SQL would
+//! suggest — it issues ten DELETEs and touches no split column — and it needs
+//! `leg` anyway, because the cascade from `accounts` reaches
+//! `transaction_splits` and `trg_protect_linked_leg_delete` fires there.
+//!
+//! ## The prune, and a protection no guard may stand down
+//!
+//! [`delete_unused_categories`] is the third deleting verb, and the guard
+//! question has a new shape here: its cascade reaches a category the schema
+//! PROTECTS. Name a prunable parent and a To/From category sitting under it, and
+//! `parent_id ON DELETE CASCADE` walks the protected row straight into C-5's
+//! `BEFORE DELETE` trigger. MEASURED on both engines, and the local answer is
+//! `transfer_category_protected` on both — including with `_rpc_guard('split')`
+//! held, which changes nothing, because C-5 has no guard clause and must not
+//! acquire one. That is the difference between this and the R-5 leg trap: R-5's
+//! refusal blocked the remedy the error message itself recommended, so standing
+//! it down was the fix; here the refusal IS the answer, the cloud gives the same
+//! answer, and both engines lose the whole batch. The verb holds nothing.
+//!
+//! [`verify_integrity`] is outside the table's premise entirely — it is the
+//! second read-only verb in the crate — and it is the one place where the guard
+//! table itself is a subject rather than a tool: `schema.sql` records that a
+//! stray `_rpc_guard` row is impossible because the flag is set and cleared
+//! inside the transaction it authorises, "and verify_integrity() reports one
+//! anyway". It does not yet: no check in `v_integrity_violations` looks at
+//! `_rpc_guard`. Recorded here rather than fixed, because a check for a row that
+//! cannot exist needs a way to be planted before it can be proved, and every
+//! route to one goes through a crash mid-transaction that this harness has no
+//! way to stage.
 
 mod apply_category_to_uncategorized;
 mod clear_transfer_links;
@@ -171,13 +296,20 @@ mod confirm_transaction_categories;
 mod create_transaction;
 mod create_transfer_counterpart;
 mod delete_transaction;
+mod delete_unused_categories;
+mod finalize_user_restore;
+mod link_bank_account_snap;
 mod link_split_line_transfer;
 mod link_transfer_pair;
 mod merge_categories;
 mod repair_claimed_transfer;
+mod restore_user_chunk;
 mod set_transaction_splits_with_legs;
 mod transfer;
 mod update_transaction;
+mod user_financial_data_is_empty;
+mod verify_integrity;
+mod wipe_user_financial_data;
 
 pub use apply_category_to_uncategorized::{
     apply_category_to_uncategorized, ApplyCategoryToUncategorized,
@@ -197,6 +329,16 @@ pub use create_transfer_counterpart::{
 pub use delete_transaction::{
     delete_transaction, DeleteTransaction, DeleteTransactionResult,
 };
+pub use delete_unused_categories::{
+    delete_unused_categories, DeleteUnusedCategories, DeleteUnusedCategoriesResult, PruneAnswer,
+};
+pub use finalize_user_restore::{
+    finalize_user_restore, AccountParent, FinalizeAnswer, FinalizeUserRestore,
+    FinalizeUserRestoreResult, RestoreLinks, TransactionLink,
+};
+pub use link_bank_account_snap::{
+    link_bank_account_snap, LinkBankAccountSnap, LinkBankAccountSnapResult,
+};
 pub use link_split_line_transfer::{
     link_split_line_transfer, LinkSplitLineTransfer, LinkSplitLineTransferResult,
 };
@@ -205,12 +347,26 @@ pub use merge_categories::{merge_categories, MergeCategories, MergeCategoriesRes
 pub use repair_claimed_transfer::{
     repair_claimed_transfer, RepairClaimedTransfer, RepairClaimedTransferResult,
 };
+pub use restore_user_chunk::{
+    restore_user_chunk, Chunk, RestoreAnswer, RestoreUserChunk, RestoreUserChunkResult,
+};
 pub use set_transaction_splits_with_legs::{
     set_transaction_splits_with_legs, SetTransactionSplitsWithLegs,
     SetTransactionSplitsWithLegsResult,
 };
 pub use update_transaction::{
     update_transaction, TransactionPatch, UpdateTransaction, UpdateTransactionResult,
+};
+pub use user_financial_data_is_empty::{
+    user_financial_data_is_empty, IsEmptyAnswer, UserFinancialDataIsEmpty,
+    UserFinancialDataIsEmptyResult,
+};
+pub use verify_integrity::{
+    verify_integrity, Finding, IntegrityReport, VerifyIntegrity, VerifyIntegrityResult,
+};
+pub use wipe_user_financial_data::{
+    wipe_user_financial_data, WipeCounts, WipeUserFinancialData, WipeUserFinancialDataResult,
+    CONFIRMATION,
 };
 
 // ── Three things the category family needed three copies of ─────────────────

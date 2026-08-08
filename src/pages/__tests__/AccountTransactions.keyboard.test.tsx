@@ -82,6 +82,23 @@ const renderRegister = (path: string): void => {
 /** The register itself — the focusable grid, not the phone card list. */
 const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Register transactions' });
 
+/**
+ * The add bar at the foot of the page.
+ *
+ * Named rather than reached by label text: the quick-edit box now sits INSIDE
+ * the register with its own Date and Description, so "the description box"
+ * needs saying which one — exactly the question a screen reader user has, and
+ * the reason the add bar is a landmark of its own.
+ */
+const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
+
+/** The quick-edit box, wherever the register has drawn it. */
+const quickEditBox = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit-panel]');
+  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+  return el;
+};
+
 /** The element that scrolls on the non-virtualised path. */
 const listViewport = (): HTMLElement => {
   const el = grid().querySelector('[data-virtualized-list]');
@@ -174,9 +191,9 @@ describe('Account register — opening on the newest transaction', () => {
     const target = ROWS[4];
     await openRegister(`/accounts/${ACCOUNT.id}?txn=${target.id}`);
 
-    // The deep-linked row arrives selected and docked in the quick-edit panel…
+    // The deep-linked row arrives selected, with its quick-edit box open…
     await waitFor(() => {
-      expect(screen.getByLabelText('Description')).toHaveValue(target.description);
+      expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue(target.description);
     });
     // …and the register never asked for the foot, so the centring stands.
     expect(listViewport().scrollTop).not.toBe(STUB_SCROLL_HEIGHT);
@@ -227,17 +244,34 @@ describe('Account register — the highlighted row under the arrow keys', () => 
     expect(activeRowText()).toContain(OLDEST.description);
   });
 
-  it('docks the row it lands on, exactly as a click would', async () => {
+  it('takes the open quick-edit box with it, row by row', async () => {
+    await openRegister();
+
+    // Click first, because that is what opens the box; the arrows then move
+    // the box down the register with the highlight, which is what makes a
+    // categorising run continuous.
+    fireEvent.click(within(grid()).getByText(ROWS[0].description));
+    await waitFor(() => {
+      expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue(ROWS[0].description);
+    });
+
+    fireEvent.keyDown(grid(), { key: 'ArrowDown' });
+
+    await waitFor(() => {
+      expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue(ROWS[1].description);
+    });
+  });
+
+  it('leaves the box shut while the arrows are just browsing', async () => {
     await openRegister();
 
     fireEvent.keyDown(grid(), { key: 'ArrowDown' });
     fireEvent.keyDown(grid(), { key: 'ArrowDown' });
 
-    // The bottom dock follows the highlight — the same quick editor a click
-    // pins there.
-    await waitFor(() => {
-      expect(screen.getByLabelText('Description')).toHaveValue(ROWS[1].description);
-    });
+    // Nothing opened the box, so the register is a list of transactions and
+    // nothing else — the state someone reading their history wants.
+    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(activeRowText()).toContain(ROWS[1].description);
   });
 
   it('stops at both ends instead of wrapping', async () => {
@@ -302,11 +336,12 @@ describe('Account register — the highlighted row under the arrow keys', () => 
     fireEvent.keyDown(grid(), { key: 'ArrowDown' });
     const highlighted = activeRowText();
 
-    // The bottom dock's own description box — the field the user is most
-    // likely to be typing in WHILE a row is highlighted.
-    const dockDescription = screen.getByLabelText('Description');
-    expect(fireEvent.keyDown(dockDescription, { key: 'ArrowDown' })).toBe(true);
-    expect(fireEvent.keyDown(dockDescription, { key: 'Enter' })).toBe(true);
+    // The add bar's own description box — the field the user is most likely to
+    // be typing in WHILE a row is highlighted, and one the register must not
+    // reach into: an arrow key there moves the caret, not the highlight.
+    const addDescription = within(addBar()).getByLabelText('Description');
+    expect(fireEvent.keyDown(addDescription, { key: 'ArrowDown' })).toBe(true);
+    expect(fireEvent.keyDown(addDescription, { key: 'Enter' })).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: /Search & filters/ }));
     const search = screen.getByPlaceholderText(/Search by description/);

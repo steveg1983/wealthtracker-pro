@@ -13,13 +13,13 @@ import BulkDeleteTransactionsConfirm from '../components/BulkDeleteTransactionsC
 import RegisterSelectionBar from '../components/RegisterSelectionBar';
 import RegisterShortcutsDialog from '../components/RegisterShortcutsDialog';
 import AccountSettingsModal from '../components/AccountSettingsModal';
-import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
+import QuickEditTransactionPanel, { QUICK_EDIT_BOX_HEIGHT } from '../components/QuickEditTransactionPanel';
 import SuggestedCategoryBadge from '../components/SuggestedCategoryBadge';
 import CategorySelector from '../components/CategorySelector';
 import PageTip from '../components/PageTip';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useToast } from '../contexts/ToastContext';
-import { VirtualizedTable, Column } from '../components/VirtualizedTable';
+import { VirtualizedTable, type Column, type RowDetail } from '../components/VirtualizedTable';
 import { InfiniteScrollTransactionList } from '../components/InfiniteScrollTransactionList';
 import { LoadingState } from '../components/loading/LoadingState';
 import { compareChronological, compareTransactions, type TransactionSortField } from '../utils/transactionSort';
@@ -336,6 +336,11 @@ export default function AccountTransactions() {
     pendingTxnRef.current = null;
     setSelectedTransaction(target);
     setSelectedTransactionId(txn);
+    // …with its quick-edit box already open. A ?txn= link is someone being
+    // sent to a particular transaction to DO something about it (the
+    // categorisation drill sends them), so the row arrives ready to edit
+    // rather than merely pointed at.
+    setQuickEditOpen(true);
     setRowScroll({ rowId: txn, align: 'center' });
   }, [transactions, location.search]);
 
@@ -366,10 +371,21 @@ export default function AccountTransactions() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   /**
-   * F2's request for the quick-edit bar to take the cursor. A boolean, and
+   * Whether the quick-edit box is open under the highlighted row.
+   *
+   * Separate from the highlight itself, because Escape peels the two apart:
+   * the first one closes the box and leaves the row highlighted (the register
+   * is legible again), the second lets go of the row. It follows the highlight
+   * while it is open — arrowing down moves the box down with it, which is what
+   * Money's register does — and stays shut while it is shut, so someone who
+   * closed it to READ the list can arrow through it undisturbed.
+   */
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
+  /**
+   * F2's request for the quick-edit box to take the cursor. A boolean, and
    * handed straight back when honoured, so a re-mount can never replay it.
    */
-  const [dockFocusRequested, setDockFocusRequested] = useState(false);
+  const [quickEditFocusRequested, setQuickEditFocusRequested] = useState(false);
   /** Which quick-add field to put the cursor in once the bar is on screen. */
   const [quickAddFocus, setQuickAddFocus] = useState<'date' | 'description' | null>(null);
   /** A pulse asking the search box for the cursor once the filter panel opens. */
@@ -642,6 +658,19 @@ export default function AccountTransactions() {
     setFootScrollToken(token => token + 1);
   }, [accountId, accountIsOpen, displayRows.length, rowScroll]);
 
+  /**
+   * Open the full editor on a row — splits, tags, everything the quick-edit
+   * box has no room for.
+   *
+   * One function for both ways in (a second click on an open box, and Enter on
+   * the highlighted row) so the two can never drift apart.
+   */
+  const openFullEditor = useCallback((row: TransactionWithBalance): void => {
+    setSelectedTransaction(row);
+    setSelectedTransactionId(row.id);
+    setIsEditModalOpen(true);
+  }, []);
+
   // Handle transaction row click
   const handleTransactionClick = useCallback((item: DisplayRow) => {
     if (isOpeningBalanceRow(item)) return;
@@ -656,18 +685,26 @@ export default function AccountTransactions() {
     // and it ends any type-ahead search: the user has found their row by hand.
     setSelectionAnchorId(null);
     typeAheadRef.current = { buffer: '', at: 0 };
-    // The user has taken over — a later sort or filter must not snap the
-    // viewport back to the deep-linked row.
-    setRowScroll(null);
 
-    if (selectedTransactionId === item.id) {
-      // Second click on already selected transaction - open edit modal
-      setIsEditModalOpen(true);
-    } else {
-      // First click - select and pin the quick-edit panel under the table
-      setSelectedTransactionId(item.id);
+    if (selectedTransactionId === item.id && quickEditOpen) {
+      // A second click on a row already showing its box means "give me
+      // everything" — the full editor, with splits, tags and the rest.
+      setRowScroll(null);
+      openFullEditor(item);
+      return;
     }
-  }, [selectedTransactionId]);
+    // Otherwise: highlight it and open the quick-edit box directly beneath it,
+    // which is what a click on a transaction has always meant here — the box
+    // has simply moved from the foot of the page to the row it is about.
+    setSelectedTransactionId(item.id);
+    setQuickEditOpen(true);
+    // The row grows by the height of the box, so the box can open below the
+    // fold on a row that was itself perfectly visible. 'nearest' scrolls the
+    // least amount that shows the WHOLE row — box included — and does nothing
+    // at all when it already fits, so a click in the middle of the register
+    // never yanks the viewport.
+    setRowScroll({ rowId: item.id, align: 'nearest' });
+  }, [selectedTransactionId, quickEditOpen, openFullEditor]);
 
   const quickEditTarget = useMemo(
     () => transactionsWithBalance.find(t => t.id === selectedTransactionId) ?? null,
@@ -713,6 +750,12 @@ export default function AccountTransactions() {
       if (
         target.closest('[data-transaction-table]') ||
         target.closest('[data-quick-edit-panel]') ||
+        // The quick-edit box's calendar is drawn in a PORTAL on document.body
+        // (the transaction list would clip it), so a click on the 14th is
+        // nowhere near the table in the DOM. Without this, picking a date
+        // would deselect the row and unmount the box mid-click — the same trap
+        // the listbox guard below covers for the category menu.
+        target.closest('[data-datepicker-panel]') ||
         // The bulk-action bar acts ON the selection — a mousedown there is
         // the opposite of clicking away from it, and deselecting first would
         // unmount the very button being pressed.
@@ -902,12 +945,14 @@ export default function AccountTransactions() {
 
   // ── What the keys actually do ──────────────────────────────────────────────
 
-  /** Let go of the whole selection: no highlight, and the add bar back. */
+  /** Let go of the whole selection: no highlight, and no quick-edit box. */
   const clearSelection = useCallback((): void => {
     setSelectionAnchorId(null);
     setSelectedTransactionId(null);
     setSelectedTransaction(null);
     setRowScroll(null);
+    // The box is about a row. With no row, there is nothing for it to be.
+    setQuickEditOpen(false);
   }, []);
 
   /**
@@ -1013,11 +1058,11 @@ export default function AccountTransactions() {
    * £4 more" takes one keystroke and one edit, and still ends with the user
    * pressing Add.
    *
-   * Two consequences worth knowing, both of them the dock's existing rules
-   * rather than anything invented here: the add bar and the quick editor share
-   * one slot, so revealing the add bar drops the row's highlight; and a SPLIT
-   * row copies as a plain draft, because its categorisation lives in lines
-   * this form has no way to hold.
+   * Two consequences worth knowing. The highlight is let go of — the user has
+   * moved on to a new transaction, and leaving a quick-edit box open on the
+   * old row while they type into the add bar would be two half-finished edits
+   * on one screen. And a SPLIT row copies as a plain draft, because its
+   * categorisation lives in lines this form has no way to hold.
    */
   const duplicateIntoQuickAdd = useCallback((row: TransactionWithBalance): void => {
     setTableExpanded(false);
@@ -1077,19 +1122,66 @@ export default function AccountTransactions() {
     setQuickAddFocus(null);
   }, [quickAddFocus]);
 
-  const handleDockFocusHandled = useCallback(() => setDockFocusRequested(false), []);
-  const handleReturnToGrid = useCallback(() => {
+  const handleQuickEditFocusHandled = useCallback(() => setQuickEditFocusRequested(false), []);
+  /**
+   * Escape (or the ×) in the quick-edit box: close it, keep the row
+   * highlighted, and hand the keyboard back to the list.
+   *
+   * Both halves matter. Without the close, Escape would not do what the box
+   * plainly looks like it should; without the focus, F2 would be a one-way
+   * door and the way back to the arrow keys would be a mouse.
+   */
+  const handleQuickEditDismiss = useCallback(() => {
+    setQuickEditOpen(false);
     tableWrapRef.current?.focus({ preventScroll: true });
   }, []);
 
   /**
+   * The quick-edit box, as the register draws it: inside the list, attached to
+   * the underside of the row it is about, with every row below pushed down by
+   * exactly its height. Microsoft Money's shape, and the reason the register
+   * can be worked down without the eye ever leaving the line being edited.
+   *
+   * Null — no box at all — in the three cases where a box would be a lie:
+   * nothing is highlighted, a RUN of rows is (the box edits one transaction),
+   * or the full editor is open over the top of it.
+   */
+  const quickEditRowDetail = useMemo<RowDetail<DisplayRow> | null>(() => {
+    if (!quickEditOpen || hasMultiSelection || isEditModalOpen || !quickEditTarget) return null;
+    const target = quickEditTarget;
+    return {
+      key: target.id,
+      height: QUICK_EDIT_BOX_HEIGHT,
+      render: () => (
+        <QuickEditTransactionPanel
+          transaction={target}
+          onNext={
+            getNextTransactionId(target.id)
+              ? () => { advanceToNextTransaction(target.id); }
+              : undefined
+          }
+          focusFirstField={quickEditFocusRequested}
+          onFocusFirstFieldHandled={handleQuickEditFocusHandled}
+          onDismiss={handleQuickEditDismiss}
+        />
+      ),
+    };
+  }, [
+    quickEditOpen, hasMultiSelection, isEditModalOpen, quickEditTarget,
+    getNextTransactionId, advanceToNextTransaction,
+    quickEditFocusRequested, handleQuickEditFocusHandled, handleQuickEditDismiss,
+  ]);
+
+  /**
    * Keys the register claims while the table has focus.
    *
-   * Scoped to the table's own keydown rather than the window: the search box,
-   * the quick-add bar and the quick-edit dock all sit OUTSIDE it, so typing in
-   * them is untouched by construction rather than by a list of exceptions. The
-   * typing guard below is for anything that might one day be edited inside a
-   * cell.
+   * Scoped to the table's own keydown rather than the window: the search box
+   * and the quick-add bar sit OUTSIDE it, so typing in them is untouched by
+   * construction rather than by a list of exceptions.
+   *
+   * The quick-edit box is the one thing that is INSIDE it — that is the whole
+   * point of the box — so it gets the two guards at the top: nothing typed
+   * anywhere, and nothing at all from within the box, reaches these keys.
    *
    * preventDefault is called only when the register actually handled the key,
    * so an empty register still scrolls the page as it always did.
@@ -1112,6 +1204,13 @@ export default function AccountTransactions() {
    */
   const handleRegisterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (isTextEntryTarget(e.target)) return;
+    // The quick-edit box now sits INSIDE this grid, so its keys bubble through
+    // here. It owns every one of them: Space on its Save button must press the
+    // button, not reconcile the row; Delete on its category picker must clear
+    // the category, not offer to delete the transaction. The typing guard above
+    // covers its text fields; this covers its buttons and its comboboxes, which
+    // are not text at all.
+    if (e.target instanceof HTMLElement && e.target.closest('[data-quick-edit-panel]')) return;
     // A dialog owns the keyboard while it is open, and all of these render
     // over this.
     if (isEditModalOpen || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
@@ -1188,19 +1287,25 @@ export default function AccountTransactions() {
       case 'Enter': {
         if (!activeRow) return;
         claim();
-        // Deliberately the click path: for an already-selected row that is
-        // exactly "open the editor", so Enter and the second click can never
-        // drift apart.
-        handleTransactionClick(activeRow);
+        // The FULL editor, whatever the quick-edit box is doing — the same
+        // openFullEditor a second click reaches, so the two cannot drift.
+        // (Enter INSIDE the box saves instead; the box handles its own keys
+        // and this handler never sees them — see the guard at the top.)
+        openFullEditor(activeRow);
         break;
       }
       case 'F2': {
-        // Straight into the quick editor. Never over a multi-row selection —
-        // that bar edits ONE transaction, and it is not on screen then.
+        // Straight into the quick-edit box, opening it if Escape had closed
+        // it. Never over a multi-row selection — the box edits ONE
+        // transaction, and it is not on screen then.
         if (!activeRow || hasMultiSelection) return;
         claim();
-        setTableExpanded(false);
-        setDockFocusRequested(true);
+        setQuickEditOpen(true);
+        setQuickEditFocusRequested(true);
+        // The box lives in the register itself now, so an expanded table is no
+        // obstacle: it is on screen either way, and collapsing it would undo
+        // something the user asked for.
+        setRowScroll({ rowId: activeRow.id, align: 'nearest' });
         break;
       }
       case ' ': {
@@ -1241,6 +1346,12 @@ export default function AccountTransactions() {
         typeAheadRef.current = { buffer: '', at: 0 };
         // One layer at a time: the multi-row selection first, the highlight
         // second. Anything left over belongs to whatever is above us.
+        //
+        // The quick-edit box is a layer of its own, but it is peeled from
+        // INSIDE the box — an Escape with the cursor in the box closes it and
+        // leaves the row highlighted (see the box's own handler). An Escape
+        // aimed at the LIST is about the list: it lets go of the row, and the
+        // box, being about that row, goes with it.
         if (hasMultiSelection) {
           claim();
           setSelectionAnchorId(null);
@@ -1275,7 +1386,7 @@ export default function AccountTransactions() {
   }, [
     isEditModalOpen, deleteConfirmTransaction, bulkDeletePlan, showShortcuts,
     moveSelection, moveSelectionTo, pageStep, selectedTransactionId, navigableRows,
-    activeRowIndex, handleTransactionClick, hasMultiSelection, selectedRows,
+    activeRowIndex, openFullEditor, hasMultiSelection, selectedRows,
     transactions, accounts, toggleClearedOnSelection, clearSelection,
     duplicateIntoQuickAdd, openSearch, jumpToTransferOtherSide, startNewTransaction,
   ]);
@@ -2157,8 +2268,10 @@ export default function AccountTransactions() {
         role="grid"
         aria-label={`${account.name} transactions`}
         // The header row counts, which is what puts the first transaction on
-        // row 2 — the same numbering the user sees.
-        aria-rowcount={displayRows.length + 1}
+        // row 2 — the same numbering the user sees. The open quick-edit box is
+        // a row of the grid too (one cell, holding the form), so it counts as
+        // one while it is there rather than leaving the total short.
+        aria-rowcount={displayRows.length + 1 + (quickEditRowDetail ? 1 : 0)}
         tabIndex={0}
         // Shift+arrow stretches the highlight over a run of rows, so a screen
         // reader is told up front that more than one row can be selected —
@@ -2177,6 +2290,7 @@ export default function AccountTransactions() {
           scrollToKey={rowScroll?.rowId ?? null}
           scrollToAlign={rowScroll?.align}
           scrollToBottomToken={footScrollToken}
+          rowDetail={quickEditRowDetail}
           selectedItems={selectedIdSet}
           onSort={(column, direction) => {
             // Every header sorts except the running Balance (which stays in its
@@ -2210,10 +2324,11 @@ export default function AccountTransactions() {
         />
       </div>
 
-      {/* Bottom dock — ONE always-visible bar (hidden only in expanded mode),
-          in whichever of its three modes fits what is selected: what you can
-          do with a RUN of rows, the quick editor for a single one, or the add
-          bar when nothing is highlighted. */}
+      {/* Bottom dock — ONE always-visible bar (hidden only in expanded mode).
+          Editing a transaction happens up in the register now, on the row
+          itself; what is left down here is what a RUN of rows can be done to,
+          and otherwise the add bar — which stays put whether or not a row is
+          highlighted, so "add one more" never costs you your place. */}
       {!tableExpanded && hasMultiSelection && (
         <RegisterSelectionBar
           count={selectedRows.length}
@@ -2228,33 +2343,19 @@ export default function AccountTransactions() {
         />
       )}
 
-      {!tableExpanded && !hasMultiSelection && quickEditTarget && !isEditModalOpen && (
-        <QuickEditTransactionPanel
-          transaction={quickEditTarget}
-          onNext={
-            getNextTransactionId(quickEditTarget.id)
-              ? () => { advanceToNextTransaction(quickEditTarget.id); }
-              : undefined
-          }
-          focusFirstField={dockFocusRequested}
-          onFocusFirstFieldHandled={handleDockFocusHandled}
-          onReturnToGrid={handleReturnToGrid}
-          onClose={() => {
-            setSelectedTransactionId(null);
-            setSelectedTransaction(null);
-          }}
-        />
-      )}
-
       {/* Quick Add Transaction (the dock's default mode) */}
-      {!tableExpanded && !hasMultiSelection && !(quickEditTarget && !isEditModalOpen) && (
+      {!tableExpanded && !hasMultiSelection && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3">
         {/* max-w: the dock is as wide as the register, and a description box
             stretched across it left Amount and Add squeezed into the corner.
             Capping the form makes both rows end at the same edge, so the wide
             fields stop hogging and the small ones get room. flex-wrap keeps
             the fields stacking instead of overflowing on narrow screens. */}
-        <form onSubmit={handleQuickAdd}>
+        {/* Named, so it is a landmark a screen reader can jump to and — now
+            that the quick-EDIT box sits up in the register — so "Description"
+            down here and "Description" up there are heard in their own
+            contexts rather than as two identical fields on one screen. */}
+        <form onSubmit={handleQuickAdd} aria-label="Add a transaction">
           {/* One line across the full width — Date, Type, Description,
               Category, Amount, Add — wrapping only when the window is too
               narrow to hold it. Capping the form instead (an earlier attempt)
@@ -2266,19 +2367,28 @@ export default function AccountTransactions() {
               produced a different ragged layout at every width. From sm up
               it is the same single wrapping row as before. */}
           <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+            {/* Every label down here is tied to the field it names — htmlFor
+                where the control has an id of its own, and the control's own
+                aria-label where it does not (the pickers). A <label> attached
+                to nothing is invisible to a screen reader, which is the one
+                reader that needs it. */}
             <div ref={quickAddDateRef} className="w-full sm:w-[150px] sm:shrink-0">
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
+              <label htmlFor="quick-add-date" className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
               <DatePicker
+                id="quick-add-date"
                 value={quickAddForm.date}
                 onChange={(val) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, date: val }); }}
                 className="h-auto sm:h-[32px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white text-xs"
-                aria-label="Transaction date"
               />
             </div>
 
             <div className="sm:shrink-0">
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Type</label>
-              <div className="grid grid-flow-col auto-cols-fr sm:flex gap-0.5 items-center h-[38px] sm:h-[32px] bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+              <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Type</span>
+              <div
+                role="group"
+                aria-label="Transaction type"
+                className="grid grid-flow-col auto-cols-fr sm:flex gap-0.5 items-center h-[38px] sm:h-[32px] bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5"
+              >
                 {([
                   { value: 'expense', label: 'Exp', activeColor: 'text-red-600 dark:text-red-400' },
                   { value: 'income', label: 'Inc', activeColor: 'text-green-600 dark:text-green-400' },
@@ -2287,6 +2397,9 @@ export default function AccountTransactions() {
                   <button
                     key={value}
                     type="button"
+                    // Which one is on, said out loud — the white pill says it
+                    // to the eye and nothing said it to anyone else.
+                    aria-pressed={quickAddForm.type === value}
                     onClick={() => {
                       // Clearing the category is not tidiness: it may belong to
                       // the tree the picker no longer shows, and on 'transfer'
@@ -2308,8 +2421,9 @@ export default function AccountTransactions() {
             </div>
 
             <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
+              <label htmlFor="quick-add-description" className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
               <input
+                id="quick-add-description"
                 ref={quickAddDescriptionRef}
                 type="text"
                 placeholder="Description"
@@ -2321,9 +2435,12 @@ export default function AccountTransactions() {
             </div>
 
             <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
+              {/* A span, not a label: both controls below are comboboxes that
+                  carry their own aria-label, and a <label> pointing at nothing
+                  is worse than no label at all. */}
+              <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">
                 {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
-              </label>
+              </span>
               {quickAddForm.type === 'transfer' ? (
                 /* The account and category pickers take turns in this one
                    slot, so they are the same control at the same size — and
@@ -2371,13 +2488,13 @@ export default function AccountTransactions() {
             {/* Wide enough for a five-figure sum with its pennies without the
                 digits scrolling out of view. */}
             <div className="w-full sm:w-[150px] sm:shrink-0">
-              <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
+              <label htmlFor="quick-add-amount" className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
               <MoneyInput
+                id="quick-add-amount"
                 value={quickAddForm.amount}
                 // The type buttons carry the sign; this field holds the size.
                 onChange={(value) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: value }); }}
                 className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
-                aria-label="Amount"
                 required
               />
             </div>
@@ -2510,7 +2627,7 @@ export default function AccountTransactions() {
       <PageTip
         id="register-keyboard"
         title="This register runs on the keyboard"
-        description="Click any row, then use the arrow keys to move, Enter to open it, Space to reconcile it and Delete to remove it. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
+        description="Click any row and a quick edit box opens under it — Enter saves, Esc closes it again. The arrow keys move the highlight (and the box with it), Enter on the list opens the full editor, Space reconciles and Delete removes. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
       />
     </div>
   );

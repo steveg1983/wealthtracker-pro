@@ -91,6 +91,15 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   onItemsRendered
 }: VirtualizedListProps<T>) {
   const listRef = useRef<List | VariableSizeList | null>(null);
+  /**
+   * The same list again, but only when it is the VARIABLE-height one.
+   *
+   * react-window caches every row's offset the first time it measures it, and
+   * only VariableSizeList can be told to forget (resetAfterIndex). Kept as its
+   * own typed ref rather than narrowing listRef, so the reset below is a plain
+   * call on a known type instead of a cast.
+   */
+  const variableListRef = useRef<VariableSizeList | null>(null);
   const plainContainerRef = useRef<HTMLDivElement | null>(null);
   const itemHeightMap = useRef<Map<number, number>>(new Map());
   
@@ -134,12 +143,25 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
     return itemHeight;
   }, [itemHeight]);
   
-  // Reset height cache when items change
+  /**
+   * Forget every measured height when the heights themselves could have moved.
+   *
+   * Two things can move them: a different list of items, and a different
+   * itemHeight function (the register hands us a new one the moment its
+   * quick-edit box opens under a different row). Clearing the local cache is
+   * only half of it — react-window keeps its OWN offset table, and without
+   * resetAfterIndex the rows below a newly-taller row keep their old positions
+   * and paint on top of each other.
+   *
+   * Declared ABOVE the scroll effects on purpose: a render that both moves the
+   * box and asks for a row to be scrolled into view must re-measure first, or
+   * the scroll is computed against yesterday's geometry.
+   */
   useEffect(() => {
-    if (isVariableHeight) {
-      itemHeightMap.current.clear();
-    }
-  }, [items, isVariableHeight]);
+    if (!isVariableHeight) return;
+    itemHeightMap.current.clear();
+    variableListRef.current?.resetAfterIndex(0, true);
+  }, [items, isVariableHeight, itemHeight]);
   
   // Determine if we should enable virtual scrolling
   const shouldVirtualize = items.length > threshold;
@@ -252,6 +274,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     // Handle both refs
                     if (list) {
                       listRef.current = list;
+                      variableListRef.current = list;
                       if (typeof ref === 'function') {
                         ref(list);
                       } else if (ref && 'current' in ref) {

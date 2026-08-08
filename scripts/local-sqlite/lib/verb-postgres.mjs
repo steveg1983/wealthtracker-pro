@@ -259,6 +259,26 @@ const VERBS = {
        FROM public.transactions t
       WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
 
+  // The prune returns a bare integer and touches no transaction, so — like the
+  // restore family — it is compared on its OWN answer, wrapped in an object so
+  // the shape matches the Rust side's `answer`. Everything the count cannot
+  // carry (which categories survived, which references were left dangling by the
+  // cascade, that nothing was audited) is asserted through `state` SELECTs.
+  //
+  // `p_ids` is rebuilt as a real uuid[] for the reason clear_transfer_links
+  // gives: the signature takes an array. A NULL `ids` and an absent one both
+  // arrive as the empty array, and MEASURED (`probe-prune1.sh` `p-null-array`,
+  // `p-empty-array`) the RPC answers 0 to both and to NULL, so nothing is lost.
+  delete_unused_categories: (payloadLiteral) =>
+    `SELECT jsonb_build_object(
+              'deleted',
+              public.delete_unused_categories(
+                ARRAY(SELECT x::uuid
+                        FROM jsonb_array_elements_text(
+                               COALESCE(${payloadLiteral}::jsonb->'ids', '[]'::jsonb)) AS x),
+                NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid))
+       INTO v_row;`,
+
   confirm_transaction_categories: (payloadLiteral) =>
     `PERFORM public.confirm_transaction_categories(
                ARRAY(SELECT x::uuid
@@ -269,6 +289,85 @@ const VERBS = {
      SELECT ${ROW_JSON} INTO v_row
        FROM public.transactions t
       WHERE t.id = (${payloadLiteral}::jsonb->'ids'->>0)::uuid;`,
+
+  // THE RESTORE FAMILY IS COMPARED ON ITS OWN ANSWER
+  // ------------------------------------------------
+  // None of these four returns a transaction, so there is no row for the
+  // runner's field-by-field comparison to bite on and nothing to project out of
+  // storage either — a wipe's whole subject is rows that no longer exist. What
+  // IS comparable is the value each function returns, so that is what `v_row`
+  // carries: `user_financial_data_is_empty`'s boolean and `restore_user_chunk`'s
+  // bigint are wrapped in an object so the shape matches the Rust side's
+  // `answer`, and the other two already return jsonb and are passed through
+  // key for key.
+  //
+  // Everything a return value cannot carry — the rows that survived, the
+  // balances, the audit trail, the dates that did or did not move — is asserted
+  // through `state` SELECTs written per engine, which is where cross-engine
+  // comparisons of rows belong.
+  user_financial_data_is_empty: (payloadLiteral) =>
+    `SELECT jsonb_build_object(
+              'empty',
+              public.user_financial_data_is_empty(
+                NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid))
+       INTO v_row;`,
+
+  // `p_confirm` is read with `->>` and NOT coalesced: a missing key must arrive
+  // as SQL NULL so the RPC's `IS DISTINCT FROM` refusal is reachable from a
+  // payload rather than smoothed over by the driver.
+  wipe_user_financial_data: (payloadLiteral) =>
+    `SELECT public.wipe_user_financial_data(
+              ${payloadLiteral}::jsonb->>'confirm',
+              NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid)
+       INTO v_row;`,
+
+  // THE CHUNK LIST, UNPACKED
+  // ------------------------
+  // The local verb takes a LIST of chunks and applies them in one transaction,
+  // because DESIGN.md §5 divergence 6 says a local restore has no request-size
+  // cliff to chunk around and R-11 says the deferred keys let it be atomic. The
+  // cloud RPC takes exactly one. So a spec that wants the two compared sends ONE
+  // chunk and this unpacks it — the same honest unpacking the update and delete
+  // verbs already do for their positional arguments.
+  //
+  // A spec sending more than one chunk is asserting the local atomicity, which
+  // has no cloud counterpart; those live in the crate's own integration tests.
+  //
+  // `->'rows'` is NOT coalesced, so an absent key arrives as SQL NULL and the
+  // measured hole in `rows_not_an_array` stays reachable from a payload.
+  restore_user_chunk: (payloadLiteral) =>
+    `SELECT jsonb_build_object(
+              'inserted',
+              public.restore_user_chunk(
+                ${payloadLiteral}::jsonb->'chunks'->0->>'entity',
+                ${payloadLiteral}::jsonb->'chunks'->0->'rows',
+                NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid))
+       INTO v_row;`,
+
+  finalize_user_restore: (payloadLiteral) =>
+    `SELECT public.finalize_user_restore(
+              COALESCE(${payloadLiteral}::jsonb->'links', '{}'::jsonb),
+              NULLIF(${payloadLiteral}::jsonb->>'user_id', '')::uuid)
+       INTO v_row;`,
+
+  // The snap returns the whole accounts row. Projected into the same eight
+  // fields crate::row::account::AccountRow serialises, money as a decimal string
+  // on both sides — numeric::text is exact and involves no rounding function.
+  link_bank_account_snap: (payloadLiteral) =>
+    `SELECT jsonb_build_object(
+              'id', a.id,
+              'user_id', a.user_id,
+              'name', a.name,
+              'type', a.type,
+              'currency', a.currency,
+              'balance', a.balance::text,
+              'initial_balance', a.initial_balance::text,
+              'is_active', a.is_active)
+       INTO v_row
+       FROM public.link_bank_account_snap(
+              (${payloadLiteral}::jsonb->>'account_id')::uuid,
+              (${payloadLiteral}::jsonb->>'user_id')::uuid,
+              (${payloadLiteral}::jsonb->>'bank_balance')::numeric) a;`,
 };
 
 /**
@@ -361,6 +460,19 @@ export class PostgresVerbEngine {
   run(spec) {
     const build = VERBS[spec.command.verb];
     if (!build) throw new Error(`no Postgres RPC is mapped for verb "${spec.command.verb}"`);
+
+    // The local restore takes a LIST of chunks and the cloud RPC takes one, so
+    // the driver above unpacks chunks[0]. A spec sending more than one is
+    // asserting the LOCAL atomicity, which has no cloud counterpart — and if the
+    // driver quietly ran the first chunk anyway, that spec would compare two
+    // different operations and report whichever answer it happened to get. Say
+    // so instead. Those assertions belong in crates/wealth-core/tests.
+    if (spec.command.verb === 'restore_user_chunk' && (spec.command.payload.chunks?.length ?? 0) > 1) {
+      throw new Error(
+        'a restore spec sending more than one chunk has no Postgres counterpart: the RPC takes ' +
+        'one entity per call. Assert the one-transaction property in the crate\'s own tests.',
+      );
+    }
 
     const payload = quote(JSON.stringify(spec.command.payload));
     const lines = [

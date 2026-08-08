@@ -53,12 +53,16 @@ use wealth_core::db;
 use wealth_core::error::CoreError;
 use wealth_core::verbs::{
     apply_category_to_uncategorized, clear_transfer_links, confirm_transaction_categories,
-    create_transaction, create_transfer_counterpart, delete_transaction, link_split_line_transfer,
-    link_transfer_pair, merge_categories, repair_claimed_transfer,
-    set_transaction_splits_with_legs, update_transaction, ApplyCategoryToUncategorized,
-    ClearTransferLinks, ConfirmTransactionCategories, CreateTransaction, CreateTransferCounterpart,
-    DeleteTransaction, LinkSplitLineTransfer, LinkTransferPair, MergeCategories,
-    RepairClaimedTransfer, SetTransactionSplitsWithLegs, UpdateTransaction,
+    create_transaction, create_transfer_counterpart, delete_transaction,
+    delete_unused_categories, finalize_user_restore, link_bank_account_snap,
+    link_split_line_transfer, link_transfer_pair, merge_categories, repair_claimed_transfer,
+    restore_user_chunk, set_transaction_splits_with_legs, update_transaction,
+    user_financial_data_is_empty, verify_integrity, wipe_user_financial_data,
+    ApplyCategoryToUncategorized, ClearTransferLinks, ConfirmTransactionCategories,
+    CreateTransaction, CreateTransferCounterpart, DeleteTransaction, DeleteUnusedCategories,
+    FinalizeUserRestore, LinkBankAccountSnap, LinkSplitLineTransfer, LinkTransferPair,
+    MergeCategories, RepairClaimedTransfer, RestoreUserChunk, SetTransactionSplitsWithLegs,
+    UpdateTransaction, UserFinancialDataIsEmpty, VerifyIntegrity, WipeUserFinancialData,
 };
 
 /// A command, as the harness sends it.
@@ -100,6 +104,29 @@ enum Command {
     MergeCategories(Box<MergeCategories>),
     ApplyCategoryToUncategorized(Box<ApplyCategoryToUncategorized>),
     ConfirmTransactionCategories(Box<ConfirmTransactionCategories>),
+    // The fourth category verb, and the one whose every protection is a WHERE
+    // clause rather than a RAISE. Same name as the RPC it ports; the count it
+    // returns is the RPC's, which is not the count SQLite's own single-statement
+    // spelling would give (see the verb's module documentation).
+    DeleteUnusedCategories(Box<DeleteUnusedCategories>),
+    // The restore family. Four verb strings, each spelled exactly as the
+    // function it ports — including `restore_user_chunk`, whose LOCAL payload
+    // carries a LIST of chunks because the whole restore is one transaction here
+    // (DESIGN.md §5 divergence 6). The name is kept singular because a verb
+    // string that differs from the function it ports is a verb string that will
+    // one day be mapped to the wrong function.
+    UserFinancialDataIsEmpty(Box<UserFinancialDataIsEmpty>),
+    WipeUserFinancialData(Box<WipeUserFinancialData>),
+    RestoreUserChunk(Box<RestoreUserChunk>),
+    FinalizeUserRestore(Box<FinalizeUserRestore>),
+    // The account snap: service-role only in the cloud, and the one function in
+    // the schema that assigns an absolute balance without breaking B-1.
+    LinkBankAccountSnap(Box<LinkBankAccountSnap>),
+    // The only verb here that is NOT a port: the cloud has no verify_integrity,
+    // no view and no equivalent, and the verb's module documentation carries the
+    // trace that establishes it. Its payload is `{}` — it takes not even an
+    // owner, because integrity is a property of the file.
+    VerifyIntegrity(Box<VerifyIntegrity>),
 }
 
 #[derive(Debug, Serialize)]
@@ -274,6 +301,31 @@ fn run() -> Result<Response, String> {
         }
         Command::ConfirmTransactionCategories(payload) => {
             confirm_transaction_categories(&mut connection, *payload).and_then(as_json)
+        }
+        Command::DeleteUnusedCategories(payload) => {
+            delete_unused_categories(&mut connection, *payload).and_then(as_json)
+        }
+        // The only verb that needs no `&mut`: it opens no transaction, because
+        // it writes nothing.
+        Command::UserFinancialDataIsEmpty(payload) => {
+            user_financial_data_is_empty(&connection, *payload).and_then(as_json)
+        }
+        Command::WipeUserFinancialData(payload) => {
+            wipe_user_financial_data(&mut connection, *payload).and_then(as_json)
+        }
+        Command::RestoreUserChunk(payload) => {
+            restore_user_chunk(&mut connection, *payload).and_then(as_json)
+        }
+        Command::FinalizeUserRestore(payload) => {
+            finalize_user_restore(&mut connection, *payload).and_then(as_json)
+        }
+        Command::LinkBankAccountSnap(payload) => {
+            link_bank_account_snap(&mut connection, *payload).and_then(as_json)
+        }
+        // The second verb that needs no `&mut`, and for the same reason as the
+        // first: it writes nothing.
+        Command::VerifyIntegrity(payload) => {
+            verify_integrity(&connection, *payload).and_then(as_json)
         }
     };
 

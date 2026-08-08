@@ -10,6 +10,17 @@
 //
 // Everything else keeps the house rules: one file, one invariant; a refusal must
 // be NAMED; a declared divergence that stops diverging is a FAILURE, not a bonus.
+//
+// ONE ENGINE, AND WHY THAT IS ALLOWED HERE
+// ----------------------------------------
+// `parity: 'not-comparable'` plus `skip: { postgres: '<why>' }` says the other
+// engine has no counterpart to compare against. It is the same declaration
+// lib/specs.mjs has always had for a constraint only one schema carries, and it
+// arrived here for `verify_integrity`, which is not a port of anything: the
+// cloud has no such function, no such view and no equivalent (traced in the
+// verb's own module documentation). A spec cannot use it to duck a comparison —
+// the runner refuses to map a skipped engine's verb at all, so the only way to
+// skip Postgres is for the verb to have no Postgres side.
 
 import { readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
@@ -17,11 +28,15 @@ import path from 'node:path';
 
 const ENGINES = ['sqlite', 'postgres'];
 const OUTCOMES = ['ok', 'refused'];
-const PARITIES = ['match', 'divergent'];
+// match          — both engines run and must agree
+// divergent      — both engines run and MUST differ (a divergence that stops
+//                  diverging is a failure: the spec has gone vacuous)
+// not-comparable — one engine is skipped, with a stated reason
+const PARITIES = ['match', 'divergent', 'not-comparable'];
 
 const SPEC_KEYS = new Set([
   'invariant', 'title', 'design', 'consequence', 'parity', 'reason',
-  'setup', 'command', 'expect', 'result', 'rowDivergence', 'state',
+  'setup', 'command', 'expect', 'result', 'rowDivergence', 'state', 'skip',
 ]);
 
 function fail(file, message) {
@@ -69,11 +84,32 @@ function validate(file, spec) {
     }
   }
   if (!PARITIES.includes(spec.parity)) fail(file, `parity must be one of ${PARITIES.join(', ')}`);
-  if (spec.parity === 'divergent' && (typeof spec.reason !== 'string' || spec.reason.trim() === '')) {
-    fail(file, 'parity "divergent" must state its reason');
+  if (spec.parity !== 'match' && (typeof spec.reason !== 'string' || spec.reason.trim() === '')) {
+    fail(file, `parity "${spec.parity}" must state its reason`);
   }
   if (spec.parity === 'match' && spec.reason !== undefined) {
     fail(file, 'reason belongs to a divergence; a match needs no excuse');
+  }
+
+  // A skipped engine states why, in prose, and the two declarations have to
+  // agree: a skip without "not-comparable" hides a comparison that was never
+  // made, and "not-comparable" without a skip claims one engine was left out
+  // when both ran.
+  if (spec.skip !== undefined) {
+    if (typeof spec.skip !== 'object' || spec.skip === null) fail(file, 'skip must be an object');
+    for (const key of Object.keys(spec.skip)) {
+      if (!ENGINES.includes(key)) fail(file, `skip.${key} is not an engine`);
+      if (typeof spec.skip[key] !== 'string' || spec.skip[key].trim() === '') {
+        fail(file, `skip.${key} must say WHY that engine has nothing to run`);
+      }
+    }
+  }
+  const skipped = ENGINES.filter((engine) => typeof spec.skip?.[engine] === 'string');
+  if (spec.parity === 'not-comparable' && skipped.length !== 1) {
+    fail(file, 'parity "not-comparable" means exactly one engine is skipped');
+  }
+  if (spec.parity !== 'not-comparable' && skipped.length > 0) {
+    fail(file, `${skipped[0]} is skipped, so parity cannot be "${spec.parity}" — say "not-comparable" and why`);
   }
 
   const command = spec.command;
@@ -130,7 +166,10 @@ function validate(file, spec) {
         fail(file, `two state entries are both called "${entry.name}" — the second would silently replace the first`);
       }
       seen.add(entry.name);
-      for (const engine of ENGINES) {
+      // A skipped engine needs no SELECT: there is nothing to run it against,
+      // and demanding one would mean writing Postgres SQL for a table shape the
+      // comparison has already been declared unable to use.
+      for (const engine of ENGINES.filter((name) => spec.skip?.[name] === undefined)) {
         if (typeof entry[engine] !== 'string' || entry[engine].trim() === '') {
           fail(file, `state "${entry.name}" needs a ${engine} SELECT`);
         }

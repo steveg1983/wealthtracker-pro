@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from '../icons';
 
 interface DatePickerProps {
@@ -21,7 +22,21 @@ interface DatePickerProps {
    * the order they appear in the class attribute.
    */
   size?: 'sm' | 'md';
+  /**
+   * Render the calendar in a fixed-position portal on document.body instead of
+   * absolutely inside this field.
+   *
+   * For a field that sits inside a scroll container which CLIPS its overflow —
+   * the register's quick-edit box lives inside the virtualised transaction
+   * list, where an in-flow calendar is cut off at the edge of the table. Off by
+   * default, so every existing field renders byte-for-byte as it did.
+   */
+  usePortal?: boolean;
 }
+
+/** The calendar's own size, needed to decide whether it fits below the field. */
+const CALENDAR_WIDTH = 280;
+const CALENDAR_HEIGHT = 340;
 
 const SIZES = {
   sm: { field: 'px-2 py-1.5 pr-8', icon: 'right-2', iconSize: 14 },
@@ -93,10 +108,16 @@ export default function DatePicker({
   'aria-invalid': ariaInvalid,
   'aria-describedby': ariaDescribedBy,
   size = 'md',
+  usePortal = false,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // The portaled calendar lives outside containerRef, so the outside-click
+  // check has to know about it separately — otherwise clicking a day would
+  // count as "outside", close the calendar, and the day's own click would
+  // never land.
+  const menuRef = useRef<HTMLDivElement>(null);
   // What the user is currently typing, or null when the field just mirrors
   // `value`. Holding the raw string means we never reformat under the caret
   // half-way through "14/4/2025".
@@ -133,13 +154,53 @@ export default function DatePicker({
   useEffect(() => {
     if (!isOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inField = containerRef.current?.contains(target) ?? false;
+      const inCalendar = menuRef.current?.contains(target) ?? false;
+      if (!inField && !inCalendar) {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isOpen]);
+
+  // Where the portaled calendar sits: below the field, or above it when there
+  // is not room below. Recomputed on scroll (capture phase, so a scrolling
+  // container counts, not just the window) and on resize, so it tracks the
+  // field it belongs to rather than hanging in mid-air.
+  const [menuPos, setMenuPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const computeMenuPosition = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 4;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < CALENDAR_HEIGHT + gap && rect.top > spaceBelow;
+    setMenuPos({
+      // Kept on screen: a field near the right edge would otherwise put the
+      // calendar half outside the window.
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - CALENDAR_WIDTH - 8)),
+      ...(openUp
+        ? { bottom: window.innerHeight - rect.top + gap }
+        : { top: rect.bottom + gap }),
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!usePortal || !isOpen) {
+      setMenuPos(null);
+      return;
+    }
+    computeMenuPosition();
+    const onReflow = (): void => computeMenuPosition();
+    window.addEventListener('scroll', onReflow, true);
+    window.addEventListener('resize', onReflow);
+    return () => {
+      window.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    };
+  }, [usePortal, isOpen, computeMenuPosition]);
 
   const prevMonth = useCallback(() => {
     setViewMonth(m => {
@@ -326,8 +387,23 @@ export default function DatePicker({
         />
       </div>
 
-      {isOpen && (
-        <div className="absolute z-50 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3 w-[280px]">
+      {isOpen && (() => {
+        const calendar = (
+        <div
+          ref={usePortal ? menuRef : undefined}
+          // data-datepicker-panel: a portaled calendar is no longer inside the
+          // field's DOM, so anything that asks "was that click inside my
+          // component?" — the register's click-outside-to-deselect handler —
+          // needs a way to recognise it.
+          data-datepicker-panel
+          style={usePortal && menuPos ? {
+            position: 'fixed',
+            left: menuPos.left,
+            zIndex: 9999,
+            ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
+          } : undefined}
+          className={`${usePortal ? '' : 'absolute z-50 mt-1'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg p-3 w-[280px]`}
+        >
           {/* Header — the arrows step within the current view (month / year /
               12-year block) and the label drills UP a level (day→month→year). */}
           <div className="flex items-center justify-between mb-2">
@@ -477,7 +553,12 @@ export default function DatePicker({
             </button>
           </div>
         </div>
-      )}
+        );
+        if (!usePortal) return calendar;
+        // Nothing is drawn until the position is known — a calendar painted at
+        // 0,0 for one frame and then moved is a visible jump.
+        return menuPos ? createPortal(calendar, document.body) : null;
+      })()}
     </div>
   );
 }

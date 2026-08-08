@@ -115,6 +115,13 @@ const row = (description: string): HTMLElement => {
   return found;
 };
 
+/** The quick-edit box the register opens under a clicked row. */
+const quickEditBox = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit-panel]');
+  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+  return el;
+};
+
 const openRegister = async (): Promise<void> => {
   renderRegister();
   await screen.findByRole('heading', { level: 1, name: 'Synthetic Register' });
@@ -184,13 +191,12 @@ describe('Account register — a category the app guessed', () => {
     // Clicking the CATEGORY of a guessed row — the thing the user is querying.
     fireEvent.click(within(row('Synthetic guessed row')).getByText('Food > Groceries'));
 
-    // The register's existing behaviour docks the quick-edit panel, and the
-    // panel is where confirm-or-edit lives. No second mechanism was invented
-    // for the register, and nothing else stands between the click and the
-    // answer.
-    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    // The click opens the quick-edit box under that very row, and the box is
+    // where confirm-or-edit lives. No second mechanism was invented for the
+    // register, and nothing else stands between the click and the answer.
+    const confirm = within(quickEditBox()).getByRole('button', { name: 'Confirm' });
     expect(confirm).toBeInTheDocument();
-    expect(screen.getByLabelText('Description')).toHaveValue('Synthetic guessed row');
+    expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue('Synthetic guessed row');
   });
 
   it('offers no Confirm when the row clicked is one the user already vouched for', async () => {
@@ -198,7 +204,7 @@ describe('Account register — a category the app guessed', () => {
 
     fireEvent.click(within(row('Synthetic vouched row')).getByText('Synthetic vouched row'));
 
-    expect(screen.getByLabelText('Description')).toHaveValue('Synthetic vouched row');
+    expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue('Synthetic vouched row');
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
   });
 });
