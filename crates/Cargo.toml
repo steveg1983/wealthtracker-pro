@@ -1,0 +1,29 @@
+# Rust workspace root for the local edition core.
+#
+# WHY IT LIVES HERE AND NOT AT THE REPO ROOT
+# ------------------------------------------
+# A Cargo.toml at the repo root would make the whole repository a Rust project:
+# `cargo` commands run from anywhere would pick it up, and every tool that
+# sniffs for a manifest (editors, CI actions, dependabot-alikes) would start
+# treating the web app as a Rust crate. Keeping the workspace root inside
+# `crates/` means:
+#
+#   * the cloud build never sees Rust — `npm ci` and `vite build` walk `src/`,
+#     `api/` and `package.json`, none of which mention this directory;
+#   * `crates/` is not an npm workspace member (package.json declares no
+#     `workspaces` key at all), so npm cannot be induced to descend into it;
+#   * Vercel's build container never installs a toolchain, because nothing in
+#     the build command reaches this file.
+#
+# DESIGN.md §8.2 puts the crate at `crates/wealth-core`; §8.3's third gate is
+# "crates/ is not in the npm workspace, so an npm ci for the web build never
+# touches Rust". This layout is that sentence, made structural.
+[workspace]
+resolver = "2"
+members = ["wealth-core"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.82"
+license = "UNLICENSED"
+publish = false
