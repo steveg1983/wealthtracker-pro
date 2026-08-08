@@ -9,12 +9,14 @@
  * user has said, about that one pair, that they are the same payment.
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import DuplicateSweepModal from './DuplicateSweepModal';
 import { __setAppContextValue, __resetAppContextValue } from '../test/mocks/AppContextSupabase';
 import { duplicateDismissalKey } from '../utils/suggestionDismissals';
-import type { Category, SuggestionDismissal, Transaction } from '../types';
+import type { Account, Category, SuggestionDismissal, Transaction } from '../types';
 
 vi.mock('../contexts/ToastContext', () => ({
   useToast: () => ({
@@ -42,6 +44,9 @@ vi.mock('../hooks/useAccountNames', () => ({
   useAccountNames: () => (id: string) => ({
     'acc-current': 'Current account',
     'acc-joint': 'Joint account',
+    'acc-zenith': 'Zenith Current',
+    'acc-alder': 'Alder Current',
+    'acc-plum': 'Plum Card',
   }[id] ?? id),
 }));
 
@@ -78,8 +83,28 @@ const AS_IMPORTED = txn({
 
 const CONFIRMATION = 'I have read both rows and they are one payment recorded twice.';
 
-const renderModal = (): void => {
-  render(<DuplicateSweepModal isOpen onClose={vi.fn()} />);
+/** Invented accounts, deliberately NOT in alphabetical or section order. */
+const account = (id: string, name: string, type: Account['type']): Account => ({
+  id, name, type, balance: 0, currency: 'GBP', lastUpdated: new Date('2026-05-01'),
+});
+
+const onClose = vi.fn();
+
+/** Where the router ended up, so a jump can be read rather than assumed. */
+function LocationProbe(): React.JSX.Element {
+  const location = useLocation();
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
+const whereWeAre = (): string => screen.getByTestId('location').textContent ?? '';
+
+const renderModal = (startAt = '/settings/data'): void => {
+  render(
+    <MemoryRouter initialEntries={[startAt]}>
+      <DuplicateSweepModal isOpen onClose={onClose} />
+      <LocationProbe />
+    </MemoryRouter>
+  );
 };
 
 const openReview = (): void => {
@@ -88,6 +113,7 @@ const openReview = (): void => {
 
 afterEach(() => {
   cleanup();
+  onClose.mockClear();
   __resetAppContextValue();
 });
 
@@ -339,6 +365,74 @@ describe('DuplicateSweepModal — every account in one sweep', () => {
   });
 });
 
+describe('DuplicateSweepModal — the account chooser is grouped like the rest of the app', () => {
+  const GROUPED_ACCOUNTS: Account[] = [
+    // Deliberately out of order, and with the credit card in the middle: the
+    // dropdown's order must come from the grouping, not from this array.
+    account('acc-zenith', 'Zenith Current', 'current'),
+    account('acc-plum', 'Plum Card', 'credit'),
+    account('acc-alder', 'Alder Current', 'current'),
+  ];
+
+  const pairIn = (accountId: string, amount: number): Transaction[] => [
+    txn({ id: `${accountId}-a`, accountId, amount }),
+    txn({ id: `${accountId}-b`, accountId, amount, isImported: true }),
+  ];
+
+  beforeEach(() => {
+    __setAppContextValue({
+      accounts: GROUPED_ACCOUNTS,
+      categories: CATEGORIES,
+      transactions: [
+        ...pairIn('acc-zenith', -12.5),
+        ...pairIn('acc-plum', -33.75),
+        ...pairIn('acc-alder', -64.2),
+      ],
+    });
+  });
+
+  const chooser = (): HTMLSelectElement => screen.getByLabelText<HTMLSelectElement>(/Account/);
+
+  const bandLabels = (): string[] =>
+    Array.from(chooser().querySelectorAll('optgroup')).map(band => band.label);
+
+  const namesUnder = (label: string): string[] => {
+    const band = Array.from(chooser().querySelectorAll('optgroup')).find(g => g.label === label);
+    return band ? Array.from(band.querySelectorAll('option')).map(o => o.textContent ?? '') : [];
+  };
+
+  it('bands the accounts into the app’s own sections, in the app’s own order', () => {
+    renderModal();
+
+    expect(bandLabels()).toEqual(['Current Accounts', 'Credit Cards']);
+  });
+
+  it('sorts alphabetically inside a band, whatever order the sweep found them in', () => {
+    renderModal();
+
+    // Zenith is first in the data and last on screen. That is the whole point.
+    expect(namesUnder('Current Accounts')).toEqual(['Alder Current (1)', 'Zenith Current (1)']);
+  });
+
+  it('keeps “All accounts” outside the bands, as the way back to everything', () => {
+    renderModal();
+
+    const first = chooser().querySelector('option');
+    expect(first?.textContent).toBe('All accounts');
+    expect(first?.closest('optgroup')).toBeNull();
+  });
+
+  it('still filters to the account chosen out of a band', () => {
+    renderModal();
+
+    fireEvent.change(chooser(), { target: { value: 'acc-plum' } });
+
+    const rows = screen.getAllByTitle('Look at both copies of this');
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]).getByText('Plum Card')).toBeInTheDocument();
+  });
+});
+
 describe('DuplicateSweepModal — rows that must not be deleted', () => {
   it('refuses half of a linked transfer, and says which account would be stranded', () => {
     __setAppContextValue({
@@ -530,5 +624,130 @@ describe('DuplicateSweepModal — dismissals that stick', () => {
 
     expect(screen.getByTitle('Look at both copies of this')).toBeInTheDocument();
     expect(screen.getByText(/could not be read, so this list may include some of them/)).toBeInTheDocument();
+  });
+});
+
+describe('DuplicateSweepModal — the way through to the row itself', () => {
+  const firstCopyLink = (): HTMLElement =>
+    screen.getByRole('button', { name: 'See the first copy in Current account' });
+
+  beforeEach(() => {
+    __setAppContextValue({ transactions: [FEED, IMPORTED], categories: CATEGORIES });
+  });
+
+  it('lands on the register for that exact row, with the sweep closed behind it', () => {
+    renderModal();
+    openReview();
+
+    fireEvent.click(firstCopyLink());
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(whereWeAre()).toBe('/accounts/acc-current?txn=feed');
+  });
+
+  it('gives each copy its own way in, pointing at its own row', () => {
+    renderModal();
+    openReview();
+
+    fireEvent.click(screen.getByRole('button', { name: 'See the second copy in Current account' }));
+
+    expect(whereWeAre()).toBe('/accounts/acc-current?txn=import');
+  });
+
+  it('looking at a copy is not choosing it for deletion', () => {
+    // THE DISTINCTNESS TEST. The way in sits outside the label the radio is
+    // in, so a click meaning "let me see this" cannot arm the delete.
+    renderModal();
+    openReview();
+
+    fireEvent.click(firstCopyLink());
+
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).not.toBeChecked();
+    }
+  });
+
+  it('still offers the way in for a copy that may never be deleted', () => {
+    // The user whose row is holding a transfer together has to go and unpick
+    // it — which means getting to it.
+    __setAppContextValue({
+      transactions: [
+        txn({ id: 'leg', type: 'transfer', linkedTransferId: 'far-side', transferAccountId: 'acc-joint' }),
+        IMPORTED,
+      ],
+      categories: CATEGORIES,
+    });
+    renderModal();
+    openReview();
+
+    expect(screen.getAllByRole('radio')[0]).toBeDisabled();
+    fireEvent.click(firstCopyLink());
+
+    expect(whereWeAre()).toBe('/accounts/acc-current?txn=leg');
+  });
+
+  it('offers the same way through from the list, without muddling the row click', () => {
+    renderModal();
+
+    fireEvent.click(screen.getByRole('button', { name: 'See these two rows in Current account' }));
+
+    // The register, not the review pane: the row's own click still means
+    // "review", and this cell stops it reaching that handler.
+    expect(whereWeAre()).toBe('/accounts/acc-current?txn=feed');
+    expect(screen.queryByText('The same payment twice?')).not.toBeInTheDocument();
+  });
+
+  it('a jump taken in a demo session stays inside it', () => {
+    renderModal('/settings/data?demo=true');
+    openReview();
+
+    fireEvent.click(firstCopyLink());
+
+    expect(whereWeAre()).toBe('/accounts/acc-current?txn=feed&demo=true');
+  });
+});
+
+describe('DuplicateSweepModal — how far apart two copies may be', () => {
+  /** Same account, same money to the penny, same wording; only the gap moves. */
+  const NEXT_DAY = [
+    txn({ id: 'bakery-a', amount: -21.4, description: 'Bakery Ltd', date: new Date('2026-05-01') }),
+    txn({ id: 'bakery-b', amount: -21.4, description: 'Bakery Ltd', date: new Date('2026-05-02') }),
+  ];
+  const TWO_DAYS = [
+    txn({ id: 'cycles-a', amount: -77.3, description: 'Cycle Hire Ltd', date: new Date('2026-05-01') }),
+    txn({ id: 'cycles-b', amount: -77.3, description: 'Cycle Hire Ltd', date: new Date('2026-05-03') }),
+  ];
+
+  beforeEach(() => {
+    __setAppContextValue({ transactions: [...NEXT_DAY, ...TWO_DAYS], categories: CATEGORIES });
+  });
+
+  const windowChooser = (): HTMLSelectElement =>
+    screen.getByLabelText<HTMLSelectElement>(/Within/);
+
+  it('offers 1 day, and says “1 day” rather than “1 days”', () => {
+    renderModal();
+
+    expect(Array.from(windowChooser().options).map(o => o.textContent))
+      .toEqual(['1 day', '3 days', '7 days', '14 days']);
+  });
+
+  it('starts at 3 days, where both of these pairs are within reach', () => {
+    renderModal();
+
+    expect(windowChooser().value).toBe('3');
+    expect(screen.getByText('Bakery Ltd')).toBeInTheDocument();
+    expect(screen.getByText('Cycle Hire Ltd')).toBeInTheDocument();
+  });
+
+  it('“within 1 day” means the same day or the one next to it — and no further', () => {
+    renderModal();
+
+    fireEvent.change(windowChooser(), { target: { value: '1' } });
+
+    // One day apart is still inside the window…
+    expect(screen.getByText('Bakery Ltd')).toBeInTheDocument();
+    // …two days apart is not, and the label would be a lie if it were.
+    expect(screen.queryByText('Cycle Hire Ltd')).not.toBeInTheDocument();
   });
 });

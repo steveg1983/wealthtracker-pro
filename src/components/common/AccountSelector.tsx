@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, useId } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  compareAccountsByName,
   groupAccountsForDisplay,
   accountMatchesQuery,
   NO_INSTITUTION_TITLE,
@@ -188,10 +189,9 @@ export default function AccountSelector<T extends SelectableAccount>({
           key: sub.label,
           title: namedSubBands ? sub.title : null,
           // The page sorts its own rows, so the grouping deliberately keeps
-          // input order; a picker wants them alphabetical.
-          accounts: [...sub.accounts].sort((a, b) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-          ),
+          // input order; a picker wants them alphabetical — and by the app's
+          // one definition of alphabetical, not a local retelling of it.
+          accounts: [...sub.accounts].sort(compareAccountsByName),
         })),
       };
     });

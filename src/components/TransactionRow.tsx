@@ -4,6 +4,8 @@ import { TrendingUpIcon, TrendingDownIcon, CheckIcon, EditIcon, DeleteIcon } fro
 import { IconButton } from './icons/IconButton';
 import MarkdownNote from './MarkdownNote';
 import MoneyInput from './common/MoneyInput';
+import SuggestedCategoryBadge from './SuggestedCategoryBadge';
+import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
 interface TransactionRowProps {
@@ -221,23 +223,39 @@ export const TransactionRow = memo(function TransactionRow({
                 ))}
               </select>
             ) : onUpdateCategory ? (
-              // Real button so keyboard and screen-reader users can edit too
-              // (WCAG 2.1.1 — a span with onClick is invisible to AT).
-              <button
-                type="button"
-                className={`${compactView ? 'text-sm' : ''} truncate block w-full text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-blue-500`}
-                title={`${categoryPath} (click to change)`}
-                aria-label={`Change category, currently ${categoryPath || 'uncategorized'}`}
-                onClick={() => setIsEditingCategory(true)}
-              >
-                {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
-              </button>
+              // The badge rides alongside the button rather than inside it: it
+              // is a statement about the row, not part of the control's name,
+              // and a screen reader announcing "Change category, currently
+              // Groceries Suggested" would be naming a category that does not
+              // exist. Choosing a different category here records the answer —
+              // the service treats a changed category as one the user vouched
+              // for — so this cell IS the "or edit" half; the badge disappears
+              // of its own accord once it is.
+              <span className="flex items-center gap-1.5 min-w-0">
+                <button
+                  type="button"
+                  className={`${compactView ? 'text-sm' : ''} truncate block flex-1 min-w-0 text-left cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded px-1 -mx-1 focus:outline-none focus:ring-1 focus:ring-blue-500`}
+                  title={`${categoryPath} (click to change)`}
+                  aria-label={`Change category, currently ${categoryPath || 'uncategorized'}`}
+                  onClick={() => setIsEditingCategory(true)}
+                >
+                  {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
+                </button>
+                {isConfirmableSuggestion(transaction) && (
+                  <SuggestedCategoryBadge title="The app filled this in. Click the category to confirm it or pick a different one." />
+                )}
+              </span>
             ) : (
-              <span
-                className={`${compactView ? 'text-sm' : ''} truncate block`}
-                title={categoryPath}
-              >
-                {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className={`${compactView ? 'text-sm' : ''} truncate`}
+                  title={categoryPath}
+                >
+                  {categoryPath || <span className="text-gray-400 italic">Uncategorized</span>}
+                </span>
+                {isConfirmableSuggestion(transaction) && (
+                  <SuggestedCategoryBadge title="The app filled this in and nobody has confirmed it yet." />
+                )}
               </span>
             )}
           </td>
@@ -409,6 +427,11 @@ export const TransactionRow = memo(function TransactionRow({
     prevProps.transaction.amount === nextProps.transaction.amount &&
     prevProps.transaction.description === nextProps.transaction.description &&
     prevProps.transaction.category === nextProps.transaction.category &&
+    // Confirming a suggestion changes NOTHING else about the row — same
+    // category, same amount, same description. Left out of this comparison the
+    // badge would sit there after the user had answered it, until something
+    // unrelated forced a re-render.
+    prevProps.transaction.categoryConfirmed === nextProps.transaction.categoryConfirmed &&
     prevProps.transaction.isSplit === nextProps.transaction.isSplit &&
     prevProps.transaction.cleared === nextProps.transaction.cleared &&
     prevProps.account?.id === nextProps.account?.id &&

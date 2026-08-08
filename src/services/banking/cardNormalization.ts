@@ -34,10 +34,20 @@ export const cardAmountToAppSigned = (cardAmount: number): number => {
   return round2(new Decimal(cardAmount).negated().plus(0)); // plus(0) normalises -0
 };
 
-/** Card `current` (owed, positive) → app balance (liability, negative). */
-export const cardBalanceToAppBalance = (current: number | null | undefined): number => {
-  if (typeof current !== 'number' || !Number.isFinite(current)) {
-    return 0;
+/**
+ * Card `current` (owed, positive) → app balance (liability, negative).
+ *
+ * Takes a finite number and nothing else. It used to accept `number | null`
+ * and answer 0 for the empty cases, which meant `fetchCardBalance`'s null —
+ * "the issuer sent no balance" — was silently converted into "you owe
+ * nothing", and that zero was then written to the account as a bank-reported
+ * figure. Deciding what to do when there is no figure is the caller's job:
+ * cardBalanceSnapshot in ./bankBalanceSnapshot does it, and the type now
+ * stops anyone doing it by accident.
+ */
+export const cardBalanceToAppBalance = (current: number): number => {
+  if (!Number.isFinite(current)) {
+    throw new Error('cardBalanceToAppBalance requires a finite amount');
   }
   return round2(new Decimal(current).negated().plus(0));
 };

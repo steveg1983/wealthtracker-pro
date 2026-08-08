@@ -7,7 +7,7 @@ import React from 'react';
 import { useOfflineOperations } from '../../pwa/offline-storage';
 import { useCategories } from '../../contexts/CategoryContext';
 import { useAccounts } from '../../contexts/AccountContext';
-import { formatCurrency } from '../../utils/formatters';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import MoneyInput from '../common/MoneyInput';
 import AccountSelector from '../common/AccountSelector';
 import DatePicker from '../common/DatePicker';
@@ -34,6 +34,7 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
   const { queue } = useOfflineOperations();
   const { categories } = useCategories();
   const { accounts } = useAccounts();
+  const { formatCurrency } = useCurrencyDecimal();
   
   const [formData, setFormData] = React.useState({
     description: '',
@@ -257,7 +258,7 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
                 selectedAccountId={formData.accountId}
                 onAccountChange={(accountId) => setFormData({ ...formData, accountId })}
                 placeholder="Search or select an account…"
-                formatLabel={(account) => `${account.name} (${formatCurrency(account.balance)})`}
+                formatLabel={(account) => `${account.name} (${formatCurrency(account.balance, account.currency)})`}
                 className="w-full px-3 py-2 h-[42px] border rounded-lg dark:bg-gray-700 dark:border-gray-600"
                 usePortal
                 required

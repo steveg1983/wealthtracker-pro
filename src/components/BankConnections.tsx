@@ -49,6 +49,11 @@ export default function BankConnections({
   const [configStatus, setConfigStatus] = useState({ plaid: false, trueLayer: false });
   const [linkingConnectionId, setLinkingConnectionId] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  // What an incomplete sync could not do. It used to go to the console only,
+  // so a sync that (for example) added no accounts because the bank never
+  // reported a balance to open them with left the user staring at a connection
+  // with nothing under it and no reason given.
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const logger = useMemo(() => createScopedLogger('BankConnections'), []);
   const { getToken } = useClerkAuth();
 
@@ -183,12 +188,14 @@ export default function BankConnections({
     
     try {
       const result = await bankConnectionService.syncConnection(connectionId);
-      
+
       if (result.success) {
+        setSyncNotice(null);
         void loadConnections();
         onAccountsLinked?.();
       } else {
         logger.error('Sync failed', result.errors);
+        setSyncNotice(result.errors[0] ?? 'The bank sync did not complete.');
         // Reload so a status change from the failed sync (e.g. reauth_required)
         // surfaces immediately — otherwise the Reauthorize CTA wouldn't appear
         // until the next manual refresh.
@@ -295,6 +302,31 @@ export default function BankConnections({
               type="button"
               onClick={() => setOauthError(null)}
               className="text-sm text-red-700 dark:text-red-300 underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* A sync that ran but could not finish the job — most often because the
+          bank would not report a balance, in which case accounts were left out
+          rather than opened at a figure nobody gave. Amber, not red: the
+          connection works, and syncing again usually completes it. */}
+      {syncNotice && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircleIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
+            <div className="flex-1">
+              <p className="font-medium text-amber-800 dark:text-amber-200">
+                Bank sync incomplete
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{syncNotice}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSyncNotice(null)}
+              className="text-sm text-amber-700 dark:text-amber-300 underline"
             >
               Dismiss
             </button>

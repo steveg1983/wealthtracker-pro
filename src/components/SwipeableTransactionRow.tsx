@@ -2,6 +2,8 @@ import React, { memo, useState, useCallback } from 'react';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import { useHapticFeedback, HapticPattern } from '../hooks/useHapticFeedback';
 import { EditIcon, DeleteIcon, CheckIcon, StarIcon, FolderIcon } from './icons';
+import SuggestedCategoryBadge from './SuggestedCategoryBadge';
+import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import type { Transaction, Account } from '../types';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
@@ -202,6 +204,17 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
                 {formattedDate}
                 {' · '}
                 {categoryName ?? <span className="italic">Uncategorised</span>}
+                {/* Right beside the category it is about, because that is the
+                    only place it means anything. Tapping the card opens the row
+                    (details on the transactions page, the editor on a
+                    register); both carry the same badge, and saving an edit is
+                    what records the answer — the phone's "confirm or edit". */}
+                {isConfirmableSuggestion(transaction) && (
+                  <SuggestedCategoryBadge
+                    className="ml-1.5 align-middle"
+                    title="The app filled this in. Open the transaction to confirm it or pick a different category."
+                  />
+                )}
                 {account ? ` · ${account.name}` : ''}
               </p>
             </div>

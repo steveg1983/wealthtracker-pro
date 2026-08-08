@@ -16,6 +16,11 @@ import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateValue } from '../../utils/dateBoundary';
+import {
+  accountNumberForStorage,
+  accountNumberUpdateForStorage,
+  isCardAccountType
+} from '../../utils/accountNumberInput';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
@@ -39,7 +44,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
   /**
    * Optional so an injected test double stays a partial stand-in; without it
@@ -273,6 +278,12 @@ class DataServiceImpl {
     const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const newAccount: Account = {
       ...account,
+      // Local mode is no safer a home for a card number than the cloud: this
+      // storage is what the backup file and the JSON export are built from.
+      accountNumber: accountNumberForStorage(
+        account.accountNumber,
+        isCardAccountType(account.type)
+      ),
       id: this.generateId()
     } as Account;
     accounts.push(newAccount);
@@ -293,7 +304,10 @@ class DataServiceImpl {
       throw new Error('Account not found');
     }
 
-    accounts[index] = { ...accounts[index], ...updates } as Account;
+    accounts[index] = {
+      ...accounts[index],
+      ...accountNumberUpdateForStorage(updates, accounts[index].type)
+    } as Account;
     await this.persistCollection(STORAGE_KEYS.ACCOUNTS, accounts);
     return accounts[index];
   }
@@ -512,7 +526,37 @@ class DataServiceImpl {
     const updated = transactions.map(t => {
       if (idSet.has(t.id) && (!t.category || t.category.trim() === '')) {
         count += 1;
-        return { ...t, category };
+        // CONFIRMED, not suggested: every caller of this is the user filing a
+        // payee they have just chosen a category for. Payee memory spreading
+        // that decision to identical rows is the decision, not a guess about
+        // it — asking him to re-confirm the very rows he asked to be filed
+        // would make the bulk tool slower than doing it one at a time.
+        return { ...t, category, categoryConfirmed: true };
+      }
+      return t;
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+    return count;
+  }
+
+  /**
+   * Agree with the suggested categories on a set of rows. Balance-neutral: one
+   * boolean, never the category itself, never an amount.
+   */
+  async confirmTransactionCategories(ids: string[]): Promise<number> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.confirmTransactionCategories(ids, userId);
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readLocalTransactions();
+    const idSet = new Set(ids);
+    let count = 0;
+    const updated = transactions.map(t => {
+      if (idSet.has(t.id) && t.categoryConfirmed === false) {
+        count += 1;
+        return { ...t, categoryConfirmed: true };
       }
       return t;
     });
@@ -1514,6 +1558,10 @@ export class DataService {
 
   static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category);
+  }
+
+  static confirmTransactionCategories(ids: string[]): Promise<number> {
+    return this.service.confirmTransactionCategories(ids);
   }
 
   static archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {

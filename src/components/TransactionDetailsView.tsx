@@ -1,6 +1,8 @@
 import React from 'react';
 import { XIcon, CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, HashIcon, WalletIcon } from './icons';
 import MarkdownNote from './MarkdownNote';
+import SuggestedCategoryBadge from './SuggestedCategoryBadge';
+import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Transaction, Account, Category } from '../types';
 
@@ -105,6 +107,16 @@ export default function TransactionDetailsView({
                   <p className="text-sm text-gray-500 dark:text-gray-400">Category</p>
                   <p className="font-medium text-gray-900 dark:text-white">
                     {category.name}
+                    {/* On a phone, tapping a card on the Transactions page opens
+                        THIS, not the editor. Without the badge the journey lost
+                        the provenance halfway: marked in the list, silent here,
+                        marked again in the editor behind it. */}
+                    {isConfirmableSuggestion(transaction) && (
+                      <SuggestedCategoryBadge
+                        className="ml-2 align-middle"
+                        title="The app filled this in. Edit the transaction to confirm it or pick a different category."
+                      />
+                    )}
                   </p>
                 </div>
               </div>

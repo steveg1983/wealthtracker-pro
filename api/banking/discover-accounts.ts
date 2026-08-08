@@ -14,10 +14,15 @@ import {
 } from '../_lib/banking-sync.js';
 import { fetchAccountBalance, fetchAccounts, fetchCardBalance, fetchCards } from '../_lib/truelayer.js';
 import {
-  cardBalanceToAppBalance,
   cardDisplayName,
   cardMask
 } from '../../src/services/banking/cardNormalization.js';
+import {
+  accountBalanceSnapshot,
+  balanceForDisplay,
+  cardBalanceSnapshot,
+  resolveBalanceSnapshot
+} from '../../src/services/banking/bankBalanceSnapshot.js';
 import { withSentry } from '../_lib/sentry.js';
 
 const mapAccountType = (accountType: string | undefined): string => {
@@ -66,15 +71,15 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
       const discoveredAccounts = await Promise.all(
         truelayerAccounts.map(async (account): Promise<DiscoveredBankAccount> => {
-          let balance = 0;
-          try {
-            const fetchedBalance = await fetchAccountBalance(accessToken, account.account_id);
-            if (typeof fetchedBalance === 'number' && Number.isFinite(fetchedBalance)) {
-              balance = fetchedBalance;
-            }
-          } catch {
-            // Balance endpoint failures should not block account discovery.
-          }
+          // Retried, then reported as it is. A failure used to leave this at 0,
+          // which the link modal displayed as "£0.00" beside the user's real
+          // account and prefilled into the new-account form — so a momentary
+          // blip could talk someone into opening their account at nothing.
+          // null travels instead, and the modal says the balance is unknown.
+          const balance = await resolveBalanceSnapshot(
+            () => fetchAccountBalance(accessToken, account.account_id),
+            accountBalanceSnapshot
+          );
 
           const accountNumber = account.account_number?.number?.replace(/\s+/g, '');
           const iban = account.account_number?.iban?.replace(/\s+/g, '');
@@ -95,7 +100,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
             externalAccountId: account.account_id,
             name: account.display_name?.trim() || connection.institution_name,
             type,
-            balance,
+            balance: balanceForDisplay(balance),
             currency: account.currency || 'GBP',
             sortCode: isCard ? undefined : (account.account_number?.sort_code ?? undefined),
             accountNumber: isCard ? undefined : (accountNumber ?? undefined),
@@ -108,18 +113,18 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       const discoveredCards = await Promise.all(
         truelayerCards.map(async (card): Promise<DiscoveredBankAccount> => {
           // Card `current` = amount OWED (positive) → app liability (negative).
-          let balance = 0;
-          try {
-            balance = cardBalanceToAppBalance(await fetchCardBalance(accessToken, card.account_id));
-          } catch {
-            // Balance endpoint failures should not block discovery.
-          }
+          // Unknown stays unknown: a card issuer that does not answer is not a
+          // card with nothing owed on it.
+          const balance = await resolveBalanceSnapshot(
+            () => fetchCardBalance(accessToken, card.account_id),
+            cardBalanceSnapshot
+          );
 
           return {
             externalAccountId: card.account_id,
             name: cardDisplayName(card, connection.institution_name),
             type: 'credit',
-            balance,
+            balance: balanceForDisplay(balance),
             currency: card.currency || 'GBP',
             mask: cardMask(card.partial_card_number),
             kind: 'card'

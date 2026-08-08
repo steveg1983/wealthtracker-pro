@@ -131,6 +131,7 @@ const CAMEL_TO_DB: Record<string, string> = {
   transferAccountId: 'transfer_account_id',
   bankReference: 'bank_reference',
   isImported: 'is_imported',
+  categoryConfirmed: 'category_confirmed',
   isSplit: 'is_split',
   goalId: 'goal_id',
   accountName: 'account_name',
@@ -176,20 +177,31 @@ const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
  * parser — a widened `string` (which `+` concatenation or `[].join` produces)
  * degrades the result to an untyped error type.
  */
-const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
 
 /**
- * The same list without `statement_sequence`, for a database that has not had
- * 20260808090000_transaction_statement_sequence.sql applied yet.
+ * The same list without `category_confirmed`, for a database that has not had
+ * 20260808100000_category_provenance.sql applied yet.
  *
- * WHY THIS EXISTS. The list above is an EXPLICIT select, and PostgREST fails the
- * whole query on an unknown column — so shipping the column in it before the
- * migration lands would not degrade the register's ordering, it would stop the
- * app loading a single transaction. The owner applies migrations himself, so
- * "deploy after the migration" is an ordering this code cannot enforce and must
- * not depend on. Falling back makes the deploy safe in either order, and the
- * feature light up by itself the moment the migration is applied — no second
- * release to remember.
+ * WHY THESE FALLBACKS EXIST. The list above is an EXPLICIT select, and PostgREST
+ * fails the whole query on an unknown column — so shipping a column in it before
+ * the migration lands would not degrade a feature, it would stop the app loading
+ * a single transaction. The owner applies migrations himself, so "deploy after
+ * the migration" is an ordering this code cannot enforce and must not depend on.
+ * Falling back makes the deploy safe in either order, and each feature lights up
+ * by itself the moment its migration is applied — no second release to remember.
+ */
+const BOOT_TRANSACTION_COLUMNS_NO_PROVENANCE = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+
+/**
+ * Neither `category_confirmed` nor `statement_sequence` — the oldest schema this
+ * build still talks to (before 20260808090000_transaction_statement_sequence).
+ *
+ * There is no fourth list, because there is no fourth state to be in: migrations
+ * are applied in filename order, so a database holding `category_confirmed`
+ * necessarily already holds the `statement_sequence` added by the migration
+ * before it. The ladder therefore only ever drops columns newest-first, which is
+ * also why the retry below discovers them in that order.
  */
 const BOOT_TRANSACTION_COLUMNS_LEGACY = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
 
@@ -284,6 +296,14 @@ class TransactionServiceImpl {
    * rather than per call so a 50-page boot pays for the discovery once.
    */
   private statementSequenceMissing = false;
+  /**
+   * The same, for 20260808100000_category_provenance.sql. Dropped BEFORE
+   * statement_sequence when a page comes back 42703, because it is the newer of
+   * the two: PostgREST names no column in the error, so the only safe reading of
+   * "some column in that list is unknown" is to give up the newest one first and
+   * ask again.
+   */
+  private categoryConfirmedMissing = false;
 
   constructor(options: TransactionServiceOptions = {}) {
     this.cache = options.transactionCache ?? transactionCache;
@@ -374,9 +394,9 @@ class TransactionServiceImpl {
     const client = this.supabaseClient!;
     const to = from + PAGE_SIZE - 1;
 
-    // The two select lists are written out in full rather than passed as a
-    // parameter, because supabase-js parses the select list AT THE TYPE LEVEL
-    // and only a single string literal engages that parser — a union of two
+    // The select lists are written out in full at each branch rather than passed
+    // as a parameter, because supabase-js parses the select list AT THE TYPE
+    // LEVEL and only a single string literal engages that parser — a union of
     // literals degrades the whole result to an error type (the same reason the
     // constants are `as const` and never concatenated).
     if (this.statementSequenceMissing) {
@@ -390,6 +410,29 @@ class TransactionServiceImpl {
         .order('id', { ascending: false }) // stable tiebreak for paging
         .range(from, to);
       if (error) {
+        this.logger.error('Error fetching transactions:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      return (data || []) as Record<string, unknown>[];
+    }
+
+    if (this.categoryConfirmedMissing) {
+      const noProvenanceBase = client
+        .from('transactions')
+        .select(BOOT_TRANSACTION_COLUMNS_NO_PROVENANCE)
+        .eq('user_id', userId);
+      const noProvenanceScoped = since ? noProvenanceBase.gte('updated_at', since) : noProvenanceBase;
+      const { data, error } = await noProvenanceScoped
+        .order('date', { ascending: false })
+        .order('id', { ascending: false }) // stable tiebreak for paging
+        .range(from, to);
+      if (error) {
+        // Still unknown with the newest column gone: this database predates the
+        // statement-sequence migration as well. Drop that too and ask again.
+        if (error.code === UNDEFINED_COLUMN) {
+          this.statementSequenceMissing = true;
+          return this.fetchTransactionPage(userId, from, since);
+        }
         this.logger.error('Error fetching transactions:', error);
         throw new Error(handleSupabaseError(error));
       }
@@ -679,6 +722,19 @@ class TransactionServiceImpl {
       const updated: Transaction = {
         ...transactions[index],
         ...updates,
+        // The local twin of update_transaction_atomic's provenance rule
+        // (20260808100000): changing a category IS vouching for it. Written
+        // here rather than in each editor so local mode and the cloud cannot
+        // drift — an editor that forgets to say so would otherwise leave the
+        // user's own choice sitting on screen accused of being a guess, but
+        // only when signed out. An explicit categoryConfirmed in `updates`
+        // wins, because "the user looked and let the suggestion stand" is a
+        // confirmation no rule about changed values can detect.
+        ...(updates.categoryConfirmed === undefined &&
+            updates.category !== undefined &&
+            updates.category !== transactions[index].category
+          ? { categoryConfirmed: true }
+          : {}),
         ...(updates.date !== undefined ? { date: toDateValue(updates.date) } : {}),
         updatedAt: this.getCurrentDate()
       } as Transaction;
@@ -764,6 +820,63 @@ class TransactionServiceImpl {
       return typeof data === 'number' ? data : ids.length;
     } catch (error) {
       this.logger.error('TransactionService.setTransactionsCleared error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Agree with the app's suggested category on a set of rows, in one round trip.
+   *
+   * Balance-neutral by construction: this writes ONE boolean and never touches
+   * `category` itself. Confirming is agreeing with what is already there — if
+   * the user wanted a different category they would pick one, which is an
+   * ordinary edit through update_transaction_atomic and confirms it in passing.
+   *
+   * Modelled on setTransactionsCleared for exactly the same reason: N rows of a
+   * flag have no business being N calls to the balance-adjusting update RPC.
+   * Returns the number of rows actually changed (already-confirmed rows are not
+   * re-written and do not count).
+   *
+   * No fallback for a database that predates
+   * 20260808100000_category_provenance.sql, and none is needed: without the
+   * column every row reads as confirmed (see categoryProvenance.ts), so no
+   * confirm affordance is ever shown and this is unreachable there.
+   */
+  async confirmTransactionCategories(ids: string[], userId?: string): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
+      const idSet = new Set(ids);
+      let count = 0;
+      const updated = transactions.map(t => {
+        if (idSet.has(t.id) && t.categoryConfirmed === false) {
+          count += 1;
+          return { ...t, categoryConfirmed: true, updatedAt: this.getCurrentDate() };
+        }
+        return t;
+      });
+      await this.persistTransactions(updated);
+      return count;
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      const { data, error } = await client.rpc('confirm_transaction_categories', {
+        p_ids: ids,
+        p_user_id: this.requireOwnerId(userId, 'confirmTransactionCategories')
+      });
+
+      if (error) {
+        this.logger.error('Error confirming categories:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+
+      return typeof data === 'number' ? data : ids.length;
+    } catch (error) {
+      this.logger.error('TransactionService.confirmTransactionCategories error:', error as Error);
       throw error;
     }
   }
@@ -1648,6 +1761,10 @@ export class TransactionService {
 
   static applyCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {
     return this.service.applyCategoryToUncategorized(ids, category, userId);
+  }
+
+  static confirmTransactionCategories(ids: string[], userId?: string): Promise<number> {
+    return this.service.confirmTransactionCategories(ids, userId);
   }
 
   static getAllTransactionSplits(userId?: string): Promise<TransactionSplit[]> {

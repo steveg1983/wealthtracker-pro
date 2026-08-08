@@ -25,6 +25,19 @@ export interface ExchangeTokenResponse {
   accountsCount: number;
 }
 
+/**
+ * Why the bank reported no balance for an account.
+ *
+ *  'not_reported'  the call succeeded and carried no balance (an empty
+ *                  results array, or a non-numeric amount) — a settled answer
+ *  'fetch_failed'  the call itself failed after retries — a momentary answer
+ *
+ * The distinction exists so nothing downstream has to guess: both mean "we do
+ * not know", and neither may be written as a figure. See
+ * src/services/banking/bankBalanceSnapshot.ts.
+ */
+export type BalanceUnavailableReason = 'not_reported' | 'fetch_failed';
+
 // POST /api/banking/discover-accounts
 export interface DiscoverAccountsRequest {
   connectionId: string;
@@ -34,7 +47,13 @@ export interface DiscoveredBankAccount {
   externalAccountId: string;
   name: string;
   type: string;
-  balance: number;
+  /**
+   * The bank's reported balance, or null when it reported none. NOT 0: a zero
+   * here used to mean either "this account is empty" or "the balance endpoint
+   * failed", and the UI showed both as £0.00 and prefilled both into the
+   * new-account form.
+   */
+  balance: number | null;
   currency: string;
   sortCode?: string;
   accountNumber?: string;
@@ -56,12 +75,17 @@ export interface DiscoverAccountsResponse {
 // POST /api/banking/link-accounts
 export interface LinkAccountsRequest {
   connectionId: string;
+  // No `balance` field, deliberately. Linking snaps the account to the bank's
+  // figure — a write that moves real money on screen — and the browser is not
+  // a source of bank figures: an older tab whose discovery call failed would
+  // post a fabricated 0 and zero the account. The handler fetches the balance
+  // from TrueLayer itself at snap time. (Older clients still send `balance`;
+  // an unread property in the body is harmless.)
   links: Array<{
     externalAccountId: string;
     accountId: string;
     externalAccountName: string;
     externalAccountMask?: string;
-    balance: number;
     // Provider-stable bank identifiers, persisted on the account so a future
     // disconnect→reconnect can re-adopt it instead of creating a duplicate.
     sortCode?: string;
@@ -74,6 +98,13 @@ export interface LinkAccountsRequest {
 export interface LinkAccountsResponse {
   success: boolean;
   linked: number;
+  /** Of those linked, how many were snapped to a bank-reported balance. */
+  snapped: number;
+  /**
+   * Accounts linked WITHOUT a balance snap because the bank reported no
+   * figure. Their balances are untouched — whatever the user entered stands.
+   */
+  balancesUnavailable?: Array<{ accountId: string; name: string; reason: BalanceUnavailableReason }>;
   error?: string;
 }
 
@@ -84,16 +115,24 @@ export interface SyncAccountsRequest {
 }
 
 export interface SyncAccountsResponse {
+  /**
+   * False when the sync could not finish the job — including the case where
+   * accounts could not be added because the bank reported no balance to seed
+   * them from. `error` then carries the sentence shown to the user.
+   */
   success: boolean;
   accountsSynced: number;
   accounts: Array<{
     id: string;
     name: string;
     type: string;
-    balance: number;
+    /** null when the bank reported no balance for this account. Never a stand-in 0. */
+    balance: number | null;
     currency: string;
     mask?: string;
   }>;
+  /** Every account this sync could not read a balance for, and why. */
+  balancesUnavailable?: Array<{ name: string; reason: BalanceUnavailableReason }>;
   error?: string;
 }
 

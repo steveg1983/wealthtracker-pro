@@ -40,6 +40,7 @@ import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { computeAccountBalances } from '../../utils/accountBalances';
+import { groupAccountsBySection } from '../../utils/accountGrouping';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -289,6 +290,13 @@ export function ImprovedDashboard() {
   };
   
   const displayedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
+
+  // The "which accounts to show here" picker, banded and alphabetised the way
+  // every account list in the app is. It is not a <select>, so it cannot take
+  // optgroups — it takes the same grouping in its own idiom instead, because
+  // a sixty-account grid in load order is the same wall of names a flat
+  // dropdown is.
+  const accountSections = useMemo(() => groupAccountsBySection(accounts), [accounts]);
 
   return (
     <div className="space-y-4 max-w-[1400px] mx-auto">
@@ -610,37 +618,46 @@ export function ImprovedDashboard() {
                 <XIcon size={16} className="text-gray-500" />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-              {accounts.map(account => {
-                const isSelected = selectedAccountIds.includes(account.id);
-                return (
-                  <button
-                    key={account.id}
-                    type="button"
-                    onClick={() => toggleAccountSelection(account.id)}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
-                      isSelected
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
-                        : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-550'
-                    }`}
-                    aria-pressed={isSelected ? 'true' : 'false'}
-                  >
-                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
-                      isSelected
-                        ? 'bg-[#1a2332] text-white'
-                        : 'border border-gray-300 dark:border-gray-400'
-                    }`}>
-                      {isSelected && <CheckIcon size={12} />}
-                    </div>
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {account.name}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto whitespace-nowrap">
-                      {formatCurrencyWithSymbol(getAccountBalance(account))}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="space-y-3">
+              {accountSections.map(section => (
+                <div key={section.label}>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {section.title}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                    {section.accounts.map(account => {
+                      const isSelected = selectedAccountIds.includes(account.id);
+                      return (
+                        <button
+                          key={account.id}
+                          type="button"
+                          onClick={() => toggleAccountSelection(account.id)}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                            isSelected
+                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                              : 'bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-550'
+                          }`}
+                          aria-pressed={isSelected ? 'true' : 'false'}
+                        >
+                          <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? 'bg-[#1a2332] text-white'
+                              : 'border border-gray-300 dark:border-gray-400'
+                          }`}>
+                            {isSelected && <CheckIcon size={12} />}
+                          </div>
+                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                            {account.name}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto whitespace-nowrap">
+                            {formatCurrencyWithSymbol(getAccountBalance(account))}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
               Tip: Select your most important accounts for quick access

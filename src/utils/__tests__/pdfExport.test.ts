@@ -12,6 +12,34 @@ const mockSetFillColor = vi.fn();
 const mockRect = vi.fn();
 const mockAddImage = vi.fn();
 
+/**
+ * jsPDF wraps text with the real font's metrics, which jsdom has no fonts to
+ * provide — so this stands in with a plain word wrap at the same width. The
+ * missing measurement is what is replaced; every line below is the real note.
+ */
+const mockSplitTextToSize = vi.fn((text: string, maxWidth: number): string[] => {
+  const charsPerLine = Math.max(1, Math.floor(maxWidth / 1.6));
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    if (line.length === 0) line = word;
+    else if (line.length + 1 + word.length <= charsPerLine) line += ` ${word}`;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line.length > 0) lines.push(line);
+  return lines;
+});
+
+/** Everything the PDF printed, in order — what a reader would actually see. */
+const printedText = (): string =>
+  mockText.mock.calls
+    .map(call => call[0])
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ');
+
 const mockJsPDF = vi.fn(() => ({
   save: mockSave,
   addPage: mockAddPage,
@@ -21,6 +49,7 @@ const mockJsPDF = vi.fn(() => ({
   setFillColor: mockSetFillColor,
   rect: mockRect,
   addImage: mockAddImage,
+  splitTextToSize: mockSplitTextToSize,
   internal: {
     pageSize: {
       getWidth: () => 210, // A4 width in mm
@@ -296,6 +325,44 @@ describe('pdfExport', () => {
         expect.any(Number),
         expect.any(Number)
       );
+    });
+
+    /**
+     * The summary prints one Expenses figure and the table below it prints
+     * another: netting drops a category whose refunds exceeded its spending
+     * (it cannot be shown as negative spend), so the rows can add up to more
+     * than the period's total. The screen warns about exactly this; the
+     * printed report must never be less honest than the screen.
+     */
+    describe('when the category table does not add up to the Expenses figure', () => {
+      const divergentData = {
+        ...mockReportData,
+        summary: { income: 500, expenses: 70, netIncome: 430, savingsRate: 86 },
+        // £100 listed against a £70 period total: a refunded category netted
+        // below zero and was dropped.
+        categoryBreakdown: [{ category: 'Food', amount: 100, percentage: 100 }],
+      };
+
+      it('says which figure is the period total and what the rows add up to', async () => {
+        await generatePDFReport(divergentData, mockAccounts);
+
+        const printed = printedText();
+        expect(printed).toContain('Total spending for the period is £70.00');
+        expect(printed).toContain('The categories listed add up to £100.00');
+        // The consequence, named: what the percentages are a share of, and why
+        // the two figures differ.
+        expect(printed).toContain('the percentages are shares of that');
+        expect(printed).toMatch(/refunds cancelled its spending/);
+      });
+
+      it('prints nothing at all when the two figures agree', async () => {
+        // 800 + 400 + 300 = 1,500 — exactly the summary's Expenses figure.
+        await generatePDFReport(mockReportData, mockAccounts);
+
+        const printed = printedText();
+        expect(printed).not.toContain('Total spending for the period is');
+        expect(printed).not.toMatch(/refunds/i);
+      });
     });
 
     it('handles empty category breakdown', async () => {

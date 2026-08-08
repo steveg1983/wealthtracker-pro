@@ -384,6 +384,13 @@ export class QIFImportService {
         type,
         accountId: targetAccountId,
         category: resolvedCategory,
+        // CONFIRMED, because `resolvedCategory` can only have come from the
+        // FILE: a category the user's own QIF states, matched to the category
+        // tree they already keep. That is their data, not the app's opinion of
+        // it — Money filed it under Groceries because they filed it under
+        // Groceries. Only the auto-categorise fallback below guesses, and it
+        // marks what it writes.
+        categoryConfirmed: true,
         cleared: qifTrx.cleared || false,
         notes: qifTrx.checkNumber ? `Check #: ${qifTrx.checkNumber}` : undefined,
         isRecurring: false
@@ -407,6 +414,9 @@ export class QIFImportService {
             // internal transfers share with every third-party payment.
             !isSelfTransferCategory(options.categories, suggestions[0].categoryId, targetAccountId)) {
           transaction.category = suggestions[0].categoryId;
+          // A guess, so it is marked as one — the same rule as the OFX
+          // importer. This branch only runs when the file itself said nothing.
+          transaction.categoryConfirmed = false;
         }
       }
       

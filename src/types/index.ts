@@ -1,3 +1,7 @@
+import type { AccountType } from './accountType';
+
+export type { AccountType };
+
 export interface Holding {
   ticker: string;
   name: string;
@@ -16,7 +20,7 @@ export interface Holding {
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'liability' | 'mortgage' | 'assets' | 'other' | 'checking';
+  type: AccountType;
   balance: number;
   currency: string;
   institution?: string;
@@ -88,6 +92,22 @@ export interface Transaction {
   amount: number;
   description: string;
   category: string;
+  /**
+   * Has a human vouched for `category`?
+   *
+   * false = the app guessed it (the smart categoriser on a statement file,
+   * payee memory on a bank feed) and nobody has agreed yet. The register shows
+   * such a category differently and offers a one-click confirm; the figure
+   * still counts in every report exactly as before, because a suggestion the
+   * user has not got to is still the best answer available.
+   *
+   * true / undefined = confirmed. `undefined` is what a database without
+   * migration 20260808100000 returns, and what the local/demo store holds, so
+   * "unmarked" must read as confirmed or the badge appears on everything the
+   * user ever typed. See src/utils/categoryProvenance.ts — that asymmetry is
+   * written down once and read from there, never re-derived.
+   */
+  categoryConfirmed?: boolean;
   categoryName?: string;
   accountId: string;
   type: 'income' | 'expense' | 'transfer';
@@ -270,8 +290,24 @@ export interface SplitWriteResult {
  * because the same two rows can be a transfer pair to one scan and a duplicate
  * to another, and those two offers have opposite consequences — refusing one
  * must never silently suppress the other.
+ *
+ * The two payee kinds are the odd ones out: they are refusals about payee TEXT,
+ * not about rows. Payee cleanup guesses which payee texts are one merchant, and
+ * that guess is recomputed from the register every time the screen opens — so a
+ * refusal of it has to outlive the transactions it happened to be drawn from
+ * (re-import a statement and the same wording arrives on brand new rows). They
+ * therefore carry no subjectIds, and their subjectKey holds text rather than
+ * ids. See utils/suggestionDismissals for the key format that keeps that safe.
  */
-export type DismissalKind = 'transfer-pair' | 'transfer-leg' | 'stranded' | 'duplicate';
+export type DismissalKind =
+  | 'transfer-pair'
+  | 'transfer-leg'
+  | 'stranded'
+  | 'duplicate'
+  /** A whole suggested merchant on Payee cleanup: "these are not one shop". */
+  | 'payee-merchant'
+  /** One payee text kept out of a suggested merchant it otherwise matches. */
+  | 'payee-line';
 
 /**
  * A suggestion the user has told a sweep to stop offering. Holds no financial

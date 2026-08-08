@@ -1,6 +1,13 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { ofxImportService } from '../services/ofxImportService';
+import {
+  transactionImportService,
+  type BulkImportResult
+} from '../services/transactionImportService';
+import { importTransactionsLocally } from '../services/localTransactionImportService';
+import { summariseMissingRows, type MissingRowsSummary } from '../utils/partialImportSummary';
 import {
   planAccountDetailsBackfill,
   readOfxAccountIdentifiers
@@ -50,8 +57,21 @@ interface DuplicateReviewRow {
 
 type ImportOutcome =
   | {
-      success: true;
+      status: 'imported';
+      /**
+       * Rows this import WROTE, reported by the write itself — never the
+       * parser's `newTransactions`, which is what the file offered. The two
+       * differ precisely when something went wrong, which is the only time
+       * anybody is reading this number carefully.
+       */
       imported: number;
+      /**
+       * Rows the database refused as ones this account already holds under the
+       * bank's own transaction id. They are in the register — they were simply
+       * not written twice — so they are counted apart from `imported` rather
+       * than added to it or hidden.
+       */
+      alreadyPresent: number;
       duplicates: number;
       /** How many of those the user looked at and chose to leave out. */
       reviewedOut: number;
@@ -66,12 +86,36 @@ type ImportOutcome =
       bankBalanceError?: string;
     }
   | {
-      success: false;
+      /** Some rows landed and some did not. Not a success, and not a failure. */
+      status: 'partial';
+      imported: number;
+      /** How many the import set out to write. */
+      intended: number;
+      /** The rows that are missing from the register, named. */
+      missing: MissingRowsSummary;
+      account: Account | null;
+      /** The underlying error, so the user has something to quote or retry on. */
+      reason: string;
+      /** True when a Bank Balance write was deliberately held back. */
+      bankBalanceHeld: boolean;
+      /** True when a bank-details backfill was deliberately held back. */
+      detailsHeld: boolean;
+    }
+  | {
+      status: 'failed';
       error: string;
     };
 
 export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps): React.JSX.Element {
-  const { accounts, transactions, categories, addTransaction, updateAccount } = useApp();
+  const {
+    accounts,
+    transactions,
+    categories,
+    updateAccount,
+    isUsingSupabase,
+    refreshAccountsAndTransactions
+  } = useApp();
+  const { getToken } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseResult, setParseResult] = useState<ImportTransactionsResult | null>(null);
@@ -94,6 +138,18 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
    * made about one account's register says nothing about another's.
    */
   const [importAnywayFitIds, setImportAnywayFitIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  // An import awaits several writes and can settle AFTER the modal unmounts;
+  // a setState then runs against a torn-down react-dom. Every post-await
+  // setState checks this first. Reset on mount because Strict Mode remounts
+  // reuse the same ref. Same pattern as QIFImportModal.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const parseFile = useCallback(async (targetFile: File) => {
     setIsProcessing(true);
@@ -294,12 +350,77 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         }
       );
       
-      // Add transactions
-      for (const transaction of result.transactions) {
-        addTransaction(transaction);
+      const account = result.matchedAccount ?? accounts.find(a => a.id === selectedAccountId) ?? null;
+      const destinationId = account?.id ?? selectedAccountId;
+      if (!destinationId) {
+        throw new Error('Choose the account these transactions belong to before importing.');
       }
 
-      const account = result.matchedAccount ?? accounts.find(a => a.id === selectedAccountId) ?? null;
+      // WRITE THE WHOLE STATEMENT AS ONE UNIT.
+      //
+      // This used to be `for (…) addTransaction(t)` with no await: one RPC per
+      // row, all fired at once, every promise dropped on the floor. A row that
+      // failed failed in silence, the success screen then reported the PARSER's
+      // count — what the file offered, not what landed — and the arrival order
+      // of rows sharing a day was a race (the other half of the same defect is
+      // written up in src/utils/transactionSort.ts).
+      //
+      // Both paths below are all-or-nothing and both report what the write
+      // itself confirmed:
+      //   cloud — /api/data/import-transactions, one `import_transactions_atomic`
+      //           per chunk, each its own database transaction;
+      //   local — one IndexedDB `setMany` covering the rows AND the balance.
+      //
+      // `source: 'ofx'` is not a label. It tells the importer that every row
+      // carries the bank's own FITID (this modal writes it into `notes`), so
+      // each one is keyed by it in the database — which is what lets a chunk
+      // whose response was lost be posted again without paying for the
+      // statement twice, and what makes "just import the file again" true of
+      // the register and not only of this screen.
+      const outcome: BulkImportResult = isUsingSupabase
+        ? await (async () => {
+            transactionImportService.setAuthTokenProvider(() => getToken());
+            return transactionImportService.importInChunks(destinationId, result.transactions, {
+              source: 'ofx'
+            });
+          })()
+        : await importTransactionsLocally(destinationId, result.transactions);
+
+      // Re-read from the store rather than trusting the drafts: after this the
+      // register shows what was actually written, including on a partial.
+      await refreshAccountsAndTransactions();
+
+      if (!outcome.complete) {
+        // Some rows are missing from the register and the user is holding the
+        // statement they came from. Name them — and hold back BOTH account
+        // writes, because a Bank Balance set from a statement the register only
+        // partly contains tells Reconciliation to measure against a figure it
+        // cannot reach, and produces an unexplained difference instead of an
+        // explained shortfall.
+        const missing = summariseMissingRows(
+          result.transactions.slice(outcome.inserted),
+          account?.currency ?? 'GBP'
+        );
+        const heldBalancePlan = planStatementBankBalance(result.statementBalance, account, {
+          destinationConfirmed: true
+        });
+        const heldDetailsPlan = saveDetails && account
+          ? planAccountDetailsBackfill(result.ofxAccount, account)
+          : null;
+
+        if (!isMountedRef.current) return;
+        setImportResult({
+          status: 'partial',
+          imported: outcome.inserted,
+          intended: outcome.total,
+          missing,
+          account,
+          reason: outcome.error ?? 'The import stopped before it finished.',
+          bankBalanceHeld: heldBalancePlan.kind === 'set' && account !== null,
+          detailsHeld: heldDetailsPlan !== null
+        });
+        return;
+      }
 
       // Fill in the account's blank bank details from the file, but only ever
       // on the account the transactions themselves just went into, and only
@@ -353,9 +474,16 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         }
       }
 
+      if (!isMountedRef.current) return;
       setImportResult({
-        success: true,
-        imported: result.newTransactions,
+        status: 'imported',
+        // What the write confirmed, not what the parser offered — and split
+        // where the write itself splits it: rows written, and rows the database
+        // already held. Adding the two together would report work that did not
+        // happen; leaving the second out would report rows as missing when they
+        // are in the register.
+        imported: outcome.inserted - outcome.alreadyPresent,
+        alreadyPresent: outcome.alreadyPresent,
         duplicates: result.duplicates,
         reviewedOut: result.duplicateMatches.possible.filter(
           match => match.fitId === null || !importAnywayFitIds.has(match.fitId)
@@ -368,14 +496,18 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       });
     } catch (error) {
       logger.error('Import error', error);
-      setImportResult({
-        success: false,
-        error: error instanceof Error ? error.message : 'Import failed'
-      });
+      if (isMountedRef.current) {
+        setImportResult({
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Import failed'
+        });
+      }
     } finally {
-      setIsProcessing(false);
+      if (isMountedRef.current) {
+        setIsProcessing(false);
+      }
     }
-  }, [accounts, addTransaction, file, importAnywayFitIds, parseResult, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
+  }, [accounts, file, getToken, importAnywayFitIds, isUsingSupabase, parseResult, refreshAccountsAndTransactions, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
 
   // Reset modal
   const resetModal = useCallback(() => {
@@ -687,7 +819,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         {/* Import Results */}
         {importResult && (
           <div className="text-center">
-            {importResult.success ? (
+            {importResult.status === 'imported' && (
               <>
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
                   <CheckIcon size={32} className="text-blue-600 dark:text-blue-400" />
@@ -698,7 +830,20 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                   Imported {importResult.imported} transactions to {importResult.account?.name}
                 </p>
-                
+
+                {/* Rows the database itself refused as ones this account
+                    already holds. Said out loud because the alternative is a
+                    screen that claims to have imported transactions it did not
+                    write — and because this is what a re-import, or a retry
+                    after a dropped connection, is supposed to look like. */}
+                {importResult.alreadyPresent > 0 && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                    {importResult.alreadyPresent === 1
+                      ? `1 more was already recorded in ${importResult.account?.name} under the same bank transaction id, so it was not added a second time.`
+                      : `${importResult.alreadyPresent} more were already recorded in ${importResult.account?.name} under the same bank transaction ids, so they were not added a second time.`}
+                  </p>
+                )}
+
                 {importResult.duplicates > 0 && (
                   <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
                     Left out {importResult.duplicates}{' '}
@@ -740,7 +885,81 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
                   </p>
                 )}
               </>
-            ) : (
+            )}
+
+            {/* Part of the statement is in the register and part of it is not.
+                The number is the least useful thing about that, so it is said
+                once and everything else names the consequence: which payments
+                are missing, what that does to the account, and what to do. */}
+            {importResult.status === 'partial' && (
+              <>
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mb-4">
+                  <AlertCircleIcon size={32} className="text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  {importResult.imported === 0
+                    ? 'Nothing was imported'
+                    : 'Part of this statement is missing'}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  {importResult.imported === 0
+                    ? `None of the ${importResult.intended} transactions in this file reached ${importResult.account?.name ?? 'the account'}, and nothing else was changed. `
+                    : `${importResult.imported} of ${importResult.intended} transactions reached ${importResult.account?.name ?? 'the account'}. `}
+                  {importResult.missing.count === 1
+                    ? 'This payment is not in the register, so the account will not agree with your statement:'
+                    : `These ${importResult.missing.count} payments are not in the register, so the account will not agree with your statement:`}
+                </p>
+
+                <ul className="text-sm text-left max-w-md mx-auto mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 space-y-1">
+                  {importResult.missing.named.map(line => (
+                    <li key={line} className="text-gray-800 dark:text-gray-200">{line}</li>
+                  ))}
+                  {importResult.missing.hidden > 0 && (
+                    <li className="text-gray-600 dark:text-gray-400">
+                      …and {importResult.missing.hidden} more, from {importResult.missing.earliestDate} onwards.
+                    </li>
+                  )}
+                </ul>
+
+                {/* Re-checked when the import ids went in (migration
+                    20260808140000) and left exactly as it was, deliberately.
+                    What it promises is what this screen does before it offers a
+                    row — match on the bank's own id — and that is true whether
+                    or not the database has the migration applied yet. The
+                    database refusing the same row a second time is now a second
+                    net under the first; promising it here would make this
+                    sentence false against a database that is one migration
+                    behind the deploy, for no gain to anyone reading it. */}
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Import the same file again: the rows that did land are matched
+                  by the bank&apos;s own transaction id and will not be added twice,
+                  so only the missing ones come in.
+                </p>
+
+                {/* Both account writes were held back on purpose. Left unsaid,
+                    the user would go looking for the balance the preview
+                    promised and find the old one. */}
+                {(importResult.bankBalanceHeld || importResult.detailsHeld) && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    {importResult.bankBalanceHeld && (
+                      <>
+                        {importResult.account?.name}&apos;s Bank Balance was left as it was.
+                        Setting it from a statement the register only partly holds would
+                        have Reconciliation measure against a closing figure these
+                        transactions cannot add up to — a difference with no explanation.{' '}
+                      </>
+                    )}
+                    {importResult.detailsHeld && 'The file\'s bank details were not saved to the account either.'}
+                  </p>
+                )}
+
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+                  What stopped it: {importResult.reason}
+                </p>
+              </>
+            )}
+
+            {importResult.status === 'failed' && (
               <>
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
                   <AlertCircleIcon size={32} className="text-red-600 dark:text-red-400" />

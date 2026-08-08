@@ -242,8 +242,50 @@ describe('ImportRulesService', () => {
       
       service.addRule(rule);
       const result = service.applyRules(transaction);
-      
+
       expect(result?.category).toBe('Shopping');
+    });
+
+    /**
+     * A rule is a standing instruction the user wrote. The category it sets is
+     * therefore their decision, and it must OVERRIDE any suggestion the smart
+     * categoriser had already pencilled in — rules run last and win. Leaving the
+     * row marked as a guess would ask the user to re-confirm the rule they
+     * authored themselves.
+     */
+    it('records a rule-set category as the user\'s own decision', () => {
+      service.addRule(mockRule);
+      const result = service.applyRules(transaction);
+
+      expect(result?.category).toBe('Shopping');
+      expect(result?.categoryConfirmed).toBe(true);
+    });
+
+    it('overrides a suggestion the categoriser had already made', () => {
+      service.addRule(mockRule);
+      const result = service.applyRules({
+        ...transaction,
+        category: 'guessed-category',
+        categoryConfirmed: false
+      });
+
+      expect(result?.category).toBe('Shopping');
+      expect(result?.categoryConfirmed).toBe(true);
+    });
+
+    it('leaves provenance alone when no rule fires', () => {
+      service.addRule({
+        ...mockRule,
+        conditions: [{ field: 'description', operator: 'contains', value: 'NOTHING MATCHES', caseSensitive: false }]
+      });
+      const result = service.applyRules({
+        ...transaction,
+        category: 'guessed-category',
+        categoryConfirmed: false
+      });
+
+      expect(result?.category).toBe('guessed-category');
+      expect(result?.categoryConfirmed).toBe(false);
     });
 
     it('matches contains condition (case sensitive)', () => {

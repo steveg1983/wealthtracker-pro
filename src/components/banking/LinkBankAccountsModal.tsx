@@ -155,6 +155,10 @@ export default function LinkBankAccountsModal({
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAccountFor, setCreateAccountFor] = useState<string | null>(null);
+  // Set when linking succeeded but the bank would not give a balance for some
+  // of the accounts. Holding the modal open is the only chance to say so:
+  // onLinkComplete closes it, and nothing downstream would mention it.
+  const [unconfirmedBalanceNames, setUnconfirmedBalanceNames] = useState<string[] | null>(null);
 
   // A closed account cannot take a live bank feed, so it is never offered as
   // a link target — belt and braces, since the context carries open ones only.
@@ -227,6 +231,9 @@ export default function LinkBankAccountsModal({
     setIsLinking(true);
     setError(null);
     try {
+      // No balance is sent. The server reads it from the bank itself at snap
+      // time, so a discovery call that failed here can never be turned into a
+      // figure written to an account.
       const linkPayload = selectedLinks.map((sl) => {
         const discovered = discoveredAccounts.find(
           (da) => da.externalAccountId === sl.externalAccountId
@@ -236,14 +243,18 @@ export default function LinkBankAccountsModal({
           accountId: sl.selectedAccountId,
           externalAccountName: discovered?.name ?? '',
           externalAccountMask: discovered?.mask,
-          balance: discovered?.balance ?? 0,
           sortCode: discovered?.sortCode,
           accountNumber: discovered ? linkableAccountNumber(discovered) : undefined,
           kind: discovered?.kind
         };
       });
 
-      await bankConnectionService.linkAccounts(connectionId, linkPayload);
+      const result = await bankConnectionService.linkAccounts(connectionId, linkPayload);
+      const unconfirmed = result.balancesUnavailable ?? [];
+      if (unconfirmed.length > 0) {
+        setUnconfirmedBalanceNames(unconfirmed.map((entry) => entry.name));
+        return;
+      }
       onLinkComplete(connectionId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to link accounts');
@@ -261,6 +272,46 @@ export default function LinkBankAccountsModal({
   const hasDuplicates = new Set(selectedIds).size !== selectedIds.length;
 
   if (!isOpen) return null;
+
+  // Linked, but the bank would not say what one or more of these accounts
+  // holds. The alternative to telling the user is writing a number nobody
+  // reported, so the wizard stops here and names the consequence: those
+  // accounts kept the balance they already had.
+  if (unconfirmedBalanceNames) {
+    const finishLinking = (): void => {
+      setUnconfirmedBalanceNames(null);
+      onLinkComplete(connectionId);
+    };
+    const isOne = unconfirmedBalanceNames.length === 1;
+    return (
+      <Modal isOpen={isOpen} onClose={finishLinking} title="Accounts linked" size="sm">
+        <ModalBody className="space-y-3">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Your accounts are linked and transactions will now import.
+          </p>
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-3 space-y-2">
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              Your bank didn&apos;t give a balance for {unconfirmedBalanceNames.join(', ')}.
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              {isOne ? 'That account keeps' : 'Those accounts keep'} the balance you already
+              had — nothing was changed to a figure your bank never reported. Reconciliation
+              will show no bank balance for {isOne ? 'it' : 'them'} until a sync gets one.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <button
+            type="button"
+            onClick={finishLinking}
+            className="w-full justify-center bg-[#1a2332] text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
+          >
+            Done
+          </button>
+        </ModalFooter>
+      </Modal>
+    );
+  }
 
   return (
     <>
@@ -330,9 +381,21 @@ export default function LinkBankAccountsModal({
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900 dark:text-white tabular-nums">
-                          {formatCurrency(da.balance, da.currency)}
-                        </p>
+                        {/* A balance the bank did not report is said to be
+                            missing, not shown as £0.00. The user is choosing
+                            what to link against — and, through Create New
+                            Account, what opening balance to type — so they
+                            need to know the figure is absent rather than
+                            zero. */}
+                        {da.balance === null ? (
+                          <p className="font-medium text-amber-700 dark:text-amber-400">
+                            Balance not reported
+                          </p>
+                        ) : (
+                          <p className="font-semibold text-gray-900 dark:text-white tabular-nums">
+                            {formatCurrency(da.balance, da.currency)}
+                          </p>
+                        )}
                         {isMatched && selectedId && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 mt-1">
                             Auto-matched
@@ -469,6 +532,11 @@ export default function LinkBankAccountsModal({
               prefill={{
                 name: da?.name,
                 type: da?.type === 'checking' ? 'current' : da?.type as 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other' | undefined,
+                // Undefined when the bank reported no balance, so the field
+                // opens empty for the user to fill in. Never default it to
+                // '0': that is the fabrication this whole path removes, and
+                // an account opened at a false zero stays wrong for good —
+                // the first import rebases initial_balance around it.
                 balance: da?.balance?.toString(),
                 currency: da?.currency,
                 sortCode: da?.sortCode,

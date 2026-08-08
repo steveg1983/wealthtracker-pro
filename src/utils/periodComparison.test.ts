@@ -14,6 +14,11 @@ const CATEGORIES: Category[] = [
   { id: 'grp-pay', name: 'Salary', type: 'income', level: 'sub', parentId: 'type-income' },
   { id: 'grp-home', name: 'Home', type: 'expense', level: 'sub', parentId: 'type-expense' },
   { id: 'cat-power', name: 'Power', type: 'expense', level: 'detail', parentId: 'grp-home' },
+  // The shape the app SHIPS as "Account Adjustments" (data/defaultCategories):
+  // direction-neutral and not a revaluation, so the classifier files it by the
+  // money's own direction and one category legitimately lands on BOTH sides.
+  { id: 'grp-adjust', name: 'Adjustments', type: 'both', level: 'sub', parentId: 'type-expense' },
+  { id: 'cat-adjust', name: 'Account Adjustments', type: 'both', level: 'detail', parentId: 'grp-adjust' },
 ];
 
 const txn = (over: Partial<Transaction> & Pick<Transaction, 'id' | 'amount' | 'date'>): Transaction => ({
@@ -158,6 +163,62 @@ describe('buildPeriodComparison', () => {
 
     expect(result.expenses.current).toBe(75);
     expect(result.income.current).toBe(0);
+  });
+
+  it('keeps a direction-neutral category’s two sides apart instead of adding them up', () => {
+    expect(ranges).not.toBeNull();
+    if (!ranges) return;
+    const result = compare(
+      [
+        txn({ id: 'c1', amount: 100, date: new Date(2026, 2, 10), category: 'cat-adjust', type: 'income' }),
+        txn({ id: 'c2', amount: -40, date: new Date(2026, 2, 12), category: 'cat-adjust' }),
+      ],
+      ranges
+    );
+
+    const sides = result.categories.filter(row => row.categoryId === 'cat-adjust');
+    // Two rows, one per side — and two identities, so a table can key them.
+    expect(sides).toHaveLength(2);
+    expect(new Set(sides.map(row => row.rowId)).size).toBe(2);
+    expect(sides.find(row => row.bucket === 'income')).toMatchObject({
+      name: 'Adjustments : Account Adjustments',
+      current: 100,
+    });
+    expect(sides.find(row => row.bucket === 'expense')).toMatchObject({
+      name: 'Adjustments : Account Adjustments',
+      current: 40,
+    });
+    // Never £140: that is neither what was earned nor what was spent.
+    expect(sides.map(row => row.current)).not.toContain(140);
+
+    // Each side now adds up to its own header figure, so the table and the
+    // summary cards can never disagree.
+    expect(result.income.current).toBe(100);
+    expect(result.expenses.current).toBe(40);
+    const sumOf = (bucket: 'income' | 'expense'): number =>
+      result.categories.filter(row => row.bucket === bucket).reduce((sum, row) => sum + row.current, 0);
+    expect(sumOf('income')).toBe(result.income.current);
+    expect(sumOf('expense')).toBe(result.expenses.current);
+  });
+
+  it('labels each side by what it is, not by whichever window was counted last', () => {
+    expect(ranges).not.toBeNull();
+    if (!ranges) return;
+    // The same category, spent from this period and received in the last one.
+    const result = compare(
+      [
+        txn({ id: 'c1', amount: -40, date: new Date(2026, 2, 12), category: 'cat-adjust' }),
+        txn({ id: 'p1', amount: 100, date: new Date(2026, 1, 12), category: 'cat-adjust', type: 'income' }),
+      ],
+      ranges
+    );
+
+    const sides = result.categories.filter(row => row.categoryId === 'cat-adjust');
+    expect(sides).toHaveLength(2);
+    // Spending that started, and income that stopped — not one line claiming
+    // income fell by £60.
+    expect(sides.find(row => row.bucket === 'expense')).toMatchObject({ current: 40, previous: 0 });
+    expect(sides.find(row => row.bucket === 'income')).toMatchObject({ current: 0, previous: 100 });
   });
 
   it('holds decimals exactly across both windows', () => {

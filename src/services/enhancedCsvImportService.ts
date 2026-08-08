@@ -637,20 +637,29 @@ export class EnhancedCsvImportService {
           }
         }
         
+        // A category that reached this point came from a MAPPED COLUMN — the
+        // user's own file said it, and the wizard's mapping is the user telling
+        // us which column it is. That is their data, so it arrives confirmed.
+        // Only the guess below is a suggestion.
+        transaction.categoryConfirmed = true;
+
         // Auto-categorize if enabled and no category is set
         if (options.autoCategorize && options.categories && !transaction.category) {
           // Train the model if we have existing transactions
           if (existingTransactions.length > 0) {
             this.categorizationService.learnFromTransactions(existingTransactions, options.categories);
           }
-          
+
           // Get category suggestions
           const suggestions = this.categorizationService.suggestCategories(transaction as Transaction, 1);
-          
+
           if (suggestions.length > 0) {
             const confidenceThreshold = options.categoryConfidenceThreshold || 0.7;
             if (suggestions[0].confidence >= confidenceThreshold) {
               transaction.category = suggestions[0].categoryId;
+              // The app's guess, marked as one so the register can show it as a
+              // suggestion and take a one-click confirm.
+              transaction.categoryConfirmed = false;
             }
           }
         }

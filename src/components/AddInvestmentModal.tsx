@@ -6,6 +6,7 @@ import { getCurrencySymbol } from '../utils/currency-decimal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import MoneyInput from './common/MoneyInput';
 import DatePicker from './common/DatePicker';
+import GroupedAccountOptions from './common/GroupedAccountOptions';
 import { useModalForm } from '../hooks/useModalForm';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
 
@@ -32,7 +33,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
   const { accounts, addTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
-  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+  const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     {
       selectedAccountId: accountId || '',
       investmentType: 'share',
@@ -46,12 +47,12 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
       notes: ''
     },
     {
-      onSubmit: (data) => {
+      onSubmit: async (data) => {
         if (!data.selectedAccountId || !data.name || !data.units || !data.pricePerUnit) {
           alert('Please fill in all required fields');
           return;
         }
-        
+
         const unitsNum = Number(data.units) || 0;
         const priceNum = parseMoneyInput(data.pricePerUnit) ?? 0;
         const feesNum = parseMoneyInput(data.fees) ?? 0;
@@ -77,7 +78,13 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           `Stamp Duty: ${data.stampDuty || '0'}`
         ].join('\n');
         
-        addTransaction({
+        // AWAITED. Un-awaited, this modal closed and reset the moment the click
+        // was handled, whether or not the purchase reached the database — the
+        // rejected promise went nowhere, and the only sign that a holding had
+        // not been recorded was its absence from the account weeks later.
+        // Awaiting hands any failure to useModalForm, which keeps the modal open
+        // with the figures still in it and shows the message below.
+        await addTransaction({
           date: new Date(data.date),
           description,
           amount: -total,
@@ -155,11 +162,14 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 required
               >
                 <option value="">Select an investment account</option>
-                {investmentAccounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({acc.institution || 'Investment'})
-                  </option>
-                ))}
+                {/* Grouped and alphabetised like every other account dropdown.
+                    Only investment accounts reach here, so today that is one
+                    band — but the institution stays on each line, which is
+                    what tells two similarly named holdings apart. */}
+                <GroupedAccountOptions
+                  accounts={investmentAccounts}
+                  formatLabel={acc => `${acc.name} (${acc.institution || 'Investment'})`}
+                />
               </select>
               {investmentAccounts.length === 0 && (
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -354,6 +364,25 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             />
           </div>
           
+          {/* A purchase that did not save. Said here, next to the figures that
+              are still on screen, because the alternative is a modal that
+              closes on a write nobody recorded and a holding that is simply
+              absent from the account. */}
+          {errors.submit && (
+            <div
+              role="alert"
+              className="mt-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+            >
+              <p className="text-sm text-red-700 dark:text-red-300">
+                This investment was not saved, so it is not in the account and
+                the balance has not moved. Your figures are still here — try Add
+                Investment again.
+              </p>
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                What went wrong: {errors.submit}
+              </p>
+            </div>
+          )}
         </ModalBody>
         <ModalFooter>
           <div className="flex justify-end gap-3 w-full">
@@ -366,10 +395,11 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center gap-2"
+              disabled={isSubmitting}
+              className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               <PlusIcon size={20} />
-              Add Investment
+              {isSubmitting ? 'Saving…' : 'Add Investment'}
             </button>
           </div>
         </ModalFooter>

@@ -15,6 +15,9 @@ import {
   legDismissalSubjectIds,
   pairDismissalKey,
   pairDismissalSubjectIds,
+  payeeLineDismissalKey,
+  payeeMerchantDismissalKey,
+  readPayeeDismissalKey,
   strandedDismissalKey,
   strandedDismissalSubjectIds,
 } from './suggestionDismissals';
@@ -137,6 +140,93 @@ describe('duplicateDismissalKey', () => {
 
   it('records both rows, so deleting either one cleans the dismissal up', () => {
     expect(duplicateDismissalSubjectIds(first, second)).toEqual(['copy-b', 'copy-a']);
+  });
+});
+
+/**
+ * Payee cleanup's keys are the only ones made of TEXT rather than row ids, and
+ * they live in the same column the restore path rewrites ids in. Two properties
+ * keep that safe, and both are pinned here: every segment carries a role prefix
+ * (so nothing is ever taken for a bare id or re-sorted), and the value behind
+ * that prefix always contains a further ':' (so it can never be uuid-shaped, and
+ * can never equal an id in a backup file). backupService.test.ts proves the
+ * consequence end to end.
+ */
+describe('payee cleanup keys', () => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  /** What remapDismissalKey sees: the segments, and the value in each. */
+  const segmentsOf = (key: string): Array<{ prefix: string; value: string }> =>
+    key.split('|').map((segment) => {
+      const colon = segment.indexOf(':');
+      return {
+        prefix: colon >= 0 ? segment.slice(0, colon + 1) : '',
+        value: colon >= 0 ? segment.slice(colon + 1) : segment,
+      };
+    });
+
+  it('tags every segment, so a restore can never take a payee for a row id', () => {
+    const keys = [
+      payeeMerchantDismissalKey('AMAZON.CO.UK'),
+      payeeLineDismissalKey('AMAZON.CO.UK', 'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK'),
+    ];
+    for (const key of keys) {
+      for (const segment of segmentsOf(key)) {
+        expect(segment.prefix).toBe('payee-cleanup:');
+        // A colon inside the value is what makes it impossible for the value to
+        // be uuid-shaped — a uuid has no colon in it anywhere.
+        expect(segment.value).toContain(':');
+        expect(UUID.test(segment.value)).toBe(false);
+      }
+    }
+  });
+
+  it('survives a payee whose text is itself uuid-shaped', () => {
+    // A bank reference can be anything. If the value could be uuid-shaped, a
+    // restore would rewrite it and every refusal the user made would come back.
+    const key = payeeLineDismissalKey('REF', '3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+    for (const segment of segmentsOf(key)) {
+      expect(UUID.test(segment.value)).toBe(false);
+    }
+    expect(readPayeeDismissalKey(key)?.payee).toBe('3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+  });
+
+  it('escapes the separator, so a payee holding "|" cannot forge a segment', () => {
+    const key = payeeLineDismissalKey('CARD PAYMENT', 'CARD PAYMENT|REF 4471982');
+    expect(key.split('|')).toHaveLength(2);
+    expect(readPayeeDismissalKey(key)).toEqual({
+      merchant: 'CARD PAYMENT', payee: 'CARD PAYMENT|REF 4471982',
+    });
+  });
+
+  it('reads back the exact text it was given, spaces, case and punctuation', () => {
+    const payee = "Ol' Bakery & Co. #12 (café)";
+    expect(readPayeeDismissalKey(payeeLineDismissalKey('OL BAKERY', payee))).toEqual({
+      merchant: 'OL BAKERY', payee,
+    });
+    expect(readPayeeDismissalKey(payeeMerchantDismissalKey('DEBIT INTEREST TO'))).toEqual({
+      merchant: 'DEBIT INTEREST TO', payee: null,
+    });
+  });
+
+  it('tells a whole merchant from one of its payees', () => {
+    // Refusing the grouping and refusing one line are different decisions with
+    // different consequences; one must never be stored as the other.
+    expect(payeeMerchantDismissalKey('TESCO STORES')).not.toBe(
+      payeeLineDismissalKey('TESCO STORES', 'TESCO STORES')
+    );
+    expect(payeeLineDismissalKey('TESCO STORES', 'TESCO STORES 3456')).not.toBe(
+      payeeLineDismissalKey('TESCO STORES', 'TESCO STORES 9821')
+    );
+  });
+
+  it('recognises nothing but its own keys', () => {
+    // Fed a transfer sweep's key it must say "not mine" rather than describe
+    // two transaction ids as a shop.
+    expect(readPayeeDismissalKey('a-id|b-id')).toBeNull();
+    expect(readPayeeDismissalKey('split:line-1|txn:row')).toBeNull();
+    expect(readPayeeDismissalKey('payee-cleanup:merchant:A|payee-cleanup:merchant:B')).toBeNull();
+    expect(readPayeeDismissalKey('')).toBeNull();
   });
 });
 

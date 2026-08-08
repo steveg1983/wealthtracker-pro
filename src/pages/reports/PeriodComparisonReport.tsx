@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { useReportDataset } from '../../hooks/useReportDataset';
@@ -97,17 +97,48 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
     [currentFlows, previousFlows, categories]
   );
 
+  /**
+   * Categories that carried money BOTH ways in these two windows. A
+   * direction-neutral ('both') category — "Account Adjustments" ships as one —
+   * is filed by the money's own direction, so it has a row per side and its
+   * name alone no longer says which row you are looking at.
+   */
+  const twoSidedCategories = useMemo(() => {
+    const sideSeen = new Map<string, 'income' | 'expense'>();
+    const bothSides = new Set<string>();
+    for (const row of comparison?.categories ?? []) {
+      const seen = sideSeen.get(row.categoryId);
+      if (seen === undefined) sideSeen.set(row.categoryId, row.bucket);
+      else if (seen !== row.bucket) bothSides.add(row.categoryId);
+    }
+    return bothSides;
+  }, [comparison]);
+
+  /**
+   * The row's name, saying which side it is only where that is ambiguous —
+   * the table already prints the side beside every name, but a chart tick and
+   * a drill-in title have nothing else to tell two rows of one category apart,
+   * and colour alone is not a label.
+   */
+  const labelOf = useCallback(
+    (row: ComparisonCategoryRow): string =>
+      twoSidedCategories.has(row.categoryId)
+        ? `${row.name} (${row.bucket === 'income' ? 'income' : 'expenses'})`
+        : row.name,
+    [twoSidedCategories]
+  );
+
   const chartData = useMemo(
     () => (comparison ? comparison.categories.slice(0, 10).map(row => ({
-      // `categoryId`, never `key`: recharts spreads datum fields onto React
+      // `rowId`, never `key`: recharts spreads datum fields onto React
       // elements and a `key` field collides with React's reserved prop.
-      categoryId: row.categoryId,
-      name: row.name,
+      rowId: row.rowId,
+      name: labelOf(row),
       bucket: row.bucket,
       current: row.current,
       previous: row.previous,
     })) : []),
-    [comparison]
+    [comparison, labelOf]
   );
 
   // The legend names only the colours actually on the chart: a bar is green
@@ -130,7 +161,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
     if (!source || !ranges) return;
     const sideRows = row.bucket === 'income' ? source.incomeRows : source.expenseRows;
     setDrill({
-      title: `${row.name} — ${formatWindow(window === 'current' ? ranges.current : ranges.previous)}`,
+      title: `${labelOf(row)} — ${formatWindow(window === 'current' ? ranges.current : ranges.previous)}`,
       bucket: row.bucket,
       rows: sideRows.filter(t => t.category === row.categoryId),
       total: window === 'current' ? row.current : row.previous,
@@ -339,7 +370,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                     <Bar dataKey="current" name="This period" radius={[0, 3, 3, 0]} isAnimationActive={false}>
                       {chartData.map(entry => (
                         <Cell
-                          key={entry.categoryId}
+                          key={entry.rowId}
                           fill={entry.bucket === 'income' ? INCOME_FILL : EXPENSE_FILL}
                         />
                       ))}
@@ -386,7 +417,9 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                   </thead>
                   <tbody>
                     {comparison.categories.map(row => (
-                      <tr key={row.categoryId} className="border-t border-gray-50 dark:border-gray-700/50">
+                      /* A category filed BOTH ways has a row per side, so the
+                         side is part of what identifies the row. */
+                      <tr key={row.rowId} className="border-t border-gray-50 dark:border-gray-700/50">
                         <th scope="row" className="px-6 py-2 text-left font-normal">
                           <span className="text-sm text-gray-900 dark:text-white">{row.name}</span>
                           <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
@@ -398,7 +431,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                             type="button"
                             onClick={() => drillIntoCategory(row, 'current')}
                             className="w-full justify-end text-right rounded px-1 -mx-1 tabular-nums text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                            title={`${row.name}, this period — view these transactions`}
+                            title={`${labelOf(row)}, this period — view these transactions`}
                           >
                             {money(row.current)}
                           </button>
@@ -408,7 +441,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
                             type="button"
                             onClick={() => drillIntoCategory(row, 'previous')}
                             className="w-full justify-end text-right rounded px-1 -mx-1 tabular-nums text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                            title={`${row.name}, comparison period — view these transactions`}
+                            title={`${labelOf(row)}, comparison period — view these transactions`}
                           >
                             {money(row.previous)}
                           </button>

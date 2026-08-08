@@ -4,6 +4,7 @@ let html2canvas: typeof import('html2canvas').default | null = null;
 import { Transaction, Account } from '../types';
 import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { formatDecimal } from './decimal-format';
+import { toDecimal } from './decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
@@ -204,6 +205,43 @@ export async function generatePDFReport(data: ReportData, _accounts: Account[]):
     pdf.text(`${formatPercentage(category.percentage, 1)}%`, margin + 130, yPosition);
     yPosition += 8;
   });
+
+  /**
+   * Two Expenses figures are printed on this report — the summary box above
+   * and the table just printed — and they need not agree: the breakdown nets
+   * each category and can only list POSITIVE spend, so a category whose
+   * refunds exceeded its spending is left out and the rows can add up to more
+   * than the period's total. The screen says so wherever this happens
+   * (SpendingByCategoryReport); a printed report that a reader cannot
+   * interrogate must never be the less honest of the two.
+   *
+   * Decimal throughout: this is money, and the reader is being told two money
+   * figures disagree — the comparison itself cannot be the thing that drifts.
+   * Where they agree, nothing is printed at all.
+   */
+  const listedTotal = data.categoryBreakdown.reduce(
+    (sum, entry) => sum.plus(toDecimal(entry.amount)),
+    toDecimal(0)
+  );
+  if (!listedTotal.equals(toDecimal(data.summary.expenses))) {
+    const note =
+      `Total spending for the period is ${formatCurrency(data.summary.expenses)}. ` +
+      `The categories listed add up to ${formatCurrency(listedTotal.toNumber())}, and ` +
+      `the percentages are shares of that: a category whose refunds cancelled its ` +
+      `spending nets to zero or less, so it cannot be listed as spend.`;
+    yPosition += 2;
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 100, 100);
+    const lines: string[] = pdf.splitTextToSize(note, pageWidth - 2 * margin);
+    for (const line of lines) {
+      checkPageBreak(6);
+      pdf.text(line, margin, yPosition);
+      yPosition += 4;
+    }
+    // Leave the page as the note found it.
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(10);
+  }
 
   yPosition += 10;
 

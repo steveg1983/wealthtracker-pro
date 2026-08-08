@@ -14,6 +14,7 @@ const TransactionDetailsView = lazyWithRecovery(() => import('../components/Tran
 const QuickDateFilters = lazyWithRecovery(() => import('../components/QuickDateFilters'));
 import { CalendarIcon, SearchIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import DatePicker from '../components/common/DatePicker';
+import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
 import { Modal, ModalBody } from '../components/common/Modal';
 import type { Transaction } from '../types';
 import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types';
@@ -407,10 +408,16 @@ const Transactions = React.memo(function Transactions() {
   }, [categories]);
 
   // Handle inline category update — failures must be visible, never silent.
+  //
+  // ONLY the category is sent. Spreading the whole row used to re-send its
+  // stored `categoryConfirmed: false` alongside the new category, and an
+  // explicit flag beats the "changing a category is vouching for it" rule in
+  // both the RPC and its local twin — so the user's own deliberate choice came
+  // back still branded a guess.
   const handleUpdateCategory = useCallback((transactionId: string, categoryId: string) => {
     const transaction = transactions.find(t => t.id === transactionId);
     if (transaction) {
-      void updateTransaction(transactionId, { ...transaction, category: categoryId })
+      void updateTransaction(transactionId, { category: categoryId })
         .then(() => showSuccess('Category updated'))
         .catch((error: unknown) => showError(error));
     }
@@ -662,9 +669,9 @@ const Transactions = React.memo(function Transactions() {
                 aria-label="Filter transactions by account"
               >
                 <option value="">All Accounts</option>
-                {accounts.map(account => (
-                  <option key={account.id} value={account.id}>{account.name}</option>
-                ))}
+                {/* Banded into the app's account sections, alphabetical inside
+                    each — the same list the Accounts page shows. */}
+                <GroupedAccountOptions accounts={accounts} />
               </select>
             </div>
           </div>

@@ -4,6 +4,7 @@ import {
   OTHER_SECTION_DEFINITION,
   DEFAULT_ACCOUNT_GROUPING,
   accountMatchesQuery,
+  compareAccountsByName,
   groupAccountsBySection,
   groupAccountsForDisplay,
   parseAccountGroupingPreference,
@@ -50,6 +51,16 @@ describe('groupAccountsBySection', () => {
     const groups = groupAccountsBySection([acct('Solo', 'investment')]);
     expect(groups).toHaveLength(1);
     expect(groups[0].title).toBe('Investments');
+  });
+
+  it('exports the one comparator the lists that band themselves also use', () => {
+    // The picker and the archive manager band with groupAccountsForDisplay,
+    // which keeps input order for the Accounts page's sake, and then sort with
+    // THIS. If it ever disagreed with the sort above, "alphabetical" would
+    // mean two things in two corners of the app.
+    const names = [acct('zebra current', 'current'), acct('Alpha Current', 'current')];
+    expect([...names].sort(compareAccountsByName).map(a => a.name))
+      .toEqual(groupAccountsBySection(names)[0].accounts.map(a => a.name));
   });
 
   it('files legacy spellings alongside their modern twins', () => {

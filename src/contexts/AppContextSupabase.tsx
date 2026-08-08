@@ -154,6 +154,12 @@ export interface AppContextType extends AppState {
    */
   applyCategoryToUncategorized: (ids: string[], category: string) => Promise<number>;
   /**
+   * Agree with the app's suggested category on the named rows, without changing
+   * it. Balance-neutral — one boolean per row. Returns how many actually
+   * flipped (a row someone else already confirmed does not count twice).
+   */
+  confirmTransactionCategories: (ids: string[]) => Promise<number>;
+  /**
    * Rewrite the payee (description) on the named transactions — the Payee
    * cleanup screen's one write.
    *
@@ -824,12 +830,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const idSet = new Set(ids);
       // Mirror the server's fill-blanks semantics locally: only blank,
       // NON-SPLIT rows flip (a split parent's blank category means "split").
+      // categoryConfirmed comes along because this is the user's own filing —
+      // the same reasoning as the server side (see the RPC and dataService).
       setTransactions(prev => prev.map(t =>
-        idSet.has(t.id) && !t.isSplit && (!t.category || t.category.trim() === '') ? { ...t, category } : t
+        idSet.has(t.id) && !t.isSplit && (!t.category || t.category.trim() === '')
+          ? { ...t, category, categoryConfirmed: true }
+          : t
       ));
       return count;
     } catch (error) {
       appLogger.error('Failed to apply category', error);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * "Yes, that guess was right." Writes one boolean per row and nothing else,
+   * so a confirm can never move a balance or a category. Local state mirrors
+   * the server's own rule — only rows that were actually suggested flip.
+   */
+  const confirmTransactionCategories = useCallback(async (ids: string[]): Promise<number> => {
+    if (ids.length === 0) {
+      return 0;
+    }
+    try {
+      const count = await DataService.confirmTransactionCategories(ids);
+      const idSet = new Set(ids);
+      setTransactions(prev => prev.map(t =>
+        idSet.has(t.id) && t.categoryConfirmed === false ? { ...t, categoryConfirmed: true } : t
+      ));
+      return count;
+    } catch (error) {
+      appLogger.error('Failed to confirm categories', error);
       throw error;
     }
   }, []);
@@ -1708,6 +1740,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTransaction,
     setTransactionsCleared,
     applyCategoryToUncategorized,
+    confirmTransactionCategories,
     renameTransactionDescriptions,
     archiveTransactionsBefore,
     unarchiveAccount,

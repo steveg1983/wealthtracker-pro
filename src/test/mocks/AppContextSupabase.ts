@@ -51,6 +51,7 @@ const baseValue = {
   deleteTransaction: noop,
   setTransactionsCleared: asyncNoop,
   applyCategoryToUncategorized: async () => 0,
+  confirmTransactionCategories: async () => 0,
   transactionSplits: [],
   serverBalances: new Map<string, { balance: number; txnCount: number }>(),
   getTransactionSplits: async () => [],

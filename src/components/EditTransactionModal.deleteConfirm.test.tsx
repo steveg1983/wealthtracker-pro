@@ -1,5 +1,6 @@
 /**
- * EditTransactionModal — what the delete confirmation admits to.
+ * EditTransactionModal — what the delete confirmation admits to, and how it can
+ * be answered.
  *
  * `transactions_linked_transfer_id_fkey` is ON DELETE SET NULL and
  * `delete_transaction_atomic` removes one row and reverses one balance. So
@@ -9,12 +10,20 @@
  * be undone", which is true and beside the point — the part that cannot be
  * undone happens in an account the user is not looking at.
  *
- * These tests hold the confirmation to naming that consequence, and to staying
- * quiet when there is no consequence to name.
+ * The editor now raises the SAME confirmation the register raises
+ * (DeleteTransactionConfirm): an alertdialog, Delete focused, Escape to cancel,
+ * focus trapped and handed back. A delete reached through the editor is the same
+ * delete, and must not be answerable on worse terms than one reached from the
+ * register.
+ *
+ * These tests hold the confirmation to naming that consequence, to staying quiet
+ * when there is no consequence to name, and to being answerable from the
+ * keyboard.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import EditTransactionModal from './EditTransactionModal';
 import type { Account, Transaction } from '../types';
@@ -128,12 +137,27 @@ const EXPENSE: Transaction = {
   cleared: false,
 };
 
-/** Open the editor on `transaction` and press Delete to raise the confirmation. */
-const openDeleteConfirm = (transaction: Transaction): void => {
-  render(<EditTransactionModal isOpen onClose={vi.fn()} transaction={transaction} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-  expect(screen.getByText('Delete Transaction?')).toBeInTheDocument();
+/**
+ * Open the editor on `transaction` and press its Delete button to raise the
+ * confirmation. Scoped by role: the editor's own Delete button and the
+ * confirmation's are both on screen from here on, and they are not the same
+ * button.
+ */
+const openDeleteConfirm = async (
+  transaction: Transaction,
+  onClose = vi.fn()
+): Promise<{ user: ReturnType<typeof userEvent.setup>; dialog: HTMLElement }> => {
+  // userEvent rather than fireEvent, because the click that opens this dialog
+  // also FOCUSES the button that opened it — and where focus goes on the way
+  // back out is half of what these tests are checking.
+  const user = userEvent.setup();
+  render(<EditTransactionModal isOpen onClose={onClose} transaction={transaction} />);
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+  return { user, dialog: screen.getByRole('alertdialog') };
 };
+
+const confirmButton = (): HTMLElement =>
+  within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' });
 
 describe('EditTransactionModal — delete confirmation', () => {
   beforeEach(() => {
@@ -142,8 +166,8 @@ describe('EditTransactionModal — delete confirmation', () => {
     mocks.app.transactions = [OUT_LEG, IN_LEG, EXPENSE];
   });
 
-  it('names the account the other half is left in, and what happens to it', () => {
-    openDeleteConfirm(OUT_LEG);
+  it('names the account the other half is left in, and what happens to it', async () => {
+    await openDeleteConfirm(OUT_LEG);
 
     expect(
       screen.getByText(/Deleting it will leave the other half in Savings/)
@@ -153,34 +177,100 @@ describe('EditTransactionModal — delete confirmation', () => {
     ).toBeInTheDocument();
   });
 
-  it('warns from the incoming leg too, naming the account facing it', () => {
-    openDeleteConfirm(IN_LEG);
+  it('warns from the incoming leg too, naming the account facing it', async () => {
+    await openDeleteConfirm(IN_LEG);
 
     expect(
       screen.getByText(/Deleting it will leave the other half in Current Account/)
     ).toBeInTheDocument();
   });
 
-  it('says nothing extra for an ordinary transaction', () => {
-    openDeleteConfirm(EXPENSE);
+  it('says nothing extra for an ordinary transaction, and names the row', async () => {
+    const { dialog } = await openDeleteConfirm(EXPENSE);
 
-    // The generic line still stands; nothing is invented on top of it.
-    expect(
-      screen.getByText('Are you sure you want to delete this transaction? This action cannot be undone.')
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/one half of a transfer/)).not.toBeInTheDocument();
+    // The shared confirmation names the row in the question, so nobody deletes
+    // blind; nothing is invented on top of that.
+    expect(within(dialog).getByText(/Groceries/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/This cannot be undone/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/one half of a transfer/)).not.toBeInTheDocument();
   });
 
-  it('does not offer to delete the other side for the user', () => {
+  it('does not offer to delete the other side for the user', async () => {
     // Cascading into another account unasked is worse than stranding a row, so
     // this is consent and nothing more: it names the consequence and offers the
     // same two choices it always did.
-    openDeleteConfirm(OUT_LEG);
+    const { dialog } = await openDeleteConfirm(OUT_LEG);
 
-    const panel = screen.getByText('Delete Transaction?').closest('div');
-    if (!panel) throw new Error('the confirmation panel is not on screen');
-    expect(within(panel).getAllByRole('button').map(button => button.textContent))
+    expect(within(dialog).getAllByRole('button').map(button => button.textContent))
       .toEqual(['Cancel', 'Delete']);
     expect(mocks.app.deleteTransaction).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The adoption itself. Before it, this was a bare div: no role, no focus
+   * management, no Escape — so the keyboard could not answer it and a screen
+   * reader was told nothing had happened.
+   */
+  it('interrupts as an alertdialog, with Delete already focused', async () => {
+    const onClose = vi.fn();
+    const { user, dialog } = await openDeleteConfirm(EXPENSE, onClose);
+
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(document.activeElement).toBe(confirmButton());
+
+    // Focused means a bare Enter completes it — the register's loop, available
+    // here too.
+    await user.keyboard('{Enter}');
+
+    expect(mocks.app.deleteTransaction).toHaveBeenCalledWith(EXPENSE.id);
+    // …and the editor closes behind it, exactly as it always did.
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels on Escape, leaving the editor open and the row alone', async () => {
+    const onClose = vi.fn();
+    await openDeleteConfirm(EXPENSE, onClose);
+
+    fireEvent.keyDown(confirmButton(), { key: 'Escape' });
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(mocks.app.deleteTransaction).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    // Focus goes back to the button that raised it, so the editor is still
+    // usable from the keyboard afterwards.
+    expect(document.activeElement)
+      .toBe(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+  });
+
+  it('traps the tab key between its two buttons', async () => {
+    const { dialog } = await openDeleteConfirm(EXPENSE);
+    const cancel = within(dialog).getByRole('button', { name: 'Cancel' });
+
+    fireEvent.keyDown(confirmButton(), { key: 'Tab' });
+    expect(document.activeElement).toBe(cancel);
+
+    fireEvent.keyDown(cancel, { key: 'Tab' });
+    expect(document.activeElement).toBe(confirmButton());
+  });
+
+  /**
+   * The Transactions page keeps this component mounted with isOpen=false. A
+   * confirmation left standing there used to outlive the editor it belonged to;
+   * now that it traps focus, that would strand the user in a dialog about a
+   * form they can no longer see.
+   */
+  it('goes away with the editor it belongs to', () => {
+    const { rerender } = render(
+      <EditTransactionModal isOpen onClose={vi.fn()} transaction={EXPENSE} />
+    );
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    rerender(<EditTransactionModal isOpen={false} onClose={vi.fn()} transaction={EXPENSE} />);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+    // And it does not spring back open the next time the editor is used.
+    rerender(<EditTransactionModal isOpen onClose={vi.fn()} transaction={EXPENSE} />);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

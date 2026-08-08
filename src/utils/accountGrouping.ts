@@ -105,6 +105,21 @@ export function accountMatchesQuery(account: GroupableAccount, rawQuery: string)
   return false;
 }
 
+/**
+ * ALPHABETICAL, for accounts — one definition of it for the whole app.
+ *
+ * Case-insensitive, so 'amex' files beside 'Amex' rather than after every
+ * capitalised name. Exported because the two grouping functions below cannot
+ * both apply it: `groupAccountsBySection` sorts (its callers are pickers, which
+ * want names in order), while `groupAccountsForDisplay` deliberately preserves
+ * input order for the Accounts page's own Default/Name/Value sort. The lists
+ * that band with the latter and still want names in order — the searchable
+ * picker, the archive manager — sort with THIS, so "alphabetical" cannot come
+ * to mean two different things in two corners of the app.
+ */
+export const compareAccountsByName = (a: GroupableAccount, b: GroupableAccount): number =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
 /** Same shape the Accounts page's own groups use: a stable key, a heading, rows. */
 export interface AccountSectionGroup<T extends GroupableAccount> {
   /** The section type — a stable React key, and how to look its styling up. */
@@ -140,8 +155,7 @@ export function groupAccountsBySection<T extends GroupableAccount>(
   return bucketBySection(accounts).map(({ section, accounts: sectionAccounts }) => ({
     label: section.type,
     title: section.title,
-    accounts: sectionAccounts
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+    accounts: sectionAccounts.sort(compareAccountsByName),
   }));
 }
 

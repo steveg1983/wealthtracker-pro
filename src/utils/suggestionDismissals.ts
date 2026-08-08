@@ -102,6 +102,113 @@ export function duplicateDismissalSubjectIds(a: Transaction, b: Transaction): st
   return [a.id, b.id];
 }
 
+/* ── Payee cleanup: a refusal about TEXT, not about rows ──────────────────── */
+
+/**
+ * Payee cleanup is the one surface whose suggestions are not made of rows.
+ * It reads every payee TEXT in the register, guesses which of them are one
+ * merchant wearing different transaction references, and offers the guess as a
+ * shortcut. So the thing a user refuses there is a piece of text — "DIRECT
+ * DEBIT is not one shop" — and it has to stay refused when the rows behind it
+ * are gone and the same wording arrives again on a fresh import. Keying such a
+ * dismissal by transaction ids would make it expire the moment the register
+ * changed, which is the opposite of what "don't bring this to me again" means.
+ *
+ * That leaves text in a column the restore path treats as ids, so the format
+ * has to make a payee name impossible to mistake for one. remapBackupIds
+ * (services/backupService) splits subject_key on '|' and, for each segment,
+ * looks the value up in the file's id map, flags anything uuid-shaped that
+ * resolves to nothing, and RE-SORTS the segments that carried a bare id. Two
+ * properties defeat all three of those:
+ *
+ *  1. every segment carries a role prefix, so none is ever treated as a bare
+ *     id and the order is never rearranged;
+ *  2. the value after that prefix always contains a further ':' (the role tag
+ *     inside it), and a uuid can contain no colon — so the value can never be
+ *     uuid-shaped and can never equal a key in the id map, whatever the user's
+ *     bank happened to call the payee. Even a payee text that is literally one
+ *     of the file's own transaction ids travels through a restore untouched.
+ *
+ * The text itself is percent-encoded, which removes both '|' and ':' from it.
+ * Without that a payee containing a pipe — banks do emit them — would forge an
+ * extra segment and a second payee could collide with the first.
+ */
+const PAYEE_NAMESPACE = 'payee-cleanup';
+
+type PayeeRole = 'merchant' | 'payee';
+
+const payeeSegment = (role: PayeeRole, text: string): string =>
+  `${PAYEE_NAMESPACE}:${role}:${encodeURIComponent(text)}`;
+
+/**
+ * A whole suggested merchant, refused.
+ *
+ * Keyed by the merchant TOKEN alone, deliberately, and not by the set of payees
+ * currently under it: that set grows with every import, and a key built from it
+ * would change the moment one new reference arrived — putting the suggestion
+ * straight back in front of a user who had already said no to it. The judgment
+ * being recorded is about the grouping ("these are not one shop"), and a new
+ * reference for the same grouping does not change it. Undo is one click, so the
+ * user who does want it back can have it back.
+ */
+export function payeeMerchantDismissalKey(merchantKey: string): string {
+  return payeeSegment('merchant', merchantKey);
+}
+
+/**
+ * One payee kept out of a suggested merchant it otherwise matches.
+ *
+ * Scoped to the merchant as well as the payee, because the statement is a
+ * relational one — "this line does not belong with those" — and it should not
+ * silently carry over to a differently-drawn group. The merchant leads so the
+ * two halves read in the order they are spoken.
+ */
+export function payeeLineDismissalKey(merchantKey: string, description: string): string {
+  return `${payeeSegment('merchant', merchantKey)}${SEPARATOR}${payeeSegment('payee', description)}`;
+}
+
+/** What a payee-cleanup dismissal was about, as the user would recognise it. */
+export interface PayeeDismissalSubject {
+  merchant: string;
+  /** The payee text, or null when the whole suggested merchant was refused. */
+  payee: string | null;
+}
+
+/**
+ * Read a payee-cleanup key back into the text it was built from, for the
+ * "Dismissed suggestions" list. Returns null for anything that is not one of
+ * these keys, so a caller can never describe a transfer dismissal as a payee.
+ *
+ * A key that will not decode is shown raw rather than dropped: an entry the
+ * user cannot read is still an entry they must be able to undo.
+ */
+export function readPayeeDismissalKey(subjectKey: string): PayeeDismissalSubject | null {
+  const segments = subjectKey.split(SEPARATOR);
+  if (segments.length < 1 || segments.length > 2) return null;
+
+  const merchant = readPayeeSegment(segments[0], 'merchant');
+  if (merchant === null) return null;
+  if (segments.length === 1) return { merchant, payee: null };
+
+  const payee = readPayeeSegment(segments[1], 'payee');
+  if (payee === null) return null;
+  return { merchant, payee };
+}
+
+function readPayeeSegment(segment: string, role: PayeeRole): string | null {
+  const prefix = `${PAYEE_NAMESPACE}:${role}:`;
+  if (!segment.startsWith(prefix)) return null;
+  const encoded = segment.slice(prefix.length);
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    // Malformed percent-escapes (a hand-edited row, say). The key still
+    // filters correctly — it is only ever compared as text — so show what is
+    // there rather than hiding the undo.
+    return encoded;
+  }
+}
+
 /** The keys the user has refused, for one kind — the filter every surface applies. */
 export function dismissedKeys(
   dismissals: SuggestionDismissal[],

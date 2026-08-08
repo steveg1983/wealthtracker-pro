@@ -1,16 +1,22 @@
-import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput, toDecimal } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon } from '../components/icons';
+import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon, KeyboardIcon } from '../components/icons';
 import DatePicker from '../components/common/DatePicker';
 import MoneyInput from '../components/common/MoneyInput';
 import EditTransactionModal from '../components/EditTransactionModal';
+import DeleteTransactionConfirm from '../components/DeleteTransactionConfirm';
+import BulkDeleteTransactionsConfirm from '../components/BulkDeleteTransactionsConfirm';
+import RegisterSelectionBar from '../components/RegisterSelectionBar';
+import RegisterShortcutsDialog from '../components/RegisterShortcutsDialog';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import QuickEditTransactionPanel from '../components/QuickEditTransactionPanel';
+import SuggestedCategoryBadge from '../components/SuggestedCategoryBadge';
 import CategorySelector from '../components/CategorySelector';
+import PageTip from '../components/PageTip';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useToast } from '../contexts/ToastContext';
 import { VirtualizedTable, Column } from '../components/VirtualizedTable';
@@ -20,6 +26,16 @@ import { compareChronological, compareTransactions, type TransactionSortField } 
 import { orderColumnKeys, moveColumnKey } from '../utils/columnLayout';
 import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../utils/archiveRange';
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
+import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
+import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { planBulkDelete, type BulkDeletePlan } from '../utils/registerBulkDelete';
+import {
+  advanceTypeAheadBuffer,
+  claimsSpaceForTypeAhead,
+  findTypeAheadMatch,
+  isTypeAheadKey,
+} from '../utils/registerShortcuts';
+import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { DataService } from '../services/api/dataService';
 import AccountSelector from '../components/common/AccountSelector';
@@ -88,6 +104,24 @@ const SORT_FIELD_LABELS: Record<TransactionSortField, string> = {
   notes: 'Notes'
 };
 
+/**
+ * Is this element somewhere the user is TYPING?
+ *
+ * Every keyboard shortcut on this page defers to it: a register that swallows
+ * the down arrow while someone is halfway through a description, or deletes a
+ * row because they pressed Delete in the search box, is worse than one with no
+ * shortcuts at all.
+ */
+const isTextEntryTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  );
+};
+
 const readStored = <T,>(key: string, fallback: T): T => {
   try {
     const raw = localStorage.getItem(key);
@@ -105,9 +139,13 @@ export default function AccountTransactions() {
     accounts, transactions, categories, isLoading,
     deleteTransaction, addTransaction, updateAccount,
     refreshCategories, refreshAccountsAndTransactions,
+    // The reconcile and archive writes the register's keyboard uses are the
+    // SAME ones the reconciliation screen and the archive manager use — a key
+    // must never be a second, quieter way to change the ledger.
+    setTransactionsCleared, setTransactionArchived,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const { showError } = useToast();
+  const { showError, showInfo, showSuccess } = useToast();
   const { compactView, setCompactView: _setCompactView } = usePreferences();
 
   // Find the specific account — the context holds the OPEN ones only.
@@ -253,6 +291,12 @@ export default function AccountTransactions() {
   //  - ?showArchived=1 (the archive manager) opens the register with the
   //    hidden rows already showing.
   const pendingTxnRef = useRef<string | null>(null);
+  // Which account has already had its opening scroll — see the foot-scroll
+  // effect below. It lives up here because a deep link CLAIMS that scroll, and
+  // has to do so in the same pass that reads the parameter: state set here is
+  // not visible to the later effect until the next render, by which time the
+  // register would already have jumped to the foot.
+  const openedAtFootRef = useRef<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const txn = params.get('txn');
@@ -260,6 +304,7 @@ export default function AccountTransactions() {
     if (!txn && !hasShowArchived) return;
     if (txn) {
       pendingTxnRef.current = txn;
+      openedAtFootRef.current = accountId ?? null;
       setArchive(prev => (prev.range === 'all' ? prev : { range: 'all', from: '', to: '' }));
       params.delete('txn');
     }
@@ -271,7 +316,7 @@ export default function AccountTransactions() {
       params.delete('showArchived');
     }
     navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
-  }, [location.pathname, location.search, navigate]);
+  }, [accountId, location.pathname, location.search, navigate]);
 
   // location.search is a dependency for the already-mounted case: landing on
   // the register that is ALREADY open only changes the search string, and
@@ -291,7 +336,7 @@ export default function AccountTransactions() {
     pendingTxnRef.current = null;
     setSelectedTransaction(target);
     setSelectedTransactionId(txn);
-    setScrollTargetId(txn);
+    setRowScroll({ rowId: txn, align: 'center' });
   }, [transactions, location.search]);
 
   const toggleColumn = useCallback((key: string) => {
@@ -304,10 +349,47 @@ export default function AccountTransactions() {
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
-  // Deep-link only: the row the register should centre on. Manual row clicks
-  // never set it — a click means the row is already on screen, and yanking
-  // the viewport to centre it would fight the user's own scrolling.
-  const [scrollTargetId, setScrollTargetId] = useState<string | null>(null);
+  /**
+   * Where a Shift-extended selection started, or null when only one row is
+   * highlighted.
+   *
+   * The selection ITSELF is not stored — it is the run of rows between this
+   * anchor and the highlighted row, worked out from the current display order
+   * (see selectedRowIds). One source of truth means a row can never be "in the
+   * selection" while being nowhere in the list, which is exactly how a bulk
+   * action ends up acting on something the user cannot see.
+   */
+  const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
+  /** The bulk delete's worked-out consequences, while its confirmation is up. */
+  const [bulkDeletePlan, setBulkDeletePlan] = useState<BulkDeletePlan | null>(null);
+  /** True while a bulk action's writes are in flight. */
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  /**
+   * F2's request for the quick-edit bar to take the cursor. A boolean, and
+   * handed straight back when honoured, so a re-mount can never replay it.
+   */
+  const [dockFocusRequested, setDockFocusRequested] = useState(false);
+  /** Which quick-add field to put the cursor in once the bar is on screen. */
+  const [quickAddFocus, setQuickAddFocus] = useState<'date' | 'description' | null>(null);
+  /** A pulse asking the search box for the cursor once the filter panel opens. */
+  const [searchFocusToken, setSearchFocusToken] = useState(0);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const quickAddDateRef = useRef<HTMLDivElement>(null);
+  const quickAddDescriptionRef = useRef<HTMLInputElement>(null);
+  /** The type-ahead search in progress: what has been typed, and when. */
+  const typeAheadRef = useRef<{ buffer: string; at: number }>({ buffer: '', at: 0 });
+  /**
+   * The row the register should bring into view, and how.
+   *
+   * 'center' is the deep link: an unfamiliar row in an unfamiliar place, so it
+   * lands in the middle. 'nearest' is a keyboard step, which scrolls the least
+   * amount that shows the row and nothing at all when it is already visible.
+   * Manual row CLICKS set neither — a click means the row is already on screen,
+   * and yanking the viewport would fight the user's own scrolling.
+   */
+  const [rowScroll, setRowScroll] = useState<{ rowId: string; align: 'center' | 'nearest' } | null>(null);
   
   // State for quick add form
   const [quickAddForm, setQuickAddForm] = useState({
@@ -326,8 +408,6 @@ export default function AccountTransactions() {
   // way the money moves; the category decides which total it lands in.
   const [crossTypeCategories, setCrossTypeCategories] = useState(false);
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
   // Every transaction for this account, unfiltered — the basis for running
   // balances (so hiding rows never corrupts the displayed balance).
   const fullAccountTransactions = useMemo<Transaction[]>(
@@ -536,86 +616,49 @@ export default function AccountTransactions() {
     return `Sorted by ${SORT_FIELD_LABELS[sortField]}, so the Balance column doesn't run down the page. Each row still shows what ${account?.name ?? 'the account'} was worth immediately after that transaction — sort by Date to read the column as a running balance.`;
   }, [sortField, account?.name]);
 
-  // Keyboard event handler
+  // ── Opening at the foot of the register ────────────────────────────────────
+  // Money's register is ordered oldest-first with the NEWEST transaction on the
+  // last line, and it opens showing that line. The order is untouched (see
+  // sortDirection's 'asc' default); it is the initial scroll position that
+  // moves, once per account, and only on arrival.
+  //
+  // A deep link beats it outright: ?txn= means the user asked for one
+  // particular row, and that row's centring wins. Such an arrival marks the
+  // account done (above, as the parameter is read), so that clicking the row
+  // afterwards — which clears the scroll target — cannot be mistaken for
+  // "nothing has scrolled yet" and yank the viewport to the foot.
+  const [footScrollToken, setFootScrollToken] = useState(0);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Never hijack Delete while the user is typing (the quick-edit panel
-      // keeps a row selected while its inputs are focused).
-      const target = e.target as HTMLElement | null;
-      if (target && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable
-      )) {
-        return;
-      }
-      if (e.key === 'Delete' && selectedTransactionId) {
-        const transaction = transactionsWithBalance.find(t => t.id === selectedTransactionId);
-        if (transaction) {
-          setDeleteConfirmTransaction(transaction);
-        }
-      }
-    };
+    if (!accountId || !accountIsOpen) return;
+    if (openedAtFootRef.current === accountId) return;
+    if (pendingTxnRef.current !== null || rowScroll !== null) {
+      openedAtFootRef.current = accountId;
+      return;
+    }
+    // Rows arrive after the account does; wait for them, or the list would be
+    // asked to scroll to the foot of nothing.
+    if (displayRows.length === 0) return;
+    openedAtFootRef.current = accountId;
+    setFootScrollToken(token => token + 1);
+  }, [accountId, accountIsOpen, displayRows.length, rowScroll]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTransactionId, transactionsWithBalance]);
-  
-  // Remove auto-scroll - we want to start at the top with oldest transactions
-
-  // Handle scroll isolation
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer) return;
-    
-    let isMouseOverContainer = false;
-    
-    const handleMouseEnter = () => {
-      isMouseOverContainer = true;
-    };
-    
-    const handleMouseLeave = () => {
-      isMouseOverContainer = false;
-    };
-    
-    const handleGlobalWheel = (e: WheelEvent) => {
-      if (isMouseOverContainer && scrollContainer) {
-        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-        const isScrollable = scrollHeight > clientHeight;
-        
-        if (isScrollable) {
-          // Prevent the default page scroll
-          e.preventDefault();
-          
-          // Apply the scroll to our container instead
-          const newScrollTop = scrollTop + e.deltaY;
-          scrollContainer.scrollTop = Math.max(0, Math.min(newScrollTop, scrollHeight - clientHeight));
-        }
-      }
-    };
-    
-    // Add mouse enter/leave listeners
-    scrollContainer.addEventListener('mouseenter', handleMouseEnter);
-    scrollContainer.addEventListener('mouseleave', handleMouseLeave);
-    
-    // Add global wheel listener with passive: false to allow preventDefault
-    document.addEventListener('wheel', handleGlobalWheel, { passive: false });
-    
-    return () => {
-      scrollContainer.removeEventListener('mouseenter', handleMouseEnter);
-      scrollContainer.removeEventListener('mouseleave', handleMouseLeave);
-      document.removeEventListener('wheel', handleGlobalWheel);
-    };
-  }, []);
-  
   // Handle transaction row click
   const handleTransactionClick = useCallback((item: DisplayRow) => {
     if (isOpeningBalanceRow(item)) return;
+    // Clicking a row hands the keyboard to the register, so the arrow keys are
+    // live on the row you just highlighted without a second click. Browsers do
+    // this themselves for a click inside a focusable container; doing it here
+    // makes it certain rather than inherited. preventScroll because the click
+    // proves the row is already on screen.
+    tableWrapRef.current?.focus({ preventScroll: true });
     setSelectedTransaction(item);
+    // A plain click is "just this one" — it collapses any Shift-extended run,
+    // and it ends any type-ahead search: the user has found their row by hand.
+    setSelectionAnchorId(null);
+    typeAheadRef.current = { buffer: '', at: 0 };
     // The user has taken over — a later sort or filter must not snap the
     // viewport back to the deep-linked row.
-    setScrollTargetId(null);
+    setRowScroll(null);
 
     if (selectedTransactionId === item.id) {
       // Second click on already selected transaction - open edit modal
@@ -653,26 +696,40 @@ export default function AccountTransactions() {
   // Nor while the account is CLOSED: the register isn't rendered then, so
   // there is no row to click away from — and a mousedown on "Re-open and
   // view" would wipe the ?txn selection this page is about to show.
+  //
+  // Nor while the delete confirmation is up, for the same reason as the edit
+  // modal: answering a dialog about the selected row is not clicking away from
+  // it, and losing the selection mid-answer would leave the register with
+  // nothing highlighted the moment the dialog closed.
   useEffect(() => {
-    if (!accountIsOpen || !selectedTransactionId || isEditModalOpen) return;
+    if (!accountIsOpen || !selectedTransactionId || isEditModalOpen || deleteConfirmTransaction) return;
+    // Same reason for the bulk confirmation and the shortcut list: both are
+    // ABOUT the selection, and losing it mid-answer would leave the register
+    // with nothing highlighted the moment they closed.
+    if (bulkDeletePlan || showShortcuts) return;
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       if (
         target.closest('[data-transaction-table]') ||
         target.closest('[data-quick-edit-panel]') ||
+        // The bulk-action bar acts ON the selection — a mousedown there is
+        // the opposite of clicking away from it, and deselecting first would
+        // unmount the very button being pressed.
+        target.closest('[data-register-selection-bar]') ||
         target.closest('[role="dialog"]') ||
+        target.closest('[role="alertdialog"]') ||
         target.closest('[role="listbox"]')
       ) {
         return;
       }
       setSelectedTransactionId(null);
       setSelectedTransaction(null);
-      setScrollTargetId(null);
+      setRowScroll(null);
     };
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [accountIsOpen, selectedTransactionId, isEditModalOpen]);
+  }, [accountIsOpen, selectedTransactionId, isEditModalOpen, deleteConfirmTransaction, bulkDeletePlan, showShortcuts]);
 
   // Next non-summary row below the given one in the CURRENT visible order —
   // powers "Save & Next" in both the quick-edit panel and the full modal.
@@ -693,6 +750,14 @@ export default function AccountTransactions() {
     const nextTransaction = transactionsWithBalance.find(t => t.id === nextId) ?? null;
     setSelectedTransactionId(nextId);
     setSelectedTransaction(nextTransaction);
+    // Save & Next has to SHOW you the next one. Working down a freshly
+    // imported statement, the row it moves to is the one just below the fold
+    // within a screenful — the quick editor then names a transaction that is
+    // nowhere on screen, and the user is editing blind. 'nearest' scrolls the
+    // least amount that brings it into view and does nothing when it is
+    // already there, so a whole visible page can be worked through without the
+    // list moving at all.
+    setRowScroll({ rowId: nextId, align: 'nearest' });
     return true;
   }, [getNextTransactionId, transactionsWithBalance]);
 
@@ -713,10 +778,508 @@ export default function AccountTransactions() {
     const previousTransaction = transactionsWithBalance.find(t => t.id === previousId) ?? null;
     setSelectedTransactionId(previousId);
     setSelectedTransaction(previousTransaction);
+    // Same reason as Save & Next above, in the other direction.
+    setRowScroll({ rowId: previousId, align: 'nearest' });
     return true;
   }, [getPreviousTransactionId, transactionsWithBalance]);
-  
-  
+
+  // ── Driving the register from the keyboard ─────────────────────────────────
+  // The table is a focusable ARIA grid whose active row is named by
+  // aria-activedescendant — the same pattern the category and account
+  // comboboxes use, and the reason every row needs a stable DOM id.
+  const registerId = useId();
+  const rowDomId = useCallback((rowKey: string): string => `${registerId}-row-${rowKey}`, [registerId]);
+
+  /**
+   * The rows the arrows walk, in the order they are drawn.
+   *
+   * transactionsWithBalance, not displayRows: the lead "Opening Balance" /
+   * "Brought forward" line is a summary, not a transaction — clicking it does
+   * nothing, so arrowing onto it would strand the user on a row that cannot be
+   * edited, deleted or docked.
+   */
+  const navigableRows = transactionsWithBalance;
+
+  /**
+   * A page, in rows. The measured table height already includes the header row,
+   * and the minus-one both absorbs that and leaves a line of context at the
+   * fold — the convention every register and spreadsheet follows.
+   */
+  const pageStep = useMemo(
+    () => Math.max(1, Math.floor(tableHeight / (compactView ? 36 : 44)) - 1),
+    [tableHeight, compactView]
+  );
+
+  /** Where the highlight currently sits in that list, or -1 for nowhere. */
+  const activeRowIndex = useMemo(
+    () => (selectedTransactionId ? navigableRows.findIndex(row => row.id === selectedTransactionId) : -1),
+    [navigableRows, selectedTransactionId]
+  );
+
+  /**
+   * Every row the selection covers, in display order.
+   *
+   * Derived, never stored: with only one row highlighted it is that row; with
+   * an anchor planted by Shift+arrow it is the whole run between the two ends
+   * AS THE REGISTER IS CURRENTLY ORDERED. A stored id list would keep rows
+   * that a filter has since hidden, and a bulk action would then act on rows
+   * nobody can see.
+   */
+  const selectedRowIds = useMemo<string[]>(() => {
+    if (!selectedTransactionId) return [];
+    if (!selectionAnchorId || selectionAnchorId === selectedTransactionId) {
+      return [selectedTransactionId];
+    }
+    const anchorIndex = navigableRows.findIndex(row => row.id === selectionAnchorId);
+    if (anchorIndex === -1 || activeRowIndex === -1) return [selectedTransactionId];
+    const from = Math.min(anchorIndex, activeRowIndex);
+    const to = Math.max(anchorIndex, activeRowIndex);
+    return navigableRows.slice(from, to + 1).map(row => row.id);
+  }, [navigableRows, selectedTransactionId, selectionAnchorId, activeRowIndex]);
+
+  const selectedRows = useMemo<TransactionWithBalance[]>(() => {
+    if (selectedRowIds.length <= 1) {
+      const single = navigableRows.find(row => row.id === selectedTransactionId);
+      return single ? [single] : [];
+    }
+    const ids = new Set(selectedRowIds);
+    return navigableRows.filter(row => ids.has(row.id));
+  }, [navigableRows, selectedRowIds, selectedTransactionId]);
+
+  const hasMultiSelection = selectedRowIds.length > 1;
+
+  const selectedIdSet = useMemo(() => new Set(selectedRowIds), [selectedRowIds]);
+
+  /**
+   * A re-sort or a filter change drops a multi-row selection.
+   *
+   * "These five rows" means the five that were next to each other on screen.
+   * Re-order the register underneath them and the run between the two ends is
+   * a different five — so the honest answer is to let go rather than silently
+   * re-point the selection at rows the user never chose.
+   */
+  useEffect(() => {
+    setSelectionAnchorId(null);
+  }, [sortField, sortDirection, searchTerm, dateFrom, dateTo, typeFilter, showArchived, archiveWindow]);
+
+  /**
+   * Move the highlight to `nextIndex` (clamped to the list), and scroll it in.
+   *
+   * `extend` is Shift held: the first extension plants the anchor where the
+   * highlight already was, so the run grows from there; an unshifted move
+   * pulls the anchor up and collapses the selection back to one row — which is
+   * the behaviour of every list that has ever had Shift+arrow.
+   *
+   * Returns whether the register took the key. It says yes even when nothing
+   * can move (already at an end — the ends stop, they never wrap), because a
+   * page that lurches when you arrow past the last row is precisely what this
+   * is for.
+   */
+  const moveSelectionTo = useCallback((nextIndex: number, extend: boolean): boolean => {
+    if (navigableRows.length === 0) return false;
+    const clamped = Math.min(navigableRows.length - 1, Math.max(0, nextIndex));
+    const next = navigableRows[clamped];
+    if (!next) return false;
+    if (extend) {
+      setSelectionAnchorId(prev => prev ?? selectedTransactionId ?? next.id);
+    } else {
+      setSelectionAnchorId(null);
+    }
+    setSelectedTransactionId(next.id);
+    setSelectedTransaction(next);
+    setRowScroll({ rowId: next.id, align: 'nearest' });
+    return true;
+  }, [navigableRows, selectedTransactionId]);
+
+  /** Move by `delta` rows. Entering with nothing highlighted starts at an end. */
+  const moveSelection = useCallback((delta: number, extend = false): boolean => {
+    if (navigableRows.length === 0) return false;
+    const nextIndex = activeRowIndex === -1
+      ? (delta > 0 ? 0 : navigableRows.length - 1)
+      : activeRowIndex + delta;
+    return moveSelectionTo(nextIndex, extend);
+  }, [navigableRows.length, activeRowIndex, moveSelectionTo]);
+
+  // ── What the keys actually do ──────────────────────────────────────────────
+
+  /** Let go of the whole selection: no highlight, and the add bar back. */
+  const clearSelection = useCallback((): void => {
+    setSelectionAnchorId(null);
+    setSelectedTransactionId(null);
+    setSelectedTransaction(null);
+    setRowScroll(null);
+  }, []);
+
+  /**
+   * Reconcile (or un-reconcile) the given rows.
+   *
+   * Straight down setTransactionsCleared — the SAME write the reconciliation
+   * screen's checkbox makes, in one round trip. Which matters beyond tidiness:
+   * an is_cleared update can fire the archive sweep server-side
+   * (trg_sweep_reconciled_into_archive), so a row reconciled on or before its
+   * account's archive cutoff drops out of the live list. That is the
+   * checkbox's existing behaviour, and routing the key through the same call
+   * is what keeps the two identical rather than quietly divergent.
+   */
+  const applyCleared = useCallback(async (ids: string[], cleared: boolean): Promise<void> => {
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      await setTransactionsCleared(ids, cleared);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [setTransactionsCleared, showError]);
+
+  /**
+   * Space: reconcile the highlighted row, or un-reconcile it if it already is.
+   *
+   * Over a multi-row selection the question is asked once for the whole run:
+   * if ANY row is still unreconciled, Space reconciles the lot — that is what
+   * someone ticking off a statement means. Only when every one of them is
+   * already reconciled does Space undo them, so the key can never half-do a
+   * selection and leave the user unsure which way it went.
+   */
+  const toggleClearedOnSelection = useCallback((): void => {
+    if (selectedRows.length === 0) return;
+    const anyUnreconciled = selectedRows.some(row => !row.cleared);
+    void applyCleared(selectedRows.map(row => row.id), anyUnreconciled);
+  }, [selectedRows, applyCleared]);
+
+  /**
+   * Archive the selected rows that are not archived already.
+   *
+   * One call per row — there is no batch archive write, and inventing one here
+   * would be a second path into the same table. Failures are counted rather
+   * than aborting the run, so one bad row cannot strand the rest half-done
+   * with nothing said about it.
+   */
+  const archiveSelection = useCallback(async (): Promise<void> => {
+    const targets = selectedRows.filter(row => !row.archived);
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    let archived = 0;
+    let firstError: unknown = null;
+    try {
+      for (const row of targets) {
+        try {
+          await setTransactionArchived(row.id, true);
+          archived += 1;
+        } catch (error) {
+          if (firstError === null) firstError = error;
+        }
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+    if (archived > 0) {
+      showSuccess(
+        archived === 1
+          ? 'Archived 1 transaction. It is hidden from this list, not deleted — every balance is unchanged.'
+          : `Archived ${archived} transactions. They are hidden from this list, not deleted — every balance is unchanged.`
+      );
+      // The whole selection goes, not just the run: an archived row leaves the
+      // live list, and a highlight left pointing at one would have
+      // aria-activedescendant naming a row that is no longer in the page.
+      clearSelection();
+    }
+    if (firstError !== null) showError(firstError);
+  }, [selectedRows, setTransactionArchived, clearSelection, showSuccess, showError]);
+
+  /**
+   * Ctrl/Cmd+Enter: open the other half of a transfer, where it lives.
+   *
+   * A no-op on anything that is not one half of a linked pair — but a spoken
+   * one. The user pressed two keys deliberately; silence would read as a
+   * broken shortcut, and an error would be a lie about something that is
+   * simply not applicable.
+   */
+  const jumpToTransferOtherSide = useCallback((row: TransactionWithBalance): void => {
+    const otherSide = resolveTransferOtherSide(row, transactions, accounts);
+    if (!otherSide) {
+      showInfo("This isn't one half of a transfer, so there's no other side to jump to.");
+      return;
+    }
+    navigate(buildTransactionRegisterPath(otherSide.accountId, otherSide.transactionId, location.search));
+  }, [transactions, accounts, showInfo, navigate, location.search]);
+
+  /**
+   * Ctrl/Cmd+D: copy the highlighted row into the add bar as a DRAFT.
+   *
+   * Never a write. It fills the same form the Add button submits, dated today,
+   * and puts the cursor in the description — so the usual "same again, but
+   * £4 more" takes one keystroke and one edit, and still ends with the user
+   * pressing Add.
+   *
+   * Two consequences worth knowing, both of them the dock's existing rules
+   * rather than anything invented here: the add bar and the quick editor share
+   * one slot, so revealing the add bar drops the row's highlight; and a SPLIT
+   * row copies as a plain draft, because its categorisation lives in lines
+   * this form has no way to hold.
+   */
+  const duplicateIntoQuickAdd = useCallback((row: TransactionWithBalance): void => {
+    setTableExpanded(false);
+    clearSelection();
+    setQuickAddError('');
+    setCrossTypeCategories(false);
+    setQuickAddForm({
+      date: new Date().toISOString().split('T')[0],
+      description: row.description,
+      // Decimal, not Math.abs on a float: the form re-parses this string into
+      // the amount that gets written, and money never round-trips through
+      // float arithmetic in this app.
+      amount: toDecimal(row.amount).abs().toFixed(2),
+      type: row.type,
+      // On a transfer this field means the TARGET ACCOUNT, which is where the
+      // form reads it from; a split has no single category to copy.
+      category: row.type === 'transfer'
+        ? (row.transferAccountId ?? '')
+        : (row.isSplit ? '' : (row.category ?? '')),
+      tags: row.tags ? [...row.tags] : [],
+      notes: row.notes ?? '',
+    });
+    setQuickAddFocus('description');
+  }, [clearSelection]);
+
+  /** `+`: an empty new transaction, cursor in the Date box. */
+  const startNewTransaction = useCallback((): void => {
+    setTableExpanded(false);
+    clearSelection();
+    setQuickAddFocus('date');
+  }, [clearSelection]);
+
+  /** Ctrl/Cmd+F: the filter panel open, cursor already in the search box. */
+  const openSearch = useCallback((): void => {
+    setShowFilters(true);
+    setSearchFocusToken(token => token + 1);
+  }, []);
+
+  // The cursor lands only once the field it is asked for is on screen — both
+  // of these run in the render that mounts it.
+  useEffect(() => {
+    if (searchFocusToken === 0) return;
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  }, [searchFocusToken]);
+
+  useEffect(() => {
+    if (!quickAddFocus) return;
+    if (quickAddFocus === 'description') {
+      quickAddDescriptionRef.current?.focus();
+      quickAddDescriptionRef.current?.select();
+    } else {
+      const input = quickAddDateRef.current?.querySelector('input');
+      input?.focus();
+      input?.select();
+    }
+    setQuickAddFocus(null);
+  }, [quickAddFocus]);
+
+  const handleDockFocusHandled = useCallback(() => setDockFocusRequested(false), []);
+  const handleReturnToGrid = useCallback(() => {
+    tableWrapRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  /**
+   * Keys the register claims while the table has focus.
+   *
+   * Scoped to the table's own keydown rather than the window: the search box,
+   * the quick-add bar and the quick-edit dock all sit OUTSIDE it, so typing in
+   * them is untouched by construction rather than by a list of exceptions. The
+   * typing guard below is for anything that might one day be edited inside a
+   * cell.
+   *
+   * preventDefault is called only when the register actually handled the key,
+   * so an empty register still scrolls the page as it always did.
+   *
+   * ─ THE ONE RULE ───────────────────────────────────────────────────────────
+   * A bare letter or digit is ALWAYS the type-ahead search, never a command.
+   * Every command therefore lives on a modifier, on F2, or on a key that types
+   * nothing: Space, Enter, Escape, Delete, the arrows, Home/End, `+`, `?`.
+   * The reasoning, and why Ctrl/Cmd+N is nowhere to be seen, is written down
+   * once in src/utils/registerShortcuts.ts — the same module the printed
+   * shortcut list is rendered from.
+   *
+   * ─ AND WHY EVERYTHING CLAIMED IS ALSO STOPPED ─────────────────────────────
+   * The app carries a window-level shortcut listener (useKeyboardShortcuts) on
+   * which a bare `g` or `n` starts a two-key "go to…" sequence and `?` opens
+   * the app-wide list. Without stopPropagation, typing "gr" to find a payee
+   * would navigate to Reports mid-word. So `claim` stops the event as well as
+   * preventing its default — including for a letter that matched nothing,
+   * because a mistyped letter must not take the user off the page either.
+   */
+  const handleRegisterKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (isTextEntryTarget(e.target)) return;
+    // A dialog owns the keyboard while it is open, and all of these render
+    // over this.
+    if (isEditModalOpen || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
+
+    const claim = (): void => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const activeRow = selectedTransactionId
+      ? navigableRows.find(t => t.id === selectedTransactionId)
+      : undefined;
+
+    /** Add this key to the search in progress and move to what it finds. */
+    const runTypeAhead = (key: string, now: number): void => {
+      const buffer = advanceTypeAheadBuffer(
+        typeAheadRef.current.buffer,
+        key,
+        now - typeAheadRef.current.at
+      );
+      typeAheadRef.current = { buffer, at: now };
+      const match = findTypeAheadMatch(navigableRows, buffer, activeRowIndex);
+      // No match leaves the highlight exactly where it was — jumping
+      // somewhere arbitrary on a typo is worse than not moving.
+      if (match >= 0) moveSelectionTo(match, false);
+    };
+
+    // ── Commands on the modifier key ──────────────────────────────────────
+    // Ctrl on a PC, Cmd on a Mac, both accepted either way round so a
+    // mismatched keyboard still works. Alt combinations belong to the
+    // app-wide navigation shortcuts and are left alone entirely.
+    if (e.altKey) return;
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case 'd':
+          if (!activeRow) return;
+          claim();
+          duplicateIntoQuickAdd(activeRow);
+          return;
+        case 'f':
+          claim();
+          openSearch();
+          return;
+        case 'enter':
+          if (!activeRow) return;
+          claim();
+          jumpToTransferOtherSide(activeRow);
+          return;
+        default:
+          // Everything else on the modifier is the browser's — Ctrl+C, Ctrl+A,
+          // Ctrl+R. Taking those would be worse than offering nothing.
+          return;
+      }
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        if (moveSelection(1, e.shiftKey)) claim();
+        break;
+      case 'ArrowUp':
+        if (moveSelection(-1, e.shiftKey)) claim();
+        break;
+      case 'PageDown':
+        if (moveSelection(pageStep, e.shiftKey)) claim();
+        break;
+      case 'PageUp':
+        if (moveSelection(-pageStep, e.shiftKey)) claim();
+        break;
+      case 'Home':
+        if (moveSelectionTo(0, e.shiftKey)) claim();
+        break;
+      case 'End':
+        if (moveSelectionTo(navigableRows.length - 1, e.shiftKey)) claim();
+        break;
+      case 'Enter': {
+        if (!activeRow) return;
+        claim();
+        // Deliberately the click path: for an already-selected row that is
+        // exactly "open the editor", so Enter and the second click can never
+        // drift apart.
+        handleTransactionClick(activeRow);
+        break;
+      }
+      case 'F2': {
+        // Straight into the quick editor. Never over a multi-row selection —
+        // that bar edits ONE transaction, and it is not on screen then.
+        if (!activeRow || hasMultiSelection) return;
+        claim();
+        setTableExpanded(false);
+        setDockFocusRequested(true);
+        break;
+      }
+      case ' ': {
+        // Mid-search the space bar belongs to the search, not to Reconcile —
+        // otherwise typing a two-word payee would tick the R column on
+        // whatever row it had reached. See claimsSpaceForTypeAhead.
+        const now = Date.now();
+        if (claimsSpaceForTypeAhead(typeAheadRef.current.buffer, now - typeAheadRef.current.at)) {
+          claim();
+          runTypeAhead(' ', now);
+          break;
+        }
+        if (!activeRow) return;
+        claim();
+        toggleClearedOnSelection();
+        break;
+      }
+      // Backspace as well as Delete: a Mac's full-size Delete key sends
+      // Backspace, and the register is the only place either is claimed, so
+      // neither can fire from a page that merely happens to be open.
+      case 'Delete':
+      case 'Backspace': {
+        if (!activeRow) return;
+        claim();
+        if (hasMultiSelection) {
+          // Worked out first, so the confirmation can name every consequence
+          // and every refusal before a single row is touched.
+          setBulkDeletePlan(planBulkDelete(selectedRows, transactions, accounts));
+        } else {
+          setDeleteConfirmTransaction(activeRow);
+        }
+        break;
+      }
+      case 'Escape': {
+        // Whatever else Escape does here, it abandons the type-ahead search —
+        // otherwise the space bar would still belong to a search the user has
+        // plainly finished with, and the next Space would not reconcile.
+        typeAheadRef.current = { buffer: '', at: 0 };
+        // One layer at a time: the multi-row selection first, the highlight
+        // second. Anything left over belongs to whatever is above us.
+        if (hasMultiSelection) {
+          claim();
+          setSelectionAnchorId(null);
+          return;
+        }
+        if (!selectedTransactionId) return;
+        claim();
+        clearSelection();
+        break;
+      }
+      case '?': {
+        claim();
+        setShowShortcuts(true);
+        break;
+      }
+      // `+` needs Shift on a UK/US layout and none on a German one; `=` is the
+      // same key top unshifted. Accepting all three means "the key next to
+      // Backspace" wherever it is.
+      case '+':
+      case '=': {
+        claim();
+        startNewTransaction();
+        break;
+      }
+      default: {
+        if (!isTypeAheadKey(e)) return;
+        claim();
+        runTypeAhead(e.key, Date.now());
+        break;
+      }
+    }
+  }, [
+    isEditModalOpen, deleteConfirmTransaction, bulkDeletePlan, showShortcuts,
+    moveSelection, moveSelectionTo, pageStep, selectedTransactionId, navigableRows,
+    activeRowIndex, handleTransactionClick, hasMultiSelection, selectedRows,
+    transactions, accounts, toggleClearedOnSelection, clearSelection,
+    duplicateIntoQuickAdd, openSearch, jumpToTransferOtherSide, startNewTransaction,
+  ]);
+
   // Handle quick add
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -804,12 +1367,77 @@ export default function AccountTransactions() {
   };
   
   
-  const handleDeleteConfirm = () => {
-    if (deleteConfirmTransaction) {
-      deleteTransaction(deleteConfirmTransaction.id);
-      setDeleteConfirmTransaction(null);
+  /**
+   * What deleting the row in the confirmation would leave behind in ANOTHER
+   * account — null for an ordinary row, and then the dialog says nothing extra.
+   *
+   * The same warning the full editor's delete carries, for the same reason:
+   * the counterpart of a linked transfer survives, still moving that account's
+   * balance, with its link silently nulled. A delete reached in two keystrokes
+   * must not be less informed than one reached through the editor.
+   */
+  const deleteStranding = useMemo(
+    () => describeDeleteStranding(deleteConfirmTransaction, transactions, accounts),
+    [deleteConfirmTransaction, transactions, accounts]
+  );
+
+  const handleDeleteConfirm = useCallback(() => {
+    const target = deleteConfirmTransaction;
+    if (!target) return;
+    // Where the highlight goes next, worked out BEFORE the row leaves the list.
+    // Deleting from the keyboard must not dead-end: the register leaves you on
+    // the row that takes the deleted one's place (the last row's predecessor),
+    // ready for the next Delete.
+    const successorId = getNextTransactionId(target.id) ?? getPreviousTransactionId(target.id);
+    deleteTransaction(target.id);
+    setDeleteConfirmTransaction(null);
+    if (selectedTransactionId === target.id) {
+      setSelectedTransactionId(successorId);
+      setSelectedTransaction(successorId ? transactionsWithBalance.find(t => t.id === successorId) ?? null : null);
+      setRowScroll(successorId ? { rowId: successorId, align: 'nearest' } : null);
     }
-  };
+  }, [
+    deleteConfirmTransaction, deleteTransaction, getNextTransactionId, getPreviousTransactionId,
+    selectedTransactionId, transactionsWithBalance
+  ]);
+
+  /**
+   * Carry out the bulk delete the confirmation was answered for.
+   *
+   * The PLAN is what runs — not the current selection — so what happens is
+   * exactly what the dialog described, even if something re-rendered
+   * underneath it. Rows are deleted one at a time down the same audited
+   * deleteTransaction the single delete uses; a row that fails is counted out
+   * rather than aborting the rest, and the first failure is shown, so nobody
+   * is left with a half-finished batch and no idea which half.
+   */
+  const handleBulkDeleteConfirm = useCallback(async (): Promise<void> => {
+    const plan = bulkDeletePlan;
+    if (!plan || plan.deleting.length === 0) return;
+    setBulkBusy(true);
+    let deleted = 0;
+    let firstError: unknown = null;
+    try {
+      for (const transaction of plan.deleting) {
+        try {
+          await deleteTransaction(transaction.id);
+          deleted += 1;
+        } catch (error) {
+          if (firstError === null) firstError = error;
+        }
+      }
+    } finally {
+      setBulkBusy(false);
+      setBulkDeletePlan(null);
+      // The rows that were highlighted are gone; leaving the highlight
+      // pointing at them would show the add bar over an empty selection.
+      clearSelection();
+    }
+    if (deleted > 0) {
+      showSuccess(deleted === 1 ? 'Deleted 1 transaction.' : `Deleted ${deleted} transactions.`);
+    }
+    if (firstError !== null) showError(firstError);
+  }, [bulkDeletePlan, deleteTransaction, clearSelection, showSuccess, showError]);
   
   // Get category display name
   const getCategoryName = useCallback((categoryId: string, transaction?: TransactionWithBalance) => {
@@ -890,11 +1518,34 @@ export default function AccountTransactions() {
       key: 'category',
       header: 'Category',
       width: '280px',
-      accessor: (transaction) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400 truncate block">
-          {getCategoryName(transaction.category, transaction)}
-        </span>
-      ),
+      accessor: (transaction) => {
+        const name = getCategoryName(transaction.category, transaction);
+        // The opening-balance lead line is a summary, not a transaction: it has
+        // no category and nothing to vouch for.
+        const suggested = !isOpeningBalanceRow(transaction) && isConfirmableSuggestion(transaction);
+        if (!suggested) {
+          // A category the user stands behind gets NO extra chrome. Whatever is
+          // marked in a register has to be rare, or the marking says nothing.
+          return (
+            <span className="text-sm text-gray-600 dark:text-gray-400 truncate block">
+              {name}
+            </span>
+          );
+        }
+        return (
+          // The badge sits AFTER the name and never shrinks: the names keep one
+          // left edge down the column (a ragged one is unreadable at a glance),
+          // and the amber still stands out where the guesses are. The name is
+          // what gives way when the column is dragged narrow — it is also the
+          // part the row's own tooltip and the dock below repeat.
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              {name}
+            </span>
+            <SuggestedCategoryBadge title="The app filled this in. Click the row to confirm it or pick a different category." />
+          </span>
+        );
+      },
       className: 'text-left',
       headerClassName: 'text-left',
       sortable: true
@@ -1312,6 +1963,25 @@ export default function AccountTransactions() {
                   </div>
                 )}
               </div>
+
+              {/* The shortcut list, reachable with a mouse. `?` opens the same
+                  dialog, but only someone who already knows about it will ever
+                  press `?` — so it lives here too, beside the other things
+                  that change how the register behaves. Desktop only: this is
+                  where the keyboard-driven table is. */}
+              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 hidden lg:block">
+                <button
+                  type="button"
+                  onClick={() => { setShowView(false); setShowShortcuts(true); }}
+                  className="w-full flex items-center gap-2 py-1 text-sm text-gray-700 dark:text-gray-200 hover:text-[#1a2332] dark:hover:text-blue-400"
+                >
+                  <KeyboardIcon size={14} />
+                  Keyboard shortcuts
+                  <kbd className="ml-auto px-1.5 py-0.5 text-[11px] font-semibold rounded border border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                    ?
+                  </kbd>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1337,6 +2007,7 @@ export default function AccountTransactions() {
               <div className="relative">
                 <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search by description, amount, category..."
                   value={searchTerm}
@@ -1455,6 +2126,15 @@ export default function AccountTransactions() {
         />
       </div>
 
+      {/* How many rows the highlight now covers, for anyone who cannot see it
+          stretch. The region is ALWAYS here, empty until there is something to
+          say: a live region that appears with its message already in it is
+          announced unreliably or not at all, which is the same as not having
+          one. */}
+      <div className="sr-only" aria-live="polite">
+        {hasMultiSelection ? `${selectedRowIds.length} transactions selected` : ''}
+      </div>
+
       {/* Only the desktop table has a Balance column, so only it needs the
           warning that the column has stopped being a running one. */}
       {balanceOrderNotice && (
@@ -1463,20 +2143,41 @@ export default function AccountTransactions() {
         </p>
       )}
 
+      {/* The register is one ARIA grid, focusable as a whole and driven from
+          the keyboard: arrows and page keys walk the highlight, Enter opens the
+          highlighted row, and aria-activedescendant tells a screen reader which
+          row that is. Clicking a row focuses this wrapper (the browser focuses
+          the nearest focusable ancestor), so the keys are live straight after
+          the click that highlights the row. */}
       <div
         ref={tableWrapRef}
         data-transaction-table
         style={{ height: tableHeight }}
-        className="hidden lg:block overflow-hidden"
+        className="hidden lg:block overflow-hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+        role="grid"
+        aria-label={`${account.name} transactions`}
+        // The header row counts, which is what puts the first transaction on
+        // row 2 — the same numbering the user sees.
+        aria-rowcount={displayRows.length + 1}
+        tabIndex={0}
+        // Shift+arrow stretches the highlight over a run of rows, so a screen
+        // reader is told up front that more than one row can be selected —
+        // otherwise every extra aria-selected row reads as a contradiction.
+        aria-multiselectable
+        aria-activedescendant={selectedTransactionId ? rowDomId(selectedTransactionId) : undefined}
+        onKeyDown={handleRegisterKeyDown}
       >
         <VirtualizedTable
           items={displayRows}
           columns={columns}
           getItemKey={(row: DisplayRow) => row.id}
+          rowDomId={rowDomId}
           onRowClick={(item) => handleTransactionClick(item)}
           rowHeight={compactView ? 36 : 44}
-          scrollToKey={scrollTargetId}
-          selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
+          scrollToKey={rowScroll?.rowId ?? null}
+          scrollToAlign={rowScroll?.align}
+          scrollToBottomToken={footScrollToken}
+          selectedItems={selectedIdSet}
           onSort={(column, direction) => {
             // Every header sorts except the running Balance (which stays in its
             // chronological order regardless — see transactionsWithBalance).
@@ -1498,16 +2199,36 @@ export default function AccountTransactions() {
             if (isOpeningBalanceRow(row)) {
               return 'bg-blue-50/60 dark:bg-blue-900/20 italic';
             }
-            const isSelected = selectedTransactionId === row.id;
-            return isSelected ? 'selected-transaction-row' : '';
+            // Everything in the run reads as selected; the row the arrows are
+            // actually on keeps the register's own highlight class on top, so
+            // "where am I" stays answerable inside a nine-row selection.
+            if (selectedTransactionId === row.id) return 'selected-transaction-row';
+            return selectedIdSet.has(row.id)
+              ? 'bg-blue-100/70 dark:bg-blue-900/40'
+              : '';
           }}
         />
       </div>
 
-      {/* Bottom dock — ONE always-visible bar (hidden only in expanded mode):
-          editing the selected row, or adding a new transaction when nothing
-          is selected. */}
-      {!tableExpanded && quickEditTarget && !isEditModalOpen && (
+      {/* Bottom dock — ONE always-visible bar (hidden only in expanded mode),
+          in whichever of its three modes fits what is selected: what you can
+          do with a RUN of rows, the quick editor for a single one, or the add
+          bar when nothing is highlighted. */}
+      {!tableExpanded && hasMultiSelection && (
+        <RegisterSelectionBar
+          count={selectedRows.length}
+          unreconciledCount={selectedRows.filter(row => !row.cleared).length}
+          archivableCount={selectedRows.filter(row => !row.archived).length}
+          busy={bulkBusy}
+          onReconcile={() => { void applyCleared(selectedRows.map(row => row.id), true); }}
+          onUnreconcile={() => { void applyCleared(selectedRows.map(row => row.id), false); }}
+          onArchive={() => { void archiveSelection(); }}
+          onDelete={() => setBulkDeletePlan(planBulkDelete(selectedRows, transactions, accounts))}
+          onClear={clearSelection}
+        />
+      )}
+
+      {!tableExpanded && !hasMultiSelection && quickEditTarget && !isEditModalOpen && (
         <QuickEditTransactionPanel
           transaction={quickEditTarget}
           onNext={
@@ -1515,6 +2236,9 @@ export default function AccountTransactions() {
               ? () => { advanceToNextTransaction(quickEditTarget.id); }
               : undefined
           }
+          focusFirstField={dockFocusRequested}
+          onFocusFirstFieldHandled={handleDockFocusHandled}
+          onReturnToGrid={handleReturnToGrid}
           onClose={() => {
             setSelectedTransactionId(null);
             setSelectedTransaction(null);
@@ -1523,7 +2247,7 @@ export default function AccountTransactions() {
       )}
 
       {/* Quick Add Transaction (the dock's default mode) */}
-      {!tableExpanded && !(quickEditTarget && !isEditModalOpen) && (
+      {!tableExpanded && !hasMultiSelection && !(quickEditTarget && !isEditModalOpen) && (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 px-4 py-3">
         {/* max-w: the dock is as wide as the register, and a description box
             stretched across it left Amount and Add squeezed into the corner.
@@ -1542,7 +2266,7 @@ export default function AccountTransactions() {
               produced a different ragged layout at every width. From sm up
               it is the same single wrapping row as before. */}
           <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
-            <div className="w-full sm:w-[150px] sm:shrink-0">
+            <div ref={quickAddDateRef} className="w-full sm:w-[150px] sm:shrink-0">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Date</label>
               <DatePicker
                 value={quickAddForm.date}
@@ -1586,6 +2310,7 @@ export default function AccountTransactions() {
             <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
               <input
+                ref={quickAddDescriptionRef}
                 type="text"
                 placeholder="Description"
                 value={quickAddForm.description}
@@ -1731,31 +2456,34 @@ export default function AccountTransactions() {
         />
       )}
       
-      {/* Delete Confirmation */}
+      {/* Delete Confirmation — keyboard-first: Delete is focused on open, so
+          the loop is arrow to the row, Delete, Enter. */}
       {deleteConfirmTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4 dark:text-white">Delete Transaction</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to delete "{deleteConfirmTransaction.description}"?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteConfirmTransaction(null)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteTransactionConfirm
+          transaction={deleteConfirmTransaction}
+          stranding={deleteStranding}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteConfirmTransaction(null)}
+        />
       )}
+
+      {/* Deleting a RUN of rows — the confirmation names every row that would
+          leave half a transfer behind, and every row it is refusing to touch.
+          Cancel holds the focus here, unlike its single-row sibling: there is
+          a list to read first. */}
+      {bulkDeletePlan && (
+        <BulkDeleteTransactionsConfirm
+          plan={bulkDeletePlan}
+          busy={bulkBusy}
+          onConfirm={() => { void handleBulkDeleteConfirm(); }}
+          onCancel={() => setBulkDeletePlan(null)}
+        />
+      )}
+
+      <RegisterShortcutsDialog
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
 
       {/* Account Settings — opened directly from the register header. */}
       <AccountSettingsModal
@@ -1774,6 +2502,15 @@ export default function AccountTransactions() {
             navigate(preserveDemoParam('/accounts', location.search));
           }
         }}
+      />
+
+      {/* The one thing nobody discovers on their own. Dismissed for good once
+          read, like every other page tip; Settings ▸ App Settings ▸ Page Tips
+          brings it back. */}
+      <PageTip
+        id="register-keyboard"
+        title="This register runs on the keyboard"
+        description="Click any row, then use the arrow keys to move, Enter to open it, Space to reconcile it and Delete to remove it. Press ? for the whole list — or find it under View ▸ Keyboard shortcuts."
       />
     </div>
   );

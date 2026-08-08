@@ -42,13 +42,6 @@ export interface OfflineState {
   syncInProgress: boolean;
 }
 
-export interface ConflictResolution<T> {
-  client: T;
-  server: T;
-  resolved: T | null;
-  strategy: 'client-wins' | 'server-wins' | 'merge' | 'manual';
-}
-
 class OfflineStorageService {
   private readonly OFFLINE_QUEUE_STORE = 'offline-queue';
   private readonly OFFLINE_DATA_STORE = 'offline-data';
@@ -309,7 +302,15 @@ class OfflineStorageService {
   }
 
   /**
-   * Handle sync conflicts
+   * Record a sync conflict and surface it, for a person to resolve.
+   *
+   * It used to try to resolve one itself first, and those resolvers were
+   * deleted: they merged MONEY with float arithmetic (a balance delta added
+   * back onto the server's figure, a budget reduced to the smaller of two
+   * amounts) and did it silently, on data the user never saw. Field-level
+   * merging with the financial rules spelled out lives in
+   * services/conflictResolutionService, which is what the conflict UI uses;
+   * this path's job is to keep the conflict and say so.
    */
   private async handleConflict(operation: OfflineQueueItem, serverData: OfflineEntityData) {
     const conflict: ConflictItem = {
@@ -323,124 +324,7 @@ class OfflineStorageService {
     };
 
     await indexedDBService.put(this.CONFLICT_STORE, { ...conflict });
-
-    // Notify about conflict
     this.notifyConflict(conflict);
-
-    // Try automatic resolution
-    const resolution = await this.autoResolveConflict(operation, serverData);
-    if (resolution.resolved) {
-      // Update operation with resolved data
-      operation.data = resolution.resolved;
-      await this.syncOperation(operation);
-
-      // Mark conflict as resolved
-      conflict.resolved = true;
-      await indexedDBService.put(this.CONFLICT_STORE, { ...conflict });
-    }
-  }
-
-  /**
-   * Auto-resolve conflicts based on strategy
-   */
-  private async autoResolveConflict(
-    operation: OfflineQueueItem, 
-    serverData: OfflineEntityData
-  ): Promise<ConflictResolution<OfflineEntityData>> {
-    const clientData = operation.data;
-    
-    switch (operation.entity) {
-      case 'transaction':
-        return this.resolveTransactionConflict(
-          clientData as Transaction,
-          serverData as Transaction
-        );
-      
-      case 'account':
-        return this.resolveAccountConflict(
-          clientData as Account,
-          serverData as Account
-        );
-      
-      case 'budget':
-        return this.resolveBudgetConflict(
-          clientData as Budget,
-          serverData as Budget
-        );
-      
-      default:
-        return {
-          client: clientData,
-          server: serverData,
-          resolved: null,
-          strategy: 'manual'
-        };
-    }
-  }
-
-  /**
-   * Resolve transaction conflicts
-   */
-  private resolveTransactionConflict(client: Transaction, server: Transaction): ConflictResolution<Transaction> {
-    // If timestamps are different, use the most recent
-    if (client.date !== server.date) {
-      const clientDate = new Date(client.date).getTime();
-      const serverDate = new Date(server.date).getTime();
-      
-      return {
-        client,
-        server,
-        resolved: clientDate > serverDate ? client : server,
-        strategy: 'client-wins'
-      };
-    }
-    
-    // Otherwise require manual resolution
-    return {
-      client,
-      server,
-      resolved: null,
-      strategy: 'manual'
-    };
-  }
-
-  /**
-   * Resolve account conflicts
-   */
-  private resolveAccountConflict(client: Account, server: Account): ConflictResolution<Account> {
-    // For balance conflicts, calculate the difference
-    const originalBalance =
-      'originalBalance' in client && typeof (client as { originalBalance?: number }).originalBalance === 'number'
-        ? (client as { originalBalance: number }).originalBalance
-        : client.balance;
-    const balanceDiff = client.balance - originalBalance;
-    
-    return {
-      client,
-      server,
-      resolved: {
-        ...server,
-        balance: server.balance + balanceDiff
-      },
-      strategy: 'merge'
-    };
-  }
-
-  /**
-   * Resolve budget conflicts
-   */
-  private resolveBudgetConflict(client: Budget, server: Budget): ConflictResolution<Budget> {
-    // Use the most restrictive budget
-    return {
-      client,
-      server,
-      resolved: {
-        ...server,
-        amount: Math.min(client.amount, server.amount),
-        spent: Math.max(client.spent || 0, server.spent || 0)
-      },
-      strategy: 'merge'
-    };
   }
 
   /**

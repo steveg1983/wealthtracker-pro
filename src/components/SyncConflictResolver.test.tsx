@@ -6,10 +6,16 @@
  * being torn down between test files — can't be reproduced inside one test,
  * so the race test asserts the observable contract instead: a load that
  * resolves after unmount must complete without errors or warnings.
+ *
+ * Plus the sign contract: this screen asks the user to choose between two
+ * versions of their own money, so a debit and a credit of the same size must
+ * not render identically.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { SyncConflictResolver } from './SyncConflictResolver';
 
 const mocks = vi.hoisted(() => ({
@@ -24,14 +30,34 @@ vi.mock('../services/offlineService', () => ({
   },
 }));
 
-const conflict = (id: string): Record<string, unknown> => ({
+const conflict = (
+  id: string,
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> => ({
   id,
   entity: 'transaction',
   localData: { description: 'TESCO STORES', amount: -45.5 },
   serverData: null,
   timestamp: 1720000000000,
   resolved: false,
+  ...overrides,
 });
+
+const renderResolver = () =>
+  render(
+    <PreferencesProvider>
+      <SyncConflictResolver />
+    </PreferencesProvider>
+  );
+
+/** The column a "Local Version"/"Server Version" heading belongs to. */
+const panelFor = (heading: HTMLElement): HTMLElement => {
+  const panel = heading.closest('div.space-y-4');
+  if (!(panel instanceof HTMLElement)) {
+    throw new Error(`no panel wraps the "${heading.textContent}" heading`);
+  }
+  return panel;
+};
 
 describe('SyncConflictResolver', () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -71,6 +97,62 @@ describe('SyncConflictResolver', () => {
     const indicator = await screen.findByRole('button', { name: /resolve sync conflicts/i });
     // Only c1 survives — a single conflict shows no count badge
     expect(indicator.textContent).not.toMatch(/\d/);
+  });
+
+  it('keeps the minus sign on a debit, so a debit and a credit are told apart', async () => {
+    const user = userEvent.setup();
+    mocks.getConflicts.mockResolvedValue([
+      conflict('c1', {
+        localData: { description: 'TESCO STORES', amount: -45.5 },
+        serverData: { description: 'TESCO STORES', amount: 45.5 },
+      }),
+    ]);
+
+    renderResolver();
+    await user.click(await screen.findByRole('button', { name: /resolve sync conflicts/i }));
+    await user.click(await screen.findByRole('button', { name: /transaction conflict/i }));
+
+    // Local version is money leaving the account; the server copy has it as
+    // money arriving. Stripping the sign made both read "£45.50" and there was
+    // no way to tell which version to keep.
+    expect(await screen.findByText('-£45.50')).toBeInTheDocument();
+    expect(screen.getByText('£45.50')).toBeInTheDocument();
+  });
+
+  it('renders each version under its own heading with the right sign', async () => {
+    const user = userEvent.setup();
+    mocks.getConflicts.mockResolvedValue([
+      conflict('c1', {
+        localData: { description: 'TESCO STORES', amount: -45.5 },
+        serverData: { description: 'TESCO STORES', amount: 45.5 },
+      }),
+    ]);
+
+    renderResolver();
+    await user.click(await screen.findByRole('button', { name: /resolve sync conflicts/i }));
+    await user.click(await screen.findByRole('button', { name: /transaction conflict/i }));
+
+    const local = panelFor(await screen.findByText('Local Version'));
+    const server = panelFor(await screen.findByText('Server Version'));
+    expect(within(local).getByText('-£45.50')).toBeInTheDocument();
+    expect(within(server).getByText('£45.50')).toBeInTheDocument();
+  });
+
+  it('shows zero without a phantom minus sign', async () => {
+    const user = userEvent.setup();
+    mocks.getConflicts.mockResolvedValue([
+      conflict('c1', {
+        localData: { description: 'ROUNDED OUT', amount: -0 },
+        serverData: { description: 'ROUNDED OUT', amount: 0 },
+      }),
+    ]);
+
+    renderResolver();
+    await user.click(await screen.findByRole('button', { name: /resolve sync conflicts/i }));
+    await user.click(await screen.findByRole('button', { name: /transaction conflict/i }));
+
+    expect(await screen.findAllByText('£0.00')).toHaveLength(2);
+    expect(screen.queryByText('-£0.00')).not.toBeInTheDocument();
   });
 
   it('ignores a conflict load that resolves after unmount (teardown race)', async () => {

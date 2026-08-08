@@ -14,7 +14,11 @@ import { useToast } from '../contexts/ToastContext';
 import { ArchiveIcon, CalendarIcon, CheckCircleIcon, ChevronRightIcon } from './icons';
 import DatePicker from './common/DatePicker';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
-import { groupAccountsForDisplay, type AccountDisplayGroup } from '../utils/accountGrouping';
+import {
+  compareAccountsByName,
+  groupAccountsForDisplay,
+  type AccountDisplayGroup,
+} from '../utils/accountGrouping';
 import { preserveDemoParam } from '../utils/navigation';
 import {
   ARCHIVE_PRESETS, ARCHIVE_OVERRIDES_STORAGE_KEY, EMPTY_ARCHIVE_IMPACT, archiveImpactByAccount,
@@ -76,11 +80,12 @@ export default function ArchiveManager() {
 
   // Archivable accounts: open, non-investment (investments excluded in v1),
   // alphabetical — the bands preserve input order, so sorting once here sorts
-  // every band and sub-band.
+  // every band and sub-band. The app's one comparator, so this list orders
+  // names exactly as every dropdown does.
   const eligibleAccounts = useMemo(
     () => accounts
       .filter(a => a.isActive !== false && a.type !== 'investment')
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+      .sort(compareAccountsByName),
     [accounts]
   );
 
