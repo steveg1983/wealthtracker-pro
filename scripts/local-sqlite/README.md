@@ -2,7 +2,14 @@
 
 Applies the proposed local-edition SQLite schema and the cloud's Postgres schema
 side by side, runs the same operation against both, and records what each one
-does with it. Sixty-four specs, one declarative invariant each.
+does with it. Sixty-six specs, one declarative invariant each.
+
+**Three lanes live in this directory now**, and they ask three different
+questions. `run.mjs` asks whether a SCHEMA refuses a write; `verbs.mjs` asks
+whether two implementations of one OPERATION agree; `admission.mjs` asks whether
+two implementations of one DECISION agree, where the second implementation is
+the TypeScript that ships today. The third has its own section at the bottom of
+this file, and it is the one that closes Phase 1.
 
 Nothing here touches Supabase, `src/`, `api/` or `supabase/migrations/`.
 
@@ -734,7 +741,8 @@ Each of these was executed, then reverted.
 
 **308 verb specs · 308 pass · 9 declared divergences · 24 single-engine**,
 2026-08-08, against a reference cluster rebuilt from the full migration history.
-`npm run test:local-sqlite` is 66/66 and `cargo test` is 237.
+`npm run test:local-sqlite` is 66/66, `npm run test:local-admission` is 109/109
+and `cargo test` is **270** (it was 237 before the admission surface).
 
 The count in this section has been behind twice, and the drift is worth one
 line rather than a quiet edit: it read **172** while the suite had already grown
@@ -1114,3 +1122,435 @@ mutation table above is where it earned its keep.
   used since the transfer family — a second login with one account — has been
   carrying an integrity violation all along, and nothing until now could report
   it.
+
+---
+
+# The ADMISSION harness (`admission.mjs`) — a third lane, and the one with no SQL in it
+
+```bash
+~/.cargo/bin/cargo build --manifest-path crates/Cargo.toml --features cli   # once
+npm run test:local-admission
+npm run test:local-admission -- --filter=cleared    # one family
+npm run test:local-admission -- --list              # what is in here
+```
+
+No Postgres cluster. No SQLite file either. That is not a shortcut — it is the
+subject.
+
+## The different question, again
+
+| lane | question | oracle |
+| --- | --- | --- |
+| `run.mjs` | does this SCHEMA refuse this write? | the cloud's Postgres schema |
+| `verbs.mjs` | do two implementations of one OPERATION agree, on the answer AND on the rows left behind? | the live Postgres RPC |
+| `admission.mjs` | do two implementations of one DECISION agree? | **the TypeScript module that ships today** |
+
+The twenty-one verbs are ports of Postgres functions, so Postgres can be asked.
+These rules have no Postgres side at all: they decide what a parsed row MEANS
+*before* any write verb sees it. PHASE1-PLAN §5 counts **48 invariants of that
+class — 35 % of the whole inventory** — and TS-INVARIANTS §7 names the four the
+audit was most sure about: *"`findStatementDuplicates`, `planStatementBankBalance`,
+`feedOverlap`, `deleteRefusalFor` are admission control, not parsing."* Three of
+those four are in this lane. (The fourth is not; see "Deliberately not done".)
+
+There are no rows to compare afterwards, because nothing is written. What is
+compared is the ANSWER, field by field, to the bottom of every nested structure.
+
+## The oracle is executed, not transcribed
+
+PHASE1-PLAN §5.2 sets out a method for these 48: *"Extract each Vitest case's
+fixture and expectation into the same scenario format… run the Rust
+implementation against those cases."* That is transliteration, and its weakness
+is that a transliterated expectation is a **copy of the oracle taken on one
+day**. The module can change underneath it and the copy will not notice — it
+will keep passing, describing behaviour that no longer exists.
+
+So this lane runs the module. `lib/ts-oracle.mjs` imports `src/` directly;
+esbuild bundles it once per run into one ESM file; Node imports that natively;
+each spec's payload goes through the real function and through
+`wealth-core-cli`, and the two answers are compared.
+
+The coupling is deliberate and worth stating plainly: **a change in `src/` can
+change this lane's answers, and that is the point.** If somebody edits
+`statementDuplicates.ts` tomorrow, this lane fails tomorrow.
+
+### Why esbuild and not tsx
+
+Both are in `node_modules` and both arrive through `vite`, a direct
+devDependency; neither is a new dependency, and this harness must not add one
+(`lib/sqlite.mjs` states the rule). esbuild wins on the thing that matters:
+it produces a plain file that `import()` loads with **no loader hook in the
+process**, so the oracle's module graph and the runner's cannot interact.
+Measured cost: **15–20 ms**, once per run, and the runner prints the figure it
+actually got in its engines block rather than this one.
+
+No type checking, deliberately. `tsc -b` covers `src`, `vite.config.ts` and
+`api`, and nothing under `scripts/`; esbuild ERASES types rather than checking
+them. That is the right division — the shipped module is typechecked by the
+repo's own gate, and a second, weaker check here could only disagree with it.
+
+### In-process on one side, a process per spec on the other
+
+The verb harness went out of its way to spawn on both sides so that neither
+engine got a structural advantage. That argument does not apply here, and the
+reason is worth writing down: there is no database, no connection and no
+transaction on either side, so there is no state a spec could leave behind for
+the next one. Every function in the oracle is pure.
+
+The one exception is real, and it is why the arrangement is sound rather than
+merely convenient: `src/utils/decimal.ts` calls `Decimal.config()` at import
+time — precision 20, ROUND_HALF_UP, globally. That is module state, it is shared
+by every spec, and it is exactly the state the money comparison depends on. So
+sharing it is the point.
+
+## What an adapter may do, and what it may not
+
+The two sides of this comparison do not take the same KINDS of value. The
+TypeScript takes JavaScript numbers and `Date`s because it runs after a parser
+has converted them; the Rust takes decimal strings because `Money` is an integer
+type at the boundary. So `lib/ts-oracle.mjs` adapts, and the rule is:
+
+* it may **rename** (`fit_id` → `fitId`), **re-render** (a money string into the
+  number the module's own callers hand it; a `Date` back into a calendar day; a
+  `Set` into an array) and **build a fixture** (see the cleared family below);
+* it may **not decide anything**. No branch in it may depend on something the
+  TypeScript function has not already answered. Where the port carries a field
+  the TypeScript has no counterpart for, the spec declares it `rustOnly` **with a
+  reason** — it is never computed in the adapter.
+
+One place that rule is load-bearing: `money()` in the adapter **refuses** to
+render a value that is not exact to the penny. Rounding it quietly is precisely
+how an adapter would hide the divergence this lane exists to measure, so it
+raises a HARNESS ERROR and the spec has to declare what it found.
+
+And one guarantee that had to be made rather than assumed: the runner
+round-trips every payload through `JSON.parse(JSON.stringify(...))` before
+dispatch. The Rust side receives a string because it is a separate process;
+handing the TypeScript side the spec's live object would let the two see
+different things, because a `Date`, an `undefined`, a `NaN` and a bigint all
+survive in memory and none of them survive JSON.
+
+## "A planner cannot write" is a property of the binary, not a habit
+
+Not one function in `crates/wealth-core/src/admission/` takes a
+`rusqlite::Connection`, and the only occurrences of the word under that
+directory are in the module documentation that makes this claim:
+
+```bash
+grep -rn rusqlite crates/wealth-core/src/admission/ | grep -v '//!'    # no output
+```
+
+The bridge goes further and **refuses to be handed a database**. A `plan_*`
+command sent with `--db` exits non-zero:
+
+```
+wealth-core-cli: a plan_* command decides what a row means and writes nothing,
+so it is never handed a database; drop --db
+```
+
+`admission.mjs` asserts that on **every run**, before any spec, and prints it in
+the engines block. A bridge that started accepting the argument would fail the
+run rather than quietly removing the guarantee. It is the sibling of the
+FK-pragma assertion `lib/sqlite.mjs` makes before every constraint spec.
+
+## The lane has no single-engine specs, and cannot
+
+`lib/admission-specs.mjs` **refuses** `parity: 'not-comparable'` outright, with
+the reason in the error message. In the verb harness it is legitimate: the cloud
+genuinely has no `verify_integrity`, so a spec for it can only run one engine.
+Here the TypeScript module IS the thing being ported — it is present by
+definition — and a spec that could not run it would be a spec for a rule that is
+not a port of anything.
+
+## What is in it
+
+**109 specs · 109 pass · 4 declared divergences**, 2026-08-08.
+
+| family | specs | rule | ported from |
+| --- | --- | --- | --- |
+| `dedupe-*` | 21 | TS-I6, TS-I7 | `src/utils/statementDuplicates.ts` |
+| `bankbal-*` | 18 | TS-B1, TS-B2, TS-B3, TS-I2 | `src/utils/statementBankBalance.ts` |
+| `overlap-*` | 25 | TS-I12, TS-I13 | `src/services/import/msMoney/feedOverlap.ts` |
+| `cleared-*` | 13 | TS-I9 | four sites, four importers |
+| `identifiers-*` | 19 | TS-A1, TS-A2, TS-A3 | `src/utils/ofxAccountIdentifiers.ts` |
+| `match-*` | 7 | TS-A3 | `findAccountByOfxIdentifiers` in the same file |
+| `category-*` | 6 | TS-I8 | `src/utils/transferMatch.ts:85-94` |
+
+### The four declared divergences, and why three of them are one divergence
+
+| spec | TypeScript | Rust |
+| --- | --- | --- |
+| `dedupe-a-sub-penny-amount-…` | rounds `-12.345` to `-1235` minor and deduplicates | refuses `amount_not_representable` |
+| `bankbal-a-sub-penny-closing-balance-…` | rounds `900.005` to `900.01` and writes it | refuses `amount_not_representable` |
+| `overlap-a-float-drifted-amount-…` | absorbs `0.30000000000000004` into 30p | refuses `amount_not_representable` |
+| `dedupe-a-date-only-the-browser-can-read-…` | reads `2027-2-7` through V8's fallback parser and pairs the row | cannot read it, and pairs nothing |
+
+The first three are the **same divergence at three sites**, and it is the one
+`crates/wealth-core/src/money.rs` already declares against Postgres's silent
+`numeric(20,2)` rounding and against `parseMoneyInput`. Each is pinned from
+*both* sides, so the day the TypeScript stops rounding, the spec fails and the
+divergence retires deliberately instead of quietly.
+
+The fourth is a date question. `Date.parse("2027-2-7")` succeeds in node and is
+**implementation-defined**: ECMA-262 lets an engine accept whatever it likes once
+the standard format does not match, and V8's fallback also reads `"Feb 7 2027"`
+and `"2/7/2027"`, whose meaning depends on the reader's nationality. Porting it
+would mean porting V8. The direction of the consequence is why the port is
+allowed to be stricter: a date it cannot read drops the row out of MATCHING, so
+the row imports and is visible in the register. It fails towards "an extra row
+the user can see", never towards "a payment that vanished".
+
+### What the port DOES read, exactly, including the part nobody expects
+
+`admission::day` is not `wire::is_calendar_date`, and the difference is
+deliberate. `wire::is_calendar_date` answers Postgres's question — *is this a
+real day?* — and refuses 31 February, because a ledger that files a transaction
+on a day that does not exist is broken. These modules ask a different question:
+*what does `Date.parse` do with this text?* MEASURED (node 22.17.0):
+
+| text | `Date.parse` | `admission::day` |
+| --- | --- | --- |
+| `2027-02-30` | **2027-03-02** — the day ROLLS OVER | identical |
+| `2027-04-31` | **2027-05-01** | identical |
+| `1900-02-29` | **1900-03-01** (1900 is not a leap year) | identical |
+| `2027-02-00` | NaN | unreadable |
+| `2027-13-01` | NaN | unreadable |
+| `2027-12-32` | NaN | unreadable |
+| `2027-2-7` | 2027-02-07 (V8 fallback) | unreadable — **declared divergence** |
+
+The syntax bounds the month at 12 and the day at 31, and `MakeDay` carries the
+excess into the next month. `dedupe-a-day-past-the-end-of-its-month-rolls-over-on-both-sides`
+pins it, in the rendered output as well as in the gap.
+
+### TS-I9 — the family where the VALUE cannot tell a right port from a wrong one
+
+PHASE1-PLAN §4.2 found the trap and stated it exactly: *"five sources, four
+policies, but only **three distinct values**. Feed, OFX and CSV all produce
+`false`. So a test that asserts *the value* cannot tell a correct four-policy
+port from a wrong one-policy port — it passes either way for three of the five
+sources."*
+
+Two things answer that here, and neither is a test:
+
+1. **The policy is data, one arm per source, and the match is exhaustive.**
+   Adding a source without deciding its policy is a compile error.
+2. **The answer names the policy that produced it.** CSV answers
+   `no_cleared_column` and OFX answers `never_pre_cleared`, though both answer
+   `false`. A one-policy port has one name to give.
+
+The distinguishing *tests* are still the two the plan names — a QIF row with
+`C*` and a Money row with `clearedStatus = 2`, each asserted `true`, and each
+asserted `false` when the same logical row arrives as CSV — and they are here,
+driven end to end through **all four real importers**. Every one of
+`ofxImportService`, `qifImportService`, `enhancedCsvImportService` and
+`transformMsMoneyExport` turned out to be drivable with pure inputs — no
+database, no network, no browser — so this is a real differential and not a
+constant typed into the harness. Where the flag goes per format, and where it
+deliberately does not:
+
+| source | the flag lives in | policy |
+| --- | --- | --- |
+| `qif` | a `C` line carrying it | `file_flag` |
+| `ms_money` | `clearedStatus`, Money's own 0/1/2 | `reconciled_status` |
+| `ofx` | **nowhere** — OFX has no such tag | `never_pre_cleared` |
+| `csv` | **nowhere** — a CSV has no cleared column, which IS the policy | `no_cleared_column` |
+
+`bank_feed` is the fifth source and has **no TypeScript oracle**: its policy is
+enforced in SQL, and it already has a differential proof against Postgres in the
+verb lane (`feed-a-feed-row-arrives-unreconciled`). It is in the policy table and
+asserted by `crates/wealth-core/tests/admission.rs`, not by a spec here.
+
+### One thing measured and deliberately left untested
+
+`findFeedOverlap` sorts its feed rows with `dayOf(a.date) - dayOf(b.date)`, which
+is **NaN** when either date is unreadable — and a NaN comparator has no defined
+answer. MEASURED (node 22.17.0): one bad date among five leaves the array
+**completely unsorted**; a different arrangement of three comes back partially
+sorted. Those two observations contradict each other, so it is an artefact of
+V8's sort and not a behaviour to port.
+
+So the port sorts unreadable days first, **says that it is a choice**, and this
+lane carries no spec with an unreadable feed date — a spec that constructed one
+would be asserting the artefact. The property that matters (such a row matches
+nothing) is a crate test, with one feed row, where there is no order to disagree
+about. This is the same call the ingest port made about `payee_memory_category`'s
+fourth tie-break, for the same reason.
+
+## Proof that the specs are not vacuous
+
+Each of these was executed against the full lane, then reverted. Every one names
+a rule from a different module.
+
+| break | result |
+| --- | --- |
+| **the 1:1 greedy claim** — drop `claimed.insert(...)` from the dedupe's second pass | `dedupe-only-as-many-rows-as-the-register-could-account-for` fails: BOTH £20 file rows are flagged against the ONE held row that could account for one of them, and parity goes `MISDECLARED (divergent)`. This is the "two cash withdrawals on one day" case losing real spending, reproduced on demand |
+| **the staleness comparison** — `recorded_date > statement` → `>=` | `bankbal-equal-days-write-so-a-re-import-settles-on-the-same-figure` fails four ways (`kind` `set` → `stale`, and all three of `updates`, `amount`, `date_as_of` absent), `MISDECLARED (divergent)`. Re-importing one statement twice would then depend on which copy was opened first |
+| **one cleared policy** — `Csv => FileFlag` | **two specs fail, and they fail differently, which is the finding.** `cleared-the-qif-flag-through-csv-changes-nothing` fails on the VALUE (`false` → `true`) and goes `MISDECLARED`. `cleared-a-csv-row-is-never-pre-cleared` fails **only on the policy NAME** — the value is `false` either way, so parity still reads `match` and the label alone would have passed it. That is PHASE1-PLAN §4.2's trap, caught by the field that exists for it. Two crate tests fail with them |
+| **the handover refusal** — `if false && (feed.is_split \|\| feed.linked_transfer_id.is_some())` | both `overlap-a-split-feed-row-…` and `overlap-a-feed-row-already-half-of-a-pair-…` fail on five assertions each: the leg is suppressed, a handover is planned for a feed row the database would refuse to re-type, and `kept_despite_overlap.transfers` drops from 1 to 0 — the residual going *invisible* at the same moment it becomes wrong |
+| **the date rollover** — bound the day at 28 instead of 31 (i.e. validate the calendar) | `dedupe-a-day-past-the-end-of-its-month-rolls-over-on-both-sides` fails, `MISDECLARED (divergent)`. Note what a "safer" port costs: the row stops matching at all |
+| **description becomes a gate** — `if similarity == 0.0 { continue; }` in the dedupe's ranking loop | `dedupe-truncated-and-renamed-descriptions-are-still-the-same-payment` fails — the **Nadia** pair is gone, which is the exact row the whole two-tier rule was written for — and `dedupe-a-fitid-is-read-off-a-whole-line-…` fails with it |
+| **the blank-only backfill** — drop `is_blank(account.sort_code)` | `identifiers-an-account-that-already-has-both-is-left-alone` fails (a backfill appears where there should be none) and `identifiers-only-the-blank-half-is-filled-…` fails on the summary as well as the updates |
+| **the self-transfer refusal** — `if true \|\| category_id.is_empty()` | `category-the-account-own-to-from-category-is-refused` fails on both fields: `admitted` `false` → `true` and `refusal` `"self_transfer"` → null. Ordinary direct debits filed as transfers to the account they sit in, which is the incident TS-I8 exists for |
+
+## Findings this lane produced
+
+- **The two modules that were written to mirror each other read a date two
+  different ways, and only one of them is exposed to V8's fallback parser.**
+  `statementDuplicates.ts:52` says it mirrors `findFeedOverlap` deliberately —
+  *"same shape, same reasoning, one fewer thing to learn"* — and their date
+  readers are not the same function. `feedOverlap.ts:163-166` takes
+  `iso.slice(0, 10)` and appends `T00:00:00.000Z`, which FORCES the standard
+  format: `"2026-5-10"` becomes `"2026-5-10T00:00:00.000Z"`, which is not a date
+  at all. `statementDuplicates.ts` goes through `toDateMs`, which is
+  `Date.parse` unguarded. So a statement quoting `2026-5-10` is deduplicated by
+  one module and would not be by the other, and nothing anywhere says so. It is
+  why the port has one declared date divergence and not two.
+- **`Date.parse` is not a validator, and using the ledger's own date check here
+  would have been wrong.** `wire::is_calendar_date` exists for
+  `transactions.date` and refuses 31 February, because a ledger that files a
+  transaction on a day that does not exist is broken. Reaching for it in the
+  admission modules would have DROPPED rows out of duplicate matching that the
+  TypeScript matches — `2027-02-30` is a date to `Date.parse`, and it is 2 March.
+  Measured, ported, and pinned by a spec on the rendered output as well as on
+  the gap. Two functions that look interchangeable and answer differently is
+  exactly the shape of the mistake this port is most likely to make.
+- **All four file importers turned out to be drivable with pure inputs**, which
+  is what turned TS-I9 from a pinned constant into a real differential.
+  `ofxImportService.importTransactions` and
+  `enhancedCsvImportService.importTransactions` are `async` and take arrays of
+  accounts and transactions, which reads like a database dependency and is not
+  one; `qifImportService` and `transformMsMoneyExport` are plain functions. So
+  every one of the four policies is measured against the importer that carries
+  it, end to end, rather than against a line somebody transcribed.
+- **The parity label alone cannot catch a merged `cleared` policy.** Measured:
+  point CSV at the QIF rule and `cleared-a-csv-row-is-never-pre-cleared` fails
+  ONLY on the policy name, while parity still reports `match` — because the
+  value is `false` either way. That is PHASE1-PLAN §4.2's trap arriving in
+  practice, and the reason the result carries a name the TypeScript has no
+  counterpart for.
+- **`exactPence` does not survive the port, and that is the interesting part.**
+  Three modules each carry their own Decimal round-trip whose only job is to turn
+  a double back into an exact quantity of pence. `Money` is an `i64`, so all
+  three disappear — a defence replaced by a type. What that exposes is the money
+  divergence at three NEW sites: the helpers ROUND a sub-penny amount and
+  `Money::parse` REFUSES it, and until this lane existed that difference had been
+  declared once, against Postgres, in one file.
+
+## Layout
+
+```
+admission-specs/*.spec.mjs   one decision per file, ONE payload, declared parity
+admission-specs/_shared.mjs  the fixtures more than one spec wants (not a spec)
+lib/admission-specs.mjs      loader; refuses "not-comparable", and any shape it does not know
+lib/ts-oracle.mjs            the ADAPTER: imports src/ and maps shapes. Decides nothing
+lib/admission-typescript.mjs bundles the oracle with esbuild and runs it in-process
+lib/admission-rust.mjs       spawns wealth-core-cli with NO --db, and asserts it refuses one
+admission.mjs                the runner and the admission parity table
+```
+
+## A spec
+
+```js
+export default {
+  invariant: 'TS-I9',
+  title: '…',
+  design: '…',                 // where the rule is written down
+  consequence: '…',            // what goes wrong if it is lost — money terms
+  parity: 'match',             // match | divergent. There is no third value here
+  reason: '…',                 // required for a divergence, forbidden for a match
+
+  command: { verb: 'plan_cleared_flag', payload: { … } },   // ONE document, both sides
+
+  expect: { outcome: 'ok' },   // or { typescript: {…}, rust: {…} } for a divergence
+  result: { cleared: false },  // asserted on BOTH sides, and cross-compared
+  divergentResult: { … },      // two answers, only for parity: 'divergent'
+  rustOnly: { policy: '<why the oracle has no counterpart>' },
+  rustResult: { policy: 'no_cleared_column' },              // the Rust side alone
+};
+```
+
+`rustOnly` is the one place a field can leave the cross-comparison, and the
+loader makes it expensive: it must state WHY in prose, a key in `result` may not
+also be `rustOnly`, and a key in `rustResult` must be. Two fields use it today —
+`policy` in the cleared family, and `candidates` in the account-match family —
+and both are places the port says MORE than its oracle.
+
+---
+
+# Phase 1 status — what "closed" does and does not mean
+
+**Phase 1 of the local edition is closed.** The ledger core, the ingest write
+path and the admission surface all exist, all have executable proofs, and the
+proofs run in three lanes in this directory:
+
+| | count | oracle |
+| --- | --- | --- |
+| constraint specs (`run.mjs`) | 66 | the cloud's Postgres schema |
+| verb specs (`verbs.mjs`) | 308 | the live Postgres RPCs |
+| admission specs (`admission.mjs`) | 109 | the TypeScript modules that ship today |
+| crate tests (`cargo test`) | 270 | — |
+
+**483 specs and 29 declared divergences, every divergence pinned from both
+sides.** Of the 483, **459 actually compare two implementations**: the other 24
+are `verify_integrity`'s, which run on one engine because the cloud has no such
+function, and they are counted separately by their own runner for exactly that
+reason.
+
+That is what closed means. Here is what it does not.
+
+### Still open by design
+
+* **The R-5 leg guard has one path left owing it.** `verbs/mod.rs` records five
+  paths that must hold `_rpc_guard('leg')` while deleting a transaction a split
+  line links to. Four are discharged — the delete verb (both directions), the
+  merge, the wipe, and the transfer-unlink repair, which turned out not to
+  delete anything. **The duplicate sweep is the fifth and it does not exist
+  yet**, so the obligation is recorded and not discharged. When
+  `delete_transactions_swept` is built it must hold the guard on
+  `delete_transaction::touches_a_transfer_leg`'s condition, and it must not
+  re-derive that condition.
+* **`plan_import` itself is not built.** PHASE1-PLAN §3.2 describes a verb over
+  `Vec<RawRow>` that enforces thirteen canonical invariants at once. What exists
+  is its admission *decisions*, each addressable on its own. The verb that
+  SEQUENCES them — TS-I10's date-order inference, TS-I5's sign rule, D-3's
+  zero-amount policy, TS-I4's statement ordinal — is not written, and the write
+  path it would end in (`verbs::import_transactions`) is.
+* **`plan_duplicate_sweep` / `delete_transactions_swept` (TS-D1…TS-D4).** The
+  sweep DELETES, so its gate is a refusal in a write verb rather than a plan, and
+  PHASE1-PLAN §4.3 settles its shape as a `strand_ack` token on
+  `delete_transaction`. That is a change to an existing verb's contract and to a
+  declared divergence (#126), not an addition beside it, and it is the reason the
+  fourth module TS-INVARIANTS §7 names — `deleteRefusalFor` — is not in the
+  admission lane.
+
+### Two functions deliberately not ported, and the decisions are written down
+
+* **`migrate_categories_atomic`** (`verbs/mod.rs`): the one-way door between the
+  localStorage id space and the cloud's uuids. A local file has no second id
+  space, and the two ways a category tree can arrive in one are already covered
+  by verbs that exist.
+* **`formatStatementDay` and `todayIsoDay`**
+  (`admission/statement_bank_balance.rs`): they decide what is SHOWN, which is
+  the other side of the dividing line, and both carry a timezone argument that
+  belongs in the TypeScript's own tests.
+
+And two half-ports, both recorded in `scripts/port-coverage/manifest.json` as
+`pending` **with a note** rather than flipped: `transferMatch.ts` (TS-I8 is
+ported, the transfer-sweep ranking is not) and `accountNumberInput.ts` (the
+reading rules are ported, the storage boundary belongs with account write verbs
+that do not exist yet).
+
+### What none of the three lanes proves
+
+Everything `run.mjs`'s own "What this does NOT prove" section already says —
+no isolation, no collation-dependent behaviour, and Postgres is the oracle for
+*behaviour* and never for *arithmetic* — plus one more that belongs to the third
+lane specifically:
+
+**A live oracle proves agreement, not correctness.** If
+`statementDuplicates.ts` is wrong, the port is wrong in the same way and this
+lane says `match`. That is the correct outcome for a PORT — a port that quietly
+disagreed with the thing it ports would be a different program — but it is not
+a proof that the rule is right. The Vitest suites remain the argument that these
+rules are the right rules; this lane is the argument that there is now exactly
+one of each.
