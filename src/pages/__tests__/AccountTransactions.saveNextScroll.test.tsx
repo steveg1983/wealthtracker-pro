@@ -388,7 +388,12 @@ describe('Account register — the row being worked on, virtualised', () => {
     clickRowInTheMiddle();
 
     expect(activeRowText()).toContain('Synthetic row 25');
-    expect(centreOfActiveRow()).toBe(VIEWPORT_HEIGHT / 2);
+    // Centring is delivered by deliverScroll's measured retry, which has a
+    // 1500ms budget — longer than waitFor's 1000ms default, so the assertion
+    // must wait past it or a slow runner reads the pre-delivery position.
+    await waitFor(() => {
+      expect(centreOfActiveRow()).toBe(VIEWPORT_HEIGHT / 2);
+    }, { timeout: 5000 });
   });
 
   it('centres the row Save & Next moves on to, with the list rebuilt under it', async () => {
@@ -405,7 +410,11 @@ describe('Account register — the row being worked on, virtualised', () => {
       expect(descriptionField()).toHaveValue('Synthetic row 26');
     });
     expect(activeRowText()).toContain('Synthetic row 26');
-    expect(centreOfActiveRow()).toBe(VIEWPORT_HEIGHT / 2);
+    // Same 1500ms delivery budget as above: the editor shows row 26 before the
+    // scroll lands, and CI lost exactly this race (position 262, 2026-08-09).
+    await waitFor(() => {
+      expect(centreOfActiveRow()).toBe(VIEWPORT_HEIGHT / 2);
+    }, { timeout: 5000 });
     expect(everyPositionFromHere).not.toContain(0);
   });
 
@@ -426,7 +435,7 @@ describe('Account register — the row being worked on, virtualised', () => {
     // 25 centred with its editor, 1032 is row 26 centred with it.)
     await waitFor(() => {
       expect(centreOfActiveRow()).toBe(VIEWPORT_HEIGHT / 2);
-    });
+    }, { timeout: 5000 });
     const settledAt = listViewport().scrollTop;
     const everyPositionFromHere = watchScrollTop(listViewport());
 
