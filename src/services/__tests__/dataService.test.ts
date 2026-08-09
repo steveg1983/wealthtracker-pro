@@ -605,6 +605,273 @@ describe('DataService (deterministic fallback)', () => {
     });
   });
 
+  describe('category writes', () => {
+    // The budget and goal blocks above say why these tests exist; the hazard is
+    // the same one, operation for operation, and it is arguably worse here.
+    // `PlanningService.createCategory(null, …)` does not throw and does not
+    // warn — it writes the browser's copy and hands back an ordinary Category —
+    // so a signed-in person would name a category, file three transactions
+    // under the id it gave them, and find all three uncategorised at the next
+    // boot, because the cloud read it never reached knows nothing about either.
+    // The compiler cannot catch it, because null is a legal argument there.
+    // These can.
+
+    const categoryInput = (
+      overrides: Partial<Omit<Category, 'id'>> = {}
+    ): Omit<Category, 'id'> => ({
+      // The shape the category modal actually submits.
+      name: 'Fuel',
+      type: 'expense',
+      level: 'detail',
+      isActive: true,
+      ...overrides
+    });
+
+    /** A stand-in for the cloud half, answering plausibly so the call SHAPE is what fails. */
+    const cloudPlanningService = () => ({
+      mergeCategories: vi.fn(),
+      createBudget: vi.fn(),
+      updateBudget: vi.fn(),
+      deleteBudget: vi.fn(),
+      createCategory: vi.fn(
+        async (_userId: string | null, category: Omit<Category, 'id'>): Promise<Category> => ({
+          ...category,
+          id: 'category-from-the-cloud'
+        })
+      ),
+      createCategories: vi.fn(
+        async (
+          _userId: string | null,
+          categories: Array<Omit<Category, 'id'>>
+        ): Promise<Category[]> =>
+          categories.map((category, index) => ({ ...category, id: `cloud-category-${index}` }))
+      ),
+      updateCategory: vi.fn(
+        async (
+          _userId: string | null,
+          id: string,
+          updates: Partial<Category>
+        ): Promise<Category> => ({ ...categoryInput(), ...updates, id })
+      ),
+      deleteCategory: vi.fn(async (): Promise<void> => {}),
+      // Deliberately not `ids.length`: the cloud RPC re-verifies every row and
+      // may delete fewer, and the seam promises the caller what actually went.
+      deleteUnusedCategories: vi.fn(async (): Promise<number> => 1),
+      getBudgets: vi.fn(async () => [] as Budget[]),
+      getGoals: vi.fn(async () => [] as Goal[]),
+      ensureCategories: vi.fn(async () => [] as Category[])
+    });
+
+    const cloudUserIdService = () => ({
+      ensureUserExists: vi.fn(),
+      getCurrentDatabaseUserId: vi.fn(() => 'db-user-1' as string | null),
+      getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: 'db-user-1' }))
+    });
+
+    const signedIn = (
+      planningService: ReturnType<typeof cloudPlanningService>,
+      storage: ReturnType<typeof createStorage>,
+      ids: ReturnType<typeof cloudUserIdService> = cloudUserIdService()
+    ) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: ids
+      });
+
+    it('creates a category under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      const service = signedIn(planningService, storage);
+      const input = categoryInput();
+
+      const created = await service.createCategory(input);
+
+      expect(created.id).toBe('category-from-the-cloud');
+      // The whole call log, not just "was called with": a SECOND call carrying
+      // null is exactly the bug, and `toHaveBeenCalledWith` alone would pass
+      // straight through it.
+      expect(planningService.createCategory.mock.calls).toEqual([['db-user-1', input]]);
+      // And it went to the cloud INSTEAD of the browser, not as well as.
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('creates categories in bulk under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      const service = signedIn(planningService, storage);
+      const rows = [categoryInput({ name: 'Fuel' }), categoryInput({ name: 'Parking' })];
+
+      const created = await service.createCategories(rows);
+
+      expect(created.map(category => category.id)).toEqual(['cloud-category-0', 'cloud-category-1']);
+      expect(planningService.createCategories.mock.calls).toEqual([['db-user-1', rows]]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('asks nobody at all — not even for the owner — when a bulk create is given nothing', async () => {
+      // The empty check runs BEFORE the owner is resolved, which is the
+      // behaviour rather than a saving: a tree import that adds only detail
+      // plans no new groups and asks anyway, and neither the cloud nor the
+      // browser should be opened to answer that.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      const ids = cloudUserIdService();
+      const service = signedIn(planningService, storage, ids);
+
+      await expect(service.createCategories([])).resolves.toEqual([]);
+      await expect(service.deleteUnusedCategories([])).resolves.toBe(0);
+
+      expect(planningService.createCategories).not.toHaveBeenCalled();
+      expect(planningService.deleteUnusedCategories).not.toHaveBeenCalled();
+      expect(ids.getCurrentDatabaseUserId).not.toHaveBeenCalled();
+      expect(storage.get).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('updates a category under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      const service = signedIn(planningService, storage);
+
+      const updated = await service.updateCategory('cat-1', { name: 'Motor fuel' });
+
+      expect(updated.name).toBe('Motor fuel');
+      expect(planningService.updateCategory.mock.calls)
+        .toEqual([['db-user-1', 'cat-1', { name: 'Motor fuel' }]]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('deletes a category under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      const service = signedIn(planningService, storage);
+
+      await service.deleteCategory('cat-1');
+
+      expect(planningService.deleteCategory.mock.calls).toEqual([['db-user-1', 'cat-1']]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('prunes under the resolved database id, and hands back the count the cloud gave', async () => {
+      // Two ids in, one row out: the RPC re-verifies and may keep a category
+      // something has since been filed against. The seam passes that figure
+      // through untouched — the caller prints it.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      const service = signedIn(planningService, storage);
+
+      const removed = await service.deleteUnusedCategories(['cat-1', 'cat-2']);
+
+      expect(removed).toBe(1);
+      expect(planningService.deleteUnusedCategories.mock.calls)
+        .toEqual([['db-user-1', ['cat-1', 'cat-2']]]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('hands the cloud failure back word for word', async () => {
+      // Same reason as the budget and goal ones: the category screens render
+      // `error.message`, and the sentences the database produces here name the
+      // rule that stopped the write — a duplicate name under the same parent is
+      // the one users actually hit. A wrapper here would replace it with
+      // "Failed to save category".
+      const planningService = cloudPlanningService();
+      planningService.createCategory.mockRejectedValueOnce(
+        new Error('duplicate key value violates unique constraint "categories_user_name_parent_key"')
+      );
+      const service = signedIn(planningService, createStorage({ [STORAGE_KEYS.CATEGORIES]: [] }));
+
+      await expect(service.createCategory(categoryInput())).rejects.toThrow(
+        'duplicate key value violates unique constraint "categories_user_name_parent_key"'
+      );
+    });
+
+    it('writes to the browser store, and does not touch the cloud service, with no cloud session', async () => {
+      // The other half of every test above. The fields this class fills in
+      // mirror PlanningService's local half exactly — the id and nothing else —
+      // because the two write the SAME browser collection, and a category that
+      // came out of one must be indistinguishable from a category that came out
+      // of the other.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [] });
+      let sequence = 0;
+      const service = createDataService({
+        isSupabaseConfigured: () => false,
+        hasCloudSession: () => false,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid: () => `category-${++sequence}`,
+        now,
+        userIdService: userId
+      });
+
+      const group = await service.createCategory(categoryInput({ name: 'Motoring', level: 'sub' }));
+      expect(group).toEqual({
+        name: 'Motoring',
+        type: 'expense',
+        level: 'sub',
+        isActive: true,
+        id: 'category-1'
+      });
+
+      const details = await service.createCategories([
+        categoryInput({ name: 'Fuel', parentId: group.id }),
+        categoryInput({ name: 'Parking', parentId: group.id })
+      ]);
+      expect(details.map(category => category.id)).toEqual(['category-2', 'category-3']);
+
+      const renamed = await service.updateCategory('category-2', { name: 'Petrol' });
+      expect(renamed).toMatchObject({ id: 'category-2', name: 'Petrol', parentId: 'category-1' });
+      await expect(service.updateCategory('category-nowhere', { name: 'Nothing' }))
+        .rejects.toThrow('Category not found');
+
+      // The cascade: the group goes and takes its children with it.
+      await service.deleteCategory('category-1');
+      expect(await service.getCategories()).toEqual([]);
+
+      expect(planningService.createCategory).not.toHaveBeenCalled();
+      expect(planningService.createCategories).not.toHaveBeenCalled();
+      expect(planningService.updateCategory).not.toHaveBeenCalled();
+      expect(planningService.deleteCategory).not.toHaveBeenCalled();
+    });
+
+    it('counts what a local prune actually removed, not what it was asked to remove', async () => {
+      // B-6 against the browser's own store. Neither figure below is the size
+      // of the request: an id that names nothing removes nothing, and an id
+      // that names a group removes the group's children with it. The caller
+      // shows this number to the user.
+      const storage = createStorage({
+        [STORAGE_KEYS.CATEGORIES]: [
+          { id: 'cat-group', name: 'Motoring', type: 'expense', level: 'sub', isActive: true },
+          { id: 'cat-child', name: 'Fuel', type: 'expense', level: 'detail', parentId: 'cat-group', isActive: true },
+          { id: 'cat-keep', name: 'Groceries', type: 'expense', level: 'detail', isActive: true }
+        ]
+      });
+      const service = createDataService({
+        isSupabaseConfigured: () => false,
+        hasCloudSession: () => false,
+        planningService: cloudPlanningService(),
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: userId
+      });
+
+      // Two asked for, one of them nowhere: one actually went.
+      await expect(service.deleteUnusedCategories(['cat-keep', 'cat-nowhere'])).resolves.toBe(1);
+      // One asked for, and it took its child with it: two actually went.
+      await expect(service.deleteUnusedCategories(['cat-group'])).resolves.toBe(2);
+      expect(await service.getCategories()).toEqual([]);
+    });
+  });
+
   it('does not swallow an unreadable account list — exactly as the call it replaced did not', async () => {
     // The boot's two reads that promise never to reject (its transactions and
     // its split lines) resolve empty when the store will not open. The ACCOUNT

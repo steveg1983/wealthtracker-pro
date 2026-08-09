@@ -42,10 +42,9 @@
  *
  * This is the seam as it stands, not as it will end: the operations below are
  * exactly the ones DataService owns today, under the names it uses today.
- * The remaining planning writes (the category ones, which still bypass to
- * PlanningService), bulk import, backup/restore/wipe, and the capability
- * descriptor that will retire `isUsingSupabase` all join this interface as
- * their consumers are routed through it. The names here are today's names
+ * Bulk import, backup/restore/wipe, and the capability descriptor that will
+ * retire `isUsingSupabase` all join this interface as their consumers are
+ * routed through it. The names here are today's names
  * deliberately: renaming and re-routing in one step would make a rename
  * indistinguishable from a behaviour change in review.
  */
@@ -392,6 +391,99 @@ export interface DataPortPlanningWrites {
    * put the rule about what a completed goal feels like.
    */
   deleteGoal(id: string): Promise<void>;
+  /**
+   * Create one category — a name rows can be filed under.
+   *
+   * The ownership rule stated at length on `createBudget` applies unchanged. A
+   * category is not money, but losing one is not a smaller problem than losing a
+   * budget: every transaction filed under it holds its id, so a category written
+   * into the wrong store leaves a register of rows pointing at a name that is
+   * not there.
+   *
+   * ── THE ID COMES BACK USABLE (divergence B-5) ────────────────────────────
+   *
+   * The caller uses the returned id IMMEDIATELY — as the value of the select it
+   * just added the option to, and as the `parentId` of the children created in
+   * the same breath (this is how a tree import builds its second level). So the
+   * id must be final: a placeholder an implementation intends to replace when it
+   * next syncs would file transactions under an id that stops existing.
+   *
+   * Where the id is MADE may differ — the client mints a uuid for browser
+   * storage and for a device edition, the database's column default mints it in
+   * the cloud — and that is declared as B-5 rather than asserted equal. What may
+   * not differ: it is stable, and it is usable on the next line.
+   */
+  createCategory(category: Omit<Category, 'id'>): Promise<Category>;
+  /**
+   * Create several categories at once — the tree import's operation, which
+   * otherwise makes one round trip per name in a list that is routinely
+   * hundreds long.
+   *
+   * NOTHING IN, NOTHING OUT, AND NOTHING WRITTEN. An empty list is the ordinary
+   * case rather than a caller's mistake: an import that adds a level of detail
+   * to a tree the account already has plans no new groups at all, and asks for
+   * them anyway because the plan is computed before it is known to be empty. So
+   * an empty list resolves to an empty array without opening the store — which
+   * also keeps a cloud implementation from sending an insert with no rows, a
+   * thing some drivers answer with an error rather than a shrug.
+   *
+   * The answer is one category per category supplied, each with the id rule
+   * `createCategory` above states. Callers match the answers to what they asked
+   * for BY NAME, never by position: an implementation is free to hand them back
+   * in whatever order its store produced them.
+   */
+  createCategories(categories: Array<Omit<Category, 'id'>>): Promise<Category[]>;
+  /**
+   * Change a category, and hand back the whole category as it now stands (the
+   * caller replaces its copy with this, so a partial answer would blank the
+   * fields it left out).
+   *
+   * A category that is not there is refused BY NAME rather than created, and the
+   * refusal leaves the store exactly as it was — the rule the budget and goal
+   * updates above keep, for the same reason: an id that names nothing is a stale
+   * page, and inventing a category to satisfy it would put a name in somebody's
+   * list that they never typed.
+   */
+  updateCategory(id: string, updates: Partial<Category>): Promise<Category>;
+  /**
+   * Remove a category, AND THE CATEGORIES UNDER IT.
+   *
+   * The cascade is the part an implementation must not improvise: the cloud
+   * spells it as `ON DELETE CASCADE` on the parent id, browser storage spells it
+   * as a filter that drops children too, and both mean the same thing — a group
+   * cannot outlive itself as a set of orphans whose parent is gone. It is
+   * asserted in the contract suite rather than left to each engine's FK
+   * declaration, because an engine without foreign keys has nothing to inherit
+   * it from.
+   *
+   * What this does NOT do is re-file what was filed under it. Removing a
+   * category that transactions still point at leaves those rows pointing at
+   * nothing, so the screen that offers this refuses when anything references the
+   * category and offers `mergeCategories` instead — that operation exists
+   * precisely because this one cannot be made safe for the in-use case.
+   */
+  deleteCategory(id: string): Promise<void>;
+  /**
+   * Remove a batch of categories nothing is filed against — the "replace my
+   * category list with this one" half of a tree import.
+   *
+   * ── THE COUNT IS WHAT WAS ACTUALLY DELETED (divergence B-6) ──────────────
+   *
+   * Not the size of the list it was handed. The caller shows this figure to the
+   * user and re-reads the category set because of it, and the two engines can
+   * legitimately remove a different number of rows than were named: an
+   * implementation that re-judges every row against the ledger AS IT IS NOW may
+   * delete FEWER (the caller's plan was computed from a snapshot, and a
+   * transaction filed in another tab since is exactly the row that must survive
+   * a stale plan), and one that cascades children removes MORE for one named
+   * parent. Returning `ids.length` would be a guess dressed as a count, and the
+   * "kept 12 in use" sentence built from it would be a fiction.
+   *
+   * Empty in, zero out, nothing written — the same statement `createCategories`
+   * makes, and for the same reason: the prune plan is computed before anyone
+   * knows it is empty.
+   */
+  deleteUnusedCategories(ids: string[]): Promise<number>;
   /**
    * Move every reference from one category to another, then remove the source.
    * All-or-nothing, and the refusals are ordered: the source is judged before
