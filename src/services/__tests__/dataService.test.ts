@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createDataService, DataService } from '../api/dataService';
 import { createSimpleAccountService } from '../api/simpleAccountService';
-import type { Account, Budget, Category, Transaction, TransactionSplit } from '../../types';
+import type { Account, Budget, Category, Goal, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
 const createStorage = (initial: Record<string, unknown> = {}) => {
@@ -211,6 +211,62 @@ describe('DataService (deterministic fallback)', () => {
     expect(accountService.getAccounts).toHaveBeenCalledWith('db-user-1');
   });
 
+  it('asks the planning service for budgets and goals with the resolved database id, never with null', async () => {
+    // THE test of this slice, and the reason budgets/goals were worth a
+    // separate review from the writes beside them.
+    //
+    // PlanningService.getBudgets(null) does not throw, does not warn and does
+    // not return empty: it silently reads the BROWSER's budgets instead
+    // (planningService.ts — `if (this.cloudReady && userId)` … else
+    // readLocal). So a null owner is not a crash, it is a signed-in person
+    // being shown demo or imported budgets as if they were theirs, in a
+    // perfectly well-formed list with nothing anywhere to say the wrong store
+    // answered. The seam takes no user id precisely so no caller can make that
+    // mistake — and this pins that the seam itself does not make it either.
+    const planningService = {
+      mergeCategories: vi.fn(),
+      getBudgets: vi.fn(async () => [] as Budget[]),
+      getGoals: vi.fn(async () => [] as Goal[]),
+      ensureCategories: vi.fn(async () => [] as Category[])
+    };
+    const storage = createStorage({
+      // Present, and it must NOT be what comes back: a cloud read that fell
+      // through to the local store would otherwise pass this test unnoticed.
+      [STORAGE_KEYS.BUDGETS]: [{ id: 'budget-from-the-browser' }],
+      [STORAGE_KEYS.GOALS]: [{ id: 'goal-from-the-browser' }]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => true,
+      planningService,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => 'db-user-1'),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: 'db-user-1' }))
+      }
+    });
+
+    await expect(service.getBudgets()).resolves.toEqual([]);
+    await expect(service.getGoals()).resolves.toEqual([]);
+
+    expect(planningService.getBudgets).toHaveBeenCalledTimes(1);
+    expect(planningService.getBudgets).toHaveBeenCalledWith('db-user-1');
+    expect(planningService.getGoals).toHaveBeenCalledTimes(1);
+    expect(planningService.getGoals).toHaveBeenCalledWith('db-user-1');
+    // Said twice on purpose: `toHaveBeenCalledWith('db-user-1')` would still
+    // pass if a SECOND call arrived with null, and the second call is exactly
+    // the bug being guarded against.
+    expect(planningService.getBudgets.mock.calls).toEqual([['db-user-1']]);
+    expect(planningService.getGoals.mock.calls).toEqual([['db-user-1']]);
+    // The browser's copies stayed where they were.
+    expect(storage.get).not.toHaveBeenCalledWith(STORAGE_KEYS.BUDGETS);
+    expect(storage.get).not.toHaveBeenCalledWith(STORAGE_KEYS.GOALS);
+  });
+
   it('does not swallow an unreadable account list — exactly as the call it replaced did not', async () => {
     // The boot's two reads that promise never to reject (its transactions and
     // its split lines) resolve empty when the store will not open. The ACCOUNT
@@ -351,6 +407,64 @@ describe('DataService (deterministic fallback)', () => {
     });
     expect(await localService.getAccounts()).toHaveLength(2);
     expect(await localService.getClosedAccounts()).toHaveLength(1);
+  });
+
+  it('still names the categories while a signed-in session is resolving — the one read without the gate', async () => {
+    // A deliberate exception to the test above, pinned so that "consistency"
+    // cannot quietly delete it.
+    //
+    // Everything the pending gate withholds is MONEY: accounts, transactions,
+    // budgets, split lines. A category list is not money — it is the set of
+    // NAMES rows are filed under, and this browser's copy is the same list the
+    // account's own copy was migrated from. Withholding it would buy nothing
+    // and cost the boot its category names: blank cells down the register's
+    // category column, an empty category filter, for as long as the database id
+    // takes to resolve.
+    //
+    // The retired boot called PlanningService.ensureCategories(null) at exactly
+    // this point and got exactly this. If this test ever fails because someone
+    // added the guard for symmetry, the answer is to delete the guard.
+    const storedCategory: Category = {
+      id: 'cat-everyday',
+      name: 'Everyday',
+      type: 'expense',
+      level: 'detail',
+      isActive: true
+    };
+    const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: [storedCategory] });
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => true,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId // getCurrentDatabaseUserId → null: still resolving
+    });
+
+    // The gated read says nothing, as it must.
+    expect(await service.getCategories()).toEqual([]);
+    // The boot's read still names them.
+    expect((await service.prepareCategories()).map(category => category.id))
+      .toEqual(['cat-everyday']);
+  });
+
+  it('boots on the default categories when nothing is stored, rather than on none', async () => {
+    // Never empty: whatever this returns IS the list the register, the budgets
+    // page and every category filter are built from, and the boot does not ask
+    // twice. A brand-new local-mode ledger with [] here would have nowhere to
+    // file anything and no way to make somewhere.
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: createStorage(),
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+
+    const prepared = await service.prepareCategories();
+    expect(prepared.length).toBeGreaterThan(0);
   });
 
   it('archives reconciled transactions on/before the cutoff (local) and can restore them', async () => {

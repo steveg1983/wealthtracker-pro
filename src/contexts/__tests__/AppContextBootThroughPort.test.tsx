@@ -1,0 +1,380 @@
+/**
+ * The boot with the seam stubbed out entirely — the one-door proof.
+ *
+ * AppContextBoot.test.tsx drives the boot through the REAL DataService with a
+ * fake store underneath it, which is the right shape for asking whether that
+ * implementation behaves. This file asks a different question, and it is the
+ * question the whole seam exists for:
+ *
+ *   Is every piece of financial state the app boots with actually coming
+ *   through `dataPort`, or is some of it still arriving by a side door?
+ *
+ * So there is no store here at all. `../../services/port` is replaced with a
+ * stub whose answers are unmistakable — 'acct-from-the-seam',
+ * 'txn-from-the-seam' — and the assertion is that all of them turn up in app
+ * state. Anything that did NOT come through the door would arrive as an empty
+ * array instead, because nothing else is wired to anything.
+ *
+ * This is deliberately the test Phase 3's local implementation boots against:
+ * swap the stub for LocalDataPort, keep every assertion, and a green run says
+ * the app came up on the local edition. The stub is typed `DataPort`, so the
+ * day an operation joins the seam this file stops compiling until it is
+ * answered — which is the point of writing it now rather than then.
+ *
+ * NOT through the door yet, and deliberately named so the silence is not read
+ * as a claim: `isUsingSupabase` (still DataService's own answer — it is a
+ * capability question, and retiring it is its own slice), the real-time
+ * subscriptions, and the suggestion dismissals, which are not a boot read at
+ * all (they load on demand).
+ */
+
+import React, { ReactNode } from 'react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import type {
+  Account,
+  Budget,
+  Category,
+  Goal,
+  Transaction,
+  TransactionSplit
+} from '../../types';
+import type { AccountBalanceSnapshot, DataPort } from '../../services/port/dataPort';
+
+// Restore the live module (setup.ts registers a global mock for it).
+vi.unmock('../AppContextSupabase');
+
+// A signed-in Clerk user, stable across renders: the boot effect depends on
+// `user`, so a fresh object per render would re-fire it forever.
+vi.mock('@clerk/clerk-react', () => {
+  const user = {
+    id: 'clerk-user-1',
+    emailAddresses: [{ emailAddress: 'boot@example.com' }],
+    firstName: 'Boot',
+    lastName: 'Test',
+  };
+  const useUserValue = { user, isLoaded: true };
+  return {
+    useUser: () => useUserValue,
+    useAuth: () => ({ signOut: vi.fn(), getToken: vi.fn() }),
+    useSession: () => ({ session: null }),
+  };
+});
+
+vi.mock('@/contexts/AuthContext', () => {
+  const value = {
+    user: { id: 'clerk-user-1' },
+    isLoading: false,
+    isAuthenticated: true,
+    securityScore: 0,
+    securityRecommendations: [],
+    signOut: vi.fn(),
+    refreshSession: vi.fn(),
+  };
+  return {
+    AuthProvider: ({ children }: { children: ReactNode }) => children,
+    useAuth: () => value,
+    useRequireAuth: () => ({ isAuthenticated: true, isLoading: false }),
+    usePremiumFeatures: () => ({ hasPasskey: false, hasMFA: false, hasEnhancedSecurity: false }),
+  };
+});
+
+/**
+ * Everything the stubbed seam answers with, plus the log of what it was asked.
+ *
+ * `hold` is how the ORDER is proved rather than merely observed: a boot read
+ * that is left hanging tells us exactly which other reads were willing to start
+ * without it.
+ */
+const seam = vi.hoisted(() => {
+  const AT = (day: string): Date => new Date(`${day}T12:00:00.000Z`);
+
+  return {
+    calls: [] as string[],
+    /** Set by a test to keep `prepareCategories` from resolving. */
+    hold: null as Promise<void> | null,
+    accounts: [
+      {
+        id: 'acct-from-the-seam',
+        name: 'Everyday',
+        type: 'checking',
+        balance: -70.1,
+        currency: 'GBP',
+        isActive: true,
+        lastUpdated: AT('2025-01-01'),
+      },
+    ] as Account[],
+    transactions: [
+      {
+        id: 'txn-from-the-seam',
+        accountId: 'acct-from-the-seam',
+        amount: -12.5,
+        date: AT('2025-03-04'),
+        description: 'Something bought',
+        category: 'cat-from-the-seam',
+        type: 'expense',
+      },
+    ] as Transaction[],
+    splits: [
+      {
+        id: 'line-from-the-seam',
+        transactionId: 'txn-from-the-seam',
+        category: 'cat-from-the-seam',
+        amount: -12.5,
+        sortOrder: 1,
+      },
+    ] as TransactionSplit[],
+    categories: [
+      {
+        id: 'cat-from-the-seam',
+        name: 'Everyday spending',
+        type: 'expense',
+        level: 'detail',
+        isActive: true,
+      },
+    ] as Category[],
+    budgets: [
+      {
+        id: 'budget-from-the-seam',
+        categoryId: 'cat-from-the-seam',
+        amount: 200,
+        period: 'monthly',
+        isActive: true,
+        spent: 0,
+        createdAt: AT('2025-01-01'),
+        updatedAt: AT('2025-01-01'),
+      },
+    ] as Budget[],
+    goals: [
+      {
+        id: 'goal-from-the-seam',
+        name: 'New boiler',
+        type: 'savings',
+        targetAmount: 1500,
+        currentAmount: 0,
+        targetDate: AT('2026-01-01'),
+        isActive: true,
+        createdAt: AT('2025-01-01'),
+        updatedAt: AT('2025-01-01'),
+        progress: 0,
+      },
+    ] as Goal[],
+    balances: new Map<string, AccountBalanceSnapshot>([
+      ['acct-from-the-seam', { balance: -70.1, txnCount: 1 }],
+    ]),
+  };
+});
+
+vi.mock('../../services/port', () => {
+  const refuse = (name: string) => async (): Promise<never> => {
+    throw new Error(`${name} is not a boot read — the boot must not call it`);
+  };
+  const answer = function answer<T>(name: string, value: T): () => Promise<T> {
+    return async () => {
+      seam.calls.push(name);
+      return value;
+    };
+  };
+
+  // Typed as the interface on purpose: this is the compile-time half of the
+  // proof. An operation added to the seam breaks this file until it is
+  // answered here, which is how the local edition finds out what it owes.
+  const dataPort: DataPort = {
+    getAccounts: answer('getAccounts', seam.accounts),
+    getClosedAccounts: answer('getClosedAccounts', [] as Account[]),
+    getTransactions: answer('getTransactions', seam.transactions),
+    loadBootTransactions: async () => {
+      seam.calls.push('loadBootTransactions');
+      return {
+        transactions: seam.transactions,
+        stats: {
+          cached: 0,
+          fetched: seam.transactions.length,
+          total: seam.transactions.length,
+          fullFetchReason: 'stubbed seam',
+        },
+      };
+    },
+    getAccountBalances: answer('getAccountBalances', seam.balances),
+    getAllTransactionSplits: answer('getAllTransactionSplits', seam.splits),
+    getTransactionSplits: async () => seam.splits,
+    getBudgets: answer('getBudgets', seam.budgets),
+    getGoals: answer('getGoals', seam.goals),
+    getCategories: answer('getCategories', seam.categories),
+    getSuggestionDismissals: answer('getSuggestionDismissals', []),
+    prepareCategories: async () => {
+      seam.calls.push('prepareCategories');
+      if (seam.hold) {
+        await seam.hold;
+      }
+      seam.calls.push('prepareCategories:resolved');
+      return seam.categories;
+    },
+    initialize: async () => {},
+    subscribeToUpdates: () => () => {},
+    // Writes: none of them belong to a boot, so each one says so rather than
+    // quietly succeeding. A boot that wrote anything would fail by name here.
+    createAccount: refuse('createAccount'),
+    updateAccount: refuse('updateAccount'),
+    deleteAccount: refuse('deleteAccount'),
+    createTransaction: refuse('createTransaction'),
+    updateTransaction: refuse('updateTransaction'),
+    deleteTransaction: refuse('deleteTransaction'),
+    setTransactionsCleared: refuse('setTransactionsCleared'),
+    applyCategoryToUncategorized: refuse('applyCategoryToUncategorized'),
+    confirmTransactionCategories: refuse('confirmTransactionCategories'),
+    setTransactionArchived: refuse('setTransactionArchived'),
+    archiveTransactionsBefore: refuse('archiveTransactionsBefore'),
+    unarchiveAccount: refuse('unarchiveAccount'),
+    linkTransferPair: refuse('linkTransferPair'),
+    linkSplitLineTransfer: refuse('linkSplitLineTransfer'),
+    unlinkTransfers: refuse('unlinkTransfers'),
+    repairClaimedTransfer: refuse('repairClaimedTransfer'),
+    createTransferCounterpart: refuse('createTransferCounterpart'),
+    setTransactionSplits: refuse('setTransactionSplits'),
+    mergeCategories: refuse('mergeCategories'),
+    dismissSuggestion: refuse('dismissSuggestion'),
+    restoreSuggestion: refuse('restoreSuggestion'),
+  };
+
+  return { dataPort };
+});
+
+// The database id resolves (so the boot takes its signed-in branch) but the
+// CURRENT id stays null, which keeps every service that is NOT the seam on its
+// local path and off the network.
+vi.mock('../../services/userIdService', () => ({
+  userIdService: {
+    ensureUserExists: async (): Promise<string> => 'db-user-1',
+    getCurrentDatabaseUserId: (): string | null => null,
+    getCurrentClerkId: (): string | null => 'clerk-user-1',
+    getCurrentUserIds: (): { clerkId: string | null; databaseId: string | null } => ({
+      clerkId: 'clerk-user-1',
+      databaseId: null,
+    }),
+    getDatabaseUserId: async (): Promise<string> => 'db-user-1',
+    clearCache: (): void => {},
+  },
+}));
+
+vi.mock('../../services/autoSyncService', () => ({
+  default: { initialize: async (): Promise<void> => {} },
+}));
+
+vi.mock('../../services/api/simpleAccountService', () => ({
+  getAccounts: async (): Promise<Account[]> => [],
+  subscribeToAccountChanges: async (): Promise<() => void> => () => {},
+}));
+
+import { AppProvider, useApp } from '../AppContextSupabase';
+
+const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
+
+describe('the boot, through the seam and nothing else', () => {
+  beforeEach(() => {
+    seam.calls.length = 0;
+    seam.hold = null;
+  });
+
+  it('takes every piece of its financial state from the port', async () => {
+    const { result } = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Each of these is empty unless the seam supplied it: there is no store
+    // behind this test, only the stub.
+    expect(result.current.accounts.map(account => account.id)).toEqual(['acct-from-the-seam']);
+    expect(result.current.transactions.map(transaction => transaction.id))
+      .toEqual(['txn-from-the-seam']);
+    expect(result.current.transactionSplits.map(split => split.id))
+      .toEqual(['line-from-the-seam']);
+    expect(result.current.categories.map(category => category.id)).toEqual(['cat-from-the-seam']);
+    expect(result.current.budgets.map(budget => budget.id)).toEqual(['budget-from-the-seam']);
+    expect(result.current.goals.map(goal => goal.id)).toEqual(['goal-from-the-seam']);
+    expect(result.current.serverBalances.get('acct-from-the-seam')?.balance).toBe(-70.1);
+
+    // A Date crosses as a Date (rule 3): these rows go straight into the
+    // balance maths, and a string here would be a NaN there.
+    expect(result.current.transactions[0].date).toBeInstanceOf(Date);
+
+    // And the door was actually the door — every boot read went through it.
+    expect(new Set(seam.calls)).toEqual(new Set([
+      'getAccounts',
+      'getAccountBalances',
+      'prepareCategories',
+      'prepareCategories:resolved',
+      'loadBootTransactions',
+      'getAllTransactionSplits',
+      'getBudgets',
+      'getGoals',
+    ]));
+  });
+
+  it('does not read a transaction until the categories are prepared', async () => {
+    // The ordering the seam calls load-bearing, proved at the call site rather
+    // than assumed from the source order.
+    //
+    // On a first signed-in load `prepareCategories` runs the one-time id
+    // migration: every category gets a per-user uuid AND every transaction and
+    // budget that referenced the old ids is remapped, in one database
+    // transaction. A transaction read that started before that finished would
+    // hand the app rows pointing at categories about to stop existing — a
+    // register whose category column is blank, with nothing thrown anywhere to
+    // say why.
+    //
+    // Holding the categories is what makes this a proof: reordering the two
+    // reads, or gathering them into a Promise.all, both start the transaction
+    // read while this one is still outstanding, and both fail below.
+    let landCategories!: () => void;
+    seam.hold = new Promise<void>(resolve => {
+      landCategories = resolve;
+    });
+
+    const { result } = renderHook(() => useApp(), { wrapper });
+
+    await waitFor(() => expect(seam.calls).toContain('prepareCategories'));
+    expect(seam.calls).not.toContain('loadBootTransactions');
+
+    landCategories();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(seam.calls.indexOf('prepareCategories:resolved'))
+      .toBeLessThan(seam.calls.indexOf('loadBootTransactions'));
+    expect(result.current.transactions.map(transaction => transaction.id))
+      .toEqual(['txn-from-the-seam']);
+  });
+
+  it('asks for the budgets and the goals together, not one after the other', async () => {
+    // They are independent reads. Serialising them would add a whole round trip
+    // to every signed-in boot in exchange for nothing, and it is the kind of
+    // change that looks tidier in a diff than it is on a slow connection.
+    const started: string[] = [];
+    let landBudgets!: () => void;
+    const budgetsInFlight = new Promise<void>(resolve => {
+      landBudgets = resolve;
+    });
+
+    const { dataPort } = await import('../../services/port');
+    vi.spyOn(dataPort, 'getBudgets').mockImplementation(async () => {
+      started.push('getBudgets');
+      await budgetsInFlight;
+      return seam.budgets;
+    });
+    vi.spyOn(dataPort, 'getGoals').mockImplementation(async () => {
+      started.push('getGoals');
+      return seam.goals;
+    });
+
+    const { result } = renderHook(() => useApp(), { wrapper });
+
+    // Goals started while budgets were still outstanding: that is what "one
+    // Promise.all" means, and two sequential awaits could not produce it.
+    await waitFor(() => expect(started).toEqual(['getBudgets', 'getGoals']));
+
+    landBudgets();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.budgets.map(budget => budget.id)).toEqual(['budget-from-the-seam']);
+    expect(result.current.goals.map(goal => goal.id)).toEqual(['goal-from-the-seam']);
+
+    vi.restoreAllMocks();
+  });
+});

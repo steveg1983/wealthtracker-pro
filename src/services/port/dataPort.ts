@@ -321,6 +321,36 @@ export interface DataPortLifecycle {
    */
   initialize(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<void>;
   /**
+   * The categories the ledger is about to be read through — and, where an
+   * implementation needs one, the one-time migration that has to finish first.
+   *
+   * Lifecycle rather than a read, and the distinction is the whole point:
+   * `getCategories` asks what is stored, this one is allowed to CHANGE what is
+   * stored.
+   *
+   * **ORDERING IS LOAD-BEARING. This must resolve before any transaction or
+   * budget read.** On its first signed-in load the cloud implementation runs
+   * `migrate_categories_atomic`, which gives every category a per-user uuid AND
+   * remaps the category references on transactions and budgets — one database
+   * transaction, both halves together. Rows read before that lands carry the
+   * OLD ids, so an app that read them first would sit there holding a register
+   * whose every row points at a category that no longer exists: blank category
+   * cells, empty budgets, nothing broken enough to throw. Any implementation
+   * that renumbers anything inherits the same rule, which is why it is written
+   * here rather than at the one call site that has to obey it.
+   *
+   * NEVER EMPTY. A ledger with no categories has nowhere to file anything, and
+   * the boot does not ask twice: whatever comes back IS the list the register,
+   * the budgets page and every filter are built from. An implementation with
+   * nothing stored answers with its default set.
+   *
+   * **Divergence B-4**: browser storage returns what is stored, or the defaults
+   * unwritten; the cloud returns its rows, or migrates the browser's list into
+   * per-user ids and remaps every reference to it; the local core seeds its
+   * defaults into the store on first use and never has anything to remap.
+   */
+  prepareCategories(): Promise<Category[]>;
+  /**
    * Watch for changes made somewhere else. An implementation with no other
    * device to hear from returns a no-op unsubscribe, which is what the caller
    * already handles.
