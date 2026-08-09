@@ -171,6 +171,11 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'createGoal',
   'updateGoal',
   'deleteGoal',
+  'createCategory',
+  'createCategories',
+  'updateCategory',
+  'deleteCategory',
+  'deleteUnusedCategories',
   'mergeCategories',
   // Dismissal writes
   'dismissSuggestion',
@@ -281,6 +286,45 @@ const OWNERSHIP: Record<DataPortEngine, string> = {
 };
 
 /**
+ * B-5 — where a new category's id is MADE.
+ *
+ * The caller uses the id it gets back on the very next line: as the value of the
+ * select it just added an option to, and as the `parentId` of the children a
+ * tree import creates in its second pass. So the part that is asserted equal is
+ * that the id is final and usable at once. Where it comes from is not the same
+ * question — a client mints a uuid, a database column defaults to one — and an
+ * engine whose ids are allocated somewhere else entirely (a server that
+ * renumbers on sync) would have to declare it here rather than discover it in a
+ * register full of rows filed under an id that stopped existing.
+ */
+const ID_PROVENANCE: Record<DataPortEngine, string> = {
+  'browser-storage': 'an id the client mints',
+  supabase: 'an id the database column defaults to',
+  'local-core': 'an id the client mints'
+};
+
+/**
+ * B-6 — what a bulk prune does with the list it is handed.
+ *
+ * An engine that can see the whole ledger re-judges every row AGAINST IT AS IT
+ * IS NOW, so a plan computed from a stale snapshot cannot destroy a category
+ * somebody filed a transaction under in another tab a second ago; it therefore
+ * deletes FEWER rows than it was asked to. Browser storage IS the snapshot it
+ * would re-judge against — there is no second opinion available — so it does
+ * what it is told.
+ *
+ * What every engine is held to, and what the test below asks in both branches:
+ * the number it returns is the number of rows that ACTUALLY left. Not the size
+ * of the request. The caller prints that figure ("pruned 40, kept 12 in use")
+ * and re-reads the category set because of it.
+ */
+const BULK_PRUNE: Record<DataPortEngine, { describes: string; reverifies: boolean }> = {
+  'browser-storage': { describes: 'does what the plan says', reverifies: false },
+  supabase: { describes: 're-judges every row and keeps the ones still in use', reverifies: true },
+  'local-core': { describes: 're-judges every row and keeps the ones still in use', reverifies: true }
+};
+
+/**
  * B-8 — what a subscription promises.
  *
  * `subscribeToUpdates` is a watch, not a read: the caller hands over callbacks
@@ -355,6 +399,21 @@ const aTransaction = (id: string, rest: Partial<Transaction> = {}): Transaction 
 
 const aCategory = (id: string, name: string, rest: Partial<Category> = {}): Category => ({
   id,
+  name,
+  type: 'expense',
+  level: 'detail',
+  isActive: true,
+  ...rest
+});
+
+/**
+ * A category as a CALLER supplies one — no id, because the id is the store's to
+ * mint and the caller's to use immediately afterwards (B-5).
+ */
+const aNewCategory = (
+  name: string,
+  rest: Partial<Omit<Category, 'id'>> = {}
+): Omit<Category, 'id'> => ({
   name,
   type: 'expense',
   level: 'detail',
@@ -1093,6 +1152,175 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         await port.deleteGoal('goal-1');
 
         expect((await read()).goals).toEqual([]);
+      });
+    });
+
+    describe('writing a category', () => {
+      it('removes the categories under a category it removes', async () => {
+        // Rule 51. The cascade is a rule of the SEAM, not an artefact of the
+        // cloud's foreign key: an engine with no foreign keys to inherit it
+        // from would otherwise leave a group's children behind as orphans
+        // pointing at a parent that is gone — which reads on the categories
+        // page as a set of headings that cannot be expanded and cannot be
+        // deleted, because nothing lists them any more.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          categories: [
+            aCategory('cat-group', 'Motoring', { level: 'sub' }),
+            aCategory('cat-child', 'Fuel', { parentId: 'cat-group' }),
+            aCategory('cat-other', 'Groceries')
+          ]
+        });
+
+        await port.deleteCategory('cat-group');
+
+        expect((await read()).categories.map(category => category.id)).toEqual(['cat-other']);
+      });
+
+      it('writes nothing when a bulk create is given nothing, and every row when it is given some', async () => {
+        // Rule 52, and the empty half is the ordinary case rather than a
+        // caller's mistake: a tree import that only adds detail to groups the
+        // account already has plans no new groups at all, and asks anyway,
+        // because the plan is computed before it is known to be empty. An
+        // engine that opened a transaction, or sent an insert with no rows, to
+        // answer that would be doing work — and in some drivers, failing —
+        // over nothing.
+        //
+        // The second half is what stops the first from being satisfied by an
+        // operation that always writes nothing.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          categories: [aCategory('cat-1', 'Groceries')]
+        });
+        const before = asComparable(await read());
+
+        expect(await port.createCategories([])).toEqual([]);
+        expect(asComparable(await read())).toBe(before);
+
+        const created = await port.createCategories([
+          aNewCategory('Fuel'),
+          aNewCategory('Parking')
+        ]);
+
+        expect(created.map(category => category.name).sort()).toEqual(['Fuel', 'Parking']);
+        expect((await read()).categories.map(category => category.name).sort())
+          .toEqual(['Fuel', 'Groceries', 'Parking']);
+      });
+
+      it(`B-6: a bulk prune ${BULK_PRUNE[engine].describes}`, async () => {
+        // Rule 53. The plan a prune is handed was computed from a snapshot, and
+        // the gap between computing it and running it is long enough for
+        // somebody to file a transaction under one of the categories in it —
+        // in another tab, on a phone, or in the seconds the import spent
+        // inserting the new tree. An engine that can see the ledger judges the
+        // rows as they are NOW and keeps that one; browser storage IS the
+        // snapshot, so it has no second opinion to consult and does what it
+        // was told. Both are declared in BULK_PRUNE above rather than
+        // discovered here.
+        //
+        // What is asserted for both, and is the whole of B-6: the number that
+        // comes back is the number of rows that actually went.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          categories: [
+            aCategory('cat-used', 'Groceries'),
+            aCategory('cat-unused', 'Something nobody filed anything under')
+          ],
+          transactions: [aTransaction('txn-1', { category: 'cat-used' })]
+        });
+        const before = (await read()).categories.length;
+
+        const removed = await port.deleteUnusedCategories(['cat-unused', 'cat-used']);
+
+        const after = (await read()).categories;
+        if (BULK_PRUNE[engine].reverifies) {
+          expect(after.map(category => category.id)).toEqual(['cat-used']);
+        } else {
+          expect(after).toEqual([]);
+        }
+        expect(removed).toBe(before - after.length);
+      });
+
+      it('never invents the count: it is what actually went, not what was asked for', async () => {
+        // The other half of B-6, and the one the caller prints. `importCategoryTree`
+        // shows this figure to the user ("pruned 40, kept 12 still in use") and
+        // re-reads the whole category set BECAUSE it cannot be derived from the
+        // request — an id naming nothing removes nothing, and an id naming a
+        // group removes the group's children with it. Returning the size of the
+        // list would be a guess in the shape of a fact.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          categories: [
+            aCategory('cat-group', 'Motoring', { level: 'sub' }),
+            aCategory('cat-child', 'Fuel', { parentId: 'cat-group' }),
+            aCategory('cat-keep', 'Groceries')
+          ]
+        });
+
+        const untouched = asComparable(await read());
+        expect(await port.deleteUnusedCategories([])).toBe(0);
+        expect(asComparable(await read())).toBe(untouched);
+
+        // Two ids, one of which names nothing.
+        const beforeNowhere = (await read()).categories.length;
+        const removedNowhere = await port.deleteUnusedCategories(['cat-keep', 'cat-nowhere']);
+        const afterNowhere = (await read()).categories.length;
+        expect(removedNowhere).toBe(beforeNowhere - afterNowhere);
+
+        // One id, which may take more than one row with it.
+        const beforeGroup = afterNowhere;
+        const removedGroup = await port.deleteUnusedCategories(['cat-group']);
+        const afterGroup = (await read()).categories.length;
+        expect(removedGroup).toBe(beforeGroup - afterGroup);
+      });
+
+      it('gives every new category an id of its own', async () => {
+        // Rule 54. Two categories created in a row must not come back sharing
+        // an id — an engine that answered with a constant, or that reused the
+        // last one, would have the second name silently overwrite the first in
+        // every list keyed by id, and the transactions filed under one would
+        // appear under the other.
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+        const first = await port.createCategory(aNewCategory('Motoring', { level: 'sub' }));
+        const second = await port.createCategory(aNewCategory('Household', { level: 'sub' }));
+
+        expect(first.id).toBeTruthy();
+        expect(second.id).toBeTruthy();
+        expect(second.id).not.toBe(first.id);
+
+        const bulk = await port.createCategories([aNewCategory('Parking'), aNewCategory('Tolls')]);
+
+        expect(bulk).toHaveLength(2);
+        expect(new Set(bulk.map(category => category.id)).size).toBe(2);
+
+        const stored = (await read()).categories;
+        expect(new Set(stored.map(category => category.id)).size).toBe(stored.length);
+      });
+
+      it(`B-5: a new category comes back with ${ID_PROVENANCE[engine]}, usable at once`, async () => {
+        // Where the id is minted is declared, not asserted. What is asserted is
+        // that it is FINAL: the callers use it on the next line — as the value
+        // of the select they just added an option to, and as the parentId of
+        // the children a tree import creates in its second pass — so an engine
+        // that handed back a placeholder it meant to renumber later would file
+        // transactions under an id that stops existing.
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+
+        const parent = await port.createCategory(aNewCategory('Motoring', { level: 'sub' }));
+        const child = await port.createCategory(aNewCategory('Fuel', { parentId: parent.id }));
+
+        expect(child.parentId).toBe(parent.id);
+
+        const stored = (await read()).categories;
+        expect(stored.find(category => category.id === parent.id)?.name).toBe('Motoring');
+        expect(stored.find(category => category.id === child.id)?.parentId).toBe(parent.id);
+
+        // And the id survives an edit made through it, which is the other way
+        // the caller uses what it was handed.
+        const renamed = await port.updateCategory(parent.id, { name: 'Car' });
+        expect(renamed.id).toBe(parent.id);
+        expect(renamed.name).toBe('Car');
       });
     });
 

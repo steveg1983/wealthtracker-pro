@@ -17,7 +17,6 @@ import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';
 import { isSupabaseConfigured } from '../services/api/supabaseClient';
-import { PlanningService } from '../services/api/planningService';
 import { goalAchievementService } from '../services/goalAchievementService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
@@ -137,7 +136,7 @@ export interface AppContextType extends AppState {
   isUsingSupabase: boolean;
   /**
    * Re-pull ONLY accounts + transactions from Supabase (e.g. after a bank sync).
-   * Deliberately narrow — budgets/goals load from PlanningService, so a whole-app
+   * Deliberately narrow — budgets/goals are a separate read, so a whole-app
    * refresh would blank them for cloud users.
    */
   refreshAccountsAndTransactions: () => Promise<void>;
@@ -739,9 +738,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCategories = useCallback(async () => {
     try {
-      const loaded = await PlanningService.ensureCategories(
-        userIdService.getCurrentDatabaseUserId()
-      );
+      const loaded = await dataPort.prepareCategories();
       setCategories(loaded);
     } catch (error) {
       appLogger.error('Failed to refresh categories', error);
@@ -1372,14 +1369,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [goals]);
 
-  // Category operations — persisted via PlanningService (Supabase when
-  // signed in, encrypted localStorage otherwise).
+  // Category operations — persisted through the seam, which resolves the owner
+  // itself (Supabase when signed in, encrypted localStorage otherwise).
   const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
     try {
-      const created = await PlanningService.createCategory(
-        userIdService.getCurrentDatabaseUserId(),
-        category
-      );
+      const created = await dataPort.createCategory(category);
       setCategories(prev => [...prev, created]);
       return created;
     } catch (error) {
@@ -1391,14 +1385,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Import a Money-style two-level tree (sub → detail), merging idempotently:
   // same-named categories are skipped, so re-running or overlapping the default
   // set never duplicates. Two phases because details need their sub's id.
+  //
+  // THE OWNER IS NOW RESOLVED PER CALL, not once for the whole import. This
+  // function used to read the database id at the top and hand the same value to
+  // all four writes; through the seam each one resolves the owner on its own
+  // tick, which is a real difference in one case: a session that ends midway —
+  // a sign-out in another tab, a token that expired between the groups insert
+  // and the details insert. The old shape carried on writing under the id it
+  // captured, into a login that is no longer signed in. The new one resolves
+  // nothing, and the write goes to browser storage instead; once the pending-
+  // session guard lands it refuses outright, which is the answer this import
+  // wants — half a tree in the right account beats a whole one in the wrong.
   const importCategoryTree = useCallback(async (
     tree: CategoryTreeGroup[],
     options?: { pruneOthers?: boolean }
   ) => {
-    const userId = userIdService.getCurrentDatabaseUserId();
     const plan = planCategoryTreeImport(categories, tree);
 
-    const createdSubs = await PlanningService.createCategories(userId, plan.subsToCreate);
+    const createdSubs = await dataPort.createCategories(plan.subsToCreate);
     // Commit phase 1 to state immediately: if the details insert below fails,
     // a retry re-plans against state that INCLUDES these subs and skips them —
     // otherwise the re-insert would hit the (user_id, name, parent_id) unique
@@ -1434,7 +1438,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       detailRows.push({ ...detail.category, parentId });
     }
-    const createdDetails = await PlanningService.createCategories(userId, detailRows);
+    const createdDetails = await dataPort.createCategories(detailRows);
     if (createdDetails.length > 0) {
       setCategories(prev => [...prev, ...createdDetails]);
     }
@@ -1458,11 +1462,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const prunePlan = planCategoryPrune(merged, tree, usedCategoryIds);
       const idsToDelete = [...prunePlan.detailIdsToDelete, ...prunePlan.subIdsToDelete];
       if (idsToDelete.length > 0) {
-        // The RPC re-verifies references server-side and may delete FEWER rows
+        // The store re-verifies references server-side and may delete FEWER rows
         // than planned (a stale snapshot can never destroy referenced data) —
         // so re-read the authoritative category set instead of trusting the plan.
-        pruned = await PlanningService.deleteUnusedCategories(userId, idsToDelete);
-        const authoritative = await PlanningService.ensureCategories(userId);
+        pruned = await dataPort.deleteUnusedCategories(idsToDelete);
+        const authoritative = await dataPort.prepareCategories();
         setCategories(authoritative);
       }
       keptForTransactions = prunePlan.keptForTransactionsCount;
@@ -1478,11 +1482,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateCategory = useCallback(async (id: string, updates: Partial<Category>) => {
     try {
-      const updated = await PlanningService.updateCategory(
-        userIdService.getCurrentDatabaseUserId(),
-        id,
-        updates
-      );
+      const updated = await dataPort.updateCategory(id, updates);
       setCategories(prev => prev.map(c => c.id === id ? updated : c));
     } catch (error) {
       appLogger.error('Failed to update category', error);
@@ -1531,7 +1531,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteCategory = useCallback(async (id: string) => {
     try {
-      await PlanningService.deleteCategory(userIdService.getCurrentDatabaseUserId(), id);
+      await dataPort.deleteCategory(id);
       // Children go with the parent (cloud FK is ON DELETE CASCADE; mirror it)
       setCategories(prev => prev.filter(c => c.id !== id && c.parentId !== id));
     } catch (error) {
@@ -1792,10 +1792,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plan.toCreate.length > 0) {
       await refreshCategories();
     }
-    const planningUserId = userIdService.getCurrentDatabaseUserId();
     const [reloadedBudgets, reloadedGoals] = await Promise.all([
-      PlanningService.getBudgets(planningUserId),
-      PlanningService.getGoals(planningUserId)
+      dataPort.getBudgets(),
+      dataPort.getGoals()
     ]);
     setBudgets(reloadedBudgets);
     setGoals(reloadedGoals);

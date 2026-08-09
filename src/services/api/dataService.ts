@@ -65,7 +65,9 @@ type TransactionServiceLike = Pick<typeof TransactionService,
  */
 type PlanningServiceLike = Pick<typeof PlanningService,
   'mergeCategories' | 'createBudget' | 'updateBudget' | 'deleteBudget'
-  | 'createGoal' | 'updateGoal' | 'deleteGoal'> &
+  | 'createGoal' | 'updateGoal' | 'deleteGoal'
+  | 'createCategory' | 'createCategories' | 'updateCategory' | 'deleteCategory'
+  | 'deleteUnusedCategories'> &
   Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
@@ -1688,6 +1690,172 @@ class DataServiceImpl implements DataPort {
   }
 
   /**
+   * Create a category.
+   *
+   * Branch, owner rule, delegation and unwrapped promise: exactly as
+   * `createBudget` above, where they are argued at length.
+   * `PlanningService.createCategory(null, …)` writes the browser's copy and
+   * hands back an ordinary Category, so a signed-in person would file their next
+   * transactions under an id the cloud has never heard of — and find them
+   * uncategorised in the morning, which is worse than the budget case rather
+   * than better.
+   *
+   * WHY THE CLOUD BRANCH IS NOT REIMPLEMENTED HERE, for all five category
+   * writes. Every one of PlanningService's cloud branches refreshes the
+   * BROWSER's category cache after the row lands (a create appends, an update
+   * replaces in place, a delete drops the row and its children). That cache is
+   * not decoration: it is what `prepareCategories`' local branch reads, which is
+   * how a signed-in person who opens the app offline still knows what their
+   * categories are called. Writing a second, cache-less cloud branch here would
+   * leave the two writers disagreeing about the same store, and the symptom
+   * would be a category list that quietly goes stale between sessions. So the
+   * cloud half stays in one place and this class delegates to it.
+   *
+   * The local branch is this class's own, mirroring PlanningService's local half
+   * field for field: the id is the only thing added, from this class's injected
+   * generator rather than a bare `crypto.randomUUID()` — the same one every
+   * other local write here uses, identical in a browser, with a fallback where
+   * that API is missing instead of a throw.
+   *
+   * The pending-session omission noted on `createBudget` is deliberate here too:
+   * a write whose database id is still resolving goes to browser storage today,
+   * and a behaviour change hidden inside a routing change is one nobody can
+   * review.
+   */
+  async createCategory(category: Omit<Category, 'id'>): Promise<Category> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.createCategory(userId, category);
+    }
+
+    const created: Category = { ...category, id: this.generateId() };
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    await this.persistCollection(STORAGE_KEYS.CATEGORIES, [...categories, created]);
+    return created;
+  }
+
+  /**
+   * Create several categories at once — the tree import's operation.
+   *
+   * THE EMPTY CHECK COMES FIRST, BEFORE THE OWNER IS EVEN ASKED FOR, and that
+   * order is the behaviour rather than an optimisation: an import that adds
+   * detail to a tree the account already has plans no new groups at all and asks
+   * anyway, because the plan is computed before it is known to be empty. Nothing
+   * is written, nothing is read, and no insert with no rows is sent.
+   *
+   * Otherwise the same branch as `createCategory` above, and the same reason the
+   * cloud half is delegated rather than copied.
+   */
+  async createCategories(newCategories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
+    if (newCategories.length === 0) {
+      return [];
+    }
+
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.createCategories(userId, newCategories);
+    }
+
+    const created: Category[] = newCategories.map(category => ({
+      ...category,
+      id: this.generateId()
+    }));
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    await this.persistCollection(STORAGE_KEYS.CATEGORIES, [...categories, ...created]);
+    return created;
+  }
+
+  /**
+   * Change a category, and hand back the whole category as it now stands — the
+   * caller replaces its copy with this answer, so a partial one would blank
+   * whatever it left out.
+   *
+   * Same branch and same owner rule as `createCategory` above. A category that
+   * is not there is refused by name, and because the lookup happens before the
+   * first write the refusal leaves the store exactly as it was.
+   *
+   * No timestamp is stamped, unlike the budget and goal updates beside it: a
+   * Category carries none. Inventing one here would put a field on half the
+   * user's list that the other half does not have.
+   */
+  async updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.updateCategory(userId, id, updates);
+    }
+
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    const index = categories.findIndex(category => category.id === id);
+    if (index === -1) throw new Error('Category not found');
+
+    const updated: Category = { ...categories[index], ...updates };
+    await this.persistCollection(
+      STORAGE_KEYS.CATEGORIES,
+      categories.map((category, position) => (position === index ? updated : category))
+    );
+    return updated;
+  }
+
+  /**
+   * Remove a category and the categories under it.
+   *
+   * Same branch and same owner rule as the writes above. THE CASCADE IS THE
+   * BEHAVIOUR, not a detail of the cloud's foreign key: the local branch drops
+   * children by `parentId` exactly as `ON DELETE CASCADE` does server-side, so a
+   * group cannot outlive itself as a set of orphans whose parent is gone.
+   *
+   * Deleting one that is already gone writes the list back unchanged, which is
+   * the same silence the budget and goal deletes keep.
+   */
+  async deleteCategory(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.deleteCategory(userId, id);
+    }
+
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    await this.persistCollection(
+      STORAGE_KEYS.CATEGORIES,
+      categories.filter(category => category.id !== id && category.parentId !== id)
+    );
+  }
+
+  /**
+   * Prune a batch of categories nothing is filed against.
+   *
+   * Empty first, for the reason `createCategories` above gives. Then the same
+   * branch, and the same delegation of the cloud half — which here is doing
+   * more than caching: the RPC re-judges every row against the ledger as it is
+   * NOW, so a plan computed from a stale snapshot can never destroy referenced
+   * data, and it may therefore delete FEWER rows than it was handed.
+   *
+   * THE COUNT IS WHAT ACTUALLY WENT, in both modes. Locally that is the size of
+   * the list before minus the size after — which is not the same as the number
+   * of ids supplied in either direction: an id naming nothing removes nothing,
+   * and an id naming a parent removes its children too. The caller shows this
+   * figure to the user ("pruned 40, kept 12 in use"), so returning the size of
+   * the request would be a guess presented as a fact.
+   */
+  async deleteUnusedCategories(ids: string[]): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.deleteUnusedCategories(userId, ids);
+    }
+
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    const doomed = new Set(ids);
+    const remaining = categories.filter(
+      category => !doomed.has(category.id) && !doomed.has(category.parentId ?? '')
+    );
+    await this.persistCollection(STORAGE_KEYS.CATEGORIES, remaining);
+    return categories.length - remaining.length;
+  }
+
+  /**
    * What is stored, and nothing more. The boot does not use this — it uses
    * `prepareCategories` below, which is allowed to seed and to migrate. This
    * one stays local-only and gated because it answers "what is in the browser's
@@ -1966,6 +2134,26 @@ export class DataService {
 
   static deleteGoal(id: string): Promise<void> {
     return this.service.deleteGoal(id);
+  }
+
+  static createCategory(category: Omit<Category, 'id'>): Promise<Category> {
+    return this.service.createCategory(category);
+  }
+
+  static createCategories(categories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
+    return this.service.createCategories(categories);
+  }
+
+  static updateCategory(id: string, updates: Partial<Category>): Promise<Category> {
+    return this.service.updateCategory(id, updates);
+  }
+
+  static deleteCategory(id: string): Promise<void> {
+    return this.service.deleteCategory(id);
+  }
+
+  static deleteUnusedCategories(ids: string[]): Promise<number> {
+    return this.service.deleteUnusedCategories(ids);
   }
 
   static getCategories(): Promise<Category[]> {
