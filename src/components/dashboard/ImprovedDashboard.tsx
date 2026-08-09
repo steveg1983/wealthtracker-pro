@@ -34,6 +34,8 @@ import {
   ExpenseCategoriesWidget,
   CustomReportWidget,
 } from './reportWidgets/DashboardReportWidgets';
+import DashboardWidgetCard from './reportWidgets/DashboardWidgetCard';
+import { WIDGET_CHART_HEIGHT } from './reportWidgets/widgetChrome';
 import { BUILT_IN_REPORTS, type PinnableReportId } from './reportWidgets/pinnableReports';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
 import { formatDecimal } from '../../utils/decimal-format';
@@ -41,6 +43,7 @@ import { toDecimal } from '../../utils/decimal';
 import { expandSplitTransactions } from '../../utils/transactionSplits';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { computeAccountBalances } from '../../utils/accountBalances';
+import { buildAccountDistribution, type AccountDistributionEntry } from '../../utils/accountDistribution';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
 import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
@@ -269,25 +272,15 @@ export function ImprovedDashboard() {
     [accounts, accountBalanceMap, bankLinks, autoSyncMode, formatCurrencyWithSymbol]
   );
 
-  // Generate pie chart data for account distribution
-  interface AccountDistributionDatum {
-    id: string;
-    name: string;
-    value: number;
-  }
+  // Account distribution — the SAME ranking the full report draws (see
+  // utils/accountDistribution). The card shows the slices a donut can carry;
+  // the report behind it lists every account.
+  const distribution = useMemo(
+    () => buildAccountDistribution(accounts, id => accountBalanceMap.get(id) ?? 0),
+    [accounts, accountBalanceMap]
+  );
+  const pieData = distribution.slices;
 
-  const pieData = useMemo<AccountDistributionDatum[]>(() => {
-    return accounts
-      .filter(acc => getAccountBalance(acc) > 0)
-      .map(acc => ({
-        id: acc.id,
-        name: acc.name,
-        value: getAccountBalance(acc)
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5); // Top 5 accounts
-  }, [accounts, getAccountBalance]);
-  
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
   const isDarkMode = document.documentElement.classList.contains('dark');
   
@@ -504,34 +497,39 @@ export function ImprovedDashboard() {
               {/* Account distribution: a snapshot of TODAY, sitting under a
                   period control it deliberately ignores — so it says so.
                   There is no "distribution last March" to show: the balances
-                  are what the accounts hold now. */}
+                  are what the accounts hold now.
+
+                  The title opens the full report (every account, not five);
+                  each legend row still opens ITS account's transactions. */}
               {pieData.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <PieChartIcon size={18} className="text-gray-500" aria-hidden="true" />
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Account Distribution
-                    </h4>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto whitespace-nowrap">
-                      Current balances
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Your top 5 accounts by balance
-                  </p>
+                <DashboardWidgetCard
+                  title="Account Distribution"
+                  icon={PieChartIcon}
+                  subtitle={
+                    <>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        Your top {pieData.length} account{pieData.length === 1 ? '' : 's'} by balance
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto whitespace-nowrap">
+                        Current balances
+                      </span>
+                    </>
+                  }
+                  onOpen={() => navigate(preserveDemoParam('/reports/account-distribution', location.search))}
+                >
                   {/* Chart takes a fixed column; the legend gets ALL remaining
                       width so account names show as much text as the card
                       allows. Stacked below sm, where neither fits beside the
                       other. */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="h-52 sm:w-48 lg:w-56 sm:flex-shrink-0">
+                    <div className={`${WIDGET_CHART_HEIGHT} sm:w-48 lg:w-56 sm:flex-shrink-0`}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart
                           data={pieData}
                           innerRadius={true}
                           colors={COLORS}
-                          onClick={(clickedData: AccountDistributionDatum) => {
-                            navigate(`/transactions?account=${clickedData.id}`);
+                          onClick={(clickedData: AccountDistributionEntry) => {
+                            navigate(preserveDemoParam(`/transactions?account=${clickedData.id}`, location.search));
                           }}
                           formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
                           contentStyle={chartStyles.pieTooltip}
@@ -541,36 +539,31 @@ export function ImprovedDashboard() {
                     </div>
                     {/* Legend: which slice is which, with values and shares */}
                     <ul className="sm:flex-1 sm:min-w-0 space-y-2" aria-label="Account distribution legend">
-                      {(() => {
-                        const total = pieData.reduce((sum, d) => sum.plus(toDecimal(d.value)), toDecimal(0));
-                        return pieData.map((d, i) => (
-                          <li key={d.id}>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/transactions?account=${d.id}`)}
-                              className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
-                            >
-                              <span
-                                className="w-3 h-3 rounded-sm flex-shrink-0"
-                                style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                                aria-hidden="true"
-                              />
-                              <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
-                              <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                                {formatCurrencyWithSymbol(d.value, displayCurrency)}
-                              </span>
-                              <span className="w-12 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
-                                {total.greaterThan(0)
-                                  ? `${toDecimal(d.value).dividedBy(total).times(100).toFixed(1)}%`
-                                  : ''}
-                              </span>
-                            </button>
-                          </li>
-                        ));
-                      })()}
+                      {pieData.map((d, i) => (
+                        <li key={d.id}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(preserveDemoParam(`/transactions?account=${d.id}`, location.search))}
+                            className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                          >
+                            <span
+                              className="w-3 h-3 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                              aria-hidden="true"
+                            />
+                            <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
+                            <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                              {formatCurrencyWithSymbol(d.value, displayCurrency)}
+                            </span>
+                            <span className="w-12 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                              {d.share ? `${formatDecimal(d.share, 1)}%` : ''}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
                     </ul>
                   </div>
-                </div>
+                </DashboardWidgetCard>
               )}
             </div>
           )}

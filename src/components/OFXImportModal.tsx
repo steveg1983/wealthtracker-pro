@@ -36,6 +36,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import ImportProgress from './common/ImportProgress';
 import AccountSelector from './common/AccountSelector';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -45,6 +46,17 @@ const logger = createScopedLogger('OFXImportModal');
 interface OFXImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * A file chosen somewhere else — the Batch Import queue hands this dialog the
+   * next .ofx on its list. Accepting one here is what lets that queue stay a
+   * queue: it never parses, matches an account or writes a row, because this
+   * dialog does all of it exactly as it does for a file dropped below.
+   *
+   * The queue routes by extension, so the .ofx check that guards the drop zone
+   * is deliberately NOT repeated for this path — a file that turns out not to
+   * be OFX fails in the parse and is reported there rather than swallowed.
+   */
+  initialFile?: File;
 }
 
 type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
@@ -106,7 +118,7 @@ type ImportOutcome =
       error: string;
     };
 
-export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps): React.JSX.Element {
+export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImportModalProps): React.JSX.Element {
   const {
     accounts,
     transactions,
@@ -118,6 +130,13 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
   const { getToken } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  /**
+   * What the WRITE has confirmed so far, never what was hoped for. `total` is
+   * set once the rows to write are known; `inserted` only ever moves on a
+   * report from the writing path (chunk by chunk in the cloud; the local write
+   * is one atomic transaction and reports nothing until it is done).
+   */
+  const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
   const [parseResult, setParseResult] = useState<ImportTransactionsResult | null>(null);
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -179,6 +198,34 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       setIsProcessing(false);
     }
   }, [accounts, categories, transactions]);
+
+  /**
+   * Take a file: clear whatever the last one left behind, then parse it. The
+   * one path into this dialog, shared by the drop zone, the file input and the
+   * `initialFile` prop, so a queued file gets the identical treatment to a
+   * hand-picked one — including the account match and the duplicate review.
+   */
+  const acceptFile = useCallback((targetFile: File) => {
+    setFile(targetFile);
+    setParseResult(null);
+    setImportResult(null);
+    setAccountIsUserChoice(false);
+    setSaveDetailsOverride(null);
+    setImportAnywayFitIds(new Set());
+    void parseFile(targetFile);
+  }, [parseFile]);
+
+  /**
+   * Compared by IDENTITY, not by name: re-rendering with the same File must not
+   * re-parse it (and throw away an account the user has just chosen), while a
+   * second file that happens to share a name still gets read.
+   */
+  const loadedInitialFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!initialFile || loadedInitialFileRef.current === initialFile) return;
+    loadedInitialFileRef.current = initialFile;
+    acceptFile(initialFile);
+  }, [acceptFile, initialFile]);
 
   const selectedAccount = useMemo(
     () => accounts.find(a => a.id === selectedAccountId) ?? null,
@@ -294,39 +341,25 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0];
     if (!uploadedFile) return;
-    
+
     // Check file extension
     if (!uploadedFile.name.toLowerCase().endsWith('.ofx')) {
       alert('Please select an OFX file');
       return;
     }
-    
-    setFile(uploadedFile);
-    setParseResult(null);
-    setImportResult(null);
-    setAccountIsUserChoice(false);
-    setSaveDetailsOverride(null);
-    setImportAnywayFitIds(new Set());
 
-    // Parse the file
-    parseFile(uploadedFile);
-  }, [parseFile]);
-  
+    acceptFile(uploadedFile);
+  }, [acceptFile]);
+
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const droppedFile = event.dataTransfer.files[0];
-    
+
     if (droppedFile && droppedFile.name.toLowerCase().endsWith('.ofx')) {
-      setFile(droppedFile);
-      setParseResult(null);
-      setImportResult(null);
-      setAccountIsUserChoice(false);
-      setSaveDetailsOverride(null);
-      setImportAnywayFitIds(new Set());
-      parseFile(droppedFile);
+      acceptFile(droppedFile);
     }
-  }, [parseFile]);
+  }, [acceptFile]);
   
   // Process import
   const processImport = useCallback(async () => {
@@ -377,11 +410,19 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       // whose response was lost be posted again without paying for the
       // statement twice, and what makes "just import the file again" true of
       // the register and not only of this screen.
+      // The size of the job, known now that duplicates have been dropped and
+      // before a single row is written. Nothing is claimed as inserted yet.
+      if (isMountedRef.current) {
+        setProgress({ inserted: 0, total: result.transactions.length });
+      }
+
       const outcome: BulkImportResult = isUsingSupabase
         ? await (async () => {
             transactionImportService.setAuthTokenProvider(() => getToken());
             return transactionImportService.importInChunks(destinationId, result.transactions, {
-              source: 'ofx'
+              source: 'ofx',
+              // Fires between chunks, so it can also land after unmount.
+              onProgress: p => { if (isMountedRef.current) setProgress(p); }
             });
           })()
         : await importTransactionsLocally(destinationId, result.transactions);
@@ -505,6 +546,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     } finally {
       if (isMountedRef.current) {
         setIsProcessing(false);
+        setProgress(null);
       }
     }
   }, [accounts, file, getToken, importAnywayFitIds, isUsingSupabase, parseResult, refreshAccountsAndTransactions, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
@@ -514,6 +556,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     setFile(null);
     setParseResult(null);
     setImportResult(null);
+    setProgress(null);
     setSelectedAccountId('');
     setAccountIsUserChoice(false);
     setSaveDetailsOverride(null);
@@ -542,19 +585,21 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Drag and drop your .ofx file here, or click to browse
               </p>
-              <input
-                type="file"
-                accept=".ofx"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="ofx-upload"
-              />
-              <label
-                htmlFor="ofx-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
-              >
+              {/* sr-only, NOT hidden: display:none takes the input out of the
+                  tab order entirely, and a <label> cannot hold focus in its
+                  place — so the only way to reach this picker was a mouse.
+                  Off-screen the input still takes focus, and focus-within
+                  paints the ring on the button the user can actually see. */}
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
                 <FileTextIcon size={20} />
                 Select OFX File
+                <input
+                  type="file"
+                  accept=".ofx"
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                  id="ofx-upload"
+                />
               </label>
             </div>
             
@@ -799,16 +844,30 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
               </div>
             </div>
             
+            {/* What the import is doing, from the click onwards — the file's
+                own count until the write reports one of its own. */}
+            {isProcessing && (
+              <ImportProgress
+                inserted={progress?.inserted ?? null}
+                total={progress?.total ?? willImport}
+              />
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-3">
               <button
                 onClick={resetModal}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                disabled={isProcessing}
+                // Said, not just enforced: a dead button with no explanation is
+                // indistinguishable from a broken one.
+                title={isProcessing ? 'Import in progress' : undefined}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <LoadingButton
                 isLoading={isProcessing}
+                loadingText="Importing…"
                 onClick={processImport}
                 disabled={!selectedAccountId && !parseResult.matchedAccount}
                 className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"

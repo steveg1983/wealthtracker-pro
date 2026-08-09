@@ -1,6 +1,5 @@
 [
   "src/services/__tests__/predictiveLoadingService.test.ts",
-  "src/services/__tests__/scheduledReportService.test.ts",
   "src/services/__tests__/storageAdapter.test.ts",
   "src/services/themeSchedulingService.test.ts",
   "src/services/base/BaseService.test.ts",
@@ -19,7 +18,6 @@
   "src/services/searchService.test.ts",
   "src/services/cashFlowForecastService.test.ts",
   "src/services/ofxImportService.test.ts",
-  "src/services/exportService.test.ts",
   "src/services/__tests__/syncService.test.ts",
   "src/services/__tests__/autoSyncService.test.ts",
   "src/services/__tests__/smartCacheService.test.ts",

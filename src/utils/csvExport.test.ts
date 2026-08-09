@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { exportTransactionsToCSV, exportAccountsToCSV, downloadCSV } from './csvExport';
+import { exportTransactionsToCSV, exportAccountsToCSV, downloadCSV, csvRow } from './csvExport';
 import { toDecimal } from './decimal';
 import type { Transaction, Account } from '../types';
 import type { DecimalTransaction, DecimalAccount } from '../types/decimal-types';
@@ -85,10 +85,48 @@ describe('CSV Export', () => {
       const csv = exportTransactionsToCSV(mockTransactions, mockAccounts);
       const lines = csv.split('\n');
       
-      expect(lines[0]).toBe('Date,Description,Category,Type,Amount,Account,Tags,Notes,Cleared');
-      expect(lines[1]).toBe('2024-01-15,Grocery Store,groceries,expense,45.50,Checking Account,food;essential,Weekly shopping,Y');
-      expect(lines[2]).toBe('2024-01-16,Salary,income,income,2500.00,"Savings, High Interest",,,N');
-      expect(lines[3]).toBe('2024-01-17,"Coffee, Main Street",dining,expense,4.25,Checking Account,coffee,"Morning ""coffee""",Y');
+      // EVERY field is quoted (RFC 4180) — see csvField for why the
+      // "only when it needs it" version had to go.
+      expect(lines[0]).toBe('"Date","Description","Category","Type","Amount","Account","Tags","Notes","Cleared"');
+      expect(lines[1]).toBe('"2024-01-15","Grocery Store","groceries","expense","45.50","Checking Account","food;essential","Weekly shopping","Y"');
+      expect(lines[2]).toBe('"2024-01-16","Salary","income","income","2500.00","Savings, High Interest","","","N"');
+      expect(lines[3]).toBe('"2024-01-17","Coffee, Main Street","dining","expense","4.25","Checking Account","coffee","Morning ""coffee""","Y"');
+    });
+
+    /**
+     * The failure this quoting rule exists to stop: a value that is not a
+     * string was written through unquoted, so an array of tags reached the
+     * file as `food,essential` and became two columns — shifting every column
+     * after it, on that row alone, in a file that still looked valid.
+     */
+    it('keeps a multi-value field inside ONE column', () => {
+      const csv = exportTransactionsToCSV(
+        [
+          {
+            id: 'tx-1',
+            date: new Date('2024-01-15'),
+            description: 'Shop',
+            category: 'test',
+            type: 'expense',
+            amount: 10,
+            accountId: 'acc-1',
+            tags: ['food', 'essential', 'weekly'],
+            cleared: true
+          }
+        ],
+        mockAccounts
+      );
+      const [header, row] = csv.split('\n');
+
+      // A CSV row is only readable if it has the same number of columns as
+      // its header, whatever the values inside it contain.
+      const columns = (line: string): number => line.split('","').length;
+      expect(columns(row)).toBe(columns(header));
+      expect(row).toContain('"food;essential;weekly"');
+    });
+
+    it('quotes fields that contain nothing special, so every row parses the same way', () => {
+      expect(csvRow(['plain', 42, null, undefined, ['a', 'b']])).toBe('"plain","42","","","a,b"');
     });
 
     it('handles transactions with decimal amounts', () => {
@@ -148,7 +186,7 @@ describe('CSV Export', () => {
       const csv = exportTransactionsToCSV(transactions, mockAccounts);
       const lines = csv.split('\n');
       
-      expect(lines[1]).toMatch(/^2024-12-31,/); // Should format as YYYY-MM-DD
+      expect(lines[1]).toMatch(/^"2024-12-31",/); // Should format as YYYY-MM-DD
     });
 
     it('handles empty transactions array', () => {
@@ -156,7 +194,7 @@ describe('CSV Export', () => {
       const lines = csv.split('\n');
       
       expect(lines.length).toBe(1); // Only headers
-      expect(lines[0]).toBe('Date,Description,Category,Type,Amount,Account,Tags,Notes,Cleared');
+      expect(lines[0]).toBe('"Date","Description","Category","Type","Amount","Account","Tags","Notes","Cleared"');
     });
 
     it('handles transactions with no optional fields', () => {
@@ -174,7 +212,7 @@ describe('CSV Export', () => {
       const csv = exportTransactionsToCSV([minimalTransaction], mockAccounts);
       const lines = csv.split('\n');
       
-      expect(lines[1]).toBe('2024-01-15,Minimal Transaction,other,expense,50.00,Checking Account,,,N');
+      expect(lines[1]).toBe('"2024-01-15","Minimal Transaction","other","expense","50.00","Checking Account","","","N"');
     });
 
     it('escapes CSV special characters correctly', () => {
@@ -285,10 +323,10 @@ describe('CSV Export', () => {
       const csv = exportAccountsToCSV(mockAccounts);
       const lines = csv.split('\n');
       
-      expect(lines[0]).toBe('Name,Type,Balance,Currency,Institution,Last Updated');
-      expect(lines[1]).toBe('Checking Account,current,1500.75,GBP,HSBC,2024-01-20');
-      expect(lines[2]).toBe('"Savings, High Interest",savings,5000.00,USD,"Bank ""Premier"" Ltd",2024-01-19');
-      expect(lines[3]).toBe('Credit Card,credit,-250.50,GBP,,2024-01-18');
+      expect(lines[0]).toBe('"Name","Type","Balance","Currency","Institution","Last Updated"');
+      expect(lines[1]).toBe('"Checking Account","current","1500.75","GBP","HSBC","2024-01-20"');
+      expect(lines[2]).toBe('"Savings, High Interest","savings","5000.00","USD","Bank ""Premier"" Ltd","2024-01-19"');
+      expect(lines[3]).toBe('"Credit Card","credit","-250.50","GBP","","2024-01-18"');
     });
 
     it('handles accounts with decimal balances', () => {
@@ -321,7 +359,7 @@ describe('CSV Export', () => {
       const csv = exportAccountsToCSV([minimalAccount]);
       const lines = csv.split('\n');
       
-      expect(lines[1]).toBe('Minimal Account,current,1000.00,GBP,,2024-01-20');
+      expect(lines[1]).toBe('"Minimal Account","current","1000.00","GBP","","2024-01-20"');
     });
 
     it('handles empty accounts array', () => {
@@ -329,7 +367,7 @@ describe('CSV Export', () => {
       const lines = csv.split('\n');
       
       expect(lines.length).toBe(1); // Only headers
-      expect(lines[0]).toBe('Name,Type,Balance,Currency,Institution,Last Updated');
+      expect(lines[0]).toBe('"Name","Type","Balance","Currency","Institution","Last Updated"');
     });
 
     it('escapes CSV special characters in account data', () => {
@@ -410,7 +448,7 @@ describe('CSV Export', () => {
       const csv = exportAccountsToCSV(accounts);
       const lines = csv.split('\n');
       
-      expect(lines[1]).toMatch(/2024-12-31$/); // Should format as YYYY-MM-DD
+      expect(lines[1]).toMatch(/"2024-12-31"$/); // Should format as YYYY-MM-DD
     });
   });
 

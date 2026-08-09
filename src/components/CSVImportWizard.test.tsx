@@ -53,8 +53,25 @@ vi.mock('../services/localTransactionImportService', () => ({
   importTransactionsLocally: vi.fn(),
 }));
 
-vi.mock('../services/enhancedCsvImportService', () => ({
+/**
+ * The parse and the write are mocked (these tests are about what the wizard
+ * DOES with them), but `generatePreview` is the REAL implementation, imported
+ * through vi.importActual.
+ *
+ * That is the whole point of the preview: it wraps the same
+ * buildTransactionFromRow the import uses, so a stub of it would test nothing
+ * but the stub — and the bug it exists to prevent (a bank's Credit column
+ * previewing blank while the import writes it correctly) is a bug in exactly
+ * the code a stub would replace.
+ */
+vi.mock('../services/enhancedCsvImportService', async () => {
+  const actual = await vi.importActual<typeof import('../services/enhancedCsvImportService')>(
+    '../services/enhancedCsvImportService'
+  );
+  const real = actual.enhancedCsvImportService;
+  return {
   enhancedCsvImportService: {
+    generatePreview: real.generatePreview.bind(real),
     parseCSV: vi.fn(() => ({
       headers: ['Date', 'Description', 'Amount', 'Account'],
       data: [
@@ -107,7 +124,8 @@ vi.mock('../services/enhancedCsvImportService', () => ({
       errors: [],
     })),
   },
-}));
+  };
+});
 
 vi.mock('./loading/LoadingState', () => ({
   LoadingButton: ({ children, isLoading, onClick, className, disabled }: {
@@ -411,10 +429,27 @@ describe('CSVImportWizard', () => {
       expect(screen.getByText('Threshold:')).toBeInTheDocument();
     });
 
-    it('displays preview table', () => {
+    /**
+     * The preview shows what will be WRITTEN, not the file's raw cells — so
+     * the columns are the transaction's fields, and the values have been
+     * through the same builder the import uses.
+     */
+    it('displays the built values, column by column', () => {
       expect(screen.getByRole('table')).toBeInTheDocument();
-      expect(screen.getByText('date')).toBeInTheDocument();
-      expect(screen.getByText('description')).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Description' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Amount' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
+      // The mocked parse maps an Account column, so that one is shown too;
+      // no Category column is mapped, so there is no Category column.
+      expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument();
+      expect(screen.queryByRole('columnheader', { name: 'Category' })).not.toBeInTheDocument();
+
+      // Signed and formatted as money, not reprinted as the file's text.
+      expect(screen.getByText('-£85.50')).toBeInTheDocument();
+      expect(screen.getByText('£2,000.00')).toBeInTheDocument();
+      expect(screen.getByText('Grocery Store')).toBeInTheDocument();
+      expect(screen.getByText('15/01/2023')).toBeInTheDocument();
     });
 
     it('handles duplicate threshold changes', async () => {
@@ -429,11 +464,93 @@ describe('CSVImportWizard', () => {
 
     it('handles duplicate detection toggle', async () => {
       const user = userEvent.setup();
-      
+
       const checkbox = screen.getByLabelText(/skip duplicate transactions/i);
       await user.click(checkbox);
-      
+
       expect(checkbox).not.toBeChecked();
+    });
+  });
+
+  /**
+   * The bug this preview was rewired to fix.
+   *
+   * Many UK banks ship a statement with SEPARATE Debit and Credit columns, both
+   * mapped to `amount`. The old preview printed the first mapping's raw cell, so
+   * every credit row — whose Debit cell is empty — previewed BLANK while the
+   * import wrote it perfectly well. The screen and the register disagreed on the
+   * rows people check hardest.
+   *
+   * Every figure and payee below is invented.
+   */
+  describe('a statement with separate Debit and Credit columns', () => {
+    const LLOYDS_HEADERS = ['Date', 'Description', 'Debit Amount', 'Credit Amount'];
+    const LLOYDS_ROWS = [
+      ['2025-06-01', 'CORNER SHOP', '50.00', ''],
+      ['2025-06-02', 'SALARY', '', '100.00'],
+      ['2025-06-03', 'REFUNDED CHARGE', '-12.50', ''],
+      ['2025-06-04', 'ZERO ROW', '0.00', ''],
+    ];
+    const LLOYDS_MAPPINGS = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Debit Amount', targetField: 'amount' },
+      { sourceColumn: 'Credit Amount', targetField: 'amount' },
+    ];
+
+    const previewLloydsFile = async (): Promise<void> => {
+      const user = userEvent.setup();
+      vi.mocked(enhancedCsvImportService.parseCSV).mockReturnValueOnce({
+        headers: LLOYDS_HEADERS,
+        data: LLOYDS_ROWS,
+      });
+      vi.mocked(enhancedCsvImportService.suggestMappings).mockReturnValueOnce(LLOYDS_MAPPINGS);
+
+      renderWizard(true);
+      await user.upload(
+        screen.getByLabelText(/select file/i),
+        new File(['statement'], 'lloyds.csv', { type: 'text/csv' })
+      );
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('Next'));
+    };
+
+    it('previews a credit row with its positive amount, not a blank', async () => {
+      await previewLloydsFile();
+
+      const salary = screen.getByText('SALARY').closest('tr');
+      expect(salary).toHaveTextContent('£100.00');
+      expect(salary).not.toHaveTextContent('-£100.00');
+      expect(salary).toHaveTextContent('income');
+    });
+
+    it('previews a debit row as money out', async () => {
+      await previewLloydsFile();
+
+      const shop = screen.getByText('CORNER SHOP').closest('tr');
+      expect(shop).toHaveTextContent('-£50.00');
+      expect(shop).toHaveTextContent('expense');
+    });
+
+    it('previews a negative debit as the reversal it is', async () => {
+      // A negative cell in a Debit column is money coming BACK.
+      await previewLloydsFile();
+
+      const refund = screen.getByText('REFUNDED CHARGE').closest('tr');
+      expect(refund).toHaveTextContent('£12.50');
+      expect(refund).toHaveTextContent('income');
+    });
+
+    it('says which rows will be skipped rather than dropping them silently', async () => {
+      // A zero debit/credit pair carries no direction, so the import passes
+      // over it. Leaving it out of the preview is how somebody spends an
+      // evening looking for it in the register.
+      await previewLloydsFile();
+
+      expect(screen.getByText(/Will be skipped — this row has no usable amount/)).toBeInTheDocument();
+      expect(screen.queryByText('ZERO ROW')).not.toBeInTheDocument();
     });
   });
 
@@ -706,6 +823,65 @@ describe('CSVImportWizard', () => {
       expect(screen.getByText('Preview Import')).toBeInTheDocument();
     });
 
+    /**
+     * Pressing Import used to leave the wizard completely still until the write
+     * came back — no count, no bar, nothing to say the click was even taken. The
+     * only action available to somebody watching that is to press it again.
+     */
+    describe('while the write is running', () => {
+      /** A write held open, so the in-flight state can be looked at. */
+      const heldWrite = () => {
+        let release: (() => void) | null = null;
+        const finished = new Promise<void>(resolve => { release = resolve; });
+        vi.mocked(importTransactionsLocally).mockImplementationOnce(async (_accountId, rows) => {
+          await finished;
+          return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+        });
+        return { release: () => release?.() };
+      };
+
+      it('says it is importing, and counts the rows as they land', async () => {
+        vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+        const write = heldWrite();
+
+        await runImport();
+
+        // Announced politely rather than by stealing focus.
+        const status = await screen.findByRole('status');
+        expect(status).toHaveTextContent(/Importing/);
+        expect(screen.getByRole('progressbar')).toBeInTheDocument();
+
+        write.release();
+        await waitFor(() => {
+          expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+        });
+        // The summary takes over; the progress region goes with it.
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      it('cannot be fired twice, and says why Back is unavailable', async () => {
+        vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+        const write = heldWrite();
+
+        await runImport();
+        await screen.findByRole('status');
+
+        expect(screen.getByTestId('loading-button')).toBeDisabled();
+        const back = screen.getByText('Back').closest('button');
+        expect(back).toBeDisabled();
+        expect(back).toHaveAttribute('title', 'Import in progress');
+
+        // A second press while it runs must not start a second import.
+        fireEvent.click(screen.getByTestId('loading-button'));
+        write.release();
+        await waitFor(() => {
+          expect(screen.getByText('Import Complete!')).toBeInTheDocument();
+        });
+        expect(enhancedCsvImportService.importTransactions).toHaveBeenCalledTimes(1);
+        expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it('uses the cloud endpoint when signed in', async () => {
       mockIsUsingSupabase = true;
       vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
@@ -817,11 +993,33 @@ describe('CSVImportWizard', () => {
 
     it('supports keyboard navigation', async () => {
       renderWizard(true);
-      
+
       const fileInput = screen.getByLabelText(/select file/i);
       fileInput.focus();
-      
+
       expect(fileInput).toHaveFocus();
+    });
+
+    /**
+     * The picker was `className="hidden"` — display:none, which takes the input
+     * out of the tab order altogether, and a <label> cannot hold focus in its
+     * place. There was no way to reach it but a mouse.
+     *
+     * sr-only keeps it off screen and IN the tab order; focus-within paints the
+     * ring on the button the user can actually see, so the focus is not
+     * invisible either.
+     */
+    it('leaves the file picker in the tab order, with a visible focus ring', () => {
+      renderWizard(true);
+
+      const fileInput = screen.getByLabelText(/select file/i);
+      expect(fileInput).not.toHaveClass('hidden');
+      expect(fileInput).toHaveClass('sr-only');
+      expect(fileInput).not.toBeDisabled();
+      expect(fileInput).not.toHaveAttribute('tabindex', '-1');
+
+      const label = fileInput.closest('label');
+      expect(label?.className).toContain('focus-within:ring-2');
     });
   });
 
@@ -955,6 +1153,95 @@ describe('CSVImportWizard', () => {
       // Should have profile functionality available
       expect(screen.getByText('Save Current')).toBeInTheDocument();
       expect(screen.getByText('Select a saved profile...')).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * A file handed in by the Batch Import queue rather than picked here. It has
+   * to reach exactly the same code the drop zone reaches — that is the whole
+   * reason the queue is allowed to be a queue instead of a fourth importer.
+   *
+   * For a CSV that matters most of all: the columns still have to be mapped by
+   * a person. A queued CSV lands on the mapping step like any other, rather
+   * than being guessed at unattended.
+   */
+  describe('A file handed in by the batch queue', () => {
+    const queuedFile = (name = 'ledger.csv'): File =>
+      new File(['Date,Description,Amount\n2023-01-15,Test,-10.00'], name, { type: 'text/csv' });
+
+    const renderWithFile = (file: File) =>
+      render(
+        <CSVImportWizard
+          isOpen
+          onClose={mockOnClose}
+          type="transaction"
+          initialFile={file}
+        />
+      );
+
+    it('reads it on mount and stops at the mapping step for the user', async () => {
+      renderWithFile(queuedFile());
+
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+      expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+      expect(enhancedCsvImportService.suggestMappings).toHaveBeenCalledTimes(1);
+      // Not the result step, and not the write: a CSV names its columns in words
+      // only its author knows, so nothing is imported before someone confirms.
+      expect(screen.queryByText('Import Complete!')).not.toBeInTheDocument();
+      expect(transactionImportService.importInChunks).not.toHaveBeenCalled();
+      expect(importTransactionsLocally).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The queue re-renders whenever its own state moves. Re-reading on each of
+     * those would throw the user back to Map Columns, losing the mapping they
+     * were partway through correcting.
+     */
+    it('does not re-read when the same file is handed in again', async () => {
+      const file = queuedFile();
+      const { rerender } = renderWithFile(file);
+
+      await waitFor(() => {
+        expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(
+        <CSVImportWizard isOpen onClose={mockOnClose} type="transaction" initialFile={file} />
+      );
+      rerender(
+        <CSVImportWizard isOpen onClose={mockOnClose} type="transaction" initialFile={file} />
+      );
+
+      expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads a different file that happens to share a name', async () => {
+      const { rerender } = renderWithFile(queuedFile('statement.csv'));
+      await waitFor(() => {
+        expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(
+        <CSVImportWizard
+          isOpen
+          onClose={mockOnClose}
+          type="transaction"
+          initialFile={queuedFile('statement.csv')}
+        />
+      );
+
+      await waitFor(() => {
+        expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('shows the drop zone as usual when no file is handed in', () => {
+      renderWizard(true);
+
+      expect(screen.getByText('Upload CSV File')).toBeInTheDocument();
+      expect(enhancedCsvImportService.parseCSV).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { generatePDFReport, generateSimplePDFReport } from '../pdfExport';
+import { generatePDFReport, generateSimplePDFReport, generateDataExportPDF } from '../pdfExport';
+import type { DataExportTransaction } from '../pdfExport';
 import type { Transaction, Account } from '../../types';
 
 // Mock jsPDF
@@ -40,6 +41,15 @@ const printedText = (): string =>
     .filter((value): value is string => typeof value === 'string')
     .join(' ');
 
+/**
+ * Page count, tracked by the stand-in the way jsPDF tracks it: one page to
+ * begin with, one more each time the writer spills. The data export stamps
+ * "Page i of n" on every page, which is only meaningful if n is real.
+ */
+let pageCount = 1;
+const mockSetPage = vi.fn();
+const mockGetNumberOfPages = vi.fn(() => pageCount);
+
 const mockJsPDF = vi.fn(() => ({
   save: mockSave,
   addPage: mockAddPage,
@@ -50,6 +60,8 @@ const mockJsPDF = vi.fn(() => ({
   rect: mockRect,
   addImage: mockAddImage,
   splitTextToSize: mockSplitTextToSize,
+  getNumberOfPages: mockGetNumberOfPages,
+  setPage: mockSetPage,
   internal: {
     pageSize: {
       getWidth: () => 210, // A4 width in mm
@@ -57,6 +69,10 @@ const mockJsPDF = vi.fn(() => ({
     }
   }
 }));
+
+mockAddPage.mockImplementation(() => {
+  pageCount += 1;
+});
 
 // Mock html2canvas
 const mockToDataURL = vi.fn(() => 'data:image/png;base64,mockImageData');
@@ -135,6 +151,7 @@ describe('pdfExport', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    pageCount = 1;
     // Ensure timers are reset before using them
     vi.useRealTimers();
     // Mock date for consistent output
@@ -493,6 +510,113 @@ describe('pdfExport', () => {
       expect(mockText).toHaveBeenCalledWith('Financial Summary', expect.any(Number), expect.any(Number));
       expect(mockText).toHaveBeenCalledWith('Expense Categories', expect.any(Number), expect.any(Number));
       expect(mockText).toHaveBeenCalledWith('Top Transactions', expect.any(Number), expect.any(Number));
+    });
+  });
+
+  /**
+   * The Export Data page's listing. What it replaced had no page breaks at
+   * all, printed "Charts would be rendered here from DOM elements" into the
+   * file, and formatted every figure as US dollars.
+   */
+  describe('generateDataExportPDF', () => {
+    const makeRow = (index: number, overrides: Partial<DataExportTransaction> = {}): DataExportTransaction => ({
+      id: `tx-${index}`,
+      date: new Date('2025-03-04'),
+      amount: -10 - index,
+      description: `Payment ${index}`,
+      type: 'expense',
+      category: 'cat-uuid-not-for-printing',
+      categoryLabel: 'Food : Groceries',
+      accountLabel: 'Everyday Account',
+      accountId: 'acc-1',
+      ...overrides
+    });
+
+    const baseData = {
+      title: 'WealthTracker export',
+      dateRange: 'This month: 01/03/2025 to 31/03/2025',
+      currency: 'GBP',
+      filename: 'wealthtracker-export-2025-03-31.pdf'
+    };
+
+    it('prints the category NAME and never the stored id', async () => {
+      await generateDataExportPDF({ ...baseData, transactions: [makeRow(1)] });
+
+      expect(mockText).toHaveBeenCalledWith('Food : Groceries', expect.any(Number), expect.any(Number));
+      expect(printedText()).not.toContain('cat-uuid-not-for-printing');
+    });
+
+    it('formats money in the currency it was given, not a hard-coded one', async () => {
+      await generateDataExportPDF({
+        ...baseData,
+        currency: 'GBP',
+        transactions: [makeRow(1, { amount: -1234.5 })]
+      });
+
+      expect(printedText()).toContain('-£1,234.50');
+      expect(printedText()).not.toContain('$');
+    });
+
+    /**
+     * The bug this whole function exists to fix: content past the first page
+     * used to be written off the bottom of it and silently lost.
+     */
+    it('starts new pages for a listing that will not fit on one', async () => {
+      const rows = Array.from({ length: 120 }, (_, index) => makeRow(index));
+
+      await generateDataExportPDF({ ...baseData, transactions: rows });
+
+      expect(mockAddPage).toHaveBeenCalled();
+      // Every row is printed, not just the ones that fit on page one.
+      const printedRows = mockText.mock.calls.filter(
+        call => typeof call[0] === 'string' && call[0].startsWith('Payment ')
+      );
+      expect(printedRows).toHaveLength(120);
+    });
+
+    it('repeats the column headers on each new page', async () => {
+      const rows = Array.from({ length: 120 }, (_, index) => makeRow(index));
+
+      await generateDataExportPDF({ ...baseData, transactions: rows });
+
+      const headerDraws = mockText.mock.calls.filter(call => call[0] === 'Description');
+      expect(headerDraws.length).toBeGreaterThan(1);
+    });
+
+    it('numbers every page, so a short file cannot be mistaken for a truncated one', async () => {
+      const rows = Array.from({ length: 120 }, (_, index) => makeRow(index));
+
+      await generateDataExportPDF({ ...baseData, transactions: rows });
+
+      const pages = mockGetNumberOfPages();
+      expect(pages).toBeGreaterThan(1);
+      expect(mockSetPage).toHaveBeenCalledTimes(pages);
+      expect(printedText()).toContain(`Page 1 of ${pages}`);
+    });
+
+    it('totals the accounts section in Decimal', async () => {
+      const accounts: Account[] = [
+        { id: 'a', name: 'Current', type: 'current', balance: 0.1, currency: 'GBP', lastUpdated: new Date('2025-03-01') },
+        { id: 'b', name: 'Savings', type: 'savings', balance: 0.2, currency: 'GBP', lastUpdated: new Date('2025-03-01') }
+      ];
+
+      await generateDataExportPDF({ ...baseData, accounts });
+
+      // 0.1 + 0.2 is 0.30000000000000004 in float, and £0.30 in money.
+      expect(printedText()).toContain('Total of 2 accounts: £0.30');
+    });
+
+    it('omits a section the user did not ask for', async () => {
+      await generateDataExportPDF({ ...baseData, transactions: [makeRow(1)] });
+
+      expect(printedText()).toContain('Transactions');
+      expect(printedText()).not.toContain('Accounts');
+    });
+
+    it('saves under the filename it was given', async () => {
+      await generateDataExportPDF({ ...baseData, transactions: [makeRow(1)] });
+
+      expect(mockSave).toHaveBeenCalledWith('wealthtracker-export-2025-03-31.pdf');
     });
   });
 });

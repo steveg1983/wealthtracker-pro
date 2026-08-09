@@ -71,6 +71,25 @@ export default function RenamePayeesModal({
   const trimmedName = newName.trim();
   const canRename = trimmedName !== '' && plan.transactionIds.length > 0 && !renaming;
 
+  /**
+   * Enter in the name box does what the button does — the register's own
+   * keyboard grammar, where typing and pressing Enter is how everything is
+   * committed. Native submission rather than a keydown handler, so the browser
+   * decides what "submit this form" means and the button stays a real submit
+   * button.
+   *
+   * `canRename` gates BOTH: an empty or whitespace name, nothing selected, and
+   * a rename already running each stop it here as well as on the button.
+   * Without that last one Enter could fire a second rename over the first —
+   * a disabled button cannot be clicked twice, but Enter does not ask the
+   * button's permission.
+   */
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (!canRename) return;
+    void handleRename();
+  };
+
   const handleRename = async (): Promise<void> => {
     setRenaming(true);
     setProgress(0);
@@ -101,6 +120,10 @@ export default function RenamePayeesModal({
       title="Rename selected payees"
       size="lg"
     >
+      {/* The body and the footer inside ONE form, which is what makes Enter in
+          the name box press the button below it. Modal already lays out a
+          direct <form> child as the flex column its own children would be. */}
+      <form onSubmit={handleSubmit}>
       <ModalBody className="space-y-4">
         <div>
           <label htmlFor="new-payee-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -204,8 +227,7 @@ export default function RenamePayeesModal({
               Cancel
             </button>
             <button
-              type="button"
-              onClick={() => void handleRename()}
+              type="submit"
               disabled={!canRename}
               className="justify-center px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -216,6 +238,7 @@ export default function RenamePayeesModal({
           </div>
         </div>
       </ModalFooter>
+      </form>
     </Modal>
   );
 }

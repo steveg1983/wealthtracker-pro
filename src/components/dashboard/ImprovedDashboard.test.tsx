@@ -285,4 +285,25 @@ describe('Your Reports — two columns, two clocks', () => {
     // Stated, because the period pills above it do not govern it.
     expect(within(reports).getByText('Current balances')).toBeInTheDocument();
   });
+
+  /**
+   * The card used to be the only one of the four with no way into a full
+   * report — the other three opened theirs from the title.
+   */
+  it('opens the full Account Distribution report from its title', () => {
+    render(<ImprovedDashboard />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Account Distribution/ }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/reports/account-distribution');
+  });
+
+  it('still opens an account’s transactions from its legend row', () => {
+    render(<ImprovedDashboard />);
+
+    const legend = screen.getByRole('list', { name: 'Account distribution legend' });
+    fireEvent.click(within(legend).getByRole('button', { name: /Feed Account A/ }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/transactions?account=acc-a');
+  });
 });

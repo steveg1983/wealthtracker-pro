@@ -15,6 +15,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import ImportProgress from './common/ImportProgress';
 import AccountSelector from './common/AccountSelector';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -22,9 +23,24 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 interface QIFImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * A file chosen somewhere else — the Batch Import queue hands this dialog the
+   * next .qif on its list. Accepting one here is what lets that queue stay a
+   * queue: it never parses or writes a row, because this dialog does all of it
+   * exactly as it does for a file dropped below — including asking which
+   * account the file belongs to, which a QIF never says.
+   *
+   * The queue routes by extension, so the .qif check that guards the drop zone
+   * is deliberately NOT repeated for this path — a file that turns out not to
+   * be QIF fails in the parse and is reported there rather than swallowed.
+   */
+  initialFile?: File;
 }
 
 type QIFImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
+
+/** How often the row-at-a-time local write refreshes the count on screen. */
+const PROGRESS_EVERY = 25;
 
 type ImportOutcome =
   | {
@@ -43,12 +59,18 @@ type ImportOutcome =
       error: string;
     };
 
-export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
+export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction, refreshAccountsAndTransactions, isUsingSupabase } = useApp();
   const { getToken } = useAuth();
   const { formatCurrency } = useCurrencyDecimal();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  /**
+   * What the WRITE has confirmed so far, never what was hoped for. `total` is
+   * set the moment the rows to write are known (after duplicates are dropped),
+   * so the dialog can name the size of the job before the first row lands;
+   * `inserted` only ever moves on a report from the writing path.
+   */
   const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
   const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
@@ -88,37 +110,54 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     }
   }, [accounts, logger]);
   
+  /**
+   * Take a file: clear whatever the last one left behind, then parse it. The
+   * one path into this dialog, shared by the drop zone, the file input and the
+   * `initialFile` prop, so a queued file gets the identical treatment to a
+   * hand-picked one.
+   */
+  const acceptFile = useCallback((targetFile: File) => {
+    setFile(targetFile);
+    setParseResult(null);
+    setImportResult(null);
+    void parseFile(targetFile);
+  }, [parseFile]);
+
+  /**
+   * Compared by IDENTITY, not by name: re-rendering with the same File must not
+   * re-parse it (and throw away an account the user has just chosen), while a
+   * second file that happens to share a name still gets read.
+   */
+  const loadedInitialFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!initialFile || loadedInitialFileRef.current === initialFile) return;
+    loadedInitialFileRef.current = initialFile;
+    acceptFile(initialFile);
+  }, [acceptFile, initialFile]);
+
   // Handle file upload
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0];
     if (!uploadedFile) return;
-    
+
     // Check file extension
     if (!uploadedFile.name.toLowerCase().endsWith('.qif')) {
       alert('Please select a QIF file');
       return;
     }
-    
-    setFile(uploadedFile);
-    setParseResult(null);
-    setImportResult(null);
-    
-    // Parse the file
-    void parseFile(uploadedFile);
-  }, [parseFile]);
-  
+
+    acceptFile(uploadedFile);
+  }, [acceptFile]);
+
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const droppedFile = event.dataTransfer.files[0];
-    
+
     if (droppedFile && droppedFile.name.toLowerCase().endsWith('.qif')) {
-      setFile(droppedFile);
-      setParseResult(null);
-      setImportResult(null);
-      void parseFile(droppedFile);
+      acceptFile(droppedFile);
     }
-  }, [parseFile]);
+  }, [acceptFile]);
   
   // Process import
   const processImport = useCallback(async () => {
@@ -142,6 +181,12 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
       let insertedCount = result.transactions.length;
       let complete = true;
 
+      // The size of the job, known now that duplicates have been dropped and
+      // before a single row is written. Nothing is claimed as inserted yet.
+      if (isMountedRef.current) {
+        setProgress({ inserted: 0, total: result.transactions.length });
+      }
+
       if (isUsingSupabase) {
         // Cloud: write via the chunked, awaited bulk endpoint (one atomic RPC
         // per chunk) so a large statement can't flood the API and lose rows.
@@ -163,8 +208,17 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         }
       } else {
         // Local/demo mode: no cloud endpoint — write sequentially and awaited.
+        // Every row is its own write here, so the count on screen is a real
+        // count of rows in the register, not an estimate.
+        let written = 0;
         for (const transaction of result.transactions) {
           await addTransaction(transaction);
+          written += 1;
+          // Not per row: a 10,000-row file would be 10,000 renders, and the
+          // bar cannot show more steps than it has pixels anyway.
+          if (isMountedRef.current && (written % PROGRESS_EVERY === 0 || written === result.transactions.length)) {
+            setProgress({ inserted: written, total: result.transactions.length });
+          }
         }
       }
 
@@ -227,19 +281,21 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Drag and drop your .qif file here, or click to browse
               </p>
-              <input
-                type="file"
-                accept=".qif"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="qif-upload"
-              />
-              <label
-                htmlFor="qif-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
-              >
+              {/* sr-only, NOT hidden: display:none takes the input out of the
+                  tab order entirely, and a <label> cannot hold focus in its
+                  place — so the only way to reach this picker was a mouse.
+                  Off-screen the input still takes focus, and focus-within
+                  paints the ring on the button the user can actually see. */}
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
                 <FileTextIcon size={20} />
                 Select QIF File
+                <input
+                  type="file"
+                  accept=".qif"
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                  id="qif-upload"
+                />
               </label>
             </div>
             
@@ -347,20 +403,13 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               </div>
             </div>
             
-            {/* Progress (large cloud imports run in chunks) */}
-            {isProcessing && progress && progress.total > 0 && (
-              <div>
-                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-                  <span>Importing…</span>
-                  <span>{progress.inserted.toLocaleString()} / {progress.total.toLocaleString()}</span>
-                </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#1a2332] dark:bg-blue-500 transition-all"
-                    style={{ width: `${Math.min(100, Math.round((progress.inserted / progress.total) * 100))}%` }}
-                  />
-                </div>
-              </div>
+            {/* What the import is doing, from the click onwards — the file's
+                own count until the write reports one of its own. */}
+            {isProcessing && (
+              <ImportProgress
+                inserted={progress?.inserted ?? null}
+                total={progress?.total ?? parseResult.transactions.length}
+              />
             )}
 
             {/* Actions */}
@@ -368,12 +417,16 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
               <button
                 onClick={resetModal}
                 disabled={isProcessing}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+                // Said, not just enforced: a dead button with no explanation is
+                // indistinguishable from a broken one.
+                title={isProcessing ? 'Import in progress' : undefined}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <LoadingButton
                 isLoading={isProcessing}
+                loadingText="Importing…"
                 onClick={processImport}
                 disabled={!selectedAccountId}
                 className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"

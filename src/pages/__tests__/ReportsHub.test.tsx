@@ -60,6 +60,7 @@ describe('ReportsHub gallery', () => {
       'Net worth',
       'Net worth over time',
       'Account balances',
+      'Account distribution',
       'Monthly income and expenses',
       'Spending by category',
       'Income and spending over time',
@@ -75,6 +76,7 @@ describe('ReportsHub gallery', () => {
       '/reports/net-worth',
       '/reports/net-worth-over-time',
       '/reports/account-balances',
+      '/reports/account-distribution',
       '/reports/monthly-income-expenses',
       '/reports/spending-by-category',
       '/reports/income-and-spending-over-time',
@@ -248,6 +250,7 @@ describe('ReportsHub gallery', () => {
     ['net-worth', 'What you own'],
     ['net-worth-over-time', 'Net Worth Over Time'],
     ['account-balances', 'Balances by account'],
+    ['account-distribution', 'Where the money sits'],
     ['monthly-income-expenses', 'Top Transactions'],
     ['spending-by-category', 'Where the money went'],
     ['income-and-spending-over-time', 'Income against spending'],
@@ -264,5 +267,19 @@ describe('ReportsHub gallery', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Custom reports' }, LOADS_LAZY_REPORT)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Last month' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Account distribution is a snapshot of what the accounts hold NOW. A period
+   * control over it would govern nothing, so it is hidden and the page says on
+   * screen which balances these are.
+   */
+  it('offers no period for a report of current balances, and says so', async () => {
+    renderHub('/reports/account-distribution');
+
+    await screen.findByRole('heading', { name: 'Where the money sits' }, LOADS_LAZY_REPORT);
+    expect(screen.queryByRole('button', { name: 'Last month' })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Current balances/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Every account' })).toBeInTheDocument();
   });
 });

@@ -22,7 +22,9 @@ import { expandSplitTransactions } from '../../../utils/transactionSplits';
 import { formatDecimal } from '../../../utils/decimal-format';
 import { customReportService } from '../../../services/customReportService';
 import type { PeriodRange } from '../../../hooks/usePeriod';
-import { ChevronRightIcon, TrendingUpIcon, PieChartIcon, BarChart3Icon, FileTextIcon } from '../../icons';
+import { TrendingUpIcon, PieChartIcon, BarChart3Icon, FileTextIcon } from '../../icons';
+import DashboardWidgetCard from './DashboardWidgetCard';
+import { WIDGET_CHART_HEIGHT } from './widgetChrome';
 
 /**
  * Compact, live versions of the Reports-hub reports for the Dashboard's
@@ -33,6 +35,9 @@ import { ChevronRightIcon, TrendingUpIcon, PieChartIcon, BarChart3Icon, FileText
  *
  * Every card clicks through to ITS report in the gallery — the ids below are
  * the report gallery's stable URL segments (see pages/reports/reportRegistry).
+ *
+ * Every chart area is WIDGET_CHART_HEIGHT and every card wears the same shell,
+ * so the four cards in the section are one height rather than four.
  */
 
 const CATEGORY_COLORS = [
@@ -48,31 +53,6 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-function WidgetCard({ title, icon: Icon, onOpen, children }: {
-  title: string;
-  icon: React.ElementType;
-  onOpen: () => void;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-col">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex items-center gap-2 mb-2 text-left group"
-        title="Open the full report"
-      >
-        <Icon size={18} className="text-gray-500" />
-        <span className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-          {title}
-        </span>
-        <ChevronRightIcon size={14} className="text-gray-400 ml-auto" />
-      </button>
-      {children}
-    </div>
-  );
-}
-
 export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Element {
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
@@ -86,15 +66,17 @@ export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Ele
   const latest = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
 
   return (
-    <WidgetCard
+    <DashboardWidgetCard
       title="Net Worth Over Time"
       icon={TrendingUpIcon}
+      subtitle={
+        <span className="text-xl font-bold text-gray-900 dark:text-white truncate">
+          {latest ? formatCurrency(latest.netWorth) : '—'}
+        </span>
+      }
       onOpen={() => navigate(preserveDemoParam('/reports/net-worth-over-time', location.search))}
     >
-      <p className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-        {latest ? formatCurrency(latest.netWorth) : '—'}
-      </p>
-      <div className="h-36">
+      <div className={WIDGET_CHART_HEIGHT}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={snapshots}>
             <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 10 }} minTickGap={32} />
@@ -104,7 +86,7 @@ export function NetWorthWidget({ range }: { range: PeriodRange }): React.JSX.Ele
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </WidgetCard>
+    </DashboardWidgetCard>
   );
 }
 
@@ -125,12 +107,17 @@ export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): Rea
   }, [transactions, transactionSplits, categories, range]);
 
   return (
-    <WidgetCard
+    <DashboardWidgetCard
       title="Income vs Expenses"
       icon={BarChart3Icon}
+      subtitle={
+        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+          Month by month, what came in against what went out
+        </span>
+      }
       onOpen={() => navigate(preserveDemoParam('/reports/income-and-spending-over-time', location.search))}
     >
-      <div className="h-44">
+      <div className={WIDGET_CHART_HEIGHT}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.2)" />
@@ -142,7 +129,7 @@ export function IncomeExpenseTrendWidget({ range }: { range: PeriodRange }): Rea
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </WidgetCard>
+    </DashboardWidgetCard>
   );
 }
 
@@ -165,15 +152,24 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
   }, [transactions, transactionSplits, categories, range]);
 
   return (
-    <WidgetCard
+    <DashboardWidgetCard
       title="Expense Categories"
       icon={PieChartIcon}
+      subtitle={
+        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+          Where the money went, biggest first
+        </span>
+      }
       onOpen={() => navigate(preserveDemoParam('/reports/spending-by-category', location.search))}
     >
+      {/* The empty state fills the SAME box the chart would, so a period with
+          nothing in it does not shrink the card out of line with its neighbour. */}
       {data.length === 0 ? (
-        <p className="text-center py-10 text-sm text-gray-400">No categorised spending in this period</p>
+        <div className={`${WIDGET_CHART_HEIGHT} flex items-center justify-center`}>
+          <p className="text-center text-sm text-gray-400">No categorised spending in this period</p>
+        </div>
       ) : (
-        <div className="flex items-center gap-3 h-44">
+        <div className={`flex items-center gap-3 ${WIDGET_CHART_HEIGHT}`}>
           <div className="h-full flex-1 basis-0 min-w-[120px]">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
@@ -196,7 +192,7 @@ export function ExpenseCategoriesWidget({ range }: { range: PeriodRange }): Reac
           </ul>
         </div>
       )}
-    </WidgetCard>
+    </DashboardWidgetCard>
   );
 }
 
@@ -211,7 +207,7 @@ export function CustomReportWidget({ reportId }: { reportId: string }): React.JS
   if (!report) return null;
 
   return (
-    <WidgetCard
+    <DashboardWidgetCard
       title={report.name}
       icon={FileTextIcon}
       onOpen={() => navigate(preserveDemoParam('/reports/custom-reports', location.search))}
@@ -222,6 +218,6 @@ export function CustomReportWidget({ reportId }: { reportId: string }): React.JS
       <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
         {report.components.length} component{report.components.length === 1 ? '' : 's'} — open to generate
       </p>
-    </WidgetCard>
+    </DashboardWidgetCard>
   );
 }

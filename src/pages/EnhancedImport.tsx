@@ -14,9 +14,7 @@ import {
   UploadIcon,
   FolderIcon,
   FileTextIcon,
-  CheckCircleIcon,
   GlobeIcon,
-  PlayIcon,
   SettingsIcon,
   DatabaseIcon,
   CreditCardIcon,
@@ -29,12 +27,10 @@ import {
 // comment above the modal block). This is the single home for bringing data
 // in, so it pulls in many modals — deferring each chunk (and its hooks) until
 // first use keeps the page itself light.
-const EnhancedImportWizard = lazyWithRecovery(() => import('../components/EnhancedImportWizard'));
 const BatchImportModal = lazyWithRecovery(() => import('../components/BatchImportModal'));
 const ImportRulesManager = lazyWithRecovery(() => import('../components/ImportRulesManager'));
 const MsMoneyImportModal = lazyWithRecovery(() => import('../components/MsMoneyImportModal'));
 const DataMigrationWizard = lazyWithRecovery(() => import('../components/DataMigrationWizard'));
-const ImportDataModal = lazyWithRecovery(() => import('../components/ImportDataModal'));
 const CSVImportWizard = lazyWithRecovery(() => import('../components/CSVImportWizard'));
 const OFXImportModal = lazyWithRecovery(() => import('../components/OFXImportModal'));
 const QIFImportModal = lazyWithRecovery(() => import('../components/QIFImportModal'));
@@ -55,12 +51,10 @@ const bankFormats = [
 export default function EnhancedImport(): React.JSX.Element {
   const { exportData, isUsingSupabase } = useApp();
 
-  const [showEnhancedWizard, setShowEnhancedWizard] = useState(false);
   const [showBatchImport, setShowBatchImport] = useState(false);
   const [showRulesManager, setShowRulesManager] = useState(false);
   const [showMsMoneyImport, setShowMsMoneyImport] = useState(false);
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
-  const [showLegacyImport, setShowLegacyImport] = useState(false);
   const [showCSVImportWizard, setShowCSVImportWizard] = useState(false);
   const [showOFXImportModal, setShowOFXImportModal] = useState(false);
   const [showQIFImportModal, setShowQIFImportModal] = useState(false);
@@ -188,39 +182,18 @@ export default function EnhancedImport(): React.JSX.Element {
           title="From a bank or spreadsheet file"
           description="Statements and exports you downloaded from your bank or a spreadsheet."
         >
-          {/* Guided wizard gets top billing — it detects the bank format for you */}
-          <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-900/10 p-5 mb-1">
-            <div className="flex items-start gap-4">
-              <div className="w-11 h-11 shrink-0 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <UploadIcon size={22} className="text-blue-700 dark:text-blue-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Guided Import Wizard</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Step-by-step import with automatic bank-format detection, smart column mapping and duplicate detection.
-                </p>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  <li className="flex items-center gap-2"><CheckCircleIcon size={14} className="text-blue-600" /> Automatic bank detection</li>
-                  <li className="flex items-center gap-2"><CheckCircleIcon size={14} className="text-blue-600" /> Smart column mapping</li>
-                  <li className="flex items-center gap-2"><CheckCircleIcon size={14} className="text-blue-600" /> Rule-based transforms</li>
-                  <li className="flex items-center gap-2"><CheckCircleIcon size={14} className="text-blue-600" /> Duplicate detection</li>
-                </ul>
-                <button
-                  onClick={() => setShowEnhancedWizard(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors"
-                >
-                  <PlayIcon size={16} />
-                  Start Guided Import
-                </button>
-              </div>
-            </div>
-          </div>
-
+          {/* Retired 2026-08-09: the "Guided Import Wizard" that used to headline
+              this section. It promised bank detection, column mapping and
+              duplicate detection, and could not import a CSV at all — its write
+              step required an accountId the mapping step never produced, and it
+              fired every write un-awaited while counting them as imported. The
+              CSV importer below is the one that maps columns and reviews
+              duplicates for real. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <ActionButton icon={FileTextIcon} title="CSV Import" description="Bank statement files" onClick={() => setShowCSVImportWizard(true)} />
             <ActionButton icon={CreditCardIcon} title="OFX Import" description="Auto-matched bank data" onClick={() => setShowOFXImportModal(true)} />
             <ActionButton icon={DatabaseIcon} title="QIF Import" description="Quicken export files" onClick={() => setShowQIFImportModal(true)} />
-            <ActionButton icon={FolderIcon} title="Batch Import" description="Several files at once" onClick={() => setShowBatchImport(true)} />
+            <ActionButton icon={FolderIcon} title="Batch Import" description="Several files, one dialog each" onClick={() => setShowBatchImport(true)} />
           </div>
         </Section>
 
@@ -229,9 +202,14 @@ export default function EnhancedImport(): React.JSX.Element {
           title="From another app"
           description="Moving over from another money manager."
         >
+          {/* Retired 2026-08-09: the "Legacy Import" tile for older MNY / MBF
+              files. It scanned the file byte by byte and invented transactions
+              out of anything that decoded as a float, so it produced payments
+              that were never in the Money file. The Microsoft Money importer at
+              the top of this page reads a .mny properly and is the only way in
+              for one. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <ActionButton icon={DatabaseIcon} title="Data Migration Wizard" description="Mint, Quicken, YNAB and more" onClick={() => setShowMigrationWizard(true)} />
-            <ActionButton icon={UploadIcon} title="Legacy Import" description="Older MNY / MBF files" onClick={() => setShowLegacyImport(true)} />
           </div>
         </Section>
 
@@ -308,15 +286,6 @@ export default function EnhancedImport(): React.JSX.Element {
         </Suspense>
       )}
 
-      {showEnhancedWizard && (
-        <Suspense fallback={<LoadingState />}>
-          <EnhancedImportWizard
-            isOpen={showEnhancedWizard}
-            onClose={() => setShowEnhancedWizard(false)}
-          />
-        </Suspense>
-      )}
-
       {showCSVImportWizard && (
         <Suspense fallback={<LoadingState />}>
           <CSVImportWizard
@@ -360,15 +329,6 @@ export default function EnhancedImport(): React.JSX.Element {
             isOpen={showMigrationWizard}
             onClose={() => setShowMigrationWizard(false)}
             onOpenTool={handleWizardTool}
-          />
-        </Suspense>
-      )}
-
-      {showLegacyImport && (
-        <Suspense fallback={<LoadingState />}>
-          <ImportDataModal
-            isOpen={showLegacyImport}
-            onClose={() => setShowLegacyImport(false)}
           />
         </Suspense>
       )}

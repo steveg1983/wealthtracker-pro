@@ -1,11 +1,13 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
-import { exportService } from '../services/exportService';
-import type { ExportOptions, ExportTemplate } from '../services/exportService';
+import { exportService, EXPORT_FORMAT_LABELS } from '../services/exportService';
+import type { ExportFormat, ExportOptions, ExportTemplate } from '../services/exportService';
 import { useApp } from '../contexts/AppContextSupabase';
+import { useToast } from '../contexts/ToastContext';
+import { usePeriod, PERIOD_LABELS } from '../hooks/usePeriod';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import {
   DownloadIcon,
-  CalendarIcon,
   FileTextIcon,
   FileSpreadsheetIcon,
   PlusIcon,
@@ -17,14 +19,20 @@ import {
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
-import DatePicker from '../components/common/DatePicker';
-import { formatDateForInput } from '../utils/dateFormatter';
+import PeriodPicker from '../components/PeriodPicker';
 import { LoadingState } from '../components/loading/LoadingState';
-import type { Investment } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { DataService } from '../services/api/dataService';
 import { collectBackupBundle, downloadBackupBundle, type ExportProgress } from '../services/backupService';
 import { collectLocalBackupBundle } from '../services/localBackupService';
+import { selectExportData, describeExportRange, type AccountsScope } from '../utils/exportSelection';
+import { generateDataExportPDF } from '../utils/pdfExport';
+import {
+  exportTransactionsToCSV,
+  exportAccountsToCSV,
+  downloadCSV,
+  downloadTextFile
+} from '../utils/csvExport';
 
 // The advanced report builder (templated PDF/Excel/CSV) and the dedicated Excel
 // exporter both used to live under Settings ▸ Data Management. They move here so
@@ -40,11 +48,33 @@ const exportManagerLogger = createScopedLogger('ExportManagerPage');
 // delivered. A control that pretends to schedule erodes trust in the controls
 // that DO work, so it was cut rather than carried across, and the orphaned
 // scheduled-report methods were deleted from exportService with it.
-type ActiveTab = 'export' | 'templates' | 'history';
+//
+// The History tab went the same way: it was a sentence promising that export
+// history "will be displayed here", backed by nothing that ever recorded an
+// export.
+type ActiveTab = 'export' | 'templates';
 
-export default function ExportManager() {
-  const { transactions, accounts, isUsingSupabase } = useApp();
-  const investments: Investment[] = []; // TODO: Add investments to AppContext
+const FORMAT_ORDER: ExportFormat[] = ['pdf', 'csv', 'qif', 'ofx'];
+
+/**
+ * QIF and OFX describe transactions grouped under the accounts they belong to.
+ * Neither half is optional in the format, so the Include ticks do not apply.
+ */
+const isInterchangeFormat = (format: ExportFormat): boolean => format === 'qif' || format === 'ofx';
+
+const isoDay = (date: Date): string => {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+};
+
+export default function ExportManager(): React.JSX.Element {
+  const { transactions, transactionSplits, accounts, categories, isUsingSupabase } = useApp();
+  const { showError, showSuccess } = useToast();
+  const { displayCurrency } = useCurrencyDecimal();
+  // The app-wide period control, so "last month" here means what it means on
+  // every report. Persisted per surface by the hook.
+  const picker = usePeriod('exportPeriod');
   const [activeTab, setActiveTab] = useState<ActiveTab>('export');
   const [templates, setTemplates] = useState<ExportTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,64 +82,96 @@ export default function ExportManager() {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupProgress, setBackupProgress] = useState<ExportProgress | null>(null);
   const [backupError, setBackupError] = useState('');
-  const [exportOptions, setExportOptions] = useState<ExportOptions>({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    endDate: new Date(),
-    format: 'pdf',
-    includeCharts: true,
-    includeTransactions: true,
-    includeAccounts: true,
-    includeInvestments: true,
-    includeBudgets: true,
-    groupBy: 'category'
-  });
+  const [format, setFormat] = useState<ExportFormat>('pdf');
+  const [includeTransactions, setIncludeTransactions] = useState(true);
+  const [includeAccounts, setIncludeAccounts] = useState(true);
 
   useEffect(() => {
-    loadData();
+    loadTemplates();
   }, []);
 
-  const loadData = () => {
+  const loadTemplates = (): void => {
     setTemplates(exportService.getTemplates());
   };
 
-  const handleExport = async () => {
+  const interchange = isInterchangeFormat(format);
+  const wantsTransactions = interchange || includeTransactions;
+  const wantsAccounts = interchange || includeAccounts;
+  const accountsScope: AccountsScope = interchange ? 'with-transactions' : 'all';
+
+  // ONE answer to "what goes in the file", shared by the preview panel below
+  // and by the export itself. They cannot disagree because there is nothing
+  // for them to disagree about.
+  const selection = useMemo(
+    () => selectExportData({
+      transactions,
+      transactionSplits,
+      accounts,
+      categories,
+      range: picker.range,
+      includeTransactions: wantsTransactions,
+      includeAccounts: wantsAccounts,
+      accountsScope
+    }),
+    [transactions, transactionSplits, accounts, categories, picker.range, wantsTransactions, wantsAccounts, accountsScope]
+  );
+
+  const rangeDescription = describeExportRange(picker.period, picker.range);
+  const transactionCount = selection.transactions?.length ?? 0;
+  const accountCount = selection.accounts?.length ?? 0;
+  const hasSomethingToExport = transactionCount > 0 || accountCount > 0;
+
+  const handleExport = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      const data = {
-        transactions: exportOptions.includeTransactions ? transactions : undefined,
-        accounts: exportOptions.includeAccounts ? accounts : undefined,
-        investments: exportOptions.includeInvestments ? investments : undefined
-      };
+      const stem = `wealthtracker-export-${isoDay(new Date())}`;
 
-      if (exportOptions.format === 'pdf') {
-        const pdfData = await exportService.exportToPDF(data, exportOptions);
-        const blob = new Blob([new Uint8Array(pdfData)], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `financial-report-${exportOptions.startDate.toISOString().split('T')[0]}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else if (exportOptions.format === 'csv') {
-        const csvData = await exportService.exportToCSV(
-          exportOptions.includeTransactions ? transactions : accounts,
-          exportOptions
-        );
-        const blob = new Blob([csvData], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `export-${exportOptions.startDate.toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+      if (format === 'pdf') {
+        await generateDataExportPDF({
+          title: 'WealthTracker export',
+          dateRange: rangeDescription,
+          currency: displayCurrency,
+          transactions: selection.transactions ?? undefined,
+          accounts: selection.accounts ?? undefined,
+          filename: `${stem}.pdf`
+        });
+      } else if (format === 'csv') {
+        // A CSV holds exactly ONE table, so each ticked section gets its own
+        // well-formed file rather than being stapled below the other with a
+        // second header row that no spreadsheet can read.
+        if (selection.transactions) {
+          downloadCSV(
+            exportTransactionsToCSV(selection.transactions, accounts, categories),
+            `${stem}-transactions.csv`
+          );
+        }
+        if (selection.accounts) {
+          downloadCSV(exportAccountsToCSV(selection.accounts), `${stem}-accounts.csv`);
+        }
+      } else if (format === 'qif') {
+        const qif = exportService.exportToQIF({
+          transactions: selection.transactions ?? [],
+          accounts: selection.accounts ?? [],
+          categories
+        });
+        downloadTextFile(qif, `${stem}.qif`, 'application/qif');
+      } else {
+        const ofx = exportService.exportToOFX({
+          transactions: selection.transactions ?? [],
+          accounts: selection.accounts ?? []
+        });
+        downloadTextFile(ofx, `${stem}.ofx`, 'application/x-ofx');
       }
+
+      showSuccess(
+        format === 'csv' && selection.transactions && selection.accounts
+          ? 'Two files were written: one for transactions, one for accounts.'
+          : 'Your export has been downloaded.',
+        'Export ready'
+      );
     } catch (error) {
       exportManagerLogger.error('Export failed', error);
-      alert('Export failed. Please try again.');
+      showError(error);
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +190,7 @@ export default function ExportManager() {
   // backupService resolves a Supabase client and threw without one — which is
   // an odd thing to offer a person and then refuse. Same format, same file,
   // same restore; only where the rows come from differs.
-  const handleExportEverything = async () => {
+  const handleExportEverything = async (): Promise<void> => {
     const { databaseId, clerkId } = DataService.getUserIds();
     // Signed in but the database identity has not resolved yet. Falling through
     // to the local path here would hand a signed-in user a file made of
@@ -159,46 +221,57 @@ export default function ExportManager() {
     }
   };
 
-  const handleUseTemplate = (template: ExportTemplate) => {
-    setExportOptions({
-      ...template.options,
-      // Update dates to current period if using relative dates
-      startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-      endDate: new Date()
-    });
+  /**
+   * Apply a template — ALL of it. The previous version overwrote the saved
+   * period with the current calendar month on the way in, so the one setting
+   * people most wanted to keep was the one setting a template could not hold.
+   */
+  const handleUseTemplate = (template: ExportTemplate): void => {
+    const { options } = template;
+    setFormat(options.format);
+    setIncludeTransactions(options.includeTransactions);
+    setIncludeAccounts(options.includeAccounts);
+    if (options.range === 'custom') {
+      picker.setCustomStart(options.customStart);
+      picker.setCustomEnd(options.customEnd);
+    }
+    picker.setPeriod(options.range);
     setActiveTab('export');
   };
 
-  const handleSaveAsTemplate = () => {
+  const handleSaveAsTemplate = (): void => {
     const name = prompt('Enter template name:');
     if (!name) return;
 
     const description = prompt('Enter template description (optional):') || '';
 
-    exportService.createTemplate({
-      name,
-      description,
-      options: exportOptions,
-      isDefault: false
-    });
+    const options: ExportOptions = {
+      range: picker.period,
+      customStart: picker.period === 'custom' ? picker.customStart : '',
+      customEnd: picker.period === 'custom' ? picker.customEnd : '',
+      format,
+      includeTransactions,
+      includeAccounts
+    };
 
-    loadData();
+    exportService.createTemplate({ name, description, options, isStarter: false });
+    loadTemplates();
   };
 
-  const handleDeleteTemplate = (id: string) => {
+  const handleDeleteTemplate = (id: string): void => {
     if (confirm('Are you sure you want to delete this template?')) {
       exportService.deleteTemplate(id);
-      loadData();
+      loadTemplates();
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const describeTemplateRange = (options: ExportOptions): string =>
+    options.range === 'custom' && options.customStart && options.customEnd
+      ? `${options.customStart} to ${options.customEnd}`
+      : PERIOD_LABELS[options.range];
+
+  const formatDate = (date: Date): string =>
+    date.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
 
   return (
     <PageWrapper title="Export Data">
@@ -246,19 +319,6 @@ export default function ExportManager() {
                   Templates ({templates.length})
                 </div>
               </button>
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'history'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <CalendarIcon size={16} />
-                  History
-                </div>
-              </button>
             </nav>
           </div>
         </div>
@@ -271,80 +331,38 @@ export default function ExportManager() {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
 
-                {/* Date Range */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Start Date
-                    </label>
-                    {/* dd/mm/yyyy everywhere — a native date input renders in
-                        the browser's locale, not the app's. The range holds
-                        real Dates, so an emptied value (the picker's Clear) is
-                        ignored rather than stored as an Invalid Date. */}
-                    <DatePicker
-                      aria-label="Start date"
-                      value={formatDateForInput(exportOptions.startDate)}
-                      onChange={(val) => { if (val) setExportOptions({ ...exportOptions, startDate: new Date(val) }); }}
-                      className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      End Date
-                    </label>
-                    <DatePicker
-                      aria-label="End date"
-                      value={formatDateForInput(exportOptions.endDate)}
-                      onChange={(val) => { if (val) setExportOptions({ ...exportOptions, endDate: new Date(val) }); }}
-                      className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
+                {/* Period — the same control, and the same meaning, as every
+                    report in the app. */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Period
+                  </label>
+                  <PeriodPicker picker={picker} label="Export period" />
                 </div>
 
-                {/* Format and Options */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Format
-                    </label>
-                    {/* Only the formats this quick export actually produces. Excel
-                        lives in the Excel Export / Advanced Report tools below, and
-                        full JSON in "Export everything" — offering dead xlsx/json
-                        options here would be the same broken-control problem as the
-                        removed scheduler. */}
-                    <select
-                      aria-label="Export format"
-                      value={exportOptions.format}
-                      onChange={(e) => setExportOptions({
-                        ...exportOptions,
-                        format: e.target.value as ExportOptions['format']
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="pdf">PDF Report</option>
-                      <option value="csv">CSV Data</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Group By
-                    </label>
-                    <select
-                      aria-label="Group by"
-                      value={exportOptions.groupBy || 'none'}
-                      onChange={(e) => setExportOptions({
-                        ...exportOptions,
-                        groupBy: e.target.value as ExportOptions['groupBy']
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="none">No Grouping</option>
-                      <option value="category">Category</option>
-                      <option value="account">Account</option>
-                      <option value="month">Month</option>
-                    </select>
-                  </div>
+                {/* Format */}
+                <div className="mb-6 max-w-sm">
+                  <label
+                    htmlFor="export-format"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  >
+                    Format
+                  </label>
+                  {/* Only the formats this page actually writes. Excel lives in
+                      the Excel Export / Advanced Report tools below, and full
+                      JSON in the full backup — offering dead options here would
+                      be the same broken-control problem as the removed
+                      scheduler. */}
+                  <select
+                    id="export-format"
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value as ExportFormat)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    {FORMAT_ORDER.map(key => (
+                      <option key={key} value={key}>{EXPORT_FORMAT_LABELS[key]}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Include Options */}
@@ -354,54 +372,73 @@ export default function ExportManager() {
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {([
-                      { key: 'includeTransactions' as const, label: 'Transactions' },
-                      { key: 'includeAccounts' as const, label: 'Accounts' },
-                      { key: 'includeInvestments' as const, label: 'Investments' },
-                      { key: 'includeBudgets' as const, label: 'Budgets' },
-                      { key: 'includeCharts' as const, label: 'Charts', disabled: exportOptions.format !== 'pdf' },
-                    ]).map(({ key, label, disabled }) => {
-                      const checked = exportOptions[key];
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => !disabled && setExportOptions({ ...exportOptions, [key]: !checked })}
-                          disabled={disabled}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
-                            disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-                          } ${
-                            checked
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
-                              : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-650'
-                          }`}
-                        >
-                          <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
-                            checked ? 'bg-[#1a2332] text-white' : 'border border-gray-300 dark:border-gray-500'
-                          }`}>
-                            {checked && <CheckIcon size={12} />}
-                          </div>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
-                        </button>
-                      );
-                    })}
+                      {
+                        key: 'transactions' as const,
+                        label: 'Transactions',
+                        checked: wantsTransactions,
+                        toggle: () => setIncludeTransactions(value => !value)
+                      },
+                      {
+                        key: 'accounts' as const,
+                        label: 'Accounts',
+                        checked: wantsAccounts,
+                        toggle: () => setIncludeAccounts(value => !value)
+                      }
+                    ]).map(({ key, label, checked, toggle }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="switch"
+                        aria-checked={checked}
+                        onClick={() => { if (!interchange) toggle(); }}
+                        disabled={interchange}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                          interchange ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                        } ${
+                          checked
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                            : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-650'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                          checked ? 'bg-[#1a2332] text-white' : 'border border-gray-300 dark:border-gray-500'
+                        }`}>
+                          {checked && <CheckIcon size={12} />}
+                        </div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                      </button>
+                    ))}
                   </div>
+
+                  {/* Investments, Budgets and Charts used to sit in this row.
+                      Nothing was behind any of them: investments were passed as
+                      a hard-coded empty list, budgets were never passed at all,
+                      and "Charts" printed the sentence "Charts would be rendered
+                      here from DOM elements" into the PDF. */}
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                    {interchange
+                      ? 'QIF and OFX describe transactions grouped under the accounts they belong to, so both are always included — and only accounts with transactions in this period are named, to avoid creating empty ones wherever you import the file.'
+                      : format === 'csv'
+                        ? 'A CSV holds one table, so each ticked section is written as its own file.'
+                        : `Figures are in ${displayCurrency}.`}
+                  </p>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={handleExport}
-                  disabled={isLoading}
-                  className="flex items-center gap-2 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90 disabled:opacity-50"
+                  onClick={() => { void handleExport(); }}
+                  disabled={isLoading || !hasSomethingToExport}
+                  className="flex items-center gap-2 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? <RefreshCwIcon size={16} className="animate-spin" /> : <DownloadIcon size={16} />}
                   {isLoading ? 'Generating...' : 'Export Now'}
                 </button>
 
-                {/* Advanced, templated reports (Monthly Statement, Tax Summary,
-                    Net Worth, …) as PDF/Excel/CSV — the richer builder ExportManager
-                    lacked. Self-contained trigger + modal. */}
+                {/* Advanced, templated reports (Monthly Statement, Budget
+                    Analysis) as PDF/Excel/CSV — the richer builder this quick
+                    export deliberately is not. Self-contained trigger + modal. */}
                 <Suspense fallback={<LoadingState />}>
                   <EnhancedExportManager />
                 </Suspense>
@@ -479,39 +516,38 @@ export default function ExportManager() {
               </div>
             </div>
 
-            {/* Preview */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            {/* Preview — a description of the FILE, not of the dataset. Every
+                figure here comes from the same selection the export writes. */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 self-start">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Preview</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Period:</span>
-                  <span className="text-gray-900 dark:text-white">
-                    {formatDate(exportOptions.startDate)} - {formatDate(exportOptions.endDate)}
-                  </span>
+                  <span className="text-gray-900 dark:text-white text-right">{rangeDescription}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Format:</span>
-                  <span className="text-gray-900 dark:text-white uppercase">{exportOptions.format}</span>
+                  <span className="text-gray-900 dark:text-white uppercase">{format}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Transactions:</span>
-                  <span className="text-gray-900 dark:text-white">
-                    {exportOptions.includeTransactions ? transactions.length : 0}
+                  <span className="text-gray-900 dark:text-white" data-testid="preview-transaction-count">
+                    {transactionCount.toLocaleString()}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-4">
                   <span className="text-gray-600 dark:text-gray-400">Accounts:</span>
-                  <span className="text-gray-900 dark:text-white">
-                    {exportOptions.includeAccounts ? accounts.length : 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Investments:</span>
-                  <span className="text-gray-900 dark:text-white">
-                    {exportOptions.includeInvestments ? investments.length : 0}
+                  <span className="text-gray-900 dark:text-white" data-testid="preview-account-count">
+                    {accountCount.toLocaleString()}
                   </span>
                 </div>
               </div>
+
+              {!hasSomethingToExport && (
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-4">
+                  Nothing falls in this period with these options, so there is no file to write.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -536,7 +572,10 @@ export default function ExportManager() {
               {templates.length === 0 ? (
                 <div className="text-center py-8">
                   <FileTextIcon size={48} className="mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-500 dark:text-gray-400">No templates created yet</p>
+                  <p className="text-gray-500 dark:text-gray-400">No templates</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                    Set up an export the way you like it, then use Save as Template on the Quick Export tab.
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -545,9 +584,11 @@ export default function ExportManager() {
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium text-gray-900 dark:text-white">
                           {template.name}
-                          {template.isDefault && (
+                          {/* A label, not a lock: these came with the app, and
+                              they delete like any other. */}
+                          {template.isStarter && (
                             <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
-                              Default
+                              Starter
                             </span>
                           )}
                         </h4>
@@ -555,15 +596,16 @@ export default function ExportManager() {
                           <button
                             onClick={() => handleUseTemplate(template)}
                             className="p-1 text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
-                            title="Use template"
+                            title={`Use template ${template.name}`}
+                            aria-label={`Use template ${template.name}`}
                           >
                             <PlayIcon size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteTemplate(template.id)}
                             className="p-1 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                            title="Delete template"
-                            disabled={template.isDefault}
+                            title={`Delete template ${template.name}`}
+                            aria-label={`Delete template ${template.name}`}
                           >
                             <TrashIcon size={14} />
                           </button>
@@ -574,14 +616,15 @@ export default function ExportManager() {
                       </p>
                       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                         <div>Format: {template.options.format.toUpperCase()}</div>
+                        {/* The period is stored as a RULE, so it says what it
+                            will do next time — not what it did in the month it
+                            was saved. */}
+                        <div>Period: {describeTemplateRange(template.options)}</div>
                         <div>
                           Includes: {[
                             template.options.includeTransactions && 'Transactions',
-                            template.options.includeAccounts && 'Accounts',
-                            template.options.includeInvestments && 'Investments',
-                            template.options.includeBudgets && 'Budgets',
-                            template.options.includeCharts && 'Charts'
-                          ].filter(Boolean).join(', ')}
+                            template.options.includeAccounts && 'Accounts'
+                          ].filter(Boolean).join(', ') || 'nothing yet'}
                         </div>
                         <div>Created: {formatDate(template.createdAt)}</div>
                       </div>
@@ -589,20 +632,6 @@ export default function ExportManager() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* History Tab */}
-        {activeTab === 'history' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export History</h3>
-            <div className="text-center py-8">
-              <CalendarIcon size={48} className="mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-500 dark:text-gray-400">Export history will be displayed here</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                This feature will track all generated exports
-              </p>
             </div>
           </div>
         )}
@@ -619,7 +648,7 @@ export default function ExportManager() {
         </Suspense>
       )}
 
-      <PageTip id="export-intro" title="Export your data" description="Download your transactions, accounts, and reports in PDF, Excel, or CSV format. Perfect for backups or analysis in spreadsheets." />
+      <PageTip id="export-intro-2" title="Export your data" description="Download the transactions and accounts in the period you choose — as a PDF, a spreadsheet, or a QIF/OFX file another finance app can read. The full backup below is the only one you can restore." />
     </PageWrapper>
   );
 }

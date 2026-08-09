@@ -1,267 +1,218 @@
+/**
+ * Batch Import is a QUEUE. These tests exist to keep it one.
+ *
+ * The screen it replaced parsed files itself, guessed destination accounts and
+ * wrote rows through a path the single-file dialogs had already been fixed to
+ * stop using — then reported counts it read from a stale render snapshot, so it
+ * always said "0 of N" no matter what it had done. So what is checked here is
+ * not "does it import": it is that this component hands each file to the real
+ * dialog, never claims an outcome of its own, and never quietly loses a file.
+ *
+ * The three importers are stubbed BECAUSE the point is the routing. What they do
+ * with a file is their own tests' subject, and is not repeated here.
+ */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import BatchImportModal from './BatchImportModal';
-import { ofxImportService } from '../services/ofxImportService';
-import type { Account } from '../types';
 
-// Mock services
-vi.mock('../services/enhancedCsvImportService', () => ({
-  enhancedCsvImportService: {
-    parseCSV: vi.fn(() => ({ headers: ['Date', 'Amount', 'Description'], data: [] })),
-    suggestMappings: vi.fn(() => ({})),
-    generatePreview: vi.fn(() => ({ transactions: [] }))
-  }
-}));
+interface StubModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialFile?: File;
+}
 
-vi.mock('../services/ofxImportService', () => ({
-  ofxImportService: {
-    parseOFX: vi.fn(() => ({ accounts: [], transactions: [] })),
-    importTransactions: vi.fn()
-  }
-}));
+const csvOpened = vi.fn<(name: string | undefined) => void>();
+const ofxOpened = vi.fn<(name: string | undefined) => void>();
+const qifOpened = vi.fn<(name: string | undefined) => void>();
 
-vi.mock('../services/qifImportService', () => ({
-  qifImportService: {
-    parseQIF: vi.fn(() => ({ 
-      primaryAccount: { transactions: [] }, 
-      otherAccounts: []
-    }))
-  }
-}));
-
-// Mock Modal component
-vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, children }: any) => 
-    isOpen ? (
-      <div role="dialog" aria-label={title}>
-        <h2>{title}</h2>
-        <button onClick={onClose} aria-label="Close modal">Close</button>
-        {children}
+const stub = (label: string, record: (name: string | undefined) => void) =>
+  function StubImporter({ isOpen, onClose, initialFile }: StubModalProps): React.JSX.Element | null {
+    React.useEffect(() => {
+      if (isOpen) record(initialFile?.name);
+    }, [isOpen, initialFile]);
+    if (!isOpen) return null;
+    return (
+      <div>
+        <p>{label} open for {initialFile?.name ?? 'no file'}</p>
+        <button onClick={onClose}>Close {label}</button>
       </div>
-    ) : null,
-}));
-
-// Mock LoadingButton
-vi.mock('./loading/LoadingState', () => ({
-  LoadingButton: ({ loading, children, ...props }: any) => (
-    <button {...props} disabled={loading}>
-      {loading ? 'Processing...' : children}
-    </button>
-  )
-}));
-
-// Mock icons
-vi.mock('./icons', () => ({
-  UploadIcon: () => <div>Upload</div>,
-  FileTextIcon: () => <div>File</div>,
-  CheckIcon: () => <div>Check</div>,
-  XIcon: () => <div>X</div>,
-  AlertCircleIcon: () => <div>Alert</div>,
-  ChevronRightIcon: () => <div>›</div>,
-  ChevronLeftIcon: () => <div>‹</div>,
-  FolderIcon: () => <div>Folder</div>,
-  PlayIcon: () => <div>Play</div>,
-  StopIcon: () => <div>Stop</div>,
-}));
-
-// Mock useApp hook
-const mockAddTransaction = vi.fn();
-const mockUpdateAccount = vi.fn();
-const mockBatchAccount: Account = {
-  id: 'acc1',
-  name: 'Checking',
-  type: 'checking',
-  balance: 1000,
-  currency: 'USD',
-  lastUpdated: new Date('2026-01-01'),
-};
-
-vi.mock('../contexts/AppContextSupabase', () => ({
-  useApp: vi.fn(() => ({
-    accounts: [mockBatchAccount],
-    transactions: [],
-    addTransaction: mockAddTransaction,
-    updateAccount: mockUpdateAccount,
-  })),
-}));
-
-describe('BatchImportModal (Simplified)', () => {
-  const defaultProps = {
-    isOpen: true,
-    onClose: vi.fn(),
+    );
   };
 
+vi.mock('./CSVImportWizard', () => ({ default: stub('CSV wizard', (name) => csvOpened(name)) }));
+vi.mock('./OFXImportModal', () => ({ default: stub('OFX importer', (name) => ofxOpened(name)) }));
+vi.mock('./QIFImportModal', () => ({ default: stub('QIF importer', (name) => qifOpened(name)) }));
+
+const defaultProps = { isOpen: true, onClose: vi.fn() };
+
+/** Synthetic files — nothing here reads a byte of them. */
+const makeFile = (name: string): File => new File(['synthetic'], name, { type: 'text/plain' });
+
+const selectFiles = (files: File[]): void => {
+  const input = document.querySelector('input[type="file"]');
+  if (!(input instanceof HTMLInputElement)) throw new Error('no file input rendered');
+  fireEvent.change(input, { target: { files } });
+};
+
+describe('BatchImportModal (a queue over the real importers)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders modal when open', () => {
-    render(<BatchImportModal {...defaultProps} />);
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Batch Import Files')).toBeInTheDocument();
-  });
-
-  it('shows drop zone initially', () => {
-    render(<BatchImportModal {...defaultProps} />);
-    expect(screen.getByText('Drop files here or click to browse')).toBeInTheDocument();
-  });
-
-  it('accepts CSV files', async () => {
-    render(<BatchImportModal {...defaultProps} />);
-    
-    const file = new File(['content'], 'test.csv', { type: 'text/csv' });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    
-    fireEvent.change(input, { target: { files: [file] } });
-    
-    await waitFor(() => {
-      expect(screen.getByText('test.csv')).toBeInTheDocument();
-    });
-  });
-
-  it('shows file type and size', async () => {
-    render(<BatchImportModal {...defaultProps} />);
-    
-    const file = new File(['x'.repeat(1024)], 'test.csv', { type: 'text/csv' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { files: [file] } });
-    
-    await waitFor(() => {
-      expect(screen.getByText('test.csv')).toBeInTheDocument();
-      expect(screen.getByText(/CSV/)).toBeInTheDocument();
-    });
-  });
-
-  it('rejects unsupported files', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    render(<BatchImportModal {...defaultProps} />);
-    
-    const file = new File(['content'], 'test.txt', { type: 'text/plain' });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    
-    fireEvent.change(input, { target: { files: [file] } });
-    
-    expect(alertSpy).toHaveBeenCalledWith('Unsupported file types: test.txt');
-    alertSpy.mockRestore();
-  });
-
-  it('shows import button when files selected', async () => {
-    render(<BatchImportModal {...defaultProps} />);
-    
-    const file = new File(['content'], 'test.csv', { type: 'text/csv' });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    
-    fireEvent.change(input, { target: { files: [file] } });
-    
-    await waitFor(() => {
-      expect(screen.getByText('Import All Files')).toBeInTheDocument();
-    });
-  });
-
-  it('accepts multiple file types', async () => {
-    render(<BatchImportModal {...defaultProps} />);
-    
-    const files = [
-      new File([''], 'test.csv', { type: 'text/csv' }),
-      new File([''], 'test.ofx', { type: 'application/x-ofx' }),
-      new File([''], 'test.qif', { type: 'application/qif' })
-    ];
-    
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { files } });
-    
-    await waitFor(() => {
-      expect(screen.getByText('test.csv')).toBeInTheDocument();
-      expect(screen.getByText('test.ofx')).toBeInTheDocument();
-      expect(screen.getByText('test.qif')).toBeInTheDocument();
-    });
-  });
-
-  it('calls onClose when close button clicked', () => {
-    const onClose = vi.fn();
-    render(<BatchImportModal {...defaultProps} onClose={onClose} />);
-
-    fireEvent.click(screen.getByLabelText('Close modal'));
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  /**
-   * This screen never asks which account an OFX file belongs to: files are
-   * matched automatically and the result is a list of counts. So the statement
-   * balance is only written when the FILE named the account — the account's
-   * own recorded sort code / account number being the one in the file — and
-   * never on a name-and-type guess nobody is there to check.
-   */
-  describe('Setting the Bank Balance from a statement', () => {
-    type ImportResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
-
-    const importResult = (overrides: Partial<ImportResult> = {}): ImportResult => ({
-      transactions: [],
-      matchedAccount: mockBatchAccount,
-      ofxAccount: {
-        accountId: '12345678',
-        bankId: '123456',
-        accountType: 'CHECKING',
-        isCreditCardStatement: false,
-      },
-      matchConfidence: 'identifier',
-      statementBalance: { amount: 5000, dateAsOf: '2026-03-31' },
-      duplicates: 0,
-      newTransactions: 0,
-      ...overrides,
-    });
-
-    const importOfxFile = async (result: ImportResult): Promise<void> => {
-      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(result);
-
+  describe('the file list', () => {
+    it('names the importer each file will open in', () => {
       render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('january.ofx'), makeFile('ledger.csv'), makeFile('quicken.qif')]);
 
-      const file = new File([''], 'statement.ofx', { type: 'application/x-ofx' });
-      // jsdom's File has no usable text() in this environment.
-      file.text = vi.fn().mockResolvedValue('OFX content');
+      expect(screen.getByText('january.ofx')).toBeInTheDocument();
+      expect(screen.getByText(/Opens in the OFX importer/)).toBeInTheDocument();
+      expect(screen.getByText(/Opens in the CSV importer/)).toBeInTheDocument();
+      expect(screen.getByText(/Opens in the QIF importer/)).toBeInTheDocument();
+    });
 
-      fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
-        target: { files: [file] }
-      });
+    /**
+     * The old screen alerted once and then filtered these out of its own list,
+     * so a statement in the wrong format looked accepted and was never mentioned
+     * again. A file nobody is told about is a file somebody believes is imported.
+     */
+    it('keeps a file it cannot read, and says so', () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('statement.pdf'), makeFile('january.ofx')]);
+
+      expect(screen.getByText('statement.pdf')).toBeInTheDocument();
+      expect(screen.getByText(/Not importable/)).toBeInTheDocument();
+      expect(screen.getByText('2 files')).toBeInTheDocument();
+    });
+
+    it('will not start when nothing in the list can be imported', () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('statement.pdf')]);
+
+      expect(screen.getByRole('button', { name: /^Start/ })).toBeDisabled();
+      expect(screen.getByText(/None of these files can be imported here/)).toBeInTheDocument();
+    });
+
+    it('counts only the importable files on the Start button', () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('statement.pdf'), makeFile('a.ofx'), makeFile('b.qif')]);
+
+      expect(screen.getByRole('button', { name: /Start — 2 files/ })).toBeEnabled();
+    });
+
+    it('lets a file be taken back off the list', () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('a.ofx'), makeFile('b.qif')]);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove a.ofx' }));
+
+      expect(screen.queryByText('a.ofx')).not.toBeInTheDocument();
+      expect(screen.getByText('b.qif')).toBeInTheDocument();
+    });
+  });
+
+  describe('running the queue', () => {
+    it('opens each file in its own importer, in list order, and hands over the file itself', async () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('january.ofx'), makeFile('ledger.csv'), makeFile('quicken.qif')]);
+      fireEvent.click(screen.getByRole('button', { name: /^Start/ }));
+
       await waitFor(() => {
-        expect(screen.getByText('Import All Files')).toBeInTheDocument();
+        expect(screen.getByText('OFX importer open for january.ofx')).toBeInTheDocument();
       });
+      expect(ofxOpened).toHaveBeenCalledWith('january.ofx');
+      // One dialog at a time: the queue's own screen is gone while this is up.
+      expect(screen.queryByRole('button', { name: /^Start/ })).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByText('Import All Files'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close OFX importer' }));
       await waitFor(() => {
-        expect(screen.getByText(/Import Complete/)).toBeInTheDocument();
+        expect(screen.getByText('CSV wizard open for ledger.csv')).toBeInTheDocument();
+      });
+      expect(csvOpened).toHaveBeenCalledWith('ledger.csv');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close CSV wizard' }));
+      await waitFor(() => {
+        expect(screen.getByText('QIF importer open for quicken.qif')).toBeInTheDocument();
+      });
+      expect(qifOpened).toHaveBeenCalledWith('quicken.qif');
+    });
+
+    it('steps over a file it cannot read instead of stopping on it', async () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('january.ofx'), makeFile('statement.pdf'), makeFile('quicken.qif')]);
+      fireEvent.click(screen.getByRole('button', { name: /^Start/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText('OFX importer open for january.ofx')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Close OFX importer' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('QIF importer open for quicken.qif')).toBeInTheDocument();
+      });
+    });
+
+    it('gives a second file of the same kind a fresh dialog', async () => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('january.ofx'), makeFile('february.ofx')]);
+      fireEvent.click(screen.getByRole('button', { name: /^Start/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText('OFX importer open for january.ofx')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Close OFX importer' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('OFX importer open for february.ofx')).toBeInTheDocument();
+      });
+      // Mounted twice, not re-rendered once: the second file must not inherit
+      // the first one's parse, chosen account or result screen.
+      expect(ofxOpened).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('the summary', () => {
+    const runToEnd = async (): Promise<void> => {
+      render(<BatchImportModal {...defaultProps} />);
+      selectFiles([makeFile('january.ofx'), makeFile('statement.pdf')]);
+      fireEvent.click(screen.getByRole('button', { name: /^Start/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText('OFX importer open for january.ofx')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Close OFX importer' }));
+      await waitFor(() => {
+        expect(screen.getByText(/Handled in the OFX importer/)).toBeInTheDocument();
       });
     };
 
-    it('sets the Bank Balance when the file named the account itself', async () => {
-      await importOfxFile(importResult());
+    it('reports each file as handled by its own dialog', async () => {
+      await runToEnd();
 
-      expect(mockUpdateAccount).toHaveBeenCalledWith('acc1', {
-        bankBalance: 5000,
-        bankBalanceDate: '2026-03-31'
-      });
+      expect(screen.getByText('january.ofx')).toBeInTheDocument();
+      expect(screen.getByText(/Handled in the OFX importer/)).toBeInTheDocument();
     });
 
-    it('never writes `balance` — that is the ledger, not the bank\'s figure', async () => {
-      await importOfxFile(importResult());
+    it('says out loud that the file it could not read reached no account', async () => {
+      await runToEnd();
 
-      const written = mockUpdateAccount.mock.calls.flatMap(([, updates]) => Object.keys(updates));
-      expect(written).not.toContain('balance');
+      expect(screen.getByText(/Left out — nothing here can read this file/)).toBeInTheDocument();
+      expect(screen.getByText(/never opened, so nothing in it reached any account/)).toBeInTheDocument();
     });
 
-    it('will not set a Bank Balance on an account it merely guessed', async () => {
-      await importOfxFile(importResult({ matchConfidence: 'heuristic' }));
+    /**
+     * The whole reason this screen was rebuilt. It cannot know what any importer
+     * wrote — each one reported that from its own write, on its own result
+     * screen — so it must not offer a rival figure. The predecessor did, and the
+     * figure it offered was always zero.
+     */
+    it('invents no counters of its own', async () => {
+      await runToEnd();
 
-      expect(mockUpdateAccount).not.toHaveBeenCalled();
-    });
-
-    it('does nothing when the file states no closing balance', async () => {
-      await importOfxFile(importResult({ statementBalance: undefined }));
-
-      expect(mockUpdateAccount).not.toHaveBeenCalled();
+      expect(screen.queryByText(/transactions imported/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/duplicates skipped/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/success rate/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/each importer showed you what it wrote/i)).toBeInTheDocument();
     });
   });
 });

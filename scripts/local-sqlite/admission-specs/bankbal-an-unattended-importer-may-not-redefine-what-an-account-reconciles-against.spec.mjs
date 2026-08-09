@@ -5,7 +5,7 @@
 export default {
   invariant: 'TS-B2',
   title: 'a file whose destination nobody confirmed changes nothing',
-  design: 'src/utils/statementBankBalance.ts:94-107; decided at BatchImportModal.tsx:142-153',
+  design: 'src/utils/statementBankBalance.ts:94-107 (the unattended importer this guarded against was deleted 2026-08-09; batch runs now go through the attended single-file dialogs)',
   consequence: 'a batch run silently repoints reconciliation at the wrong account\'s figure, '
     + 'and the only symptom is a Difference nobody can explain',
   parity: 'match',

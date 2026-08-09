@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { expandSplitTransactions } from '../utils/transactionSplits';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { Modal } from './common/Modal';
 import DatePicker from './common/DatePicker';
 import { formatDateForInput } from '../utils/dateFormatter';
@@ -38,13 +38,21 @@ interface ExportOptions {
     start: Date | null;
     end: Date | null;
   };
-  groupBy: 'none' | 'month' | 'category' | 'account';
-  includeCharts: boolean;
+  /**
+   * Only the groupings that have a branch behind them. 'account' used to be
+   * offered here and fell through to no grouping at all, so picking it changed
+   * nothing about the file.
+   */
+  groupBy: 'none' | 'month' | 'category';
   formatting: {
-    currencyFormat: string;
-    dateFormat: string;
-    highlightNegative: boolean;
-    zebra: boolean;
+    /**
+     * The one formatting switch that does something: an Excel autofilter is a
+     * sheet-level property (`!autofilter`) the community build honours.
+     *
+     * "Highlight negative values", "Zebra striping", a currency format and a
+     * date format were offered alongside it and read by nothing — per-cell
+     * styling needs the paid SheetJS build, which this project does not use.
+     */
     autoFilter: boolean;
   };
 }
@@ -58,8 +66,10 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
     () => expandSplitTransactions(rawTransactions, transactionSplits),
     [rawTransactions, transactionSplits]
   );
-  const { getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
-  const currencySymbol = getCurrencySymbol(displayCurrency);
+  // Transactions and budgets store category IDS. A UUID in a spreadsheet cell
+  // is worthless to the person reading it, so every Category column resolves
+  // through the one shared naming rule.
+  const categoryName = useMemo(() => buildCategoryNameLookup(categories), [categories]);
 
   // Income/expense by CATEGORY semantics (utils/incomeExpense): a refund
   // filed under an expense category nets spending down instead of counting
@@ -89,12 +99,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       end: new Date()
     },
     groupBy: 'none',
-    includeCharts: false,
     formatting: {
-      currencyFormat: `${currencySymbol}#,##0.00`,
-      dateFormat: 'dd/mm/yyyy',
-      highlightNegative: true,
-      zebra: true,
       autoFilter: true
     }
   });
@@ -185,8 +190,30 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
         Cleared?: string;
       }
       
+      // One definition of a transaction row, so a column cannot mean one thing
+      // grouped and another ungrouped.
+      const toRow = (t: Transaction): TransactionRow => {
+        const tDate = t.date instanceof Date ? t.date : new Date(t.date);
+        return {
+          Date: tDate.toLocaleDateString(),
+          Description: t.description,
+          Category: categoryName(t.category),
+          Type: t.type,
+          Amount: toDecimal(t.amount).toNumber(),
+          Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
+          Tags: t.tags?.join(', ') || '',
+          Notes: t.notes || '',
+          Cleared: t.cleared ? 'Yes' : 'No'
+        };
+      };
+      // Subtotals in Decimal: these are the figures a reader adds up by eye
+      // against the rows above them.
+      const subtotal = (rows: Transaction[]): number =>
+        rows.reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0)).toNumber();
+      const blankRow: TransactionRow = { Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' };
+
       let transactionData: TransactionRow[] = [];
-      
+
       if (options.groupBy === 'month') {
         // Group by month
         const grouped = filtered.reduce((acc, t) => {
@@ -196,75 +223,33 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           acc[monthKey].push(t);
           return acc;
         }, {} as Record<string, Transaction[]>);
-        
+
         Object.entries(grouped).sort().forEach(([month, trans]) => {
-          transactionData.push({ Date: month, Description: 'MONTH TOTAL', Category: '', Type: '', Amount: '', Account: '' });
-          trans.forEach(t => {
-            const tDate = t.date instanceof Date ? t.date : new Date(t.date);
-            transactionData.push({
-              Date: tDate.toLocaleDateString(),
-              Description: t.description,
-              Category: t.category,
-              Type: t.type,
-              Amount: toDecimal(t.amount).toNumber(),
-              Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-              Tags: t.tags?.join(', ') || '',
-              Notes: t.notes || '',
-              Cleared: t.cleared ? 'Yes' : 'No'
-            });
-          });
-          const monthTotal = trans.reduce((sum, t) => 
-            sum + (toDecimal(t.amount).toNumber()), 0
-          );
-          transactionData.push({ Date: '', Description: 'Subtotal', Category: '', Type: '', Amount: monthTotal, Account: '' });
-          transactionData.push({ Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' }); // Empty row
+          transactionData.push({ ...blankRow, Date: month, Description: 'MONTH TOTAL' });
+          trans.forEach(t => transactionData.push(toRow(t)));
+          transactionData.push({ ...blankRow, Description: 'Subtotal', Amount: subtotal(trans) });
+          transactionData.push(blankRow);
         });
       } else if (options.groupBy === 'category') {
-        // Group by category
+        // Group by category — keyed by id (what the rows hold), ordered and
+        // headed by NAME (what the reader needs).
         const grouped = filtered.reduce((acc, t) => {
           if (!acc[t.category]) acc[t.category] = [];
           acc[t.category].push(t);
           return acc;
         }, {} as Record<string, Transaction[]>);
-        
-        Object.entries(grouped).sort().forEach(([category, trans]) => {
-          transactionData.push({ Date: '', Description: `CATEGORY: ${category}`, Category: '', Type: '', Amount: '', Account: '' });
-          trans.forEach(t => {
-            const tDate = t.date instanceof Date ? t.date : new Date(t.date);
-            transactionData.push({
-              Date: tDate.toLocaleDateString(),
-              Description: t.description,
-              Category: t.category,
-              Type: t.type,
-              Amount: toDecimal(t.amount).toNumber(),
-              Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-              Tags: t.tags?.join(', ') || '',
-              Notes: t.notes || '',
-              Cleared: t.cleared ? 'Yes' : 'No'
-            });
+
+        Object.entries(grouped)
+          .sort(([a], [b]) => categoryName(a).localeCompare(categoryName(b)))
+          .forEach(([category, trans]) => {
+            transactionData.push({ ...blankRow, Description: `CATEGORY: ${categoryName(category)}` });
+            trans.forEach(t => transactionData.push(toRow(t)));
+            transactionData.push({ ...blankRow, Description: 'Subtotal', Amount: subtotal(trans) });
+            transactionData.push(blankRow);
           });
-          const categoryTotal = trans.reduce((sum, t) => 
-            sum + (toDecimal(t.amount).toNumber()), 0
-          );
-          transactionData.push({ Date: '', Description: 'Subtotal', Category: '', Type: '', Amount: categoryTotal, Account: '' });
-          transactionData.push({ Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' }); // Empty row
-        });
       } else {
         // No grouping
-        transactionData = filtered.map(t => {
-          const tDate = t.date instanceof Date ? t.date : new Date(t.date);
-          return {
-            Date: tDate.toLocaleDateString(),
-            Description: t.description,
-            Category: t.category,
-            Type: t.type,
-            Amount: toDecimal(t.amount).toNumber(),
-            Account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-            Tags: t.tags?.join(', ') || '',
-            Notes: t.notes || '',
-            Cleared: t.cleared ? 'Yes' : 'No'
-          };
-        });
+        transactionData = filtered.map(toRow);
       }
       
       const ws = XLSX.utils.json_to_sheet(transactionData);
@@ -355,7 +340,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           : 0;
 
         return {
-          Category: budget.categoryId,
+          Category: categoryName(budget.categoryId),
           'Budget Amount': budgetAmount.toNumber(),
           Spent: spent.toNumber(),
           Remaining: remaining.toNumber(),
@@ -539,6 +524,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
               Transaction Grouping
             </h3>
             <select
+              aria-label="Transaction grouping"
               value={options.groupBy}
               onChange={(e) => setOptions({
                 ...options,
@@ -550,7 +536,6 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
               <option value="none">No Grouping</option>
               <option value="month">Group by Month</option>
               <option value="category">Group by Category</option>
-              <option value="account">Group by Account</option>
             </select>
           </div>
 
@@ -558,36 +543,6 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           <div>
             <h3 className="text-lg font-medium mb-3">Formatting Options</h3>
             <div className="space-y-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={options.formatting.highlightNegative}
-                  onChange={(e) => setOptions({
-                    ...options,
-                    formatting: {
-                      ...options.formatting,
-                      highlightNegative: e.target.checked
-                    }
-                  })}
-                  className="rounded"
-                />
-                <span className="text-sm">Highlight negative values</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={options.formatting.zebra}
-                  onChange={(e) => setOptions({
-                    ...options,
-                    formatting: {
-                      ...options.formatting,
-                      zebra: e.target.checked
-                    }
-                  })}
-                  className="rounded"
-                />
-                <span className="text-sm">Zebra striping</span>
-              </label>
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -618,7 +573,13 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           </button>
           <button
             onClick={handleExport}
-            disabled={!Object.values(options).slice(0, 5).some(v => v === true) || isExporting}
+            /* Named, not positional: the old `Object.values(options).slice(0, 5)`
+               meant that reordering a field in the interface silently changed
+               which switches enabled the button. */
+            disabled={
+              !(options.transactions || options.accounts || options.budgets ||
+                options.categories || options.summary) || isExporting
+            }
             className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg
                      hover:bg-[#2d3a4d] disabled:opacity-50 disabled:cursor-not-allowed"
           >

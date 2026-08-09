@@ -95,17 +95,19 @@ vi.mock('./common/Modal', () => ({
   )
 }));
 
-// Mock LoadingButton
+// Mock LoadingButton. `disabled={isLoading || disabled}` mirrors the real
+// component — a stub that stayed clickable while loading would let a test
+// "prove" the button cannot double-fire when in truth only the stub couldn't.
 vi.mock('./loading/LoadingState', () => ({
-  LoadingButton: ({ isLoading, onClick, disabled, children, className }: { isLoading: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; className?: string }) => (
-    <button 
+  LoadingButton: ({ isLoading, onClick, disabled, children, className, loadingText = 'Loading...' }: { isLoading: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; className?: string; loadingText?: string }) => (
+    <button
       data-testid="loading-button"
-      onClick={onClick} 
-      disabled={disabled}
+      onClick={onClick}
+      disabled={isLoading || disabled}
       className={className}
       data-loading={isLoading}
     >
-      {isLoading ? 'Loading...' : children}
+      {isLoading ? loadingText : children}
     </button>
   )
 }));
@@ -282,10 +284,30 @@ describe('OFXImportModal', () => {
 
     it('renders file input with correct attributes', () => {
       render(<OFXImportModal {...defaultProps} />);
-      
+
       const fileInput = document.getElementById('ofx-upload');
       expect(fileInput).toHaveAttribute('accept', '.ofx');
       expect(fileInput).toHaveAttribute('type', 'file');
+    });
+
+    /**
+     * The picker was `className="hidden"` — display:none, which takes the input
+     * out of the tab order altogether, and a <label> cannot hold focus in its
+     * place. There was no way to reach it but a mouse.
+     *
+     * sr-only keeps it off screen and IN the tab order; focus-within paints the
+     * ring on the button the user can actually see, so the focus is not
+     * invisible either.
+     */
+    it('leaves the file picker in the tab order, with a visible focus ring', () => {
+      render(<OFXImportModal {...defaultProps} />);
+
+      const fileInput = document.getElementById('ofx-upload');
+      expect(fileInput).not.toHaveClass('hidden');
+      expect(fileInput).toHaveClass('sr-only');
+      expect(fileInput).not.toBeDisabled();
+      expect(fileInput).not.toHaveAttribute('tabindex', '-1');
+      expect(fileInput?.closest('label')?.className).toContain('focus-within:ring-2');
     });
   });
 
@@ -774,7 +796,7 @@ describe('OFXImportModal', () => {
       fireEvent.click(importButton);
 
       expect(importButton).toHaveAttribute('data-loading', 'true');
-      expect(importButton).toHaveTextContent('Loading...');
+      expect(importButton).toHaveTextContent('Importing…');
 
       // The mocked import resolves ~100ms later — wait for the async work to
       // settle inside the test (otherwise the finally-block setState fires
@@ -784,6 +806,73 @@ describe('OFXImportModal', () => {
       await waitFor(() => {
         const btn = screen.queryByTestId('loading-button');
         expect(btn === null || btn.getAttribute('data-loading') === 'false').toBe(true);
+      });
+    });
+
+    /**
+     * Pressing Import on a 183-row statement used to leave the dialog
+     * completely still for ten seconds — no count, no bar, nothing to say the
+     * click had even been accepted. The only action available to somebody
+     * watching that is to press the button again.
+     */
+    describe('while the write is running', () => {
+      /**
+       * A write held open, so the in-flight state can be looked at. The parse
+       * is queued too: pressing Import re-reads the file, and that second call
+       * is what decides the rows the write is given.
+       */
+      const heldWrite = () => {
+        vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(
+          createMockImportResult({
+            transactions: [sampleTransaction],
+            statementRows: mockStatementRows(1),
+            newTransactions: 1,
+            matchedAccount: mockAccount({ id: 'acc1', name: 'Current Account', type: 'checking' })
+          })
+        );
+        let release: (() => void) | null = null;
+        const finished = new Promise<void>(resolve => { release = resolve; });
+        vi.mocked(importTransactionsLocally).mockImplementationOnce(async (_accountId, rows) => {
+          await finished;
+          return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+        });
+        return { release: () => release?.() };
+      };
+
+      it('says it is importing, and names the size of the job', async () => {
+        const write = heldWrite();
+        fireEvent.click(screen.getByTestId('loading-button'));
+
+        // Announced politely rather than by stealing focus.
+        const status = await screen.findByRole('status');
+        expect(status).toHaveTextContent('Importing 1 transactions…');
+        expect(screen.getByRole('progressbar')).toBeInTheDocument();
+
+        write.release();
+        await waitFor(() => {
+          expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+        });
+        // The summary takes over; the progress region goes with it.
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      it('cannot be fired twice, and says why Cancel is unavailable', async () => {
+        const write = heldWrite();
+        fireEvent.click(screen.getByTestId('loading-button'));
+        await screen.findByRole('status');
+
+        expect(screen.getByTestId('loading-button')).toBeDisabled();
+        const cancel = screen.getByText('Cancel').closest('button');
+        expect(cancel).toBeDisabled();
+        expect(cancel).toHaveAttribute('title', 'Import in progress');
+
+        // A second press while it runs must not start a second import.
+        fireEvent.click(screen.getByTestId('loading-button'));
+        write.release();
+        await waitFor(() => {
+          expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+        });
+        expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -999,7 +1088,8 @@ describe('OFXImportModal', () => {
         ]),
         // And says these rows carry the bank's own FITID, which is what the
         // database keys them by — see transactionImportService.provenanceFor.
-        { source: 'ofx' }
+        // onProgress rides along so the dialog can count rows as they land.
+        { source: 'ofx', onProgress: expect.any(Function) }
       );
     });
 
@@ -1730,6 +1820,101 @@ describe('OFXImportModal', () => {
       chooseAccount(CURRENT_ACCOUNT);
       expect(screen.getByRole('checkbox', { name: /Immediate Faster Payment/ })).not.toBeChecked();
       expect(summaryTile('Will be imported')).toHaveTextContent('0');
+    });
+  });
+
+  /**
+   * A file handed in by the Batch Import queue rather than picked here. It has
+   * to reach exactly the same code the drop zone reaches — that is the whole
+   * reason the queue is allowed to be a queue instead of a fourth importer.
+   */
+  describe('A file handed in by the batch queue', () => {
+    const queuedFile = (name = 'january.ofx'): File =>
+      new File(['OFX content'], name, { type: 'application/ofx' });
+
+    it('parses it on mount, with no click on the drop zone', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({
+          transactions: [sampleTransaction],
+          statementRows: mockStatementRows(1),
+          newTransactions: 1
+        })
+      );
+
+      render(<OFXImportModal {...defaultProps} initialFile={queuedFile()} />);
+
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalled();
+      });
+      expect(screen.getByText('january.ofx')).toBeInTheDocument();
+      expect(screen.getByText('1 transactions found')).toBeInTheDocument();
+    });
+
+    it('still offers the destination account and the duplicate check', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({
+          transactions: [sampleTransaction],
+          statementRows: mockStatementRows(1),
+          matchedAccount: mockAccounts[0],
+          matchConfidence: 'identifier',
+          newTransactions: 1
+        })
+      );
+
+      render(<OFXImportModal {...defaultProps} initialFile={queuedFile()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
+      });
+      expect(screen.getByText('Skip transactions you already have')).toBeInTheDocument();
+    });
+
+    /**
+     * The queue re-renders whenever its own state moves. Re-parsing on each of
+     * those would throw away an account the user had just chosen, mid-decision.
+     */
+    it('does not re-parse when the same file is handed in again', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({ statementRows: mockStatementRows(1) })
+      );
+
+      const file = queuedFile();
+      const { rerender } = render(<OFXImportModal {...defaultProps} initialFile={file} />);
+
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(<OFXImportModal {...defaultProps} initialFile={file} />);
+      rerender(<OFXImportModal {...defaultProps} initialFile={file} />);
+
+      expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads a different file that happens to share a name', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({ statementRows: mockStatementRows(1) })
+      );
+
+      const { rerender } = render(
+        <OFXImportModal {...defaultProps} initialFile={queuedFile('statement.ofx')} />
+      );
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(<OFXImportModal {...defaultProps} initialFile={queuedFile('statement.ofx')} />);
+
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('shows the drop zone as usual when no file is handed in', () => {
+      render(<OFXImportModal {...defaultProps} />);
+
+      expect(screen.getByText('Upload OFX File')).toBeInTheDocument();
+      expect(ofxImportService.importTransactions).not.toHaveBeenCalled();
     });
   });
 });
