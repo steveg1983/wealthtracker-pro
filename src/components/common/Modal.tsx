@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { XIcon } from '../icons';
 
@@ -44,26 +44,53 @@ export function Modal({
 
   // Latest-callback ref: callers routinely pass inline `onClose={() => …}`
   // handlers whose identity changes every render. With onClose in the effect
-  // deps, ANY parent re-render (e.g. typing into a search box whose state
-  // lives in the caller) re-ran the whole setup — including the delayed
-  // modalRef.focus() that stole the cursor from the active input after every
-  // keystroke, plus a scroll-lock/listener churn. The effect now runs only on
-  // open/close and reads the current handler through the ref.
+  // deps, ANY parent re-render (e.g. typing into a search box whose state lives
+  // in the caller) re-ran the whole setup — re-taking focus and churning the
+  // scroll lock and listeners on every keystroke. Both effects below therefore
+  // depend on isOpen ALONE and read the current handler through this ref.
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
   });
 
+  // Focus is claimed in the layout phase — before the browser paints the open
+  // dialog — so there is no window in which a person can type into a dialog
+  // that has not taken focus yet. This used to be a 50ms setTimeout: keystrokes
+  // inside that window were swallowed by the non-editable panel div, and the
+  // timer fired AFTER a child's autoFocus and yanked the cursor out of it.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    const panel = modalRef.current;
+    if (!panel) return;
+
+    // Captured here rather than in the passive effect below, which runs after
+    // this one: by then the active element would be the panel we just focused,
+    // and closing would "restore" focus to a node that no longer exists.
+    previousActiveElement.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    // React commits a child's autoFocus, and runs a child's own layout effects,
+    // before a parent's layout effect — so anything the content chose for
+    // itself already holds focus by now. Never take it back off them.
+    if (panel.contains(document.activeElement)) return;
+
+    // Markup carrying the real attribute. (React 18 does not reflect its
+    // autoFocus PROP to the DOM — it focuses the node itself during commit,
+    // which the check above has already honoured.)
+    const declared = panel.querySelector('[autofocus]');
+    if (declared instanceof HTMLElement) {
+      declared.focus();
+      return;
+    }
+
+    // Nothing claimed it, so the dialog itself takes focus: the keyboard and
+    // the screen reader both start inside the thing that just opened.
+    panel.focus();
+  }, [isOpen]);
+
   useEffect(() => {
     if (isOpen) {
-      // Store the currently focused element
-      previousActiveElement.current = document.activeElement as HTMLElement;
-
-      // Focus the modal after a short delay
-      setTimeout(() => {
-        modalRef.current?.focus();
-      }, 50);
-
       // Trap focus within modal
       const handleTabKey = (e: KeyboardEvent) => {
         if (e.key !== 'Tab') return;

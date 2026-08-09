@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RenamePayeesModal from './RenamePayeesModal';
 import type { PayeeSummary } from '../utils/payeeCleanup';
@@ -57,19 +57,6 @@ const renderModal = (onRenamed = vi.fn()) =>
 
 const nameBox = (): HTMLElement => screen.getByLabelText('New payee name');
 
-/**
- * Wait out Modal's focus trap before typing.
- *
- * Modal focuses its own panel 50ms after opening (see common/Modal). Typing
- * with user-event takes real milliseconds, so without this the trap fires
- * MID-WORD and the remaining keystrokes — Enter among them — land on the panel
- * instead of the box. A person meets the dialog already settled, with the
- * cursor put back in the box by their first keystroke, which is what this
- * reproduces.
- */
-const settleDialogFocus = (): Promise<void> =>
-  act(() => new Promise<void>(resolve => { setTimeout(resolve, 60); }));
-
 beforeEach(() => {
   vi.clearAllMocks();
   renameTransactionDescriptions.mockResolvedValue(3);
@@ -79,7 +66,12 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
   it('renames on Enter, exactly once, with the trimmed name', async () => {
     const user = userEvent.setup();
     renderModal();
-    await settleDialogFocus();
+
+    // The cursor is in the box the instant the dialog opens, so typing can
+    // start immediately. These tests used to sleep 60ms first: the dialog took
+    // focus on a timer that fired mid-word and sent the rest of the keystrokes,
+    // Enter included, to the panel instead of the box.
+    expect(nameBox()).toHaveFocus();
 
     // Surrounding spaces on purpose: what is written is the trimmed name.
     await user.type(nameBox(), '  Corner Shop  {Enter}');
@@ -97,7 +89,6 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
   it('does nothing on Enter when the box is empty', async () => {
     const user = userEvent.setup();
     renderModal();
-    await settleDialogFocus();
 
     nameBox().focus();
     await user.keyboard('{Enter}');
@@ -108,7 +99,6 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
   it('does nothing on Enter when the box holds only spaces', async () => {
     const user = userEvent.setup();
     renderModal();
-    await settleDialogFocus();
 
     await user.type(nameBox(), '   {Enter}');
 
@@ -140,7 +130,6 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
       () => new Promise<number>(resolve => { release = () => resolve(3); })
     );
     renderModal();
-    await settleDialogFocus();
 
     await user.type(nameBox(), 'Corner Shop{Enter}');
     await waitFor(() => {
@@ -162,7 +151,6 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
     const user = userEvent.setup();
     const onRenamed = vi.fn();
     renderModal(onRenamed);
-    await settleDialogFocus();
 
     await user.type(nameBox(), 'Corner Shop');
     await user.click(screen.getByRole('button', { name: 'Rename 3 transactions' }));
@@ -176,7 +164,6 @@ describe('RenamePayeesModal — Enter commits the rename', () => {
   it('commits through a real submit button, so the browser does the work', async () => {
     const user = userEvent.setup();
     renderModal();
-    await settleDialogFocus();
     await user.type(nameBox(), 'Corner Shop');
 
     const button = screen.getByRole('button', { name: 'Rename 3 transactions' });
