@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { 
   TrendingUpIcon, 
   TrendingDownIcon, 
@@ -25,7 +26,7 @@ import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
 import PeriodPicker from '../../components/PeriodPicker';
-import { PERIOD_LABELS, usePeriod } from '../../hooks/usePeriod';
+import { PERIOD_LABELS, seedPeriodSelection, usePeriod } from '../../hooks/usePeriod';
 import { customReportService } from '../../services/customReportService';
 import {
   NetWorthWidget,
@@ -41,6 +42,14 @@ import { expandSplitTransactions } from '../../utils/transactionSplits';
 import { computeIncomeExpense } from '../../utils/incomeExpense';
 import { computeAccountBalances } from '../../utils/accountBalances';
 import { groupAccountsBySection } from '../../utils/accountGrouping';
+import { buildAttentionItems } from '../../utils/attentionItems';
+import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
+import { buildAccountBankLinks } from '../../hooks/useAccountBankSync';
+import { useBankConnectionSnapshot } from '../../hooks/useBankConnectionSnapshot';
+
+/** Where each half of the reports box remembers its period. */
+const ASSETS_PERIOD_KEY = 'dashboardReports';
+const FLOWS_PERIOD_KEY = 'dashboardReportsFlows';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -51,8 +60,9 @@ import { groupAccountsBySection } from '../../utils/accountGrouping';
  * 4. Mobile-optimized - works great on all screen sizes
  */
 export function ImprovedDashboard() {
-  const { accounts, transactions, transactionSplits, budgets, categories, serverBalances } = useApp();
+  const { accounts, transactions, transactionSplits, budgets, categories, serverBalances, isLoading } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
+  const { userId } = useClerkAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -74,7 +84,17 @@ export function ImprovedDashboard() {
     return ['net-worth'];
   });
   const [showReportPicker, setShowReportPicker] = useState(false);
-  const reportsPeriod = usePeriod('dashboardReports', 'last-12-months');
+  // Two clocks, because the two halves of the reports box answer different
+  // questions: what a life is worth is read over years, what a month cost is
+  // read over a month. One control for both forced net worth into last
+  // month's window to see last month's spending.
+  //
+  // The assets side keeps the original storage key, and the flows side is
+  // seeded from it once (before usePeriod reads storage below), so splitting
+  // the control does not quietly reset half of an existing choice.
+  useMemo(() => seedPeriodSelection(ASSETS_PERIOD_KEY, FLOWS_PERIOD_KEY), []);
+  const assetsPeriod = usePeriod(ASSETS_PERIOD_KEY, 'last-12-months');
+  const flowsPeriod = usePeriod(FLOWS_PERIOD_KEY, 'last-12-months');
   // Performance keeps its OWN period (and storage key) so changing what the
   // pinned reports cover never silently rewrites the headline income figure.
   const performancePeriod = usePeriod('dashboardPerformance', 'this-month');
@@ -140,21 +160,6 @@ export function ImprovedDashboard() {
       new Date(t.date) >= thirtyDaysAgo
     );
 
-    // Identify accounts needing attention (only when user has enabled alerts)
-    const accountsNeedingAttention = accounts.filter(acc => {
-      const bal = effectiveBalance(acc);
-      // Per-account low balance alert
-      if (acc.lowBalanceAlertEnabled && acc.lowBalanceThreshold != null && bal < acc.lowBalanceThreshold) {
-        return true;
-      }
-      // Check for high credit utilization
-      if (acc.type === 'credit' && acc.creditLimit) {
-        const utilization = Math.abs(bal) / acc.creditLimit;
-        return utilization > 0.7;
-      }
-      return false;
-    });
-    
     // Calculate budget status for active budgets
     const activeBudgets = budgets.filter(b => b.isActive);
     
@@ -194,7 +199,6 @@ export function ImprovedDashboard() {
       netWorth,
       totalAssets,
       totalLiabilities,
-      accountsNeedingAttention,
       budgetStatus,
       totalBudgeted,
       totalSpentOnBudgets,
@@ -240,6 +244,31 @@ export function ImprovedDashboard() {
   
   const getAccountBalance = useCallback((acc: typeof accounts[0]) => accountBalanceMap.get(acc.id) ?? 0, [accountBalanceMap]);
 
+  // Bank-feed facts for the attention card, read from the connections the app
+  // has ALREADY loaded (Layout's auto-sync hook owns the fetching). A signed-out
+  // or demo session has none, so no feed row can appear there.
+  const bankConnections = useBankConnectionSnapshot();
+  const bankLinks = useMemo(() => buildAccountBankLinks(bankConnections), [bankConnections]);
+  const autoSyncMode = useMemo(
+    () => (userId ? loadAutoSyncPrefs(userId).mode : 'off'),
+    [userId]
+  );
+
+  // Every warning the card shows, each one a sentence saying why. `now` is
+  // captured with the rest of the inputs: the staleness verdict changes when
+  // the connections do, not on every render.
+  const attentionItems = useMemo(
+    () => buildAttentionItems({
+      accounts,
+      balanceOf: (id) => accountBalanceMap.get(id) ?? 0,
+      linkOf: (id) => bankLinks.get(id),
+      autoSyncMode,
+      formatMoney: formatCurrencyWithSymbol,
+      now: new Date(),
+    }),
+    [accounts, accountBalanceMap, bankLinks, autoSyncMode, formatCurrencyWithSymbol]
+  );
+
   // Generate pie chart data for account distribution
   interface AccountDistributionDatum {
     id: string;
@@ -277,18 +306,23 @@ export function ImprovedDashboard() {
     }
   }), [isDarkMode]);
 
+  const persistSelection = useCallback((ids: string[]) => {
+    localStorage.setItem('dashboardKeyAccounts', JSON.stringify(ids));
+    setSelectedAccountIds(ids);
+  }, []);
+
   const toggleAccountSelection = (accountId: string) => {
     setSelectedAccountIds(prev => {
       const newSelection = prev.includes(accountId)
         ? prev.filter(id => id !== accountId)
         : [...prev, accountId];
-      
+
       // Save to localStorage
       localStorage.setItem('dashboardKeyAccounts', JSON.stringify(newSelection));
       return newSelection;
     });
   };
-  
+
   const displayedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
 
   // The "which accounts to show here" picker, banded and alphabetised the way
@@ -297,6 +331,27 @@ export function ImprovedDashboard() {
   // a sixty-account grid in load order is the same wall of names a flat
   // dropdown is.
   const accountSections = useMemo(() => groupAccountsBySection(accounts), [accounts]);
+
+  // "All" means every account the panel below LISTS — taken from the sections
+  // themselves rather than the accounts array, so the two can never disagree
+  // about what the user just asked for.
+  const selectAllAccounts = useCallback(
+    () => persistSelection(accountSections.flatMap(section => section.accounts.map(a => a.id))),
+    [accountSections, persistSelection]
+  );
+  const clearAllAccounts = useCallback(() => persistSelection([]), [persistSelection]);
+
+  // Which pinned reports belong to which column. Assets read over years,
+  // spending over months — see the two period keys above.
+  const assetsReports = pinnedReports.filter(id => id === 'net-worth');
+  const flowsReports = pinnedReports.filter(
+    id => id === 'income-expense-trend' || id === 'expense-categories'
+  );
+  const customPinnedReports = pinnedReports.filter(id => id.startsWith('custom:'));
+  // A column with nothing in it is not drawn — an empty half of a two-column
+  // grid is a hole, not a layout.
+  const showAssetsColumn = assetsReports.length > 0 || pieData.length > 0;
+  const showFlowsColumn = flowsReports.length > 0;
 
   return (
     <div className="space-y-4 max-w-[1400px] mx-auto">
@@ -405,14 +460,19 @@ export function ImprovedDashboard() {
 
       {/* Pinned reports: the user's choice of live reports, at a glance.
           Same shared maths as the full Reports hub — the glance and the full
-          view can never disagree. */}
+          view can never disagree.
+
+          Two columns, two clocks: what a life is worth on the left, what a
+          month cost on the right, each with its own period. They were one
+          control, which meant reading last month's spending dragged net worth
+          down to a single month with it. */}
       <section
         aria-labelledby="pinned-reports-heading"
         className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
       >
-        {/* The gear lives on the title row so the period picker below gets
-            the card's full width — beside the picker it was stealing the
-            exact space the wrapped pill needed on a phone. */}
+        {/* The gear lives on the title row so the period pickers below get
+            the card's full width — beside a picker it was stealing the exact
+            space the wrapped pill needed on a phone. */}
         <div className="flex items-center justify-between gap-3 mb-3">
           <h3 id="pinned-reports-heading" className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <BarChart3Icon size={24} className="text-gray-500" />
@@ -428,30 +488,123 @@ export function ImprovedDashboard() {
             <SettingsIcon size={18} />
           </button>
         </div>
-        {pinnedReports.length > 0 && (
-          <div className="mb-4">
-            <PeriodPicker picker={reportsPeriod} />
+
+        {/* One column on a phone (they stack in this order), two from lg —
+            and only two when there is something in both. */}
+        <div className={`grid grid-cols-1 gap-6 ${showAssetsColumn && showFlowsColumn ? 'lg:grid-cols-2' : ''}`}>
+          {showAssetsColumn && (
+            <div className="space-y-4">
+              {assetsReports.length > 0 && (
+                <>
+                  <PeriodPicker picker={assetsPeriod} label="Period for net worth reports" />
+                  {assetsReports.map(id => <NetWorthWidget key={id} range={assetsPeriod.range} />)}
+                </>
+              )}
+
+              {/* Account distribution: a snapshot of TODAY, sitting under a
+                  period control it deliberately ignores — so it says so.
+                  There is no "distribution last March" to show: the balances
+                  are what the accounts hold now. */}
+              {pieData.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <PieChartIcon size={18} className="text-gray-500" aria-hidden="true" />
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Account Distribution
+                    </h4>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto whitespace-nowrap">
+                      Current balances
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Your top 5 accounts by balance
+                  </p>
+                  {/* Chart takes a fixed column; the legend gets ALL remaining
+                      width so account names show as much text as the card
+                      allows. Stacked below sm, where neither fits beside the
+                      other. */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="h-52 sm:w-48 lg:w-56 sm:flex-shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart
+                          data={pieData}
+                          innerRadius={true}
+                          colors={COLORS}
+                          onClick={(clickedData: AccountDistributionDatum) => {
+                            navigate(`/transactions?account=${clickedData.id}`);
+                          }}
+                          formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
+                          contentStyle={chartStyles.pieTooltip}
+                          aria-label="Pie chart showing distribution of account balances"
+                        />
+                      </ResponsiveContainer>
+                    </div>
+                    {/* Legend: which slice is which, with values and shares */}
+                    <ul className="sm:flex-1 sm:min-w-0 space-y-2" aria-label="Account distribution legend">
+                      {(() => {
+                        const total = pieData.reduce((sum, d) => sum.plus(toDecimal(d.value)), toDecimal(0));
+                        return pieData.map((d, i) => (
+                          <li key={d.id}>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/transactions?account=${d.id}`)}
+                              className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
+                            >
+                              <span
+                                className="w-3 h-3 rounded-sm flex-shrink-0"
+                                style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                                aria-hidden="true"
+                              />
+                              <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
+                              <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
+                                {formatCurrencyWithSymbol(d.value, displayCurrency)}
+                              </span>
+                              <span className="w-12 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
+                                {total.greaterThan(0)
+                                  ? `${toDecimal(d.value).dividedBy(total).times(100).toFixed(1)}%`
+                                  : ''}
+                              </span>
+                            </button>
+                          </li>
+                        ));
+                      })()}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showFlowsColumn && (
+            <div className="space-y-4">
+              <PeriodPicker picker={flowsPeriod} label="Period for income and spending reports" />
+              {flowsReports.map(id => (
+                id === 'income-expense-trend'
+                  ? <IncomeExpenseTrendWidget key={id} range={flowsPeriod.range} />
+                  : <ExpenseCategoriesWidget key={id} range={flowsPeriod.range} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Custom reports answer their own question and take no period, so
+            they sit below both columns rather than inside either. */}
+        {customPinnedReports.length > 0 && (
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {customPinnedReports.map(id => (
+              <CustomReportWidget key={id} reportId={id.slice('custom:'.length)} />
+            ))}
           </div>
         )}
 
-        {pinnedReports.length === 0 ? (
+        {pinnedReports.length === 0 && (
           <button
             type="button"
             onClick={() => setShowReportPicker(true)}
-            className="w-full justify-center py-8 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className={`w-full justify-center py-8 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors ${pieData.length > 0 ? 'mt-2' : ''}`}
           >
             No reports pinned — click to choose the reports you want at a glance
           </button>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {pinnedReports.map(id => {
-              if (id === 'net-worth') return <NetWorthWidget key={id} range={reportsPeriod.range} />;
-              if (id === 'income-expense-trend') return <IncomeExpenseTrendWidget key={id} range={reportsPeriod.range} />;
-              if (id === 'expense-categories') return <ExpenseCategoriesWidget key={id} range={reportsPeriod.range} />;
-              if (id.startsWith('custom:')) return <CustomReportWidget key={id} reportId={id.slice('custom:'.length)} />;
-              return null;
-            })}
-          </div>
         )}
       </section>
 
@@ -618,6 +771,24 @@ export function ImprovedDashboard() {
                 <XIcon size={16} className="text-gray-500" />
               </button>
             </div>
+            {/* Both ends of the choice in one click — sixty accounts is sixty
+                clicks to start from nothing, or from everything. */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button
+                type="button"
+                onClick={selectAllAccounts}
+                className="px-4 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={clearAllAccounts}
+                className="px-4 py-2 min-h-[44px] sm:min-h-0 sm:py-1.5 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+              >
+                Clear all
+              </button>
+            </div>
             <div className="space-y-3">
               {accountSections.map(section => (
                 <div key={section.label}>
@@ -723,12 +894,20 @@ export function ImprovedDashboard() {
         </div>
       </section>
 
-      {/* Attention Required Section */}
-      {metrics.accountsNeedingAttention.length > 0 && (
-        <section 
+      {/* Needs Your Attention.
+          Held back until the transaction load has finished: until then an
+          account's balance is its opening balance, so every alert-armed
+          account flashes onto this list and off it again — a warning nobody
+          asked for about money that was there all along. */}
+      {!isLoading && attentionItems.length > 0 && (
+        <section
           aria-labelledby="attention-heading"
           className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6"
-          role="alert"
+          // A standing list of warnings is a region, not an alert: role="alert"
+          // is assertive by definition and interrupts whatever is being read,
+          // every time the dashboard renders. aria-live="polite" keeps the
+          // announcement — it just waits its turn.
+          role="region"
           aria-live="polite"
         >
           <div className="flex items-center gap-3 mb-4">
@@ -737,38 +916,37 @@ export function ImprovedDashboard() {
               Needs Your Attention
             </h3>
           </div>
-          
+
           <div className="space-y-3">
-            {metrics.accountsNeedingAttention.map(account => (
-              <div 
-                key={account.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
-                  }
-                }}
-                aria-label={`${account.name} needs attention: ${(account.type === 'current' || account.type === 'checking') && account.balance < 500 ? 'Low balance' : 'High utilization'}`}
+            {attentionItems.map(item => (
+              // One real <button> per row rather than a div wearing
+              // role="button": it is keyboard-reachable and Enter/Space work
+              // because it IS a button, and nesting a second button inside it
+              // for the action would be invalid markup for one destination.
+              <button
+                key={`${item.kind}:${item.account.id}`}
+                type="button"
+                data-testid="attention-row"
+                className="w-full flex items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+                onClick={() => navigate(preserveDemoParam(item.href, location.search))}
+                aria-label={`${item.account.name} needs attention: ${item.reason} ${item.actionLabel}`}
               >
-                <div className="flex items-center gap-3">
-                  <WalletIcon size={20} className="text-gray-500" aria-hidden="true" />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {account.name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {(account.type === 'current' || account.type === 'checking') && account.balance < 500 && 'Low balance'}
-                      {account.type === 'credit' && account.creditLimit && 
-                        Math.abs(account.balance) / account.creditLimit > 0.7 && 'High utilization'}
-                    </p>
-                  </div>
-                </div>
-                <ChevronRightIcon size={20} className="text-gray-400" aria-hidden="true" />
-              </div>
+                <span className="flex items-start gap-3 min-w-0">
+                  <WalletIcon size={20} className="text-gray-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-gray-900 dark:text-white">
+                      {item.account.name}
+                    </span>
+                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                      {item.reason}
+                    </span>
+                  </span>
+                </span>
+                <span className="flex items-center gap-1 flex-shrink-0 text-sm font-medium text-blue-700 dark:text-blue-400">
+                  <span className="hidden sm:inline">{item.actionLabel}</span>
+                  <ChevronRightIcon size={20} className="text-gray-400" aria-hidden="true" />
+                </span>
+              </button>
             ))}
           </div>
         </section>
@@ -804,71 +982,6 @@ export function ImprovedDashboard() {
                 aria-label="Bar chart showing net worth over time"
               />
             </ResponsiveContainer>
-          </div>
-        </section>
-      )}
-
-      {/* Account Distribution Chart */}
-      {pieData.length > 0 && (
-        <section 
-          aria-labelledby="account-distribution-heading"
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
-        >
-          <h3 id="account-distribution-heading" className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <PieChartIcon size={24} className="text-gray-500" aria-hidden="true" />
-            Account Distribution
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Your top 5 accounts by balance
-          </p>
-          {/* Chart takes a fixed column; the legend gets ALL remaining width
-              so account names show as much text as the card allows. */}
-          <div className="flex flex-col md:flex-row md:items-center gap-6">
-            <div className="h-64 md:w-72 lg:w-80 md:flex-shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                    <PieChart
-                      data={pieData}
-                      innerRadius={true}
-                      colors={COLORS}
-                      onClick={(clickedData: AccountDistributionDatum) => {
-                        navigate(`/transactions?account=${clickedData.id}`);
-                      }}
-                  formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
-                  contentStyle={chartStyles.pieTooltip}
-                  aria-label="Pie chart showing distribution of account balances"
-                />
-              </ResponsiveContainer>
-            </div>
-            {/* Legend: which slice is which, with values and shares */}
-            <ul className="md:flex-1 md:min-w-0 space-y-2" aria-label="Account distribution legend">
-              {(() => {
-                const total = pieData.reduce((sum, d) => sum.plus(toDecimal(d.value)), toDecimal(0));
-                return pieData.map((d, i) => (
-                  <li key={d.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/transactions?account=${d.id}`)}
-                      className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left"
-                    >
-                      <span
-                        className="w-3 h-3 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                        aria-hidden="true"
-                      />
-                      <span className="flex-1 min-w-0 truncate text-sm text-gray-700 dark:text-gray-300">{d.name}</span>
-                      <span className="text-sm font-medium tabular-nums text-gray-900 dark:text-white whitespace-nowrap">
-                        {formatCurrencyWithSymbol(d.value, displayCurrency)}
-                      </span>
-                      <span className="w-12 text-right text-xs tabular-nums text-gray-400 dark:text-gray-500">
-                        {total.greaterThan(0)
-                          ? `${toDecimal(d.value).dividedBy(total).times(100).toFixed(1)}%`
-                          : ''}
-                      </span>
-                    </button>
-                  </li>
-                ));
-              })()}
-            </ul>
           </div>
         </section>
       )}

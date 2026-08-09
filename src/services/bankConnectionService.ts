@@ -98,6 +98,7 @@ export interface BankConnectionServiceOptions {
 
 export class BankConnectionService {
   private connections: BankConnection[] = [];
+  private connectionListeners = new Set<() => void>();
   private configStatus = { plaid: false, trueLayer: false };
   private fetcher: FetchLike | null;
   private logger: Logger;
@@ -508,11 +509,28 @@ export class BankConnectionService {
       this.connections = [];
     }
 
+    this.connectionListeners.forEach((listener) => listener());
     return this.connections;
   }
 
   getConnections(): BankConnection[] {
     return this.connections;
+  }
+
+  /**
+   * Be told when the cache above is replaced.
+   *
+   * Read-only surfaces (the dashboard's attention card, a register's banner)
+   * want the connections that are ALREADY loaded, not a fetch of their own —
+   * one is running from Layout on every signed-in session. Without a signal
+   * they would each have to ask the network again to find out something the
+   * app already knows. The returned function unsubscribes.
+   */
+  subscribeToConnections(listener: () => void): () => void {
+    this.connectionListeners.add(listener);
+    return () => {
+      this.connectionListeners.delete(listener);
+    };
   }
 
   async refreshConfigStatus(): Promise<{ plaid: boolean; trueLayer: boolean }> {
