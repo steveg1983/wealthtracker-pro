@@ -17,9 +17,14 @@
  *
  * This is deliberately the test Phase 3's local implementation boots against:
  * swap the stub for LocalDataPort, keep every assertion, and a green run says
- * the app came up on the local edition. The stub is typed `DataPort`, so the
- * day an operation joins the seam this file stops compiling until it is
- * answered — which is the point of writing it now rather than then.
+ * the app came up on the local edition.
+ *
+ * The stub is typed `DataPort`, and that annotation is NOT what keeps it
+ * complete: `tsc -b` never compiles this file (tsconfig.app.json excludes
+ * tests), so an operation could join the seam and leave the stub silently short
+ * of it. What keeps it complete is the last test in this file, which holds the
+ * stub's key set against `DATA_PORT_OPERATIONS` — the seam's own list, kept
+ * beside the contract suite.
  *
  * NOT through the door yet, and deliberately named so the silence is not read
  * as a claim: `isUsingSupabase` (still DataService's own answer — it is a
@@ -40,6 +45,7 @@ import type {
   TransactionSplit
 } from '../../types';
 import type { AccountBalanceSnapshot, DataPort } from '../../services/port/dataPort';
+import { DATA_PORT_OPERATIONS } from '../../services/port/__tests__/contract';
 
 // Restore the live module (setup.ts registers a global mock for it).
 vi.unmock('../AppContextSupabase');
@@ -176,9 +182,10 @@ vi.mock('../../services/port', () => {
     };
   };
 
-  // Typed as the interface on purpose: this is the compile-time half of the
-  // proof. An operation added to the seam breaks this file until it is
-  // answered here, which is how the local edition finds out what it owes.
+  // Typed as the interface for the reader's sake; held to it by the key-set
+  // test at the bottom of this file, which is the part that actually bites. An
+  // operation added to the seam and not answered here turns that test red, and
+  // that is how the local edition finds out what it owes.
   const dataPort: DataPort = {
     getAccounts: answer('getAccounts', seam.accounts),
     getClosedAccounts: answer('getClosedAccounts', [] as Account[]),
@@ -232,6 +239,9 @@ vi.mock('../../services/port', () => {
     repairClaimedTransfer: refuse('repairClaimedTransfer'),
     createTransferCounterpart: refuse('createTransferCounterpart'),
     setTransactionSplits: refuse('setTransactionSplits'),
+    createBudget: refuse('createBudget'),
+    updateBudget: refuse('updateBudget'),
+    deleteBudget: refuse('deleteBudget'),
     mergeCategories: refuse('mergeCategories'),
     dismissSuggestion: refuse('dismissSuggestion'),
     restoreSuggestion: refuse('restoreSuggestion'),
@@ -376,5 +386,23 @@ describe('the boot, through the seam and nothing else', () => {
     expect(result.current.goals.map(goal => goal.id)).toEqual(['goal-from-the-seam']);
 
     vi.restoreAllMocks();
+  });
+
+  it('stubs the whole seam — exactly the operations it names, no more and no fewer', async () => {
+    // What makes every assertion above mean what it says.
+    //
+    // This file's claim is "the app booted on nothing but the port". That claim
+    // is only as good as the stub: if an operation joined the seam and the stub
+    // never grew a door for it, the boot would reach a real implementation (or
+    // an `undefined`) and this file would go on passing while quietly testing
+    // something else. The type annotation cannot stop that — tests are not
+    // compiled — so the list is held against the keys instead.
+    //
+    // Both directions matter. FEWER than the list is the case above. MORE than
+    // the list is a stub that has drifted into answering a door the interface
+    // does not have, which is the same lie told the other way round.
+    const { dataPort } = await import('../../services/port');
+
+    expect(Object.keys(dataPort).sort()).toEqual([...DATA_PORT_OPERATIONS].sort());
   });
 });

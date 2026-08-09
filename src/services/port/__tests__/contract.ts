@@ -20,6 +20,9 @@
  *  - the category-merge guards, source before target — the order decides which
  *    sentence the user sees;
  *  - every money movement lands on the penny;
+ *  - a budget survives a create and an edit to the penny, is refused by name
+ *    when it is not there, and is not an error to delete twice — and lands
+ *    under the owner the implementation resolved for itself, never another;
  *  - the reconcile-sweep, dismissal pruning and dismissal idempotence;
  *  - and the DECLARED divergences (D-7, M-1), asserted per engine so that a
  *    difference between implementations is recorded rather than discovered.
@@ -96,6 +99,82 @@ export interface DataPortContractHarness {
    */
   createUnreadable(): Promise<DataPort>;
 }
+
+/**
+ * Every operation the seam names, written out where a RUNTIME check can walk
+ * it.
+ *
+ * WHY A LIST AND NOT THE TYPE. `tsc -b` does not typecheck tests:
+ * tsconfig.app.json excludes every `__tests__` directory and every `.test.ts`
+ * and `.test.tsx` file, and eslint runs without a project. So the `DataPort`
+ * annotation on a test double is documentation, not a proof: a double that
+ * answers half the seam compiles, runs and passes, and the day a real
+ * implementation is swapped in behind those same tests the missing half is a
+ * `TypeError` in front of a user rather than a red line in a diff.
+ *
+ * What the list buys, in the two places it is used:
+ *
+ *  - here, that the engine under test really implements every operation it
+ *    claims to (a contract suite run against a partial port proves nothing);
+ *  - in AppContextBootThroughPort.test.tsx, that the stubbed seam the boot is
+ *    proved against has EXACTLY these keys — no fewer, so an operation cannot
+ *    join the seam while the one test that boots the app on a bare stub keeps
+ *    passing without answering it, and no more, so the stub cannot drift into
+ *    inventing a door the interface does not have.
+ *
+ * It is maintained by hand ON PURPOSE and in the same commit as the interface:
+ * the list is the one place a person adding an operation has to say out loud
+ * that they have added it. Grouped and ordered as `dataPort.ts` groups them, so
+ * the two files can be read side by side.
+ */
+export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
+  // Reads
+  'getAccounts',
+  'getClosedAccounts',
+  'getTransactions',
+  'loadBootTransactions',
+  'getAccountBalances',
+  'getAllTransactionSplits',
+  'getTransactionSplits',
+  'getBudgets',
+  'getGoals',
+  'getCategories',
+  'getSuggestionDismissals',
+  // Account writes
+  'createAccount',
+  'updateAccount',
+  'deleteAccount',
+  // Transaction writes
+  'createTransaction',
+  'updateTransaction',
+  'deleteTransaction',
+  'setTransactionsCleared',
+  'applyCategoryToUncategorized',
+  'confirmTransactionCategories',
+  'setTransactionArchived',
+  'archiveTransactionsBefore',
+  'unarchiveAccount',
+  // Transfer writes
+  'linkTransferPair',
+  'linkSplitLineTransfer',
+  'unlinkTransfers',
+  'repairClaimedTransfer',
+  'createTransferCounterpart',
+  // Split writes
+  'setTransactionSplits',
+  // Planning writes
+  'createBudget',
+  'updateBudget',
+  'deleteBudget',
+  'mergeCategories',
+  // Dismissal writes
+  'dismissSuggestion',
+  'restoreSuggestion',
+  // Lifecycle
+  'initialize',
+  'prepareCategories',
+  'subscribeToUpdates'
+];
 
 // ── Declared divergences ────────────────────────────────────────────────────
 // Written as tables rather than as `if (engine === …)` scattered through the
@@ -178,6 +257,22 @@ const PREPARE_CATEGORIES: Record<DataPortEngine, { describes: string; persists: 
   supabase: { describes: 'migrates a set into the account and keeps it', persists: true },
   // Seeds its defaults into the one store it has; nothing to remap, ever.
   'local-core': { describes: 'seeds the defaults into the store', persists: true }
+};
+
+/**
+ * B-3 — what "the owner" is, for an engine being asked to file a write under
+ * one.
+ *
+ * The phrase differs so much between engines that asserting it equal would be
+ * asserting a fiction: browser storage has no concept of an owner, the cloud
+ * has a column and a policy, a device edition has itself. What is asserted
+ * equal is the pair of rules underneath the phrase, and they are the ones that
+ * decide whether somebody's budget survives the night — see the test below.
+ */
+const OWNERSHIP: Record<DataPortEngine, string> = {
+  'browser-storage': 'one store and no owner at all',
+  supabase: 'an owner the implementation resolves, stamped on the row and enforced by RLS',
+  'local-core': 'the device itself'
 };
 
 /**
@@ -273,6 +368,26 @@ const aBudget = (id: string, categoryId: string, amount: number): Budget => ({
   updatedAt: AT('2025-01-01')
 });
 
+/**
+ * A budget as a CALLER supplies one — no id, and no `spent`: what has been
+ * spent against a category is summed from the ledger, so it is never the
+ * caller's to state. The two timestamps are the caller's own (the budget modal
+ * sends them), and every engine is free to stamp its own over them.
+ */
+const aNewBudget = (
+  categoryId: string,
+  amount: number,
+  rest: Partial<Omit<Budget, 'id' | 'spent'>> = {}
+): Omit<Budget, 'id' | 'spent'> => ({
+  categoryId,
+  amount,
+  period: 'monthly',
+  isActive: true,
+  createdAt: AT('2025-01-01'),
+  updatedAt: AT('2025-01-01'),
+  ...rest
+});
+
 const aGoal = (id: string, name: string, targetAmount: number): Goal => ({
   id,
   name,
@@ -310,6 +425,25 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
   const { engine } = harness;
 
   describe(name, () => {
+    describe('the surface itself', () => {
+      it('answers every operation the seam names', async () => {
+        // The floor under every rule below: a suite run against a port that is
+        // missing operations proves only that the operations it HAS behave.
+        // Nothing else here would notice the absence — an engine under
+        // construction would go green on the half it had finished.
+        //
+        // Not a type check, deliberately. Tests are not compiled by `tsc -b`,
+        // so `implements DataPort` is only checked where the implementation
+        // itself is production code; a harness that assembles its port out of
+        // parts (which a local edition, being two halves, will) gets no such
+        // check at all. This one runs.
+        const { port } = await harness.create({ accounts: threeAccounts() });
+
+        const missing = DATA_PORT_OPERATIONS.filter(operation => typeof port[operation] !== 'function');
+        expect(missing).toEqual([]);
+      });
+    });
+
     describe('accounts', () => {
       it('gives back every field it was given', async () => {
         // The seam's promise about accounts: what the app wrote is what the
@@ -689,6 +823,112 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect((await port.getBudgets())[0].amount).toBe(70.1);
         expect((await port.getGoals())[0].targetAmount).toBe(0.3);
+      });
+    });
+
+    describe('writing a budget', () => {
+      it('round-trips the amount through a create and an edit, to the penny', async () => {
+        // A budget is a limit somebody set on purpose, and the page compares
+        // it against a Decimal sum of real transactions. An engine that stored
+        // it through a float column would put a limit a penny out and then
+        // announce it had been exceeded — 0.1 + 0.2 territory, in a place the
+        // user is watching. `spent` starts at zero in every engine because it
+        // is summed from the ledger, never stored knowledge.
+        const { port } = await harness.create({ accounts: threeAccounts() });
+
+        const created = await port.createBudget(aNewBudget('cat-everyday', 70.1));
+
+        expect(created.id).toBeTruthy();
+        expect(created.amount).toBe(70.1);
+        expect(created.spent).toBe(0);
+        expect((await port.getBudgets()).map(budget => [budget.id, budget.amount]))
+          .toEqual([[created.id, 70.1]]);
+
+        const edited = await port.updateBudget(created.id, { amount: 0.3 });
+
+        // The whole budget comes back, not just the field that moved: the
+        // caller replaces its copy with this answer.
+        expect(edited).toMatchObject({ id: created.id, categoryId: 'cat-everyday', amount: 0.3 });
+        expect((await port.getBudgets())[0].amount).toBe(0.3);
+      });
+
+      it(`B-3: a budget is filed under ${OWNERSHIP[engine]}`, async () => {
+        // Two rules, equal for every engine however it spells "owner".
+        //
+        // FIRST: no operation ACCEPTS an owner. Stated at runtime and not left
+        // to the interface because the interface is only compiled where the
+        // implementation is production code — and it is a partial, hand-built
+        // port that would grow a `(userId, budget)` signature and start
+        // trusting its caller for the one value that must never be trusted.
+        //
+        // SECOND: a write whose owner could not be resolved does not reach
+        // another owner's store. Two isolated stores is the cheapest way to
+        // ask, and it is not a hypothetical failure: the service behind the
+        // cloud branch treats a null owner as "write the browser's copy",
+        // which for a signed-in session is a budget that appears on the page
+        // and is gone by morning.
+        const mine = await harness.create({ accounts: threeAccounts() });
+        const theirs = await harness.create({ accounts: threeAccounts() });
+
+        expect(mine.port.createBudget.length).toBe(1);
+        expect(mine.port.updateBudget.length).toBe(2);
+        expect(mine.port.deleteBudget.length).toBe(1);
+
+        const created = await mine.port.createBudget(aNewBudget('cat-everyday', 200));
+
+        expect((await mine.read()).budgets.map(budget => budget.id)).toEqual([created.id]);
+        expect((await theirs.read()).budgets).toEqual([]);
+        expect(await theirs.port.getBudgets()).toEqual([]);
+      });
+
+      it('refuses to change a budget that is not there, and says which', async () => {
+        // Not created-on-the-fly: an id that names nothing is a bug upstream
+        // (a stale page, a double submit after a delete), and inventing a
+        // budget to satisfy it would put an amount somebody never set on the
+        // budgets page. Rule 4 of the seam — the message is what the user
+        // reads — so it is asserted, not merely the rejection.
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-1', 'cat-everyday', 200)]
+        });
+
+        await expect(port.updateBudget('budget-nowhere', { amount: 300 }))
+          .rejects.toThrow(/budget not found/i);
+      });
+
+      it('leaves the store exactly as it was when it refuses', async () => {
+        // The all-or-nothing rule the splits and the merge already keep, asked
+        // of a planning write: everything is judged before anything is
+        // written, so a refusal is never a half-applied edit.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-1', 'cat-everyday', 200)],
+          goals: [aGoal('goal-1', 'New boiler', 1500)]
+        });
+        const before = asComparable(await read());
+
+        await expect(port.updateBudget('budget-nowhere', { amount: 300 })).rejects.toThrow();
+
+        expect(asComparable(await read())).toBe(before);
+      });
+
+      it('treats deleting a budget that has already gone as done, not as an error', async () => {
+        // Same rule as a dismissal: a double-click, or a second device that
+        // got there first, must not turn a decision into an error message.
+        // Idempotence is the point — the second call is not a test of the
+        // first, it is the case a slow network actually produces.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-1', 'cat-everyday', 200)]
+        });
+
+        await expect(port.deleteBudget('budget-nowhere')).resolves.toBeUndefined();
+        expect((await read()).budgets.map(budget => budget.id)).toEqual(['budget-1']);
+
+        await port.deleteBudget('budget-1');
+        await port.deleteBudget('budget-1');
+
+        expect((await read()).budgets).toEqual([]);
       });
     });
 
