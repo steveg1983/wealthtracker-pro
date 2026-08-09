@@ -390,9 +390,11 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     ];
     const header = ['Date', 'Description', 'Debit Amount', 'Credit Amount'];
 
-    const preview = service.generatePreview([header, ...rows], mappings);
+    // Headers and rows are separate arguments: the rows passed here are the
+    // DATA rows, exactly as parseCSV hands them back.
+    const preview = service.generatePreview(header, rows, mappings);
 
-    // Header row (unparseable amount) and zero row are skipped.
+    // The zero row is skipped — it yields no usable amount.
     expect(preview.transactions).toHaveLength(3);
     expect(preview.transactions[0]).toMatchObject({ amount: -50, type: 'expense' });
     expect(preview.transactions[1]).toMatchObject({ amount: 100, type: 'income' });
@@ -415,5 +417,53 @@ describe('EnhancedCsvImportService (deterministic)', () => {
     ).toEqual(
       preview.transactions.map(item => ({ amount: item.amount, type: item.type }))
     );
+  });
+
+  /**
+   * The contract these two pin down is the one the old single-argument
+   * signature could not express. It took `data: string[][]` and treated
+   * `data[0]` as the header row, so a caller holding parseCSV's output — where
+   * the header has already been split off — silently previewed nothing at all,
+   * with no error and no empty-state anywhere to notice it by.
+   */
+  describe('generatePreview takes headers separately from rows', () => {
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'Date', targetField: 'date' },
+      { sourceColumn: 'Description', targetField: 'description' },
+      { sourceColumn: 'Amount', targetField: 'amount' }
+    ];
+    const csv = [
+      'Date,Description,Amount',
+      '2025-06-01,Coffee,-3.50',
+      '2025-06-02,Salary,1200.00'
+    ].join('\n');
+
+    it('previews every row of parseCSV output, which is already header-stripped', () => {
+      const service = createService();
+      const parsed = service.parseCSV(csv);
+
+      const preview = service.generatePreview(parsed.headers, parsed.data, mappings);
+
+      expect(preview.transactions).toHaveLength(2);
+      expect(preview.transactions[0]).toMatchObject({ description: 'Coffee', amount: -3.5 });
+      expect(preview.transactions[1]).toMatchObject({ description: 'Salary', amount: 1200 });
+    });
+
+    it('reads column positions from the headers, not from the first row', () => {
+      const service = createService();
+      // Columns deliberately out of the mappings' order: the only thing that
+      // can place them is the header array.
+      const preview = service.generatePreview(
+        ['Amount', 'Date', 'Description'],
+        [['-9.99', '2025-06-03', 'Sandwich']],
+        mappings
+      );
+
+      expect(preview.transactions).toHaveLength(1);
+      expect(preview.transactions[0]).toMatchObject({
+        description: 'Sandwich',
+        amount: -9.99
+      });
+    });
   });
 });

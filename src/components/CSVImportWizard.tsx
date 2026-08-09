@@ -30,6 +30,14 @@ interface CSVImportWizardProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'transaction' | 'account';
+  /**
+   * A file chosen somewhere else — the Batch Import queue hands this wizard the
+   * next .csv on its list. Accepting one here is what lets that queue stay a
+   * queue: it never parses or writes a row, because this wizard does all of it
+   * exactly as it does for a file dropped below — including the column mapping
+   * step, which is the whole reason a CSV cannot be imported unattended.
+   */
+  initialFile?: File;
 }
 
 type WizardStep = 'upload' | 'mapping' | 'preview' | 'result';
@@ -72,7 +80,7 @@ const isTransactionDraft = (
 ): item is Partial<Transaction> =>
   'date' in item && 'amount' in item && 'description' in item && 'type' in item;
 
-export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWizardProps): React.JSX.Element {
+export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: CSVImportWizardProps): React.JSX.Element {
   const {
     accounts,
     transactions,
@@ -116,52 +124,58 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
     setImportError(null);
   };
 
-  // Handle file upload
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  /**
+   * Read a file and move to the mapping step. The one path into this wizard,
+   * shared by the drop zone, the file input and the `initialFile` prop, so a
+   * queued file gets the identical treatment to a hand-picked one.
+   */
+  const acceptFile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const content = e.target?.result as string;
+      const content = typeof e.target?.result === 'string' ? e.target.result : '';
       setCsvContent(content);
-      
+
       // Parse CSV
       const parsed = enhancedCsvImportService.parseCSV(content);
       setHeaders(parsed.headers);
       setData(parsed.data);
-      
+
       // Auto-suggest mappings
       const suggestedMappings = enhancedCsvImportService.suggestMappings(parsed.headers, type);
       setMappings(suggestedMappings);
-      
+
       setCurrentStep('mapping');
     };
     reader.readAsText(file);
   }, [type]);
+
+  /**
+   * Compared by IDENTITY, not by name: re-rendering with the same File must not
+   * re-read it and throw the user back to the mapping step, while a second file
+   * that happens to share a name still gets read.
+   */
+  const loadedInitialFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!initialFile || loadedInitialFileRef.current === initialFile) return;
+    loadedInitialFileRef.current = initialFile;
+    acceptFile(initialFile);
+  }, [acceptFile, initialFile]);
+
+  // Handle file upload
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    acceptFile(file);
+  }, [acceptFile]);
 
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file && file.type === 'text/csv') {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        setCsvContent(content);
-        
-        const parsed = enhancedCsvImportService.parseCSV(content);
-        setHeaders(parsed.headers);
-        setData(parsed.data);
-        
-        const suggestedMappings = enhancedCsvImportService.suggestMappings(parsed.headers, type);
-        setMappings(suggestedMappings);
-        
-        setCurrentStep('mapping');
-      };
-      reader.readAsText(file);
+      acceptFile(file);
     }
-  }, [type]);
+  }, [acceptFile]);
 
   // Update mapping
   const updateMapping = (index: number, field: keyof ColumnMapping, value: string | ((value: string) => string | number | boolean | null)) => {

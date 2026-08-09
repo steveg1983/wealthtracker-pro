@@ -1732,4 +1732,99 @@ describe('OFXImportModal', () => {
       expect(summaryTile('Will be imported')).toHaveTextContent('0');
     });
   });
+
+  /**
+   * A file handed in by the Batch Import queue rather than picked here. It has
+   * to reach exactly the same code the drop zone reaches — that is the whole
+   * reason the queue is allowed to be a queue instead of a fourth importer.
+   */
+  describe('A file handed in by the batch queue', () => {
+    const queuedFile = (name = 'january.ofx'): File =>
+      new File(['OFX content'], name, { type: 'application/ofx' });
+
+    it('parses it on mount, with no click on the drop zone', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({
+          transactions: [sampleTransaction],
+          statementRows: mockStatementRows(1),
+          newTransactions: 1
+        })
+      );
+
+      render(<OFXImportModal {...defaultProps} initialFile={queuedFile()} />);
+
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalled();
+      });
+      expect(screen.getByText('january.ofx')).toBeInTheDocument();
+      expect(screen.getByText('1 transactions found')).toBeInTheDocument();
+    });
+
+    it('still offers the destination account and the duplicate check', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({
+          transactions: [sampleTransaction],
+          statementRows: mockStatementRows(1),
+          matchedAccount: mockAccounts[0],
+          matchConfidence: 'identifier',
+          newTransactions: 1
+        })
+      );
+
+      render(<OFXImportModal {...defaultProps} initialFile={queuedFile()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
+      });
+      expect(screen.getByText('Skip transactions you already have')).toBeInTheDocument();
+    });
+
+    /**
+     * The queue re-renders whenever its own state moves. Re-parsing on each of
+     * those would throw away an account the user had just chosen, mid-decision.
+     */
+    it('does not re-parse when the same file is handed in again', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({ statementRows: mockStatementRows(1) })
+      );
+
+      const file = queuedFile();
+      const { rerender } = render(<OFXImportModal {...defaultProps} initialFile={file} />);
+
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(<OFXImportModal {...defaultProps} initialFile={file} />);
+      rerender(<OFXImportModal {...defaultProps} initialFile={file} />);
+
+      expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads a different file that happens to share a name', async () => {
+      vi.mocked(ofxImportService.importTransactions).mockResolvedValue(
+        createMockImportResult({ statementRows: mockStatementRows(1) })
+      );
+
+      const { rerender } = render(
+        <OFXImportModal {...defaultProps} initialFile={queuedFile('statement.ofx')} />
+      );
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(<OFXImportModal {...defaultProps} initialFile={queuedFile('statement.ofx')} />);
+
+      await waitFor(() => {
+        expect(ofxImportService.importTransactions).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('shows the drop zone as usual when no file is handed in', () => {
+      render(<OFXImportModal {...defaultProps} />);
+
+      expect(screen.getByText('Upload OFX File')).toBeInTheDocument();
+      expect(ofxImportService.importTransactions).not.toHaveBeenCalled();
+    });
+  });
 });

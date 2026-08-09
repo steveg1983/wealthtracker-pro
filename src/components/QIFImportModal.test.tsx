@@ -834,4 +834,86 @@ describe('QIFImportModal', () => {
       });
     });
   });
+
+  /**
+   * A file handed in by the Batch Import queue rather than picked here. It has
+   * to reach exactly the same code the drop zone reaches — that is the whole
+   * reason the queue is allowed to be a queue instead of a fourth importer.
+   *
+   * A QIF names no account, so this is also the check that a queued file still
+   * ASKS which one it belongs to. The screen this queue replaced answered that
+   * question itself, with accounts[0].
+   */
+  describe('A file handed in by the batch queue', () => {
+    const queuedFile = (name = 'quicken.qif'): File =>
+      new File(['QIF content'], name, { type: 'application/qif' });
+
+    it('parses it on mount, with no click on the drop zone', async () => {
+      vi.mocked(qifImportService.parseQIF).mockReturnValue(createMockParseResult());
+
+      render(<QIFImportModal {...defaultProps} initialFile={queuedFile()} />);
+
+      await waitFor(() => {
+        expect(qifImportService.parseQIF).toHaveBeenCalled();
+      });
+      expect(screen.getByText('quicken.qif')).toBeInTheDocument();
+      expect(screen.getByText('1 transactions found (Type: Bank)')).toBeInTheDocument();
+    });
+
+    it('still asks which account the file belongs to', async () => {
+      vi.mocked(qifImportService.parseQIF).mockReturnValue(createMockParseResult());
+
+      render(<QIFImportModal {...defaultProps} initialFile={queuedFile()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Import to Account' })).toBeInTheDocument();
+      });
+      // Nothing is imported until that question is answered.
+      expect(screen.getByTestId('loading-button')).toBeDisabled();
+    });
+
+    /**
+     * The queue re-renders whenever its own state moves. Re-parsing on each of
+     * those would throw away an account the user had just chosen, mid-decision.
+     */
+    it('does not re-parse when the same file is handed in again', async () => {
+      vi.mocked(qifImportService.parseQIF).mockReturnValue(createMockParseResult());
+
+      const file = queuedFile();
+      const { rerender } = render(<QIFImportModal {...defaultProps} initialFile={file} />);
+
+      await waitFor(() => {
+        expect(qifImportService.parseQIF).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(<QIFImportModal {...defaultProps} initialFile={file} />);
+      rerender(<QIFImportModal {...defaultProps} initialFile={file} />);
+
+      expect(qifImportService.parseQIF).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads a different file that happens to share a name', async () => {
+      vi.mocked(qifImportService.parseQIF).mockReturnValue(createMockParseResult());
+
+      const { rerender } = render(
+        <QIFImportModal {...defaultProps} initialFile={queuedFile('export.qif')} />
+      );
+      await waitFor(() => {
+        expect(qifImportService.parseQIF).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(<QIFImportModal {...defaultProps} initialFile={queuedFile('export.qif')} />);
+
+      await waitFor(() => {
+        expect(qifImportService.parseQIF).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('shows the drop zone as usual when no file is handed in', () => {
+      render(<QIFImportModal {...defaultProps} />);
+
+      expect(screen.getByText('Upload QIF File')).toBeInTheDocument();
+      expect(qifImportService.parseQIF).not.toHaveBeenCalled();
+    });
+  });
 });

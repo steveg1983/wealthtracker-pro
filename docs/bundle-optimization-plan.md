@@ -27,7 +27,7 @@ We captured Vercel build logs for deployment `wealthtracker-l514dsq11` (see `log
 
 3. **Data Management Route (`/settings/data-management`)**
    - Lazily renders numerous import/export modals; confirm each modal defers heavy tooling:
-     - `CSVImportWizard`, `BatchImportModal`, `ImportDataModal`, `OFXImportModal`, `QIFImportModal`.
+     - `CSVImportWizard`, `BatchImportModal`, `OFXImportModal`, `QIFImportModal`. (`ImportDataModal` — the Legacy Import dialog — was deleted on 2026-08-09 along with its `mnyParser`/`qifParser` byte scanners; `BatchImportModal` is now a queue that lazily loads whichever of the other three a file needs.)
    - Action:
      - Double-check these components rely on the dynamic import helpers (e.g., `enhancedCsvImportService` should not eagerly load parsing libs).
      - Split the manager shell (`EnhancedExportManager`, rules UI, batch import tools) so modal code paths only load after corresponding buttons are clicked.

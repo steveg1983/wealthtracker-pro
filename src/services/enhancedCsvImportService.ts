@@ -740,28 +740,44 @@ export class EnhancedCsvImportService {
   }
 
   /**
-   * Generate preview of transactions from parsed data
+   * Build the first few transactions a file would produce, exactly as
+   * importTransactions would build them.
+   *
+   * HEADERS ARE A SEPARATE ARGUMENT ON PURPOSE. This used to take one
+   * `data: string[][]` and read `data[0]` as the header row, so a caller
+   * holding the output of `parseCSV` — which returns headers and DATA
+   * separately, the data already stripped of its header — got a preview built
+   * against the first transaction as though it were the column names: every
+   * column index missed, and the preview came back empty. Nothing in the shape
+   * of the old signature could tell the two callers apart. Now the two are
+   * named, and passing rows where headers belong will not type-check.
+   *
+   * `rows` must NOT include the header row.
    */
-  generatePreview(data: string[][], mappings: ColumnMapping[]): { transactions: Partial<Transaction>[] } {
+  generatePreview(
+    headers: string[],
+    rows: string[][],
+    mappings: ColumnMapping[]
+  ): { transactions: Partial<Transaction>[] } {
     const transactions: Partial<Transaction>[] = [];
-    
+
     // Create column index map
     const columnIndices = new Map<string, number>();
     mappings.forEach(mapping => {
-      const index = data[0]?.findIndex(h => h === mapping.sourceColumn);
+      const index = headers.findIndex(h => h === mapping.sourceColumn);
       if (index >= 0) {
         // Keyed by source column — see importTransactions: two bank columns
         // (Debit/Credit) can map to the same 'amount' target.
         columnIndices.set(mapping.sourceColumn, index);
       }
     });
-    
+
     // Process first 10 rows as preview
-    const previewRows = data.slice(0, 10);
-    
+    const previewRows = rows.slice(0, 10);
+
     for (let rowIndex = 0; rowIndex < previewRows.length; rowIndex++) {
       const row = previewRows[rowIndex];
-      
+
       try {
         // Shared row builder — previews must match what importTransactions
         // writes (debit/credit sign handling, explicit type columns, zero

@@ -1,613 +1,402 @@
-import React, { useState, useCallback } from 'react';
-import { useApp } from '../contexts/AppContextSupabase';
-import { enhancedCsvImportService } from '../services/enhancedCsvImportService';
-import { ofxImportService } from '../services/ofxImportService';
-import { qifImportService } from '../services/qifImportService';
-import { Modal } from './common/Modal';
-import { 
-  UploadIcon, 
-  CheckIcon, 
-  XIcon,
-  AlertCircleIcon,
-  FolderIcon,
-  PlayIcon,
-  StopIcon
-} from './icons';
-import { LoadingButton } from './loading/LoadingState';
-import { isDuplicateImport } from '../utils/importDedupe';
+import React, { useCallback, useMemo, useState, Suspense } from 'react';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { LoadingState } from './loading/LoadingState';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import {
-  formatStatementDay,
-  planStatementBankBalance,
-  type BankBalanceRecord
-} from '../utils/statementBankBalance';
-import { formatCurrency } from '../utils/currency-decimal';
-import { createScopedLogger } from '../loggers/scopedLogger';
+  UploadIcon,
+  FolderIcon,
+  XIcon,
+  CheckIcon,
+  AlertCircleIcon,
+  PlayIcon
+} from './icons';
 
-const logger = createScopedLogger('BatchImportModal');
+/**
+ * Batch Import — a QUEUE, and nothing else.
+ *
+ * This screen used to be a fourth importer. It read the files itself, guessed a
+ * destination account (CSV and QIF simply took accounts[0]), and wrote rows one
+ * at a time through the context — bypassing the atomic, chunked, FITID-keyed
+ * write path that the OFX, QIF and CSV dialogs had already been fixed to use.
+ * Its counters read a stale render snapshot and so always said "0 of N", its
+ * per-file errors were rendered in a branch the summary unmounted, and its CSV
+ * path handed header-stripped rows to a preview that expected a header row, so
+ * it imported nothing at all and reported that as success.
+ *
+ * None of that is rebuilt here. This component parses nothing, matches no
+ * account, writes no row and counts no transaction. It holds a list of files and
+ * opens the real dialog for each one in turn. Every guarantee a file gets —
+ * account matching, the duplicate review, the all-or-nothing chunked write, the
+ * honest per-file result screen — comes from the dialog that opens, which is the
+ * same dialog the CSV / OFX / QIF tiles open for a single file.
+ */
+
+// Lazy for the same reason the import page's tiles are: a queue of three files
+// should not make everyone who opens this dialog download three importers up
+// front. Only the one for the file in hand is fetched, when it is reached.
+const CSVImportWizard = lazyWithRecovery(() => import('./CSVImportWizard'));
+const OFXImportModal = lazyWithRecovery(() => import('./OFXImportModal'));
+const QIFImportModal = lazyWithRecovery(() => import('./QIFImportModal'));
+
+/** The file kinds this app has a real importer for. */
+type ImportableKind = 'csv' | 'ofx' | 'qif';
+
+const IMPORTER_NAME: Record<ImportableKind, string> = {
+  csv: 'CSV importer',
+  ofx: 'OFX importer',
+  qif: 'QIF importer'
+};
+
+interface QueuedFile {
+  file: File;
+  /** null when no importer here can read it — the row still gets shown. */
+  kind: ImportableKind | null;
+}
 
 interface BatchImportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface FileInfo {
-  file: File;
-  name: string;
-  size: string;
-  type: 'csv' | 'ofx' | 'qif' | 'unknown';
-  status: 'pending' | 'processing' | 'success' | 'error';
-  error?: string;
-  imported?: number;
-  duplicates?: number;
-  accountMatched?: string;
-  /** Set when this file's closing balance became the account's Bank Balance. */
-  bankBalanceSet?: string;
-  /** Set when that write failed — the transactions still landed. */
-  bankBalanceWarning?: string;
-  /**
-   * Rows the file describes that the parser could not use. Nobody watches this
-   * screen while it runs, so an unreported one is a payment that vanishes
-   * between the bank's file and the register with nothing to explain it.
-   */
-  unreadableRows?: number;
+/** By extension only. Nothing here opens a file to find out what it is. */
+function detectKind(filename: string): ImportableKind | null {
+  const extension = filename.toLowerCase().split('.').pop();
+  if (extension === 'csv' || extension === 'ofx' || extension === 'qif') return extension;
+  return null;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1048576) return `${Math.round(bytes / 1024)} KB`;
+  return `${Math.round(bytes / 1048576)} MB`;
 }
 
 export default function BatchImportModal({ isOpen, onClose }: BatchImportModalProps): React.JSX.Element {
-  const { accounts, transactions, addTransaction, updateAccount } = useApp();
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [currentFileIndex, setCurrentFileIndex] = useState(-1);
-  const [importSummary, setImportSummary] = useState<{
-    totalFiles: number;
-    successfulFiles: number;
-    totalTransactions: number;
-    totalDuplicates: number;
-  } | null>(null);
+  const [queue, setQueue] = useState<QueuedFile[]>([]);
+  /** Index into `queue` of the file whose real dialog is open; null when none is. */
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  /** True once the last importable file's dialog has been closed. */
+  const [finished, setFinished] = useState(false);
 
-  const detectFileType = (filename: string): FileInfo['type'] => {
-    const ext = filename.toLowerCase().split('.').pop();
-    switch (ext) {
-      case 'csv': return 'csv';
-      case 'ofx': return 'ofx';
-      case 'qif': return 'qif';
-      default: return 'unknown';
-    }
-  };
+  const importableIndexes = useMemo(
+    () => queue.reduce<number[]>((found, entry, index) => {
+      if (entry.kind !== null) found.push(index);
+      return found;
+    }, []),
+    [queue]
+  );
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' bytes';
-    else if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
-    else return Math.round(bytes / 1048576) + ' MB';
-  };
-
-  const handleFileSelection = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files || []);
-    const fileInfos: FileInfo[] = selectedFiles.map(file => ({
-      file,
-      name: file.name,
-      size: formatFileSize(file.size),
-      type: detectFileType(file.name),
-      status: 'pending'
-    }));
-    
-    // Filter out unknown file types
-    const validFiles = fileInfos.filter(f => f.type !== 'unknown');
-    const invalidFiles = fileInfos.filter(f => f.type === 'unknown');
-    
-    if (invalidFiles.length > 0) {
-      alert(`Unsupported file types: ${invalidFiles.map(f => f.name).join(', ')}`);
-    }
-    
-    setFiles(validFiles);
+  const addFiles = useCallback((incoming: FileList | null) => {
+    if (!incoming || incoming.length === 0) return;
+    // Files this dialog cannot read are added too, greyed and labelled. The
+    // previous version alerted once and then DROPPED them, so a statement in
+    // the wrong format left the drop zone looking like it had been accepted.
+    const additions = Array.from(incoming).map(file => ({ file, kind: detectKind(file.name) }));
+    setQueue(previous => [...previous, ...additions]);
   }, []);
 
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
-    const droppedFiles = Array.from(event.dataTransfer.files);
-    const fileInfos: FileInfo[] = droppedFiles.map(file => ({
-      file,
-      name: file.name,
-      size: formatFileSize(file.size),
-      type: detectFileType(file.name),
-      status: 'pending'
-    }));
-    
-    const validFiles = fileInfos.filter(f => f.type !== 'unknown');
-    const invalidFiles = fileInfos.filter(f => f.type === 'unknown');
-    
-    if (invalidFiles.length > 0) {
-      alert(`Unsupported file types: ${invalidFiles.map(f => f.name).join(', ')}`);
-    }
-    
-    setFiles(prevFiles => [...prevFiles, ...validFiles]);
+    addFiles(event.dataTransfer.files);
+  }, [addFiles]);
+
+  const handleSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(event.target.files);
+    // Let the same file be chosen again after it has been removed from the list.
+    event.target.value = '';
+  }, [addFiles]);
+
+  const removeAt = useCallback((index: number) => {
+    setQueue(previous => previous.filter((_, i) => i !== index));
   }, []);
 
-  const removeFile = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index));
-  };
+  const start = useCallback(() => {
+    const first = importableIndexes[0];
+    if (first === undefined) return;
+    setFinished(false);
+    setActiveIndex(first);
+  }, [importableIndexes]);
 
   /**
-   * Give the account the statement's own closing balance, so Reconciliation
-   * has something to check the rows just imported against.
+   * The open dialog closed. Move to the next importable file, or finish.
    *
-   * Only ever `bankBalance` — never `balance`, which the transactions above
-   * have already moved.
-   *
-   * Only on an IDENTIFIER match, unlike the OFX modal. Nobody is watching this
-   * screen: files are matched to accounts automatically and the result is a
-   * list of counts. A name-and-type guess is good enough to place transactions
-   * (each one visible and removable afterwards) but not to redefine what an
-   * account reconciles against, which nothing on this screen would show.
+   * Deliberately says nothing about what that dialog did: it is the only thing
+   * that knows, it has just told the user on its own result screen, and a
+   * second opinion here could only be a guess dressed up as a count.
    */
-  const applyStatementBankBalance = async (
-    result: Awaited<ReturnType<typeof ofxImportService.importTransactions>>,
-    writtenThisRun: Map<string, BankBalanceRecord>
-  ): Promise<{ note?: string; warning?: string }> => {
-    const account = result.matchedAccount;
-    if (!account) return {};
-
-    const plan = planStatementBankBalance(
-      result.statementBalance,
-      writtenThisRun.get(account.id) ?? account,
-      { destinationConfirmed: result.matchConfidence === 'identifier' }
-    );
-    if (plan.kind !== 'set') return {};
-
-    try {
-      await updateAccount(account.id, plan.updates);
-      writtenThisRun.set(account.id, plan.updates);
-      return {
-        note: `Bank Balance ${formatCurrency(plan.amount, account.currency)} as at ${formatStatementDay(plan.dateAsOf)}`
-      };
-    } catch (error) {
-      // The transactions are already in; say what did not happen rather than
-      // reporting the whole file as failed.
-      logger.error('Failed to set bank balance from statement', error);
-      return { warning: `Couldn't update ${account.name}'s Bank Balance` };
+  const advance = useCallback(() => {
+    if (activeIndex === null) return;
+    const next = importableIndexes.find(index => index > activeIndex);
+    if (next === undefined) {
+      setActiveIndex(null);
+      setFinished(true);
+      return;
     }
-  };
+    setActiveIndex(next);
+  }, [activeIndex, importableIndexes]);
 
-  const processFile = async (
-    fileInfo: FileInfo,
-    index: number,
-    /**
-     * What this run has already written to each account's Bank Balance. The
-     * `accounts` array is React state and does not change between files, so
-     * without this a second statement for the same account would be judged
-     * against the account as it stood before the batch — and last March's
-     * statement could overwrite this month's.
-     */
-    bankBalancesWrittenThisRun: Map<string, BankBalanceRecord>
-  ): Promise<void> => {
-    setCurrentFileIndex(index);
-    setFiles(prev => prev.map((f, i) => 
-      i === index ? { ...f, status: 'processing' } : f
-    ));
+  const reset = useCallback(() => {
+    setQueue([]);
+    setActiveIndex(null);
+    setFinished(false);
+  }, []);
 
-    try {
-      const content = await fileInfo.file.text();
-      let imported = 0;
-      let duplicates = 0;
-      let accountMatched = '';
-      let bankBalanceSet: string | undefined;
-      let bankBalanceWarning: string | undefined;
-      let unreadableRows = 0;
+  const handleClose = useCallback(() => {
+    reset();
+    onClose();
+  }, [onClose, reset]);
 
-      switch (fileInfo.type) {
-        case 'csv': {
-          const parsed = enhancedCsvImportService.parseCSV(content);
-          const mappings = enhancedCsvImportService.suggestMappings(parsed.headers, 'transaction');
-          const preview = enhancedCsvImportService.generatePreview(parsed.data, mappings);
-          
-          // Try to match account from transactions
-          const possibleAccounts = new Set<string>();
-          preview.transactions.forEach((t) => {
-            if (t.accountId) possibleAccounts.add(t.accountId);
-          });
-          
-          if (possibleAccounts.size === 1) {
-            accountMatched = Array.from(possibleAccounts)[0];
-          } else if (possibleAccounts.size === 0 && accounts.length > 0) {
-            // Default to first account if no match found
-            accountMatched = accounts[0].id;
-          }
-          
-          // Import transactions
-          for (const transaction of preview.transactions) {
-            // Dates are compared as instants: `===` on two Date objects is
-            // identity, so this test never once matched and every re-import
-            // duplicated the statement.
-            const isDuplicate = isDuplicateImport(transactions, transaction);
-
-            if (!isDuplicate && transaction.date && transaction.amount !== undefined && transaction.description && transaction.category && transaction.type) {
-              await addTransaction({
-                date: transaction.date,
-                amount: transaction.amount,
-                description: transaction.description,
-                category: transaction.category,
-                type: transaction.type,
-                accountId: transaction.accountId || accountMatched,
-                tags: transaction.tags,
-                notes: transaction.notes
-              });
-              imported++;
-            } else {
-              duplicates++;
-            }
-          }
-          break;
-        }
-        
-        case 'ofx': {
-          const result = await ofxImportService.importTransactions(
-            content,
-            accounts,
-            transactions,
-            {}
-          );
-          accountMatched = result.matchedAccount?.id || accounts[0]?.id || '';
-          
-          for (const transaction of result.transactions) {
-            await addTransaction(transaction);
-            imported++;
-          }
-          duplicates = result.duplicates;
-          unreadableRows = result.unreadableRows;
-
-          const balanceOutcome = await applyStatementBankBalance(result, bankBalancesWrittenThisRun);
-          bankBalanceSet = balanceOutcome.note;
-          bankBalanceWarning = balanceOutcome.warning;
-          break;
-        }
-
-        case 'qif': {
-          const result = await qifImportService.importTransactions(
-            content,
-            accounts[0]?.id || '',
-            transactions,
-            {}
-          );
-          accountMatched = accounts[0]?.id || '';
-          
-          for (const transaction of result.transactions) {
-            await addTransaction(transaction);
-            imported++;
-          }
-          duplicates = result.duplicates;
-          break;
-        }
-      }
-
-      setFiles(prev => prev.map((f, i) =>
-        i === index ? {
-          ...f,
-          status: 'success',
-          imported,
-          duplicates,
-          accountMatched,
-          bankBalanceSet,
-          bankBalanceWarning,
-          unreadableRows
-        } : f
-      ));
-    } catch (error) {
-      setFiles(prev => prev.map((f, i) => 
-        i === index ? { 
-          ...f, 
-          status: 'error', 
-          error: error instanceof Error ? error.message : 'Import failed' 
-        } : f
-      ));
-    }
-  };
-
-  // Retired 2026-08-07: the "Clear Test Data?" gate that used to stand in front
-  // of this. It read a flag nothing could keep true, and clearing called a
-  // context reset that only emptied React state — on a cloud login the rows it
-  // claimed to remove were back on the next load. This import only ever adds,
-  // and the file list says so; see the note above the Start button.
-  const startBatchImport = async () => {
-    setIsProcessing(true);
-    setImportSummary(null);
-
-    let totalImported = 0;
-    let totalDuplicates = 0;
-    let successfulFiles = 0;
-    const bankBalancesWrittenThisRun = new Map<string, BankBalanceRecord>();
-
-    for (let i = 0; i < files.length; i++) {
-      if (files[i].status === 'pending') {
-        await processFile(files[i], i, bankBalancesWrittenThisRun);
-        
-        const updatedFile = files[i];
-        if (updatedFile.status === 'success') {
-          successfulFiles++;
-          totalImported += updatedFile.imported || 0;
-          totalDuplicates += updatedFile.duplicates || 0;
-        }
-      }
-    }
-
-    setImportSummary({
-      totalFiles: files.length,
-      successfulFiles,
-      totalTransactions: totalImported,
-      totalDuplicates
-    });
-    
-    setIsProcessing(false);
-    setCurrentFileIndex(-1);
-  };
-
-  const reset = () => {
-    setFiles([]);
-    setImportSummary(null);
-  };
-
-  const getFileIcon = (type: FileInfo['type']) => {
-    switch (type) {
-      case 'csv': return '📊';
-      case 'ofx': return '🏦';
-      case 'qif': return '💰';
-      default: return '📄';
-    }
-  };
-
-  const getStatusIcon = (status: FileInfo['status']) => {
-    switch (status) {
-      case 'success': return <CheckIcon size={16} className="text-blue-600" />;
-      case 'error': return <XIcon size={16} className="text-red-600" />;
-      case 'processing': return <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />;
-      default: return null;
-    }
-  };
+  const active = activeIndex === null ? null : queue[activeIndex] ?? null;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Batch Import Files"
-      size="xl"
-    >
-      <div className="p-6">
-        {importSummary ? (
-          <div className="text-center">
-            <CheckIcon size={48} className="mx-auto text-blue-600 mb-4" />
-            <h3 className="text-lg font-semibold mb-4">Import Complete!</h3>
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Files Processed</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {importSummary.successfulFiles}/{importSummary.totalFiles}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Transactions Imported</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {importSummary.totalTransactions}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Duplicates Skipped</p>
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {importSummary.totalDuplicates}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600 dark:text-gray-400">Success Rate</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {Math.round((importSummary.successfulFiles / importSummary.totalFiles) * 100)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={reset}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              >
-                Import More Files
-              </button>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* File Upload Area */}
-            {files.length === 0 ? (
+    <>
+      {/* One dialog at a time. While a file's own importer is open this one is
+          closed, so there is never a modal stacked on a modal and never two
+          Escape targets. */}
+      <Modal
+        isOpen={isOpen && active === null}
+        onClose={handleClose}
+        title="Batch Import"
+        size="xl"
+      >
+        <ModalBody>
+          {finished ? (
+            <BatchSummary queue={queue} />
+          ) : (
+            <>
               <div
                 onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-12 text-center hover:border-primary transition-colors"
+                onDragOver={(event) => event.preventDefault()}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary transition-colors"
               >
-                <FolderIcon size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
-                  Drop files here or click to browse
+                <FolderIcon size={40} className="mx-auto text-gray-400 mb-3" />
+                <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-white">
+                  Drop your files here, or choose them
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Support for CSV, OFX, and QIF files
+                  CSV, OFX and QIF files
                 </p>
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90 cursor-pointer">
+                {/* sr-only, NOT `hidden`: a display:none input is out of the tab
+                    order, and a <label> cannot take focus in its place — so the
+                    only way to reach the picker would be a mouse. Hidden this
+                    way the input still takes focus, and focus-within paints the
+                    ring on the button the user can actually see. */}
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
                   <UploadIcon size={20} />
-                  Select Files
+                  {queue.length === 0 ? 'Select files' : 'Add more files'}
                   <input
                     type="file"
                     multiple
                     accept=".csv,.ofx,.qif"
-                    onChange={handleFileSelection}
-                    className="hidden"
+                    onChange={handleSelect}
+                    className="sr-only"
                   />
                 </label>
               </div>
-            ) : (
-              <>
-                {/* File List */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                      {files.length} file{files.length !== 1 ? 's' : ''} selected
-                    </h3>
-                    <label className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 cursor-pointer">
-                      <UploadIcon size={16} />
-                      Add More
-                      <input
-                        type="file"
-                        multiple
-                        accept=".csv,.ofx,.qif"
-                        onChange={handleFileSelection}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
 
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {files.map((file, index) => (
-                      <div
-                        key={index}
+              {/* What pressing Start actually does, said before it happens. The
+                  one-file-at-a-time dialogs are the point of this screen, not a
+                  detail of it, so nobody should meet the first one by surprise. */}
+              <div className="mt-6 flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                <AlertCircleIcon size={18} className="mt-0.5 flex-shrink-0" />
+                <p>
+                  Each file opens in its own importer, one after another — the same
+                  dialog the CSV, OFX and QIF buttons open. You choose the account
+                  and confirm anything that looks like a transaction you already
+                  have, then closing that dialog moves on to the next file.
+                </p>
+              </div>
+
+              {queue.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
+                    {queue.length === 1 ? '1 file' : `${queue.length} files`}
+                  </h3>
+                  <ul className="space-y-2 max-h-80 overflow-y-auto">
+                    {queue.map((entry, index) => (
+                      <li
+                        key={`${entry.file.name}-${index}`}
                         className={`flex items-center gap-3 p-3 rounded-lg border ${
-                          file.status === 'error'
-                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                            : file.status === 'success'
-                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                            : file.status === 'processing'
-                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                          entry.kind === null
+                            ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
                             : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700'
                         }`}
                       >
-                        <div className="text-2xl">{getFileIcon(file.type)}</div>
-                        
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {file.name}
-                            </p>
-                            {getStatusIcon(file.status)}
-                          </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-white truncate">
+                            {entry.file.name}
+                          </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {file.size} • {file.type.toUpperCase()}
-                            {file.status === 'success' && file.imported !== undefined && (
-                              <span className="ml-2 text-blue-600">
-                                {file.imported} imported, {file.duplicates} duplicates
+                            {formatFileSize(entry.file.size)}
+                            {entry.kind === null ? (
+                              // Named, not dropped: a file left out in silence is
+                              // a statement someone believes is in the register.
+                              <span className="ml-2 text-yellow-700 dark:text-yellow-400">
+                                • Not importable — there is no importer here for this
+                                kind of file, so it will be left out
                               </span>
-                            )}
-                            {file.status === 'error' && file.error && (
-                              <span className="ml-2 text-red-600">{file.error}</span>
-                            )}
-                            {file.accountMatched && (
-                              <span className="ml-2 text-primary">
-                                → {accounts.find(a => a.id === file.accountMatched)?.name}
-                              </span>
-                            )}
-                            {/* Only ever present when a balance was actually
-                                written, so there is nothing to render when
-                                nothing happened. */}
-                            {file.bankBalanceSet && (
-                              <span className="ml-2 text-gray-600 dark:text-gray-400">
-                                • {file.bankBalanceSet}
-                              </span>
-                            )}
-                            {file.bankBalanceWarning && (
-                              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-                                • {file.bankBalanceWarning}
-                              </span>
-                            )}
-                            {file.unreadableRows !== undefined && file.unreadableRows > 0 && (
-                              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-                                • {file.unreadableRows === 1
-                                  ? 'one row could not be read and is missing from the register'
-                                  : `${file.unreadableRows} rows could not be read and are missing from the register`}
+                            ) : (
+                              <span className="ml-2 text-gray-500 dark:text-gray-400">
+                                • Opens in the {IMPORTER_NAME[entry.kind]}
                               </span>
                             )}
                           </p>
                         </div>
-
-                        {file.status === 'pending' && !isProcessing && (
-                          <button
-                            onClick={() => removeFile(index)}
-                            className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                          >
-                            <XIcon size={20} />
-                          </button>
-                        )}
-                      </div>
+                        <button
+                          onClick={() => removeAt(index)}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          aria-label={`Remove ${entry.file.name}`}
+                        >
+                          <XIcon size={20} />
+                        </button>
+                      </li>
                     ))}
-                  </div>
-                </div>
+                  </ul>
 
-                {/* Progress Bar */}
-                {isProcessing && (
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Processing file {currentFileIndex + 1} of {files.length}
-                      </span>
-                      <span className="text-primary">
-                        {Math.round(((currentFileIndex + 1) / files.length) * 100)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${((currentFileIndex + 1) / files.length) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* What the import will actually do, stated before it runs.
-                    Every path here only ADDS: no existing transaction is
-                    changed or removed, and rows matching one already loaded are
-                    skipped and counted as duplicates. */}
-                {!isProcessing && (
-                  <div className="mb-6 flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
-                    <AlertCircleIcon size={18} className="mt-0.5 flex-shrink-0" />
-                    <p>
-                      These transactions are added to your existing data — nothing is
-                      replaced or deleted. Anything matching a transaction you already
-                      have is skipped and counted as a duplicate.
+                  {importableIndexes.length === 0 && (
+                    <p className="mt-3 text-sm text-yellow-700 dark:text-yellow-400">
+                      None of these files can be imported here. Add a CSV, OFX or
+                      QIF file, or use the Microsoft Money importer for a
+                      <code> .mny</code> file.
                     </p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-3 justify-end">
-                  <button
-                    onClick={onClose}
-                    disabled={isProcessing}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <LoadingButton
-                    onClick={startBatchImport}
-                    disabled={files.length === 0}
-                    isLoading={isProcessing}
-                    className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <StopIcon size={20} />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <PlayIcon size={20} />
-                        Import All Files
-                      </>
-                    )}
-                  </LoadingButton>
+                  )}
                 </div>
-              </>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </ModalBody>
+
+        <ModalFooter className="flex justify-end gap-3">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            {finished ? 'Done' : 'Cancel'}
+          </button>
+          {!finished && (
+            <button
+              onClick={start}
+              disabled={importableIndexes.length === 0}
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 flex items-center gap-2"
+            >
+              <PlayIcon size={20} />
+              {importableIndexes.length === 1
+                ? 'Start — 1 file'
+                : `Start — ${importableIndexes.length} files`}
+            </button>
+          )}
+          {finished && (
+            <button
+              onClick={reset}
+              className="px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary"
+            >
+              Import more files
+            </button>
+          )}
+        </ModalFooter>
+      </Modal>
+
+      {/* The real dialog for the file in hand. Keyed by queue position so two
+          consecutive files of the same kind get a FRESH dialog rather than one
+          still holding the previous file's parse, account and result. */}
+      {active !== null && active.kind !== null && (
+        <Suspense fallback={<LoadingState />}>
+          {active.kind === 'csv' && (
+            <CSVImportWizard
+              key={activeIndex}
+              isOpen
+              onClose={advance}
+              type="transaction"
+              initialFile={active.file}
+            />
+          )}
+          {active.kind === 'ofx' && (
+            <OFXImportModal
+              key={activeIndex}
+              isOpen
+              onClose={advance}
+              initialFile={active.file}
+            />
+          )}
+          {active.kind === 'qif' && (
+            <QIFImportModal
+              key={activeIndex}
+              isOpen
+              onClose={advance}
+              initialFile={active.file}
+            />
+          )}
+        </Suspense>
+      )}
+    </>
+  );
+}
+
+/**
+ * What this run did, as far as THIS screen can honestly know.
+ *
+ * It can know which files it opened an importer for and which it never could.
+ * It cannot know what any of them wrote: each importer reported that on its own
+ * result screen, from its own write, and a number invented here would be a
+ * second, quieter answer to a question that already has a real one. The old
+ * version of this screen did exactly that and always answered "0".
+ */
+function BatchSummary({ queue }: { queue: QueuedFile[] }): React.JSX.Element {
+  const opened = queue.filter(entry => entry.kind !== null);
+  const skipped = queue.filter(entry => entry.kind === null);
+
+  return (
+    <div>
+      <div className="text-center mb-6">
+        <CheckIcon size={40} className="mx-auto text-blue-600 dark:text-blue-400 mb-3" />
+        {/* Counts only the files that were opened, because that is the only
+            number this screen is entitled to. The ones it could not read are
+            named in the list below and again underneath it — never folded into
+            a total that would imply they went somewhere. */}
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          {opened.length === 1
+            ? 'That file has been through its importer'
+            : `Those ${opened.length} files have each been through their importer`}
+        </h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
+          Each one opened in its own importer, and each importer showed you what it
+          wrote. Any you closed without importing wrote nothing — open that file on
+          its own to try again.
+        </p>
       </div>
-    </Modal>
+
+      <ul className="space-y-2">
+        {queue.map((entry, index) => (
+          <li
+            key={`${entry.file.name}-${index}`}
+            className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${
+              entry.kind === null
+                ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700'
+            }`}
+          >
+            <span className="flex-1 min-w-0 truncate font-medium text-gray-900 dark:text-white">
+              {entry.file.name}
+            </span>
+            <span className={entry.kind === null
+              ? 'text-yellow-700 dark:text-yellow-400'
+              : 'text-gray-600 dark:text-gray-400'}
+            >
+              {entry.kind === null
+                ? 'Left out — nothing here can read this file'
+                : `Handled in the ${IMPORTER_NAME[entry.kind]}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {skipped.length > 0 && (
+        <p className="mt-4 text-sm text-yellow-700 dark:text-yellow-400">
+          {skipped.length === 1
+            ? 'That one file was never opened, so nothing in it reached any account.'
+            : `Those ${skipped.length} files were never opened, so nothing in them reached any account.`}
+        </p>
+      )}
+    </div>
   );
 }

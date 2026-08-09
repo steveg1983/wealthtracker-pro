@@ -957,4 +957,93 @@ describe('CSVImportWizard', () => {
       expect(screen.getByText('Select a saved profile...')).toBeInTheDocument();
     });
   });
+
+  /**
+   * A file handed in by the Batch Import queue rather than picked here. It has
+   * to reach exactly the same code the drop zone reaches — that is the whole
+   * reason the queue is allowed to be a queue instead of a fourth importer.
+   *
+   * For a CSV that matters most of all: the columns still have to be mapped by
+   * a person. A queued CSV lands on the mapping step like any other, rather
+   * than being guessed at unattended.
+   */
+  describe('A file handed in by the batch queue', () => {
+    const queuedFile = (name = 'ledger.csv'): File =>
+      new File(['Date,Description,Amount\n2023-01-15,Test,-10.00'], name, { type: 'text/csv' });
+
+    const renderWithFile = (file: File) =>
+      render(
+        <CSVImportWizard
+          isOpen
+          onClose={mockOnClose}
+          type="transaction"
+          initialFile={file}
+        />
+      );
+
+    it('reads it on mount and stops at the mapping step for the user', async () => {
+      renderWithFile(queuedFile());
+
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+      expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+      expect(enhancedCsvImportService.suggestMappings).toHaveBeenCalledTimes(1);
+      // Not the result step, and not the write: a CSV names its columns in words
+      // only its author knows, so nothing is imported before someone confirms.
+      expect(screen.queryByText('Import Complete!')).not.toBeInTheDocument();
+      expect(transactionImportService.importInChunks).not.toHaveBeenCalled();
+      expect(importTransactionsLocally).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The queue re-renders whenever its own state moves. Re-reading on each of
+     * those would throw the user back to Map Columns, losing the mapping they
+     * were partway through correcting.
+     */
+    it('does not re-read when the same file is handed in again', async () => {
+      const file = queuedFile();
+      const { rerender } = renderWithFile(file);
+
+      await waitFor(() => {
+        expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(
+        <CSVImportWizard isOpen onClose={mockOnClose} type="transaction" initialFile={file} />
+      );
+      rerender(
+        <CSVImportWizard isOpen onClose={mockOnClose} type="transaction" initialFile={file} />
+      );
+
+      expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads a different file that happens to share a name', async () => {
+      const { rerender } = renderWithFile(queuedFile('statement.csv'));
+      await waitFor(() => {
+        expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(1);
+      });
+
+      rerender(
+        <CSVImportWizard
+          isOpen
+          onClose={mockOnClose}
+          type="transaction"
+          initialFile={queuedFile('statement.csv')}
+        />
+      );
+
+      await waitFor(() => {
+        expect(enhancedCsvImportService.parseCSV).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('shows the drop zone as usual when no file is handed in', () => {
+      renderWizard(true);
+
+      expect(screen.getByText('Upload CSV File')).toBeInTheDocument();
+      expect(enhancedCsvImportService.parseCSV).not.toHaveBeenCalled();
+    });
+  });
 });

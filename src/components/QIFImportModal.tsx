@@ -22,6 +22,18 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 interface QIFImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * A file chosen somewhere else — the Batch Import queue hands this dialog the
+   * next .qif on its list. Accepting one here is what lets that queue stay a
+   * queue: it never parses or writes a row, because this dialog does all of it
+   * exactly as it does for a file dropped below — including asking which
+   * account the file belongs to, which a QIF never says.
+   *
+   * The queue routes by extension, so the .qif check that guards the drop zone
+   * is deliberately NOT repeated for this path — a file that turns out not to
+   * be QIF fails in the parse and is reported there rather than swallowed.
+   */
+  initialFile?: File;
 }
 
 type QIFImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
@@ -43,7 +55,7 @@ type ImportOutcome =
       error: string;
     };
 
-export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
+export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction, refreshAccountsAndTransactions, isUsingSupabase } = useApp();
   const { getToken } = useAuth();
   const { formatCurrency } = useCurrencyDecimal();
@@ -88,37 +100,54 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     }
   }, [accounts, logger]);
   
+  /**
+   * Take a file: clear whatever the last one left behind, then parse it. The
+   * one path into this dialog, shared by the drop zone, the file input and the
+   * `initialFile` prop, so a queued file gets the identical treatment to a
+   * hand-picked one.
+   */
+  const acceptFile = useCallback((targetFile: File) => {
+    setFile(targetFile);
+    setParseResult(null);
+    setImportResult(null);
+    void parseFile(targetFile);
+  }, [parseFile]);
+
+  /**
+   * Compared by IDENTITY, not by name: re-rendering with the same File must not
+   * re-parse it (and throw away an account the user has just chosen), while a
+   * second file that happens to share a name still gets read.
+   */
+  const loadedInitialFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!initialFile || loadedInitialFileRef.current === initialFile) return;
+    loadedInitialFileRef.current = initialFile;
+    acceptFile(initialFile);
+  }, [acceptFile, initialFile]);
+
   // Handle file upload
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0];
     if (!uploadedFile) return;
-    
+
     // Check file extension
     if (!uploadedFile.name.toLowerCase().endsWith('.qif')) {
       alert('Please select a QIF file');
       return;
     }
-    
-    setFile(uploadedFile);
-    setParseResult(null);
-    setImportResult(null);
-    
-    // Parse the file
-    void parseFile(uploadedFile);
-  }, [parseFile]);
-  
+
+    acceptFile(uploadedFile);
+  }, [acceptFile]);
+
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const droppedFile = event.dataTransfer.files[0];
-    
+
     if (droppedFile && droppedFile.name.toLowerCase().endsWith('.qif')) {
-      setFile(droppedFile);
-      setParseResult(null);
-      setImportResult(null);
-      void parseFile(droppedFile);
+      acceptFile(droppedFile);
     }
-  }, [parseFile]);
+  }, [acceptFile]);
   
   // Process import
   const processImport = useCallback(async () => {

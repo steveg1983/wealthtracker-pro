@@ -45,6 +45,17 @@ const logger = createScopedLogger('OFXImportModal');
 interface OFXImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * A file chosen somewhere else — the Batch Import queue hands this dialog the
+   * next .ofx on its list. Accepting one here is what lets that queue stay a
+   * queue: it never parses, matches an account or writes a row, because this
+   * dialog does all of it exactly as it does for a file dropped below.
+   *
+   * The queue routes by extension, so the .ofx check that guards the drop zone
+   * is deliberately NOT repeated for this path — a file that turns out not to
+   * be OFX fails in the parse and is reported there rather than swallowed.
+   */
+  initialFile?: File;
 }
 
 type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
@@ -106,7 +117,7 @@ type ImportOutcome =
       error: string;
     };
 
-export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps): React.JSX.Element {
+export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImportModalProps): React.JSX.Element {
   const {
     accounts,
     transactions,
@@ -179,6 +190,34 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       setIsProcessing(false);
     }
   }, [accounts, categories, transactions]);
+
+  /**
+   * Take a file: clear whatever the last one left behind, then parse it. The
+   * one path into this dialog, shared by the drop zone, the file input and the
+   * `initialFile` prop, so a queued file gets the identical treatment to a
+   * hand-picked one — including the account match and the duplicate review.
+   */
+  const acceptFile = useCallback((targetFile: File) => {
+    setFile(targetFile);
+    setParseResult(null);
+    setImportResult(null);
+    setAccountIsUserChoice(false);
+    setSaveDetailsOverride(null);
+    setImportAnywayFitIds(new Set());
+    void parseFile(targetFile);
+  }, [parseFile]);
+
+  /**
+   * Compared by IDENTITY, not by name: re-rendering with the same File must not
+   * re-parse it (and throw away an account the user has just chosen), while a
+   * second file that happens to share a name still gets read.
+   */
+  const loadedInitialFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!initialFile || loadedInitialFileRef.current === initialFile) return;
+    loadedInitialFileRef.current = initialFile;
+    acceptFile(initialFile);
+  }, [acceptFile, initialFile]);
 
   const selectedAccount = useMemo(
     () => accounts.find(a => a.id === selectedAccountId) ?? null,
@@ -294,39 +333,25 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0];
     if (!uploadedFile) return;
-    
+
     // Check file extension
     if (!uploadedFile.name.toLowerCase().endsWith('.ofx')) {
       alert('Please select an OFX file');
       return;
     }
-    
-    setFile(uploadedFile);
-    setParseResult(null);
-    setImportResult(null);
-    setAccountIsUserChoice(false);
-    setSaveDetailsOverride(null);
-    setImportAnywayFitIds(new Set());
 
-    // Parse the file
-    parseFile(uploadedFile);
-  }, [parseFile]);
-  
+    acceptFile(uploadedFile);
+  }, [acceptFile]);
+
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     const droppedFile = event.dataTransfer.files[0];
-    
+
     if (droppedFile && droppedFile.name.toLowerCase().endsWith('.ofx')) {
-      setFile(droppedFile);
-      setParseResult(null);
-      setImportResult(null);
-      setAccountIsUserChoice(false);
-      setSaveDetailsOverride(null);
-      setImportAnywayFitIds(new Set());
-      parseFile(droppedFile);
+      acceptFile(droppedFile);
     }
-  }, [parseFile]);
+  }, [acceptFile]);
   
   // Process import
   const processImport = useCallback(async () => {
