@@ -79,6 +79,19 @@ export interface DataPortContractHarness {
   engine: DataPortEngine;
   /** A fresh, isolated store seeded with the fixture. Never shared between tests. */
   create(fixture: PortFixture): Promise<DataPortUnderTest>;
+  /**
+   * A port whose STORE IS BROKEN — it refuses every read.
+   *
+   * Required, not optional, because the rule it proves cannot be proved any
+   * other way: the boot's reads must resolve rather than reject, and a store
+   * that always works never asks them the question. The boot effect has one
+   * outer catch, and reaching it puts a full-page "Failed to load data" in
+   * front of somebody whose ledger is fine.
+   *
+   * How the store is broken is the harness's business: an adapter that throws,
+   * a database file that is not there, a connection pointed at nothing.
+   */
+  createUnreadable(): Promise<DataPort>;
 }
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -106,6 +119,40 @@ const SUB_PENNY_AMOUNT: Record<DataPortEngine, 'keeps' | 'rounds' | 'refuses'> =
   'browser-storage': 'keeps',
   supabase: 'rounds',
   'local-core': 'refuses'
+};
+
+/**
+ * B-1 — where a boot's transactions came from. The ROWS are the same question
+ * for every engine; the provenance is not, and it is reported on the
+ * boot-timing line rather than hidden, so it is declared here rather than
+ * asserted equal.
+ *
+ * `snapshots` says whether the engine has a cache layer that can make a boot
+ * legitimately fast. `reasonWhenUncached` is the words it must use when it does
+ * not — never null, because a null there claims a snapshot stood.
+ */
+const BOOT_PROVENANCE: Record<DataPortEngine, { snapshots: boolean; reasonWhenUncached: string }> = {
+  // No snapshot layer: it reads the one store it has, and says so.
+  'browser-storage': { snapshots: false, reasonWhenUncached: 'local mode' },
+  // Snapshot + delta, so a boot may legitimately report null.
+  supabase: { snapshots: true, reasonWhenUncached: 'no cache' },
+  // One store read, and honest about it — the rows are already on the device.
+  'local-core': { snapshots: false, reasonWhenUncached: 'local mode' }
+};
+
+/**
+ * B-2 — whether the engine can compute every account's balance itself.
+ *
+ * The cloud can (one RPC that usually answers BEFORE the transaction pages do,
+ * which is the whole point of it); browser storage has no second engine to ask;
+ * a local core may answer so fast the window closes to nothing. `empty` is a
+ * declared "I don't know", never a map of zeros — see the test below for why
+ * that distinction is load-bearing rather than pedantic.
+ */
+const SERVER_BALANCES: Record<DataPortEngine, 'empty' | 'answers'> = {
+  'browser-storage': 'empty',
+  supabase: 'answers',
+  'local-core': 'answers'
 };
 
 // ── Fixture builders ────────────────────────────────────────────────────────
@@ -329,6 +376,119 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const state = await read();
         expect(balanceOf(state, ACCOUNT_A)).toBe(0.3);
         expect(transactionOf(state, 'txn-1')?.amount).toBe(0.3);
+      });
+
+      it('computes a server-side balance that agrees with the client sum to the penny', async () => {
+        // The two figures are stand-ins for each other on the dashboard for the
+        // seconds a long history is in flight, so a disagreement between them
+        // is money changing on screen. Same float trap as everything above:
+        // 0.1 + 0.2 is not 0.3 in IEEE-754.
+        const { port } = await harness.create({
+          accounts: [anAccount(ACCOUNT_A, 'Everyday', { balance: 0.1, openingBalance: 0.1 })],
+          transactions: [aTransaction('txn-1', { amount: 0.2, type: 'income' })]
+        });
+
+        const balances = await port.getAccountBalances();
+
+        if (SERVER_BALANCES[engine] === 'empty') {
+          expect(balances.size).toBe(0);
+          return;
+        }
+        expect(balances.get(ACCOUNT_A)?.balance).toBe(0.3);
+        expect(balances.get(ACCOUNT_A)?.txnCount).toBe(1);
+      });
+    });
+
+    describe('the boot read', () => {
+      it('hands over every row, with dates the app can use', async () => {
+        // Rule 3 of the seam: a Date crosses as a Date. These rows go straight
+        // into app state and into the balance maths, and a store that hands
+        // back the string it serialised would put "2025-01-10" where every
+        // reader expects to call .getTime().
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [
+            aTransaction('txn-1'),
+            aTransaction('txn-2', { amount: -20, date: AT('2025-02-14'), description: 'Something else' })
+          ]
+        });
+
+        const boot = await port.loadBootTransactions();
+
+        expect(boot.transactions.map(transaction => transaction.id).sort()).toEqual(['txn-1', 'txn-2']);
+        boot.transactions.forEach(transaction => {
+          expect(transaction.date).toBeInstanceOf(Date);
+          expect(Number.isNaN(new Date(transaction.date).getTime())).toBe(false);
+        });
+      });
+
+      it('reports honestly how many rows it handed over, and where they came from', async () => {
+        // The count is printed on the boot-timing line. A figure that does not
+        // match the array beside it is worse than no figure at all: the next
+        // slowness report starts from it.
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-1'), aTransaction('txn-2', { amount: -20 })]
+        });
+
+        const boot = await port.loadBootTransactions();
+
+        expect(boot.stats.total).toBe(boot.transactions.length);
+        const provenance = BOOT_PROVENANCE[engine];
+        if (provenance.snapshots) {
+          // Either a snapshot stood (null) or it says why it did not.
+          if (boot.stats.fullFetchReason !== null) {
+            expect(boot.stats.fullFetchReason).not.toBe('');
+          }
+          expect(boot.stats.cached + boot.stats.fetched).toBeGreaterThanOrEqual(boot.stats.total);
+        } else {
+          expect(boot.stats.fullFetchReason).toBe(provenance.reasonWhenUncached);
+          expect(boot.stats.cached).toBe(0);
+        }
+      });
+
+      it('answers empty, with the reason said out loud, when the store will not open', async () => {
+        // THE rule this slice exists to keep. The boot effect has one outer
+        // catch and reaching it replaces the whole app with a "Failed to load
+        // data" page — for somebody whose ledger is fine and whose next reload
+        // would have worked. A broken store costs an empty list, never a throw.
+        const port = await harness.createUnreadable();
+
+        const boot = await port.loadBootTransactions();
+
+        expect(boot.transactions).toEqual([]);
+        expect(boot.stats.total).toBe(0);
+        expect(typeof boot.stats.fullFetchReason).toBe('string');
+        expect(boot.stats.fullFetchReason).not.toBe('');
+      });
+    });
+
+    describe('server-computed balances', () => {
+      it(`B-2: this engine ${SERVER_BALANCES[engine]}`, async () => {
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-1')]
+        });
+
+        const balances = await port.getAccountBalances();
+
+        if (SERVER_BALANCES[engine] === 'empty') {
+          // Empty means "I don't know", and the app sums the rows itself.
+          // THREE entries of zero would be a different answer entirely: the
+          // seeding rule keys off the map being non-empty, so a map of zeros
+          // would paint every account at £0.00 and call it real money.
+          expect(balances.size).toBe(0);
+          return;
+        }
+        expect([...balances.keys()].sort()).toEqual([ACCOUNT_A, ACCOUNT_B, ACCOUNT_C]);
+      });
+
+      it('never rejects, and does not invent zeros, when the store will not open', async () => {
+        const port = await harness.createUnreadable();
+
+        const balances = await port.getAccountBalances();
+
+        expect(balances.size).toBe(0);
       });
     });
 

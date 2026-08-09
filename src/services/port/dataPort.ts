@@ -83,6 +83,45 @@ import type {
 export type MoneyNumber = number;
 
 /**
+ * Where a boot's transactions came from.
+ *
+ * This is diagnostic, not decorative: it is printed on the boot-timing console
+ * line, and it exists because a 200ms boot that hydrated a stale snapshot and a
+ * 200ms boot that fetched nothing because nothing had changed look identical
+ * otherwise — and the next slowness report would then start from a lie.
+ *
+ * `total` is the number of rows actually handed to the app, so it must agree
+ * with the array beside it in every implementation. `fullFetchReason` is null
+ * ONLY when a cached path really was used; an implementation that has no cache
+ * says so in words rather than leaving it null.
+ */
+export interface BootTransactionStats {
+  /** Rows served from a local snapshot; 0 when everything came over the wire. */
+  cached: number;
+  /** Rows this load pulled over the network. */
+  fetched: number;
+  /** Rows handed to the app. */
+  total: number;
+  /** Why no snapshot was used, in words, or null when one was. */
+  fullFetchReason: string | null;
+}
+
+export interface BootTransactionsResult {
+  transactions: Transaction[];
+  stats: BootTransactionStats;
+}
+
+/**
+ * One account's balance as the STORE itself computes it — the same invariant
+ * the client uses (opening balance + Σ amounts), evaluated where the rows
+ * already are.
+ */
+export interface AccountBalanceSnapshot {
+  balance: MoneyNumber;
+  txnCount: number;
+}
+
+/**
  * Reads. None of them take a filter: the app loads its ledger and does its own
  * filtering in memory, and pretending otherwise here would invent a query
  * language that no implementation actually has.
@@ -92,6 +131,49 @@ export interface DataPortReads {
   /** Closed accounts are excluded from `getAccounts` and read on demand. */
   getClosedAccounts(): Promise<Account[]>;
   getTransactions(): Promise<Transaction[]>;
+  /**
+   * The boot's transaction read, which is a different question from
+   * `getTransactions`: that one always wants a straight re-pull (bank sync,
+   * real-time refresh), this one is allowed to serve a local snapshot and ask
+   * only for what changed, and must report which it did.
+   *
+   * **NEVER REJECTS.** The boot effect that calls this has ONE outer catch, and
+   * reaching it puts a full-page "Failed to load data" in front of somebody
+   * whose ledger is fine. Every failure here — no network, an unreadable
+   * snapshot, a store that will not open — resolves as an empty list with the
+   * reason stated in `stats.fullFetchReason`. An implementation that wants to
+   * shout about a failure logs it; it does not throw it at the boot.
+   *
+   * **Divergence B-1**: browser storage has no snapshot layer and always says
+   * 'local mode'; the cloud serves snapshot+delta and says null when the
+   * snapshot stood; the local core reads its one store and honestly says
+   * 'local mode' too. The ROW SET is the same question in all three — the
+   * stats are how they differ, which is why they are reported and not asserted
+   * equal.
+   */
+  loadBootTransactions(): Promise<BootTransactionsResult>;
+  /**
+   * Every account's balance in one answer, computed where the rows live.
+   *
+   * Purely an optimisation for the seconds a long history is in flight: until
+   * the first page of transactions lands, every client-side ledger sum is just
+   * the opening balance, and these figures let the dashboard open on real money
+   * instead of zeros. The client sum is the source of truth and wins back the
+   * moment any transaction is present.
+   *
+   * **NEVER REJECTS, AND NEVER GUESSES.** An empty map means "I don't know" and
+   * the app falls back to its own sum. Returning zeros instead would be a
+   * guess, and a wrong one: the seeding rule keys off the map being non-empty,
+   * so a map of zeros would paint every account at £0.00 and call it real
+   * money.
+   *
+   * **Divergence B-2**: browser storage returns an empty map (it has no second
+   * engine to ask); the cloud answers from one RPC that usually lands BEFORE
+   * the transactions do, which is the whole point of it; a local core may
+   * answer synchronously, closing that window to nothing. All three must agree
+   * to the penny with opening balance + Σ amounts once the rows are in.
+   */
+  getAccountBalances(): Promise<ReadonlyMap<string, AccountBalanceSnapshot>>;
   /** Every split line the owner has, for category aggregation. */
   getAllTransactionSplits(): Promise<TransactionSplit[]>;
   /** One transaction's lines, in display order (`sortOrder`), empty when not split. */

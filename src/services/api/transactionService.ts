@@ -6,6 +6,9 @@ import { transactionCache, newestUpdatedAt, type TransactionSnapshot } from '../
 import { toDecimal } from '../../utils/decimal';
 import { normalizeTransactionDates, toDateMs, toDateValue } from '../../utils/dateBoundary';
 import type { ServerAccountBalance } from '../../utils/accountBalances';
+// Types only — an interface is erased at build, so naming the seam here adds
+// no import edge and no bytes.
+import type { BootTransactionStats, BootTransactionsResult } from '../port/dataPort';
 
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
 type TransactionCacheLike = {
@@ -34,25 +37,17 @@ export interface TransactionServiceOptions {
 }
 
 /**
- * How the boot got its transactions — reported on the boot-timing console line
- * so a slow (or a wrongly-fast) load can still be diagnosed from a screenshot
- * of a production console.
+ * How the boot got its transactions.
+ *
+ * The shape now belongs to the seam (`BootTransactionStats`), because a second
+ * implementation has to answer the same question and there must be one
+ * definition of what the answer means. These two names stay because this
+ * service's own callers use them; they are aliases, not copies, so the two can
+ * never drift apart.
  */
-export interface TransactionLoadStats {
-  /** Rows served from the local snapshot; 0 when everything came over the wire. */
-  cached: number;
-  /** Rows this load pulled over the network. */
-  fetched: number;
-  /** Rows handed to the app. */
-  total: number;
-  /** Why the snapshot was not used, or null when it was. */
-  fullFetchReason: string | null;
-}
+export type TransactionLoadStats = BootTransactionStats;
 
-export interface TransactionLoadResult {
-  transactions: Transaction[];
-  stats: TransactionLoadStats;
-}
+export type TransactionLoadResult = BootTransactionsResult;
 
 /**
  * Supabase caps responses at 1000 rows (a hard server-side max-rows, not a

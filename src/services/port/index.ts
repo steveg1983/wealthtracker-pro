@@ -14,6 +14,9 @@ import { DataService } from '../api/dataService';
 import type { DataPort } from './dataPort';
 
 export type {
+  AccountBalanceSnapshot,
+  BootTransactionStats,
+  BootTransactionsResult,
   DataPort,
   DataPortAccountWrites,
   DataPortDismissalWrites,

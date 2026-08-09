@@ -16,7 +16,7 @@
  */
 
 import React, { ReactNode } from 'react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { Account, Transaction } from '../../types';
 import { toDecimal } from '../../utils/decimal';
@@ -124,6 +124,8 @@ vi.mock('../../services/api/simpleAccountService', () => ({
 }));
 
 import { AppProvider, useApp } from '../AppContextSupabase';
+import { DataService } from '../../services/api/dataService';
+import type { AccountBalanceSnapshot } from '../../services/port';
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AppProvider>{children}</AppProvider>
@@ -180,6 +182,30 @@ describe('AppContextSupabase live provider', () => {
   beforeEach(() => {
     memoryStore.clear();
     accountIds.next = 0;
+
+    // The one hole in this suite's "no network" stubbing, and every boot below
+    // fell through it.
+    //
+    // The mocks above keep the data layer local by holding the database user id
+    // at null. The balances round trip does not consult that id: DataService
+    // gates it on `isSupabaseConfigured()` alone, which is TRUE here because the
+    // test environment supplies VITE_SUPABASE_URL/ANON_KEY, so a real PostgREST
+    // client issued `rpc('account_balances')` on all fourteen boots. It only
+    // ever returned empty because the global setup replaces `fetch` with a stub
+    // that fails instantly — determinism borrowed from an ambient mock rather
+    // than stated here, and `renderApp` awaits this call (the boot's last
+    // await) before isLoading drops.
+    //
+    // An empty map is what the real call returns in local mode anyway: the app
+    // then sums the rows itself, which is the source of truth. Balance seeding
+    // is pinned where it belongs, in AppContextBoot.test.tsx.
+    vi.spyOn(DataService, 'getAccountBalances').mockResolvedValue(
+      new Map<string, AccountBalanceSnapshot>()
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('initialisation (local fallback in jsdom)', () => {

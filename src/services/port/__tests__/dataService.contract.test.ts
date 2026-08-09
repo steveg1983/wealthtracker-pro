@@ -15,6 +15,7 @@
 import { vi } from 'vitest';
 import { createDataService } from '../../api/dataService';
 import { STORAGE_KEYS } from '../../storageAdapter';
+import type { DataPort } from '../dataPort';
 import {
   runDataPortContract,
   type DataPortUnderTest,
@@ -83,7 +84,35 @@ const createBrowserStoragePort = async (fixture: PortFixture): Promise<DataPortU
   return { port, read: store.read };
 };
 
+/**
+ * The same engine with its floor removed: every read of the store refuses.
+ *
+ * This is what a browser whose IndexedDB will not open actually looks like from
+ * here, and it is the only way to ask the boot reads whether they really do
+ * resolve instead of rejecting.
+ */
+const createUnreadableBrowserStoragePort = async (): Promise<DataPort> => {
+  const refuse = async (): Promise<never> => {
+    throw new Error('The store could not be opened');
+  };
+
+  return createDataService({
+    isSupabaseConfigured: () => false,
+    hasCloudSession: () => false,
+    storageAdapter: { get: vi.fn(refuse), set: vi.fn(refuse) },
+    logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    now: () => new Date('2025-06-01T09:00:00.000Z'),
+    uuid: () => 'generated-1',
+    userIdService: {
+      ensureUserExists: vi.fn(),
+      getCurrentDatabaseUserId: () => null,
+      getCurrentUserIds: () => ({ clerkId: null, databaseId: null })
+    }
+  });
+};
+
 runDataPortContract('DataPort contract — browser storage', {
   engine: 'browser-storage',
-  create: createBrowserStoragePort
+  create: createBrowserStoragePort,
+  createUnreadable: createUnreadableBrowserStoragePort
 });

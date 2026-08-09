@@ -7,6 +7,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { DataService } from '../services/api/dataService';
+// The boot's ledger reads go through the seam. `dataPort` IS the DataService
+// above, typed as the interface — no wrapper, no second copy, no extra bytes —
+// so this import is a statement about WHICH DOOR the boot uses, not about which
+// engine answers. That is what lets a local implementation be dropped in.
+import { dataPort } from '../services/port';
 import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
@@ -31,7 +36,6 @@ import {
   type TestDataProgress,
   type TestDataSeedResult
 } from '../utils/testDataset';
-import { TransactionService } from '../services/api/transactionService';
 import type { ServerAccountBalance } from '../utils/accountBalances';
 import type { DecimalTransaction, DecimalAccount, DecimalGoal } from '../types/decimal-types';
 import type {
@@ -191,13 +195,16 @@ export interface AppContextType extends AppState {
    */
   transactionSplits: TransactionSplit[];
   /**
-   * Per-account balance summed in Postgres (initial_balance + Σ amount) in one
-   * round trip, loaded alongside the ~52-page transaction fetch. Balance
-   * surfaces read it ONLY while `transactions` is still empty, so the first
-   * paint shows real money instead of zeros; empty map when the cloud call is
-   * unavailable, in which case nothing changes.
+   * Per-account balance computed by the store itself (opening balance + Σ
+   * amount) in one round trip, loaded alongside the ~52-page transaction fetch.
+   * Balance surfaces read it ONLY while `transactions` is still empty, so the
+   * first paint shows real money instead of zeros; empty map when the store
+   * cannot answer, in which case nothing changes.
+   *
+   * Read-only on purpose: they are a stand-in for the seconds a long history is
+   * in flight, and nothing above this seam may edit them.
    */
-  serverBalances: Map<string, ServerAccountBalance>;
+  serverBalances: ReadonlyMap<string, ServerAccountBalance>;
   /** Splits for one transaction, in display order (empty when not split). */
   getTransactionSplits: (transactionId: string) => Promise<TransactionSplit[]>;
   /**
@@ -315,7 +322,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // surfaces (counters, budgets, analytics, exports) expand split parents
   // into these lines via expandSplitTransactions.
   const [transactionSplits, setTransactionSplitsState] = useState<TransactionSplit[]>([]);
-  const [serverBalances, setServerBalances] = useState<Map<string, ServerAccountBalance>>(new Map());
+  const [serverBalances, setServerBalances] =
+    useState<ReadonlyMap<string, ServerAccountBalance>>(new Map());
   // Refusals the sweeps must honour. Loaded when a sweep opens, not at boot:
   // nothing else reads them, and the boot is already the slowest thing here.
   const [suggestionDismissals, setSuggestionDismissals] = useState<SuggestionDismissal[]>([]);
@@ -340,6 +348,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Initialize data service and load data
   useEffect(() => {
     if (!isLoaded) return;
+
+    // The realtime channels are opened deep inside an ASYNC boot, but React
+    // only accepts a cleanup returned SYNCHRONOUSLY from the effect body. That
+    // cleanup used to be returned from inside initializeData — into a promise
+    // nobody read — so React was handed nothing at all, and every user change
+    // and every unmount left the previous login's account and transaction
+    // subscriptions open on the channel.
+    //
+    // The handles are collected in the effect's own scope instead, and the
+    // cleanup at the bottom closes over them. `cancelled` covers the race in
+    // both directions: a cleanup that fires while the boot is still in flight
+    // has no handle to call yet, so anything registered after that point is
+    // torn down the moment it arrives.
+    let cancelled = false;
+    const teardowns: Array<() => void> = [];
+    const registerTeardown = (teardown: () => void): void => {
+      if (cancelled) {
+        teardown();
+        return;
+      }
+      teardowns.push(teardown);
+    };
 
     const initializeData = async () => {
       setIsLoading(true);
@@ -405,8 +435,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             appLogger.info('Loading application data');
             markPhase('services');
 
-            // Use the database ID we just got - no need to fetch it again!
-            const accounts = await SimpleAccountService.getAccounts(databaseId);
+            // Through the seam, in the position the direct call held. The
+            // database id resolved above is the one the port reads back for
+            // itself (ensureUserExists sets it), so this asks the same
+            // question of the same table through the same row mapper — and it
+            // stops the boot naming a service, which is the point.
+            const accounts = await dataPort.getAccounts();
             appLogger.info('Accounts loaded', { count: accounts.length });
             setAccounts(accounts);
             markPhase('accounts');
@@ -417,7 +451,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // land every client-side balance is zero — these figures let the
             // dashboard paint real money in the meantime.
             const balancesStart = performance.now();
-            serverBalancesLoaded = TransactionService.getAccountBalances().then(balances => {
+            serverBalancesLoaded = dataPort.getAccountBalances().then(balances => {
               phases.balances = Math.round(performance.now() - balancesStart);
               setServerBalances(balances);
             });
@@ -450,27 +484,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markPhase('categories');
 
         // Now load transactions, budgets, and goals (post-remap views).
-        const data = await DataService.loadAppData();
-        setTransactions(data.transactions);
+        const boot = await dataPort.loadBootTransactions();
+        setTransactions(boot.transactions);
         markPhase('transactions');
 
         // Split lines ride along with transactions; a failure here must not
         // block the app (split parents then pass through aggregation whole).
+        // The catch stays where it is rather than moving onto the seam: unlike
+        // the boot's transactions, this read has no "empty is an honest answer"
+        // story to tell, and the refresh sites below share the same handling.
         try {
-          setTransactionSplitsState(await DataService.getAllTransactionSplits());
+          setTransactionSplitsState(await dataPort.getAllTransactionSplits());
         } catch (splitError) {
           appLogger.error('Failed to load transaction splits', splitError);
           setTransactionSplitsState([]);
         }
         markPhase('splits');
 
-        // Without an authenticated user (demo / local-only mode) the
-        // SimpleAccountService path above returns nothing — it needs a
-        // database user id. Fall back to the storage-backed accounts that
-        // loadAppData already read, so demo mode shows accounts everywhere
-        // (accounts page, dashboard distribution, add-transaction modal).
-        if (!user && data.accounts.length > 0) {
-          setAccounts(data.accounts);
+        // Without an authenticated user (demo / local-only mode) the account
+        // read above returns nothing — it needs a database user id. Ask the
+        // seam for the storage-backed accounts instead, so demo mode shows
+        // accounts everywhere (accounts page, dashboard distribution,
+        // add-transaction modal).
+        //
+        // Guarded rather than unconditional, and that is the point of this
+        // step: the boot used to read the account list a SECOND time on every
+        // load — signed-in ones included, where the answer was thrown away
+        // unread. A signed-in boot never evaluates the await below, so its
+        // sequence of awaits is exactly what it was.
+        if (!user) {
+          const localAccounts = await dataPort.getAccounts();
+          if (localAccounts.length > 0) {
+            setAccounts(localAccounts);
+          }
         }
 
         const [loadedBudgets, loadedGoals] = await Promise.all([
@@ -494,12 +540,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // from: a 200ms boot that hydrated a stale snapshot and a 200ms boot
         // that fetched nothing because nothing changed look identical
         // otherwise, and the next slowness report would start from a lie.
-        const txnStats = data.transactionStats;
-        const txnSummary = txnStats && txnStats.fullFetchReason === null
+        // The reason is no longer optional-then-defaulted: the seam promises
+        // stats on every answer and a stated reason whenever it did not serve a
+        // snapshot, so the old `?? 'no cache'` had become a branch that could
+        // not be taken. Both SENTENCES are unchanged.
+        const txnStats = boot.stats;
+        const txnSummary = txnStats.fullFetchReason === null
           ? `${txnStats.total.toLocaleString()} transactions ` +
             `(${txnStats.cached.toLocaleString()} from cache + ${txnStats.fetched.toLocaleString()} delta)`
-          : `${data.transactions.length.toLocaleString()} transactions ` +
-            `(full fetch — ${txnStats?.fullFetchReason ?? 'no cache'})`;
+          : `${boot.transactions.length.toLocaleString()} transactions ` +
+            `(full fetch — ${txnStats.fullFetchReason})`;
         console.info(
           `Boot data load: ${Math.round(performance.now() - bootStart)}ms total — ` +
           Object.entries(phases).map(([name, ms]) => `${name} ${ms}ms`).join(' · ') +
@@ -604,13 +654,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           });
 
-          return () => {
-            if (updateDebounceRef.current) {
-              clearTimeout(updateDebounceRef.current);
-            }
-            unsubscribeAccounts();
-            unsubscribeData();
-          };
+          // Handed to the effect rather than returned from here: this function
+          // is async, so a returned cleanup only ever reaches a promise. Both
+          // are registered as they become available — the account handle is
+          // awaited above, and if the effect was cleaned up during that await
+          // it is closed on arrival instead of being stored.
+          registerTeardown(unsubscribeAccounts);
+          registerTeardown(unsubscribeData);
         }
       } catch (error) {
         appLogger.error('Failed to initialize data', error);
@@ -624,7 +674,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initializeData();
+    void initializeData();
+
+    return () => {
+      cancelled = true;
+      // Previously unreachable along with the unsubscribes: a pending debounced
+      // reload would otherwise fire into a provider that has moved on.
+      if (updateDebounceRef.current) {
+        clearTimeout(updateDebounceRef.current);
+        updateDebounceRef.current = null;
+      }
+      // Drained rather than iterated in place, so a handle is invoked exactly
+      // once whichever side of the race it arrived on.
+      const pending = teardowns.splice(0, teardowns.length);
+      for (const teardown of pending) {
+        teardown();
+      }
+    };
   }, [user, isLoaded]);
 
   const refreshCategories = useCallback(async () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createDataService, DataService } from '../api/dataService';
+import { createSimpleAccountService } from '../api/simpleAccountService';
 import type { Account, Budget, Category, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
@@ -124,7 +125,7 @@ describe('DataService (deterministic fallback)', () => {
     expect(accounts?.[0].balance).toBe(125);
   });
 
-  it('loads app data from storage fallback', async () => {
+  it('loads the boot transactions from storage fallback, and says where they came from', async () => {
     const storage = createStorage({
       [STORAGE_KEYS.ACCOUNTS]: [baseAccount()],
       [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction()],
@@ -141,12 +142,109 @@ describe('DataService (deterministic fallback)', () => {
       userIdService: userId
     });
 
-    const data = await service.loadAppData();
-    expect(data.accounts).toHaveLength(1);
-    expect(data.transactions).toHaveLength(1);
-    expect(data.budgets).toHaveLength(1);
-    expect(data.goals).toHaveLength(1);
-    expect(data.categories).toHaveLength(1);
+    const boot = await service.loadBootTransactions();
+    expect(boot.transactions).toHaveLength(1);
+    expect(boot.stats).toEqual({ cached: 0, fetched: 0, total: 1, fullFetchReason: 'local mode' });
+  });
+
+  it('reads the account list ONCE across a boot, not once per reader', async () => {
+    // What the retired loadAppData cost: it pulled accounts, budgets, goals and
+    // categories alongside the transactions, and the boot had ALREADY read the
+    // accounts a moment earlier. On a signed-in load that second read was a
+    // whole network round trip whose answer was thrown away unread; here, where
+    // the store is the browser's, it is one storage read per boot and this
+    // counts them.
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount()],
+      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction()],
+      [STORAGE_KEYS.TRANSACTION_SPLITS]: []
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+
+    // The boot's own read sequence, in the order AppContext runs it.
+    await service.getAccounts();
+    await service.loadBootTransactions();
+    await service.getAllTransactionSplits();
+
+    const accountReads = storage.get.mock.calls.filter(
+      ([key]) => key === STORAGE_KEYS.ACCOUNTS
+    ).length;
+    expect(accountReads).toBe(1);
+  });
+
+  it('asks the account service once, with the resolved database id', async () => {
+    // The boot used to pass the id it had just resolved to a second service by
+    // hand. Routing it through the seam moves that lookup inside, so this pins
+    // the call shape it must produce: one query, scoped to the database user,
+    // never to a Clerk id.
+    const accountService = {
+      getAccounts: vi.fn(async () => [baseAccount({ id: 'acct-cloud' })]),
+      getClosedAccounts: vi.fn(async () => []),
+      createAccount: vi.fn(),
+      updateAccount: vi.fn(),
+      deleteAccount: vi.fn()
+    };
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      hasCloudSession: () => true,
+      accountService,
+      storageAdapter: createStorage(),
+      logger,
+      uuid,
+      now,
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => 'db-user-1'),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: 'db-user-1' }))
+      }
+    });
+
+    await expect(service.getAccounts()).resolves.toHaveLength(1);
+    expect(accountService.getAccounts).toHaveBeenCalledTimes(1);
+    expect(accountService.getAccounts).toHaveBeenCalledWith('db-user-1');
+  });
+
+  it('does not swallow an unreadable account list — exactly as the call it replaced did not', async () => {
+    // The boot's two reads that promise never to reject (its transactions and
+    // its split lines) resolve empty when the store will not open. The ACCOUNT
+    // read deliberately does not join them: an empty account list is not a
+    // missing optimisation, it is a signed-in person being shown a ledger with
+    // no accounts in it, and an honest error page is the better answer.
+    //
+    // This pins that the routing change kept that behaviour rather than
+    // introducing it: both the retired direct call and the seam's read reject
+    // when their fallback store refuses, because both reach for stored accounts
+    // from inside their own catch.
+    const refuse = async (): Promise<never> => {
+      throw new Error('The store could not be opened');
+    };
+    const unreadable = { get: vi.fn(refuse), set: vi.fn(refuse) };
+
+    const retiredCall = createSimpleAccountService({
+      supabaseClient: null,
+      storageAdapter: unreadable,
+      logger,
+      now,
+      uuid
+    });
+    await expect(retiredCall.getAccounts('db-user-1')).rejects.toThrow(/could not be opened/);
+
+    const throughTheSeam = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: unreadable,
+      logger,
+      uuid,
+      now,
+      userIdService: userId
+    });
+    await expect(throughTheSeam.getAccounts()).rejects.toThrow(/could not be opened/);
   });
 
   it('refuses an edit that would drop a linked transfer line, and refuses to un-split', async () => {

@@ -1,10 +1,16 @@
 import { toDecimal } from './decimal';
+// Types only — erased at build, so this costs no import edge and no bytes.
+import type { AccountBalanceSnapshot } from '../services/port/dataPort';
 
-/** One account's balance as computed by the account_balances() RPC. */
-export interface ServerAccountBalance {
-  balance: number;
-  txnCount: number;
-}
+/**
+ * One account's balance as the store itself computed it.
+ *
+ * The shape belongs to the seam now (`AccountBalanceSnapshot`): the cloud
+ * answers it with the account_balances() RPC, a local core would answer it from
+ * its own rows, and this file must not care which. An alias rather than a copy,
+ * so the two cannot drift.
+ */
+export type ServerAccountBalance = AccountBalanceSnapshot;
 
 interface AccountLike {
   id: string;

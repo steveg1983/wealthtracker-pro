@@ -7,7 +7,7 @@
 
 import { UserService } from './userService';
 import { AccountService } from './accountService';
-import { TransactionService, type TransactionLoadResult, type TransactionLoadStats } from './transactionService';
+import { TransactionService, type TransactionLoadResult } from './transactionService';
 import { PlanningService } from './planningService';
 import { SuggestionDismissalService } from './suggestionDismissalService';
 import { isSupabaseConfigured } from './supabaseClient';
@@ -22,22 +22,8 @@ import {
   isCardAccountType
 } from '../../utils/accountNumberInput';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
-import type { DataPort } from '../port/dataPort';
+import type { AccountBalanceSnapshot, BootTransactionsResult, DataPort } from '../port/dataPort';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
-
-export interface AppData {
-  accounts: Account[];
-  transactions: Transaction[];
-  budgets: Budget[];
-  goals: Goal[];
-  categories: Category[];
-  /**
-   * Where the transactions came from (local snapshot vs network). Reported on
-   * the boot-timing console line so the next diagnosis can tell a fast boot
-   * from a cached one.
-   */
-  transactionStats?: TransactionLoadStats;
-}
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type AccountServiceLike = Pick<typeof AccountService,
@@ -52,6 +38,13 @@ type TransactionServiceLike = Pick<typeof TransactionService,
    * the boot simply takes the uncached full-fetch path.
    */
   loadTransactionsForBoot?: (userId: string) => Promise<TransactionLoadResult>;
+  /**
+   * Optional for the same reason (the `loadTransactionsForBoot` precedent
+   * above): a double that does not implement it leaves the seam answering
+   * "I don't know" — an empty map — which is the honest answer and the one the
+   * balance seeding already handles.
+   */
+  getAccountBalances?: () => Promise<ReadonlyMap<string, AccountBalanceSnapshot>>;
 };
 type PlanningServiceLike = Pick<typeof PlanningService, 'mergeCategories'>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
@@ -185,68 +178,78 @@ class DataServiceImpl implements DataPort {
     }
   }
 
-  async loadAppData(): Promise<AppData> {
-    const userId = this.userIdService.getCurrentDatabaseUserId();
-    if (!userId && this.supabaseChecker()) {
-      this.logger.warn(this.hasCloudSession()
-        ? '[DataService] Signed in but database user id unresolved — returning empty data (local fallback blocked)'
-        : '[DataService] No database ID available, using localStorage fallback');
-    }
-
+  /**
+   * The boot's transaction read. Unlike getTransactions (used by the bank-sync
+   * and real-time refreshes, which always want a straight re-pull) this goes
+   * through the local snapshot + delta path, and reports which it used.
+   *
+   * NEVER REJECTS — the seam says so, and this is where that is made true. The
+   * boot effect has ONE outer catch, and reaching it replaces the whole app
+   * with "Failed to load data" for somebody whose ledger is perfectly fine. The
+   * cloud path already swallows its own failures (a delta that will not load
+   * costs a refetch; a refetch that will not load falls back to stored rows),
+   * but the store underneath can still refuse to open, so the guarantee is
+   * stated here rather than assumed. A failure costs an empty list with the
+   * reason said out loud on the boot-timing line.
+   */
+  async loadBootTransactions(): Promise<BootTransactionsResult> {
     try {
-      const [accounts, transactionLoad, budgets, goals, categories] = await Promise.all([
-        this.getAccounts(),
-        this.loadTransactionsForBoot(),
-        this.getBudgets(),
-        this.getGoals(),
-        this.getCategories()
-      ]);
+      const userId = this.userIdService.getCurrentDatabaseUserId();
+      if (!userId && this.supabaseChecker()) {
+        this.logger.warn(this.hasCloudSession()
+          ? '[DataService] Signed in but database user id unresolved — returning empty data (local fallback blocked)'
+          : '[DataService] No database ID available, using localStorage fallback');
+      }
 
+      if (userId && this.supabaseChecker()) {
+        if (this.transactionService.loadTransactionsForBoot) {
+          return await this.transactionService.loadTransactionsForBoot(userId);
+        }
+        const rows = await this.transactionService.getTransactions(userId);
+        return {
+          transactions: rows,
+          stats: { cached: 0, fetched: rows.length, total: rows.length, fullFetchReason: 'no cache' }
+        };
+      }
+
+      const rows = this.isCloudSessionPending()
+        ? []
+        : await this.readLocalTransactions();
       return {
-        accounts,
-        transactions: transactionLoad.transactions,
-        budgets,
-        goals,
-        categories,
-        transactionStats: transactionLoad.stats
+        transactions: rows,
+        stats: { cached: 0, fetched: 0, total: rows.length, fullFetchReason: 'local mode' }
       };
     } catch (error) {
-      this.logger.error('Error loading app data:', error as Error);
+      this.logger.error('Error loading transactions:', error as Error);
       return {
-        accounts: [],
         transactions: [],
-        budgets: [],
-        goals: [],
-        categories: []
+        stats: { cached: 0, fetched: 0, total: 0, fullFetchReason: 'load failed' }
       };
     }
   }
 
   /**
-   * The boot's transaction read. Unlike getTransactions (used by the bank-sync
-   * and real-time refreshes, which always want a straight re-pull) this goes
-   * through the local snapshot + delta path, and reports which it used.
+   * Every account's balance in one round trip, computed by the store.
+   *
+   * NEVER REJECTS, AND NEVER GUESSES. An empty map means "I don't know", and
+   * the app falls back to summing the rows itself — which is the source of
+   * truth anyway. Zeros would be a guess: the seeding rule keys off the map
+   * being non-empty, so a map of zeros would paint every account at £0.00 and
+   * present it as real money.
    */
-  private async loadTransactionsForBoot(): Promise<TransactionLoadResult> {
-    const userId = this.userIdService.getCurrentDatabaseUserId();
-    if (userId && this.supabaseChecker()) {
-      if (this.transactionService.loadTransactionsForBoot) {
-        return this.transactionService.loadTransactionsForBoot(userId);
-      }
-      const rows = await this.transactionService.getTransactions(userId);
-      return {
-        transactions: rows,
-        stats: { cached: 0, fetched: rows.length, total: rows.length, fullFetchReason: 'no cache' }
-      };
+  async getAccountBalances(): Promise<ReadonlyMap<string, AccountBalanceSnapshot>> {
+    // Same condition the transaction service applies to itself (a configured
+    // client IS `isSupabaseConfigured()` — see supabaseClient.ts), so routing
+    // through here asks exactly the question the direct call asked.
+    if (!this.supabaseChecker() || !this.transactionService.getAccountBalances) {
+      return new Map();
     }
-
-    const rows = this.isCloudSessionPending()
-      ? []
-      : await this.readLocalTransactions();
-    return {
-      transactions: rows,
-      stats: { cached: 0, fetched: 0, total: rows.length, fullFetchReason: 'local mode' }
-    };
+    try {
+      return await this.transactionService.getAccountBalances();
+    } catch (error) {
+      this.logger.error('Error loading account balances:', error as Error);
+      return new Map();
+    }
   }
 
   async getAccounts(): Promise<Account[]> {
@@ -1509,10 +1512,6 @@ export class DataService {
     return this.service.initialize(clerkId, email, firstName, lastName);
   }
 
-  static loadAppData(): Promise<AppData> {
-    return this.service.loadAppData();
-  }
-
   static getClosedAccounts(): Promise<Account[]> {
     return this.service.getClosedAccounts();
   }
@@ -1535,6 +1534,14 @@ export class DataService {
 
   static getTransactions(): Promise<Transaction[]> {
     return this.service.getTransactions();
+  }
+
+  static loadBootTransactions(): Promise<BootTransactionsResult> {
+    return this.service.loadBootTransactions();
+  }
+
+  static getAccountBalances(): Promise<ReadonlyMap<string, AccountBalanceSnapshot>> {
+    return this.service.getAccountBalances();
   }
 
   static createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
