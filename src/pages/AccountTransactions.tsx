@@ -53,7 +53,7 @@ import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
 import { buildAccountBankLinks } from '../hooks/useAccountBankSync';
 import { useBankConnectionSnapshot } from '../hooks/useBankConnectionSnapshot';
-import { DataService } from '../services/api/dataService';
+import { dataPort } from '../services/port';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';
@@ -320,7 +320,7 @@ export default function AccountTransactions() {
     }
     let cancelled = false;
     setClosedLookup({ status: 'loading' });
-    DataService.getClosedAccounts()
+    dataPort.getClosedAccounts()
       .then(list => {
         if (!cancelled) {
           setClosedLookup({ status: 'done', account: list.find(a => a.id === accountId) ?? null });

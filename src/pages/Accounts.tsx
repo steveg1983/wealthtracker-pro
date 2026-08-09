@@ -3,7 +3,7 @@ import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
-import { DataService } from '../services/api/dataService';
+import { dataPort } from '../services/port';
 import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
@@ -168,7 +168,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
   const loadClosedAccounts = useCallback(async () => {
     try {
-      setClosedAccounts(await DataService.getClosedAccounts());
+      setClosedAccounts(await dataPort.getClosedAccounts());
     } catch {
       // Non-fatal: the section simply shows empty; a retry happens on next open.
       setClosedAccounts([]);

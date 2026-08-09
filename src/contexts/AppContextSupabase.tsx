@@ -168,7 +168,7 @@ export interface AppContextType extends AppState {
    * Rewrite the payee (description) on the named transactions — the Payee
    * cleanup screen's one write.
    *
-   * Every row goes through the SAME audited DataService.updateTransaction the
+   * Every row goes through the SAME audited dataPort.updateTransaction the
    * edit modal uses, so each rename lands in financial_audit_log with its
    * before and after. What differs is only the orchestration: the writes are
    * awaited in small batches (never fired and forgotten), and React state is
@@ -426,7 +426,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Initialize AutoSync with the database ID ready
             await AutoSyncService.initialize(user.id);
             
-            await DataService.initialize(
+            await dataPort.initialize(
               user.id,
               user.emailAddresses[0]?.emailAddress || '',
               user.firstName || undefined,
@@ -617,13 +617,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 setLastSyncTime(new Date());
 
                 // Also refresh transactions to update account balances
-                const updatedTransactions = await DataService.getTransactions();
+                const updatedTransactions = await dataPort.getTransactions();
                 setTransactions(updatedTransactions);
 
                 // Splits ride along — without this, a split edited on another
                 // device leaves this device's category views stale.
                 try {
-                  setTransactionSplitsState(await DataService.getAllTransactionSplits());
+                  setTransactionSplitsState(await dataPort.getAllTransactionSplits());
                 } catch (splitError) {
                   appLogger.error('Failed to refresh transaction splits', splitError);
                 }
@@ -635,7 +635,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const unsubscribeAccounts = await unsubscribeAccountsPromise;
 
           // Subscribe to transaction updates only (accounts are handled above by SimpleAccountService)
-          const unsubscribeData = DataService.subscribeToUpdates({
+          const unsubscribeData = dataPort.subscribeToUpdates({
             // Don't subscribe to accounts here - already handled by SimpleAccountService above
             // This prevents duplicate subscriptions and duplicate real-time events
             onTransactionUpdate: async (payload) => {
@@ -643,19 +643,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               
               debouncedUpdate('transaction', async () => {
                 // Reload transactions when any change happens
-                const updatedTransactions = await DataService.getTransactions();
+                const updatedTransactions = await dataPort.getTransactions();
                 setTransactions(updatedTransactions);
 
                 // Splits ride along — without this, a split edited on another
                 // device leaves this device's category views stale.
                 try {
-                  setTransactionSplitsState(await DataService.getAllTransactionSplits());
+                  setTransactionSplitsState(await dataPort.getAllTransactionSplits());
                 } catch (splitError) {
                   appLogger.error('Failed to refresh transaction splits', splitError);
                 }
 
                 // Also refresh accounts to update balances
-                const updatedAccounts = await DataService.getAccounts();
+                const updatedAccounts = await dataPort.getAccounts();
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
               });
@@ -718,8 +718,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshAccountsAndTransactions = useCallback(async () => {
     try {
       const [updatedAccounts, updatedTransactions] = await Promise.all([
-        DataService.getAccounts(),
-        DataService.getTransactions()
+        dataPort.getAccounts(),
+        dataPort.getTransactions()
       ]);
       setAccounts(updatedAccounts);
       setTransactions(updatedTransactions);
@@ -757,7 +757,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // storage.
       const newAccount = user?.id
         ? await SimpleAccountService.createAccount(user.id, accountToCreate)
-        : await DataService.createAccount(accountToCreate);
+        : await dataPort.createAccount(accountToCreate);
       appLogger.info('Account created', newAccount);
 
       // Add to state
@@ -776,7 +776,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateAccount = useCallback(async (id: string, updates: AccountUpdate) => {
     try {
       recentLocalUpdateRef.current = Date.now();
-      const updatedAccount = await DataService.updateAccount(id, updates);
+      const updatedAccount = await dataPort.updateAccount(id, updates);
       setAccounts(prev => prev.map(a => a.id === id ? updatedAccount : a));
     } catch (error) {
       appLogger.error('Failed to update account', error);
@@ -786,7 +786,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAccount = useCallback(async (id: string) => {
     try {
-      await DataService.deleteAccount(id);
+      await dataPort.deleteAccount(id);
       setAccounts(prev => prev.filter(a => a.id !== id));
       // Also remove related transactions
       setTransactions(prev => prev.filter(t => t.accountId !== id));
@@ -799,7 +799,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Transaction operations
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
     try {
-      const newTransaction = await DataService.createTransaction(transaction);
+      const newTransaction = await dataPort.createTransaction(transaction);
       setTransactions(prev => [...prev, newTransaction]);
       
       // Update account balance locally for immediate UI feedback.
@@ -823,7 +823,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateTransaction = useCallback(async (id: string, updates: Partial<Transaction>) => {
     try {
       const oldTransaction = transactions.find(t => t.id === id);
-      const updatedTransaction = await DataService.updateTransaction(id, updates);
+      const updatedTransaction = await dataPort.updateTransaction(id, updates);
       setTransactions(prev => prev.map(t => t.id === id ? updatedTransaction : t));
       
       // Update account balance if amount changed (Decimal arithmetic; the DB
@@ -851,7 +851,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      await DataService.setTransactionsCleared(ids, cleared);
+      await dataPort.setTransactionsCleared(ids, cleared);
       const idSet = new Set(ids);
       setTransactions(prev => prev.map(t => (idSet.has(t.id) ? { ...t, cleared } : t)));
     } catch (error) {
@@ -865,7 +865,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // cutoff; every account balance and report stays exact.
   const archiveTransactionsBefore = useCallback(async (accountId: string, cutoff: Date) => {
     try {
-      const count = await DataService.archiveTransactionsBefore(accountId, cutoff);
+      const count = await dataPort.archiveTransactionsBefore(accountId, cutoff);
       setTransactions(prev => prev.map(t =>
         t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff
           ? { ...t, archived: true } : t
@@ -880,7 +880,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const unarchiveAccount = useCallback(async (accountId: string) => {
     try {
-      const count = await DataService.unarchiveAccount(accountId);
+      const count = await dataPort.unarchiveAccount(accountId);
       setTransactions(prev => prev.map(t => (t.accountId === accountId && t.archived ? { ...t, archived: false } : t)));
       setAccounts(prev => prev.map(a => (a.id === accountId ? { ...a, archiveThroughDate: null } : a)));
       return count;
@@ -895,7 +895,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return 0;
     }
     try {
-      const count = await DataService.applyCategoryToUncategorized(ids, category);
+      const count = await dataPort.applyCategoryToUncategorized(ids, category);
       const idSet = new Set(ids);
       // Mirror the server's fill-blanks semantics locally: only blank,
       // NON-SPLIT rows flip (a split parent's blank category means "split").
@@ -923,7 +923,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return 0;
     }
     try {
-      const count = await DataService.confirmTransactionCategories(ids);
+      const count = await dataPort.confirmTransactionCategories(ids);
       const idSet = new Set(ids);
       setTransactions(prev => prev.map(t =>
         idSet.has(t.id) && t.categoryConfirmed === false ? { ...t, categoryConfirmed: true } : t
@@ -958,7 +958,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     for (let start = 0; start < ids.length; start += BATCH_SIZE) {
       const batch = ids.slice(start, start + BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map(id => DataService.updateTransaction(id, { description: newDescription }))
+        batch.map(id => dataPort.updateTransaction(id, { description: newDescription }))
       );
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
@@ -988,7 +988,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const getTransactionSplits = useCallback(async (transactionId: string) => {
     try {
-      return await DataService.getTransactionSplits(transactionId);
+      return await dataPort.getTransactionSplits(transactionId);
     } catch (error) {
       appLogger.error('Failed to load transaction splits', error);
       throw error;
@@ -1002,13 +1002,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ) => {
     try {
       const oldTransaction = transactions.find(t => t.id === transactionId);
-      const result = await DataService.setTransactionSplits(transactionId, splits, expectedAmount);
+      const result = await dataPort.setTransactionSplits(transactionId, splits, expectedAmount);
 
       // Keep the aggregation-facing splits state in step. Re-read the rows
       // (rather than synthesising them) so ids match the server's; a failed
       // re-read only staleness-es this transaction's lines until next load.
       try {
-        const freshSplits = result.isSplit ? await DataService.getTransactionSplits(transactionId) : [];
+        const freshSplits = result.isSplit ? await dataPort.getTransactionSplits(transactionId) : [];
         setTransactionSplitsState(prev => [
           ...prev.filter(s => s.transactionId !== transactionId),
           ...freshSplits,
@@ -1068,7 +1068,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const linkTransferPair = useCallback(async (idA: string, idB: string) => {
     try {
-      const result = await DataService.linkTransferPair(idA, idB);
+      const result = await dataPort.linkTransferPair(idA, idB);
       // Balance-neutral: both rows existed with these amounts already.
       setTransactions(prev => prev.map(t =>
         t.id === result.a.id ? result.a : t.id === result.b.id ? result.b : t
@@ -1082,7 +1082,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const linkSplitLineTransfer = useCallback(async (splitId: string, transactionId: string) => {
     try {
-      const result = await DataService.linkSplitLineTransfer(splitId, transactionId);
+      const result = await dataPort.linkSplitLineTransfer(splitId, transactionId);
       // State comes from what the database wrote: linking re-types and
       // re-categorises the row over there, and pins it to the exact line.
       // Balance-neutral — both sides existed with these amounts already.
@@ -1097,7 +1097,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const unlinkTransfers = useCallback(async (ids: string[]) => {
     try {
-      const count = await DataService.unlinkTransfers(ids);
+      const count = await dataPort.unlinkTransfers(ids);
       // Balance-neutral: only the link goes. The type/category the rows carry
       // stay as they are until the caller re-files them, exactly as the
       // database left them.
@@ -1116,7 +1116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setTransactionArchived = useCallback(async (id: string, archived: boolean) => {
     try {
-      await DataService.setTransactionArchived(id, archived);
+      await dataPort.setTransactionArchived(id, archived);
       setTransactions(prev => prev.map(t => (t.id === id ? { ...t, archived } : t)));
     } catch (error) {
       appLogger.error('Failed to archive transaction', error);
@@ -1131,7 +1131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     adjustmentCategoryId: string
   ) => {
     try {
-      const result = await DataService.repairClaimedTransfer(
+      const result = await dataPort.repairClaimedTransfer(
         strandedId, counterpartId, partnerId, adjustmentCategoryId
       );
       // State comes from the rows the database actually wrote — the repair
@@ -1152,7 +1152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const createTransferCounterpart = useCallback(async (id: string, targetAccountId: string) => {
     try {
-      const result = await DataService.createTransferCounterpart(id, targetAccountId);
+      const result = await dataPort.createTransferCounterpart(id, targetAccountId);
       setTransactions(prev => [
         ...prev.map(t => (t.id === result.source.id ? result.source : t)),
         result.counterpart,
@@ -1174,7 +1174,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshSuggestionDismissals = useCallback(async () => {
     setSuggestionDismissalsStatus('loading');
     try {
-      setSuggestionDismissals(await DataService.getSuggestionDismissals());
+      setSuggestionDismissals(await dataPort.getSuggestionDismissals());
       setSuggestionDismissalsStatus('ready');
     } catch (error) {
       // Never thrown on: a sweep that cannot read the dismissals still has to
@@ -1192,7 +1192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     subjectIds: string[]
   ) => {
     try {
-      const dismissal = await DataService.dismissSuggestion(kind, subjectKey, subjectIds);
+      const dismissal = await dataPort.dismissSuggestion(kind, subjectKey, subjectIds);
       // Keyed by (kind, subjectKey), exactly as the table's unique constraint
       // is, so a repeat refusal replaces rather than duplicates.
       setSuggestionDismissals(prev => [
@@ -1207,7 +1207,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const restoreSuggestion = useCallback(async (kind: DismissalKind, subjectKey: string) => {
     try {
-      await DataService.restoreSuggestion(kind, subjectKey);
+      await dataPort.restoreSuggestion(kind, subjectKey);
       setSuggestionDismissals(prev =>
         prev.filter(d => !(d.kind === kind && d.subjectKey === subjectKey))
       );
@@ -1220,7 +1220,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteTransaction = useCallback(async (id: string) => {
     try {
       const transaction = transactions.find(t => t.id === id);
-      await DataService.deleteTransaction(id);
+      await dataPort.deleteTransaction(id);
       setTransactions(prev => prev.filter(t => t.id !== id));
       // Its split lines cascade away in the DB (FK); mirror locally.
       setTransactionSplitsState(prev => prev.filter(s => s.transactionId !== id));
@@ -1467,7 +1467,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const mergeCategories = useCallback(async (sourceId: string, targetId: string) => {
     try {
-      const result = await DataService.mergeCategories(sourceId, targetId);
+      const result = await dataPort.mergeCategories(sourceId, targetId);
 
       // Mirror exactly what the merge moved. Balance-neutral throughout: not
       // one amount, sign or account changes, so no account is touched.

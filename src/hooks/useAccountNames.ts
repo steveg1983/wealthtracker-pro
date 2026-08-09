@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { DataService } from '../services/api/dataService';
+import { dataPort } from '../services/port';
 import type { Account } from '../types';
 
 /**
@@ -19,7 +19,7 @@ export function useAccountNames(): (id: string) => string {
 
   useEffect(() => {
     let cancelled = false;
-    DataService.getClosedAccounts()
+    dataPort.getClosedAccounts()
       .then(list => { if (!cancelled) setClosed(list); })
       .catch(() => { /* names fall back to "Unknown account"; nothing breaks */ });
     return () => { cancelled = true; };
