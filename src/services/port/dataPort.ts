@@ -42,7 +42,7 @@
  *
  * This is the seam as it stands, not as it will end: the operations below are
  * exactly the ones DataService owns today, under the names it uses today.
- * Planning writes (budgets/goals/categories, which still bypass to
+ * The remaining planning writes (goals and categories, which still bypass to
  * PlanningService), bulk import, backup/restore/wipe, and the capability
  * descriptor that will retire `isUsingSupabase` all join this interface as
  * their consumers are routed through it. The names here are today's names
@@ -291,6 +291,57 @@ export interface DataPortSplitWrites {
 }
 
 export interface DataPortPlanningWrites {
+  /**
+   * Create a budget: an amount against a category, for a period.
+   *
+   * `spent` is not supplied because it is not stored knowledge — it is the sum
+   * of the rows filed under that category in the period, recomputed from the
+   * ledger — so a new budget starts at zero in every implementation.
+   *
+   * ── OWNERSHIP (divergence B-3) ──────────────────────────────────────────
+   *
+   * Rule 1 of this seam (no operation takes a user id) is load-bearing HERE in
+   * a way it is not for a read, and this is the paragraph that says why.
+   *
+   * The service the cloud branch delegates to takes `(userId, budget)` and
+   * treats a null id as "write the browser's copy instead". It does not throw,
+   * does not warn, and hands back an ordinary Budget. So a caller that let an
+   * unresolved id through would watch a signed-in person create a budget, see
+   * it appear on the page, and find it gone at the next boot — because the
+   * READ beside it goes to the cloud, where the row never landed. Nothing
+   * anywhere says a word. That is silent, permanent, user-visible data loss,
+   * and the only defence that actually holds is making the mistake
+   * unrepresentable: the owner is resolved INSIDE the implementation, on the
+   * same tick as the write.
+   *
+   * What "the owner" means is allowed to differ — browser storage has one
+   * store and no owner at all, the cloud stamps the row and RLS enforces it, a
+   * local core is the device — and that is declared as B-3 in the contract
+   * suite. What may NOT differ: no operation accepts an owner, and a write
+   * whose owner could not be resolved must never land in another owner's
+   * store.
+   */
+  createBudget(budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget>;
+  /**
+   * Change a budget, and hand back the whole budget as it now stands (the
+   * caller replaces its copy with this, so a partial answer would blank the
+   * fields it left out).
+   *
+   * A budget that is not there is refused BY NAME rather than created, and the
+   * refusal leaves the store exactly as it was — the same all-or-nothing rule
+   * the splits and the merge keep.
+   */
+  updateBudget(id: string, updates: Partial<Budget>): Promise<Budget>;
+  /**
+   * Remove a budget.
+   *
+   * A real delete, not the soft close an account gets: a budget holds no money
+   * and nothing is filed against it, so removing one leaves no hole in the
+   * ledger. Removing one that is already gone is a NO-OP, not an error — a
+   * double-click, or a second device that got there first, must not turn a
+   * decision into an error message (the same rule `dismissSuggestion` keeps).
+   */
+  deleteBudget(id: string): Promise<void>;
   /**
    * Move every reference from one category to another, then remove the source.
    * All-or-nothing, and the refusals are ordered: the source is judged before

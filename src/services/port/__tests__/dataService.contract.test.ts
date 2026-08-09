@@ -75,19 +75,28 @@ const createStore = (fixture: PortFixture) => {
  *
  * That is the whole point of it. The harness declares `engine:
  * 'browser-storage'`, and this is what makes the declaration checkable: if a
- * routing change ever sent one of these reads down the cloud branch, the
+ * routing change ever sent one of these operations down the cloud branch, the
  * contract suite would stop describing the engine it claims to describe. A
  * double that quietly answered would let that happen in silence; this one
- * fails, by name, on the read that strayed.
+ * fails, by name, on the call that strayed.
+ *
+ * The WRITES matter here more than the reads: a budget write that took the
+ * cloud branch under a harness with no cloud would not merely answer wrongly,
+ * it would leave the store this suite then asserts against untouched — a
+ * failure that reads like a broken assertion rather than a broken route. This
+ * makes it say which call went the wrong way.
  */
 const refusingPlanningService = () => {
   const refuse = async (): Promise<never> => {
     throw new Error(
-      'The browser-storage engine must not reach PlanningService — this read took the cloud branch'
+      'The browser-storage engine must not reach PlanningService — this call took the cloud branch'
     );
   };
   return {
     mergeCategories: vi.fn(refuse),
+    createBudget: vi.fn(refuse),
+    updateBudget: vi.fn(refuse),
+    deleteBudget: vi.fn(refuse),
     getBudgets: vi.fn(refuse),
     getGoals: vi.fn(refuse),
     ensureCategories: vi.fn(refuse)

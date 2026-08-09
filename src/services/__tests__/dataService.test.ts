@@ -269,6 +269,170 @@ describe('DataService (deterministic fallback)', () => {
     expect(storage.get).not.toHaveBeenCalledWith(STORAGE_KEYS.GOALS);
   });
 
+  describe('budget writes', () => {
+    // THE tests of this slice. A read that resolves the wrong owner shows the
+    // wrong numbers until the next refresh; a WRITE that resolves the wrong
+    // owner puts a signed-in person's budget in browser storage, shows it to
+    // them as saved, and loses it at the next boot — because the read beside it
+    // goes to the cloud, where the row never landed. Nothing throws, nothing
+    // logs, and there is no way back. So each write gets the same two
+    // questions: with a cloud session, was the RESOLVED id passed on (and never
+    // a null)? With no cloud, did the browser's own store take it, without the
+    // cloud service being touched at all?
+
+    const budgetInput = (
+      overrides: Partial<Omit<Budget, 'id' | 'spent'>> = {}
+    ): Omit<Budget, 'id' | 'spent'> => ({
+      // The shape the budget modal actually submits.
+      categoryId: 'cat-everyday',
+      amount: 70.1,
+      period: 'monthly',
+      isActive: true,
+      createdAt: new Date('2025-08-01T00:00:00.000Z'),
+      updatedAt: new Date('2025-08-01T00:00:00.000Z'),
+      ...overrides
+    });
+
+    /** A stand-in for the cloud half, answering plausibly so the call SHAPE is what fails. */
+    const cloudPlanningService = () => ({
+      mergeCategories: vi.fn(),
+      createBudget: vi.fn(
+        async (_userId: string | null, budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> => ({
+          ...budget,
+          id: 'budget-from-the-cloud',
+          spent: 0
+        })
+      ),
+      updateBudget: vi.fn(
+        async (_userId: string | null, id: string, updates: Partial<Budget>): Promise<Budget> => ({
+          ...budgetInput(),
+          ...updates,
+          id,
+          spent: 0
+        })
+      ),
+      deleteBudget: vi.fn(async (): Promise<void> => {}),
+      getBudgets: vi.fn(async () => [] as Budget[]),
+      getGoals: vi.fn(async () => [] as Goal[]),
+      ensureCategories: vi.fn(async () => [] as Category[])
+    });
+
+    const signedIn = (planningService: ReturnType<typeof cloudPlanningService>, storage: ReturnType<typeof createStorage>) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: {
+          ensureUserExists: vi.fn(),
+          getCurrentDatabaseUserId: vi.fn(() => 'db-user-1'),
+          getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: 'db-user-1' }))
+        }
+      });
+
+    it('creates a budget under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [] });
+      const service = signedIn(planningService, storage);
+      const input = budgetInput();
+
+      const created = await service.createBudget(input);
+
+      expect(created.id).toBe('budget-from-the-cloud');
+      // The whole call log, not just "was called with": a SECOND call carrying
+      // null is exactly the bug, and `toHaveBeenCalledWith` alone would pass
+      // straight through it.
+      expect(planningService.createBudget.mock.calls).toEqual([['db-user-1', input]]);
+      // And it went to the cloud INSTEAD of the browser, not as well as.
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('updates a budget under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [] });
+      const service = signedIn(planningService, storage);
+
+      const updated = await service.updateBudget('budget-1', { amount: 0.3 });
+
+      expect(updated.amount).toBe(0.3);
+      expect(planningService.updateBudget.mock.calls).toEqual([['db-user-1', 'budget-1', { amount: 0.3 }]]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('deletes a budget under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [] });
+      const service = signedIn(planningService, storage);
+
+      await service.deleteBudget('budget-1');
+
+      expect(planningService.deleteBudget.mock.calls).toEqual([['db-user-1', 'budget-1']]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('hands the cloud failure back word for word', async () => {
+      // The budget modal renders `error.message` straight into the dialog. A
+      // wrapper here — "Failed to save budget" — would replace a sentence that
+      // says what went wrong with one that says only that something did, and
+      // the seam's rule 4 says the wording is part of the contract. So the
+      // cloud branch returns the promise unwrapped, and this is what proves it.
+      const planningService = cloudPlanningService();
+      planningService.createBudget.mockRejectedValueOnce(
+        new Error('duplicate key value violates unique constraint "budgets_user_category_period_key"')
+      );
+      const service = signedIn(planningService, createStorage({ [STORAGE_KEYS.BUDGETS]: [] }));
+
+      await expect(service.createBudget(budgetInput())).rejects.toThrow(
+        'duplicate key value violates unique constraint "budgets_user_category_period_key"'
+      );
+    });
+
+    it('writes to the browser store, and does not touch the cloud service, with no cloud session', async () => {
+      // The other half of every test above: with no cloud, the write is this
+      // class's own, and the fields it fills in mirror PlanningService's local
+      // half exactly (`spent` at zero, both timestamps stamped now, a generated
+      // id) — because the two halves write the SAME browser collection, and a
+      // budget that came out of one must be indistinguishable from a budget
+      // that came out of the other.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [] });
+      const service = createDataService({
+        isSupabaseConfigured: () => false,
+        hasCloudSession: () => false,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid: () => 'budget-generated',
+        now,
+        userIdService: userId
+      });
+
+      const created = await service.createBudget(budgetInput({ amount: 0.3 }));
+      expect(created).toMatchObject({
+        id: 'budget-generated',
+        categoryId: 'cat-everyday',
+        amount: 0.3,
+        spent: 0,
+        createdAt: new Date('2025-09-01T00:00:00.000Z'),
+        updatedAt: new Date('2025-09-01T00:00:00.000Z')
+      });
+
+      const edited = await service.updateBudget('budget-generated', { amount: 70.1 });
+      expect(edited.amount).toBe(70.1);
+      expect(await service.getBudgets()).toEqual([edited]);
+
+      await service.deleteBudget('budget-generated');
+      expect(await service.getBudgets()).toEqual([]);
+
+      expect(planningService.createBudget).not.toHaveBeenCalled();
+      expect(planningService.updateBudget).not.toHaveBeenCalled();
+      expect(planningService.deleteBudget).not.toHaveBeenCalled();
+    });
+  });
+
   it('does not swallow an unreadable account list — exactly as the call it replaced did not', async () => {
     // The boot's two reads that promise never to reject (its transactions and
     // its split lines) resolve empty when the store will not open. The ACCOUNT

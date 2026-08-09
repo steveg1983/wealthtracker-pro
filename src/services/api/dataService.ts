@@ -48,15 +48,23 @@ type TransactionServiceLike = Pick<typeof TransactionService,
   getAccountBalances?: () => Promise<ReadonlyMap<string, AccountBalanceSnapshot>>;
 };
 /**
- * `mergeCategories` is required; the READS are optional, for the same reason
+ * The WRITES are required; the READS are optional, for the same reason
  * `loadTransactionsForBoot` above is — a partial test double that supplies no
  * cloud planning leaves the seam serving the browser-local collections, which
  * is the honest answer for a store with no cloud behind it.
  *
+ * A write has no such honest fallback. "Fall back to the browser's copy"
+ * describes, for a signed-in session, a budget that appears on the page and is
+ * gone at the next boot, because the read beside it goes to the cloud where the
+ * row never landed. So an optional write member would be a way for a double —
+ * or a future refactor that forgot one — to turn that loss on silently, and
+ * these stay required.
+ *
  * Derived from the real service rather than re-declared, so a signature that
  * changes there cannot silently drift from what is called here.
  */
-type PlanningServiceLike = Pick<typeof PlanningService, 'mergeCategories'> &
+type PlanningServiceLike = Pick<typeof PlanningService,
+  'mergeCategories' | 'createBudget' | 'updateBudget' | 'deleteBudget'> &
   Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
@@ -1471,6 +1479,110 @@ class DataServiceImpl implements DataPort {
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
 
+  /**
+   * Create a budget.
+   *
+   * The branch is the one `getBudgets` above uses, and for the same reason —
+   * but a write is where getting the owner wrong stops being a wrong answer on
+   * screen and becomes a lost budget: `PlanningService.createBudget(null, …)`
+   * writes BROWSER storage and returns an ordinary Budget, so a signed-in
+   * person would see their new budget appear and find it gone at the next
+   * boot, when the cloud read it never reached answers instead. The id is
+   * resolved here, on the same tick, and only passed on when it is real. The
+   * full statement of that rule lives on `DataPortPlanningWrites.createBudget`.
+   *
+   * The cloud branch DELEGATES, and returns the promise unwrapped: whatever
+   * sentence a failed insert produces is what the budget modal puts in front of
+   * the user, and re-wrapping it here would replace it with a worse one.
+   *
+   * The local branch is this class's own, mirroring what PlanningService's
+   * local half does field for field: a generated id, `spent` at zero (it is
+   * recomputed from the ledger, never stored knowledge), and both timestamps
+   * stamped now. The id comes from this class's injected generator rather than
+   * a bare `crypto.randomUUID()` — the same one every other local write here
+   * uses, identical in a browser, and it has a fallback where that API is
+   * missing instead of throwing.
+   *
+   * ONE ASYMMETRY, PRESERVED DELIBERATELY: the cloud insert fills in a
+   * `start_date` and a `name` when the caller left them empty. That is a
+   * not-null column being satisfied, not a product decision, and the browser's
+   * copy has never carried either — inventing them here would change what
+   * every existing local budget looks like on the page.
+   *
+   * AND ONE OMISSION, ALSO DELIBERATE: the three budget writes do not yet
+   * refuse a session whose database id is still resolving, the way every other
+   * write on this class does. Today such a write goes to browser storage, and
+   * today is what this branch reproduces. Refusing it is the better behaviour
+   * and it is coming — as its own change, with its own tests and its own
+   * sentence for the user, because a behaviour change hidden inside a routing
+   * change is one nobody can review.
+   */
+  async createBudget(budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.createBudget(userId, budget);
+    }
+
+    const created: Budget = {
+      ...budget,
+      id: this.generateId(),
+      spent: 0,
+      createdAt: this.nowProvider(),
+      updatedAt: this.nowProvider()
+    };
+    const budgets = await this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
+    await this.persistCollection(STORAGE_KEYS.BUDGETS, [...budgets, created]);
+    return created;
+  }
+
+  /**
+   * Change a budget, and hand back the whole budget as it now stands — the
+   * caller replaces its copy with this answer, so a partial one would blank
+   * whatever it left out.
+   *
+   * Same branch and same owner rule as `createBudget` above. A budget that is
+   * not there is refused by name rather than created, and because the lookup
+   * happens before the first write, the refusal leaves the store exactly as it
+   * was.
+   */
+  async updateBudget(id: string, updates: Partial<Budget>): Promise<Budget> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.updateBudget(userId, id, updates);
+    }
+
+    const budgets = await this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
+    const index = budgets.findIndex(budget => budget.id === id);
+    if (index === -1) throw new Error('Budget not found');
+
+    const updated: Budget = { ...budgets[index], ...updates, updatedAt: this.nowProvider() };
+    await this.persistCollection(
+      STORAGE_KEYS.BUDGETS,
+      budgets.map((budget, position) => (position === index ? updated : budget))
+    );
+    return updated;
+  }
+
+  /**
+   * Remove a budget.
+   *
+   * Same branch and same owner rule as the two above. Deleting one that is not
+   * there is a silent no-op in both modes — a double-click, or a second device
+   * that got there first, must not turn a decision into an error message.
+   */
+  async deleteBudget(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.deleteBudget(userId, id);
+    }
+
+    const budgets = await this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
+    await this.persistCollection(
+      STORAGE_KEYS.BUDGETS,
+      budgets.filter(budget => budget.id !== id)
+    );
+  }
+
   /** The owner's goals. Same branch, same null rule, as `getBudgets` above. */
   async getGoals(): Promise<Goal[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
@@ -1732,6 +1844,18 @@ export class DataService {
 
   static getBudgets(): Promise<Budget[]> {
     return this.service.getBudgets();
+  }
+
+  static createBudget(budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> {
+    return this.service.createBudget(budget);
+  }
+
+  static updateBudget(id: string, updates: Partial<Budget>): Promise<Budget> {
+    return this.service.updateBudget(id, updates);
+  }
+
+  static deleteBudget(id: string): Promise<void> {
+    return this.service.deleteBudget(id);
   }
 
   static getGoals(): Promise<Goal[]> {
