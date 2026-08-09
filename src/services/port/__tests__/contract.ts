@@ -23,6 +23,8 @@
  *  - a budget survives a create and an edit to the penny, is refused by name
  *    when it is not there, and is not an error to delete twice — and lands
  *    under the owner the implementation resolved for itself, never another;
+ *  - a goal starts at the money already put by rather than at zero, and no
+ *    write through the seam carries one past its own target;
  *  - the reconcile-sweep, dismissal pruning and dismissal idempotence;
  *  - and the DECLARED divergences (D-7, M-1), asserted per engine so that a
  *    difference between implementations is recorded rather than discovered.
@@ -166,6 +168,9 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'createBudget',
   'updateBudget',
   'deleteBudget',
+  'createGoal',
+  'updateGoal',
+  'deleteGoal',
   'mergeCategories',
   // Dismissal writes
   'dismissSuggestion',
@@ -399,6 +404,31 @@ const aGoal = (id: string, name: string, targetAmount: number): Goal => ({
   createdAt: AT('2025-01-01'),
   updatedAt: AT('2025-01-01'),
   progress: 0
+});
+
+/**
+ * A goal as a CALLER supplies one — no id, and no `progress`.
+ *
+ * `progress` is absent for a DIFFERENT reason than `spent` is absent from a new
+ * budget, and the difference is the whole of rule 49 below. A budget's `spent`
+ * is summed from the ledger and is never the caller's to state; a goal's
+ * progress is money somebody has already put by, which nothing else knows
+ * about — so it is not ignored, it is taken from `currentAmount`.
+ */
+const aNewGoal = (
+  name: string,
+  targetAmount: number,
+  rest: Partial<Omit<Goal, 'id' | 'progress'>> = {}
+): Omit<Goal, 'id' | 'progress'> => ({
+  name,
+  type: 'savings',
+  targetAmount,
+  currentAmount: 0,
+  targetDate: AT('2026-01-01'),
+  isActive: true,
+  createdAt: AT('2025-01-01'),
+  updatedAt: AT('2025-01-01'),
+  ...rest
 });
 
 /** Three accounts and nothing else — the starting point for most tests. */
@@ -929,6 +959,140 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         await port.deleteBudget('budget-1');
 
         expect((await read()).budgets).toEqual([]);
+      });
+    });
+
+    describe('writing a goal', () => {
+      it('round-trips the amounts through a create and an edit, to the penny', async () => {
+        // Same reason as the budget above: a goal's target is a figure
+        // somebody typed, and the page draws a bar of progress against it. An
+        // engine that stored either through a float column would announce a
+        // goal reached a penny early, or refuse to call it reached at all.
+        const { port } = await harness.create({ accounts: threeAccounts() });
+
+        const created = await port.createGoal(aNewGoal('New boiler', 1500.05));
+
+        expect(created.id).toBeTruthy();
+        expect(created.targetAmount).toBe(1500.05);
+        expect((await port.getGoals()).map(goal => [goal.id, goal.targetAmount]))
+          .toEqual([[created.id, 1500.05]]);
+
+        const edited = await port.updateGoal(created.id, { targetAmount: 0.3 });
+
+        // The whole goal comes back, not just the field that moved: the caller
+        // replaces its copy with this answer.
+        expect(edited).toMatchObject({ id: created.id, name: 'New boiler', targetAmount: 0.3 });
+        expect((await port.getGoals())[0].targetAmount).toBe(0.3);
+      });
+
+      it('starts a goal at the money already put by, not at zero', async () => {
+        // Rule 49. `progress` is the accumulated amount, so a goal written
+        // down for something already half saved for begins there. The version
+        // of this that hard-coded zero did not merely round down — it lost the
+        // opening figure DIFFERENTLY in each engine, banking it in one and
+        // discarding it in the other, which is exactly the class of difference
+        // this suite exists to catch. The rule is "start at what you were
+        // given", not "start at something": a goal set for something not yet
+        // saved for begins at zero, which is the first half of this test.
+        const { port } = await harness.create({ accounts: threeAccounts() });
+
+        const started = await port.createGoal(aNewGoal('New boiler', 1500));
+        expect(started.progress).toBe(0);
+
+        const partway = await port.createGoal(
+          aNewGoal('Holiday', 2000, { currentAmount: 250.05 })
+        );
+
+        expect(partway.progress).toBe(250.05);
+        const stored = (await port.getGoals()).find(goal => goal.id === partway.id);
+        expect(stored?.progress).toBe(250.05);
+      });
+
+      it('never carries a goal past its own target', async () => {
+        // Rule 50, and it is a rule about the SHAPE of the write rather than
+        // about arithmetic here.
+        //
+        // Contributing to a goal reaches the seam as an ordinary update
+        // carrying the new progress — a figure the caller has already added up
+        // and already capped at the target. So this operation must SET what it
+        // is handed. An engine that read the field as an increment would undo
+        // the cap silently: the second contribution below would take a goal
+        // that is full to twice its target, and the bar on the page would draw
+        // past its own end.
+        const { port } = await harness.create({ accounts: threeAccounts() });
+        const created = await port.createGoal(
+          aNewGoal('New boiler', 1500, { currentAmount: 1200 })
+        );
+
+        // £500 put towards a goal £300 short of its target: capped by the
+        // caller, stored verbatim here.
+        const filled = await port.updateGoal(created.id, { progress: 1500, currentAmount: 1500 });
+        expect(filled.progress).toBe(1500);
+
+        // And again, which is what a second click on a full goal produces.
+        const again = await port.updateGoal(created.id, { progress: 1500, currentAmount: 1500 });
+        expect(again.progress).toBe(1500);
+        expect((await port.getGoals())[0].progress).toBe(1500);
+      });
+
+      it(`B-3 for goals: a goal is filed under ${OWNERSHIP[engine]}`, async () => {
+        // The same pair of rules the budget writes are held to, asked again of
+        // the operations that did not exist when it was asked the first time —
+        // because both halves of B-3 are per-operation. The arity check cannot
+        // be inherited (a new write is exactly where a `(userId, goal)`
+        // signature creeps back in), and neither can the isolation check: the
+        // service behind the cloud branch treats a null owner as "write the
+        // browser's copy" for goals precisely as it does for budgets.
+        const mine = await harness.create({ accounts: threeAccounts() });
+        const theirs = await harness.create({ accounts: threeAccounts() });
+
+        expect(mine.port.createGoal.length).toBe(1);
+        expect(mine.port.updateGoal.length).toBe(2);
+        expect(mine.port.deleteGoal.length).toBe(1);
+
+        const created = await mine.port.createGoal(aNewGoal('New boiler', 1500));
+
+        expect((await mine.read()).goals.map(goal => goal.id)).toEqual([created.id]);
+        expect((await theirs.read()).goals).toEqual([]);
+        expect(await theirs.port.getGoals()).toEqual([]);
+      });
+
+      it('refuses to change a goal that is not there, and leaves the store exactly as it was', async () => {
+        // Two rules in one ask, because they are the same moment: an id that
+        // names nothing is a bug upstream (a stale page, a contribution
+        // submitted after a delete) and must not quietly become a new goal
+        // nobody set — and the judgement happens before the first write, so the
+        // refusal is never a half-applied edit. Rule 4 of the seam means the
+        // sentence is asserted too, not merely the rejection.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-1', 'cat-everyday', 200)],
+          goals: [aGoal('goal-1', 'New boiler', 1500)]
+        });
+        const before = asComparable(await read());
+
+        await expect(port.updateGoal('goal-nowhere', { progress: 300 }))
+          .rejects.toThrow(/goal not found/i);
+
+        expect(asComparable(await read())).toBe(before);
+      });
+
+      it('treats deleting a goal that has already gone as done, not as an error', async () => {
+        // Same rule as the budget delete and the dismissal before it: a
+        // double-click, or a second device that got there first, must not turn
+        // a decision into an error message.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          goals: [aGoal('goal-1', 'New boiler', 1500)]
+        });
+
+        await expect(port.deleteGoal('goal-nowhere')).resolves.toBeUndefined();
+        expect((await read()).goals.map(goal => goal.id)).toEqual(['goal-1']);
+
+        await port.deleteGoal('goal-1');
+        await port.deleteGoal('goal-1');
+
+        expect((await read()).goals).toEqual([]);
       });
     });
 

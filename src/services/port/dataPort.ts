@@ -42,7 +42,7 @@
  *
  * This is the seam as it stands, not as it will end: the operations below are
  * exactly the ones DataService owns today, under the names it uses today.
- * The remaining planning writes (goals and categories, which still bypass to
+ * The remaining planning writes (the category ones, which still bypass to
  * PlanningService), bulk import, backup/restore/wipe, and the capability
  * descriptor that will retire `isUsingSupabase` all join this interface as
  * their consumers are routed through it. The names here are today's names
@@ -342,6 +342,56 @@ export interface DataPortPlanningWrites {
    * decision into an error message (the same rule `dismissSuggestion` keeps).
    */
   deleteBudget(id: string): Promise<void>;
+  /**
+   * Create a goal: a target amount, a date to reach it by, and how much has
+   * been put by so far.
+   *
+   * `progress` is not supplied, and that is not the same statement `spent` on a
+   * budget makes. A budget's `spent` is summed from the ledger and can never be
+   * the caller's to state; a goal's progress is a figure nobody else knows —
+   * money already set aside before the goal was written down. So it is not
+   * absent, it is DERIVED FROM `currentAmount`, and a goal created saying £250
+   * is already put by starts at £250 rather than at zero. That equality is
+   * asserted in the contract suite, because the version of this that hard-coded
+   * zero lost the opening amount, and lost it differently in each engine —
+   * banked in the browser's copy, thrown away in the cloud.
+   *
+   * The ownership rule stated at length on `createBudget` above applies here
+   * word for word: no implementation takes a user id, and a write whose owner
+   * could not be resolved must not land in another owner's store. A goal is a
+   * plan for money rather than money itself, which makes losing one no less
+   * annoying and no more visible — the goals page would simply be empty in the
+   * morning.
+   */
+  createGoal(goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal>;
+  /**
+   * Change a goal, and hand back the whole goal as it now stands (the caller
+   * replaces its copy with this, so a partial answer would blank the fields it
+   * left out).
+   *
+   * A goal that is not there is refused BY NAME rather than created, and the
+   * refusal leaves the store exactly as it was.
+   *
+   * ALSO THE CONTRIBUTION PATH, and this is the part an implementation must not
+   * improvise: putting money towards a goal arrives here as an ordinary update
+   * carrying the new `progress`. That figure has ALREADY been added up and
+   * capped against the target by the caller, so this operation SETS what it is
+   * given and never adds to what is stored. An implementation that treated the
+   * field as an increment would push a goal past its own target — the one thing
+   * the cap upstream exists to prevent — and the contract suite asks for that
+   * by name.
+   */
+  updateGoal(id: string, updates: Partial<Goal>): Promise<Goal>;
+  /**
+   * Remove a goal. Same rule as `deleteBudget` above: removing one that is
+   * already gone is a no-op, not an error.
+   *
+   * What this does NOT do is forget the goal's trophy — the achievement record
+   * kept beside the ledger. That belongs to the caller that owns the
+   * celebration, and it stays there deliberately: a store is not the place to
+   * put the rule about what a completed goal feels like.
+   */
+  deleteGoal(id: string): Promise<void>;
   /**
    * Move every reference from one category to another, then remove the source.
    * All-or-nothing, and the refusals are ordered: the source is judged before
