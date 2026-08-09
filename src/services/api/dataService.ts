@@ -22,6 +22,7 @@ import {
   isCardAccountType
 } from '../../utils/accountNumberInput';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
+import type { DataPort } from '../port/dataPort';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
 export interface AppData {
@@ -79,7 +80,7 @@ export interface DataServiceOptions {
   hasCloudSession?: CloudSessionChecker;
 }
 
-class DataServiceImpl {
+class DataServiceImpl implements DataPort {
   private readonly accountService: AccountServiceLike;
   private readonly transactionService: TransactionServiceLike;
   private readonly planningService: PlanningServiceLike;
@@ -1491,10 +1492,6 @@ class DataServiceImpl {
   getUserIds(): { clerkId: string | null; databaseId: string | null } {
     return this.userIdService.getCurrentUserIds();
   }
-
-  async refreshData(): Promise<AppData> {
-    return this.loadAppData();
-  }
 }
 
 let defaultDataService = new DataServiceImpl();
@@ -1670,10 +1667,6 @@ export class DataService {
 
   static getUserIds(): { clerkId: string | null; databaseId: string | null } {
     return this.service.getUserIds();
-  }
-
-  static refreshData(): Promise<AppData> {
-    return this.service.refreshData();
   }
 }
 
