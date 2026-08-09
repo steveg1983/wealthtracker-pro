@@ -97,6 +97,9 @@ const refusingPlanningService = () => {
     createBudget: vi.fn(refuse),
     updateBudget: vi.fn(refuse),
     deleteBudget: vi.fn(refuse),
+    createGoal: vi.fn(refuse),
+    updateGoal: vi.fn(refuse),
+    deleteGoal: vi.fn(refuse),
     getBudgets: vi.fn(refuse),
     getGoals: vi.fn(refuse),
     ensureCategories: vi.fn(refuse)

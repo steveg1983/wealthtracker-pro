@@ -64,7 +64,8 @@ type TransactionServiceLike = Pick<typeof TransactionService,
  * changes there cannot silently drift from what is called here.
  */
 type PlanningServiceLike = Pick<typeof PlanningService,
-  'mergeCategories' | 'createBudget' | 'updateBudget' | 'deleteBudget'> &
+  'mergeCategories' | 'createBudget' | 'updateBudget' | 'deleteBudget'
+  | 'createGoal' | 'updateGoal' | 'deleteGoal'> &
   Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
@@ -1594,6 +1595,99 @@ class DataServiceImpl implements DataPort {
   }
 
   /**
+   * Create a goal.
+   *
+   * Branch, owner rule, delegation and unwrapped promise: all exactly as
+   * `createBudget` above, which is where they are argued at length. The same
+   * null hazard applies — `PlanningService.createGoal(null, …)` writes browser
+   * storage and hands back an ordinary Goal, so a signed-in person would watch
+   * their goal appear and find the page empty at the next boot — and the same
+   * defence: the id is resolved here, on the same tick, and only passed on when
+   * it is real.
+   *
+   * THE ONE THING SPECIFIC TO A GOAL: what it starts at. `progress` is the
+   * accumulated amount, so a goal created with money already put by starts at
+   * that figure rather than at zero. This is a fix, not a preference — the
+   * version that hard-coded zero lost the opening amount, and lost it
+   * differently in each half (banked in the browser's copy, thrown away in the
+   * cloud), which is precisely the kind of difference this seam exists to stop.
+   *
+   * The pending-session omission noted on `createBudget` is deliberate here
+   * too, and for the same reason: a write whose database id is still resolving
+   * still goes to browser storage today, and a behaviour change hidden inside a
+   * routing change is one nobody can review.
+   */
+  async createGoal(goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.createGoal(userId, goal);
+    }
+
+    const created: Goal = {
+      ...goal,
+      id: this.generateId(),
+      progress: goal.currentAmount ?? 0,
+      createdAt: this.nowProvider(),
+      updatedAt: this.nowProvider()
+    };
+    const goals = await this.readCollection<Goal>(STORAGE_KEYS.GOALS);
+    await this.persistCollection(STORAGE_KEYS.GOALS, [...goals, created]);
+    return created;
+  }
+
+  /**
+   * Change a goal, and hand back the whole goal as it now stands.
+   *
+   * Same branch and same owner rule as `createGoal` above. A goal that is not
+   * there is refused by name rather than created, and because the lookup
+   * happens before the first write, the refusal leaves the store exactly as it
+   * was.
+   *
+   * This is also how money is put towards a goal: the contribution arrives as
+   * an update carrying the new `progress`, already summed and already capped
+   * against the target by the caller. So this SETS the field it is given and
+   * never adds to the stored one — adding here would apply the contribution
+   * twice and carry the goal past the target the cap exists to hold it to.
+   */
+  async updateGoal(id: string, updates: Partial<Goal>): Promise<Goal> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.updateGoal(userId, id, updates);
+    }
+
+    const goals = await this.readCollection<Goal>(STORAGE_KEYS.GOALS);
+    const index = goals.findIndex(goal => goal.id === id);
+    if (index === -1) throw new Error('Goal not found');
+
+    const updated: Goal = { ...goals[index], ...updates, updatedAt: this.nowProvider() };
+    await this.persistCollection(
+      STORAGE_KEYS.GOALS,
+      goals.map((goal, position) => (position === index ? updated : goal))
+    );
+    return updated;
+  }
+
+  /**
+   * Remove a goal.
+   *
+   * Same branch and same owner rule as the two above, and the same silence when
+   * it is already gone. The goal's trophy is forgotten by the caller that owns
+   * the celebration, not here.
+   */
+  async deleteGoal(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.planningService.deleteGoal(userId, id);
+    }
+
+    const goals = await this.readCollection<Goal>(STORAGE_KEYS.GOALS);
+    await this.persistCollection(
+      STORAGE_KEYS.GOALS,
+      goals.filter(goal => goal.id !== id)
+    );
+  }
+
+  /**
    * What is stored, and nothing more. The boot does not use this — it uses
    * `prepareCategories` below, which is allowed to seed and to migrate. This
    * one stays local-only and gated because it answers "what is in the browser's
@@ -1860,6 +1954,18 @@ export class DataService {
 
   static getGoals(): Promise<Goal[]> {
     return this.service.getGoals();
+  }
+
+  static createGoal(goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
+    return this.service.createGoal(goal);
+  }
+
+  static updateGoal(id: string, updates: Partial<Goal>): Promise<Goal> {
+    return this.service.updateGoal(id, updates);
+  }
+
+  static deleteGoal(id: string): Promise<void> {
+    return this.service.deleteGoal(id);
   }
 
   static getCategories(): Promise<Category[]> {

@@ -433,6 +433,178 @@ describe('DataService (deterministic fallback)', () => {
     });
   });
 
+  describe('goal writes', () => {
+    // The budget block above says why these tests exist; the hazard is the
+    // same one, operation for operation. `PlanningService.createGoal(null, …)`
+    // does not throw and does not warn — it writes the browser's copy and
+    // hands back an ordinary Goal — so a signed-in person would see the goal
+    // they just set appear on the page, and find the page empty at the next
+    // boot, when the cloud read it never reached answers instead. The compiler
+    // cannot catch it, because null is a legal argument there. These can.
+
+    const goalInput = (
+      overrides: Partial<Omit<Goal, 'id' | 'progress'>> = {}
+    ): Omit<Goal, 'id' | 'progress'> => ({
+      // The shape the goal modal actually submits.
+      name: 'New boiler',
+      type: 'savings',
+      targetAmount: 1500,
+      currentAmount: 0,
+      targetDate: new Date('2026-01-01T00:00:00.000Z'),
+      isActive: true,
+      createdAt: new Date('2025-08-01T00:00:00.000Z'),
+      updatedAt: new Date('2025-08-01T00:00:00.000Z'),
+      ...overrides
+    });
+
+    /** A stand-in for the cloud half, answering plausibly so the call SHAPE is what fails. */
+    const cloudPlanningService = () => ({
+      mergeCategories: vi.fn(),
+      createBudget: vi.fn(),
+      updateBudget: vi.fn(),
+      deleteBudget: vi.fn(),
+      createGoal: vi.fn(
+        async (_userId: string | null, goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> => ({
+          ...goal,
+          id: 'goal-from-the-cloud',
+          progress: goal.currentAmount ?? 0
+        })
+      ),
+      updateGoal: vi.fn(
+        async (_userId: string | null, id: string, updates: Partial<Goal>): Promise<Goal> => ({
+          ...goalInput(),
+          progress: 0,
+          ...updates,
+          id
+        })
+      ),
+      deleteGoal: vi.fn(async (): Promise<void> => {}),
+      getBudgets: vi.fn(async () => [] as Budget[]),
+      getGoals: vi.fn(async () => [] as Goal[]),
+      ensureCategories: vi.fn(async () => [] as Category[])
+    });
+
+    const signedIn = (planningService: ReturnType<typeof cloudPlanningService>, storage: ReturnType<typeof createStorage>) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: {
+          ensureUserExists: vi.fn(),
+          getCurrentDatabaseUserId: vi.fn(() => 'db-user-1'),
+          getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: 'db-user-1' }))
+        }
+      });
+
+    it('creates a goal under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [] });
+      const service = signedIn(planningService, storage);
+      const input = goalInput({ currentAmount: 250.05 });
+
+      const created = await service.createGoal(input);
+
+      expect(created.id).toBe('goal-from-the-cloud');
+      // The whole call log, not just "was called with": a SECOND call carrying
+      // null is exactly the bug, and `toHaveBeenCalledWith` alone would pass
+      // straight through it.
+      expect(planningService.createGoal.mock.calls).toEqual([['db-user-1', input]]);
+      // And it went to the cloud INSTEAD of the browser, not as well as.
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('updates a goal under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [] });
+      const service = signedIn(planningService, storage);
+
+      // The shape a contribution takes: the caller has already added it up and
+      // capped it at the target, and hands over the figure to store.
+      const updated = await service.updateGoal('goal-1', { progress: 1500, currentAmount: 1500 });
+
+      expect(updated.progress).toBe(1500);
+      expect(planningService.updateGoal.mock.calls)
+        .toEqual([['db-user-1', 'goal-1', { progress: 1500, currentAmount: 1500 }]]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('deletes a goal under the resolved database id, and never under null', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [] });
+      const service = signedIn(planningService, storage);
+
+      await service.deleteGoal('goal-1');
+
+      expect(planningService.deleteGoal.mock.calls).toEqual([['db-user-1', 'goal-1']]);
+      expect(storage.set).not.toHaveBeenCalled();
+    });
+
+    it('hands the cloud failure back word for word', async () => {
+      // Same reason as the budget one: the goals page renders `error.message`,
+      // and a wrapper here would replace a sentence that says what went wrong
+      // with one that says only that something did. The cloud branch returns
+      // the promise unwrapped, and this is what proves it.
+      const planningService = cloudPlanningService();
+      planningService.updateGoal.mockRejectedValueOnce(
+        new Error('new row for relation "goals" violates check constraint "goals_target_amount_check"')
+      );
+      const service = signedIn(planningService, createStorage({ [STORAGE_KEYS.GOALS]: [] }));
+
+      await expect(service.updateGoal('goal-1', { targetAmount: -1 })).rejects.toThrow(
+        'new row for relation "goals" violates check constraint "goals_target_amount_check"'
+      );
+    });
+
+    it('writes to the browser store, and does not touch the cloud service, with no cloud session', async () => {
+      // The other half of every test above. The fields this class fills in
+      // mirror PlanningService's local half exactly — because the two write the
+      // SAME browser collection, and a goal that came out of one must be
+      // indistinguishable from a goal that came out of the other.
+      //
+      // Including the one that is easy to get wrong: `progress` starts at the
+      // money already put by, not at zero. £250.05 set aside before the goal
+      // was written down is £250.05 of progress, and hard-coding a zero here
+      // would silently bank it.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [] });
+      const service = createDataService({
+        isSupabaseConfigured: () => false,
+        hasCloudSession: () => false,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid: () => 'goal-generated',
+        now,
+        userIdService: userId
+      });
+
+      const created = await service.createGoal(goalInput({ currentAmount: 250.05 }));
+      expect(created).toMatchObject({
+        id: 'goal-generated',
+        name: 'New boiler',
+        targetAmount: 1500,
+        progress: 250.05,
+        createdAt: new Date('2025-09-01T00:00:00.000Z'),
+        updatedAt: new Date('2025-09-01T00:00:00.000Z')
+      });
+
+      const edited = await service.updateGoal('goal-generated', { progress: 1500, currentAmount: 1500 });
+      expect(edited.progress).toBe(1500);
+      expect(await service.getGoals()).toEqual([edited]);
+
+      await service.deleteGoal('goal-generated');
+      expect(await service.getGoals()).toEqual([]);
+
+      expect(planningService.createGoal).not.toHaveBeenCalled();
+      expect(planningService.updateGoal).not.toHaveBeenCalled();
+      expect(planningService.deleteGoal).not.toHaveBeenCalled();
+    });
+  });
+
   it('does not swallow an unreadable account list — exactly as the call it replaced did not', async () => {
     // The boot's two reads that promise never to reject (its transactions and
     // its split lines) resolve empty when the store will not open. The ACCOUNT

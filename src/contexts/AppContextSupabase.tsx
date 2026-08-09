@@ -1317,13 +1317,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Goal operations — persisted via PlanningService (Supabase or local)
+  // Goal operations — persisted through the seam, which resolves the owner
+  // itself, for the reason written over the budget operations above.
   const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'progress'>) => {
     try {
-      const created = await PlanningService.createGoal(
-        userIdService.getCurrentDatabaseUserId(),
-        goal
-      );
+      const created = await dataPort.createGoal(goal);
       setGoals(prev => [...prev, created]);
     } catch (error) {
       appLogger.error('Failed to add goal', error);
@@ -1333,11 +1331,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
     try {
-      const updated = await PlanningService.updateGoal(
-        userIdService.getCurrentDatabaseUserId(),
-        id,
-        updates
-      );
+      const updated = await dataPort.updateGoal(id, updates);
       setGoals(prev => prev.map(g => g.id === id ? updated : g));
     } catch (error) {
       appLogger.error('Failed to update goal', error);
@@ -1347,7 +1341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteGoal = useCallback(async (id: string) => {
     try {
-      await PlanningService.deleteGoal(userIdService.getCurrentDatabaseUserId(), id);
+      await dataPort.deleteGoal(id);
       setGoals(prev => prev.filter(g => g.id !== id));
       // The goal is gone, so its trophy and its "already celebrated" flag go
       // with it — otherwise the achievement history keeps listing a goal that
@@ -1367,8 +1361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .toNumber();
     const cappedProgress = Math.min(newProgress, goal.targetAmount);
     try {
-      const updated = await PlanningService.updateGoal(
-        userIdService.getCurrentDatabaseUserId(),
+      const updated = await dataPort.updateGoal(
         id,
         { progress: cappedProgress, currentAmount: cappedProgress }
       );
