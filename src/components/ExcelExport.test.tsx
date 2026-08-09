@@ -64,7 +64,7 @@ const mockTransactions: Transaction[] = [
     // Signed convention: expenses are stored as negative amounts
     amount: toDecimal(-50),
     type: 'expense',
-    category: 'Food',
+    category: 'cat-food',
     accountId: 'acc1',
     tags: ['groceries'],
     notes: 'Weekly shopping',
@@ -76,7 +76,7 @@ const mockTransactions: Transaction[] = [
     description: 'Salary',
     amount: toDecimal(3000),
     type: 'income',
-    category: 'Work',
+    category: 'cat-work',
     accountId: 'acc1',
     cleared: true
   }
@@ -105,14 +105,17 @@ const mockAccounts: Account[] = [
 ];
 
 const mockBudgets: Budget[] = [
-  { id: '1', category: 'Food', amount: toDecimal(500), period: 'monthly', isActive: true },
-  { id: '2', category: 'Transport', amount: toDecimal(200), period: 'monthly', isActive: true }
+  { id: '1', categoryId: 'cat-food', amount: toDecimal(500), period: 'monthly', isActive: true },
+  { id: '2', categoryId: 'cat-transport', amount: toDecimal(200), period: 'monthly', isActive: true }
 ];
 
+// Transactions and budgets reference category IDS — a UUID in the real data,
+// and the thing that must never reach a spreadsheet cell.
 const mockCategories: Category[] = [
-  { id: '1', name: 'Food', type: 'expense', icon: '🍔', color: '#FF0000', isActive: true },
-  { id: '2', name: 'Transport', type: 'expense', icon: '🚗', color: '#00FF00', isActive: true },
-  { id: '3', name: 'Work', type: 'income', icon: '💼', color: '#0000FF', isActive: true }
+  { id: 'cat-spending', name: 'Spending', type: 'expense', level: 'sub', icon: '💷', color: '#333333', isActive: true },
+  { id: 'cat-food', name: 'Food', type: 'expense', level: 'detail', parentId: 'cat-spending', icon: '🍔', color: '#FF0000', isActive: true },
+  { id: 'cat-transport', name: 'Transport', type: 'expense', level: 'detail', parentId: 'cat-spending', icon: '🚗', color: '#00FF00', isActive: true },
+  { id: 'cat-work', name: 'Work', type: 'income', level: 'detail', icon: '💼', color: '#0000FF', isActive: true }
 ];
 
 // Mock hooks
@@ -267,11 +270,12 @@ describe('ExcelExport', () => {
       const select = screen.getByRole('combobox') as HTMLSelectElement;
       const options = Array.from(select.options);
       
-      expect(options).toHaveLength(4);
+      // 'Group by Account' used to be offered here with no branch behind it:
+      // choosing it fell through to no grouping and changed nothing.
+      expect(options).toHaveLength(3);
       expect(options[0]).toHaveTextContent('No Grouping');
       expect(options[1]).toHaveTextContent('Group by Month');
       expect(options[2]).toHaveTextContent('Group by Category');
-      expect(options[3]).toHaveTextContent('Group by Account');
     });
 
     it('defaults to no grouping', () => {
@@ -287,30 +291,30 @@ describe('ExcelExport', () => {
       render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
       
       expect(screen.getByText('Formatting Options')).toBeInTheDocument();
-      expect(screen.getByText('Highlight negative values')).toBeInTheDocument();
-      expect(screen.getByText('Zebra striping')).toBeInTheDocument();
       expect(screen.getByText('Enable auto-filters')).toBeInTheDocument();
     });
 
-    it('has formatting options checked by default', () => {
+    /**
+     * "Highlight negative values" and "Zebra striping" were offered here and
+     * read by nothing: per-cell styling needs the paid SheetJS build and this
+     * project pins the community one. An autofilter is a sheet-level property
+     * the community build does honour, so it is the one that stayed.
+     */
+    it('offers only the formatting switch that reaches the file', () => {
       render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
-      
-      const highlightCheckbox = screen.getByRole('checkbox', { name: /Highlight negative values/i });
-      const zebraCheckbox = screen.getByRole('checkbox', { name: /Zebra striping/i });
-      const filterCheckbox = screen.getByRole('checkbox', { name: /Enable auto-filters/i });
-      
-      expect(highlightCheckbox).toBeChecked();
-      expect(zebraCheckbox).toBeChecked();
-      expect(filterCheckbox).toBeChecked();
+
+      expect(screen.queryByText('Highlight negative values')).not.toBeInTheDocument();
+      expect(screen.queryByText('Zebra striping')).not.toBeInTheDocument();
     });
 
-    it('can toggle formatting options', () => {
+    it('has the auto-filter switch on by default, and it toggles', () => {
       render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
-      
-      const zebraCheckbox = screen.getByRole('checkbox', { name: /Zebra striping/i });
-      
-      fireEvent.click(zebraCheckbox);
-      expect(zebraCheckbox).not.toBeChecked();
+
+      const filterCheckbox = screen.getByRole('checkbox', { name: /Enable auto-filters/i });
+      expect(filterCheckbox).toBeChecked();
+
+      fireEvent.click(filterCheckbox);
+      expect(filterCheckbox).not.toBeChecked();
     });
   });
 
@@ -471,6 +475,64 @@ describe('ExcelExport', () => {
       await waitFor(() => {
         expect(global.alert).toHaveBeenCalledWith('Failed to export Excel file. Please try again.');
       });
+    });
+  });
+
+  /**
+   * A category id is a UUID. Printed into a spreadsheet it tells the reader
+   * nothing and cannot be looked up — the Category column has to carry the
+   * name, in the same "Parent : Child" form the rest of the app uses.
+   */
+  describe('Category names', () => {
+    /** The fixture transactions are dated 2024, so widen the default window. */
+    const selectFixtureYear = (): void => {
+      const startDate = screen.getByLabelText('Start Date');
+      fireEvent.change(startDate, { target: { value: '01/01/2024' } });
+      fireEvent.blur(startDate);
+      const endDate = screen.getByLabelText('End Date');
+      fireEvent.change(endDate, { target: { value: '31/12/2024' } });
+      fireEvent.blur(endDate);
+    };
+
+    it('writes category NAMES into the Transactions sheet, never ids', async () => {
+      render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
+      selectFixtureYear();
+
+      fireEvent.click(screen.getByRole('button', { name: /Export to Excel/i }));
+
+      await waitFor(() => {
+        expect(mockWriteFile).toHaveBeenCalled();
+      });
+
+      const rows = mockJsonToSheet.mock.calls
+        .map(call => call[0])
+        .filter((value): value is Array<Record<string, unknown>> => Array.isArray(value))
+        .flat();
+
+      const groceryRow = rows.find(row => row.Description === 'Grocery Store');
+      expect(groceryRow?.Category).toBe('Spending : Food');
+
+      const serialised = JSON.stringify(rows);
+      expect(serialised).not.toContain('cat-food');
+      expect(serialised).not.toContain('cat-work');
+    });
+
+    it('names the category a budget belongs to', async () => {
+      render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Export to Excel/i }));
+
+      await waitFor(() => {
+        expect(mockWriteFile).toHaveBeenCalled();
+      });
+
+      const rows = mockJsonToSheet.mock.calls
+        .map(call => call[0])
+        .filter((value): value is Array<Record<string, unknown>> => Array.isArray(value))
+        .flat();
+
+      const budgetRow = rows.find(row => row['Budget Amount'] !== undefined);
+      expect(budgetRow?.Category).toBe('Spending : Food');
     });
   });
 

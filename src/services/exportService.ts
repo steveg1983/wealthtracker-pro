@@ -1,16 +1,22 @@
-// Dynamic imports for heavy libraries
-let jsPDF: JsPDFClass | null = null;
-const _html2canvas: typeof import('html2canvas').default | null = null;
-import type { Transaction, Account, Investment, Budget } from '../types';
-import type { ExportableData, ChartData, SavedTemplate } from '../types/export';
-import Decimal from 'decimal.js';
-import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
+import type { Transaction, Account, Category } from '../types';
+import type { PeriodKey } from '../hooks/usePeriod';
 import { formatDecimal } from '../utils/decimal-format';
+import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
-type JsPDFClass = typeof import('jspdf').jsPDF;
-type JsPDFInstance = InstanceType<JsPDFClass>;
+
+const TEMPLATES_KEY = 'export-templates';
+/**
+ * Set the first time this store is touched, and never unset.
+ *
+ * It is what separates "this browser has never seen the export page" from
+ * "this user deleted every template". Without it the store could only be
+ * judged by whether it was empty, so deleting the last template silently
+ * brought the starters back — the templates were undeletable in practice
+ * however many times you deleted them.
+ */
+const INITIALISED_KEY = 'export-templates-initialised';
 
 export interface ExportServiceOptions {
   storage?: StorageLike | null;
@@ -19,18 +25,38 @@ export interface ExportServiceOptions {
   idGenerator?: () => string;
 }
 
+/** The formats this page can actually write. Nothing aspirational. */
+export type ExportFormat = 'pdf' | 'csv' | 'qif' | 'ofx';
+
+const EXPORT_FORMATS: readonly ExportFormat[] = ['pdf', 'csv', 'qif', 'ofx'];
+
+export const EXPORT_FORMAT_LABELS: Record<ExportFormat, string> = {
+  pdf: 'PDF document',
+  csv: 'CSV spreadsheet',
+  qif: 'QIF (Quicken / MS Money)',
+  ofx: 'OFX (bank statement)'
+};
+
 export interface ExportOptions {
-  startDate: Date;
-  endDate: Date;
-  format: 'csv' | 'pdf' | 'xlsx' | 'json' | 'qif' | 'ofx';
-  includeCharts: boolean;
+  /**
+   * The period as a RULE, not as two fixed dates — resolved against today
+   * every time the export runs.
+   *
+   * A template is a thing you come back to, and one holding the dates of the
+   * month it was saved in answers the wrong question for the rest of its life.
+   * Storing the rule is what makes "Monthly Summary" mean this month in
+   * August as well as in the January it was saved. 'custom' is the escape
+   * hatch for a genuinely fixed window, and only then are the two dates below
+   * read.
+   */
+  range: PeriodKey;
+  /** 'YYYY-MM-DD'. Read only when `range` is 'custom'. */
+  customStart: string;
+  /** 'YYYY-MM-DD'. Read only when `range` is 'custom'. */
+  customEnd: string;
+  format: ExportFormat;
   includeTransactions: boolean;
   includeAccounts: boolean;
-  includeInvestments: boolean;
-  includeBudgets: boolean;
-  groupBy?: 'category' | 'account' | 'month' | 'none';
-  customTitle?: string;
-  logoUrl?: string;
 }
 
 export interface ExportTemplate {
@@ -38,10 +64,103 @@ export interface ExportTemplate {
   name: string;
   description: string;
   options: ExportOptions;
-  isDefault: boolean;
+  /**
+   * Seeded by the app rather than written by the user. A label, not a lock —
+   * every template here is deletable, including these.
+   */
+  isStarter: boolean;
   createdAt: Date;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isPeriodKey = (value: unknown): value is PeriodKey =>
+  value === 'this-month' || value === 'last-month' || value === 'tax-year' ||
+  value === 'last-12-months' || value === 'all' || value === 'custom';
+
+const isExportFormat = (value: unknown): value is ExportFormat =>
+  typeof value === 'string' && EXPORT_FORMATS.some(format => format === value);
+
+const toBoolean = (value: unknown, fallback: boolean): boolean =>
+  typeof value === 'boolean' ? value : fallback;
+
+const toIsoDay = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDate = (value: unknown): Date | null => {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/**
+ * Read a pair of stored absolute dates back as the rule they were most likely
+ * standing in for, judged against the day the template was SAVED.
+ *
+ * Every template written before ranges became rules holds two fixed dates, and
+ * throwing them away would silently change what those templates export. A
+ * whole calendar month that was the saving month is "this month"; the month
+ * before it is "last month"; a window opened on 6 April of the saving tax year
+ * and still running is "tax year". Anything else keeps its exact dates as a
+ * custom range — a guess about a window nobody can check is worse than the
+ * dates the user actually chose.
+ */
+export function inferRelativeRange(
+  start: Date,
+  end: Date,
+  reference: Date
+): Pick<ExportOptions, 'range' | 'customStart' | 'customEnd'> {
+  const custom = {
+    range: 'custom' as const,
+    customStart: toIsoDay(start),
+    customEnd: toIsoDay(end)
+  };
+
+  const startsMonth = start.getDate() === 1;
+  const lastDayOfStartMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+  const endsSameMonth =
+    end.getFullYear() === start.getFullYear() &&
+    end.getMonth() === start.getMonth() &&
+    end.getDate() === lastDayOfStartMonth;
+
+  if (startsMonth && endsSameMonth) {
+    const monthsApart =
+      (reference.getFullYear() - start.getFullYear()) * 12 + (reference.getMonth() - start.getMonth());
+    if (monthsApart === 0) return { range: 'this-month', customStart: '', customEnd: '' };
+    if (monthsApart === 1) return { range: 'last-month', customStart: '', customEnd: '' };
+    return custom;
+  }
+
+  // UK tax year: 6 April to 5 April.
+  const taxYearStart =
+    reference.getMonth() > 3 || (reference.getMonth() === 3 && reference.getDate() >= 6)
+      ? reference.getFullYear()
+      : reference.getFullYear() - 1;
+  if (
+    start.getFullYear() === taxYearStart &&
+    start.getMonth() === 3 &&
+    start.getDate() === 6 &&
+    end.getTime() >= reference.getTime()
+  ) {
+    return { range: 'tax-year', customStart: '', customEnd: '' };
+  }
+
+  return custom;
+}
+
+/**
+ * Templates for the Export Data page, plus the two interchange writers (QIF and
+ * OFX) that the page hands its already-filtered rows to.
+ *
+ * Nothing here builds a PDF or a CSV any more: those go through
+ * utils/pdfExport and utils/csvExport, which is where the page-break, currency
+ * and category-name handling that this file never had already lives.
+ */
 export class ExportService {
   private templates: ExportTemplate[] = [];
   private readonly storage: StorageLike | null;
@@ -54,112 +173,154 @@ export class ExportService {
     this.logger = options.logger ?? createScopedLogger('ExportService');
     this.nowProvider = options.now ?? (() => new Date());
     this.idGenerator = options.idGenerator ?? (() => Date.now().toString());
-    this.loadData();
-    this.initializeDefaultTemplates();
+    this.initialise();
   }
 
-  private loadData() {
-    if (!this.storage) return;
-    try {
-      const savedTemplates = this.storage.getItem('export-templates');
-      if (savedTemplates) {
-        this.templates = JSON.parse(savedTemplates).map((template: SavedTemplate) => ({
-          ...template,
-          createdAt: new Date(template.createdAt),
-          options: {
-            ...template.options,
-            startDate: new Date(template.options.startDate),
-            endDate: new Date(template.options.endDate)
-          }
-        }));
-      }
-    } catch (error) {
-      this.logger.error('Error loading export data', error);
+  private initialise(): void {
+    if (!this.storage) {
+      this.templates = this.starterTemplates();
+      return;
     }
-  }
 
-  private saveData() {
-    if (!this.storage) return;
-    try {
-      this.storage.setItem('export-templates', JSON.stringify(this.templates));
-    } catch (error) {
-      this.logger.error('Error saving export data', error);
+    const stored = this.storage.getItem(TEMPLATES_KEY);
+    const alreadyInitialised = this.storage.getItem(INITIALISED_KEY) === 'true' || stored !== null;
+
+    if (stored !== null) {
+      this.templates = this.parseTemplates(stored);
     }
-  }
 
-  private initializeDefaultTemplates() {
-    if (this.templates.length === 0) {
-      const now = this.nowProvider();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-      const defaultTemplates: ExportTemplate[] = [
-        {
-          id: 'monthly-summary',
-          name: 'Monthly Summary',
-          description: 'Complete monthly financial summary with charts and transactions',
-          options: {
-            startDate: startOfMonth,
-            endDate: endOfMonth,
-            format: 'pdf',
-            includeCharts: true,
-            includeTransactions: true,
-            includeAccounts: true,
-            includeInvestments: true,
-            includeBudgets: true,
-            groupBy: 'category'
-          },
-          isDefault: true,
-          createdAt: this.nowProvider()
-        },
-        {
-          id: 'transaction-report',
-          name: 'Transaction Report',
-          description: 'Detailed transaction listing for specified period',
-          options: {
-            startDate: startOfMonth,
-            endDate: endOfMonth,
-            format: 'csv',
-            includeCharts: false,
-            includeTransactions: true,
-            includeAccounts: false,
-            includeInvestments: false,
-            includeBudgets: false,
-            groupBy: 'none'
-          },
-          isDefault: true,
-          createdAt: this.nowProvider()
-        },
-        {
-          id: 'investment-portfolio',
-          name: 'Investment Portfolio',
-          description: 'Investment portfolio overview with performance charts',
-          options: {
-            startDate: new Date(now.getFullYear(), 0, 1), // Start of year
-            endDate: now,
-            format: 'pdf',
-            includeCharts: true,
-            includeTransactions: false,
-            includeAccounts: false,
-            includeInvestments: true,
-            includeBudgets: false,
-            groupBy: 'none'
-          },
-          isDefault: true,
-          createdAt: this.nowProvider()
-        }
-      ];
-
-      this.templates = defaultTemplates;
+    if (!alreadyInitialised) {
+      this.templates = this.starterTemplates();
       this.saveData();
+    } else if (this.storage.getItem(INITIALISED_KEY) !== 'true') {
+      // An older store, initialised before the marker existed. Mark it now, so
+      // that emptying it later is read as "emptied" rather than "never seen".
+      this.storage.setItem(INITIALISED_KEY, 'true');
     }
   }
 
-  // Export Templates
+  private parseTemplates(raw: string): ExportTemplate[] {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map(entry => this.parseTemplate(entry))
+        .filter((template): template is ExportTemplate => template !== null);
+    } catch (error) {
+      this.logger.error('Error loading export templates', error);
+      return [];
+    }
+  }
+
+  /**
+   * One stored record, migrated best-effort. A record we cannot make sense of
+   * is dropped rather than half-restored: a template that silently exports
+   * something other than what it says is worse than one that is gone.
+   */
+  private parseTemplate(entry: unknown): ExportTemplate | null {
+    if (!isRecord(entry)) return null;
+    const { id, name, description, options, createdAt, isStarter, isDefault } = entry;
+    if (typeof id !== 'string' || typeof name !== 'string') return null;
+    if (!isRecord(options)) return null;
+
+    const created = parseDate(createdAt) ?? this.nowProvider();
+
+    let range: PeriodKey;
+    let customStart: string;
+    let customEnd: string;
+    if (isPeriodKey(options.range)) {
+      range = options.range;
+      customStart = typeof options.customStart === 'string' ? options.customStart : '';
+      customEnd = typeof options.customEnd === 'string' ? options.customEnd : '';
+    } else {
+      const start = parseDate(options.startDate);
+      const end = parseDate(options.endDate);
+      if (start && end) {
+        ({ range, customStart, customEnd } = inferRelativeRange(start, end, created));
+      } else {
+        range = 'this-month';
+        customStart = '';
+        customEnd = '';
+      }
+    }
+
+    return {
+      id,
+      name,
+      description: typeof description === 'string' ? description : '',
+      // A format this page cannot write (the never-implemented xlsx and json
+      // branches) falls back to CSV rather than failing at click time.
+      options: {
+        range,
+        customStart,
+        customEnd,
+        format: isExportFormat(options.format) ? options.format : 'csv',
+        includeTransactions: toBoolean(options.includeTransactions, true),
+        includeAccounts: toBoolean(options.includeAccounts, false)
+      },
+      isStarter: toBoolean(isStarter, toBoolean(isDefault, false)),
+      createdAt: created
+    };
+  }
+
+  private saveData(): void {
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(TEMPLATES_KEY, JSON.stringify(this.templates));
+      this.storage.setItem(INITIALISED_KEY, 'true');
+    } catch (error) {
+      this.logger.error('Error saving export templates', error);
+    }
+  }
+
+  /**
+   * The two starters, seeded once per browser.
+   *
+   * There used to be a third, "Investment Portfolio". It exported an
+   * investments section that this page no longer has — holdings live in the
+   * investments table and want a report of their own — so seeding it would be
+   * handing every new user a template that produces an empty file.
+   */
+  private starterTemplates(): ExportTemplate[] {
+    const createdAt = this.nowProvider();
+    return [
+      {
+        id: 'monthly-summary',
+        name: 'Monthly Summary',
+        description: 'This month\'s transactions and account balances, as a PDF',
+        options: {
+          range: 'this-month',
+          customStart: '',
+          customEnd: '',
+          format: 'pdf',
+          includeTransactions: true,
+          includeAccounts: true
+        },
+        isStarter: true,
+        createdAt
+      },
+      {
+        id: 'transaction-report',
+        name: 'Transaction Report',
+        description: 'This month\'s transactions as a spreadsheet',
+        options: {
+          range: 'this-month',
+          customStart: '',
+          customEnd: '',
+          format: 'csv',
+          includeTransactions: true,
+          includeAccounts: false
+        },
+        isStarter: true,
+        createdAt
+      }
+    ];
+  }
+
   getTemplates(): ExportTemplate[] {
-    return this.templates.sort((a, b) => {
-      if (a.isDefault && !b.isDefault) return -1;
-      if (!a.isDefault && b.isDefault) return 1;
+    // A copy: a getter that reorders the caller's own store is a trap.
+    return [...this.templates].sort((a, b) => {
+      if (a.isStarter !== b.isStarter) return a.isStarter ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
   }
@@ -176,15 +337,7 @@ export class ExportService {
     return newTemplate;
   }
 
-  updateTemplate(id: string, updates: Partial<ExportTemplate>): ExportTemplate | null {
-    const index = this.templates.findIndex(t => t.id === id);
-    if (index === -1) return null;
-
-    this.templates[index] = { ...this.templates[index], ...updates };
-    this.saveData();
-    return this.templates[index];
-  }
-
+  /** Every template is deletable, starters included. */
   deleteTemplate(id: string): boolean {
     const index = this.templates.findIndex(t => t.id === id);
     if (index === -1) return false;
@@ -194,318 +347,16 @@ export class ExportService {
     return true;
   }
 
-  // Export Functions
-  async exportToCSV(
-    data: Transaction[] | Account[] | Investment[],
-    options: Partial<ExportOptions> = {}
-  ): Promise<string> {
-    const { startDate, endDate, groupBy = 'none' } = options;
-
-    // Filter by date if specified
-    let filteredData: typeof data = data;
-    if (startDate && endDate) {
-      filteredData = data.filter(item => {
-        const itemDate = 'date' in item ? item.date :
-                        'createdAt' in item ? item.createdAt :
-                        new Date();
-        return itemDate! >= startDate && itemDate! <= endDate;
-      }) as typeof data;
-    }
-
-    // Group data if specified
-    const groupedData = this.groupData(filteredData, groupBy);
-
-    // Convert to CSV
-    if (Array.isArray(groupedData)) {
-      return this.arrayToCSV(groupedData);
-    } else {
-      // For grouped data, create summary CSV
-      const summaryRows: Record<string, unknown>[] = Object.entries(groupedData).map(([group, items]) => ({
-        id: group,
-        Group: group,
-        Count: Array.isArray(items) ? items.length : 1,
-        Total: this.calculateGroupTotal(items)
-      }));
-      return this.arrayToCSV(summaryRows);
-    }
-  }
-
-  async exportToPDF(
-    data: {
-      transactions?: Transaction[];
-      accounts?: Account[];
-      investments?: Investment[];
-      budgets?: Budget[];
-    },
-    options: ExportOptions
-  ): Promise<Uint8Array> {
-    // Load jsPDF dynamically
-    if (!jsPDF) {
-      const module = await import('jspdf');
-      jsPDF = module.jsPDF;
-    }
-
-    const doc: JsPDFInstance = new jsPDF!();
-    let yPosition = 20;
-
-    // Add header
-    doc.setFontSize(20);
-    doc.text(options.customTitle || 'Financial Report', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(12);
-    doc.text(`Period: ${this.formatDate(options.startDate)} - ${this.formatDate(options.endDate)}`, 20, yPosition);
-    yPosition += 20;
-
-    // Add logo if provided
-    if (options.logoUrl) {
-      try {
-        doc.addImage(options.logoUrl, 'PNG', 150, 10, 40, 20);
-      } catch (error) {
-        this.logger.warn('Could not add logo to PDF', error);
-      }
-    }
-
-    // Add summary section
-    if (data.accounts && options.includeAccounts) {
-      yPosition = await this.addAccountsSummaryToPDF(doc, data.accounts, yPosition);
-    }
-
-    if (data.transactions && options.includeTransactions) {
-      yPosition = await this.addTransactionsSummaryToPDF(doc, data.transactions, yPosition, options);
-    }
-
-    if (data.investments && options.includeInvestments) {
-      yPosition = await this.addInvestmentsSummaryToPDF(doc, data.investments, yPosition);
-    }
-
-    if (data.budgets && options.includeBudgets) {
-      yPosition = await this.addBudgetsSummaryToPDF(doc, data.budgets, yPosition);
-    }
-
-    // Add charts if requested
-    if (options.includeCharts) {
-      await this.addChartsToPDF(doc, undefined, yPosition);
-    }
-
-    const buffer = doc.output('arraybuffer');
-    return new Uint8Array(buffer);
-  }
-
-  private async addAccountsSummaryToPDF(
-    doc: JsPDFInstance,
-    accounts: Account[],
-    yPosition: number
-  ): Promise<number> {
-    doc.setFontSize(16);
-    doc.text('Accounts Summary', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(10);
-    accounts.forEach(account => {
-      doc.text(`${account.name}: ${this.formatCurrency(account.balance)}`, 20, yPosition);
-      yPosition += 5;
-    });
-
-    const totalBalance = accounts.reduce((sum, acc) => sum.plus(acc.balance), new Decimal(0));
-    doc.setFontSize(12);
-    doc.text(`Total Balance: ${this.formatCurrency(totalBalance.toNumber())}`, 20, yPosition + 5);
-    
-    return yPosition + 20;
-  }
-
-  private async addTransactionsSummaryToPDF(
-    doc: JsPDFInstance, 
-    transactions: Transaction[], 
-    yPosition: number, 
-    options: ExportOptions
-  ): Promise<number> {
-    doc.setFontSize(16);
-    doc.text('Transactions Summary', 20, yPosition);
-    yPosition += 10;
-
-    // Filter transactions by date
-    const filteredTransactions = transactions.filter(t => 
-      t.date >= options.startDate && t.date <= options.endDate
-    );
-
-    // Group by category
-    const byCategory = filteredTransactions.reduce((groups, transaction) => {
-      if (!groups[transaction.category]) {
-        groups[transaction.category] = [];
-      }
-      groups[transaction.category].push(transaction);
-      return groups;
-    }, {} as Record<string, Transaction[]>);
-
-    doc.setFontSize(10);
-    Object.entries(byCategory).forEach(([category, categoryTransactions]) => {
-      const total = categoryTransactions.reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
-      doc.text(`${category}: ${categoryTransactions.length} transactions, ${this.formatCurrency(total.toNumber())}`, 20, yPosition);
-      yPosition += 5;
-    });
-
-    return yPosition + 15;
-  }
-
-  private async addInvestmentsSummaryToPDF(
-    doc: JsPDFInstance,
-    investments: Investment[],
-    yPosition: number
-  ): Promise<number> {
-    doc.setFontSize(16);
-    doc.text('Investments Summary', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(10);
-    investments.forEach(investment => {
-      const currentValue = new Decimal(investment.currentValue || 0);
-      const costBasis = new Decimal(investment.costBasis || investment.quantity * investment.purchasePrice);
-      const gainLoss = currentValue.minus(costBasis);
-      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).times(100) : new Decimal(0);
-
-      doc.text(
-        `${investment.symbol}: ${this.formatCurrency(currentValue.toNumber())} (${gainLoss.gte(0) ? '+' : ''}${formatDecimal(gainLossPercent, 2)}%)`,
-        20,
-        yPosition
-      );
-      yPosition += 5;
-    });
-
-    return yPosition + 15;
-  }
-
-  private async addBudgetsSummaryToPDF(
-    doc: JsPDFInstance,
-    budgets: Budget[],
-    yPosition: number
-  ): Promise<number> {
-    doc.setFontSize(16);
-    doc.text('Budget Summary', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(10);
-    budgets.forEach(budget => {
-      const spent = new Decimal(budget.spent || 0);
-      const budgeted = new Decimal(budget.budgeted || 0);
-      const _remaining = budgeted.minus(spent);
-      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
-
-      doc.text(
-        `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${formatDecimal(percentSpent, 1)}%)`,
-        20,
-        yPosition
-      );
-      yPosition += 5;
-    });
-
-    return yPosition + 15;
-  }
-
-  private async addChartsToPDF(
-    doc: JsPDFInstance,
-    _data: ChartData | undefined,
-    yPosition: number
-  ): Promise<void> {
-    // This would capture chart elements from the DOM and add them to PDF
-    // For now, we'll add a placeholder
-    doc.setFontSize(14);
-    doc.text('Charts would be rendered here from DOM elements', 20, yPosition);
-  }
-
-  // Utility functions
-  private groupData(
-    data: ExportableData[],
-    groupBy: ExportOptions['groupBy'] = 'none'
-  ): ExportableData[] | Record<string, ExportableData[]> {
-    if (!groupBy || groupBy === 'none') return data;
-
-    return data.reduce<Record<string, ExportableData[]>>((groups, item) => {
-      let key = 'All';
-
-      switch (groupBy) {
-        case 'category':
-          key = ('category' in item && item.category) ? item.category : 'Uncategorized';
-          break;
-        case 'account': {
-          if ('accountId' in item && typeof item.accountId === 'string') {
-            key = item.accountId;
-          } else if ('account' in item && typeof item.account === 'string') {
-            key = item.account;
-          } else {
-            key = 'Unknown';
-          }
-          break;
-        }
-        case 'month': {
-          const dateValue =
-            ('date' in item && item.date) ||
-            ('createdAt' in item && item.createdAt) ||
-            new Date();
-          const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
-          key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          break;
-        }
-        default:
-          key = 'All';
-      }
-
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key]!.push(item);
-      return groups;
-    }, {});
-  }
-
-  private calculateGroupTotal(items: ExportableData[]): number {
-    // Values are stored signed. Sum the raw value so transactions net out (income − expenses)
-    // and account balances keep their true sign — never abs, which corrupted both.
-    return items.reduce((sum, item) => {
-      let amount = 0;
-      if ('amount' in item) amount = item.amount;
-      else if ('balance' in item) amount = item.balance;
-      else if ('currentValue' in item) amount = item.currentValue || 0;
-      return sum + amount;
-    }, 0);
-  }
-
-  private arrayToCSV<T extends object>(data: T[]): string {
-    if (data.length === 0) return '';
-
-    const headers = Object.keys(data[0]);
-    const csvRows = [
-      headers.join(','),
-      ...data.map(row => {
-        const record = row as Record<string, unknown>;
-        return headers.map(header => {
-          const value = record[header];
-          // Escape commas and quotes in CSV
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value ?? '';
-        }).join(',');
-      })
-    ];
-
-    return csvRows.join('\n');
-  }
-
-  private formatCurrency(amount: number): string {
-    return formatCurrencyDecimal(amount, 'USD');
-  }
-
-  private formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  }
-
-  // Export to QIF format
-  exportToQIF(data: { transactions: Transaction[]; accounts: Account[] }): string {
+  /**
+   * QIF, from rows the caller has already filtered and split-expanded.
+   *
+   * Pass `categories` so the L field carries the category NAME: a UUID in a
+   * QIF file makes a category called "8f3c…" in whatever the user imports it
+   * into.
+   */
+  exportToQIF(data: { transactions: Transaction[]; accounts: Account[]; categories?: Category[] }): string {
+    // QIF spells a subcategory Parent:Child, unpadded.
+    const categoryName = data.categories ? buildCategoryNameLookup(data.categories, ':') : null;
     let qifContent = '';
 
     // Export accounts first
@@ -524,17 +375,17 @@ export class ExportService {
         for (const transaction of accountTransactions) {
           const date = new Date(transaction.date);
           const qifDate = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()}`;
-          
+
           qifContent += `D${qifDate}\n`;
           // Amounts are stored signed (expenses negative), so emit as-is — no per-type '-' prefix
           qifContent += `T${formatDecimal(transaction.amount, 2)}\n`;
           qifContent += `P${transaction.description || ''}\n`;
-          qifContent += `L${transaction.category || 'Uncategorized'}\n`;
-          
+          qifContent += `L${categoryName ? categoryName(transaction.category) : (transaction.category || 'Uncategorized')}\n`;
+
           if (transaction.notes) {
             qifContent += `M${transaction.notes}\n`;
           }
-          
+
           qifContent += '^\n';
         }
       }
@@ -578,9 +429,9 @@ NEWFILEUID:${now}
 
     for (const account of data.accounts) {
       const accountTransactions = data.transactions.filter(t => t.accountId === account.id);
-      
+
       ofxContent += `<STMTRS>
-<CURDEF>USD
+<CURDEF>${account.currency || 'GBP'}
 <BANKACCTFROM>
 <BANKID>123456789
 <ACCTID>${account.id}
@@ -595,7 +446,7 @@ NEWFILEUID:${now}
         const date = new Date(transaction.date).toISOString().replace(/[-:]/g, '').split('.')[0];
         // Amounts are stored signed (expenses negative), so emit as-is — no per-type '-' prefix
         const amount = `${transaction.amount}`;
-        
+
         ofxContent += `<STMTTRN>
 <TRNTYPE>${transaction.type === 'expense' ? 'DEBIT' : 'CREDIT'}
 <DTPOSTED>${date}
@@ -649,56 +500,6 @@ NEWFILEUID:${now}
       'other': 'CHECKING'
     };
     return typeMap[type] || 'CHECKING';
-  }
-
-  // Enhanced export method with new formats
-  async exportData(
-    data: {
-      transactions?: Transaction[];
-      accounts?: Account[];
-      investments?: Investment[];
-      budgets?: Budget[];
-    },
-    options: ExportOptions
-  ): Promise<string | Uint8Array> {
-    const { format } = options;
-
-    switch (format) {
-      case 'csv': {
-        // CSV can only export one type at a time, prioritize by what's available
-        const csvData =
-          data.transactions ||
-          data.accounts ||
-          data.investments ||
-          [];
-        return this.exportToCSV(csvData, options);
-      }
-      
-      case 'pdf':
-        return await this.exportToPDF(data, options);
-      
-      case 'xlsx':
-        // TODO: Implement Excel export
-        return new Uint8Array();
-      
-      case 'json':
-        return JSON.stringify(data, null, 2);
-      
-      case 'qif':
-        if (!data.transactions || !data.accounts) {
-          throw new Error('QIF export requires transactions and accounts data');
-        }
-        return this.exportToQIF({ transactions: data.transactions, accounts: data.accounts });
-      
-      case 'ofx':
-        if (!data.transactions || !data.accounts) {
-          throw new Error('OFX export requires transactions and accounts data');
-        }
-        return this.exportToOFX({ transactions: data.transactions, accounts: data.accounts });
-      
-      default:
-        throw new Error(`Unsupported export format: ${format}`);
-    }
   }
 }
 
