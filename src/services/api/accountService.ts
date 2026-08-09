@@ -232,6 +232,31 @@ class AccountServiceImpl {
         initial_balance: account.openingBalance || account.balance || 0,
         is_active: account.isActive !== undefined ? account.isActive : true,
         institution: account.institution || null,
+        // The bank details, the opening balance date and the notes. This insert
+        // sent ten columns and none of these four for as long as there were two
+        // account writers: the one the signed-in create path used wrote them,
+        // this one silently dropped them — so an account created down the other
+        // route came back with no sort code, no account number, no opening
+        // balance date and no notes, and the person who had just typed them saw
+        // the fields empty when they reopened the account. There is one writer
+        // now, so it writes what the app hands it.
+        //
+        // An absent value is sent as an explicit NULL rather than left out:
+        // none of these four columns has a database default (sort_code and
+        // account_number in the initial schema, notes in 20260310000000,
+        // opening_balance_date in 20260310000100), so NULL and "not mentioned"
+        // store the same thing.
+        sort_code: account.sortCode || null,
+        // The last line before the insert: a credit account's number is a card
+        // number, and a full one written here would live on in every backup and
+        // export taken afterwards. Callers already trim; this is the guarantee
+        // that holds when a new one forgets to.
+        account_number:
+          accountNumberForStorage(account.accountNumber, isCardAccountType(account.type)) ?? null,
+        opening_balance_date: account.openingBalanceDate instanceof Date
+          ? account.openingBalanceDate.toISOString()
+          : account.openingBalanceDate || null,
+        notes: account.notes || null,
         icon: null,
         color: null
       };

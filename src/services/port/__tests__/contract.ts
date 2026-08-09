@@ -582,6 +582,76 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         });
       });
 
+      it('B-7: hands the whole account back to the caller that created it', async () => {
+        // The WRITE twin of the rule above, and a different promise: that one
+        // is about what the store holds afterwards, this one is about the
+        // object the create ANSWERS with. The caller puts it straight into app
+        // state without re-reading, and the account settings modal seeds its
+        // form from whatever is in state — so a field an engine drops on the
+        // way in is a field the user finds blank when they reopen the account,
+        // and writes back blank the next time they save something else.
+        //
+        // It is a rule of the seam rather than of any one engine because the
+        // two writers that used to share this job disagreed about it: one sent
+        // the bank details, the opening balance date and the notes, the other
+        // sent ten columns and none of those four.
+        //
+        // The card rule rides along here because a create is the one place it
+        // can be applied without asking anything: the account type is in the
+        // payload. Whatever a caller supplies — a form, an importer, a
+        // restored backup — four digits at most are stored, because anything
+        // stored reaches that person's backups and their JSON export.
+        const { port, read } = await harness.create({ accounts: [] });
+
+        const created = await port.createAccount({
+          name: 'Rainy day',
+          type: 'savings',
+          balance: 250.5,
+          currency: 'GBP',
+          institution: 'Made Up Bank',
+          isActive: true,
+          lastUpdated: AT('2025-01-01'),
+          openingBalance: 200,
+          openingBalanceDate: AT('2024-04-06'),
+          notes: 'Set aside for the boiler',
+          sortCode: '12-34-56',
+          accountNumber: '12345678'
+        });
+
+        expect(created.id).toBeTruthy();
+        expect(created).toMatchObject({
+          name: 'Rainy day',
+          type: 'savings',
+          balance: 250.5,
+          currency: 'GBP',
+          institution: 'Made Up Bank',
+          isActive: true,
+          openingBalance: 200,
+          notes: 'Set aside for the boiler',
+          sortCode: '12-34-56',
+          accountNumber: '12345678'
+        });
+        // A Date crosses as a Date (rule 3): this one is read straight back
+        // into a date input, and a string there shows as an empty field.
+        expect(created.openingBalanceDate).toBeInstanceOf(Date);
+        expect(created.openingBalanceDate?.toISOString()).toBe(AT('2024-04-06').toISOString());
+
+        // Card-shaped but invented. A card has no sort code at all, and its
+        // number is the last four digits and nothing else.
+        const card = await port.createAccount({
+          name: 'Spending card',
+          type: 'credit',
+          balance: 0,
+          currency: 'GBP',
+          isActive: true,
+          lastUpdated: AT('2025-01-01'),
+          accountNumber: '1111222233334444'
+        });
+
+        expect(card.accountNumber).toBe('4444');
+        expect(JSON.stringify(await read())).not.toContain('1111222233334444');
+      });
+
       it('closes an account rather than deleting it', async () => {
         // A deleted account is a hole in a ledger: its transactions would have
         // nowhere to belong. Every engine soft-closes.

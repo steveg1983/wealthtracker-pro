@@ -1,16 +1,24 @@
 
 /**
  * SIMPLE Account Service - dependency-injected variant.
+ *
+ * NOTHING IN THE APP CALLS THIS ANY MORE. Every account read and write goes
+ * through the DataPort seam, whose cloud half is accountService: the boot's
+ * account read and the account subscription moved there first, and the last
+ * caller — the signed-in create path in AppContextSupabase — followed once
+ * accountService's insert learned to send the sort code, the account number,
+ * the opening balance date and the notes that only this service used to write.
+ * What survives here is kept alive by tests: the differential mapper suite
+ * (services/__tests__/accountMapping.test.tsx) reads an account through both
+ * services to prove they cannot disagree again, and dataService's suite pins
+ * one retired behaviour against the seam that replaced it. Retiring the file
+ * means deciding what replaces those, which is a separate piece of work.
  */
 
 import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
-import {
-  accountNumberForStorage,
-  accountNumberUpdateForStorage,
-  isCardAccountType
-} from '../../utils/accountNumberInput';
+import { accountNumberUpdateForStorage } from '../../utils/accountNumberInput';
 // The one account mapper. This service used to keep its own, which knew the
 // bank details but not the low-balance alert, while accountService's knew the
 // alert but not the bank details — and the app loaded accounts through this
@@ -21,7 +29,10 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type SupabaseClientLike = typeof supabase;
 type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
-type UserIdServiceLike = Pick<typeof userIdService, 'getDatabaseUserId' | 'ensureUserExists'>;
+// `ensureUserExists` went with the create: it was that path's fallback for a
+// login whose database row had not been made yet, and it minted one with an
+// empty email. Nothing left here creates anything.
+type UserIdServiceLike = Pick<typeof userIdService, 'getDatabaseUserId'>;
 type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type DateProvider = () => Date;
 type UuidGenerator = () => string;
@@ -82,72 +93,6 @@ class SimpleAccountServiceImpl {
 
   private async persistAccounts(accounts: Account[]): Promise<void> {
     await this.storage.set(STORAGE_KEYS.ACCOUNTS, accounts);
-  }
-
-  async createAccount(
-    clerkId: string,
-    account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>
-  ): Promise<Account> {
-    const client = this.clientReady;
-    let userId = await this.userIds.getDatabaseUserId(clerkId);
-    try {
-      if (!client) {
-        throw new Error('Supabase not configured');
-      }
-
-      if (!userId) {
-        userId = await this.userIds.ensureUserExists(clerkId, '', undefined, undefined);
-        if (!userId) {
-          throw new Error('Failed to resolve database user');
-        }
-        this.logger.log('[SimpleAccountService] Created user via userIdService:', userId);
-      } else {
-        this.logger.log('[SimpleAccountService] Using existing user:', userId);
-      }
-
-      const accountData: Record<string, unknown> = {
-        user_id: userId,
-        name: account.name,
-        type: account.type === 'current' ? 'checking' : account.type,
-        currency: account.currency || 'GBP',
-        balance: account.balance || 0,
-        initial_balance: account.openingBalance || account.balance || 0,
-        is_active: account.isActive !== false,
-        institution: account.institution || null,
-        sort_code: account.sortCode || null,
-        // The last line before the insert: a credit account's number is a card
-        // number, and a full one written here would live on in every backup and
-        // export taken afterwards. Callers already trim; this is the guarantee
-        // that holds when a new one forgets to.
-        account_number:
-          accountNumberForStorage(account.accountNumber, isCardAccountType(account.type)) ?? null,
-        opening_balance_date: account.openingBalanceDate instanceof Date
-          ? account.openingBalanceDate.toISOString()
-          : account.openingBalanceDate || null,
-        notes: account.notes || null
-      };
-
-      // Remove null values to let DB defaults apply
-      const cleanData = Object.fromEntries(
-        Object.entries(accountData).filter(([, v]) => v !== null)
-      );
-
-      const { data, error } = await client
-        .from('accounts')
-        .insert(cleanData as never)
-        .select()
-        .single();
-
-      if (error || !data) {
-        this.logger.error('[SimpleAccountService] Failed to create account:', error);
-        throw error || new Error('Account creation returned no data');
-      }
-
-      return mapAccountFromDb(data);
-    } catch (error) {
-      this.logger.error('[SimpleAccountService] Error creating account:', error as Error);
-      throw error;
-    }
   }
 
   async getAccounts(userIdParam: string): Promise<Account[]> {
@@ -332,13 +277,6 @@ let defaultService = new SimpleAccountServiceImpl();
 export const configureSimpleAccountService = (options: SimpleAccountServiceOptions = {}) => {
   defaultService = new SimpleAccountServiceImpl(options);
 };
-
-export async function createAccount(
-  clerkId: string,
-  account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>
-): Promise<Account> {
-  return defaultService.createAccount(clerkId, account);
-}
 
 export function getAccounts(userId: string): Promise<Account[]> {
   return defaultService.getAccounts(userId);

@@ -33,8 +33,7 @@ describe('simpleAccountService (fallback)', () => {
   const uuid = vi.fn(() => 'generated-id');
   const now = vi.fn(() => new Date('2025-10-01T00:00:00.000Z'));
   const userId = {
-    getDatabaseUserId: vi.fn(async () => null),
-    ensureUserExists: vi.fn(async () => 'db-user')
+    getDatabaseUserId: vi.fn(async () => null)
   };
 
   beforeEach(() => {
@@ -42,10 +41,14 @@ describe('simpleAccountService (fallback)', () => {
     uuid.mockClear();
     now.mockClear();
     userId.getDatabaseUserId.mockClear();
-    userId.ensureUserExists.mockClear();
   });
 
   it('throws when Supabase client is missing', async () => {
+    // Asked of the update rather than the create, which has gone: the seam's
+    // writer sends every column this one did, so there is no second create
+    // left to keep in step. The rule being pinned is unchanged — with no
+    // client there is no cloud to write to, and a write must fail rather than
+    // divert itself into browser storage.
     const storage = createStorage([]);
     const service = createSimpleAccountService({
       supabaseClient: null,
@@ -56,7 +59,7 @@ describe('simpleAccountService (fallback)', () => {
       now
     });
 
-    await expect(service.createAccount('user_123', baseAccount()))
+    await expect(service.updateAccount('acct-1', { name: 'Renamed' }))
       .rejects.toThrow('Supabase not configured');
     expect(storage.set).not.toHaveBeenCalled();
   });
@@ -113,8 +116,8 @@ describe('simpleAccountService (fallback)', () => {
     type InjectedClient = NonNullable<SimpleAccountServiceOptions['supabaseClient']>;
 
     /**
-     * A Supabase double for both halves of a guarded write: the `select('type')`
-     * asking what kind of account this is, and the insert/update itself.
+     * A Supabase double for both halves of a guarded update: the `select('type')`
+     * asking what kind of account this is, and the update itself.
      */
     const createAccountsClient = (storedType: unknown) => {
       const writes: Record<string, unknown>[] = [];
@@ -140,10 +143,6 @@ describe('simpleAccountService (fallback)', () => {
             })
           }),
           update: (payload: Record<string, unknown>) => {
-            writes.push(payload);
-            return chain;
-          },
-          insert: (payload: Record<string, unknown>) => {
             writes.push(payload);
             return chain;
           }
@@ -196,18 +195,9 @@ describe('simpleAccountService (fallback)', () => {
       expect(writes[0]).not.toHaveProperty('account_number');
     });
 
-    it('truncates on the create path as well', async () => {
-      const { client, writes } = createAccountsClient('credit');
-      userId.getDatabaseUserId.mockResolvedValueOnce('db-user');
-
-      await cloudService(client).createAccount('user_123', {
-        ...baseAccount(),
-        type: 'credit',
-        accountNumber: pan
-      });
-
-      expect(writes[0].account_number).toBe('4444');
-      expect(JSON.stringify(writes[0])).not.toContain(pan);
-    });
+    // The create path's copy of this rule moved with the create itself: it is
+    // asserted against the surviving writer in accountService.test.ts
+    // ('B-7: cuts a card number to its last four on the way in'), which is the
+    // insert the app actually makes now.
   });
 });
