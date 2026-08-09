@@ -1,8 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
-import { transactionImportService } from '../services/transactionImportService';
+import { dataPort, type BulkImportResult } from '../services/port';
 import type { Account } from '../types';
 import type { QIFParseResult } from '../services/qifImportService';
 import { Modal, ModalBody } from './common/Modal';
@@ -39,9 +38,6 @@ interface QIFImportModalProps {
 
 type QIFImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
 
-/** How often the row-at-a-time local write refreshes the count on screen. */
-const PROGRESS_EVERY = 25;
-
 type ImportOutcome =
   | {
       success: true;
@@ -60,8 +56,7 @@ type ImportOutcome =
     };
 
 export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImportModalProps): React.JSX.Element {
-  const { accounts, transactions, categories, addTransaction, refreshAccountsAndTransactions, isUsingSupabase } = useApp();
-  const { getToken } = useAuth();
+  const { accounts, transactions, categories, refreshAccountsAndTransactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -69,7 +64,9 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
    * What the WRITE has confirmed so far, never what was hoped for. `total` is
    * set the moment the rows to write are known (after duplicates are dropped),
    * so the dialog can name the size of the job before the first row lands;
-   * `inserted` only ever moves on a report from the writing path.
+   * `inserted` only ever moves on a report from the writing path (chunk by
+   * chunk in the cloud; a device write is one atomic transaction and reports
+   * nothing until it is done).
    */
   const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
   const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
@@ -178,48 +175,54 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
         }
       );
 
-      let insertedCount = result.transactions.length;
-      let complete = true;
-
       // The size of the job, known now that duplicates have been dropped and
       // before a single row is written. Nothing is claimed as inserted yet.
       if (isMountedRef.current) {
         setProgress({ inserted: 0, total: result.transactions.length });
       }
 
-      if (isUsingSupabase) {
-        // Cloud: write via the chunked, awaited bulk endpoint (one atomic RPC
-        // per chunk) so a large statement can't flood the API and lose rows.
-        transactionImportService.setAuthTokenProvider(() => getToken());
-        const bulk = await transactionImportService.importInChunks(
-          selectedAccountId,
-          result.transactions,
-          // Fires between chunks, so it can also land after unmount.
-          { onProgress: p => { if (isMountedRef.current) setProgress(p); } }
+      // WRITE THE WHOLE FILE AS ONE UNIT.
+      //
+      // This dialog used to choose its own writer off `isUsingSupabase`: the
+      // chunked cloud poster, or `for (…) await addTransaction(row)` — a
+      // separate trip through the context for every row in the file. That loop
+      // is why a QIF that failed on row 400 of 900 left 399 rows in the
+      // register with nothing on screen but "Import Failed": there was no unit
+      // for the import to be all of, so it could be part of one.
+      //
+      // One call, through the seam, whichever store this app is holding. Both
+      // engines behind it are all-or-nothing per unit and both report what the
+      // write itself confirmed:
+      //   cloud — /api/data/import-transactions, one `import_transactions_atomic`
+      //           per chunk, each its own database transaction;
+      //   device — one IndexedDB `setMany` covering the rows AND the balance.
+      //
+      // `source: 'file'` is a statement about QIF rather than a default taken
+      // for want of anything better: unlike an OFX statement, a QIF row carries
+      // no id of its own, so there is nothing a store could key it by to
+      // recognise a second copy. Importing the same file twice imports it
+      // twice, and the duplicate check above the button is the only thing
+      // between the user and a doubled month.
+      const outcome: BulkImportResult = await dataPort.importTransactions(
+        selectedAccountId,
+        result.transactions,
+        {
+          source: 'file',
+          // Fires between chunks where the store commits in chunks; a single
+          // atomic write has no honest fraction and reports nothing until it
+          // is done. Either way it can land after unmount.
+          onProgress: p => { if (isMountedRef.current) setProgress(p); }
+        }
+      );
+
+      // Re-read from the store rather than trusting the drafts: after this the
+      // register shows what was actually written, including after a partial.
+      await refreshAccountsAndTransactions();
+
+      if (!outcome.complete) {
+        throw new Error(
+          `Imported ${outcome.inserted} of ${outcome.total} transactions before an error stopped the import.`
         );
-        insertedCount = bulk.inserted;
-        complete = bulk.complete;
-        // Pull the freshly-inserted rows + updated balance into the app.
-        await refreshAccountsAndTransactions();
-        if (!complete) {
-          throw new Error(
-            `Imported ${bulk.inserted} of ${bulk.total} transactions before an error stopped the import.`
-          );
-        }
-      } else {
-        // Local/demo mode: no cloud endpoint — write sequentially and awaited.
-        // Every row is its own write here, so the count on screen is a real
-        // count of rows in the register, not an estimate.
-        let written = 0;
-        for (const transaction of result.transactions) {
-          await addTransaction(transaction);
-          written += 1;
-          // Not per row: a 10,000-row file would be 10,000 renders, and the
-          // bar cannot show more steps than it has pixels anyway.
-          if (isMountedRef.current && (written % PROGRESS_EVERY === 0 || written === result.transactions.length)) {
-            setProgress({ inserted: written, total: result.transactions.length });
-          }
-        }
       }
 
       const account = accounts.find(a => a.id === selectedAccountId) ?? null;
@@ -227,12 +230,13 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
       if (!isMountedRef.current) return;
       setImportResult({
         success: true,
-        imported: insertedCount,
+        // What the write confirmed, never the count the file offered.
+        imported: outcome.inserted,
         duplicates: result.duplicates,
         invalidDates: result.invalidDates,
         matchedCategories: result.matchedCategories,
         unmatchedCategories: result.unmatchedCategories,
-        complete,
+        complete: outcome.complete,
         account
       });
     } catch (error) {
@@ -249,7 +253,7 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
         setProgress(null);
       }
     }
-  }, [accounts, addTransaction, categories, file, getToken, isUsingSupabase, parseResult, refreshAccountsAndTransactions, selectedAccountId, skipDuplicates, transactions, logger]);
+  }, [accounts, categories, file, parseResult, refreshAccountsAndTransactions, selectedAccountId, skipDuplicates, transactions, logger]);
   
   // Reset modal
   const resetModal = useCallback(() => {

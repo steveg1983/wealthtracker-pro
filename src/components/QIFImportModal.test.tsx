@@ -1,10 +1,13 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import QIFImportModal from './QIFImportModal';
 import { qifImportService } from '../services/qifImportService';
 import type { QIFParseResult } from '../services/qifImportService';
+import { dataPort } from '../services/port';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
+
+type QIFImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -53,7 +56,7 @@ vi.mock('./loading/LoadingState', () => ({
 }));
 
 // Mock AppContext
-const mockAddTransaction = vi.fn();
+const mockRefreshAccountsAndTransactions = vi.fn().mockResolvedValue(undefined);
 const mockAccounts = [
   { id: 'acc1', name: 'Current Account', type: 'checking' },
   { id: 'acc2', name: 'Savings Account', type: 'savings' },
@@ -83,7 +86,7 @@ vi.mock('../contexts/AppContextSupabase', () => ({
     accounts: mockAccounts,
     transactions: mockTransactions,
     categories: mockCategories,
-    addTransaction: mockAddTransaction
+    refreshAccountsAndTransactions: mockRefreshAccountsAndTransactions
   })
 }));
 
@@ -91,6 +94,23 @@ vi.mock('../contexts/AppContextSupabase', () => ({
 vi.mock('../services/qifImportService', () => ({
   qifImportService: {
     parseQIF: vi.fn(),
+    importTransactions: vi.fn()
+  }
+}));
+
+/**
+ * THE WRITE, which is now one door rather than two.
+ *
+ * The dialog used to choose between the chunked cloud poster and a per-row
+ * loop through the context itself, off `isUsingSupabase`, and this file mocked
+ * both. It asks the seam once now; which store answers is the seam's business
+ * and is tested where that decision lives (dataService.test.ts). What is
+ * mocked here is the ANSWER, because what this file tests is what the modal
+ * REPORTS about a write — and the only way to test that honestly is to control
+ * what the write says it did.
+ */
+vi.mock('../services/port', () => ({
+  dataPort: {
     importTransactions: vi.fn()
   }
 }));
@@ -123,6 +143,16 @@ describe('QIFImportModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: the write does what it was asked. Tests that care about a
+    // failing or a partial write override this.
+    vi.mocked(dataPort.importTransactions).mockImplementation(
+      async (_accountId, rows) => ({
+        inserted: rows.length,
+        alreadyPresent: 0,
+        total: rows.length,
+        complete: true
+      })
+    );
   });
 
   /**
@@ -499,8 +529,12 @@ describe('QIFImportModal', () => {
         expect(screen.getByText('Imported 1 transactions to Current Account')).toBeInTheDocument();
         expect(screen.getByTestId('check-icon')).toBeInTheDocument();
       });
-      
-      expect(mockAddTransaction).toHaveBeenCalledWith({ id: 'trans1', amount: 100, description: 'Test' });
+
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
+        'acc1',
+        [{ id: 'trans1', amount: 100, description: 'Test' }],
+        { source: 'file', onProgress: expect.any(Function) }
+      );
     });
 
     /**
@@ -522,7 +556,10 @@ describe('QIFImportModal', () => {
         });
         let release: (() => void) | null = null;
         const finished = new Promise<void>(resolve => { release = resolve; });
-        mockAddTransaction.mockImplementationOnce(async () => { await finished; });
+        vi.mocked(dataPort.importTransactions).mockImplementationOnce(async (_accountId, rows) => {
+          await finished;
+          return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+        });
         return { release: () => release?.() };
       };
 
@@ -562,7 +599,7 @@ describe('QIFImportModal', () => {
           expect(screen.getByText('Import Successful!')).toBeInTheDocument();
         });
         expect(qifImportService.importTransactions).toHaveBeenCalledTimes(1);
-        expect(mockAddTransaction).toHaveBeenCalledTimes(1);
+        expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -671,6 +708,247 @@ describe('QIFImportModal', () => {
         const callArgs = vi.mocked(qifImportService.importTransactions).mock.calls[0];
         expect(callArgs[1]).toBe('acc1'); // Selected account ID
         expect(callArgs[2]).toEqual([]); // Empty array when skip duplicates is off
+      });
+    });
+  });
+
+  /**
+   * THE WRITE — what reaches a store when Import is pressed, and what the
+   * dialog then tells the user about it.
+   *
+   * These tests were written against the two writers this dialog used to
+   * choose between itself, off `isUsingSupabase`: the chunked cloud poster,
+   * and a loop handing the context one row at a time. They are now one set,
+   * because there is now one call. The pair they replace is the change:
+   *
+   *   was — 'writes the file a row at a time, one context write per row'
+   *         (three rows, three separate writes through the context) and
+   *         'posts the whole file to the chunked client, holding its own
+   *         token' (the same file, one post, a Clerk token handed over by the
+   *         dialog);
+   *   is  — one call to the seam, with the same rows, either way.
+   *
+   *   was — 'leaves the rows written before a failure in the register'
+   *         (row three refuses; rows one and two stay in, and the screen says
+   *         only "Import Failed");
+   *   is  — 'nothing half-lands' (the store answers 0 of 3, and 0 is what is
+   *         in the register).
+   */
+  describe('The write', () => {
+    const draft = (
+      description: string,
+      amount: number,
+      day: string
+    ): QIFImportResult['transactions'][number] => ({
+      date: new Date(day),
+      description,
+      amount,
+      type: amount < 0 ? 'expense' : 'income',
+      accountId: 'acc1',
+      category: '',
+      cleared: false,
+      notes: '',
+      isRecurring: false
+    });
+
+    /** Three invented rows — a file's worth, in file order. */
+    const threeRows: QIFImportResult['transactions'] = [
+      draft('ACME SUPPLIES', -18.4, '2024-03-01'),
+      draft('RIVERSIDE CAFE', -6.25, '2024-03-02'),
+      draft('MONTHLY TRANSFER IN', 250, '2024-03-03')
+    ];
+
+    const importResultOf = (
+      transactions: QIFImportResult['transactions'],
+      overrides: Partial<QIFImportResult> = {}
+    ): QIFImportResult => ({
+      transactions,
+      duplicates: 0,
+      newTransactions: transactions.length,
+      invalidDates: 0,
+      matchedCategories: 0,
+      unmatchedCategories: [],
+      ...overrides
+    });
+
+    /** QIF rows for the preview — only their count is read by these tests. */
+    const parseRows = (count: number): QIFParseResult['transactions'] =>
+      Array.from({ length: count }, (_, index) => ({
+        date: `2024-03-${String(index + 1).padStart(2, '0')}`,
+        amount: -10,
+        payee: `PAYEE ${index + 1}`
+      }));
+
+    // These use mockReturnValue/mockResolvedValue rather than the ...Once form,
+    // and an implementation survives vi.clearAllMocks() — so it is dropped with
+    // the test that made it, or the next describe inherits this file's rows.
+    afterEach(() => {
+      vi.mocked(qifImportService.parseQIF).mockReset();
+      vi.mocked(qifImportService.importTransactions).mockReset();
+    });
+
+    /** Upload a file, choose the destination, press Import. */
+    const pressImport = async (
+      transactions: QIFImportResult['transactions'],
+      overrides: Partial<QIFImportResult> = {}
+    ): Promise<void> => {
+      vi.mocked(qifImportService.parseQIF).mockReturnValue(
+        createMockParseResult({ transactions: parseRows(transactions.length) })
+      );
+      vi.mocked(qifImportService.importTransactions).mockResolvedValue(
+        importResultOf(transactions, overrides)
+      );
+
+      render(<QIFImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('qif-upload')!, {
+        target: { files: [new File(['QIF content'], 'quicken.qif', { type: 'application/qif' })] }
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('loading-button')).toBeInTheDocument();
+      });
+      chooseAccount(CURRENT_ACCOUNT);
+      fireEvent.click(screen.getByTestId('loading-button'));
+    };
+
+    it('hands the whole file to the seam in one call', async () => {
+      await pressImport(threeRows);
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+
+      // One call for the file, not one per row, into the account the user
+      // picked — a QIF names no account, so that choice is the whole
+      // destination and nothing else in the file can overrule it.
+      expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
+        'acc1',
+        threeRows,
+        // 'file', not 'ofx': a QIF row carries no id of its own, so no store
+        // can recognise a second copy of it. Saying so is what stops one from
+        // behaving as though it could.
+        { source: 'file', onProgress: expect.any(Function) }
+      );
+      expect(screen.getByText('Imported 3 transactions to Current Account')).toBeInTheDocument();
+    });
+
+    it('re-reads the register, so the screen shows what actually landed', async () => {
+      await pressImport(threeRows);
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+      expect(mockRefreshAccountsAndTransactions).toHaveBeenCalled();
+    });
+
+    it('reports what the write confirmed, not what the file offered', async () => {
+      // The file offers three rows and the store confirms three. The partial
+      // below is the same file with a different answer, and a different count.
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
+        inserted: 3,
+        alreadyPresent: 0,
+        total: 3,
+        complete: true
+      });
+
+      await pressImport(threeRows);
+
+      await waitFor(() => {
+        expect(screen.getByText('Imported 3 transactions to Current Account')).toBeInTheDocument();
+      });
+    });
+
+    it('says how far it got when the write stops partway', async () => {
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
+        inserted: 2,
+        alreadyPresent: 0,
+        total: 3,
+        complete: false,
+        error: 'QuotaExceededError'
+      });
+
+      await pressImport(threeRows);
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Failed')).toBeInTheDocument();
+      });
+      expect(
+        screen.getByText('Imported 2 of 3 transactions before an error stopped the import.')
+      ).toBeInTheDocument();
+      // Whatever did land is read back before anything is said about it.
+      expect(mockRefreshAccountsAndTransactions).toHaveBeenCalled();
+    });
+
+    it('nothing half-lands: a device write that fails wrote no rows at all', async () => {
+      // THE DECLARED CHANGE. This used to be a loop, so a file that failed on
+      // its third row left the first two in the register with nothing on
+      // screen but "Import Failed". A device write is one transaction: its
+      // answer is 0 or all of them, and 0 is what the user is told.
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
+        inserted: 0,
+        alreadyPresent: 0,
+        total: 3,
+        complete: false,
+        error: 'This device could not store the import.'
+      });
+
+      await pressImport(threeRows);
+
+      await waitFor(() => {
+        expect(screen.getByText('Import Failed')).toBeInTheDocument();
+      });
+      expect(
+        screen.getByText('Imported 0 of 3 transactions before an error stopped the import.')
+      ).toBeInTheDocument();
+    });
+
+    it('counts the rows as a chunked store reports them', async () => {
+      // A store that commits in pieces says so between them; the dialog puts
+      // those figures on screen as they arrive rather than jumping from
+      // nothing to done. A store whose write is one atomic transaction reports
+      // nothing, and the bar stays honestly indeterminate — the test below.
+      let release: (() => void) | null = null;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      vi.mocked(dataPort.importTransactions).mockImplementationOnce(
+        async (_accountId, rows, options) => {
+          options?.onProgress?.({ inserted: 2, total: rows.length });
+          await held;
+          return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+        }
+      );
+
+      await pressImport(threeRows);
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent('Importing… 2 of 3 transactions');
+      });
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '67');
+
+      release?.();
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
+    });
+
+    it('names the size of the job while a silent store is writing', async () => {
+      // Nothing is claimed as inserted until a write says so. "0 of 3" beside
+      // an empty bar reads as stuck, which is what the bar exists to remove.
+      let release: (() => void) | null = null;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      vi.mocked(dataPort.importTransactions).mockImplementationOnce(async (_accountId, rows) => {
+        await held;
+        return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+      });
+
+      await pressImport(threeRows);
+
+      const status = await screen.findByRole('status');
+      expect(status).toHaveTextContent('Importing 3 transactions…');
+      expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow');
+
+      release?.();
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
       });
     });
   });
