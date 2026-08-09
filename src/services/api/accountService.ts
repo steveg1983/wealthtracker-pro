@@ -407,7 +407,19 @@ class AccountServiceImpl {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      // removeChannel, not subscription.unsubscribe(). This is the one
+      // behaviour worth keeping from the sibling account subscription the
+      // context used to open instead of this one.
+      //
+      // What actually differs, in @supabase/realtime-js 2.77.0: removeChannel
+      // awaits the same leave push and then, if this was the client's LAST
+      // channel, disconnects the socket (RealtimeClient.removeChannel). A bare
+      // unsubscribe never disconnects, so a sign-out or an unmount leaves an
+      // idle websocket and its heartbeat timer running for the rest of the
+      // session. Deregistration is NOT the difference: the channel's own close
+      // hook calls socket._remove on either path — and on neither path when the
+      // leave push errors, which is a leak this change does not claim to fix.
+      client.removeChannel(subscription);
     };
   }
 }

@@ -589,10 +589,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }, 200); // 200ms debounce
           };
           
-          // Use the simple account service for real-time updates
-          const unsubscribeAccountsPromise = SimpleAccountService.subscribeToAccountChanges(
-            user.id,
-            async (payload) => {
+          // ONE subscribe call and ONE handle: both channels — accounts and
+          // transactions — now come through the same door.
+          //
+          // The account channel used to be opened through a second service, and
+          // that service's version of the same subscription differed in ways
+          // that are declared here rather than discovered later:
+          //
+          //  · the channel is named `accounts:<id>`, not `accounts-<id>`;
+          //  · nothing logs the subscribe status any more. The retired call
+          //    passed a status callback that logged every transition and every
+          //    subscribe error; this one passes none, so a channel that fails to
+          //    join now does so silently. That is the one thing this change
+          //    costs, and it is a declared cost rather than an oversight;
+          //  · the await disappears. The retired call was async because it
+          //    resolved the login's database id itself before opening anything;
+          //    the seam uses the id the boot already resolved, so the channel
+          //    opens synchronously and there is no window between asking for it
+          //    and holding its handle;
+          //  · its "no database user for this Clerk id" warning goes with it —
+          //    behind this gate an id is resolved by definition;
+          //  · one registerTeardown instead of two, because there is one handle.
+          //
+          // What does NOT change: both callbacks below, the debounce above, and
+          // the recent-local-write suppression are the code that was already
+          // here, in the order it was already in.
+          const unsubscribeData = dataPort.subscribeToUpdates({
+            onAccountUpdate: async (payload) => {
               const realtimePayload = payload as { eventType: string; new?: { is_active?: boolean } };
               appLogger.debug('Real-time account update received', realtimePayload);
               appLogger.debug('Real-time account update type', { eventType: realtimePayload.eventType });
@@ -610,8 +633,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
               debouncedUpdate('account', async () => {
                 appLogger.debug('Reloading accounts after real-time update');
-                // Reload accounts when any change happens
-                const updatedAccounts = await SimpleAccountService.getAccounts(user.id);
+                // Reload accounts when any change happens — through the seam.
+                //
+                // The same question, asked the same way: the port's cloud branch
+                // runs the same SELECT on `accounts` (user_id, is_active, ordered
+                // by created_at) through the same mapAccountFromDb, and falls back
+                // to the same stored list under the same storage key. What changes
+                // is WHOSE id it asks about.
+                //
+                // The retired call carried this login's Clerk id and re-resolved
+                // it to a database id on every event; the port reads the id the
+                // boot already resolved. Behind the gate this whole block sits
+                // behind — `isUsingSupabase()` is exactly "a database id is
+                // resolved AND Supabase is configured" — that id is warm, so on
+                // the path that matters the two agree.
+                //
+                // Where they stop agreeing is a DECLARED IMPROVEMENT rather than
+                // a preserved behaviour: if the id cache is cleared between the
+                // event and this reload (sign-out, or a switch of login), the old
+                // call would re-resolve the CAPTURED Clerk id and paint the
+                // previous login's accounts onto whatever is on screen now. The
+                // port has no captured id to re-resolve — it answers [] while a
+                // session is still connecting, and never reaches for another
+                // login's rows.
+                const updatedAccounts = await dataPort.getAccounts();
                 appLogger.debug('Accounts reloaded', { count: updatedAccounts.length });
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
@@ -628,16 +673,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   appLogger.error('Failed to refresh transaction splits', splitError);
                 }
               });
-            }
-          );
-          
-          // Wait for the subscription to be set up
-          const unsubscribeAccounts = await unsubscribeAccountsPromise;
-
-          // Subscribe to transaction updates only (accounts are handled above by SimpleAccountService)
-          const unsubscribeData = dataPort.subscribeToUpdates({
-            // Don't subscribe to accounts here - already handled by SimpleAccountService above
-            // This prevents duplicate subscriptions and duplicate real-time events
+            },
             onTransactionUpdate: async (payload) => {
               appLogger.debug('Transaction update received', payload);
               
@@ -663,11 +699,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
 
           // Handed to the effect rather than returned from here: this function
-          // is async, so a returned cleanup only ever reaches a promise. Both
-          // are registered as they become available — the account handle is
-          // awaited above, and if the effect was cleaned up during that await
-          // it is closed on arrival instead of being stored.
-          registerTeardown(unsubscribeAccounts);
+          // is async, so a returned cleanup only ever reaches a promise. The
+          // race it guards is still real even though this handle now arrives
+          // synchronously — everything ABOVE it is awaited, so a cleanup can
+          // still fire while the boot is in flight, and a handle that lands
+          // afterwards is closed on arrival instead of being stored.
           registerTeardown(unsubscribeData);
         }
       } catch (error) {

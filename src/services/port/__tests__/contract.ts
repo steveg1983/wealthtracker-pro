@@ -180,6 +180,41 @@ const PREPARE_CATEGORIES: Record<DataPortEngine, { describes: string; persists: 
   'local-core': { describes: 'seeds the defaults into the store', persists: true }
 };
 
+/**
+ * B-8 — what a subscription promises.
+ *
+ * `subscribeToUpdates` is a watch, not a read: the caller hands over callbacks
+ * and gets a handle back. WHAT arrives through those callbacks is the part the
+ * engines cannot agree on, so it is declared here rather than asserted equal.
+ *
+ * `delivers: 'never'` is not a gap to be filled in later. An engine with no
+ * other device to hear from has nothing to say: browser storage is one store in
+ * one tab, and a local core is one file on one machine. Its handle is a no-op,
+ * and the caller already treats a silent channel as normal.
+ *
+ * What EVERY engine is held to is in the test below, because the boot's cleanup
+ * depends on it: the handle is a function, calling it twice is safe (the
+ * cleanup drains its handles, and a fast user switch can reach the same one
+ * again), and once it has been called nothing further arrives.
+ */
+const SUBSCRIPTION_DELIVERY: Record<
+  DataPortEngine,
+  { describes: string; delivers: 'never' | 'at-least-once' }
+> = {
+  // One store, one tab. Nothing to hear from, so nothing ever fires.
+  'browser-storage': { describes: 'never delivers a change', delivers: 'never' },
+  // A realtime channel: an event may arrive more than once, events may arrive
+  // out of order, and an event may be THIS client's own write coming back —
+  // which is why the provider suppresses reloads for a moment after a local
+  // write and debounces whatever is left.
+  supabase: {
+    describes: 'delivers at least once, unordered, and may echo this client’s own writes',
+    delivers: 'at-least-once'
+  },
+  // One file on one machine: same silence, same reason.
+  'local-core': { describes: 'never delivers a change', delivers: 'never' }
+};
+
 // ── Fixture builders ────────────────────────────────────────────────────────
 // Invented data throughout: made-up account names, made-up amounts.
 
@@ -188,6 +223,13 @@ const ACCOUNT_B = 'acct-b';
 const ACCOUNT_C = 'acct-c';
 
 const AT = (day: string): Date => new Date(`${day}T12:00:00.000Z`);
+
+/**
+ * Let anything a write scheduled actually run. One macrotask: enough for a
+ * callback an engine dispatched for itself, deliberately not enough to wait on
+ * a network. See B-8 for what that buys and what it does not.
+ */
+const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0));
 
 const anAccount = (id: string, name: string, rest: Partial<Account> = {}): Account => ({
   id,
@@ -1185,6 +1227,61 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         await port.setTransactionArchived('txn-1', false);
         state = await read();
         expect(transactionOf(state, 'txn-1')?.archived).toBe(false);
+      });
+    });
+
+    describe('watching for changes made elsewhere', () => {
+      it(`B-8: the handle is callable, idempotent and final — and this engine ${SUBSCRIPTION_DELIVERY[engine].describes}`, async () => {
+        const { port } = await harness.create({ accounts: threeAccounts() });
+
+        const heard: string[] = [];
+        const stop = port.subscribeToUpdates({
+          onAccountUpdate: () => heard.push('account'),
+          onTransactionUpdate: () => heard.push('transaction')
+        });
+
+        // The caller stores this and calls it from a React cleanup. A handle
+        // that is not a function takes the whole provider down on unmount.
+        expect(typeof stop).toBe('function');
+
+        await port.createTransaction({
+          accountId: ACCOUNT_A,
+          amount: -12.5,
+          date: AT('2025-01-12'),
+          description: 'Heard or not',
+          category: 'cat-everyday',
+          type: 'expense'
+        });
+        await settle();
+
+        // An engine that never delivers must stay silent through a write it
+        // made itself. One that does deliver may say anything at all — twice,
+        // late, or in the wrong order — so nothing is asserted about it here.
+        if (SUBSCRIPTION_DELIVERY[engine].delivers === 'never') {
+          expect(heard).toEqual([]);
+        }
+
+        // Idempotent, and said twice on purpose: the boot's cleanup drains its
+        // handles, and a fast user switch can reach the same one again.
+        stop();
+        stop();
+
+        // Final. Whatever this engine had to say, it stops saying it. An engine
+        // that really delivers needs a wider window than `settle` to make this
+        // assertion mean anything — widening it is the harness's business, and
+        // the harness that delivers does not exist yet.
+        const heardBefore = heard.length;
+        await port.createTransaction({
+          accountId: ACCOUNT_A,
+          amount: -3.25,
+          date: AT('2025-01-13'),
+          description: 'After the handle was used',
+          category: 'cat-everyday',
+          type: 'expense'
+        });
+        await settle();
+
+        expect(heard.length).toBe(heardBefore);
       });
     });
 

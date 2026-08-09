@@ -1,23 +1,33 @@
 /**
- * The boot's realtime channels, and who closes them.
+ * The boot's realtime subscription, and who closes it.
  *
- * The provider opens two subscriptions at the end of a signed-in boot — the
- * account channel (SimpleAccountService) and the transaction channel
- * (DataService.subscribeToUpdates). They are opened inside an ASYNC function,
- * and React only accepts a cleanup returned SYNCHRONOUSLY from the effect
- * body, so the cleanup that used to be returned from inside that function went
- * into a promise nobody read. Nothing ever closed them: switching account left
- * the previous login's channels live, still calling setAccounts on a provider
- * that had moved on, and every re-mount added another pair.
+ * The provider opens ONE subscription at the end of a signed-in boot —
+ * `dataPort.subscribeToUpdates`, carrying both the account and the transaction
+ * callbacks behind a single handle. It used to open two, through two different
+ * services, and close them through two handles; the account half has been
+ * folded into the same call, so "how many handles are there" is itself part of
+ * what this suite pins.
  *
- * Two things are pinned here, and they are the two the fix has to get right:
+ * It is opened inside an ASYNC function, and React only accepts a cleanup
+ * returned SYNCHRONOUSLY from the effect body, so the cleanup that used to be
+ * returned from inside that function went into a promise nobody read. Nothing
+ * ever closed it: switching account left the previous login's channels live,
+ * still calling setAccounts on a provider that had moved on, and every re-mount
+ * added another one.
  *
- *  1. A user change closes the first login's channels EXACTLY once — not zero
- *     times (the leak), not twice (a double-invoked handle is a different bug
- *     wearing the same clothes).
+ * Three things are pinned here:
+ *
+ *  1. A signed-in boot subscribes ONCE, with both callbacks, and a user change
+ *     closes the first login's handle EXACTLY once — not zero times (the leak),
+ *     not twice (a double-invoked handle is a different bug wearing the same
+ *     clothes).
  *  2. A cleanup that fires while the boot is still in flight has no handle to
  *     call yet. It must not throw, and the subscription that lands a moment
- *     later must be closed on arrival rather than left open forever.
+ *     later must be closed on arrival rather than left open forever. The handle
+ *     arrives synchronously now, but everything BEFORE it in the boot is
+ *     awaited, so the race is exactly as reachable as it was.
+ *  3. An account change reloads the accounts through the seam — never through
+ *     the account service the subscription used to come from.
  *
  * The data layer is stubbed the way the sibling suites stub it (in-memory
  * storage, local-only ids, no network). Only `isUsingSupabase` is forced on,
@@ -28,30 +38,13 @@ import React, { ReactNode } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { Account } from '../../types';
+import type { AccountBalanceSnapshot } from '../../services/port';
 
 // Restore the live module (setup.ts registers a global mock for it).
 vi.unmock('../AppContextSupabase');
 
-/** The handle the app is given to close a channel with. */
+/** The handle the app is given to close its subscription with. */
 type Unsubscribe = () => void;
-
-/** An account channel the app asked for, plus the test's grip on it. */
-interface OpenedAccountChannel {
-  /** Which login the channel belongs to — the leak is invisible without this. */
-  clerkId: string;
-  /** How many times the app has closed it. Exactly-once lives here. */
-  unsubscribeCalls: number;
-  /**
-   * Hands the app its unsubscribe handle, i.e. resolves the subscribe promise.
-   * Held back deliberately in the race test so the boot parks mid-flight.
-   */
-  open: () => void;
-}
-
-/** A transaction channel, which is handed over synchronously. */
-interface OpenedDataChannel {
-  unsubscribeCalls: number;
-}
 
 // Two logins, each a stable singleton: the boot effect depends on `user`, so a
 // fresh object per render would re-fire it forever.
@@ -77,34 +70,23 @@ vi.mock('@clerk/clerk-react', () => ({
   useSession: () => ({ session: null }),
 }));
 
-const accountChannels = vi.hoisted(() => ({
-  opened: [] as OpenedAccountChannel[],
-  /** False parks every subscribe promise so a boot can be caught mid-flight. */
-  autoOpen: true,
+/**
+ * The account service's own account read, counted rather than merely stubbed:
+ * half of "the reload goes through the seam" is proving this one was not
+ * called.
+ *
+ * `subscribeToAccountChanges` is deliberately NOT stubbed here any more. The
+ * provider has no business calling it, and a mocked module that does not export
+ * it fails loudly if that ever changes back.
+ */
+const simpleAccounts = vi.hoisted(() => ({
+  // Type-only reference to `Account`: annotations are erased, so naming the
+  // app's own type here costs nothing at the hoisted call site.
+  getAccounts: vi.fn(async (): Promise<Account[]> => []),
 }));
 
 vi.mock('../../services/api/simpleAccountService', () => ({
-  getAccounts: async (): Promise<Account[]> => [],
-  subscribeToAccountChanges: (
-    clerkId: string,
-    _onChange: (payload: unknown) => void
-  ): Promise<Unsubscribe> => {
-    let handOver!: (unsubscribe: Unsubscribe) => void;
-    const subscribed = new Promise<Unsubscribe>(resolve => {
-      handOver = resolve;
-    });
-    const channel: OpenedAccountChannel = {
-      clerkId,
-      unsubscribeCalls: 0,
-      open: () =>
-        handOver(() => {
-          channel.unsubscribeCalls += 1;
-        }),
-    };
-    accountChannels.opened.push(channel);
-    if (accountChannels.autoOpen) channel.open();
-    return subscribed;
-  },
+  getAccounts: simpleAccounts.getAccounts,
 }));
 
 // The in-memory store behind the local fallback.
@@ -166,6 +148,24 @@ vi.mock('../../services/autoSyncService', () => ({
 import { AppProvider, useApp } from '../AppContextSupabase';
 import { DataService } from '../../services/api/dataService';
 
+/** Exactly what the provider may pass — no second copy of the shape. */
+type UpdateCallbacks = Parameters<typeof DataService.subscribeToUpdates>[0];
+
+/** A subscription the app asked for, plus the test's grip on it. */
+interface OpenedSubscription {
+  /**
+   * Which login's boot opened it. The seam resolves its own owner, so the
+   * subscription no longer carries a login the way the retired call did — the
+   * test records the login whose boot asked for it, which is what that
+   * assertion always meant. Without it the leak is invisible.
+   */
+  openedFor: string;
+  /** What the provider subscribed with — one call must carry both. */
+  callbacks: UpdateCallbacks;
+  /** How many times the app has closed it. Exactly-once lives here. */
+  unsubscribeCalls: number;
+}
+
 const localUserIds = {
   ensureUserExists: vi.fn(),
   getCurrentDatabaseUserId: () => null,
@@ -174,14 +174,13 @@ const localUserIds = {
 
 const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
 
-describe('the boot’s realtime channels', () => {
-  const dataChannels: OpenedDataChannel[] = [];
+describe('the boot’s realtime subscription', () => {
+  const subscriptions: OpenedSubscription[] = [];
 
   beforeEach(() => {
     memoryStore.clear();
-    accountChannels.opened.length = 0;
-    accountChannels.autoOpen = true;
-    dataChannels.length = 0;
+    subscriptions.length = 0;
+    simpleAccounts.getAccounts.mockClear();
     clerk.current = { user: clerk.userA, isLoaded: true };
 
     // Local-only data layer: storage-backed reads, no cloud client anywhere.
@@ -204,13 +203,19 @@ describe('the boot’s realtime channels', () => {
     // rest of the boot on the network for no gain to what is under test.
     vi.spyOn(DataService, 'isUsingSupabase').mockReturnValue(true);
 
-    vi.spyOn(DataService, 'subscribeToUpdates').mockImplementation((): Unsubscribe => {
-      const channel: OpenedDataChannel = { unsubscribeCalls: 0 };
-      dataChannels.push(channel);
-      return () => {
-        channel.unsubscribeCalls += 1;
-      };
-    });
+    vi.spyOn(DataService, 'subscribeToUpdates').mockImplementation(
+      (callbacks): Unsubscribe => {
+        const subscription: OpenedSubscription = {
+          openedFor: clerk.current.user.id,
+          callbacks,
+          unsubscribeCalls: 0,
+        };
+        subscriptions.push(subscription);
+        return () => {
+          subscription.unsubscribeCalls += 1;
+        };
+      }
+    );
   });
 
   afterEach(() => {
@@ -219,68 +224,103 @@ describe('the boot’s realtime channels', () => {
     vi.restoreAllMocks();
   });
 
-  it('closes the first login’s channels exactly once when the user changes', async () => {
+  it('subscribes once, and closes the first login’s handle exactly once when the user changes', async () => {
     const { rerender, unmount } = renderHook(() => useApp(), { wrapper });
 
-    // Both channels are open for the first login. Waiting on the transaction
-    // channel is enough: it is created last, and the handles are registered in
-    // the same synchronous step.
-    await waitFor(() => expect(dataChannels).toHaveLength(1));
-    const [firstAccountChannel] = accountChannels.opened;
-    const [firstDataChannel] = dataChannels;
-    expect(firstAccountChannel.clerkId).toBe('clerk-user-a');
-    expect(firstAccountChannel.unsubscribeCalls).toBe(0);
+    await waitFor(() => expect(subscriptions).toHaveLength(1));
+    const [first] = subscriptions;
+    expect(first.openedFor).toBe('clerk-user-a');
+    expect(first.unsubscribeCalls).toBe(0);
+
+    // ONE call carrying BOTH channels. Two calls would be the arrangement this
+    // slice removed: two handles, two teardowns, and two chances to leak one.
+    expect(typeof first.callbacks.onAccountUpdate).toBe('function');
+    expect(typeof first.callbacks.onTransactionUpdate).toBe('function');
 
     // Somebody else signs in. React re-runs the effect, and its cleanup is the
     // ONLY thing that can close what the previous boot opened.
     clerk.current = { user: clerk.userB, isLoaded: true };
     rerender();
 
-    await waitFor(() => expect(dataChannels).toHaveLength(2));
-    expect(accountChannels.opened[1].clerkId).toBe('clerk-user-b');
+    await waitFor(() => expect(subscriptions).toHaveLength(2));
+    expect(subscriptions[1].openedFor).toBe('clerk-user-b');
 
-    // The leak, stated: without a cleanup these are 0 and the first login's
+    // The leak, stated: without a cleanup this is 0 and the first login's
     // channels keep pushing rows into the second login's provider.
-    expect(firstAccountChannel.unsubscribeCalls).toBe(1);
-    expect(firstDataChannel.unsubscribeCalls).toBe(1);
-    // ...and the current login's channels are still open.
-    expect(accountChannels.opened[1].unsubscribeCalls).toBe(0);
-    expect(dataChannels[1].unsubscribeCalls).toBe(0);
+    expect(first.unsubscribeCalls).toBe(1);
+    // ...and the current login's subscription is still open.
+    expect(subscriptions[1].unsubscribeCalls).toBe(0);
 
-    // Unmounting closes the second pair, and must not touch the first again:
+    // Unmounting closes the second one, and must not touch the first again:
     // a handle invoked twice is its own bug.
     unmount();
-    expect(firstAccountChannel.unsubscribeCalls).toBe(1);
-    expect(firstDataChannel.unsubscribeCalls).toBe(1);
-    expect(accountChannels.opened[1].unsubscribeCalls).toBe(1);
-    expect(dataChannels[1].unsubscribeCalls).toBe(1);
+    expect(first.unsubscribeCalls).toBe(1);
+    expect(subscriptions[1].unsubscribeCalls).toBe(1);
   });
 
-  it('closes channels that arrive after the cleanup already ran', async () => {
-    // The account subscription is a round trip. Park it, so the cleanup fires
-    // at the one moment there is nothing yet to close.
-    accountChannels.autoOpen = false;
+  it('closes a subscription that arrives after the cleanup already ran', async () => {
+    // The handle is handed over synchronously now, so the race has to be staged
+    // where it actually lives: on the awaits BEFORE it. The balances round trip
+    // is the last one the boot waits for — park it, and the cleanup fires at
+    // the one moment there is nothing yet to close.
+    let releaseBalances!: () => void;
+    const parked = new Promise<void>(resolve => {
+      releaseBalances = resolve;
+    });
+    const balances = vi.spyOn(DataService, 'getAccountBalances').mockImplementation(async () => {
+      await parked;
+      return new Map<string, AccountBalanceSnapshot>();
+    });
 
     const { unmount } = renderHook(() => useApp(), { wrapper });
 
-    await waitFor(() => expect(accountChannels.opened).toHaveLength(1));
-    const [channel] = accountChannels.opened;
-    // The boot is parked on the await: the handle does not exist yet.
-    expect(dataChannels).toHaveLength(0);
+    // Parked, and provably so: the read the boot is waiting on has been asked
+    // and has not answered. Nothing has been subscribed yet.
+    await waitFor(() => expect(balances).toHaveBeenCalled());
+    expect(subscriptions).toHaveLength(0);
 
     unmount();
-    expect(channel.unsubscribeCalls).toBe(0);
 
-    // The subscription lands on a provider that has gone. Both channels are
-    // created — the boot resumes where it stopped — and both must be closed
-    // immediately rather than surviving the component that asked for them.
+    // The subscription lands on a provider that has gone. It is still created —
+    // the boot resumes where it stopped — and it must be closed immediately
+    // rather than surviving the component that asked for it.
     await act(async () => {
-      channel.open();
+      releaseBalances();
       await Promise.resolve();
     });
 
-    await waitFor(() => expect(dataChannels).toHaveLength(1));
-    expect(channel.unsubscribeCalls).toBe(1);
-    expect(dataChannels[0].unsubscribeCalls).toBe(1);
+    await waitFor(() => expect(subscriptions).toHaveLength(1));
+    await waitFor(() => expect(subscriptions[0].unsubscribeCalls).toBe(1));
+  });
+
+  it('reloads the accounts through the seam when a change arrives', async () => {
+    // WHICH door the reload goes through, stated as a test rather than left to
+    // the diff. The account service's version carried a captured Clerk id and
+    // re-resolved it on every event; the seam reads the id the boot resolved.
+    // Both answer the same question today — the point of pinning it is that
+    // only one of them can still be answering the PREVIOUS login's question.
+    const portAccounts = vi.spyOn(DataService, 'getAccounts');
+
+    renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(subscriptions).toHaveLength(1));
+
+    // The boot has its own account read; this test is about the reload.
+    portAccounts.mockClear();
+    simpleAccounts.getAccounts.mockClear();
+
+    const [subscription] = subscriptions;
+    await act(async () => {
+      subscription.callbacks.onAccountUpdate?.({
+        eventType: 'UPDATE',
+        new: { is_active: true },
+      });
+      // The reload is debounced by 200ms inside the provider. Waited out in
+      // real time rather than with fake timers: the boot around it is a chain
+      // of awaits, and freezing the clock under it buys nothing here.
+      await new Promise(resolve => setTimeout(resolve, 300));
+    });
+
+    await waitFor(() => expect(portAccounts).toHaveBeenCalledTimes(1));
+    expect(simpleAccounts.getAccounts).not.toHaveBeenCalled();
   });
 });

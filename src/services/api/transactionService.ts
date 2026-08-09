@@ -1635,7 +1635,12 @@ class TransactionServiceImpl {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      // removeChannel, not unsubscribe: both deregister the channel on the
+      // normal path, but only removeChannel closes the websocket once the LAST
+      // channel leaves — and that only fires if every handle uses it. The
+      // account channel (accountService.subscribeToAccounts) already does; a
+      // signed-out app must not keep an idle socket and heartbeat alive.
+      void client.removeChannel(subscription);
     };
   }
 
