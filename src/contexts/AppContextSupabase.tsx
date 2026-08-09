@@ -349,6 +349,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
 
+    // The realtime channels are opened deep inside an ASYNC boot, but React
+    // only accepts a cleanup returned SYNCHRONOUSLY from the effect body. That
+    // cleanup used to be returned from inside initializeData — into a promise
+    // nobody read — so React was handed nothing at all, and every user change
+    // and every unmount left the previous login's account and transaction
+    // subscriptions open on the channel.
+    //
+    // The handles are collected in the effect's own scope instead, and the
+    // cleanup at the bottom closes over them. `cancelled` covers the race in
+    // both directions: a cleanup that fires while the boot is still in flight
+    // has no handle to call yet, so anything registered after that point is
+    // torn down the moment it arrives.
+    let cancelled = false;
+    const teardowns: Array<() => void> = [];
+    const registerTeardown = (teardown: () => void): void => {
+      if (cancelled) {
+        teardown();
+        return;
+      }
+      teardowns.push(teardown);
+    };
+
     const initializeData = async () => {
       setIsLoading(true);
       setSyncError(null);
@@ -632,13 +654,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           });
 
-          return () => {
-            if (updateDebounceRef.current) {
-              clearTimeout(updateDebounceRef.current);
-            }
-            unsubscribeAccounts();
-            unsubscribeData();
-          };
+          // Handed to the effect rather than returned from here: this function
+          // is async, so a returned cleanup only ever reaches a promise. Both
+          // are registered as they become available — the account handle is
+          // awaited above, and if the effect was cleaned up during that await
+          // it is closed on arrival instead of being stored.
+          registerTeardown(unsubscribeAccounts);
+          registerTeardown(unsubscribeData);
         }
       } catch (error) {
         appLogger.error('Failed to initialize data', error);
@@ -652,7 +674,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initializeData();
+    void initializeData();
+
+    return () => {
+      cancelled = true;
+      // Previously unreachable along with the unsubscribes: a pending debounced
+      // reload would otherwise fire into a provider that has moved on.
+      if (updateDebounceRef.current) {
+        clearTimeout(updateDebounceRef.current);
+        updateDebounceRef.current = null;
+      }
+      // Drained rather than iterated in place, so a handle is invoked exactly
+      // once whichever side of the race it arrived on.
+      const pending = teardowns.splice(0, teardowns.length);
+      for (const teardown of pending) {
+        teardown();
+      }
+    };
   }, [user, isLoaded]);
 
   const refreshCategories = useCallback(async () => {
