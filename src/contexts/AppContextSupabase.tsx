@@ -322,7 +322,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
+  // Read-only on purpose: the whole-app refresh that used to flip this was
+  // unreachable and has been removed. The flag stays on the context surface
+  // (consumers still type against it) and is honestly always false.
+  const [isSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isUsingSupabase, setIsUsingSupabase] = useState(false);
@@ -609,28 +612,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     initializeData();
   }, [user, isLoaded]);
-
-  // Refresh data from source
-  const _refreshData = useCallback(async () => {
-    setIsSyncing(true);
-    try {
-      const data = await DataService.refreshData();
-      setAccounts(data.accounts);
-      setTransactions(data.transactions);
-      setBudgets(data.budgets);
-      setGoals(data.goals);
-      if (data.categories.length > 0) {
-        setCategories(data.categories);
-      }
-      setLastSyncTime(new Date());
-      setSyncError(null);
-    } catch (error) {
-      appLogger.error('Failed to refresh data', error);
-      setSyncError('Failed to sync data');
-    } finally {
-      setIsSyncing(false);
-    }
-  }, []);
 
   const refreshCategories = useCallback(async () => {
     try {

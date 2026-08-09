@@ -1375,27 +1375,15 @@ describe('TransactionService — transfer repair goes through audited RPCs', () 
 });
 
 
-// Regression: audit 2026-07-21 — the local fallback of setTransactionSplits
-// changed the transaction amount when the split total differed but never moved
-// the account balance with it (unlike dataService.setTransactionSplits).
-describe('TransactionService setTransactionSplits — local balance sync', () => {
-  const createKeyedStorage = (initial: Record<string, unknown>) => {
-    const data = new Map<string, unknown>(Object.entries(initial));
-    return {
-      get: vi.fn(async (key: string) => data.get(key) ?? null),
-      set: vi.fn(async (key: string, value: unknown) => {
-        data.set(key, value);
-      }),
-      snapshot: (key: string) => data.get(key)
-    };
-  };
-
-  it('moves the account balance by an exact Decimal delta when the split total changes', async () => {
-    const storage = createKeyedStorage({
-      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ amount: -70.1 })],
-      [STORAGE_KEYS.TRANSACTION_SPLITS]: [],
-      [STORAGE_KEYS.ACCOUNTS]: [{ id: 'acct-1', name: 'Checking', type: 'checking', balance: -70.1, currency: 'GBP' }]
-    });
+// The local fallback of setTransactionSplits was removed: DataService owns the
+// only local split writer, and nothing could reach this one (DataService calls
+// it from its cloud branch alone, and both gate on the same
+// isSupabaseConfigured). What survives of the 2026-07-21 regression — a split
+// whose total differs must move the account balance by an exact Decimal delta —
+// is covered against the surviving writer in dataService.test.ts.
+describe('TransactionService setTransactionSplits — local mode refuses', () => {
+  it('sends local mode to DataService instead of writing a second mirror', async () => {
+    const storage = createStorage();
     const service = createTransactionService({
       isSupabaseConfigured: () => false,
       storageAdapter: storage,
@@ -1404,46 +1392,17 @@ describe('TransactionService setTransactionSplits — local balance sync', () =>
       uuid: vi.fn(() => 'generated-id')
     });
 
-    const result = await service.setTransactionSplits(
-      'txn-1',
-      [
-        { category: 'cat-a', amount: -0.2 },
-        { category: 'cat-b', amount: -70.1 }
-      ],
-      null
-    );
-
-    expect(result).toEqual({ isSplit: true, splitCount: 2, amount: -70.3 });
-    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Array<{ balance: number }>;
-    // Exact ledger movement — no IEEE-754 drift, no missing adjustment.
-    expect(accounts[0].balance).toBe(-70.3);
-  });
-
-  it('leaves the balance untouched when the split total equals the transaction amount', async () => {
-    const storage = createKeyedStorage({
-      [STORAGE_KEYS.TRANSACTIONS]: [baseTransaction({ amount: -70.3 })],
-      [STORAGE_KEYS.TRANSACTION_SPLITS]: [],
-      [STORAGE_KEYS.ACCOUNTS]: [{ id: 'acct-1', name: 'Checking', type: 'checking', balance: -70.3, currency: 'GBP' }]
-    });
-    const service = createTransactionService({
-      isSupabaseConfigured: () => false,
-      storageAdapter: storage,
-      logger: { error: vi.fn() },
-      now: vi.fn(() => new Date('2025-05-01T12:00:00.000Z')),
-      uuid: vi.fn(() => 'generated-id')
-    });
-
-    await service.setTransactionSplits(
-      'txn-1',
-      [
-        { category: 'cat-a', amount: -0.2 },
-        { category: 'cat-b', amount: -70.1 }
-      ],
-      -70.3
-    );
-
-    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Array<{ balance: number }>;
-    expect(accounts[0].balance).toBe(-70.3);
+    await expect(
+      service.setTransactionSplits(
+        'txn-1',
+        [
+          { category: 'cat-a', amount: -0.2 },
+          { category: 'cat-b', amount: -70.1 }
+        ],
+        null
+      )
+    ).rejects.toThrow('local mode goes through DataService');
+    expect(storage.set).not.toHaveBeenCalled();
   });
 });
 

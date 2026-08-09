@@ -229,6 +229,55 @@ describe('Layout — the Plan menu and split triggers', () => {
     expect(within(nav).queryByRole('link', { name: 'Goals' })).not.toBeInTheDocument();
   });
 
+  /**
+   * The order of a menu is not decoration — it is the answer to "where would I
+   * look for this?", and it is the one thing about a menu nobody re-reads once
+   * they have learnt it. So both menus are pinned in full, in order: an item
+   * that quietly moves, or a new one dropped in the middle, fails here.
+   *
+   * The links are read off the OPEN menu by their position in the DOM, which is
+   * the order they are drawn in.
+   */
+  const openMenuItems = (label: string): string[] => {
+    fireEvent.click(menuButton(label));
+    // The chevron, the trigger label and the dropped panel all live in one
+    // positioned wrapper; the panel is the only part with more than one link in
+    // it, so the wrapper's links are [the trigger] followed by [the menu].
+    const wrapper = menuButton(label).closest('div.relative');
+    if (!(wrapper instanceof HTMLElement)) throw new Error(`no ${label} menu`);
+    const links = within(wrapper).getAllByRole('link').map(a => a.textContent?.trim() ?? '');
+    expect(links[0]).toBe(label);
+    return links.slice(1);
+  };
+
+  it('puts Investments in Accounts, under Transactions — a holding is a thing you own', () => {
+    renderWithProviders(<Layout />);
+
+    expect(openMenuItems('Accounts')).toEqual([
+      'All Accounts',
+      'Transactions',
+      'Investments',
+      'Reconciliation',
+      'Categorisation',
+      'Bank Feeds',
+    ]);
+  });
+
+  it('orders Manage as Categories, Payees, Tags — and no longer keeps Investments', () => {
+    renderWithProviders(<Layout />);
+
+    // Manage is data admin. Investments is not admin, and Tags was standing in
+    // front of Payees, which is the one people open most.
+    expect(openMenuItems('Manage')).toEqual([
+      'Categories',
+      'Payees',
+      'Tags',
+      'Import Data',
+      'Export Data',
+      'Documents',
+    ]);
+  });
+
   it('clicking a trigger label navigates instead of only toggling a menu', () => {
     renderWithProviders(<Layout />);
 

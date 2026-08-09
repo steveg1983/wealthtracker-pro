@@ -90,7 +90,7 @@ const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Regi
  * needs saying which one — exactly the question a screen reader user has, and
  * the reason the add bar is a landmark of its own.
  */
-const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
+const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Quick Add Transaction' });
 
 /** The element that scrolls on the non-virtualised path. */
 const listViewport = (): HTMLElement => {

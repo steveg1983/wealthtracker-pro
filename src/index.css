@@ -383,17 +383,29 @@ button.rounded-full:focus-visible,
   -webkit-tap-highlight-color: transparent !important;
 }
 
-/* Selected transaction row with Apple-style glass effect.
+/* The highlighted transaction row.
    NO scale and NO horizontal margin: the rows are absolutely-positioned
    virtual rows clipped by the table's overflow-hidden edge, so a 1.01 scale
    or an 8px side margin pushed the Balance column's last digits out of view
-   (worst on 5+ digit balances). The shadow, gradient and z-index carry the
-   "lifted" look on their own. */
+   (worst on 5+ digit balances). The shadow and z-index carry the "lifted"
+   look on their own.
+
+   ONE COLOUR, ALL THE WAY ACROSS. This used to be a 135deg "glass" gradient
+   from white to blue-50. On a row that is 44px tall and a thousand wide, a
+   135deg gradient is a HORIZONTAL one: the blue sat at the right-hand end and
+   washed out to white by the left, so the same row read as two different
+   colours depending on which column you were looking at, and the Date field at
+   the left edge looked unhighlighted. A flat fill has nowhere to fade to.
+
+   The value is deliberately the exact colour the action strip beneath it
+   carries (blue-50/80 and blue-900/30 — see QuickEditActionStrip): the row and
+   the strip are one card with a join across the middle, and two shades of blue
+   would draw a line where the card is supposed to be continuous. Change one and
+   change the other. Alpha rather than a pre-mixed hex so both keep tracking the
+   table's own background if it ever moves. */
 .selected-transaction-row {
   @apply relative z-30;
-  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(239,246,255,0.85) 100%) !important;
-  backdrop-filter: blur(12px) saturate(1.5);
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  background: rgba(239, 246, 255, 0.8) !important;
   border-radius: 12px !important;
   margin: 4px 0 !important;
   box-shadow: 
@@ -408,7 +420,7 @@ button.rounded-full:focus-visible,
 }
 
 .dark .selected-transaction-row {
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(30, 58, 138, 0.3) 100%) !important;
+  background: rgba(30, 58, 138, 0.3) !important;
   box-shadow: 
     0 4px 6px -1px rgba(0, 0, 0, 0.3),
     0 2px 4px -1px rgba(0, 0, 0, 0.2),

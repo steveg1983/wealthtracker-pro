@@ -37,10 +37,11 @@ interface DatePickerProps {
    *
    * Off where the field is squeezed into a register COLUMN. The glyph itself is
    * 14px, but the padding reserved so the text never runs under it is 32px —
-   * and the register's Date column is 100px wide, of which a dd/mm/yyyy date
-   * needs about 70. Something had to go, and the glyph is the part that tells
-   * the user least: the field opens its calendar on focus and on click either
-   * way, so it is a hint about a way in that is already open.
+   * and a dd/mm/yyyy date in Inter at 14px needs 84 of the column's own width
+   * before anything else takes a share (see registerDateColumn). Something had
+   * to go, and the glyph is the part that tells the user least: the field opens
+   * its calendar on focus and on click either way, so it is a hint about a way
+   * in that is already open.
    */
   showIcon?: boolean;
   /**
@@ -70,6 +71,10 @@ const CALENDAR_HEIGHT = 340;
 // padding too. Nothing asks for `plain` except a field squeezed into a column
 // too narrow for the glyph (see showIcon), and there the six pixels either side
 // are the difference between reading "15/01/2026" and reading "15/01/202".
+//
+// sm/plain's `px-1.5` is a TERM in the register's Date column width — see
+// registerDateColumn, and the test that reads this class back off the rendered
+// input. Widening it narrows the date it is trying to show.
 const SIZES = {
   sm: { field: 'px-2 py-1.5 pr-8', plain: 'px-1.5 py-1.5', icon: 'right-2', iconSize: 14 },
   md: { field: 'px-3 py-2 pr-10', plain: 'px-3 py-2', icon: 'right-3', iconSize: 16 },

@@ -12,8 +12,13 @@ import {
   summarisePayees,
   filterPayees,
   buildPayeeClusters,
+  isPayeeSortField,
+  orderClusters,
+  sortPayees,
   withoutHiddenPayees,
+  type ClusterOrder,
   type PayeeCluster,
+  type PayeeSortField,
   type PayeeSummary,
 } from '../../utils/payeeCleanup';
 import {
@@ -35,8 +40,21 @@ import type { DismissalKind, SuggestionDismissal } from '../../types';
  * wrong once rather than every time they open the page.
  */
 
-/** How many clusters to offer as one-click shortcuts. */
-const SUGGESTION_LIMIT = 8;
+/**
+ * How tall the suggestions list is, in px, before it starts scrolling.
+ *
+ * A max-height rather than a height: with three suggestions the box is three
+ * rows tall, and with three hundred it is this, so the screen never opens with
+ * a pane of empty ruled lines. Chosen to cut the seventh row in half — a list
+ * that ends mid-row is visibly a list with more in it, which a list ending
+ * flush against a border is not.
+ *
+ * Every suggestion is rendered into it. The old screen showed the top eight of
+ * an unstated total, which is what the owner reported: "when you tidy up one,
+ * the next appears, so I don't really know how many different suggestions the
+ * system is making."
+ */
+const SUGGESTION_LIST_MAX_HEIGHT = 224;
 
 /**
  * How tall the payee list is, in px.
@@ -67,6 +85,77 @@ const withSessionKeys = (saved: Set<string>, thisSitting: ReadonlySet<string>): 
   for (const key of thisSitting) saved.add(key);
   return saved;
 };
+
+/**
+ * The two orders, in the words of the question each one answers. "Most
+ * transactions" is the order the screen has always used and still opens in —
+ * the biggest win first, which is why the old eight chips showed what they
+ * showed — and A–Z is the one the owner asked for, a click away.
+ */
+const ORDERS: ReadonlyArray<{ value: ClusterOrder; label: string; hint: string }> = [
+  {
+    value: 'transactions',
+    label: 'Most transactions',
+    hint: 'Biggest tidy-up first',
+  },
+  {
+    value: 'alphabetical',
+    label: 'A–Z',
+    hint: 'By merchant name',
+  },
+];
+
+interface SuggestionRowProps {
+  cluster: PayeeCluster;
+  active: boolean;
+  onPick: (cluster: PayeeCluster) => void;
+}
+
+/**
+ * One suggested merchant, as a row in the scrolling list.
+ *
+ * Memoised, and taking `active` as a boolean rather than reading the selected
+ * key itself, so that picking a suggestion re-renders the two rows whose state
+ * actually changed rather than all of them. That is the difference between a
+ * list that stays instant at a few hundred suggestions and one that stutters
+ * on every click.
+ *
+ * The counts are the reason to pick one before another — alphabetical order
+ * makes a suggestion findable, it does not make it worth doing — so they are on
+ * the row in both orders, not only when sorted by them.
+ */
+const SuggestionRow = React.memo(function SuggestionRow({
+  cluster,
+  active,
+  onPick,
+}: SuggestionRowProps): React.JSX.Element {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onPick(cluster)}
+        aria-pressed={active}
+        // ring-inset, because the row is flush to the sides of a box that
+        // scrolls: an outset focus ring would be clipped by the overflow.
+        className={`w-full flex items-baseline gap-3 px-3 py-2 text-left text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+          active
+            ? 'bg-blue-50 text-blue-900 dark:bg-blue-900/40 dark:text-blue-100'
+            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        }`}
+      >
+        <span className="truncate font-medium" title={cluster.key}>{cluster.key}</span>
+        <span
+          className={`ml-auto shrink-0 tabular-nums ${
+            active ? 'text-blue-800 dark:text-blue-200' : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          {cluster.members.length.toLocaleString()} payees ·{' '}
+          {cluster.transactionCount.toLocaleString()} transactions
+        </span>
+      </button>
+    </li>
+  );
+});
 
 interface DismissPrompt {
   kind: DismissalKind;
@@ -148,6 +237,21 @@ export default function PayeeCleanup(): React.JSX.Element {
   const [renameOpen, setRenameOpen] = useState(false);
   /** The merchant whose suggestion is being worked on, if any. */
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  /**
+   * Which order the suggestions are listed in. Not persisted: this page has no
+   * saved-preference mechanism of its own, and the choice is a lens on one
+   * sitting's work rather than a setting.
+   */
+  const [order, setOrder] = useState<ClusterOrder>('transactions');
+  /**
+   * Which column the payee list is ordered by.
+   *
+   * Opens on the busiest payees first — the order summarisePayees has always
+   * returned and the one the screen has always shown, so nothing moves until a
+   * header is clicked.
+   */
+  const [sortField, setSortField] = useState<PayeeSortField>('count');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   /** Refused for this sitting only — the answer to "No, just this once". */
   const [sittingMerchants, setSittingMerchants] = useState<ReadonlySet<string>>(new Set());
   const [sittingLines, setSittingLines] = useState<ReadonlySet<string>>(new Set());
@@ -194,16 +298,41 @@ export default function PayeeCleanup(): React.JSX.Element {
 
   const deferredQuery = useDeferredValue(query);
   const shown = useMemo(() => filterPayees(payees, deferredQuery), [payees, deferredQuery]);
+  /**
+   * The same payees, in the order the header asked for.
+   *
+   * A separate array from `shown` on purpose: "Showing X of Y" and "select all
+   * shown" are about WHICH payees are on screen, and re-ordering them changes
+   * neither figure. Sorting the filtered list rather than the whole register
+   * keeps the work proportional to what is actually being looked at.
+   */
+  const sortedShown = useMemo(
+    () => sortPayees(shown, sortField, sortDirection),
+    [shown, sortField, sortDirection]
+  );
 
   const dismissalsChecked =
     suggestionDismissalsStatus === 'ready' || suggestionDismissalsStatus === 'error';
 
-  // Every cluster, then the shortcuts. The active one is looked up in the FULL
-  // list rather than the eight on screen: leaving a payee out shrinks a cluster,
-  // and a cluster that slipped out of the top eight mid-decision must not take
-  // the panel the user is working in with it.
+  /**
+   * Every suggestion the screen still has to make — the list, and the number
+   * the heading states.
+   *
+   * Built from `payees` (already minus the hidden ones) and `refused` (minus
+   * the merchants and lines the user has struck off), so the count in the
+   * heading cannot drift from the rows beneath it: they are the same array.
+   */
   const allClusters = useMemo(() => buildPayeeClusters(payees, refused), [payees, refused]);
-  const clusters = useMemo(() => allClusters.slice(0, SUGGESTION_LIMIT), [allClusters]);
+  const orderedClusters = useMemo(() => orderClusters(allClusters, order), [allClusters, order]);
+  /**
+   * What tidying every suggestion would do, which is the point of stating the
+   * total at all: a number of groups on its own says how much work there is,
+   * not what the work is worth.
+   */
+  const payeesInSuggestions = useMemo(
+    () => allClusters.reduce((sum, cluster) => sum + cluster.members.length, 0),
+    [allClusters]
+  );
   const activeCluster = useMemo(
     () => allClusters.find(cluster => cluster.key === activeKey) ?? null,
     [allClusters, activeKey]
@@ -496,10 +625,13 @@ export default function PayeeCleanup(): React.JSX.Element {
         />
       ),
     },
+    // Every column that HOLDS something sorts; the checkbox and Leave out do
+    // not, because neither is a value a list can be put in order of.
     {
       key: 'payee',
       header: 'Payee',
       width: '38%',
+      sortable: true,
       accessor: (payee) => (
         <div className="min-w-0">
           <div className="truncate text-sm text-gray-900 dark:text-white" title={payee.description}>
@@ -513,6 +645,7 @@ export default function PayeeCleanup(): React.JSX.Element {
       key: 'merchant',
       header: 'Looks like',
       width: '22%',
+      sortable: true,
       accessor: (payee) => (
         <span className="truncate block text-xs text-gray-500 dark:text-gray-400">
           {payee.merchantKey ?? '—'}
@@ -525,6 +658,7 @@ export default function PayeeCleanup(): React.JSX.Element {
       width: 120,
       className: 'text-right',
       headerClassName: 'text-right',
+      sortable: true,
       accessor: (payee) => (
         <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300">
           {payee.count.toLocaleString()}
@@ -537,6 +671,7 @@ export default function PayeeCleanup(): React.JSX.Element {
       width: 140,
       className: 'text-right',
       headerClassName: 'text-right',
+      sortable: true,
       accessor: (payee) => (
         <span className="text-sm tabular-nums whitespace-nowrap text-gray-700 dark:text-gray-300">
           {formatCurrency(payee.total)}
@@ -584,10 +719,54 @@ export default function PayeeCleanup(): React.JSX.Element {
 
       {allClusters.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-100 dark:border-gray-700 p-4">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
-            These look like the same merchant
-          </h2>
+          <div className="flex flex-wrap items-center gap-3 mb-1">
+            {/* The total, in the heading, because the owner could not tell how
+                much work the page was proposing: "when you tidy up one, the
+                next appears, so I don't really know how many different
+                suggestions the system is making." It is stated only once the
+                refusals have been read — a number that drops the moment they
+                arrive would be worse than no number at all. */}
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {!dismissalsChecked
+                ? 'These look like the same merchant'
+                : allClusters.length === 1
+                  ? '1 group looks like the same merchant'
+                  : `${allClusters.length.toLocaleString()} groups look like the same merchant`}
+            </h2>
+            {/* One suggestion has no order to choose. */}
+            {dismissalsChecked && allClusters.length > 1 && (
+              <div
+                role="group"
+                aria-label="Order the suggestions"
+                className="ml-auto inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5"
+              >
+                {ORDERS.map(({ value, label, hint }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setOrder(value)}
+                    aria-pressed={order === value}
+                    title={hint}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      order === value
+                        ? 'bg-[#1a2332] dark:bg-blue-600 text-white'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {dismissalsChecked && (
+              <>
+                Tidying them all would give {payeesInSuggestions.toLocaleString()} payees{' '}
+                {allClusters.length.toLocaleString()}{' '}
+                {allClusters.length === 1 ? 'name' : 'names'}.{' '}
+              </>
+            )}
             A guess from the payee text. Choosing one narrows the list and ticks
             its payees — nothing is renamed until you say so.
           </p>
@@ -604,30 +783,36 @@ export default function PayeeCleanup(): React.JSX.Element {
               Checking which of these you have already refused…
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {clusters.map(cluster => (
-                <button
+            /* A plain scrolling box rather than a virtualised one, deliberately.
+               A virtualised list is MEASURED — it renders nothing at all until
+               the browser answers "how tall is your parent?", which is the trap
+               the payee table below had to be rescued from — and the ceiling
+               here is orders of magnitude lower than the table's: a register of
+               9,000 payees produced 18 suggestions in the measured case and
+               4,500 in a contrived worst case where every payee pairs off with
+               exactly one other, against the tens of thousands of rows the table
+               must survive. Rows are memoised so picking one re-renders two.
+
+               The element persists across renders, so the browser keeps its
+               scroll position when a suggestion is refused and the rest close
+               up — the user stays where they were working. */
+            <ul
+              aria-label="Suggested merchants"
+              style={{ maxHeight: SUGGESTION_LIST_MAX_HEIGHT }}
+              className="overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700"
+            >
+              {orderedClusters.map(cluster => (
+                <SuggestionRow
                   key={cluster.key}
-                  type="button"
-                  onClick={() => applyCluster(cluster)}
-                  aria-pressed={cluster.key === activeKey}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                    cluster.key === activeKey
-                      ? 'border-blue-500 bg-blue-50 text-blue-900 dark:border-blue-400 dark:bg-blue-900/40 dark:text-blue-100'
-                      : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {cluster.key}
-                  <span className="ml-2 text-gray-400 dark:text-gray-500">
-                    {cluster.members.length.toLocaleString()} payees ·{' '}
-                    {cluster.transactionCount.toLocaleString()} transactions
-                  </span>
-                </button>
+                  cluster={cluster}
+                  active={cluster.key === activeKey}
+                  onPick={applyCluster}
+                />
               ))}
-            </div>
+            </ul>
           )}
 
-          {/* The refusals live here rather than on the chips: the decision only
+          {/* The refusals live here rather than on the rows: the decision only
               makes sense once the payees behind the guess are on screen. */}
           {activeCluster !== null && (
             <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/20 px-3 py-2">
@@ -792,12 +977,22 @@ export default function PayeeCleanup(): React.JSX.Element {
             in the owner's report. */}
         <div style={{ height: LIST_HEIGHT }}>
           <VirtualizedTable
-            items={shown}
+            items={sortedShown}
             columns={columns}
             getItemKey={(payee: PayeeSummary) => payee.description}
             onRowClick={(payee: PayeeSummary) => toggle(payee.description)}
             rowHeight={56}
             selectedItems={selected}
+            // Click a header to order by it, click it again to turn it round.
+            // Selection is held by payee TEXT, not by row position, so it
+            // survives every re-sort untouched.
+            onSort={(column: string, direction: 'asc' | 'desc') => {
+              if (!isPayeeSortField(column)) return;
+              setSortField(column);
+              setSortDirection(direction);
+            }}
+            sortColumn={sortField}
+            sortDirection={sortDirection}
             className="h-full"
             // A ticked row drops its zebra stripe, so it needs a colour of its
             // own or selection becomes invisible while scrolling.

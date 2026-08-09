@@ -5,6 +5,9 @@ import {
   summarisePayees,
   filterPayees,
   buildPayeeClusters,
+  isPayeeSortField,
+  orderClusters,
+  sortPayees,
   withoutHiddenPayees,
   planRename,
   type RefusedSuggestions,
@@ -186,6 +189,66 @@ describe('buildPayeeClusters', () => {
 });
 
 /**
+ * The order the suggestions are read in — the owner's second ask: "perhaps have
+ * the payees in more of a 'list' that you can scroll through, in alphabetical
+ * order at least… Or even offer sort by alphabet or by transaction count?"
+ *
+ * The fixture is built so the two orders are exact opposites of each other:
+ * ZEBRA has the most transactions and sorts last, ARROW has the fewest and
+ * sorts first. Nothing here can pass by accident on a list that happens to be
+ * in the right order already.
+ */
+describe('orderClusters', () => {
+  const rows = summarisePayees([
+    // ARROW — two payees, two transactions. The smallest win, the first name.
+    txn({ id: 'a1', description: 'REF*11 ARROW.CO.UK' }),
+    txn({ id: 'a2', description: 'REF*12 ARROW.CO.UK' }),
+    // MIDDLE — two payees, three transactions.
+    txn({ id: 'm1', description: 'REF*21 MIDDLE.CO.UK' }),
+    txn({ id: 'm2', description: 'REF*21 MIDDLE.CO.UK' }),
+    txn({ id: 'm3', description: 'REF*22 MIDDLE.CO.UK' }),
+    // ZEBRA — two payees, four transactions. The biggest win, the last name.
+    txn({ id: 'z1', description: 'REF*31 ZEBRA.CO.UK' }),
+    txn({ id: 'z2', description: 'REF*31 ZEBRA.CO.UK' }),
+    txn({ id: 'z3', description: 'REF*31 ZEBRA.CO.UK' }),
+    txn({ id: 'z4', description: 'REF*32 ZEBRA.CO.UK' }),
+  ]);
+
+  const keys = (order: 'transactions' | 'alphabetical'): string[] =>
+    orderClusters(buildPayeeClusters(rows), order).map((c) => c.key);
+
+  it('puts the biggest tidy-up first when sorted by transactions', () => {
+    expect(keys('transactions')).toEqual(['ZEBRA.CO.UK', 'MIDDLE.CO.UK', 'ARROW.CO.UK']);
+  });
+
+  it('puts the merchants in name order when sorted A–Z', () => {
+    expect(keys('alphabetical')).toEqual(['ARROW.CO.UK', 'MIDDLE.CO.UK', 'ZEBRA.CO.UK']);
+  });
+
+  it('offers the same suggestions either way — sorting is not filtering', () => {
+    // The number in the heading is the length of this list, so an order that
+    // dropped or duplicated one would make the heading lie.
+    expect([...keys('alphabetical')].sort()).toEqual([...keys('transactions')].sort());
+  });
+
+  it('leaves the caller\'s array alone', () => {
+    // Every count on the screen is derived from the array this is handed. A
+    // display choice that sorted it in place would reorder them underneath it.
+    const clusters = buildPayeeClusters(rows);
+    const before = clusters.map((c) => c.key);
+    const sorted = orderClusters(clusters, 'alphabetical');
+
+    expect(clusters.map((c) => c.key)).toEqual(before);
+    expect(sorted).not.toBe(clusters);
+  });
+
+  it('is stable enough to say nothing surprising about an empty list', () => {
+    expect(orderClusters([], 'alphabetical')).toEqual([]);
+    expect(orderClusters([], 'transactions')).toEqual([]);
+  });
+});
+
+/**
  * The owner's complaint, in his words: "if you go through and you do not want
  * them the same for whatever good reason, they will continue to pop up in the
  * suggestions". These pin the fix at the only place it can be pinned — the
@@ -347,6 +410,147 @@ describe('withoutHiddenPayees', () => {
       payeeMerchantDismissalKey('AMAZON.CO.UK'),
     ]);
     expect(withoutHiddenPayees(rows, notHidden)).toHaveLength(rows.length);
+  });
+});
+
+/**
+ * The payee list's own order — the owner's second ask, that the table's column
+ * headers sort it.
+ *
+ * The fixture gives each column a DIFFERENT answer, so no test here can pass on
+ * a list that happens to be in the right order already: `apple` has the most
+ * transactions and the least money, `ZEBRA` the reverse, and the three payees
+ * in the middle are a deliberate three-way tie on both numbers.
+ */
+describe('sortPayees', () => {
+  const rows = summarisePayees([
+    // Ten small transactions — busiest payee, smallest total. Lower case, to
+    // hold the name orders to a case-blind comparison.
+    ...Array.from({ length: 10 }, (_, i) => txn({
+      id: `ap${i}`, description: 'apple grove 22', amount: -1,
+    })),
+    // One large REFUND. The biggest total on the page, and it is money coming
+    // back — which has to rank with the money going out, not against it.
+    txn({ id: 'z1', description: 'ZEBRA STORES 11', amount: 300, type: 'income' }),
+    // No merchant can be read out of this one at all.
+    ...Array.from({ length: 3 }, (_, i) => txn({
+      id: `sq${i}`, description: 'SQ *NORTH CAFE', amount: -40,
+    })),
+    // Three payees tied on both numbers: 2 transactions, £50.
+    ...Array.from({ length: 2 }, (_, i) => txn({
+      id: `mi${i}`, description: 'MIDDLE MARKET 33', amount: -25,
+    })),
+    ...Array.from({ length: 2 }, (_, i) => txn({
+      id: `ta${i}`, description: 'TIE ALPHA 44', amount: -25,
+    })),
+    ...Array.from({ length: 2 }, (_, i) => txn({
+      id: `tb${i}`, description: 'TIE BRAVO 55', amount: -25,
+    })),
+  ]);
+
+  const order = (field: 'payee' | 'merchant' | 'count' | 'total', direction: 'asc' | 'desc'):
+    string[] => sortPayees(rows, field, direction).map((p) => p.description);
+
+  /** The three-way tie, in the order the tie-break must always put them. */
+  const TIED = ['MIDDLE MARKET 33', 'TIE ALPHA 44', 'TIE BRAVO 55'];
+
+  it('reads the fixture the way the rest of this block assumes', () => {
+    // Stated rather than trusted: every expectation below is about these
+    // numbers, so a fixture that drifted would quietly weaken all of them.
+    const by = new Map(rows.map((p) => [p.description, p]));
+    expect(by.get('apple grove 22')?.count).toBe(10);
+    expect(by.get('apple grove 22')?.total).toBe(10);
+    expect(by.get('ZEBRA STORES 11')?.total).toBe(300);
+    expect(by.get('SQ *NORTH CAFE')?.merchantKey).toBeNull();
+  });
+
+  it('sorts by payee name, blind to case', () => {
+    expect(order('payee', 'asc')).toEqual([
+      'apple grove 22', 'MIDDLE MARKET 33', 'SQ *NORTH CAFE',
+      'TIE ALPHA 44', 'TIE BRAVO 55', 'ZEBRA STORES 11',
+    ]);
+    expect(order('payee', 'desc')).toEqual([...order('payee', 'asc')].reverse());
+  });
+
+  it('sorts by the merchant the payee looks like', () => {
+    const named = (direction: 'asc' | 'desc'): string[] =>
+      order('merchant', direction).filter((d) => d !== 'SQ *NORTH CAFE');
+
+    expect(named('asc')).toEqual([
+      'apple grove 22', 'MIDDLE MARKET 33', 'TIE ALPHA 44', 'TIE BRAVO 55', 'ZEBRA STORES 11',
+    ]);
+    expect(named('desc')).toEqual([...named('asc')].reverse());
+  });
+
+  it('keeps a payee with no merchant at the foot in both directions', () => {
+    // An absence is not the smallest name, and the ASCENDING half is where that
+    // has to be said: sorted as an empty string a payee with no merchant would
+    // head the list, and the top of the screen would be dashes. Descending gets
+    // the same answer for free, and is asserted so that a change which fixed
+    // one direction by breaking the other cannot pass.
+    expect(order('merchant', 'asc').at(-1)).toBe('SQ *NORTH CAFE');
+    expect(order('merchant', 'desc').at(-1)).toBe('SQ *NORTH CAFE');
+  });
+
+  it('sorts transactions as numbers, not as text', () => {
+    // 10 beats 3. Sorted as text it would sit between 1 and 2.
+    expect(order('count', 'desc')).toEqual([
+      'apple grove 22', 'SQ *NORTH CAFE', ...TIED, 'ZEBRA STORES 11',
+    ]);
+    expect(order('count', 'asc')).toEqual([
+      'ZEBRA STORES 11', ...TIED, 'SQ *NORTH CAFE', 'apple grove 22',
+    ]);
+  });
+
+  it('sorts by money, counting a refund at its size and not its sign', () => {
+    // ZEBRA's only transaction is money coming BACK. On a screen about how much
+    // traffic a payee has seen, £300 returned is as big as £300 spent.
+    expect(order('total', 'desc')).toEqual([
+      'ZEBRA STORES 11', 'SQ *NORTH CAFE', ...TIED, 'apple grove 22',
+    ]);
+    expect(order('total', 'asc')).toEqual([
+      'apple grove 22', ...TIED, 'SQ *NORTH CAFE', 'ZEBRA STORES 11',
+    ]);
+  });
+
+  it('breaks ties by payee name, the same way whichever direction the column is', () => {
+    // The tie-break is not a second sort: reversing the column must not shuffle
+    // the rows inside a run of equal figures.
+    for (const field of ['count', 'total'] as const) {
+      for (const direction of ['asc', 'desc'] as const) {
+        const tied = order(field, direction).filter((d) => TIED.includes(d));
+        expect(tied).toEqual(TIED);
+      }
+    }
+  });
+
+  it('leaves the caller\'s array alone', () => {
+    // "Showing X of Y" and "select all shown" are counted off the array handed
+    // in; a display choice must not reorder it underneath them.
+    const before = rows.map((p) => p.description);
+    const sorted = sortPayees(rows, 'payee', 'asc');
+
+    expect(rows.map((p) => p.description)).toEqual(before);
+    expect(sorted).not.toBe(rows);
+  });
+
+  it('opens on exactly the order the list has always had', () => {
+    // The default the screen uses. Nothing may move until a header is clicked.
+    expect(order('count', 'desc')).toEqual(rows.map((p) => p.description));
+  });
+});
+
+describe('isPayeeSortField', () => {
+  it('recognises the columns that are an order', () => {
+    expect(['payee', 'merchant', 'count', 'total'].every(isPayeeSortField)).toBe(true);
+  });
+
+  it('refuses the ones that are not', () => {
+    // The checkbox and the Leave out button are columns, and neither is
+    // something a list can be put in order of. A cast would have believed them.
+    expect(isPayeeSortField('pick')).toBe(false);
+    expect(isPayeeSortField('leave-out')).toBe(false);
+    expect(isPayeeSortField('')).toBe(false);
   });
 });
 

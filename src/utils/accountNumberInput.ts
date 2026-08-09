@@ -25,7 +25,11 @@
  * boundaries that apply it.
  */
 
-import type { AccountType } from '../types/accountType';
+// .js extension required: this module is part of the api/ serverless import
+// graph (api/banking/link-accounts), where node ESM refuses extensionless
+// relative imports at runtime. Type-only imports are erased today, but a later
+// value import on this line must not resurrect the crash.
+import type { AccountType } from '../types/accountType.js';
 
 /** A UK bank account number is exactly 8 digits. */
 export const BANK_ACCOUNT_NUMBER_LENGTH = 8;

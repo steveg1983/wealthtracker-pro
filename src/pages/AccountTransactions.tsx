@@ -39,6 +39,7 @@ import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates'
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import { planBulkDelete, type BulkDeletePlan } from '../utils/registerBulkDelete';
+import { DATE_COLUMN_WIDTH_PX } from '../utils/registerDateColumn';
 import {
   advanceTypeAheadBuffer,
   claimsSpaceForTypeAhead,
@@ -98,6 +99,40 @@ const ARCHIVE_KEY = 'accountRegister.archive.v1';
 const DEFAULT_HIDDEN_COLUMNS = ['amount', 'notes'];
 
 interface ArchiveState { range: ArchiveRange; from: string; to: string }
+
+/** The Quick Add bar's heading, and what names the bar to a screen reader. */
+const QUICK_ADD_HEADING_ID = 'quick-add-heading';
+
+/**
+ * How much vertical room the register leaves for the bottom dock, in px.
+ *
+ * ─ WHY A NUMBER AND NOT A MEASUREMENT ──────────────────────────────────────
+ * The table's height is measured (viewport − everything above it − this), and
+ * the dock is the one thing BELOW it. Measuring the dock instead would make the
+ * table's height depend on the height of an element that sits after it in the
+ * flow, which is the shape of an oscillation: a taller table can bring on a
+ * scrollbar, a scrollbar narrows the dock, a narrower dock wraps and grows, and
+ * the table shrinks again. So the dock's height is declared, the same way the
+ * editor row's is (see QUICK_EDIT_ROW_HEIGHT), and anything that changes it
+ * changes the number here in the same commit.
+ *
+ * ─ THE PARTS ───────────────────────────────────────────────────────────────
+ * The bar itself is about 178px — its px-4/py-3 shell, a 32px row of fields
+ * with their own labels above them, and the cross-type line that appears under
+ * an income or expense — plus the gap between it and the table and a little
+ * slack.
+ */
+export const QUICK_ADD_FIELDS_RESERVE_PX = 224;
+/**
+ * What the bar's heading adds: a `text-sm` line box (20px) and its `mb-2` (8).
+ * Those two utilities are on the <h2> below, and a test holds them to it —
+ * because a heading that grew without this growing puts the last row of the
+ * register behind the dock.
+ */
+export const QUICK_ADD_HEADING_HEIGHT_PX = 28;
+export const DOCK_RESERVE_PX = QUICK_ADD_FIELDS_RESERVE_PX + QUICK_ADD_HEADING_HEIGHT_PX;
+/** With the dock hidden there is nothing to clear but the page's own padding. */
+const EXPANDED_DOCK_RESERVE_PX = 32;
 
 /**
  * Which column each editable field takes over while a row is being edited.
@@ -322,7 +357,7 @@ export default function AccountTransactions() {
     const el = tableWrapRef.current;
     if (!el) return;
     const top = el.getBoundingClientRect().top;
-    const dockReserve = tableExpanded ? 32 : 224; // dock (~178) + gaps/padding, or just padding
+    const dockReserve = tableExpanded ? EXPANDED_DOCK_RESERVE_PX : DOCK_RESERVE_PX;
     setTableHeight(Math.max(240, window.innerHeight - top - dockReserve));
   }, [tableExpanded]);
   // Re-measured on anything that moves the table down the page: the filter
@@ -1740,7 +1775,11 @@ export default function AccountTransactions() {
     {
       key: 'date',
       header: 'Date',
-      width: '100px',
+      // Wide enough for the widest dd/mm/yyyy Inter can draw, in both the
+      // read-only cell and the picker the cell becomes while the row is being
+      // edited. The whole sum — and the measurements it rests on — is in
+      // registerDateColumn.
+      width: `${DATE_COLUMN_WIDTH_PX}px`,
       accessor: (transaction) => (
         <span className="text-sm text-gray-900 dark:text-white">
           {isOpeningBalanceRow(transaction) && transaction.noDateSet
@@ -2574,8 +2613,27 @@ export default function AccountTransactions() {
         {/* Named, so it is a landmark a screen reader can jump to and — now
             that the quick-EDIT box sits up in the register — so "Description"
             down here and "Description" up there are heard in their own
-            contexts rather than as two identical fields on one screen. */}
-        <form onSubmit={handleQuickAdd} aria-label="Add a transaction">
+            contexts rather than as two identical fields on one screen.
+
+            Named BY ITS OWN HEADING (aria-labelledby, not aria-label): the bar
+            used to introduce itself only to screen readers, as "Add a
+            transaction", while the eye got five field labels and nothing
+            saying what they were for. Now it says so on screen, and the name
+            read out is that same string by construction — the two cannot drift
+            into saying different things about one bar. */}
+        <form onSubmit={handleQuickAdd} aria-labelledby={QUICK_ADD_HEADING_ID}>
+          <h2
+            id={QUICK_ADD_HEADING_ID}
+            // The selection bar that takes this bar's place carries its count
+            // line at exactly this size and weight (RegisterSelectionBar), so
+            // the dock reads as one thing whichever mode it is in.
+            //
+            // text-sm + mb-2 is where QUICK_ADD_HEADING_HEIGHT_PX comes from.
+            // Change either and change that.
+            className="text-sm font-semibold text-gray-900 dark:text-white mb-2"
+          >
+            Quick Add Transaction
+          </h2>
           {/* One line across the full width — Date, Type, Description,
               Category, Amount, Add — wrapping only when the window is too
               narrow to hold it. Capping the form instead (an earlier attempt)

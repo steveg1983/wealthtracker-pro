@@ -1,5 +1,11 @@
-import type { BalanceUnavailableReason } from '../../types/banking-api';
-import { cardBalanceToAppBalance } from './cardNormalization';
+// This module runs inside Vercel's node ESM runtime (imported by api/banking/*),
+// where a relative import WITHOUT the .js extension is ERR_MODULE_NOT_FOUND at
+// module load — the whole function dies as FUNCTION_INVOCATION_FAILED before
+// the handler (or Sentry) ever runs. Vite tolerates the extensionless form, so
+// only production breaks. Every relative import here must carry .js; the
+// serverless-import-closure spec enforces this for the whole api/ graph.
+import type { BalanceUnavailableReason } from '../../types/banking-api.js';
+import { cardBalanceToAppBalance } from './cardNormalization.js';
 
 /**
  * "What the bank said this account holds" — or an explicit statement that it

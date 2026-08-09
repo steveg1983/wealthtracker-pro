@@ -111,7 +111,9 @@ const renderRegister = (): void => {
 
 const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Register transactions' });
 
-const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
+// Named by its own visible heading (aria-labelledby), so this string is the one
+// on the screen as well as the one a screen reader hears.
+const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Quick Add Transaction' });
 
 /** The strip under the row being edited — the buttons and the hint. */
 const strip = (): HTMLElement => {

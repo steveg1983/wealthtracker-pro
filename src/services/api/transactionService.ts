@@ -1,6 +1,6 @@
 
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
-import type { Account, Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
+import type { Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { transactionCache, newestUpdatedAt, type TransactionSnapshot } from '../transactionCache';
 import { toDecimal } from '../../utils/decimal';
@@ -1017,8 +1017,13 @@ class TransactionServiceImpl {
    * Replace a transaction's splits atomically (empty array un-splits it).
    * The server RPC enforces the invariants — ≥2 lines, valid non-transfer
    * categories, non-zero amounts, and sum == expectedAmount — and syncs the
-   * transaction's amount/account balance when the sum changes it. The local
-   * fallback mirrors the same rules so demo/offline behave identically.
+   * transaction's amount/account balance when the sum changes it.
+   *
+   * Cloud-only, like setTransactionSplitsWithLegs below: DataService owns the
+   * local/demo mirror of these rules and only ever calls this from its own
+   * cloud branch (dataService.ts, setTransactionSplits). A second local
+   * implementation here was a third copy of the same invariants that nothing
+   * could reach.
    */
   async setTransactionSplits(
     transactionId: string,
@@ -1027,71 +1032,7 @@ class TransactionServiceImpl {
     userId?: string
   ): Promise<{ isSplit: boolean; splitCount: number; amount: number }> {
     if (!this.isSupabaseReady()) {
-      const transactions = await this.readStoredTransactions();
-      const transaction = transactions.find(t => t.id === transactionId);
-      if (!transaction) {
-        throw new Error('transaction_not_found');
-      }
-      if (transaction.type === 'transfer') {
-        throw new Error('transfers cannot be split');
-      }
-
-      const stored = (await this.storage.get<TransactionSplit[]>(STORAGE_KEYS.TRANSACTION_SPLITS)) ?? [];
-      const others = stored.filter(s => s.transactionId !== transactionId);
-
-      if (splits.length === 0) {
-        await this.storage.set(STORAGE_KEYS.TRANSACTION_SPLITS, others);
-        await this.persistTransactions(transactions.map(t =>
-          t.id === transactionId ? { ...t, isSplit: false, updatedAt: this.getCurrentDate() } : t
-        ));
-        return { isSplit: false, splitCount: 0, amount: transaction.amount };
-      }
-
-      if (splits.length < 2) {
-        throw new Error('a split needs at least 2 lines');
-      }
-      let sum = toDecimal(0);
-      for (const split of splits) {
-        if (!split.category.trim()) {
-          throw new Error('every split line needs a category');
-        }
-        if (!split.amount) {
-          throw new Error('every split line needs a non-zero amount');
-        }
-        sum = sum.plus(toDecimal(split.amount));
-      }
-      if (expectedAmount !== null && !sum.equals(toDecimal(expectedAmount))) {
-        throw new Error('split_total_mismatch: the split lines must sum to the transaction amount');
-      }
-
-      const newSplits = splits.map((split, index) => ({
-        id: this.uuid(),
-        transactionId,
-        category: split.category,
-        amount: split.amount,
-        ...(split.memo ? { memo: split.memo } : {}),
-        sortOrder: index + 1,
-      }));
-      await this.storage.set(STORAGE_KEYS.TRANSACTION_SPLITS, [...others, ...newSplits]);
-      await this.persistTransactions(transactions.map(t =>
-        t.id === transactionId
-          ? { ...t, isSplit: true, category: '', amount: sum.toNumber(), updatedAt: this.getCurrentDate() }
-          : t
-      ));
-      // A split that changes the transaction total must move the account
-      // balance with it (mirrors dataService.setTransactionSplits) — Decimal
-      // delta only; float math on money is banned.
-      if (!sum.equals(toDecimal(transaction.amount))) {
-        const accounts = (await this.storage.get<Account[]>(STORAGE_KEYS.ACCOUNTS)) ?? [];
-        const account = accounts.find(a => a.id === transaction.accountId);
-        if (account) {
-          account.balance = toDecimal(account.balance || 0)
-            .plus(sum.minus(toDecimal(transaction.amount)))
-            .toNumber();
-          await this.storage.set(STORAGE_KEYS.ACCOUNTS, accounts);
-        }
-      }
-      return { isSplit: true, splitCount: splits.length, amount: sum.toNumber() };
+      throw new Error('setTransactionSplits requires the cloud connection (local mode goes through DataService)');
     }
 
     try {

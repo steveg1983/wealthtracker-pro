@@ -134,7 +134,7 @@ const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Regi
  * quick-edit box up in the register has a Date and a Description too, and
  * "the description box" has to say which.
  */
-const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
+const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Quick Add Transaction' });
 
 /**
  * What the register's active row holds: its text, AND whatever has been typed

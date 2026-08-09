@@ -21,6 +21,9 @@ import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 // the register asks of it before claiming a key. Written down there because the
 // register needs the same answer and neither should own the other's copy.
 import { isInsideQuickEdit } from '../utils/quickEditScope';
+// The strip's arrow keys. The rule lives with the rest of the register's
+// keyboard so the printed shortcut list and the handler cannot drift apart.
+import { nextStripButtonIndex } from '../utils/registerShortcuts';
 import type { Transaction } from '../types';
 
 /**
@@ -820,13 +823,16 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
 
   if (field === 'date') {
     return (
-      // The register's narrowest column: 100px by default, and a dd/mm/yyyy
-      // date is a fixed ten characters of it. So this field keeps four pixels
-      // of inset where its neighbours keep twelve, and the calendar glyph is
-      // dropped (see DatePicker's showIcon) because the 32px it reserves is
-      // worth more here as date. Between them that is 92px for a date that
-      // needs about 71 — comfortable, where the column's own padding and the
-      // glyph together would have left 44 and truncated it.
+      // The register's narrowest column, and a dd/mm/yyyy date is a fixed ten
+      // characters of it. So this field keeps four pixels of inset (px-1) where
+      // its neighbours keep twelve, and the calendar glyph is dropped (see
+      // DatePicker's showIcon) because the 32px it reserves is worth more here
+      // as date.
+      //
+      // Those four pixels are a TERM in the column's width sum — see
+      // registerDateColumn, which owns the arithmetic and is held to it by a
+      // test that reads this very class name back off the DOM. Widening this
+      // inset narrows the date.
       <QuickEditCellShell field="date" cellRef={dateFieldRef} className="px-1">
         {/* The shared dd/mm/yyyy picker, NOT a native date input: natives
             render in the browser's locale, which showed American dates to a
@@ -909,6 +915,10 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
  * repeated Date, no second Description. That is the whole change: the strip is
  * 36px where the card it replaced was 88, and the row it belongs to has grown
  * 8px to hold its own fields.
+ *
+ * Enter in a field lands the cursor on Save & Next; the arrows then walk along
+ * the rest of the strip, so ending a run on one row is Enter, →, Enter. See
+ * moveAlongStrip.
  */
 export function QuickEditActionStrip(): React.JSX.Element {
   const {
@@ -916,6 +926,37 @@ export function QuickEditActionStrip(): React.JSX.Element {
     handleKeyDown, requestSave, confirmSuggestion, dismiss,
   } = useQuickEditRow();
   const isSaving = savingAction !== null;
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * The arrows, while the cursor is on one of these buttons: step along the
+   * strip. See nextStripButtonIndex for the rule and why it cannot disturb the
+   * fields above or the list behind.
+   *
+   * Read off the DOM rather than from a list of refs, because which buttons
+   * exist changes with the row — Confirm only on a guessed category, Save &
+   * Next only when there is a next row — and a hand-kept list is one that will
+   * one day be missing the button someone just added. Disabled buttons (a save
+   * in flight) are skipped: the browser will not focus them anyway.
+   *
+   * Tab still reaches every button exactly as it did. These arrows are a
+   * shorter way round for anyone who knows them, not the only way in.
+   */
+  const moveAlongStrip = useCallback((e: React.KeyboardEvent<HTMLDivElement>): boolean => {
+    const container = stripRef.current;
+    if (!container || !(e.target instanceof Element)) return false;
+    const from = e.target.closest('button');
+    if (!from || !container.contains(from)) return false;
+    const buttons = Array.from(container.querySelectorAll('button')).filter(b => !b.disabled);
+    const to = nextStripButtonIndex(buttons.indexOf(from), buttons.length, e.key);
+    if (to === null) return false;
+    // Claimed, not merely acted on: an unclaimed ArrowRight scrolls the table
+    // sideways under the editor the user is looking at.
+    e.preventDefault();
+    e.stopPropagation();
+    buttons[to].focus();
+    return true;
+  }, []);
 
   return (
     // data-quick-edit: the register's own keyboard stands down for anything
@@ -926,9 +967,19 @@ export function QuickEditActionStrip(): React.JSX.Element {
     // border the register wears, square at the top and rounded at the foot, and
     // pulled up by the 4px vertical margin the selected row carries
     // (.selected-transaction-row) so the two meet rather than float apart.
+    //
+    // bg-blue-50/80 and dark:bg-blue-900/30 are the SAME two values
+    // .selected-transaction-row fills the row with — one card, one colour,
+    // across the join and across the width. Change one and change the other.
     <div
+      ref={stripRef}
       data-quick-edit="actions"
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => {
+        // The arrows first, and only if they were the strip's: everything else
+        // — Enter, Escape — is the editor's own, unchanged.
+        if (moveAlongStrip(e)) return;
+        handleKeyDown(e);
+      }}
       className="relative z-20 -mt-1 h-full flex items-center justify-between gap-3 px-3 rounded-b-xl border-x border-b border-[#6B86B3]/60 bg-blue-50/80 dark:bg-blue-900/30 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)]"
     >
       {/* The rhythm nobody would guess, said where it is used, and said as
@@ -991,7 +1042,7 @@ export function QuickEditActionStrip(): React.JSX.Element {
           onClick={() => requestSave(false)}
           disabled={isSaving}
           className="px-3 h-[28px] inline-flex items-center justify-center text-xs font-medium bg-[#2d3a4d] text-white rounded-lg hover:bg-[#3a4a5f] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-          title="Save this transaction and stop editing — the list gets the keyboard back, on this row"
+          title="Save this transaction and stop editing — the list gets the keyboard back, on this row. From Save & Next, the right arrow reaches this button."
         >
           {savingAction === 'save' ? 'Saving…' : 'Save'}
         </button>
