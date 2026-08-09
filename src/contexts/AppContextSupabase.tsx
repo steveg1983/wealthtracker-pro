@@ -1393,9 +1393,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // a sign-out in another tab, a token that expired between the groups insert
   // and the details insert. The old shape carried on writing under the id it
   // captured, into a login that is no longer signed in. The new one resolves
-  // nothing, and the write goes to browser storage instead; once the pending-
-  // session guard lands it refuses outright, which is the answer this import
-  // wants — half a tree in the right account beats a whole one in the wrong.
+  // nothing, and the pending-session guard refuses the rest of the import
+  // outright — which is the answer this import wants: half a tree in the right
+  // account beats a whole one in the wrong.
   const importCategoryTree = useCallback(async (
     tree: CategoryTreeGroup[],
     options?: { pruneOthers?: boolean }

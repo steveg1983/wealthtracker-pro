@@ -1512,19 +1512,22 @@ class DataServiceImpl implements DataPort {
    * copy has never carried either — inventing them here would change what
    * every existing local budget looks like on the page.
    *
-   * AND ONE OMISSION, ALSO DELIBERATE: the three budget writes do not yet
-   * refuse a session whose database id is still resolving, the way every other
-   * write on this class does. Today such a write goes to browser storage, and
-   * today is what this branch reproduces. Refusing it is the better behaviour
-   * and it is coming — as its own change, with its own tests and its own
-   * sentence for the user, because a behaviour change hidden inside a routing
-   * change is one nobody can review.
+   * AND BETWEEN THE TWO BRANCHES, A REFUSAL RATHER THAN A ROUTE. A signed-in
+   * session whose database id has not resolved yet belongs to neither: the
+   * cloud branch has no owner to write under, and the local branch would put
+   * this budget in the browser's copy, show it as saved, and lose it at the
+   * next boot — when the cloud read beside it answers instead, from a store the
+   * row never reached. Nothing throws, nothing logs, and there is no way back.
+   * So the guard refuses, in the same sentence every other write on this class
+   * already uses: still connecting is both true and something the person can
+   * act on twenty seconds later, which silent loss never was.
    */
   async createBudget(budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.planningService.createBudget(userId, budget);
     }
+    this.guardCloudWrite();
 
     const created: Budget = {
       ...budget,
@@ -1543,16 +1546,17 @@ class DataServiceImpl implements DataPort {
    * caller replaces its copy with this answer, so a partial one would blank
    * whatever it left out.
    *
-   * Same branch and same owner rule as `createBudget` above. A budget that is
-   * not there is refused by name rather than created, and because the lookup
-   * happens before the first write, the refusal leaves the store exactly as it
-   * was.
+   * Same branch, same owner rule and same pending-session refusal as
+   * `createBudget` above. A budget that is not there is refused by name rather
+   * than created, and because the lookup happens before the first write, the
+   * refusal leaves the store exactly as it was.
    */
   async updateBudget(id: string, updates: Partial<Budget>): Promise<Budget> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.planningService.updateBudget(userId, id, updates);
     }
+    this.guardCloudWrite();
 
     const budgets = await this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
     const index = budgets.findIndex(budget => budget.id === id);
@@ -1569,15 +1573,19 @@ class DataServiceImpl implements DataPort {
   /**
    * Remove a budget.
    *
-   * Same branch and same owner rule as the two above. Deleting one that is not
-   * there is a silent no-op in both modes — a double-click, or a second device
-   * that got there first, must not turn a decision into an error message.
+   * Same branch, same owner rule and same pending-session refusal as the two
+   * above. Deleting one that is not there is a silent no-op in both modes — a
+   * double-click, or a second device that got there first, must not turn a
+   * decision into an error message. A session still resolving its id is a
+   * different thing entirely: the delete has not happened yet, so saying so is
+   * the honest answer rather than a noise.
    */
   async deleteBudget(id: string): Promise<void> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.planningService.deleteBudget(userId, id);
     }
+    this.guardCloudWrite();
 
     const budgets = await this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
     await this.persistCollection(
@@ -1614,16 +1622,17 @@ class DataServiceImpl implements DataPort {
    * differently in each half (banked in the browser's copy, thrown away in the
    * cloud), which is precisely the kind of difference this seam exists to stop.
    *
-   * The pending-session omission noted on `createBudget` is deliberate here
-   * too, and for the same reason: a write whose database id is still resolving
-   * still goes to browser storage today, and a behaviour change hidden inside a
-   * routing change is one nobody can review.
+   * The pending-session refusal argued on `createBudget` applies here word for
+   * word: a session whose database id has not resolved yet reaches neither
+   * branch, because the browser's copy is a place this goal would be shown as
+   * saved and then lost.
    */
   async createGoal(goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.planningService.createGoal(userId, goal);
     }
+    this.guardCloudWrite();
 
     const created: Goal = {
       ...goal,
@@ -1640,10 +1649,10 @@ class DataServiceImpl implements DataPort {
   /**
    * Change a goal, and hand back the whole goal as it now stands.
    *
-   * Same branch and same owner rule as `createGoal` above. A goal that is not
-   * there is refused by name rather than created, and because the lookup
-   * happens before the first write, the refusal leaves the store exactly as it
-   * was.
+   * Same branch, same owner rule and same pending-session refusal as
+   * `createGoal` above. A goal that is not there is refused by name rather than
+   * created, and because the lookup happens before the first write, the refusal
+   * leaves the store exactly as it was.
    *
    * This is also how money is put towards a goal: the contribution arrives as
    * an update carrying the new `progress`, already summed and already capped
@@ -1656,6 +1665,7 @@ class DataServiceImpl implements DataPort {
     if (userId && this.supabaseChecker()) {
       return this.planningService.updateGoal(userId, id, updates);
     }
+    this.guardCloudWrite();
 
     const goals = await this.readCollection<Goal>(STORAGE_KEYS.GOALS);
     const index = goals.findIndex(goal => goal.id === id);
@@ -1672,15 +1682,17 @@ class DataServiceImpl implements DataPort {
   /**
    * Remove a goal.
    *
-   * Same branch and same owner rule as the two above, and the same silence when
-   * it is already gone. The goal's trophy is forgotten by the caller that owns
-   * the celebration, not here.
+   * Same branch, same owner rule and same pending-session refusal as the two
+   * above, and the same silence when it is already gone. The goal's trophy is
+   * forgotten by the caller that owns the celebration, not here — and because a
+   * refused delete rejects, that caller never gets as far as forgetting it.
    */
   async deleteGoal(id: string): Promise<void> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.planningService.deleteGoal(userId, id);
     }
+    this.guardCloudWrite();
 
     const goals = await this.readCollection<Goal>(STORAGE_KEYS.GOALS);
     await this.persistCollection(
@@ -1717,16 +1729,34 @@ class DataServiceImpl implements DataPort {
    * other local write here uses, identical in a browser, with a fallback where
    * that API is missing instead of a throw.
    *
-   * The pending-session omission noted on `createBudget` is deliberate here too:
-   * a write whose database id is still resolving goes to browser storage today,
-   * and a behaviour change hidden inside a routing change is one nobody can
-   * review.
+   * The pending-session refusal argued on `createBudget` applies to all five
+   * category writes, and the comment beside the guard below says why the one
+   * exception on this class does not reach them.
    */
   async createCategory(category: Omit<Category, 'id'>): Promise<Category> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.planningService.createCategory(userId, category);
     }
+    // THIS GUARD IS NOT THE ASYMMETRY IT LOOKS LIKE, and it is here on all five
+    // category writes even though `prepareCategories` below deliberately has no
+    // gate at all. Reading names and writing rows are different questions.
+    //
+    // What that exception says is that a category LIST is not money: serving
+    // the browser's copy of the names to a session still resolving its id costs
+    // nothing, because that copy is the very list the account's own was
+    // migrated from, and withholding it would blank the register's category
+    // column for no gain.
+    //
+    // A category WRITE is the opposite trade. It does not read a list that
+    // already agrees with the cloud's — it MINTS AN ID, in a store the cloud
+    // will never hear about. The person names "Fuel", files three transactions
+    // under the id the browser's copy just gave them, and at the next boot the
+    // cloud's category list answers instead: the category is not there, and
+    // neither is the filing of those three rows. That is money mis-filed, by a
+    // list of words. So the read stays ungated and the writes refuse, and
+    // making the two "consistent" in either direction breaks one of them.
+    this.guardCloudWrite();
 
     const created: Category = { ...category, id: this.generateId() };
     const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
@@ -1743,8 +1773,10 @@ class DataServiceImpl implements DataPort {
    * anyway, because the plan is computed before it is known to be empty. Nothing
    * is written, nothing is read, and no insert with no rows is sent.
    *
-   * Otherwise the same branch as `createCategory` above, and the same reason the
-   * cloud half is delegated rather than copied.
+   * Otherwise the same branch as `createCategory` above, the same reason the
+   * cloud half is delegated rather than copied, and the same pending-session
+   * refusal — which the empty check still precedes, because refusing to write
+   * nothing would be an error message about a write nobody asked for.
    */
   async createCategories(newCategories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
     if (newCategories.length === 0) {
@@ -1755,6 +1787,7 @@ class DataServiceImpl implements DataPort {
     if (userId && this.supabaseChecker()) {
       return this.planningService.createCategories(userId, newCategories);
     }
+    this.guardCloudWrite();
 
     const created: Category[] = newCategories.map(category => ({
       ...category,
@@ -1770,9 +1803,10 @@ class DataServiceImpl implements DataPort {
    * caller replaces its copy with this answer, so a partial one would blank
    * whatever it left out.
    *
-   * Same branch and same owner rule as `createCategory` above. A category that
-   * is not there is refused by name, and because the lookup happens before the
-   * first write the refusal leaves the store exactly as it was.
+   * Same branch, same owner rule and same pending-session refusal as
+   * `createCategory` above. A category that is not there is refused by name,
+   * and because the lookup happens before the first write the refusal leaves
+   * the store exactly as it was.
    *
    * No timestamp is stamped, unlike the budget and goal updates beside it: a
    * Category carries none. Inventing one here would put a field on half the
@@ -1783,6 +1817,7 @@ class DataServiceImpl implements DataPort {
     if (userId && this.supabaseChecker()) {
       return this.planningService.updateCategory(userId, id, updates);
     }
+    this.guardCloudWrite();
 
     const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
     const index = categories.findIndex(category => category.id === id);
@@ -1799,10 +1834,11 @@ class DataServiceImpl implements DataPort {
   /**
    * Remove a category and the categories under it.
    *
-   * Same branch and same owner rule as the writes above. THE CASCADE IS THE
-   * BEHAVIOUR, not a detail of the cloud's foreign key: the local branch drops
-   * children by `parentId` exactly as `ON DELETE CASCADE` does server-side, so a
-   * group cannot outlive itself as a set of orphans whose parent is gone.
+   * Same branch, same owner rule and same pending-session refusal as the writes
+   * above. THE CASCADE IS THE BEHAVIOUR, not a detail of the cloud's foreign
+   * key: the local branch drops children by `parentId` exactly as `ON DELETE
+   * CASCADE` does server-side, so a group cannot outlive itself as a set of
+   * orphans whose parent is gone.
    *
    * Deleting one that is already gone writes the list back unchanged, which is
    * the same silence the budget and goal deletes keep.
@@ -1812,6 +1848,7 @@ class DataServiceImpl implements DataPort {
     if (userId && this.supabaseChecker()) {
       return this.planningService.deleteCategory(userId, id);
     }
+    this.guardCloudWrite();
 
     const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
     await this.persistCollection(
@@ -1823,11 +1860,12 @@ class DataServiceImpl implements DataPort {
   /**
    * Prune a batch of categories nothing is filed against.
    *
-   * Empty first, for the reason `createCategories` above gives. Then the same
-   * branch, and the same delegation of the cloud half — which here is doing
-   * more than caching: the RPC re-judges every row against the ledger as it is
-   * NOW, so a plan computed from a stale snapshot can never destroy referenced
-   * data, and it may therefore delete FEWER rows than it was handed.
+   * Empty first, for the reason `createCategories` above gives — and the
+   * pending-session refusal sits after it there for the same reason. Then the
+   * same branch, and the same delegation of the cloud half — which here is
+   * doing more than caching: the RPC re-judges every row against the ledger as
+   * it is NOW, so a plan computed from a stale snapshot can never destroy
+   * referenced data, and it may therefore delete FEWER rows than it was handed.
    *
    * THE COUNT IS WHAT ACTUALLY WENT, in both modes. Locally that is the size of
    * the list before minus the size after — which is not the same as the number
@@ -1845,6 +1883,7 @@ class DataServiceImpl implements DataPort {
     if (userId && this.supabaseChecker()) {
       return this.planningService.deleteUnusedCategories(userId, ids);
     }
+    this.guardCloudWrite();
 
     const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
     const doomed = new Set(ids);
@@ -1899,6 +1938,11 @@ class DataServiceImpl implements DataPort {
     // of words. The retired boot called `ensureCategories(null)` at exactly
     // this point and got exactly this behaviour; keeping it is the reason this
     // routing change is invisible to the person using it.
+    //
+    // AND IT STOPS HERE. This exception covers this READ and nothing else: the
+    // five category WRITES all refuse a pending session, and the comment beside
+    // `createCategory`'s guard says why serving a name is not the same trade as
+    // minting an id. The asymmetry is the point, not an oversight to tidy.
     const local = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
     return local.length > 0 ? local : getDefaultCategories();
   }
