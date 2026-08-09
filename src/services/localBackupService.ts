@@ -1,5 +1,6 @@
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
 import { toDecimal } from '../utils/decimal';
+import { preferences, type PreferencesDocument } from './preferencesService';
 import {
   BACKUP_ENTITIES,
   MAX_EXACT_MONEY,
@@ -71,6 +72,25 @@ export interface LocalBackupStore {
 }
 
 const defaultStore = (): LocalBackupStore => storageAdapter;
+
+/**
+ * The preferences half of the file, on a device.
+ *
+ * Its own port rather than another storage key, because on this engine the
+ * preferences document does not live in the encrypted store at all — it lives
+ * in the same service the cloud path reads, whose browser mirror IS the store
+ * when nobody is signed in. Injecting it keeps the test honest and keeps this
+ * module from reaching for a singleton mid-function.
+ */
+export interface LocalPreferencesPort {
+  read(): PreferencesDocument;
+  write(document: PreferencesDocument): Promise<void>;
+}
+
+const defaultPreferences = (): LocalPreferencesPort => ({
+  read: () => preferences.getDocument(),
+  write: (document) => preferences.replaceAll(document),
+});
 
 // ── Small readers ───────────────────────────────────────────────────────────
 
@@ -780,10 +800,12 @@ export async function collectLocalBackupBundle(
   options: {
     onProgress?: (progress: ExportProgress) => void;
     store?: LocalBackupStore;
+    preferences?: LocalPreferencesPort;
     now?: () => Date;
   } = {}
 ): Promise<BackupBundle> {
   const store = options.store ?? defaultStore();
+  const preferencesPort = options.preferences ?? defaultPreferences();
   const data: Partial<Record<BackupEntity, BackupRow[]>> = {};
 
   for (const [index, entity] of BACKUP_ENTITIES.entries()) {
@@ -806,6 +828,10 @@ export async function collectLocalBackupBundle(
     sourceUserId: LOCAL_SOURCE_USER_ID,
     exportedAt: now().toISOString(),
     data,
+    // For a signed-out user this is the ONLY copy of their settings that will
+    // ever exist anywhere, which makes carrying it more important here than in
+    // the cloud file, not less.
+    preferences: preferencesPort.read(),
   });
 }
 
@@ -884,6 +910,9 @@ export interface LocalRestoreOutcome {
   notStoredLocally: { label: string; rows: number; absence: string }[];
   accountsRelinked: number;
   transactionsRelinked: number;
+  /** Settings put back. Locally this cannot fail separately — see below. */
+  preferencesRestored: number;
+  preferencesFailure: string | null;
   danglingRefs: DanglingReference[];
 }
 
@@ -975,10 +1004,12 @@ export async function restoreLocalBackupBundle(
   options: {
     onProgress?: (progress: RestoreProgress) => void;
     store?: LocalBackupStore;
+    preferences?: LocalPreferencesPort;
     newId?: () => string;
   } = {}
 ): Promise<LocalRestoreOutcome> {
   const store = options.store ?? defaultStore();
+  const preferencesPort = options.preferences ?? defaultPreferences();
 
   if (!(await localFinancialDataIsEmpty({ store }))) {
     throw new LocalRestoreRefusedError(
@@ -1046,5 +1077,36 @@ export async function restoreLocalBackupBundle(
 
   await store.setMany(entries);
 
-  return { restored, notStoredLocally, accountsRelinked, transactionsRelinked, danglingRefs };
+  // After the one atomic write, and deliberately not inside it: the settings
+  // live in a different store from the financial rows, so they cannot join that
+  // transaction however they are ordered. Last is therefore the only safe place
+  // — a device with its ledger back and its toggles at defaults is recoverable,
+  // the other way round is not.
+  let preferencesRestored = 0;
+  let preferencesFailure: string | null = null;
+  if (remapped.preferences !== null) {
+    options.onProgress?.({
+      stepNumber: stepCount,
+      stepCount,
+      label: 'Preferences',
+      rowsDone: 0,
+      rowsTotal: Object.keys(remapped.preferences.values).length,
+    });
+    try {
+      await preferencesPort.write(remapped.preferences);
+      preferencesRestored = Object.keys(remapped.preferences.values).length;
+    } catch (error) {
+      preferencesFailure = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  return {
+    restored,
+    notStoredLocally,
+    accountsRelinked,
+    transactionsRelinked,
+    preferencesRestored,
+    preferencesFailure,
+    danglingRefs,
+  };
 }

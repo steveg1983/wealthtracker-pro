@@ -19,6 +19,7 @@ import {
 import { formatDecimal } from '../../utils/decimal-format';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
+import { preferences } from '../../services/preferencesService';
 
 /**
  * "This period vs last" — Money's comparison report.
@@ -55,7 +56,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [basis, setBasis] = useState<ComparisonBasis>(() =>
-    localStorage.getItem(BASIS_KEY) === 'same-period-last-year' ? 'same-period-last-year' : 'previous-period'
+    preferences.getItem(BASIS_KEY) === 'same-period-last-year' ? 'same-period-last-year' : 'previous-period'
   );
 
   /**
@@ -73,7 +74,7 @@ export default function PeriodComparisonReport({ picker }: ReportViewProps): Rea
 
   const handleBasis = (next: ComparisonBasis): void => {
     setBasis(next);
-    localStorage.setItem(BASIS_KEY, next);
+    preferences.setItem(BASIS_KEY, next);
   };
 
   const ranges = useMemo(

@@ -53,12 +53,23 @@ describe('resolvePeriod', () => {
 describe('usePeriod defaults vs the user’s own choice', () => {
   const KEY = 'testPeriod';
 
+  /**
+   * A period lives in the PREFERENCES document in the running app, so that the
+   * dashboard opens on the window the user chose whichever machine they are at.
+   * These tests hand the hook plain localStorage instead — the adapter exists
+   * exactly so they can — because what is under test is the default-versus-
+   * choice rule, not where the answer is filed. Injecting it also keeps each
+   * case starting from a genuinely empty store, which a module-level service
+   * shared with every other suite cannot promise.
+   */
+  const store = localStorage;
+
   beforeEach(() => {
     localStorage.clear();
   });
 
   it('starts on the surface’s default, unchosen', () => {
-    const { result } = renderHook(() => usePeriod(KEY, 'all'));
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
 
     expect(result.current.period).toBe('all');
     expect(result.current.isExplicit).toBe(false);
@@ -67,7 +78,7 @@ describe('usePeriod defaults vs the user’s own choice', () => {
   });
 
   it('applies another surface’s default while nothing has been chosen', () => {
-    const { result } = renderHook(() => usePeriod(KEY));
+    const { result } = renderHook(() => usePeriod(KEY, 'this-month', store));
 
     act(() => result.current.applyDefaultPeriod('last-12-months'));
 
@@ -76,7 +87,7 @@ describe('usePeriod defaults vs the user’s own choice', () => {
   });
 
   it('never overrides a choice the user made', () => {
-    const { result } = renderHook(() => usePeriod(KEY));
+    const { result } = renderHook(() => usePeriod(KEY, 'this-month', store));
 
     act(() => result.current.setPeriod('tax-year'));
     expect(result.current.isExplicit).toBe(true);
@@ -88,19 +99,19 @@ describe('usePeriod defaults vs the user’s own choice', () => {
   });
 
   it('remembers the choice across a remount, defaults do not', () => {
-    const first = renderHook(() => usePeriod(KEY, 'this-month'));
+    const first = renderHook(() => usePeriod(KEY, 'this-month', store));
     act(() => first.result.current.applyDefaultPeriod('all'));
     first.unmount();
 
     // A default is a suggestion, so the next surface's own default wins.
-    const second = renderHook(() => usePeriod(KEY, 'last-12-months'));
+    const second = renderHook(() => usePeriod(KEY, 'last-12-months', store));
     expect(second.result.current.period).toBe('last-12-months');
     expect(second.result.current.isExplicit).toBe(false);
 
     act(() => second.result.current.setPeriod('tax-year'));
     second.unmount();
 
-    const third = renderHook(() => usePeriod(KEY, 'all'));
+    const third = renderHook(() => usePeriod(KEY, 'all', store));
     expect(third.result.current.period).toBe('tax-year');
     expect(third.result.current.isExplicit).toBe(true);
   });
@@ -113,7 +124,7 @@ describe('usePeriod defaults vs the user’s own choice', () => {
     // feature. So it seeds nothing and the caller's default wins.
     localStorage.setItem(KEY, 'last-month');
 
-    const { result } = renderHook(() => usePeriod(KEY, 'all'));
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
 
     expect(result.current.period).toBe('all');
     expect(result.current.isExplicit).toBe(false);
@@ -122,10 +133,10 @@ describe('usePeriod defaults vs the user’s own choice', () => {
   it('honours the very next choice the user makes after that reset', () => {
     localStorage.setItem(KEY, 'last-month');
 
-    const first = renderHook(() => usePeriod(KEY, 'all'));
+    const first = renderHook(() => usePeriod(KEY, 'all', store));
     act(() => first.result.current.setPeriod('tax-year'));
 
-    const second = renderHook(() => usePeriod(KEY, 'all'));
+    const second = renderHook(() => usePeriod(KEY, 'all', store));
     expect(second.result.current.period).toBe('tax-year');
     expect(second.result.current.isExplicit).toBe(true);
 
@@ -136,14 +147,14 @@ describe('usePeriod defaults vs the user’s own choice', () => {
   it('ignores a stored value that is not a period', () => {
     localStorage.setItem(KEY, 'last-fortnight');
 
-    const { result } = renderHook(() => usePeriod(KEY, 'all'));
+    const { result } = renderHook(() => usePeriod(KEY, 'all', store));
 
     expect(result.current.period).toBe('all');
     expect(result.current.isExplicit).toBe(false);
   });
 
   it('counts editing a custom range as choosing one', () => {
-    const { result } = renderHook(() => usePeriod(KEY));
+    const { result } = renderHook(() => usePeriod(KEY, 'this-month', store));
 
     act(() => result.current.setCustomStart('2026-01-10'));
 

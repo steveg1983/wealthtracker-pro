@@ -3,11 +3,22 @@
  * one decision that matters — "is a refresh due right now?".
  *
  * The decision is a pure function so the scheduling rules live under test,
- * not inside a hook. Storage is localStorage keyed BY USER ID: this device
- * setting controls actions on the signed-in user's data, and an unkeyed entry
- * would leak one user's schedule onto another's session on a shared machine —
- * the exact mistake the notification feed made.
+ * not inside a hook.
+ *
+ * ── WHERE THE TWO VALUES LIVE, AND WHY THEY DIFFER ──────────────────────────
+ *
+ * The PREFERENCE ("refresh daily at 08:00") belongs to the user and travels
+ * with the account, so it goes in the preferences document — which is already
+ * per-user, so the user-id keying the old localStorage entry needed disappears
+ * along with the shared-machine leak it existed to prevent.
+ *
+ * The LAST RUN belongs to the DEVICE and stays keyed by user in localStorage.
+ * It records when THIS browser last called the bank; carried to a second
+ * machine it would say "already synced today" on a machine that has never
+ * synced at all, and the refresh the user asked for would silently not happen.
  */
+
+import { preferences } from '../services/preferencesService';
 
 export type AutoSyncMode = 'off' | 'signin' | 'daily';
 
@@ -26,7 +37,13 @@ export const DEFAULT_AUTO_SYNC_PREFS: AutoSyncPrefs = { mode: 'off', dailyTime: 
  */
 export const SIGNIN_MODE_MIN_GAP_MS = 60 * 60 * 1000;
 
-const prefsKey = (userId: string): string => `bankAutoSync:prefs:${userId}`;
+/**
+ * One key, not one per user: the preferences document is already the signed-in
+ * user's own. The old `bankAutoSync:prefs:<userId>` entries are read once, on
+ * the first boot after this ships, so nobody's schedule is forgotten.
+ */
+const PREFS_KEY = 'bankAutoSync.prefs.v1';
+const legacyPrefsKey = (userId: string): string => `bankAutoSync:prefs:${userId}`;
 const lastRunKey = (userId: string): string => `bankAutoSync:lastRun:${userId}`;
 
 const isValidTime = (t: unknown): t is string =>
@@ -34,7 +51,7 @@ const isValidTime = (t: unknown): t is string =>
 
 export function loadAutoSyncPrefs(userId: string): AutoSyncPrefs {
   try {
-    const raw = localStorage.getItem(prefsKey(userId));
+    const raw = preferences.getItem(PREFS_KEY) ?? localStorage.getItem(legacyPrefsKey(userId));
     if (!raw) return DEFAULT_AUTO_SYNC_PREFS;
     const parsed: unknown = JSON.parse(raw);
     const mode = (parsed as AutoSyncPrefs).mode;
@@ -49,7 +66,10 @@ export function loadAutoSyncPrefs(userId: string): AutoSyncPrefs {
 }
 
 export function saveAutoSyncPrefs(userId: string, prefs: AutoSyncPrefs): void {
-  localStorage.setItem(prefsKey(userId), JSON.stringify(prefs));
+  preferences.setItem(PREFS_KEY, JSON.stringify(prefs));
+  // The pre-move copy would otherwise be read back by an older tab still open
+  // on the same machine, which would then write it back over this one.
+  try { localStorage.removeItem(legacyPrefsKey(userId)); } catch { /* storage may be unavailable */ }
 }
 
 export function loadLastAutoSyncRun(userId: string): Date | null {

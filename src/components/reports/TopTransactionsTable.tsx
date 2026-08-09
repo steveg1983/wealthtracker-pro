@@ -5,6 +5,7 @@ import { buildCategoryNameLookup } from '../../utils/categoryNames';
 import { selectTopTransactions } from '../../utils/topTransactions';
 import type { Category } from '../../types';
 import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
+import { preferences } from '../../services/preferencesService';
 
 /**
  * The biggest real money movements of the period, on the "Monthly income and
@@ -50,7 +51,7 @@ export default function TopTransactionsTable({
   const { formatCurrency } = useCurrencyDecimal();
   // A curiosity next to the matrix, so it starts hidden; the choice is
   // persisted like the report's other view preferences.
-  const [show, setShow] = useState<boolean>(() => localStorage.getItem(SHOW_KEY) === '1');
+  const [show, setShow] = useState<boolean>(() => preferences.getItem(SHOW_KEY) === '1');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
 
@@ -60,7 +61,7 @@ export default function TopTransactionsTable({
 
   const toggle = (): void => {
     setShow(prev => {
-      localStorage.setItem(SHOW_KEY, prev ? '0' : '1');
+      preferences.setItem(SHOW_KEY, prev ? '0' : '1');
       return !prev;
     });
   };

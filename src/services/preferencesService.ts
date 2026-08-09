@@ -1,0 +1,663 @@
+import { supabase } from './api/supabaseClient';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+/**
+ * Preferences that travel with the ACCOUNT rather than with the browser.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ *
+ * A full backup was restored into a fresh login and the app came up
+ * factory-reset: right accounts, right transactions, and every choice the owner
+ * had ever made about how to LOOK at them gone. Which accounts the dashboard
+ * pins, which reports are pinned beside them, the period each surface opens on,
+ * how the Accounts page is banded and sorted, which register columns are
+ * hidden, the archive cutoffs he had set per account — a whole tier of
+ * personalisation lived in `window.localStorage` and nowhere else. It did not
+ * back up, it did not follow him to a second machine, and nothing said so.
+ *
+ * The fix is not "back up localStorage". localStorage holds two different kinds
+ * of thing side by side: statements about the USER ("show me twelve months",
+ * "these six accounts matter") and statements about the DEVICE ("this browser
+ * has shown you the import tip", "this screen fits a 240px description
+ * column"). Carrying the second kind across machines makes the app worse, not
+ * better. So each key is classified once, and only the first kind lives here.
+ *
+ * ── THE DOCUMENT ────────────────────────────────────────────────────────────
+ *
+ * One row per user holding ONE jsonb document, not a row per key. Preferences
+ * are read as a SET exactly once (at boot, before the first paint that depends
+ * on them), written rarely, and have to travel whole into a backup file. A row
+ * per key would turn one round trip into fifty, and would let a restore land
+ * half a user's settings.
+ *
+ * Values are stored as the SAME STRINGS localStorage held — not as a typed
+ * object graph. That is deliberate:
+ *
+ *   * every call site already serialises to a string, so rewiring one is
+ *     `localStorage.` → `preferences.` and nothing else. The point of this work
+ *     is where the data LIVES, not renaming it;
+ *   * a key this build has never heard of is preserved untouched. An older
+ *     client cannot drop a newer client's preference, because it never parses
+ *     it — which is the property that makes a shared document safe to roll out
+ *     to two versions at once;
+ *   * a corrupt value costs exactly one preference. Each call site already
+ *     guards its own parse (they had to: localStorage is hand-editable), so a
+ *     bad value falls back to that key's default instead of failing the load.
+ *
+ * ── WHAT IS NOT HERE ────────────────────────────────────────────────────────
+ *
+ * Anything that grows with the size of the dataset. Everything registered below
+ * is a toggle, an enum, a short list of account ids, or a handful of column
+ * names. The database backs this up with a hard CHECK on the document's size
+ * (see migration 20260809160000): preferences are small, and a table that lets
+ * them stop being small would become a second, unindexed copy of the ledger.
+ */
+
+const preferencesLogger = createScopedLogger('PreferencesService');
+
+// ── The document ────────────────────────────────────────────────────────────
+
+/**
+ * The version this build writes.
+ *
+ * Bump it only when the MEANING of the values map changes, never for a new key
+ * — new keys are the normal case and need no version at all. A document
+ * claiming a version this build does not know is read anyway, values and all:
+ * refusing it would lose every setting rather than the one that changed.
+ */
+export const PREFERENCES_DOCUMENT_VERSION = 1;
+
+export interface PreferencesDocument {
+  version: number;
+  /** Preference key → the exact string the call site stored. */
+  values: Record<string, string>;
+}
+
+export const EMPTY_PREFERENCES: PreferencesDocument = { version: PREFERENCES_DOCUMENT_VERSION, values: {} };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Read a document off the wire.
+ *
+ * Deliberately forgiving in one direction and strict in the other: a `values`
+ * entry that is not a string is DROPPED (nothing can consume it, and keeping it
+ * would put a shape into the document that a later write would echo back to the
+ * database), while an unrecognised VERSION is kept as it is. The first is
+ * corruption; the second is a newer client, and a newer client's document must
+ * come back out of an older one unharmed.
+ */
+export function parsePreferencesDocument(raw: unknown): PreferencesDocument {
+  if (!isRecord(raw)) return { ...EMPTY_PREFERENCES, values: {} };
+
+  const version = typeof raw.version === 'number' && Number.isFinite(raw.version)
+    ? raw.version
+    : PREFERENCES_DOCUMENT_VERSION;
+
+  const values: Record<string, string> = {};
+  if (isRecord(raw.values)) {
+    for (const [key, value] of Object.entries(raw.values)) {
+      if (typeof value === 'string') values[key] = value;
+    }
+  }
+
+  return { version, values };
+}
+
+// ── The registry ────────────────────────────────────────────────────────────
+
+/**
+ * A surface whose period picker is remembered. `usePeriod` writes four keys per
+ * surface — the period itself, the "the user chose this" flag, and the two
+ * custom bounds — and all four have to travel together or a restored custom
+ * range comes back as an empty one the user never asked for.
+ */
+export function periodPreferenceKeys(base: string): string[] {
+  return [base, `${base}Explicit`, `${base}CustomStart`, `${base}CustomEnd`];
+}
+
+/**
+ * Every key that travels with the account.
+ *
+ * This list does TWO jobs, and only the first is load-bearing at runtime:
+ *
+ *  1. it is what the one-time lift copies out of an existing browser, so the
+ *     owner's real account keeps the settings he already has rather than
+ *     starting from defaults on the day this ships;
+ *  2. it is the written inventory. A key not here is a key somebody decided
+ *     stays on the device, and the decision is recorded in the classification
+ *     table beside this list rather than left to be inferred from a diff.
+ *
+ * Writing a key through this service is what makes it portable — the registry
+ * is not a gate. That is on purpose: a call site added after this list stops
+ * being maintained still travels correctly, it just misses the one-time lift,
+ * which matters for exactly one boot in the lifetime of one browser.
+ */
+export const PORTABLE_PREFERENCE_KEYS: readonly string[] = [
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  // Which accounts the owner put on his own front page, and which reports he
+  // pinned beside them. Statements about HIS data, not about this screen.
+  'dashboardKeyAccounts',
+  'dashboardPinnedReports',
+  ...periodPreferenceKeys('dashboardReports'),
+  ...periodPreferenceKeys('dashboardReportsFlows'),
+  ...periodPreferenceKeys('dashboardPerformance'),
+
+  // ── Reports ──────────────────────────────────────────────────────────────
+  ...periodPreferenceKeys('reportsPeriod'),
+  ...periodPreferenceKeys('exportPeriod'),
+  'reportsAccountFilterIds',
+  'reportsShowRevaluations',
+  'reportsMatrixSubcategories',
+  'reportsShowTopTransactions',
+  'reportsComparisonBasis',
+  'reportsTrendChartType',
+  'reportsPayeeSide',
+  'reports.monthlyIncomeExpenses.cumulative.v1',
+  'reports.incomeSpendingOverTime.cumulative.v1',
+  'netWorthChartType',
+  'netWorthShowDetail',
+
+  // ── Accounts page ────────────────────────────────────────────────────────
+  'accountsGroupBy.v2',
+  'accountsSortMode',
+  'accountsCollapsedGroups',
+
+  // ── Reconciliation ───────────────────────────────────────────────────────
+  'reconciliationGroupBy',
+  'reconciliationSortMode',
+  'reconciliationOnlyAttention',
+
+  // ── Register (per-account transaction list) ──────────────────────────────
+  // Order and visibility travel; WIDTHS do not — see the classification note.
+  'accountRegister.columnOrder.v1',
+  'accountRegister.hiddenColumns.v1',
+  'accountRegister.archive.v1',
+
+  // ── Archive ──────────────────────────────────────────────────────────────
+  'archiveManager.preset.v1',
+  'archiveManager.customDate.v1',
+  'archiveManager.overrides.v1',
+  'archiveManager.collapsedGroups.v1',
+
+  // ── App-wide preferences (PreferencesContext) ────────────────────────────
+  'money_management_compact_view',
+  'money_management_currency',
+  'money_management_theme',
+  'money_management_theme_schedule',
+  'money_management_first_name',
+  'money_management_show_investments',
+  'money_management_goal_celebrations',
+
+  // ── Alerts (NotificationContext) ─────────────────────────────────────────
+  'money_management_budget_alerts_enabled',
+  'money_management_alert_threshold',
+  'money_management_large_transaction_alerts_enabled',
+  'money_management_large_transaction_threshold',
+
+  // ── Export templates ─────────────────────────────────────────────────────
+  'export-templates',
+  'export-templates-initialised',
+
+  // ── Bank auto-sync ───────────────────────────────────────────────────────
+  // The PREFERENCE only. `bankAutoSync:lastRun:<user>` stays on the device:
+  // it records when THIS browser last ran a sync, and a fresh machine that
+  // inherited it would believe it had already synced today and skip.
+  'bankAutoSync.prefs.v1',
+
+  // ── Formatting ───────────────────────────────────────────────────────────
+  'preferredLocale',
+] as const;
+
+/**
+ * Keys the preferences document holds that name ROWS in the user's data.
+ *
+ * They matter to exactly one caller — the restore, which mints a fresh id for
+ * every row it puts back (see backupService.remapBackupIds and the reason it
+ * remaps unconditionally). A preference naming accounts by id and restored
+ * verbatim would come back pointing at the accounts of the login the file came
+ * from: the dashboard's key accounts would silently be six accounts that no
+ * longer exist, and the archive cutoffs the owner set per account would apply
+ * to nothing. Both fail SILENTLY, which is what makes this worth spelling out.
+ */
+export const PREFERENCE_KEYS_HOLDING_IDS = {
+  /** JSON array of account ids. */
+  idArray: [
+    'dashboardKeyAccounts',
+    'reportsAccountFilterIds',
+  ] as readonly string[],
+  /** JSON object whose KEYS are account ids. */
+  idKeyedObject: [
+    'archiveManager.overrides.v1',
+  ] as readonly string[],
+} as const;
+
+// ── Where a preference lives while the app runs ─────────────────────────────
+
+/**
+ * The shape every rewired call site talks to — deliberately `Storage`'s own, so
+ * a call site changes by one word and its error handling stays exactly as it
+ * was. `getItem` is synchronous because the surfaces reading it are `useState`
+ * initialisers: a promise here would mean every remembered toggle flashed its
+ * default first.
+ */
+export interface PreferenceStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+/**
+ * WHAT SYNCHRONOUS READING COSTS, stated rather than hidden.
+ *
+ * On a machine the user has NEVER opened, the browser mirror is empty and the
+ * account's document lands a few hundred milliseconds into boot. A surface that
+ * read its preference in a `useState` initialiser before then shows the default
+ * for the rest of that session — one session, on one machine, once.
+ *
+ * That is the deliberate trade against the alternative, which is worse in the
+ * other 99% of visits: making every remembered toggle asynchronous means every
+ * returning user watches the dashboard paint the DEFAULT and then correct
+ * itself, on every load, for ever. The app-wide values (theme, currency, name)
+ * do not pay even the one-session cost, because PreferencesContext subscribes
+ * and corrects itself the moment the document arrives; anything else that turns
+ * out to matter can do the same through `subscribe`.
+ */
+
+/** The browser storage the cache mirrors into. Injectable for tests. */
+export interface LocalMirror {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+/**
+ * The stored copy, as two verbs.
+ *
+ * A PORT rather than "the slice of the Supabase client we use", and that is not
+ * only taste. A structural interface describing the PostgREST builder chain has
+ * to be checked against `SupabaseClient<Database>`'s generics every time the
+ * real client is assigned to it, and `tsc -b` gives up on that with
+ * "Type instantiation is excessively deep" — the compiler's way of saying the
+ * abstraction is drawn in the wrong place. Two verbs are also what a caller
+ * actually needs: read this user's document, replace it. Nothing above cares
+ * that it is a table.
+ */
+export interface PreferencesTransport {
+  read(userId: string): Promise<PreferencesDocument | null>;
+  write(userId: string, document: PreferencesDocument): Promise<void>;
+}
+
+export const USER_PREFERENCES_TABLE = 'user_preferences';
+
+/** How long a burst of changes is collected before one write goes out. */
+export const PREFERENCES_WRITE_DEBOUNCE_MS = 800;
+
+/**
+ * The transport the app uses: the `user_preferences` table over Supabase, or
+ * `null` when this session has no cloud at all (local mode, demo mode, a build
+ * with no credentials). Null is not an error — it is the honest answer, and the
+ * service treats the browser mirror as the store in that case.
+ *
+ * The client is used INLINE and never assigned to a declared interface, which
+ * is what keeps its generics out of every signature in this file.
+ */
+export function supabasePreferencesTransport(): PreferencesTransport | null {
+  const client = supabase;
+  if (!client) return null;
+  return {
+    async read(userId: string): Promise<PreferencesDocument | null> {
+      const { data, error } = await client
+        .from(USER_PREFERENCES_TABLE)
+        .select('prefs')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) {
+        // Thrown rather than swallowed: a backup that quietly recorded "no
+        // preferences" for a user who has fifty is the failure this whole
+        // change exists to end. Callers decide what to do about it.
+        throw new Error(`Could not read your preferences: ${error.message}`);
+      }
+      return data === null ? null : parsePreferencesDocument(data.prefs);
+    },
+    async write(userId: string, document: PreferencesDocument): Promise<void> {
+      const { error } = await client
+        .from(USER_PREFERENCES_TABLE)
+        .upsert({ user_id: userId, prefs: document }, { onConflict: 'user_id' });
+      if (error) {
+        throw new Error(`Could not save your preferences: ${error.message}`);
+      }
+    },
+  };
+}
+
+export interface PreferencesServiceOptions {
+  mirror?: LocalMirror | null;
+  transport?: PreferencesTransport | null;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+  debounceMs?: number;
+}
+
+/**
+ * The live preferences of whoever is signed in.
+ *
+ * ── THE THREE STORES, AND WHY ───────────────────────────────────────────────
+ *
+ *   memory   authoritative while the tab is open, and the only one anything
+ *            reads. Synchronous, so a `useState` initialiser gets the real
+ *            answer rather than a default it has to correct a frame later.
+ *   browser  a mirror, written on every change. It is what makes the app work
+ *            signed-out, offline, and during the boot before the row arrives —
+ *            and it is where the one-time lift finds the settings the owner
+ *            already has.
+ *   database the copy that travels. Written debounced, because dragging a
+ *            column width or ticking six accounts is a burst of changes and
+ *            each one does not deserve a round trip.
+ *
+ * ── WHAT HAPPENS ON A CONFLICT ──────────────────────────────────────────────
+ *
+ * The server row wins on load, per key, and the browser mirror is refreshed
+ * from it. That is the only rule that makes "my settings follow me" true: a
+ * machine that has not been opened for a month must not push its month-old
+ * toggles over the ones set since. The exception is a server row that does not
+ * exist yet, which is the lift — see `attach`.
+ */
+export class PreferencesService implements PreferenceStorage {
+  private document: PreferencesDocument = { version: PREFERENCES_DOCUMENT_VERSION, values: {} };
+  private readonly listeners = new Set<() => void>();
+  private readonly injectedMirror: LocalMirror | null | undefined;
+  private readonly transportOverride: PreferencesTransport | null | undefined;
+  private readonly setTimeoutFn: typeof setTimeout;
+  private readonly clearTimeoutFn: typeof clearTimeout;
+  private readonly debounceMs: number;
+
+  private userId: string | null = null;
+  private pendingWrite: ReturnType<typeof setTimeout> | undefined;
+  /** Resolves when nothing is queued — the whole reason tests need not sleep. */
+  private inFlight: Promise<void> = Promise.resolve();
+  private loaded = false;
+
+  constructor(options: PreferencesServiceOptions = {}) {
+    this.injectedMirror = options.mirror;
+    this.transportOverride = options.transport;
+    this.setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+    this.clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+    this.debounceMs = options.debounceMs ?? PREFERENCES_WRITE_DEBOUNCE_MS;
+  }
+
+  /**
+   * The browser's own storage, resolved on EVERY use rather than captured in the
+   * constructor.
+   *
+   * This module is imported at boot, and a reference taken then outlives
+   * anything that replaces `window.localStorage` afterwards — which is not a
+   * hypothetical: the test harness installs its own implementation after the
+   * module graph is loaded, and a service holding the original would quietly be
+   * reading a different store from the one every test writes to. Resolving late
+   * also means no assumption that `window` exists at import time.
+   */
+  private get mirror(): LocalMirror | null {
+    if (this.injectedMirror !== undefined) return this.injectedMirror;
+    return typeof window !== 'undefined' ? window.localStorage : null;
+  }
+
+  private resolveTransport(): PreferencesTransport | null {
+    if (this.transportOverride !== undefined) return this.transportOverride;
+    return supabasePreferencesTransport();
+  }
+
+  /**
+   * Everything the browser already holds for a registered key.
+   *
+   * Read WITHOUT the server, before sign-in resolves, so the very first paint
+   * of a returning user shows their own settings instead of the defaults they
+   * would then watch get corrected.
+   */
+  private readMirror(): Record<string, string> {
+    const values: Record<string, string> = {};
+    if (!this.mirror) return values;
+    for (const key of PORTABLE_PREFERENCE_KEYS) {
+      try {
+        const stored = this.mirror.getItem(key);
+        if (stored !== null) values[key] = stored;
+      } catch {
+        // Safari private browsing throws on read. A preference nobody can read
+        // is a default, which is survivable; a page that will not render is not.
+        return values;
+      }
+    }
+    return values;
+  }
+
+  // ── The Storage-shaped face every call site uses ──────────────────────────
+
+  /**
+   * The document first, then the browser.
+   *
+   * The fall-through is what makes this a drop-in replacement for
+   * `localStorage.getItem` on the very first boot after it ships: every setting
+   * the user already has is sitting in browser storage under exactly these
+   * keys, and reading it there means nothing is forgotten in the window between
+   * the app starting and the account's document arriving.
+   *
+   * It STOPS once a stored document has been loaded, and that is deliberate.
+   * After the server has spoken, a key absent from its document is absent — the
+   * user removed that preference, possibly on another machine — and falling
+   * back to this browser's leftover copy would resurrect it every boot.
+   */
+  getItem(key: string): string | null {
+    const value = this.document.values[key];
+    if (value !== undefined) return value;
+    if (this.loaded) return null;
+    try {
+      return this.mirror?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  setItem(key: string, value: string): void {
+    if (this.document.values[key] === value) return;
+    this.document = { ...this.document, values: { ...this.document.values, [key]: value } };
+    this.writeMirror(key, value);
+    this.scheduleWrite();
+    this.notify();
+  }
+
+  removeItem(key: string): void {
+    if (!(key in this.document.values)) return;
+    const values = { ...this.document.values };
+    delete values[key];
+    this.document = { ...this.document, values };
+    try {
+      this.mirror?.removeItem(key);
+    } catch {
+      // Unwritable storage costs the mirror, never the in-memory truth.
+    }
+    this.scheduleWrite();
+    this.notify();
+  }
+
+  private writeMirror(key: string, value: string): void {
+    try {
+      this.mirror?.setItem(key, value);
+    } catch {
+      // Quota or private browsing. The setting still holds for this visit and
+      // still reaches the server; only the offline copy is lost.
+    }
+  }
+
+  // ── Subscription (useSyncExternalStore) ───────────────────────────────────
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  };
+
+  /** The identity React compares. A new object per change, stable between them. */
+  getDocument = (): PreferencesDocument => this.document;
+
+  private notify(): void {
+    for (const listener of this.listeners) listener();
+  }
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Bind the service to a signed-in user and load their row.
+   *
+   * THE LIFT: a user whose row does not exist yet has their current browser
+   * settings written up as the row's first content. Without it, shipping this
+   * would read as the app forgetting everything on the day it learned to
+   * remember — the owner has years of choices in `window.localStorage` and no
+   * intention of making them again.
+   *
+   * The lift is once per login, not once per device, and that is the right
+   * grain: the row exists after the first machine writes it, so a second
+   * machine loads the first's settings rather than overwriting them with its
+   * own. Whichever machine gets there first wins, which is the only outcome
+   * available without a merge policy nobody asked for.
+   */
+  async attach(userId: string): Promise<void> {
+    if (this.userId === userId && this.loaded) return;
+    this.userId = userId;
+
+    const transport = this.resolveTransport();
+    if (!transport) {
+      // Local or demo mode. The mirror IS the store; nothing more to do.
+      this.loaded = true;
+      return;
+    }
+
+    let stored: PreferencesDocument | null;
+    try {
+      stored = await transport.read(userId);
+    } catch (error) {
+      // A database that has not had 20260809160000 applied yet lands here, and
+      // so does an offline boot. Both are survivable: the browser mirror holds
+      // exactly what this machine held before, which is where every one of
+      // these settings lived until today.
+      preferencesLogger.warn('Could not read stored preferences; using this browser\'s copy', error);
+      return;
+    }
+
+    if (stored === null) {
+      // No row yet. THE LIFT: everything this browser holds becomes the row's
+      // first content, merged UNDER anything already set this session — a
+      // toggle flipped while the read was in flight is newer than the stored
+      // copy it came from. An empty browser lifts an empty document, which is
+      // correct and costs one insert.
+      this.document = {
+        version: PREFERENCES_DOCUMENT_VERSION,
+        values: { ...this.readMirror(), ...this.document.values },
+      };
+      this.loaded = true;
+      this.scheduleWrite();
+      this.notify();
+      return;
+    }
+
+    // Server wins per key, and the browser mirror is refreshed to match: this
+    // machine's month-old toggles must not outrank the ones set since. Values
+    // set during THIS session stay on top — they postdate the read.
+    this.document = { ...stored, values: { ...stored.values, ...this.document.values } };
+    for (const [key, value] of Object.entries(this.document.values)) this.writeMirror(key, value);
+    this.loaded = true;
+    this.notify();
+  }
+
+  /**
+   * Forget the signed-in user, and everything held for them.
+   *
+   * The in-memory document is CLEARED, not kept, and that matters on a shared
+   * browser: `attach` merges whatever is in memory on top of the document it
+   * reads, so a session that signed out of one account and into another would
+   * otherwise write the first user's pinned accounts and archive cutoffs into
+   * the second user's row. The browser mirror is left alone — it is the
+   * browser's own copy, it is what a signed-out or local session reads, and it
+   * has always survived sign-out.
+   */
+  detach(): void {
+    this.cancelPendingWrite();
+    this.userId = null;
+    this.loaded = false;
+    this.document = { version: PREFERENCES_DOCUMENT_VERSION, values: {} };
+    this.notify();
+  }
+
+  // ── Writing back ──────────────────────────────────────────────────────────
+
+  private cancelPendingWrite(): void {
+    if (this.pendingWrite !== undefined) {
+      this.clearTimeoutFn(this.pendingWrite);
+      this.pendingWrite = undefined;
+    }
+  }
+
+  private scheduleWrite(): void {
+    if (this.userId === null) return;
+    this.cancelPendingWrite();
+    this.pendingWrite = this.setTimeoutFn(() => {
+      this.pendingWrite = undefined;
+      this.inFlight = this.write();
+    }, this.debounceMs);
+  }
+
+  private async write(): Promise<void> {
+    const userId = this.userId;
+    const transport = this.resolveTransport();
+    if (userId === null || !transport) return;
+
+    // Snapshot before awaiting: a change made while the request is in flight
+    // must schedule its own write rather than silently ride on this one.
+    const document = this.document;
+    try {
+      await transport.write(userId, document);
+    } catch (error) {
+      // Offline, or the row was refused. The browser mirror already holds it,
+      // so the setting survives this session and the next write retries.
+      preferencesLogger.warn('Preferences could not be saved to your account', error);
+    }
+  }
+
+  /**
+   * Send anything queued NOW and wait for it.
+   *
+   * Exists for two callers with the same problem: a test that must not sleep,
+   * and an export that would otherwise read a row the user's last click has not
+   * reached yet.
+   */
+  async flush(): Promise<void> {
+    if (this.pendingWrite !== undefined) {
+      this.cancelPendingWrite();
+      this.inFlight = this.write();
+    }
+    await this.inFlight;
+  }
+
+  /** Replace the whole document — the restore path, and nothing else. */
+  async replaceAll(document: PreferencesDocument): Promise<void> {
+    this.document = parsePreferencesDocument(document);
+    for (const [key, value] of Object.entries(this.document.values)) this.writeMirror(key, value);
+    this.notify();
+    if (this.userId !== null) {
+      this.cancelPendingWrite();
+      this.inFlight = this.write();
+      await this.inFlight;
+    }
+  }
+}
+
+/**
+ * The one instance the app talks to.
+ *
+ * A singleton rather than context state because the readers are `useState`
+ * initialisers scattered across pages that mount at different times, and
+ * because `PreferencesProvider` sits ABOVE `AppProvider` in the tree — the
+ * database identity it needs does not exist when it mounts. The service is
+ * bound to a user when that identity resolves (see AppContextSupabase), and
+ * everything below re-renders through `subscribe`.
+ */
+export const preferences = new PreferencesService();

@@ -1,4 +1,12 @@
 import { supabase } from './api/supabaseClient';
+import { createScopedLogger } from '../loggers/scopedLogger';
+import {
+  PREFERENCE_KEYS_HOLDING_IDS,
+  parsePreferencesDocument,
+  supabasePreferencesTransport,
+  type PreferencesDocument,
+  type PreferencesTransport,
+} from './preferencesService';
 
 /**
  * Backup and restore — the client half of migration 20260807083000.
@@ -20,20 +28,27 @@ import { supabase } from './api/supabaseClient';
  * needed the file. Whole rows drift automatically; a mapping does not.
  */
 
+const backupLogger = createScopedLogger('BackupService');
+
 /** The format tag written into every file, and the only one restore accepts. */
 export const BACKUP_FORMAT = 'wealthtracker-backup-v2';
 
 /**
  * The newest migration timestamp at the moment this format was written —
- * 20260807083000_user_data_restore.sql, the migration that created the RPCs
- * this file calls.
+ * 20260809160000_preferences_that_travel.sql, which added the one table a
+ * backup carries outside the fourteen below.
  *
  * It is stamped into the file so a restore can be told which schema the rows
  * were shaped by. Bump it when a migration changes what a backed-up row looks
  * like, not on every migration: its job is to date the ROW SHAPE, and a file
  * claiming a shape it does not have is worse than one claiming an old one.
+ *
+ * Bumped from 20260807083000 because a backup now carries something it did not
+ * before. Informational only — nothing gates on it, and a file stamped with the
+ * older value restores exactly as it always did (its `preferences` section is
+ * simply absent, which reads as "this file has none").
  */
-export const BACKUP_SCHEMA_VERSION = '20260807083000';
+export const BACKUP_SCHEMA_VERSION = '20260809160000';
 
 /** Rows travel exactly as the database returned them. No mapping, no reshaping. */
 export type BackupRow = Record<string, unknown>;
@@ -126,6 +141,27 @@ export interface BackupBundle {
    * two copies could disagree with no way to tell which was right.
    */
   links: BackupLinks;
+  /**
+   * Every setting that belongs to the account rather than to the browser, as
+   * one document. `null` means the file carries none — either an older file, or
+   * a user who has expressed no preference at all.
+   *
+   * A SECTION of its own rather than a fifteenth entry in `data`, for three
+   * reasons that are all about the restore rather than about the export:
+   *
+   *  • it is one row, replaced, where every entity in `data` is many rows,
+   *    inserted. restore_user_chunk's whole shape is "insert whole rows into an
+   *    empty login";
+   *  • it must go in LAST and must never be able to block a financial row. In
+   *    `data` it would be one more step in a loop that stops dead on the first
+   *    refusal, so a preferences failure could cost someone their transactions;
+   *  • the empty-login precondition does not apply to it. A login always has a
+   *    preferences row by the time a restore runs — the app writes one at boot
+   *    — so an INSERT-only path would refuse every time.
+   *
+   * Old files have no such key. `undefined` reads as `null`; nothing breaks.
+   */
+  preferences: PreferencesDocument | null;
 }
 
 // ── Reading whole rows out of the database ──────────────────────────────────
@@ -212,6 +248,7 @@ export interface BuildBundleInput {
   data: Partial<Record<BackupEntity, BackupRow[]>>;
   /** Overridable only so a test can pin it; production always uses the constant. */
   schemaVersion?: string;
+  preferences?: PreferencesDocument | null;
 }
 
 /**
@@ -298,7 +335,13 @@ export function buildBackupBundle(input: BuildBundleInput): BackupBundle {
       account_parents: extractAccountParents(data.accounts),
       transaction_links: extractTransactionLinks(data.transactions),
     },
+    preferences: input.preferences ?? null,
   };
+}
+
+/** How many settings a file's preferences section actually carries. */
+export function preferenceCount(bundle: BackupBundle): number {
+  return bundle.preferences === null ? 0 : Object.keys(bundle.preferences.values).length;
 }
 
 export interface ExportProgress {
@@ -324,7 +367,13 @@ export interface ExportOwner {
  */
 export async function collectBackupBundle(
   owner: ExportOwner,
-  options: { onProgress?: (progress: ExportProgress) => void; client?: BackupClient | null; now?: () => Date } = {}
+  options: {
+    onProgress?: (progress: ExportProgress) => void;
+    client?: BackupClient | null;
+    /** Overridable so a test can supply a document without a database. */
+    preferences?: PreferencesTransport | null;
+    now?: () => Date;
+  } = {}
 ): Promise<BackupBundle> {
   const client = requireClient(options.client);
   const data: Partial<Record<BackupEntity, BackupRow[]>> = {};
@@ -350,11 +399,24 @@ export async function collectBackupBundle(
     data[entity] = await fetchAllRows(client, entity, ownerId, report);
   }
 
+  // Read LAST and allowed to fail without taking the file with it. A database
+  // that has not had 20260809160000 applied yet has no such table, and a backup
+  // of a decade of transactions must not be refused over a missing toggle — but
+  // it must SAY it carries none rather than pretending the user had none.
+  let preferences: PreferencesDocument | null = null;
+  const transport = options.preferences ?? supabasePreferencesTransport();
+  try {
+    preferences = transport === null ? null : await transport.read(owner.databaseUserId);
+  } catch (error) {
+    backupLogger.warn('Preferences could not be read; this backup carries none', error);
+  }
+
   const now = options.now ?? (() => new Date());
   return buildBackupBundle({
     sourceUserId: owner.databaseUserId,
     exportedAt: now().toISOString(),
     data,
+    preferences,
   });
 }
 
@@ -552,6 +614,14 @@ export function validateBackupBundle(parsed: unknown): BackupValidation {
       counts: Object.fromEntries(BACKUP_ENTITIES.map((entity) => [entity, rows[entity].length])),
       data: rows,
       links: links.links,
+      // Absent in every file written before 20260809160000, and parsed rather
+      // than validated: a preference this build cannot make sense of costs that
+      // one preference, whereas refusing the FILE over it would cost the user
+      // their entire history to protect a toggle. Unknown keys travel through
+      // untouched (see parsePreferencesDocument).
+      preferences: parsed.preferences === undefined || parsed.preferences === null
+        ? null
+        : parsePreferencesDocument(parsed.preferences),
     },
   };
 }
@@ -781,6 +851,72 @@ function remapDismissalKey(
 }
 
 /**
+ * Rewrite the account ids a preferences document holds.
+ *
+ * The preferences that mention rows all mention ACCOUNTS: which ones the
+ * dashboard pins, which ones a report is filtered to, which ones have their own
+ * archive cutoff. Restored verbatim into a login whose rows have been given
+ * fresh ids, every one of them would name accounts that no longer exist — and
+ * would do it SILENTLY, because nothing constrains a string inside a jsonb
+ * document. The dashboard would come up with no key accounts and no explanation;
+ * the per-account cutoffs the owner set would apply to nothing.
+ *
+ * A value that is not the JSON this build expects is left EXACTLY as it was
+ * rather than dropped or blanked: it may be a newer client's key, and a
+ * preference we cannot parse is still a preference somebody set. An id inside
+ * one that names no row in the file is likewise left alone and reported, the
+ * same rule every other dangling reference gets.
+ */
+export function remapPreferenceIds(
+  document: PreferencesDocument,
+  lookup: (id: string) => string | undefined,
+  onDangling: (key: string, value: string) => void
+): PreferencesDocument {
+  const values: Record<string, string> = { ...document.values };
+
+  const remapOne = (value: string, key: string): string => {
+    const replacement = lookup(value);
+    if (replacement !== undefined) return replacement;
+    if (UUID_PATTERN.test(value)) onDangling(key, value);
+    return value;
+  };
+
+  for (const key of PREFERENCE_KEYS_HOLDING_IDS.idArray) {
+    const raw = values[key];
+    if (raw === undefined) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue; // Not JSON this build wrote. Leave the user's value alone.
+    }
+    if (!Array.isArray(parsed)) continue;
+    values[key] = JSON.stringify(
+      parsed.map((element) => (typeof element === 'string' ? remapOne(element, key) : element))
+    );
+  }
+
+  for (const key of PREFERENCE_KEYS_HOLDING_IDS.idKeyedObject) {
+    const raw = values[key];
+    if (raw === undefined) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    if (!isPlainObject(parsed)) continue;
+    const rekeyed: Record<string, unknown> = {};
+    for (const [id, entry] of Object.entries(parsed)) {
+      rekeyed[remapOne(id, key)] = entry;
+    }
+    values[key] = JSON.stringify(rekeyed);
+  }
+
+  return { ...document, values };
+}
+
+/**
  * Give every row in the bundle a fresh id and rewrite every reference to match.
  *
  * Pure: the only impurity is id generation, and that is injectable so a test can
@@ -922,8 +1058,14 @@ export function remapBackupIds(
     };
   });
 
+  const preferences = bundle.preferences === null
+    ? null
+    : remapPreferenceIds(bundle.preferences, lookup, (key, value) => {
+        danglingRefs.push({ entity: 'preferences', rowId: key, field: key, value });
+      });
+
   return {
-    bundle: { ...bundle, data, links: { account_parents, transaction_links } },
+    bundle: { ...bundle, data, links: { account_parents, transaction_links }, preferences },
     idMap,
     danglingRefs,
   };
@@ -1016,6 +1158,14 @@ export interface RestoreOutcome {
   accountsRelinked: number;
   transactionsRelinked: number;
   /**
+   * Settings put back, and whether that succeeded. `failed` carries the reason
+   * rather than throwing: preferences are restored after every financial row is
+   * safely in, and a restore that threw away a complete, correct ledger because
+   * a toggle could not be saved would be the wrong trade by an enormous margin.
+   */
+  preferencesRestored: number;
+  preferencesFailure: string | null;
+  /**
    * References in the file that named a row the file does not contain. Left as
    * they were, and reported rather than swallowed — a restore that silently
    * detaches data is the one failure a backup must never have.
@@ -1086,7 +1236,11 @@ export async function wipeUserFinancialData(
 export async function restoreBackupBundle(
   bundle: BackupBundle,
   databaseUserId: string,
-  options: { onProgress?: (progress: RestoreProgress) => void; client?: BackupClient | null } = {}
+  options: {
+    onProgress?: (progress: RestoreProgress) => void;
+    client?: BackupClient | null;
+    preferences?: PreferencesTransport | null;
+  } = {}
 ): Promise<RestoreOutcome> {
   const client = requireClient(options.client);
   const restored: { label: string; rows: number }[] = [];
@@ -1143,11 +1297,43 @@ export async function restoreBackupBundle(
     throw new RestoreFailedError('Reconnecting transfers and nested accounts', finalizeError.message);
   }
 
+  // ── Preferences, LAST ─────────────────────────────────────────────────────
+  // After the links are closed, because nothing financial depends on them and
+  // everything about them can fail without costing the user a row. The login
+  // already has a preferences document by now — the app writes one at boot — so
+  // this REPLACES rather than inserts, which is also why it is not one more
+  // restore_user_chunk step.
+  let preferencesRestored = 0;
+  let preferencesFailure: string | null = null;
+  if (remapped.preferences !== null) {
+    const settings = Object.keys(remapped.preferences.values).length;
+    options.onProgress?.({
+      stepNumber: RESTORE_STEPS.length + 1,
+      stepCount: RESTORE_STEPS.length + 1,
+      label: 'Preferences',
+      rowsDone: 0,
+      rowsTotal: settings,
+    });
+    const transport = options.preferences ?? supabasePreferencesTransport();
+    try {
+      if (transport === null) {
+        throw new Error('This session has no cloud connection, so preferences could not be saved.');
+      }
+      await transport.write(databaseUserId, remapped.preferences);
+      preferencesRestored = settings;
+    } catch (error) {
+      preferencesFailure = error instanceof Error ? error.message : String(error);
+      backupLogger.warn('Preferences could not be restored; every financial row is in', error);
+    }
+  }
+
   const summary = isPlainObject(finalized) ? finalized : {};
   return {
     restored,
     accountsRelinked: asCount(typeof summary.accounts_relinked === 'number' ? summary.accounts_relinked : 0),
     transactionsRelinked: asCount(typeof summary.transactions_relinked === 'number' ? summary.transactions_relinked : 0),
+    preferencesRestored,
+    preferencesFailure,
     danglingRefs,
   };
 }

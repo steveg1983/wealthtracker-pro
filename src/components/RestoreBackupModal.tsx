@@ -9,6 +9,7 @@ import {
   BACKUP_ENTITIES,
   RestoreFailedError,
   restoreBackupBundle,
+  preferenceCount,
   transactionDateRange,
   userFinancialDataIsEmpty,
   validateBackupBundle,
@@ -98,6 +99,15 @@ interface Outcome {
   notStoredLocally: { label: string; rows: number; absence: string }[];
   accountsRelinked: number;
   transactionsRelinked: number;
+  /**
+   * Settings put back, and the reason if they could not be. Reported beside the
+   * row counts rather than thrown, because preferences go in AFTER every
+   * financial row: a complete ledger with default toggles is a good outcome
+   * that happens to be missing something, and calling it a failed restore would
+   * send the user to wipe and start again for no reason.
+   */
+  preferencesRestored: number;
+  preferencesFailure: string | null;
   danglingRefs: DanglingReference[];
 }
 
@@ -347,6 +357,16 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                   ))}
                 </ul>
               )}
+              {/* Only when the file actually carries some. A line reading
+                  "Preferences 0" on a file written before they were carried
+                  would suggest the user had none, which is a different and
+                  wrong statement. */}
+              {preferenceCount(bundle) > 0 && (
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                  Plus {formatCount(preferenceCount(bundle))} saved settings — pinned accounts and
+                  reports, periods, grouping, hidden columns, archive cutoffs.
+                </p>
+              )}
             </div>
 
             {targetIsEmpty === false && (
@@ -470,7 +490,27 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
                 <span className="text-gray-600 dark:text-gray-400">Nested accounts reconnected</span>
                 <span className="text-gray-900 dark:text-white tabular-nums">{formatCount(outcome.accountsRelinked)}</span>
               </li>
+              <li className="flex justify-between gap-4 px-4 py-2 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Preferences</span>
+                <span className="text-gray-900 dark:text-white tabular-nums">{formatCount(outcome.preferencesRestored)}</span>
+              </li>
             </ul>
+            {/* Said plainly, and with what to do about it: the ledger is whole,
+                so this is a small, separately fixable disappointment rather
+                than a reason to start the restore again. */}
+            {outcome.preferencesFailure !== null && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  Your saved settings could not be put back, so the app will open with its defaults —
+                  pinned accounts, periods, grouping and archive cutoffs will need setting again.
+                  Everything financial is in. Your backup file still holds them, so restoring it again
+                  later will bring them back.
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-2 font-mono break-words">
+                  {outcome.preferencesFailure}
+                </p>
+              </div>
+            )}
             {/* Named, not counted: "3 investments were skipped" tells someone
                 nothing they can act on, whereas knowing the file still holds
                 them and where they would come back does. */}

@@ -21,6 +21,7 @@ import { buildNetWorthSnapshots } from '../utils/netWorthSeries';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
 import type { ReportViewProps } from './reports/types';
+import { preferences } from '../services/preferencesService';
 
 /**
  * Net worth over time — the Microsoft Money report, rebuilt on real data.
@@ -51,20 +52,20 @@ export default function NetWorthReport({ picker }: ReportViewProps): React.JSX.E
   const [drillDate, setDrillDate] = useState<Date | null>(null);
   // Line or bar presentation — same data, same drill-in; persisted.
   const [chartType, setChartType] = useState<'line' | 'bar'>(() =>
-    localStorage.getItem('netWorthChartType') === 'bar' ? 'bar' : 'line'
+    preferences.getItem('netWorthChartType') === 'bar' ? 'bar' : 'line'
   );
   const handleChartType = (type: 'line' | 'bar'): void => {
     setChartType(type);
-    localStorage.setItem('netWorthChartType', type);
+    preferences.setItem('netWorthChartType', type);
   };
   // Assets/liabilities context series are OFF by default — the chart is the
   // net worth line; the detail is an opt-in (persisted).
   const [showDetail, setShowDetail] = useState<boolean>(() =>
-    localStorage.getItem('netWorthShowDetail') === '1'
+    preferences.getItem('netWorthShowDetail') === '1'
   );
   const toggleDetail = (): void => {
     setShowDetail(prev => {
-      localStorage.setItem('netWorthShowDetail', prev ? '0' : '1');
+      preferences.setItem('netWorthShowDetail', prev ? '0' : '1');
       return !prev;
     });
   };

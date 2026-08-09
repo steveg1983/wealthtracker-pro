@@ -5,6 +5,7 @@ import { notificationService, type BudgetAlertContext } from '../services/notifi
 import type { Goal, Budget, Transaction, Category } from '../types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { logActivity } from '../hooks/useActivityTracking';
+import { preferences } from '../services/preferencesService';
 
 const NOTIFICATION_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -118,8 +119,8 @@ const ALERT_PREFS_MIGRATION_KEY = 'wt_alert_prefs_migrated_v1';
 function migrateAlertPreferencesOnce(): void {
   try {
     if (localStorage.getItem(ALERT_PREFS_MIGRATION_KEY) !== null) return;
-    localStorage.setItem(BUDGET_ALERTS_ENABLED_KEY, String(DEFAULT_BUDGET_ALERTS_ENABLED));
-    localStorage.setItem(
+    preferences.setItem(BUDGET_ALERTS_ENABLED_KEY, String(DEFAULT_BUDGET_ALERTS_ENABLED));
+    preferences.setItem(
       LARGE_TRANSACTION_ALERTS_ENABLED_KEY,
       String(DEFAULT_LARGE_TRANSACTION_ALERTS_ENABLED)
     );
@@ -130,10 +131,20 @@ function migrateAlertPreferencesOnce(): void {
   }
 }
 
-/** A stored on/off preference, or `fallback` when none has been saved. */
+/**
+ * A stored on/off preference, or `fallback` when none has been saved.
+ *
+ * The four alert preferences below read and write the PREFERENCES DOCUMENT,
+ * which travels with the account: "warn me when a transaction is over £500" is
+ * a statement about the user's money, and having to say it again on every
+ * machine is exactly the reset the restore exposed. The one-time repair marker
+ * above stays in localStorage — it records a fix applied to THIS browser's
+ * wrongly-stored `false`, and re-applying it elsewhere would overwrite a real
+ * choice with a default.
+ */
 function readStoredFlag(key: string, fallback: boolean): boolean {
   try {
-    const saved = localStorage.getItem(key);
+    const saved = preferences.getItem(key);
     if (saved === null) return fallback;
     return saved === 'true';
   } catch {
@@ -144,7 +155,7 @@ function readStoredFlag(key: string, fallback: boolean): boolean {
 /** A stored numeric preference, or `fallback` when none has been saved. */
 function readStoredNumber(key: string, fallback: number): number {
   try {
-    const saved = localStorage.getItem(key);
+    const saved = preferences.getItem(key);
     if (saved === null) return fallback;
     const parsed = parseInt(saved, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -388,19 +399,19 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   }, [notifications]);
 
   useEffect((): void => {
-    localStorage.setItem(BUDGET_ALERTS_ENABLED_KEY, budgetAlertsEnabled.toString());
+    preferences.setItem(BUDGET_ALERTS_ENABLED_KEY, budgetAlertsEnabled.toString());
   }, [budgetAlertsEnabled]);
 
   useEffect((): void => {
-    localStorage.setItem('money_management_alert_threshold', alertThreshold.toString());
+    preferences.setItem('money_management_alert_threshold', alertThreshold.toString());
   }, [alertThreshold]);
 
   useEffect((): void => {
-    localStorage.setItem(LARGE_TRANSACTION_ALERTS_ENABLED_KEY, largeTransactionAlertsEnabled.toString());
+    preferences.setItem(LARGE_TRANSACTION_ALERTS_ENABLED_KEY, largeTransactionAlertsEnabled.toString());
   }, [largeTransactionAlertsEnabled]);
 
   useEffect((): void => {
-    localStorage.setItem('money_management_large_transaction_threshold', largeTransactionThreshold.toString());
+    preferences.setItem('money_management_large_transaction_threshold', largeTransactionThreshold.toString());
   }, [largeTransactionThreshold]);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>): void => {

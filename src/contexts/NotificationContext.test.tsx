@@ -66,6 +66,7 @@ vi.mock('../services/notificationService', () => ({
 }));
 
 import { notificationService } from '../services/notificationService';
+import { preferences } from '../services/preferencesService';
 
 describe('NotificationContext', () => {
   beforeEach(() => {
@@ -264,14 +265,18 @@ describe('NotificationContext', () => {
       // Two mounts of the same browser: the second must not write the flags
       // again, or a user who switched alerts off between them would be
       // overruled on their next page load.
-      const store = primeStorage({ 'money_management_budget_alerts_enabled': 'false' });
+      primeStorage({ 'money_management_budget_alerts_enabled': 'false' });
 
       const first = renderHook(() => useNotifications(), { wrapper });
       expect(first.result.current.budgetAlertsEnabled).toBe(true);
       first.unmount();
 
-      // The user now deliberately switches budget alerts off.
-      store['money_management_budget_alerts_enabled'] = 'false';
+      // The user now deliberately switches budget alerts off. Written through
+      // the preferences document, because that is where an alert preference
+      // lives — it belongs to the account, so "warn me over £500" does not have
+      // to be said again on the next machine. The one-time repair MARKER stays
+      // in this browser's storage, since it records a fix applied here.
+      preferences.setItem('money_management_budget_alerts_enabled', 'false');
       mockLocalStorage.setItem.mockClear();
 
       const second = renderHook(() => useNotifications(), { wrapper });

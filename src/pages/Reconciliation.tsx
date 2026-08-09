@@ -13,6 +13,7 @@ import EditTransactionModal from '../components/EditTransactionModal';
 import { preserveRuntimeControlParams } from '../utils/runtimeMode';
 import { todayIsoDay } from '../utils/statementBankBalance';
 import type { Transaction } from '../types';
+import { preferences } from '../services/preferencesService';
 
 export default function Reconciliation() {
   const { transactions, accounts, categories, addTransaction, updateAccount, setTransactionsCleared } = useApp();
@@ -31,30 +32,30 @@ export default function Reconciliation() {
   // Group + sort for the account list — the same controls (and persistence
   // keys pattern) as the Accounts page, so the two pages always feel the same.
   const [groupBy, setGroupBy] = useState<'type' | 'institution'>(() =>
-    (localStorage.getItem('reconciliationGroupBy') as 'type' | 'institution') || 'type'
+    (preferences.getItem('reconciliationGroupBy') as 'type' | 'institution') || 'type'
   );
   const [sortMode, setSortMode] = useState<'default' | 'name' | 'balance-desc' | 'balance-asc'>(() => {
-    const stored = localStorage.getItem('reconciliationSortMode');
+    const stored = preferences.getItem('reconciliationSortMode');
     return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc' ? stored : 'default';
   });
   const handleGroupByChange = useCallback((value: 'type' | 'institution') => {
     setGroupBy(value);
-    try { localStorage.setItem('reconciliationGroupBy', value); } catch { /* storage unavailable */ }
+    try { preferences.setItem('reconciliationGroupBy', value); } catch { /* storage unavailable */ }
   }, []);
   const handleSortChange = useCallback((value: 'default' | 'name' | 'balance-desc' | 'balance-asc') => {
     setSortMode(value);
-    try { localStorage.setItem('reconciliationSortMode', value); } catch { /* storage unavailable */ }
+    try { preferences.setItem('reconciliationSortMode', value); } catch { /* storage unavailable */ }
   }, []);
   // Hide the accounts that are already done — everything cleared AND no bank
   // balance difference — so the list is only the work. Grouping still applies:
   // the filter drops accounts within each section, never the sections shape.
   const [onlyAttention, setOnlyAttention] = useState<boolean>(() =>
-    localStorage.getItem('reconciliationOnlyAttention') === 'true'
+    preferences.getItem('reconciliationOnlyAttention') === 'true'
   );
   const handleOnlyAttentionToggle = useCallback(() => {
     setOnlyAttention(prev => {
       const next = !prev;
-      try { localStorage.setItem('reconciliationOnlyAttention', String(next)); } catch { /* storage unavailable */ }
+      try { preferences.setItem('reconciliationOnlyAttention', String(next)); } catch { /* storage unavailable */ }
       return next;
     });
   }, []);

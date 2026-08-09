@@ -10,7 +10,9 @@ import {
   chunkRows,
   extractAccountParents,
   extractTransactionLinks,
+  preferenceCount,
   remapBackupIds,
+  remapPreferenceIds,
   rowsForStep,
   transactionDateRange,
   validateBackupBundle,
@@ -967,5 +969,127 @@ describe('remapBackupIds', () => {
     expect(shop.tags).toEqual(['food', 'weekly']);
     expect(shop.created_at).toBe('2021-06-06T00:00:00.000Z');
     expect(shop.updated_at).toBe('2021-06-06T00:00:00.000Z');
+  });
+});
+
+// ── Preferences, the half a restore used to lose ─────────────────────────────
+
+describe('preferences in a backup', () => {
+  it('an old file with no preferences section restores as carrying none', () => {
+    // Not as "this user had none" — as "this file does not say". The difference
+    // matters, because the restore must not overwrite a real document with an
+    // empty one on the strength of an older file's silence.
+    const parsed = goodBundle();
+    delete parsed.preferences;
+    const validation = validateBackupBundle(parsed);
+    expect(validation.ok).toBe(true);
+    if (!validation.ok) return;
+    expect(validation.bundle.preferences).toBeNull();
+    expect(preferenceCount(validation.bundle)).toBe(0);
+  });
+
+  it('carries a document through the file and back out', () => {
+    const parsed = goodBundle({
+      preferences: {
+        version: 1,
+        values: { accountsSortMode: 'balance-desc', 'a.key.from.a.newer.build': 'on' },
+      },
+    });
+    const validation = validateBackupBundle(parsed);
+    expect(validation.ok).toBe(true);
+    if (!validation.ok) return;
+    expect(validation.bundle.preferences?.values.accountsSortMode).toBe('balance-desc');
+    // A key this build has never heard of survives the round trip.
+    expect(validation.bundle.preferences?.values['a.key.from.a.newer.build']).toBe('on');
+    expect(preferenceCount(validation.bundle)).toBe(2);
+  });
+
+  it('refuses nothing over a preference it cannot parse', () => {
+    // A toggle must never be able to cost someone their transactions.
+    const validation = validateBackupBundle(goodBundle({ preferences: 'not a document' }));
+    expect(validation.ok).toBe(true);
+    if (!validation.ok) return;
+    expect(validation.bundle.preferences?.values).toEqual({});
+  });
+});
+
+describe('remapPreferenceIds', () => {
+  const lookup = (id: string): string | undefined => (id === 'a-1' ? 'a-1-new' : undefined);
+
+  it('rewrites the account ids in a pinned-accounts list', () => {
+    // Left as they were, these would name accounts belonging to the login the
+    // file came from — and fail silently, because nothing constrains a string
+    // inside a jsonb document.
+    const next = remapPreferenceIds(
+      { version: 1, values: { dashboardKeyAccounts: '["a-1"]' } },
+      lookup,
+      () => {}
+    );
+    expect(JSON.parse(next.values.dashboardKeyAccounts)).toEqual(['a-1-new']);
+  });
+
+  it('rewrites the account ids a per-account archive cutoff is keyed BY', () => {
+    const next = remapPreferenceIds(
+      { version: 1, values: { 'archiveManager.overrides.v1': '{"a-1":{"date":"2020-01-01","acknowledged":true}}' } },
+      lookup,
+      () => {}
+    );
+    expect(JSON.parse(next.values['archiveManager.overrides.v1'])).toEqual({
+      'a-1-new': { date: '2020-01-01', acknowledged: true },
+    });
+  });
+
+  it('leaves a preference it cannot parse exactly as it found it', () => {
+    // It may be a newer client's key. A preference we cannot read is still a
+    // preference somebody set.
+    const next = remapPreferenceIds(
+      { version: 1, values: { dashboardKeyAccounts: 'not json at all' } },
+      lookup,
+      () => {}
+    );
+    expect(next.values.dashboardKeyAccounts).toBe('not json at all');
+  });
+
+  it('leaves preferences that hold no ids completely alone', () => {
+    const values = { accountsSortMode: 'name', netWorthChartType: 'bar' };
+    expect(remapPreferenceIds({ version: 1, values }, lookup, () => {}).values).toEqual(values);
+  });
+
+  it('reports an id that names no row in the file, and leaves it in place', () => {
+    const dangling: string[] = [];
+    const next = remapPreferenceIds(
+      { version: 1, values: { dashboardKeyAccounts: `["${uid('9', 1)}"]` } },
+      lookup,
+      (_key, value) => dangling.push(value)
+    );
+    expect(dangling).toEqual([uid('9', 1)]);
+    expect(JSON.parse(next.values.dashboardKeyAccounts)).toEqual([uid('9', 1)]);
+  });
+});
+
+describe('remapBackupIds — preferences', () => {
+  it('rewrites the preference ids with the same map every row gets', () => {
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-07T09:30:00.000Z',
+      data: { accounts: [account({ id: A_CURRENT })] },
+      preferences: { version: 1, values: { dashboardKeyAccounts: `["${A_CURRENT}"]` } },
+    });
+
+    const { bundle, idMap } = remapBackupIds(source, sequentialIds());
+
+    const pinned: unknown = JSON.parse(bundle.preferences?.values.dashboardKeyAccounts ?? '[]');
+    expect(pinned).toEqual([idMap.get(A_CURRENT)]);
+    // …and it is the account actually restored, not a stale id.
+    expect(pinned).toEqual([bundle.data.accounts[0].id]);
+  });
+
+  it('leaves a file with no preferences with none', () => {
+    const source = buildBackupBundle({
+      sourceUserId: uid('0', 1),
+      exportedAt: '2026-08-07T09:30:00.000Z',
+      data: { accounts: [account()] },
+    });
+    expect(remapBackupIds(source, sequentialIds()).bundle.preferences).toBeNull();
   });
 });

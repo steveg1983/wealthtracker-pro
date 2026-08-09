@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { preferences, type PreferenceStorage } from '../services/preferencesService';
 
 /**
  * The app-wide reporting period — ONE definition of every window so no two
@@ -91,6 +92,22 @@ export interface UsePeriodResult {
   applyDefaultPeriod: (key: PeriodKey) => void;
 }
 
+/**
+ * Where a period selection is kept.
+ *
+ * An adapter rather than `localStorage` directly, because the answer to "which
+ * window does the dashboard open on?" belongs to the USER, not to the machine
+ * they happen to be sitting at — a restored backup that brought the accounts
+ * back but reset every period to this-month is the complaint this exists to
+ * fix. The default is the preferences document, which travels; the parameter is
+ * here so a test can hold it still without touching global storage.
+ *
+ * `Storage`-shaped on purpose: the four keys per surface are written as the
+ * same strings they always were, so nothing about the stored VALUES changed —
+ * only where they live.
+ */
+export type PeriodStorage = PreferenceStorage;
+
 /** Where the "the user picked this themselves" flag lives, per surface. */
 const explicitStorageKey = (storageKey: string): string => `${storageKey}Explicit`;
 
@@ -112,20 +129,28 @@ interface PeriodSelection {
  * flag and custom bounds) the first time the new key is read means the split
  * changes the layout and nothing else. A no-op once the new key exists.
  */
-export function seedPeriodSelection(fromKey: string, toKey: string): void {
-  if (localStorage.getItem(toKey) !== null) return;
-  const stored = localStorage.getItem(fromKey);
+export function seedPeriodSelection(
+  fromKey: string,
+  toKey: string,
+  storage: PeriodStorage = preferences
+): void {
+  if (storage.getItem(toKey) !== null) return;
+  const stored = storage.getItem(fromKey);
   if (stored === null) return;
 
-  localStorage.setItem(toKey, stored);
+  storage.setItem(toKey, stored);
   for (const suffix of ['Explicit', 'CustomStart', 'CustomEnd']) {
-    const value = localStorage.getItem(`${fromKey}${suffix}`);
-    if (value !== null) localStorage.setItem(`${toKey}${suffix}`, value);
+    const value = storage.getItem(`${fromKey}${suffix}`);
+    if (value !== null) storage.setItem(`${toKey}${suffix}`, value);
   }
 }
 
-function readStoredSelection(storageKey: string, defaultKey: PeriodKey): PeriodSelection {
-  const stored = localStorage.getItem(storageKey);
+function readStoredSelection(
+  storageKey: string,
+  defaultKey: PeriodKey,
+  storage: PeriodStorage
+): PeriodSelection {
+  const stored = storage.getItem(storageKey);
   if (stored === null || !isPeriodKey(stored)) return { period: defaultKey, explicit: false };
 
   // Only a value this build flagged is a choice this build can trust.
@@ -143,7 +168,7 @@ function readStoredSelection(storageKey: string, defaultKey: PeriodKey): PeriodS
   // So an unflagged value is treated as a default, not a decision: the report's
   // window applies, and the next period the user picks is flagged and honoured
   // for good. The cost is one reset, once, for someone who had chosen before.
-  const flag = localStorage.getItem(explicitStorageKey(storageKey));
+  const flag = storage.getItem(explicitStorageKey(storageKey));
   if (flag !== 'true') return { period: defaultKey, explicit: false };
   return { period: stored, explicit: true };
 }
@@ -156,16 +181,20 @@ function readStoredSelection(storageKey: string, defaultKey: PeriodKey): PeriodS
  * afterwards — as the reports hub does when a report with its own preferred
  * window opens — call `applyDefaultPeriod`.
  */
-export function usePeriod(storageKey: string, defaultKey: PeriodKey = 'this-month'): UsePeriodResult {
-  const [selection, setSelection] = useState<PeriodSelection>(() => readStoredSelection(storageKey, defaultKey));
-  const [customStart, setCustomStart] = useState<string>(() => localStorage.getItem(`${storageKey}CustomStart`) ?? '');
-  const [customEnd, setCustomEnd] = useState<string>(() => localStorage.getItem(`${storageKey}CustomEnd`) ?? '');
+export function usePeriod(
+  storageKey: string,
+  defaultKey: PeriodKey = 'this-month',
+  storage: PeriodStorage = preferences
+): UsePeriodResult {
+  const [selection, setSelection] = useState<PeriodSelection>(() => readStoredSelection(storageKey, defaultKey, storage));
+  const [customStart, setCustomStart] = useState<string>(() => storage.getItem(`${storageKey}CustomStart`) ?? '');
+  const [customEnd, setCustomEnd] = useState<string>(() => storage.getItem(`${storageKey}CustomEnd`) ?? '');
   const { period, explicit } = selection;
 
   const persist = useCallback((key: PeriodKey, isExplicit: boolean) => {
-    localStorage.setItem(storageKey, key);
-    localStorage.setItem(explicitStorageKey(storageKey), String(isExplicit));
-  }, [storageKey]);
+    storage.setItem(storageKey, key);
+    storage.setItem(explicitStorageKey(storageKey), String(isExplicit));
+  }, [storageKey, storage]);
 
   const setPeriod = useCallback((key: PeriodKey) => {
     setSelection({ period: key, explicit: true });
@@ -183,17 +212,17 @@ export function usePeriod(storageKey: string, defaultKey: PeriodKey = 'this-mont
   // Editing the bounds of a custom range is as deliberate as picking one.
   const setCustomStartPersisted = useCallback((v: string) => {
     setCustomStart(v);
-    localStorage.setItem(`${storageKey}CustomStart`, v);
+    storage.setItem(`${storageKey}CustomStart`, v);
     setSelection({ period, explicit: true });
     persist(period, true);
-  }, [storageKey, persist, period]);
+  }, [storageKey, storage, persist, period]);
 
   const setCustomEndPersisted = useCallback((v: string) => {
     setCustomEnd(v);
-    localStorage.setItem(`${storageKey}CustomEnd`, v);
+    storage.setItem(`${storageKey}CustomEnd`, v);
     setSelection({ period, explicit: true });
     persist(period, true);
-  }, [storageKey, persist, period]);
+  }, [storageKey, storage, persist, period]);
 
   const range = useMemo(
     () => resolvePeriod(period, customStart, customEnd),

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { preferences } from '../services/preferencesService';
 
 export interface CumulativeReportToggle {
   /** True when the report should read as running totals for the period. */
@@ -13,12 +14,12 @@ export interface CumulativeReportToggle {
  */
 export function useCumulativeReport(storageKey: string): CumulativeReportToggle {
   const [cumulative, setCumulativeState] = useState<boolean>(
-    () => localStorage.getItem(storageKey) === '1'
+    () => preferences.getItem(storageKey) === '1'
   );
 
   const setCumulative = useCallback((next: boolean) => {
     setCumulativeState(next);
-    localStorage.setItem(storageKey, next ? '1' : '0');
+    preferences.setItem(storageKey, next ? '1' : '0');
   }, [storageKey]);
 
   return { cumulative, setCumulative };

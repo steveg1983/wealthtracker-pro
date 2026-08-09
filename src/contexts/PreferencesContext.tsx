@@ -1,6 +1,28 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { preferences } from '../services/preferencesService';
+
+/**
+ * App-wide display preferences.
+ *
+ * These used to be read from and written to `window.localStorage` directly, and
+ * that is why a restored backup came up in the wrong currency with the wrong
+ * name and the wrong theme: they were never in the database, so they were never
+ * in the file. They now go through the preferences document, which travels with
+ * the account (services/preferencesService).
+ *
+ * The VALUES are stored exactly as before — `'true'`, `'GBP'`, the schedule as
+ * JSON — so nothing about the format changed and an existing browser is read
+ * back unchanged. Only the home moved.
+ *
+ * This provider mounts ABOVE AppProvider, so the signed-in identity does not
+ * exist when it first renders. It therefore reads the service's synchronous
+ * snapshot (which starts from this browser's own copy) and SUBSCRIBES: when the
+ * account's document arrives a moment later, every value here corrects itself
+ * once. Without that subscription a new machine would show defaults for the
+ * whole session and then save them over the real ones.
+ */
 
 interface PreferencesContextType {
   compactView: boolean;
@@ -29,94 +51,98 @@ interface PreferencesContextType {
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
 
+type ThemeChoice = 'light' | 'dark' | 'auto' | 'scheduled';
+type ThemeSchedule = { enabled: boolean; lightStartTime: string; darkStartTime: string };
+
+const DEFAULT_THEME_SCHEDULE: ThemeSchedule = {
+  enabled: false,
+  lightStartTime: '06:00',
+  darkStartTime: '18:00',
+};
+
+const isThemeChoice = (value: string | null): value is ThemeChoice =>
+  value === 'light' || value === 'dark' || value === 'auto' || value === 'scheduled';
+
+/**
+ * Each reader keeps its own defence against a bad stored value, exactly as it
+ * did when the store was localStorage: these strings are hand-editable there
+ * and travel through a JSON document here, so neither is a place to assume a
+ * shape. A value that cannot be read costs that one preference.
+ */
+function readThemeSchedule(): ThemeSchedule {
+  const saved = preferences.getItem('money_management_theme_schedule');
+  if (!saved) return DEFAULT_THEME_SCHEDULE;
+  try {
+    const parsed: unknown = JSON.parse(saved);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return DEFAULT_THEME_SCHEDULE;
+    const record: Record<string, unknown> = { ...parsed };
+    return {
+      enabled: record.enabled === true,
+      lightStartTime: typeof record.lightStartTime === 'string' ? record.lightStartTime : DEFAULT_THEME_SCHEDULE.lightStartTime,
+      darkStartTime: typeof record.darkStartTime === 'string' ? record.darkStartTime : DEFAULT_THEME_SCHEDULE.darkStartTime,
+    };
+  } catch {
+    return DEFAULT_THEME_SCHEDULE;
+  }
+}
+
 export function PreferencesProvider({ children }: { children: ReactNode }): React.JSX.Element {
-  const [compactView, setCompactView] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_compact_view');
-      // Default to true (compact view) if no saved preference
-      return saved !== null ? saved === 'true' : true;
-    } catch (error) {
-      console.error('Error reading compactView from localStorage:', error);
-      return true; // Default to compact view
-    }
+  // Compact view defaults ON: `null` means "never chosen", which is not the
+  // same as having chosen the roomy one.
+  const [compactView, setCompactView] = useState(
+    (): boolean => preferences.getItem('money_management_compact_view') !== 'false'
+  );
+
+  const [currency, setCurrency] = useState(
+    (): string => preferences.getItem('money_management_currency') || 'GBP'
+  );
+
+  const [theme, setTheme] = useState<ThemeChoice>((): ThemeChoice => {
+    const saved = preferences.getItem('money_management_theme');
+    return isThemeChoice(saved) ? saved : 'light';
   });
 
-  const [currency, setCurrency] = useState((): string => {
-    try {
-      return localStorage.getItem('money_management_currency') || 'GBP';
-    } catch (error) {
-      console.error('Error reading currency from localStorage:', error);
-      return 'GBP';
-    }
-  });
+  const [firstName, setFirstName] = useState(
+    (): string => preferences.getItem('money_management_first_name') || ''
+  );
 
-  const [theme, setTheme] = useState<'light' | 'dark' | 'auto' | 'scheduled'>((): 'light' | 'dark' | 'auto' | 'scheduled' => {
-    try {
-      const saved = localStorage.getItem('money_management_theme');
-      if (!saved) {
-        localStorage.setItem('money_management_theme', 'light');
-        return 'light';
-      }
-      if (!['light', 'dark', 'auto', 'scheduled'].includes(saved)) {
-        return 'light';
-      }
-      return saved as 'light' | 'dark' | 'auto' | 'scheduled';
-    } catch (error) {
-      console.error('Error reading theme from localStorage:', error);
-      return 'light';
-    }
-  });
-
-  const [firstName, setFirstName] = useState((): string => {
-    try {
-      return localStorage.getItem('money_management_first_name') || '';
-    } catch (error) {
-      console.error('Error reading firstName from localStorage:', error);
-      return '';
-    }
-  });
-
-  const [enableGoalCelebrations, setEnableGoalCelebrations] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_goal_celebrations');
-      return saved !== 'false'; // Default to true
-    } catch (error) {
-      console.error('Error reading enableGoalCelebrations from localStorage:', error);
-      return true;
-    }
-  });
+  const [enableGoalCelebrations, setEnableGoalCelebrations] = useState(
+    (): boolean => preferences.getItem('money_management_goal_celebrations') !== 'false'
+  );
 
   // Page visibility settings
-  const [showInvestments, setShowInvestments] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_show_investments');
-      return saved !== 'false'; // Default to true
-    } catch (error) {
-      console.error('Error reading showInvestments from localStorage:', error);
-      return true;
-    }
-  });
+  const [showInvestments, setShowInvestments] = useState(
+    (): boolean => preferences.getItem('money_management_show_investments') !== 'false'
+  );
 
-  const [themeSchedule, setThemeSchedule] = useState((): { enabled: boolean; lightStartTime: string; darkStartTime: string } => {
-    try {
-      const saved = localStorage.getItem('money_management_theme_schedule');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-      return {
-        enabled: false,
-        lightStartTime: '06:00',
-        darkStartTime: '18:00'
-      };
-    } catch (error) {
-      console.error('Error reading theme schedule from localStorage:', error);
-      return {
-        enabled: false,
-        lightStartTime: '06:00',
-        darkStartTime: '18:00'
-      };
-    }
-  });
+  const [themeSchedule, setThemeSchedule] = useState<ThemeSchedule>(readThemeSchedule);
+
+  /**
+   * Adopt the account's document when it lands.
+   *
+   * Only for values the user has NOT changed since this component mounted:
+   * `hydrated` flips on the first notification, and after that the state here is
+   * the truth and the service is downstream of it. Re-reading on every
+   * notification would fight the write-through — a click would set the value,
+   * schedule a save, and be overwritten by the notification the save itself
+   * caused.
+   */
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    if (hydrated) return;
+    const unsubscribe = preferences.subscribe(() => {
+      setHydrated(true);
+      setCompactView(preferences.getItem('money_management_compact_view') !== 'false');
+      setCurrency(preferences.getItem('money_management_currency') || 'GBP');
+      const storedTheme = preferences.getItem('money_management_theme');
+      setTheme(isThemeChoice(storedTheme) ? storedTheme : 'light');
+      setFirstName(preferences.getItem('money_management_first_name') || '');
+      setEnableGoalCelebrations(preferences.getItem('money_management_goal_celebrations') !== 'false');
+      setShowInvestments(preferences.getItem('money_management_show_investments') !== 'false');
+      setThemeSchedule(readThemeSchedule());
+    });
+    return unsubscribe;
+  }, [hydrated]);
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
 
@@ -208,21 +234,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     }
   }, []);
 
-  // Consolidate all localStorage updates into a single effect for better performance
+  // One write-through for all seven. The service does its own debouncing of the
+  // network write, so the 300ms here is only about not re-serialising the theme
+  // schedule on every keystroke of a name.
   useEffect(() => {
     const savePreferences = (): void => {
-      localStorage.setItem('money_management_compact_view', compactView.toString());
-      localStorage.setItem('money_management_currency', currency);
-      localStorage.setItem('money_management_theme', theme);
-      localStorage.setItem('money_management_first_name', firstName);
-      localStorage.setItem('money_management_show_investments', showInvestments.toString());
-      localStorage.setItem('money_management_theme_schedule', JSON.stringify(themeSchedule));
-      localStorage.setItem('money_management_goal_celebrations', enableGoalCelebrations.toString());
+      preferences.setItem('money_management_compact_view', compactView.toString());
+      preferences.setItem('money_management_currency', currency);
+      preferences.setItem('money_management_theme', theme);
+      preferences.setItem('money_management_first_name', firstName);
+      preferences.setItem('money_management_show_investments', showInvestments.toString());
+      preferences.setItem('money_management_theme_schedule', JSON.stringify(themeSchedule));
+      preferences.setItem('money_management_goal_celebrations', enableGoalCelebrations.toString());
     };
 
-    // Debounce the save to avoid excessive localStorage writes
     const timeoutId = setTimeout(savePreferences, 300);
-    
+
     return (): void => clearTimeout(timeoutId);
   }, [compactView, currency, theme, firstName, showInvestments, themeSchedule, enableGoalCelebrations]);
 

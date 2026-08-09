@@ -49,6 +49,7 @@ import { buildAttentionItems } from '../../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../../utils/bankAutoSync';
 import { buildAccountBankLinks } from '../../hooks/useAccountBankSync';
 import { useBankConnectionSnapshot } from '../../hooks/useBankConnectionSnapshot';
+import { preferences } from '../../services/preferencesService';
 
 /** Where each half of the reports box remembers its period. */
 const ASSETS_PERIOD_KEY = 'dashboardReports';
@@ -81,7 +82,7 @@ export function ImprovedDashboard() {
   // to different users.
   const [pinnedReports, setPinnedReports] = useState<PinnableReportId[]>(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem('dashboardPinnedReports') ?? 'null');
+      const stored = JSON.parse(preferences.getItem('dashboardPinnedReports') ?? 'null');
       if (Array.isArray(stored)) return stored as PinnableReportId[];
     } catch { /* fall through to the default */ }
     return ['net-worth'];
@@ -105,22 +106,23 @@ export function ImprovedDashboard() {
   const togglePinnedReport = (id: PinnableReportId): void => {
     setPinnedReports(prev => {
       const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
-      localStorage.setItem('dashboardPinnedReports', JSON.stringify(next));
+      preferences.setItem('dashboardPinnedReports', JSON.stringify(next));
       return next;
     });
   };
   
-  // Load saved preferences from localStorage
+  // Which accounts the owner put on his own front page. A statement about HIS
+  // accounts, so it travels with the account rather than with this browser.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('dashboardKeyAccounts');
+      const saved = preferences.getItem('dashboardKeyAccounts');
       const parsed = saved ? JSON.parse(saved) : null;
       if (Array.isArray(parsed)) {
         setSelectedAccountIds(parsed);
         return;
       }
     } catch {
-      localStorage.removeItem('dashboardKeyAccounts');
+      preferences.removeItem('dashboardKeyAccounts');
     }
     // Default to showing first 4 accounts
     setSelectedAccountIds(accounts.slice(0, 4).map(a => a.id));
@@ -300,7 +302,7 @@ export function ImprovedDashboard() {
   }), [isDarkMode]);
 
   const persistSelection = useCallback((ids: string[]) => {
-    localStorage.setItem('dashboardKeyAccounts', JSON.stringify(ids));
+    preferences.setItem('dashboardKeyAccounts', JSON.stringify(ids));
     setSelectedAccountIds(ids);
   }, []);
 
@@ -310,8 +312,7 @@ export function ImprovedDashboard() {
         ? prev.filter(id => id !== accountId)
         : [...prev, accountId];
 
-      // Save to localStorage
-      localStorage.setItem('dashboardKeyAccounts', JSON.stringify(newSelection));
+      preferences.setItem('dashboardKeyAccounts', JSON.stringify(newSelection));
       return newSelection;
     });
   };

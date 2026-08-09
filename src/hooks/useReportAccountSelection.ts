@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import { preferences } from '../services/preferencesService';
 import type { ReportAccountScope } from './useReportDataset';
 
 /** Where every report remembers which accounts it covers: a JSON array of ids. */
@@ -39,7 +40,7 @@ export interface ReportAccountSelection {
 
 /** Storage holds whatever an older build (or the user) put there. */
 function readStoredIds(): ReadonlySet<string> | null {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = preferences.getItem(STORAGE_KEY);
   if (stored === null) return null;
   try {
     const parsed: unknown = JSON.parse(stored);
@@ -57,6 +58,8 @@ function readStoredSelection(): Selection {
   if (stored !== null) return stored;
   // Nothing of this control's own — honour the retired dropdown's last answer
   // rather than silently widening the report back out to every account.
+  // The retired key is read from the BROWSER: it was written before preferences
+  // travelled, so the one-time carry-over has to look where it was left.
   const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
   return legacy !== null && legacy !== 'all' ? new Set([legacy]) : 'all';
 }
@@ -81,10 +84,10 @@ export function useReportAccountSelection(): ReportAccountSelection {
     // Whatever the retired dropdown left behind is now answered for.
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     if (next === 'all') {
-      localStorage.removeItem(STORAGE_KEY);
+      preferences.removeItem(STORAGE_KEY);
       return;
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
+    preferences.setItem(STORAGE_KEY, JSON.stringify([...next]));
   }, []);
 
   const toggle = useCallback((accountId: string) => {

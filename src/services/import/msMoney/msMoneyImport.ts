@@ -920,25 +920,220 @@ export async function fetchExistingImportState(
 }
 
 /**
- * Delete ALL of the user's financial data under the authenticated client.
- * Wipe order matters: accounts BEFORE categories (the
- * protect_transfer_category trigger only lets a To/From category go once its
- * account row is gone), and self-referential transfer links are cleared
- * before the transaction wipe. Bank-account links cascade away with their
- * accounts; bank connections themselves are kept.
+ * The tables a wipe empties, in the order it must empty them.
  *
- * Used by the MS Money total migration AND the Danger Zone "Clear All Data".
+ * Not a preference — the database enforces it. accounts goes BEFORE categories
+ * because the protect_transfer_category trigger only lets a To/From category go
+ * once its account row has gone, and splits go before transactions because they
+ * hang off them. Bank-account links cascade away with their accounts; bank
+ * connections themselves are kept.
  */
-export async function wipeCloudData(supabase: SupabaseClient, userId: string): Promise<void> {
+export const WIPE_TABLE_ORDER: readonly string[] = [
+  'transaction_splits', 'transactions', 'budgets', 'goals', 'accounts', 'categories',
+];
+
+/**
+ * Rows touched per statement.
+ *
+ * The number exists because of a real failure: "Delete All Data" issued
+ * `DELETE FROM transactions WHERE user_id = …` against 51,000 rows and the
+ * database gave up with `canceling statement due to statement timeout`. The
+ * damage was not the error — it was WHERE it stopped. The unlink pass and the
+ * splits delete had already committed, so the login was left with its transfer
+ * links nulled and its splits gone and every transaction still there: a state
+ * nothing in the app produces and nothing in the app expects.
+ *
+ * 2,000 keeps each statement to a fraction of a second on the largest real
+ * dataset while keeping the number of round trips sane (26 for 51k rows). It is
+ * also below PostgREST's own 1,000-row read cap doubled, so the SELECT that
+ * feeds each DELETE is one request.
+ */
+export const WIPE_CHUNK_SIZE = 2000;
+
+/** What a wipe is doing right now, for a caller with a progress bar. */
+export interface WipeProgress {
+  table: string;
+  /** Rows deleted from this table so far. */
+  deleted: number;
+  /**
+   * What this table held when the wipe started, where the count succeeded.
+   * `undefined` rather than 0 when it did not: "of unknown" is honest, "0 of 0"
+   * beside a running spinner is not.
+   */
+  total?: number;
+  /** 1-based, for "3 of 7". Includes the transfer-unlink pass as step 1. */
+  step: number;
+  stepCount: number;
+}
+
+/**
+ * The five reads and writes a wipe performs, as a PORT.
+ *
+ * Not "the slice of the Supabase client we use". A structural interface
+ * describing the PostgREST builder chain has to be checked against
+ * `SupabaseClient`'s generics at every call site, and `tsc -b` gives up on that
+ * with "Type instantiation is excessively deep" — the compiler saying the
+ * abstraction is drawn in the wrong place. Five verbs are also what the loop
+ * below actually needs, and they are what a test can implement honestly:
+ * a real in-memory store, not a fake query builder that would only prove the
+ * chain was called in the order the test expected.
+ */
+export interface WipeStore {
+  /** How many rows this user has in `table`, or undefined when it cannot be told. */
+  count(table: string, userId: string): Promise<number | undefined>;
+  /** Up to `limit` ids of this user's rows in `table`. */
+  idsFor(table: string, userId: string, limit: number): Promise<string[]>;
+  /** Up to `limit` ids of this user's transactions that still carry a transfer link. */
+  linkedTransferIds(userId: string, limit: number): Promise<string[]>;
+  /** Null both transfer-link columns on exactly these rows. */
+  unlinkTransfers(ids: string[]): Promise<void>;
+  /** Delete exactly these rows from `table`. */
+  deleteByIds(table: string, ids: string[]): Promise<void>;
+}
+
+export interface WipeOptions {
+  onProgress?: (progress: WipeProgress) => void;
+  chunkSize?: number;
+  /** Overridable so a test can run the loop against a store it can inspect. */
+  store?: WipeStore;
+}
+
+/**
+ * The production store. The client is used INLINE and never assigned to a
+ * declared interface, which is what keeps its generics out of every signature
+ * in this file.
+ */
+export function supabaseWipeStore(supabase: SupabaseClient): WipeStore {
+  const ids = (rows: { id: string }[] | null): string[] => (rows ?? []).map(row => row.id);
+  return {
+    async count(table, userId) {
+      const { count, error } = await supabase
+        .from(table)
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      // A failed count is not a failed wipe. The delete loop decides when a
+      // table is empty by reading it, never by trusting this number, so the
+      // only thing lost here is the denominator in "3,000 of 51,000".
+      return error || count === null ? undefined : count;
+    },
+    async idsFor(table, userId, limit) {
+      const { data, error } = await supabase
+        .from(table).select('id').eq('user_id', userId).limit(limit);
+      if (error) throw new Error(error.message);
+      return ids(data);
+    },
+    async linkedTransferIds(userId, limit) {
+      const { data, error } = await supabase
+        .from('transactions').select('id')
+        .eq('user_id', userId)
+        .not('linked_transfer_id', 'is', null)
+        .limit(limit);
+      if (error) throw new Error(error.message);
+      return ids(data);
+    },
+    async unlinkTransfers(rowIds) {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ linked_transfer_id: null, linked_transfer_split_id: null })
+        .in('id', rowIds);
+      if (error) throw new Error(error.message);
+    },
+    async deleteByIds(table, rowIds) {
+      const { error } = await supabase.from(table).delete().in('id', rowIds);
+      if (error) throw new Error(error.message);
+    },
+  };
+}
+
+/**
+ * Delete ALL of the user's financial data under the authenticated client, in
+ * chunks small enough that no single statement can time out.
+ *
+ * ── WHY CHUNKED ─────────────────────────────────────────────────────────────
+ * See WIPE_CHUNK_SIZE. One statement per table died on a real 51k-row account
+ * and left the login half-wiped.
+ *
+ * ── WHAT A FAILURE LEAVES BEHIND ────────────────────────────────────────────
+ * Chunks commit as they go, so a failure part-way through leaves the user with
+ * some rows gone and some still there. That is not a state this function tries
+ * to avoid — it CANNOT, without a transaction that would reintroduce the very
+ * timeout it exists to dodge — so it is a state it makes safe instead: every
+ * step is idempotent (deleting rows that are already gone is a no-op, and the
+ * unlink pass only touches rows that still carry a link), so running it again
+ * simply carries on from wherever it stopped. The dialog says so rather than
+ * showing a bare error, because "run it again" is the whole recovery.
+ *
+ * Used by the MS Money total migration AND the Danger Zone "Delete All Data".
+ */
+export async function wipeCloudData(
+  supabase: SupabaseClient,
+  userId: string,
+  options: WipeOptions = {}
+): Promise<void> {
+  return runWipe(options.store ?? supabaseWipeStore(supabase), userId, options);
+}
+
+/**
+ * The wipe itself, over the port.
+ *
+ * Split from `wipeCloudData` so the loop can be exercised against a real
+ * in-memory store rather than a stand-in for a query builder — and so that
+ * nothing about chunking, ordering or resumability is expressed in terms of
+ * PostgREST. The separation is also what lets the test avoid inventing a client
+ * it does not have.
+ */
+export async function runWipe(
+  store: WipeStore,
+  userId: string,
+  options: Omit<WipeOptions, 'store'> = {}
+): Promise<void> {
+  const chunkSize = Math.max(1, options.chunkSize ?? WIPE_CHUNK_SIZE);
+  const stepCount = WIPE_TABLE_ORDER.length + 1; // +1 for the unlink pass
+
+  // ── Step 1: break the transfer links ──────────────────────────────────────
+  // Self-references between transactions. They have to go before the rows do,
+  // and this UPDATE touched 13,000 rows on the real dataset — big enough to
+  // time out on its own, so it is chunked like everything else.
+  //
+  // The loop terminates because each pass clears the very column it selects on:
+  // a row updated here can never be returned by the next read.
   {
-    const { error } = await supabase.from('transactions')
-      .update({ linked_transfer_id: null, linked_transfer_split_id: null })
-      .eq('user_id', userId).not('linked_transfer_id', 'is', null);
-    if (error) throw new Error(`Failed while unlinking transfers: ${error.message}`);
+    const total = await store.count('transactions', userId);
+    let unlinked = 0;
+    options.onProgress?.({ table: 'transfer links', deleted: 0, total, step: 1, stepCount });
+    for (;;) {
+      let ids: string[];
+      try {
+        ids = await store.linkedTransferIds(userId, chunkSize);
+        if (ids.length === 0) break;
+        await store.unlinkTransfers(ids);
+      } catch (error) {
+        throw new Error(`Failed while unlinking transfers: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      unlinked += ids.length;
+      options.onProgress?.({ table: 'transfer links', deleted: unlinked, total, step: 1, stepCount });
+    }
   }
-  for (const table of ['transaction_splits', 'transactions', 'budgets', 'goals', 'accounts', 'categories']) {
-    const { error } = await supabase.from(table).delete().eq('user_id', userId);
-    if (error) throw new Error(`Failed while clearing ${table}: ${error.message}`);
+
+  // ── Steps 2..n: empty each table, in the order the database allows ────────
+  for (const [index, table] of WIPE_TABLE_ORDER.entries()) {
+    const step = index + 2;
+    const total = await store.count(table, userId);
+    let deleted = 0;
+    options.onProgress?.({ table, deleted, total, step, stepCount });
+
+    for (;;) {
+      let ids: string[];
+      try {
+        ids = await store.idsFor(table, userId, chunkSize);
+        if (ids.length === 0) break;
+        await store.deleteByIds(table, ids);
+      } catch (error) {
+        throw new Error(`Failed while clearing ${table}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      deleted += ids.length;
+      options.onProgress?.({ table, deleted, total, step, stepCount });
+    }
   }
 }
 
@@ -962,7 +1157,22 @@ export async function importToCloud(
   const { onProgress } = opts;
 
   onProgress?.({ phase: 'wiping', fraction: 0.02, message: 'Backing out existing data…' });
-  await wipeCloudData(supabase, userId);
+  // The wipe is chunked, and on a 51k-row login it is minutes rather than
+  // seconds — so it reports through the SAME progress channel the rest of the
+  // import uses instead of sitting silently on one sentence. The first 15% of
+  // the bar is the wipe; the write passes below start from there.
+  await wipeCloudData(supabase, userId, {
+    onProgress: ({ table, deleted, total, step, stepCount }) => {
+      const within = total && total > 0 ? Math.min(1, deleted / total) : 0;
+      onProgress?.({
+        phase: 'wiping',
+        fraction: 0.02 + 0.13 * ((step - 1 + within) / stepCount),
+        message: total === undefined
+          ? `Backing out existing data — ${table}: ${deleted.toLocaleString()} removed…`
+          : `Backing out existing data — ${table}: ${deleted.toLocaleString()} of ${total.toLocaleString()}…`,
+      });
+    },
+  });
 
   // Read the existing state AFTER the wipe: whatever survived it (a partial
   // failure, a narrower wipe) must not be inserted a second time, and the

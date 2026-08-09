@@ -27,14 +27,40 @@ import {
   type AccountArchiveOverrides, type ArchivePreset,
 } from '../utils/archive';
 import { formatDate } from '../utils/dateFormatter';
+import { preferences } from '../services/preferencesService';
 import type { Account } from '../types';
 
 /** Which bands the user has folded away, remembered like the Accounts page's. */
 const COLLAPSED_STORAGE_KEY = 'archiveManager.collapsedGroups.v1';
 
+/**
+ * The global cutoff, and the custom date behind it.
+ *
+ * NOT STORED AT ALL until now — a plain `useState('12m')` — so the owner set a
+ * range, archived one account, and found the page back on twelve months the
+ * next time he opened it. His per-account overrides were remembered and the
+ * choice they override was not, which is the worst of both: the page came back
+ * saying something he had not said. It is a preference about HIS accounts, so
+ * it travels with the account like the overrides beside it.
+ */
+const PRESET_STORAGE_KEY = 'archiveManager.preset.v1';
+const CUSTOM_DATE_STORAGE_KEY = 'archiveManager.customDate.v1';
+
+/** Membership of the one list the picker is built from, so the two cannot drift. */
+const isArchivePreset = (value: string | null): value is ArchivePreset =>
+  value !== null && ARCHIVE_PRESETS.some(preset => preset.value === value);
+
+const readPreset = (): ArchivePreset => {
+  const stored = preferences.getItem(PRESET_STORAGE_KEY);
+  return isArchivePreset(stored) ? stored : '12m';
+};
+
+/** 'YYYY-MM-DD', or empty. Only read when the preset is 'custom'. */
+const readCustomDate = (): string => preferences.getItem(CUSTOM_DATE_STORAGE_KEY) ?? '';
+
 const readCollapsedGroups = (): Set<string> => {
   try {
-    const stored = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+    const stored = preferences.getItem(COLLAPSED_STORAGE_KEY);
     const parsed: unknown = stored ? JSON.parse(stored) : null;
     return Array.isArray(parsed)
       ? new Set(parsed.filter((key): key is string => typeof key === 'string'))
@@ -47,7 +73,7 @@ const readCollapsedGroups = (): Set<string> => {
 
 const readOverrides = (): AccountArchiveOverrides => {
   try {
-    return parseAccountArchiveOverrides(localStorage.getItem(ARCHIVE_OVERRIDES_STORAGE_KEY));
+    return parseAccountArchiveOverrides(preferences.getItem(ARCHIVE_OVERRIDES_STORAGE_KEY));
   } catch {
     return {};
   }
@@ -59,8 +85,8 @@ export default function ArchiveManager() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [preset, setPreset] = useState<ArchivePreset>('12m');
-  const [customDate, setCustomDate] = useState('');
+  const [preset, setPresetState] = useState<ArchivePreset>(readPreset);
+  const [customDate, setCustomDateState] = useState(readCustomDate);
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(readCollapsedGroups);
   const [overrides, setOverrides] = useState<AccountArchiveOverrides>(readOverrides);
@@ -71,12 +97,30 @@ export default function ArchiveManager() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(ARCHIVE_OVERRIDES_STORAGE_KEY, serializeAccountArchiveOverrides(overrides));
+      preferences.setItem(ARCHIVE_OVERRIDES_STORAGE_KEY, serializeAccountArchiveOverrides(overrides));
     } catch {
       // Storage may be unavailable (private mode); the override still works
       // for this visit, it just will not be remembered.
     }
   }, [overrides]);
+
+  /**
+   * Written on the click that made the choice, not in an effect.
+   *
+   * An effect would also fire on the first render and write the default back —
+   * harmless here, but it makes "12m because you chose it" and "12m because
+   * nobody has chosen" the same stored value, and this page has already been
+   * confusing about exactly that.
+   */
+  const setPreset = useCallback((next: ArchivePreset) => {
+    setPresetState(next);
+    preferences.setItem(PRESET_STORAGE_KEY, next);
+  }, []);
+
+  const setCustomDate = useCallback((next: string) => {
+    setCustomDateState(next);
+    preferences.setItem(CUSTOM_DATE_STORAGE_KEY, next);
+  }, []);
 
   // Archivable accounts: open, non-investment (investments excluded in v1),
   // alphabetical — the bands preserve input order, so sorting once here sorts
@@ -115,7 +159,7 @@ export default function ArchiveManager() {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       try {
-        localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...next]));
+        preferences.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...next]));
       } catch {
         // Unwritable storage costs the memory of the fold, not the fold itself.
       }
@@ -342,6 +386,11 @@ export default function ArchiveManager() {
             {ARCHIVE_PRESETS.map(p => (
               <button
                 key={p.value}
+                type="button"
+                // A segmented control is a group of toggles, and until now the
+                // only thing saying which one was chosen was a background
+                // colour — invisible to a screen reader and to a test.
+                aria-pressed={preset === p.value}
                 onClick={() => setPreset(p.value)}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   preset === p.value
