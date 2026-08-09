@@ -10,7 +10,6 @@ const routeLabels: Record<string, string> = {
   budget: 'Budget',
   goals: 'Goals',
   investments: 'Investments',
-  'enhanced-investments': 'Investment Analytics',
   analytics: 'Analytics',
   'ai-analytics': 'AI Analytics',
   'custom-reports': 'Custom Reports',

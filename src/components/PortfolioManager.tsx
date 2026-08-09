@@ -1,179 +1,235 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, parseMoneyInput } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import MoneyInput from './common/MoneyInput';
-import { validateSymbol } from '../services/stockPriceService';
-import { 
-  PlusIcon, 
-  EditIcon, 
-  DeleteIcon, 
-  SearchIcon,
-  CheckIcon
-} from './icons';
+import StockSymbolSearch from './StockSymbolSearch';
+import { PlusIcon, EditIcon, DeleteIcon, CheckIcon } from './icons';
 import { Modal } from './common/Modal';
 import { LoadingButton } from './loading/LoadingState';
-import type { DecimalInstance } from '../types/decimal-types';
+import {
+  INVESTMENT_ASSET_TYPES,
+  type InvestmentAssetType,
+  type InvestmentHolding
+} from '../services/api/investmentService';
 
-interface StockHolding {
-  id: string;
+/**
+ * Add, change and remove holdings — and actually keep them.
+ *
+ * ── WHAT CHANGED ────────────────────────────────────────────────────────────
+ * This component used to hand a whole new array to `onUpdate`, which the page
+ * passed to `updateAccount({ holdings })`. `holdings` is not a column of
+ * `accounts` and api/accountMapping.ts strips it from every write, so the call
+ * succeeded and stored nothing: every holding anyone ever entered was gone on
+ * reload. Each action is now its own persisted operation against
+ * public.investments, and each one reports its own failure.
+ *
+ * ── AND THE SYMBOL FIELD ────────────────────────────────────────────────────
+ * The old form took free text and validated it with `validateSymbol`, which
+ * asked Yahoo for a quote from the browser — a request the CSP blocks and Yahoo
+ * would not answer anyway. It therefore rejected EVERY symbol, including AAPL,
+ * with "not found". The field is now a lookup: you pick a real instrument, so
+ * there is nothing left to validate.
+ */
+
+/** What a save needs, independent of whether it is an add or an edit. */
+export interface HoldingFormValues {
   symbol: string;
-  shares: DecimalInstance;
-  averageCost: DecimalInstance;
-  costBasis: DecimalInstance;
-  dateAdded: Date;
+  name: string;
+  quantity: ReturnType<typeof toDecimal>;
+  averageCost: ReturnType<typeof toDecimal>;
+  assetType: InvestmentAssetType;
 }
 
 interface PortfolioManagerProps {
-  accountId: string;
-  holdings: StockHolding[];
-  onUpdate: (holdings: StockHolding[]) => void;
+  holdings: readonly InvestmentHolding[];
+  /** The account's currency — what the cost figures are entered in. */
+  currency: string;
+  onAdd: (values: HoldingFormValues) => Promise<void>;
+  onEdit: (id: string, values: HoldingFormValues) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
-export default function PortfolioManager({ accountId: _accountId, holdings, onUpdate }: PortfolioManagerProps) {
+const ASSET_TYPE_LABELS: Readonly<Record<InvestmentAssetType, string>> = {
+  stock: 'Share',
+  bond: 'Bond',
+  etf: 'ETF',
+  mutual_fund: 'Fund',
+  crypto: 'Crypto',
+  commodity: 'Commodity',
+  real_estate: 'Property',
+  other: 'Other'
+};
+
+/** Yahoo's own type words, mapped to the asset types the table admits. */
+function assetTypeFromLookup(type: string): InvestmentAssetType {
+  const normalised = type.toLowerCase();
+  if (normalised.includes('etf')) return 'etf';
+  if (normalised.includes('fund')) return 'mutual_fund';
+  if (normalised.includes('crypto')) return 'crypto';
+  if (normalised.includes('bond')) return 'bond';
+  if (normalised.includes('equity') || normalised.includes('stock')) return 'stock';
+  return 'other';
+}
+
+export default function PortfolioManager({
+  holdings,
+  currency,
+  onAdd,
+  onEdit,
+  onDelete
+}: PortfolioManagerProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingHolding, setEditingHolding] = useState<StockHolding | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editing, setEditing] = useState<InvestmentHolding | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [listError, setListError] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   // Form state
   const [symbol, setSymbol] = useState('');
-  const [shares, setShares] = useState('');
+  const [name, setName] = useState('');
+  const [assetType, setAssetType] = useState<InvestmentAssetType>('stock');
+  const [pickingSymbol, setPickingSymbol] = useState(true);
+  const [quantity, setQuantity] = useState('');
   const [averageCost, setAverageCost] = useState('');
 
-  const resetForm = () => {
+  const resetForm = (): void => {
     setSymbol('');
-    setShares('');
+    setName('');
+    setAssetType('stock');
+    setPickingSymbol(true);
+    setQuantity('');
     setAverageCost('');
-    setValidationError('');
+    setFormError('');
   };
 
-  const handleAddHolding = () => {
+  const closeModal = (): void => {
+    setIsAddOpen(false);
+    setEditing(null);
     resetForm();
-    setIsAddModalOpen(true);
   };
 
-  const handleEditHolding = (holding: StockHolding) => {
-    setEditingHolding(holding);
+  const startAdd = (): void => {
+    resetForm();
+    setIsAddOpen(true);
+  };
+
+  const startEdit = (holding: InvestmentHolding): void => {
+    setFormError('');
     setSymbol(holding.symbol);
-    setShares(holding.shares.toString());
+    setName(holding.name);
+    setAssetType(holding.assetType);
+    setPickingSymbol(false);
+    setQuantity(holding.quantity.toString());
     setAverageCost(holding.averageCost.toString());
-    setValidationError('');
+    setEditing(holding);
   };
 
-  const handleDeleteHolding = (holdingId: string) => {
-    if (confirm('Are you sure you want to remove this holding?')) {
-      const updatedHoldings = holdings.filter(h => h.id !== holdingId);
-      onUpdate(updatedHoldings);
-    }
-  };
-
-  const validateAndSaveHolding = async () => {
-    setValidationError('');
-    
-    // Basic validation
-    if (!symbol || !shares || !averageCost) {
-      setValidationError('All fields are required');
-      return;
-    }
-
-    const sharesNum = Number(shares);
-    const costNum = parseMoneyInput(averageCost) ?? NaN;
-
-    if (isNaN(sharesNum) || sharesNum <= 0) {
-      setValidationError('Shares must be a positive number');
-      return;
-    }
-
-    if (isNaN(costNum) || costNum <= 0) {
-      setValidationError('Average cost must be a positive number');
-      return;
-    }
-
-    // Validate symbol exists
-    setIsValidating(true);
+  const handleDelete = async (holding: InvestmentHolding): Promise<void> => {
+    if (!confirm(`Remove ${holding.symbol} from this account's holdings?`)) return;
+    setListError('');
+    setDeletingId(holding.id);
     try {
-      const isValid = await validateSymbol(symbol);
-      if (!isValid) {
-        setValidationError(`Symbol "${symbol}" not found. Please check and try again.`);
-        setIsValidating(false);
-        return;
-      }
-    } catch {
-      setValidationError('Unable to validate symbol. Please try again.');
-      setIsValidating(false);
+      await onDelete(holding.id);
+    } catch (error) {
+      setListError(
+        error instanceof Error ? error.message : `Could not remove ${holding.symbol}.`
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleSave = async (): Promise<void> => {
+    setFormError('');
+
+    if (!symbol) {
+      setFormError('Choose a share, fund or ETF first');
       return;
     }
-    setIsValidating(false);
 
-    // Create or update holding
-    const sharesDecimal = toDecimal(sharesNum);
-    const costDecimal = toDecimal(costNum);
-    const costBasis = sharesDecimal.times(costDecimal);
-
-    if (editingHolding) {
-      // Update existing
-      const updatedHoldings = holdings.map(h => 
-        h.id === editingHolding.id
-          ? {
-              ...h,
-              symbol: symbol.toUpperCase(),
-              shares: sharesDecimal,
-              averageCost: costDecimal,
-              costBasis
-            }
-          : h
-      );
-      onUpdate(updatedHoldings);
-      setEditingHolding(null);
-    } else {
-      // Add new
-      const newHolding: StockHolding = {
-        id: `holding-${Date.now()}`,
-        symbol: symbol.toUpperCase(),
-        shares: sharesDecimal,
-        averageCost: costDecimal,
-        costBasis,
-        dateAdded: new Date()
-      };
-      onUpdate([...holdings, newHolding]);
-      setIsAddModalOpen(false);
+    const quantityValue = Number(quantity);
+    if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
+      setFormError('Units must be a positive number');
+      return;
     }
 
-    resetForm();
+    const costValue = parseMoneyInput(averageCost);
+    if (costValue === null || !Number.isFinite(costValue) || costValue <= 0) {
+      setFormError('Average cost must be a positive amount');
+      return;
+    }
+
+    const values: HoldingFormValues = {
+      symbol,
+      name: name.trim() || symbol,
+      quantity: toDecimal(quantityValue),
+      averageCost: toDecimal(costValue),
+      assetType
+    };
+
+    setIsSaving(true);
+    try {
+      if (editing) {
+        await onEdit(editing.id, values);
+      } else {
+        await onAdd(values);
+      }
+      closeModal();
+    } catch (error) {
+      // The holding stays on screen with what the user typed, so nothing they
+      // entered is lost to a failed save.
+      setFormError(
+        error instanceof Error ? error.message : 'That could not be saved. Try again.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const totalCostBasis = holdings.reduce((sum, h) => sum.plus(h.costBasis), toDecimal(0));
 
+  const previewCostBasis =
+    quantity && averageCost && Number.isFinite(Number(quantity)) && parseMoneyInput(averageCost) !== null
+      ? toDecimal(Number(quantity)).times(toDecimal(parseMoneyInput(averageCost) ?? 0))
+      : null;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Portfolio Holdings ({holdings.length})
+          Holdings ({holdings.length})
         </h3>
         <button
-          onClick={handleAddHolding}
+          type="button"
+          onClick={startAdd}
           className="flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
         >
-          <PlusIcon size={20} />
+          <PlusIcon size={20} aria-hidden="true" />
           Add Holding
         </button>
       </div>
 
-      {/* Holdings List */}
+      {listError && (
+        <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-600 dark:text-red-400">{listError}</p>
+        </div>
+      )}
+
       {holdings.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            No holdings yet. Add stocks to track your portfolio performance.
+            No holdings yet. Add the shares, funds or ETFs this account holds.
           </p>
           <button
-            onClick={handleAddHolding}
+            type="button"
+            onClick={startAdd}
             className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors"
           >
-            <PlusIcon size={20} />
-            Add Your First Stock
+            <PlusIcon size={20} aria-hidden="true" />
+            Add Your First Holding
           </button>
         </div>
       ) : (
@@ -183,153 +239,193 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
               key={holding.id}
               className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
             >
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-gray-900 dark:text-white">
                   {holding.symbol}
+                  <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                    {ASSET_TYPE_LABELS[holding.assetType]}
+                  </span>
                 </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {formatDecimal(holding.shares, 2)} shares @ {formatCurrency(holding.averageCost)}
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {formatDecimal(holding.quantity, 4)} units @{' '}
+                  {formatCurrency(holding.averageCost, holding.currency || currency)}
                 </p>
               </div>
 
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Cost Basis</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {formatCurrency(holding.costBasis)}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Cost basis</p>
+                  <p className="font-semibold text-gray-900 dark:text-white tabular-nums">
+                    {formatCurrency(holding.costBasis, holding.currency || currency)}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleEditHolding(holding)}
+                    type="button"
+                    onClick={() => startEdit(holding)}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    title="Edit holding"
+                    aria-label={`Edit ${holding.symbol}`}
                   >
-                    <EditIcon size={18} />
+                    <EditIcon size={18} aria-hidden="true" />
                   </button>
                   <button
-                    onClick={() => handleDeleteHolding(holding.id)}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    title="Remove holding"
+                    type="button"
+                    onClick={() => void handleDelete(holding)}
+                    disabled={deletingId === holding.id}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                    aria-label={`Remove ${holding.symbol}`}
                   >
-                    <DeleteIcon size={18} />
+                    <DeleteIcon size={18} aria-hidden="true" />
                   </button>
                 </div>
               </div>
             </div>
           ))}
 
-          {/* Total */}
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-900 dark:text-white">
-                Total Cost Basis
-              </span>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(totalCostBasis)}
+              <span className="font-semibold text-gray-900 dark:text-white">Total cost basis</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
+                {formatCurrency(totalCostBasis, currency)}
               </span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add/Edit Modal */}
       <Modal
-        isOpen={isAddModalOpen || !!editingHolding}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingHolding(null);
-          resetForm();
-        }}
-        title={editingHolding ? 'Edit Holding' : 'Add Stock Holding'}
+        isOpen={isAddOpen || editing !== null}
+        onClose={closeModal}
+        title={editing ? `Edit ${editing.symbol}` : 'Add a holding'}
       >
         <div className="space-y-4">
-          {/* Symbol Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Stock Symbol
+              Share, fund or ETF
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="AAPL, MSFT, GOOGL..."
-                className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white uppercase"
-                disabled={isValidating}
+            {pickingSymbol ? (
+              <StockSymbolSearch
+                onSelect={(picked, match) => {
+                  setSymbol(picked);
+                  setName(match.name);
+                  setAssetType(assetTypeFromLookup(match.type));
+                  setPickingSymbol(false);
+                }}
+                hint="Search by ticker or name — UK listings included (SHEL.L, VUSA.L)."
+                autoFocus={!editing}
               />
-              <SearchIcon size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700">
+                <span className="min-w-0">
+                  <span className="block font-medium text-gray-900 dark:text-white">{symbol}</span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">{name}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPickingSymbol(true)}
+                  className="shrink-0 text-sm text-primary hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Shares Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Number of Shares
+            <label
+              htmlFor="holding-asset-type"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Kind
+            </label>
+            <select
+              id="holding-asset-type"
+              value={assetType}
+              onChange={(e) => {
+                const chosen = INVESTMENT_ASSET_TYPES.find((type) => type === e.target.value);
+                if (chosen) setAssetType(chosen);
+              }}
+              disabled={isSaving}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+            >
+              {INVESTMENT_ASSET_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {ASSET_TYPE_LABELS[type]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="holding-quantity"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Units held
             </label>
             <input
+              id="holding-quantity"
               type="number"
-              value={shares}
-              onChange={(e) => setShares(e.target.value)}
-              placeholder="0.00"
-              step="0.01"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="0"
+              step="any"
               min="0"
+              disabled={isSaving}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              disabled={isValidating}
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Fractional units are fine — funds are usually held to several decimal places.
+            </p>
           </div>
 
-          {/* Average Cost Input */}
           <div>
-            <label htmlFor="average-cost-per-share" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Average Cost per Share
+            <label
+              htmlFor="holding-average-cost"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Average cost per unit ({currency})
             </label>
             <MoneyInput
-              id="average-cost-per-share"
+              id="holding-average-cost"
               value={averageCost}
               onChange={setAverageCost}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              disabled={isValidating}
+              disabled={isSaving}
             />
           </div>
 
-          {/* Cost Basis Preview */}
-          {shares && averageCost && Number.isFinite(Number(shares)) && parseMoneyInput(averageCost) !== null && (
+          {previewCostBasis && (
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Cost Basis: {formatCurrency(toDecimal(Number(shares)).times(toDecimal(parseMoneyInput(averageCost) ?? 0)))}
+                Cost basis: {formatCurrency(previewCostBasis, currency)}
               </p>
             </div>
           )}
 
-          {/* Error Message */}
-          {validationError && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">{validationError}</p>
+          {formError && (
+            <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
             <button
-              onClick={() => {
-                setIsAddModalOpen(false);
-                setEditingHolding(null);
-                resetForm();
-              }}
+              type="button"
+              onClick={closeModal}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Cancel
             </button>
             <LoadingButton
-              isLoading={isValidating}
-              onClick={validateAndSaveHolding}
+              isLoading={isSaving}
+              onClick={() => void handleSave()}
               className="px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              loadingText="Validating..."
+              loadingText="Saving…"
             >
-              <CheckIcon size={16} className="mr-2" />
-              {editingHolding ? 'Update' : 'Add'} Holding
+              <CheckIcon size={16} className="mr-2" aria-hidden="true" />
+              {editing ? 'Save changes' : 'Add holding'}
             </LoadingButton>
           </div>
         </div>

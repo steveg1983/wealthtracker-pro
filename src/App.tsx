@@ -59,7 +59,6 @@ const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "secu
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
-const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ './pages/ExportManager'));
 const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ './pages/EnhancedImport'));
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
@@ -211,11 +210,6 @@ function App(): React.JSX.Element {
                           <Route path="investments" element={
                             <ProtectedSuspense>
                               <Investments />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="enhanced-investments" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <EnhancedInvestments />
                             </ProtectedSuspense>
                           } />
                           <Route path="budget" element={

@@ -1,15 +1,10 @@
 [
-  "src/services/__tests__/realtimePriceService.subscribe.test.ts",
-  "src/services/__tests__/realtimePriceService.error.test.ts",
-  "src/services/__tests__/realtimePriceService.events.test.ts",
-  "src/services/__tests__/realtimePriceService.helpers.test.ts",
   "src/services/__tests__/predictiveLoadingService.test.ts",
   "src/services/__tests__/scheduledReportService.test.ts",
   "src/services/__tests__/storageAdapter.test.ts",
   "src/services/themeSchedulingService.test.ts",
   "src/services/base/BaseService.test.ts",
   "src/services/enhancedCsvImportService.test.ts",
-  "src/services/investmentEnhancementService.test.ts",
   "src/services/indexedDBService.test.ts",
   "src/services/stockPriceService.test.ts",
   "src/services/smartCategorizationService.test.ts",
@@ -18,7 +13,6 @@
   "src/services/localMerchantLogoService.test.ts",
   "src/services/financialPlanningService.test.ts",
   "src/services/qifImportService.test.ts",
-  "src/services/portfolioRebalanceService.test.ts",
   "src/services/financialSummaryService.test.ts",
   "src/services/offlineService.test.ts",
   "src/services/encryptedStorageService.test.ts",
@@ -39,7 +33,6 @@
   "src/services/__tests__/securityService.test.ts",
   "src/services/__tests__/bankConnectionService.test.ts",
   "src/services/__tests__/offlineDataService.test.ts",
-  "src/services/__tests__/dividendService.test.ts",
   "src/services/__tests__/anomalyDetectionService.test.ts",
   "src/services/__tests__/dataMigrationService.test.ts",
   "src/services/__tests__/dataIntelligenceService.test.ts",
@@ -63,6 +56,5 @@
   "src/services/__tests__/simpleAccountService.test.ts",
   "src/services/__tests__/importRulesService.test.ts",
   "src/services/__tests__/userIdService.test.ts",
-  "src/services/__tests__/validationService.test.ts",
-  "src/services/__tests__/realtimePriceService.market.test.ts"
+  "src/services/__tests__/validationService.test.ts"
 ]
