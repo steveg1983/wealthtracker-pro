@@ -1,15 +1,33 @@
 /**
- * PlanningService — local (offline) mode tests.
+ * PlanningService — the cloud half, and the refusal that is now its other half.
  *
- * userId=null forces the encrypted-localStorage path, so these run against
- * real storage in jsdom with no Supabase involvement (per the project rule:
- * no mocked Supabase — the cloud path is covered by the supabase smoke suite).
+ * This file used to be a local-mode suite: every case passed `userId = null`,
+ * which took the encrypted-localStorage branch and proved that branch worked.
+ * Those branches are gone (WRITE-PATHS slice 5e) and so are those cases. They
+ * were never reachable from the app — the only production importer of this
+ * class is `dataService.ts`, and every call site there is inside a branch
+ * guarded by `userId && this.supabaseChecker()` — and what they covered is now
+ * covered against the class that really owns browser storage, in
+ * `src/services/__tests__/dataService.test.ts`.
+ *
+ * What replaces them is the contract that took their place: EVERY operation
+ * requires a configured client AND a resolved owner, and refuses by name
+ * otherwise. That refusal is the point rather than a technicality — the null
+ * owner it now rejects used to write the browser's copy, hand back an ordinary
+ * Budget, and lose it at the next boot when the cloud read beside it answered
+ * from a store the row never reached.
+ *
+ * No mocked Supabase anywhere (the project rule; the wire itself is the smoke
+ * suite's job). The cloud-unavailable case is driven by emptying the two
+ * credentials and re-importing the real module — a deployment, not a double.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { PlanningService, goalFromDb, goalToDb } from '../planningService';
 import { storageAdapter, STORAGE_KEYS } from '../../storageAdapter';
 import type { Budget, Goal, Category } from '../../../types';
+
+const OWNER = 'db-user-1';
 
 const baseBudget = (): Omit<Budget, 'id' | 'spent'> => ({
   categoryId: 'cat-groceries',
@@ -32,199 +50,184 @@ const baseGoal = (): Omit<Goal, 'id' | 'progress'> => ({
   updatedAt: new Date('2026-01-01T00:00:00.000Z')
 });
 
-describe('PlanningService (local mode, userId=null)', () => {
+const baseCategory = (): Omit<Category, 'id'> => ({
+  name: 'Pets',
+  type: 'expense',
+  level: 'detail',
+  parentId: 'sub-other-expense'
+});
+
+interface Operation {
+  readonly method: string;
+  readonly run: (service: typeof PlanningService, userId: string | null) => Promise<unknown>;
+}
+
+/**
+ * Every operation the class exposes that talks to the cloud, and the shape a
+ * caller invokes it with.
+ *
+ * The two bulk operations are given NON-EMPTY input deliberately: both answer an
+ * empty request before they ever ask about the connection (a plan that adds no
+ * categories must not produce an error message about a write nobody made), which
+ * the pair of cases further down pins.
+ *
+ * `getCategories` / `saveCategories` are absent because they are not cloud
+ * operations at all — they are the cache the cloud branches keep, covered on
+ * their own below.
+ */
+const OPERATIONS: readonly Operation[] = [
+  { method: 'getBudgets', run: (service, userId) => service.getBudgets(userId) },
+  { method: 'createBudget', run: (service, userId) => service.createBudget(userId, baseBudget()) },
+  { method: 'updateBudget', run: (service, userId) => service.updateBudget(userId, 'budget-1', { amount: 550 }) },
+  { method: 'deleteBudget', run: (service, userId) => service.deleteBudget(userId, 'budget-1') },
+  { method: 'getGoals', run: (service, userId) => service.getGoals(userId) },
+  { method: 'createGoal', run: (service, userId) => service.createGoal(userId, baseGoal()) },
+  { method: 'updateGoal', run: (service, userId) => service.updateGoal(userId, 'goal-1', { progress: 2500 }) },
+  { method: 'deleteGoal', run: (service, userId) => service.deleteGoal(userId, 'goal-1') },
+  { method: 'ensureCategories', run: (service, userId) => service.ensureCategories(userId) },
+  { method: 'createCategory', run: (service, userId) => service.createCategory(userId, baseCategory()) },
+  { method: 'createCategories', run: (service, userId) => service.createCategories(userId, [baseCategory()]) },
+  { method: 'updateCategory', run: (service, userId) => service.updateCategory(userId, 'cat-1', { name: 'Pet Care' }) },
+  { method: 'deleteCategory', run: (service, userId) => service.deleteCategory(userId, 'cat-1') },
+  { method: 'deleteUnusedCategories', run: (service, userId) => service.deleteUnusedCategories(userId, ['cat-1']) },
+  { method: 'mergeCategories', run: (service, userId) => service.mergeCategories(userId, 'cat-1', 'cat-2') }
+];
+
+const refusal = (method: string): string =>
+  `${method} requires the cloud connection (local mode goes through DataService)`;
+
+/**
+ * The service as an unconfigured deployment sees it.
+ *
+ * `cloudReady` is `supabase !== null`, and `supabase` is built ONCE at module
+ * load from VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY — which this environment
+ * supplies, so the statically imported class above always has a client. Emptying
+ * those two variables and re-importing gives the real module with no client at
+ * all: not a mock and not a double, just the deployment where Supabase was never
+ * configured.
+ *
+ * The owner passed below is a REAL resolved id, which is the whole point of
+ * asking this way: what is missing is the connection, and the refusal must not
+ * depend on the id being absent too.
+ */
+const withoutSupabaseCredentials = async (): Promise<typeof import('../planningService')> => {
+  vi.stubEnv('VITE_SUPABASE_URL', '');
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
+  vi.resetModules();
+  return import('../planningService');
+};
+
+describe('PlanningService with no cloud connection', () => {
+  let offline: typeof import('../planningService');
+
+  beforeAll(async () => {
+    offline = await withoutSupabaseCredentials();
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('really has no client — the precondition every case below rests on', async () => {
+    // Without this the suite could pass for the wrong reason: if the re-import
+    // had picked the credentials up anyway, `cloudReady` would be TRUE, and a
+    // refusal with a resolved owner would mean something else entirely.
+    const { supabase, isSupabaseConfigured } = await import('../supabaseClient');
+    expect(supabase).toBeNull();
+    expect(isSupabaseConfigured()).toBe(false);
+  });
+
+  it.each(OPERATIONS)('$method refuses, and says which operation refused', async ({ method, run }) => {
+    await expect(run(offline.PlanningService, OWNER)).rejects.toThrow(refusal(method));
+  });
+});
+
+describe('PlanningService with no resolved owner', () => {
+  // The three collections as they stand before the refusals, so "nothing was
+  // written" can be checked rather than assumed.
+  const storedBudgets = [{ id: 'budget-existing', categoryId: 'cat-1', amount: 120, period: 'monthly', spent: 0 }];
+  const storedGoals = [{ id: 'goal-existing', name: 'Deposit', targetAmount: 5000, progress: 100 }];
+  const storedCategories = [{ id: 'cat-existing', name: 'Groceries', type: 'expense', level: 'detail' }];
+
   beforeEach(async () => {
-    await storageAdapter.set(STORAGE_KEYS.BUDGETS, []);
-    await storageAdapter.set(STORAGE_KEYS.GOALS, []);
+    await storageAdapter.set(STORAGE_KEYS.BUDGETS, storedBudgets);
+    await storageAdapter.set(STORAGE_KEYS.GOALS, storedGoals);
+    await storageAdapter.set(STORAGE_KEYS.CATEGORIES, storedCategories);
+  });
+
+  it.each(OPERATIONS)('$method refuses a null owner rather than writing the browser copy', async ({ method, run }) => {
+    await expect(run(PlanningService, null)).rejects.toThrow(refusal(method));
+  });
+
+  it('leaves all three collections byte-identical after every refusal', async () => {
+    // THE HAZARD THIS CLOSES. A signed-in session whose database id had not
+    // resolved yet passed a null owner, and every operation here answered by
+    // writing browser storage: the budget appeared on screen, was never sent
+    // anywhere, and was gone at the next boot when the cloud read answered
+    // instead. Silent, permanent, with nothing logged.
+    for (const { method, run } of OPERATIONS) {
+      await expect(run(PlanningService, null)).rejects.toThrow(refusal(method));
+    }
+
+    expect(JSON.stringify(await storageAdapter.get(STORAGE_KEYS.BUDGETS)))
+      .toBe(JSON.stringify(storedBudgets));
+    expect(JSON.stringify(await storageAdapter.get(STORAGE_KEYS.GOALS)))
+      .toBe(JSON.stringify(storedGoals));
+    expect(JSON.stringify(await storageAdapter.get(STORAGE_KEYS.CATEGORIES)))
+      .toBe(JSON.stringify(storedCategories));
+  });
+
+  it('answers an empty bulk request without asking about the connection', async () => {
+    // Both bulk operations check for an empty request BEFORE the guard, and the
+    // order is the behaviour: an import that plans no new categories, or no
+    // prunes, asks anyway — because the plan is computed before it is known to
+    // be empty — and refusing to write nothing would be an error message about
+    // a write nobody made.
+    await expect(PlanningService.createCategories(null, [])).resolves.toEqual([]);
+    await expect(PlanningService.deleteUnusedCategories(null, [])).resolves.toBe(0);
+  });
+});
+
+describe('PlanningService category cache', () => {
+  // NOT a local mode — the cloud branches' own copy, refreshed after every
+  // category row that lands, and what a signed-in person's offline boot reads
+  // its category names from. It survived slice 5e for exactly that reason, and
+  // it takes no owner and no connection because it is not asking the cloud
+  // anything.
+  beforeEach(async () => {
     await storageAdapter.set(STORAGE_KEYS.CATEGORIES, []);
   });
 
-  describe('budgets', () => {
-    it('creates a budget and persists it', async () => {
-      const created = await PlanningService.createBudget(null, baseBudget());
+  it('saves and reads categories', async () => {
+    const categories: Category[] = [
+      { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
+      { id: 'sub-salary', name: 'Salary', type: 'income', level: 'sub', parentId: 'type-income' }
+    ];
 
-      expect(created.id).toBeTruthy();
-      expect(created.spent).toBe(0);
-      expect(created.amount).toBe(400);
+    await PlanningService.saveCategories(categories);
+    const fetched = await PlanningService.getCategories();
 
-      const fetched = await PlanningService.getBudgets(null);
-      expect(fetched).toHaveLength(1);
-      expect(fetched[0].id).toBe(created.id);
-    });
-
-    it('persists across a fresh read (survives refresh)', async () => {
-      const created = await PlanningService.createBudget(null, baseBudget());
-      // A second read simulates a new session reading cold storage.
-      const reloaded = await PlanningService.getBudgets(null);
-      expect(reloaded.map(b => b.id)).toContain(created.id);
-    });
-
-    it('updates a budget', async () => {
-      const created = await PlanningService.createBudget(null, baseBudget());
-      const updated = await PlanningService.updateBudget(null, created.id, { amount: 550 });
-
-      expect(updated.amount).toBe(550);
-      const fetched = await PlanningService.getBudgets(null);
-      expect(fetched[0].amount).toBe(550);
-    });
-
-    it('throws when updating a missing budget', async () => {
-      await expect(
-        PlanningService.updateBudget(null, 'nope', { amount: 1 })
-      ).rejects.toThrow('Budget not found');
-    });
-
-    it('deletes a budget', async () => {
-      const created = await PlanningService.createBudget(null, baseBudget());
-      await PlanningService.deleteBudget(null, created.id);
-
-      const fetched = await PlanningService.getBudgets(null);
-      expect(fetched).toHaveLength(0);
-    });
+    expect(fetched).toHaveLength(2);
+    expect(fetched[0].id).toBe('type-income');
+    expect(fetched[1].parentId).toBe('type-income');
   });
 
-  describe('goals', () => {
-    it('creates a goal with zero progress and persists it', async () => {
-      const created = await PlanningService.createGoal(null, baseGoal());
-
-      expect(created.id).toBeTruthy();
-      expect(created.progress).toBe(0);
-
-      const fetched = await PlanningService.getGoals(null);
-      expect(fetched).toHaveLength(1);
-      expect(fetched[0].name).toBe('Emergency Fund');
-    });
-
-    it('keeps money already put by when the goal is created', async () => {
-      // `progress` IS the accumulated amount, so a goal started with £2,500
-      // already saved must not be filed as £0.
-      const created = await PlanningService.createGoal(null, {
-        ...baseGoal(),
-        currentAmount: 2500
-      });
-
-      expect(created.progress).toBe(2500);
-      expect(created.currentAmount).toBe(2500);
-    });
-
-    it('updates goal progress', async () => {
-      const created = await PlanningService.createGoal(null, baseGoal());
-      const updated = await PlanningService.updateGoal(null, created.id, {
-        progress: 2500,
-        currentAmount: 2500
-      });
-
-      expect(updated.progress).toBe(2500);
-      const fetched = await PlanningService.getGoals(null);
-      expect(fetched[0].progress).toBe(2500);
-    });
-
-    it('throws when updating a missing goal', async () => {
-      await expect(
-        PlanningService.updateGoal(null, 'nope', { progress: 1 })
-      ).rejects.toThrow('Goal not found');
-    });
-
-    it('deletes a goal', async () => {
-      const created = await PlanningService.createGoal(null, baseGoal());
-      await PlanningService.deleteGoal(null, created.id);
-
-      const fetched = await PlanningService.getGoals(null);
-      expect(fetched).toHaveLength(0);
-    });
-  });
-
-  describe('categories', () => {
-    it('saves and reads categories', async () => {
-      const categories: Category[] = [
-        { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
-        { id: 'sub-salary', name: 'Salary', type: 'income', level: 'sub', parentId: 'type-income' }
-      ];
-
-      await PlanningService.saveCategories(categories);
-      const fetched = await PlanningService.getCategories();
-
-      expect(fetched).toHaveLength(2);
-      expect(fetched[0].id).toBe('type-income');
-      expect(fetched[1].parentId).toBe('type-income');
-    });
-
-    it('returns empty array when nothing stored', async () => {
-      const fetched = await PlanningService.getCategories();
-      expect(fetched).toEqual([]);
-    });
-
-    it('ensureCategories falls back to defaults when local is empty (signed out)', async () => {
-      const categories = await PlanningService.ensureCategories(null);
-      // The default set includes the core type-level categories
-      expect(categories.length).toBeGreaterThan(10);
-      expect(categories.some(c => c.id === 'type-income')).toBe(true);
-      expect(categories.some(c => c.id === 'type-expense')).toBe(true);
-    });
-
-    it('ensureCategories returns the stored local set when present (signed out)', async () => {
-      const stored: Category[] = [
-        { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true }
-      ];
-      await PlanningService.saveCategories(stored);
-
-      const categories = await PlanningService.ensureCategories(null);
-      expect(categories).toHaveLength(1);
-      expect(categories[0].id).toBe('type-income');
-    });
-
-    it('creates a category locally', async () => {
-      const created = await PlanningService.createCategory(null, {
-        name: 'Pets', type: 'expense', level: 'detail', parentId: 'sub-other-expense'
-      });
-
-      expect(created.id).toBeTruthy();
-      const fetched = await PlanningService.getCategories();
-      expect(fetched.map(c => c.name)).toContain('Pets');
-    });
-
-    it('updates a category locally', async () => {
-      const created = await PlanningService.createCategory(null, {
-        name: 'Pets', type: 'expense', level: 'detail'
-      });
-      const updated = await PlanningService.updateCategory(null, created.id, { name: 'Pet Care' });
-
-      expect(updated.name).toBe('Pet Care');
-      const fetched = await PlanningService.getCategories();
-      expect(fetched[0].name).toBe('Pet Care');
-    });
-
-    it('throws when updating a missing category', async () => {
-      await expect(
-        PlanningService.updateCategory(null, 'nope', { name: 'x' })
-      ).rejects.toThrow('Category not found');
-    });
-
-    it('deletes a category and its children locally (cascade)', async () => {
-      const parent = await PlanningService.createCategory(null, {
-        name: 'Parent', type: 'expense', level: 'sub'
-      });
-      await PlanningService.createCategory(null, {
-        name: 'Child', type: 'expense', level: 'detail', parentId: parent.id
-      });
-
-      await PlanningService.deleteCategory(null, parent.id);
-
-      const fetched = await PlanningService.getCategories();
-      expect(fetched).toHaveLength(0);
-    });
+  it('returns an empty list when nothing is cached', async () => {
+    const fetched = await PlanningService.getCategories();
+    expect(fetched).toEqual([]);
   });
 });
 
 /**
  * The CLOUD path — the mapping every signed-in user's goals travel through.
  *
- * The suite above passes userId=null, which takes the localStorage branch and
- * never touches goalToDb/goalFromDb: that is how `isActive` came to be dropped
- * on the way to the database (the modal's "Active goal" tick wrote nothing) and
- * how editing a goal's type erased its linked accounts. These drive the mapping
- * functions directly — real code, no mocked Supabase; the wire itself belongs
- * to the Supabase smoke suite.
+ * The suite that used to sit above this one passed userId=null, which took the
+ * localStorage branch and never touched goalToDb/goalFromDb: that is how
+ * `isActive` came to be dropped on the way to the database (the modal's "Active
+ * goal" tick wrote nothing) and how editing a goal's type erased its linked
+ * accounts. These drive the mapping functions directly — real code, no mocked
+ * Supabase; the wire itself belongs to the Supabase smoke suite.
  */
 describe('PlanningService goal mapping (cloud path)', () => {
   describe('active / paused / completed', () => {

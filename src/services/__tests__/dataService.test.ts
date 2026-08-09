@@ -484,6 +484,15 @@ describe('DataService (deterministic fallback)', () => {
       expect(edited.amount).toBe(70.1);
       expect(await service.getBudgets()).toEqual([edited]);
 
+      // A budget that is not there is refused by name rather than created, and
+      // the refusal leaves the store exactly as it was — the lookup happens
+      // before the first write. (This assertion moved here from
+      // planningService.test.ts when that class's local half was retired: the
+      // rule now lives on this class, so this is where it is held.)
+      await expect(service.updateBudget('budget-nowhere', { amount: 1 }))
+        .rejects.toThrow('Budget not found');
+      expect(await service.getBudgets()).toEqual([edited]);
+
       await service.deleteBudget('budget-generated');
       expect(await service.getBudgets()).toEqual([]);
 
@@ -738,6 +747,13 @@ describe('DataService (deterministic fallback)', () => {
 
       const edited = await service.updateGoal('goal-generated', { progress: 1500, currentAmount: 1500 });
       expect(edited.progress).toBe(1500);
+      expect(await service.getGoals()).toEqual([edited]);
+
+      // Same refusal as the budget block above, for the same reason, and the
+      // same reason it is asserted here: the rule moved onto this class when
+      // PlanningService's local half was retired.
+      await expect(service.updateGoal('goal-nowhere', { progress: 1 }))
+        .rejects.toThrow('Goal not found');
       expect(await service.getGoals()).toEqual([edited]);
 
       await service.deleteGoal('goal-generated');
