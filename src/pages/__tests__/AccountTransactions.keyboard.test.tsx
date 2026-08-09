@@ -92,13 +92,6 @@ const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Regi
  */
 const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
 
-/** The quick-edit box, wherever the register has drawn it. */
-const quickEditBox = (): HTMLElement => {
-  const el = document.querySelector('[data-quick-edit-panel]');
-  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
-  return el;
-};
-
 /** The element that scrolls on the non-virtualised path. */
 const listViewport = (): HTMLElement => {
   const el = grid().querySelector('[data-virtualized-list]');
@@ -106,11 +99,21 @@ const listViewport = (): HTMLElement => {
   return el;
 };
 
-/** The transaction the register says is active, by its description. */
+/**
+ * What the register's active row holds: its text, AND whatever has been typed
+ * into the boxes it has become.
+ *
+ * Both halves are needed. The row being edited has no description TEXT — that
+ * cell is an input now, and an input's value is not text content — so a helper
+ * that read only textContent could answer "which row is the highlight on?" for
+ * every row in the register except the one being worked on.
+ */
 const activeRowText = (): string => {
   const id = grid().getAttribute('aria-activedescendant');
-  if (!id) return '';
-  return document.getElementById(id)?.textContent ?? '';
+  const row = id ? document.getElementById(id) : null;
+  if (!row) return '';
+  const typed = Array.from(row.querySelectorAll('input')).map(input => input.value).join(' ');
+  return `${row.textContent ?? ''} ${typed}`;
 };
 
 /** …and where that row sits in the list, or -1 for none. */
@@ -193,7 +196,7 @@ describe('Account register — opening on the newest transaction', () => {
 
     // The deep-linked row arrives selected, with its quick-edit box open…
     await waitFor(() => {
-      expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue(target.description);
+      expect(screen.getByLabelText('Transaction description')).toHaveValue(target.description);
     });
     // …and the register never asked for the foot, so the centring stands.
     expect(listViewport().scrollTop).not.toBe(STUB_SCROLL_HEIGHT);
@@ -252,13 +255,13 @@ describe('Account register — the highlighted row under the arrow keys', () => 
     // categorising run continuous.
     fireEvent.click(within(grid()).getByText(ROWS[0].description));
     await waitFor(() => {
-      expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue(ROWS[0].description);
+      expect(screen.getByLabelText('Transaction description')).toHaveValue(ROWS[0].description);
     });
 
     fireEvent.keyDown(grid(), { key: 'ArrowDown' });
 
     await waitFor(() => {
-      expect(within(quickEditBox()).getByLabelText('Description')).toHaveValue(ROWS[1].description);
+      expect(screen.getByLabelText('Transaction description')).toHaveValue(ROWS[1].description);
     });
   });
 
@@ -270,7 +273,7 @@ describe('Account register — the highlighted row under the arrow keys', () => 
 
     // Nothing opened the box, so the register is a list of transactions and
     // nothing else — the state someone reading their history wants.
-    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
     expect(activeRowText()).toContain(ROWS[1].description);
   });
 

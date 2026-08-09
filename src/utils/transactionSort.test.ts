@@ -1,11 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { compareChronological, compareTransactions, transactionSortValue } from './transactionSort';
+import { createCategoryLabeller } from './categoryLabel';
 import type { Transaction, Category } from '../types';
 
 const cats: Category[] = [
   { id: 'c-food', name: 'Food', type: 'expense', level: 'detail' },
   { id: 'c-salary', name: 'Salary', type: 'income', level: 'detail' }
 ];
+
+/**
+ * The Category column's own resolver, which is what the comparator now takes.
+ * The register hands in the very function its cell renders with; a test that
+ * built its own would be proving something nothing on screen does.
+ */
+const label = createCategoryLabeller(cats, []);
 
 const t = (over: Partial<Transaction>): Transaction => ({
   id: 'x',
@@ -23,7 +31,7 @@ const orderedIds = (
   txns: Transaction[],
   field: Parameters<typeof compareTransactions>[2],
   dir: 'asc' | 'desc'
-) => [...txns].sort((a, b) => compareTransactions(a, b, field, dir, cats)).map(x => x.id);
+) => [...txns].sort((a, b) => compareTransactions(a, b, field, dir, label)).map(x => x.id);
 
 describe('compareTransactions', () => {
   it('orders by signed amount for amount / payment / deposit', () => {
@@ -33,13 +41,53 @@ describe('compareTransactions', () => {
     expect(orderedIds(list, 'deposit', 'desc')).toEqual(['b', 'c', 'a']); // 200, -10, -50
   });
 
-  it('orders by resolved category name (case-insensitive; uncategorised first)', () => {
+  it('orders by resolved category name, gathering the uncategorised at the foot', () => {
     const list = [
       t({ id: 's', category: 'c-salary' }),
       t({ id: 'f', category: 'c-food' }),
       t({ id: 'u', category: '' })
     ];
-    expect(orderedIds(list, 'category', 'asc')).toEqual(['u', 'f', 's']); // '', food, salary
+    // Ascending: food, salary, and the uncategorised LAST — not first, where
+    // plain string order would put an empty string. The register opens at the
+    // foot of the list and keeps its place across a re-sort, so the end of an
+    // ascending Category sort is where the eyes already are, and "sort by
+    // category to work through the uncategorised" costs no scrolling at all.
+    expect(orderedIds(list, 'category', 'asc')).toEqual(['f', 's', 'u']);
+    // Descending is the exact reverse, queue included — a second click on the
+    // header moves the block to the other end rather than leaving it pinned.
+    expect(orderedIds(list, 'category', 'desc')).toEqual(['u', 's', 'f']);
+  });
+
+  it('keeps the uncategorised in ONE block, whatever else is uncategorised', () => {
+    // A row filed under an id that resolves to nothing — a category deleted, a
+    // transfer half whose other account is gone — shows an empty cell, so it
+    // belongs with the other empty cells rather than sorted among the names by
+    // an id nobody can see.
+    const list = [
+      t({ id: 'blank', category: '', date: new Date('2024-01-02') }),
+      t({ id: 'named', category: 'c-food' }),
+      t({ id: 'dangling', category: 'c-deleted-long-ago', date: new Date('2024-01-01') })
+    ];
+    expect(orderedIds(list, 'category', 'asc')).toEqual(['named', 'dangling', 'blank']);
+  });
+
+  it('orders a transfer by the text the column shows, not by a blank', () => {
+    // The literal ids the quick-add dock writes. They match no category, so the
+    // old key scored them exactly as it scored an uncategorised row and the two
+    // kinds were laid out together by date — the owner's report, in one line.
+    const labelWithAccounts = createCategoryLabeller(cats, [
+      { id: 'acc-savings', name: 'Savings', type: 'savings', balance: 0, currency: 'GBP', lastUpdated: new Date('2024-01-01') }
+    ]);
+    const list = [
+      t({ id: 'blank', category: '' }),
+      t({ id: 'transfer', category: 'transfer-out', type: 'transfer', transferAccountId: 'acc-savings' }),
+      t({ id: 'salary', category: 'c-salary' })
+    ];
+    const ordered = [...list]
+      .sort((a, b) => compareTransactions(a, b, 'category', 'asc', labelWithAccounts))
+      .map(x => x.id);
+    // Salary, Transfer > Savings, then the blank at the foot.
+    expect(ordered).toEqual(['salary', 'transfer', 'blank']);
   });
 
   it('orders by description case-insensitively', () => {
@@ -120,8 +168,8 @@ describe('compareTransactions', () => {
   });
 
   it('exposes the comparable value via transactionSortValue', () => {
-    expect(transactionSortValue(t({ amount: -5 }), 'payment', cats)).toBe(-5);
-    expect(transactionSortValue(t({ category: 'c-food' }), 'category', cats)).toBe('food');
+    expect(transactionSortValue(t({ amount: -5 }), 'payment', label)).toBe(-5);
+    expect(transactionSortValue(t({ category: 'c-food' }), 'category', label)).toBe('food');
   });
 
   it('tie-breaks equal non-date values chronologically (oldest first)', () => {

@@ -4,22 +4,26 @@ import { render, screen, within } from '@testing-library/react';
 import { VirtualizedTable, type Column, type RowDetail } from './VirtualizedTable';
 
 /**
- * A row that carries something underneath it, in a list that is VIRTUALISED.
+ * A row that carries an editor — cells of its own, and a strip beneath — in a
+ * list that is VIRTUALISED.
  *
- * This is the half of the inline quick-edit box that nothing else can prove.
- * Above fifty rows — which is every real account — the register hands its rows
- * to react-window, which positions them by arithmetic rather than by measuring
- * the DOM: every row's top is the sum of the heights above it, cached the
- * first time it is worked out. So there are exactly two ways to get this
- * wrong, and both are silent:
+ * This is the half of the register's inline editing that nothing else can
+ * prove. Above fifty rows — which is every real account — the register hands
+ * its rows to react-window, which positions them by arithmetic rather than by
+ * measuring the DOM: every row's top is the sum of the heights above it, cached
+ * the first time it is worked out. So there are exactly three ways to get this
+ * wrong, and all of them are silent:
  *
- *   1. not making the expanded row taller, so the box is painted over by the
+ *   1. not making the expanded row taller, so the strip is painted over by the
  *      row below it;
- *   2. making it taller but never telling react-window to forget the offsets
- *      it already cached, so the rows below keep their old positions — the box
- *      overlaps them, and moving it to another row leaves a hole where it was.
+ *   2. counting the strip but not the row's own line, which now GROWS while its
+ *      cells are inputs — the same overlap, a smaller one;
+ *   3. making it taller but never telling react-window to forget the offsets
+ *      it already cached, so the rows below keep their old positions — the
+ *      strip overlaps them, and moving it to another row leaves a hole where it
+ *      was.
  *
- * Both are read off here as the `top` react-window writes on each row.
+ * All three are read off here as the `top` react-window writes on each row.
  *
  * WHAT IS STOOD IN FOR: AutoSizer measures its parent, and jsdom performs no
  * layout at all, so it would report 0×0 and react-window would render nothing.
@@ -36,19 +40,24 @@ vi.mock('react-virtualized-auto-sizer', () => ({
 interface Row {
   id: string;
   label: string;
+  note: string;
 }
 
 const ROW_HEIGHT = 40;
 const DETAIL_HEIGHT = 100;
+/** What a row's own line is worth while its cells are the editor. */
+const EDITING_ROW_HEIGHT = 56;
 
 /** Sixty rows — comfortably over the register's own fifty-row threshold. */
 const ROWS: Row[] = Array.from({ length: 60 }, (_, i) => ({
   id: `row-${String(i).padStart(2, '0')}`,
   label: `Synthetic row ${String(i).padStart(2, '0')}`,
+  note: `Synthetic note ${String(i).padStart(2, '0')}`,
 }));
 
 const COLUMNS: Column<Row>[] = [
   { key: 'label', header: 'Label', accessor: (row) => <span>{row.label}</span> },
+  { key: 'note', header: 'Note', accessor: (row) => <span>{row.note}</span> },
 ];
 
 const rowDomId = (key: string): string => `test-row-${key}`;
@@ -56,7 +65,15 @@ const rowDomId = (key: string): string => `test-row-${key}`;
 const detailFor = (index: number): RowDetail<Row> => ({
   key: ROWS[index].id,
   height: DETAIL_HEIGHT,
-  render: () => <div data-testid="row-detail">the box</div>,
+  render: () => <div data-testid="row-detail">the strip</div>,
+});
+
+/** A detail that takes the row's Label cell over, and grows the row for it. */
+const editorFor = (index: number): RowDetail<Row> => ({
+  ...detailFor(index),
+  rowHeight: EDITING_ROW_HEIGHT,
+  renderCell: (columnKey) =>
+    columnKey === 'label' ? <input data-testid="row-editor-field" defaultValue="typed" /> : undefined,
 });
 
 const renderTable = (rowDetail: RowDetail<Row> | null) =>
@@ -141,10 +158,70 @@ describe('VirtualizedTable — a row with an editor under it, virtualised', () =
     const detailRow = screen.getByTestId('row-detail').closest('[role="row"]');
 
     // Two rows, not one: the transaction's cells stay the transaction's, and
-    // the box gets a row of its own holding a single cell. A form nested
+    // the strip gets a row of its own holding a single cell. A form nested
     // inside a row of gridcells would be a structure nothing can read.
     expect(detailRow).not.toBe(transactionRow);
     expect(rows.indexOf(detailRow as HTMLElement)).toBe(rows.indexOf(transactionRow as HTMLElement) + 1);
     expect(within(detailRow as HTMLElement).getByRole('gridcell')).toBeInTheDocument();
+  });
+});
+
+describe('VirtualizedTable — a detail that takes over its row\'s own cells', () => {
+  it('counts the taller line AND the strip when it pushes the rows below down', () => {
+    renderTable(editorFor(2));
+
+    // The row being edited is worth its declared line height plus its strip.
+    // Counting only the strip — which is what a detail that merely hung
+    // beneath its row needed — leaves every row below it 16px too high, and a
+    // 16px overlap is exactly the kind of wrong nobody reports precisely.
+    expect(topOf(2)).toBe(2 * ROW_HEIGHT);
+    expect(topOf(3)).toBe(3 * ROW_HEIGHT + (EDITING_ROW_HEIGHT - ROW_HEIGHT) + DETAIL_HEIGHT);
+    expect(topOf(4)).toBe(4 * ROW_HEIGHT + (EDITING_ROW_HEIGHT - ROW_HEIGHT) + DETAIL_HEIGHT);
+
+    // …and the line itself is as tall as it said it was, so the row's cells
+    // have room for the controls that are now in them.
+    const row = document.getElementById(rowDomId(ROWS[2].id));
+    expect(row?.style.height).toBe(`${EDITING_ROW_HEIGHT}px`);
+  });
+
+  it('replaces the cell it claims and leaves every other cell reading as it did', () => {
+    renderTable(editorFor(2));
+
+    const row = document.getElementById(rowDomId(ROWS[2].id));
+    if (!row) throw new Error('the edited row is not rendered');
+    const cells = within(row).getAllByRole('gridcell');
+
+    // The claimed cell holds the control, in the same cell — same index, same
+    // width, same header — that the value was being read in.
+    expect(within(cells[0]).getByTestId('row-editor-field')).toBeInTheDocument();
+    expect(within(cells[0]).queryByText(ROWS[2].label)).not.toBeInTheDocument();
+    // Everything the detail did not claim is untouched: a cell it says nothing
+    // about (undefined, not null) still renders its column's own accessor.
+    expect(within(cells[1]).getByText(ROWS[2].note)).toBeInTheDocument();
+  });
+
+  it('leaves every OTHER row drawn exactly as it was', () => {
+    const { rerender } = renderTable(null);
+    const before = document.getElementById(rowDomId(ROWS[5].id))?.outerHTML;
+
+    rerender(
+      <VirtualizedTable
+        items={ROWS}
+        columns={COLUMNS}
+        getItemKey={(row: Row) => row.id}
+        rowDomId={rowDomId}
+        rowHeight={ROW_HEIGHT}
+        threshold={50}
+        rowDetail={editorFor(2)}
+      />
+    );
+
+    // Byte for byte, save for the position react-window has moved it to: a
+    // detail that could re-draw the rest of the list would be re-drawing
+    // eleven thousand rows every time someone clicked one.
+    const after = document.getElementById(rowDomId(ROWS[5].id))?.outerHTML;
+    const withoutTop = (html: string | undefined): string =>
+      (html ?? '').replace(/top: \d+px;/, 'top: …;');
+    expect(withoutTop(after)).toBe(withoutTop(before));
   });
 });

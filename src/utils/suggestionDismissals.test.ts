@@ -13,8 +13,10 @@ import {
   duplicateDismissalSubjectIds,
   legDismissalKey,
   legDismissalSubjectIds,
+  isPayeeDismissalKind,
   pairDismissalKey,
   pairDismissalSubjectIds,
+  payeeHiddenDismissalKey,
   payeeLineDismissalKey,
   payeeMerchantDismissalKey,
   readPayeeDismissalKey,
@@ -169,6 +171,7 @@ describe('payee cleanup keys', () => {
     const keys = [
       payeeMerchantDismissalKey('AMAZON.CO.UK'),
       payeeLineDismissalKey('AMAZON.CO.UK', 'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK'),
+      payeeHiddenDismissalKey('AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK'),
     ];
     for (const key of keys) {
       for (const segment of segmentsOf(key)) {
@@ -226,7 +229,71 @@ describe('payee cleanup keys', () => {
     expect(readPayeeDismissalKey('a-id|b-id')).toBeNull();
     expect(readPayeeDismissalKey('split:line-1|txn:row')).toBeNull();
     expect(readPayeeDismissalKey('payee-cleanup:merchant:A|payee-cleanup:merchant:B')).toBeNull();
+    expect(readPayeeDismissalKey('payee-cleanup:payee:A|payee-cleanup:payee:B')).toBeNull();
     expect(readPayeeDismissalKey('')).toBeNull();
+  });
+
+  /**
+   * The third kind: a payee struck off the Payee cleanup screen entirely. It
+   * names no merchant, deliberately — the statement is about the wording alone,
+   * whatever grouping a later scan draws around it — and that is the whole
+   * difference between it and the other two keys.
+   */
+  describe('a payee hidden from the screen', () => {
+    const REFERENCE = 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK';
+
+    it('is one payee-tagged segment, and reads back with no merchant', () => {
+      const key = payeeHiddenDismissalKey(REFERENCE);
+      expect(key.split('|')).toHaveLength(1);
+      expect(readPayeeDismissalKey(key)).toEqual({ merchant: null, payee: REFERENCE });
+    });
+
+    it('is never mistaken for either of the other two refusals', () => {
+      // Three statements with three consequences. Hiding a payee must not read
+      // back as "this whole grouping is wrong", and refusing a grouping whose
+      // name happens to equal a payee's must not hide that payee.
+      expect(payeeHiddenDismissalKey('TESCO STORES'))
+        .not.toBe(payeeMerchantDismissalKey('TESCO STORES'));
+      expect(payeeHiddenDismissalKey('TESCO STORES 3456'))
+        .not.toBe(payeeLineDismissalKey('TESCO STORES', 'TESCO STORES 3456'));
+      expect(readPayeeDismissalKey(payeeMerchantDismissalKey('TESCO STORES')))
+        .toEqual({ merchant: 'TESCO STORES', payee: null });
+    });
+
+    it('survives a payee text that is itself uuid-shaped, or full of separators', () => {
+      // The adversarial pair, because this key is stored in the column a
+      // restore rewrites ids in: a payee whose text IS a uuid, and one carrying
+      // the separator that divides segments.
+      const uuidShaped = payeeHiddenDismissalKey('3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+      for (const segment of segmentsOf(uuidShaped)) {
+        expect(segment.prefix).toBe('payee-cleanup:');
+        expect(segment.value).toContain(':');
+        expect(UUID.test(segment.value)).toBe(false);
+      }
+      expect(readPayeeDismissalKey(uuidShaped)?.payee)
+        .toBe('3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+
+      const piped = payeeHiddenDismissalKey('CARD PAYMENT|REF 4471982');
+      expect(piped.split('|')).toHaveLength(1);
+      expect(readPayeeDismissalKey(piped))
+        .toEqual({ merchant: null, payee: 'CARD PAYMENT|REF 4471982' });
+    });
+  });
+});
+
+describe('isPayeeDismissalKind', () => {
+  it('claims the three payee kinds and none of the sweeps’', () => {
+    // What narrows a mixed list of dismissals to the ones Payee cleanup owns.
+    // Wrong either way is a bug the user sees: too wide and a transfer refusal
+    // is described as a shop, too narrow and a refusal they made vanishes from
+    // the only place it can be undone.
+    expect(isPayeeDismissalKind('payee-merchant')).toBe(true);
+    expect(isPayeeDismissalKind('payee-line')).toBe(true);
+    expect(isPayeeDismissalKind('payee-hidden')).toBe(true);
+    expect(isPayeeDismissalKind('transfer-pair')).toBe(false);
+    expect(isPayeeDismissalKind('transfer-leg')).toBe(false);
+    expect(isPayeeDismissalKind('stranded')).toBe(false);
+    expect(isPayeeDismissalKind('duplicate')).toBe(false);
   });
 });
 

@@ -5,10 +5,15 @@ import {
   summarisePayees,
   filterPayees,
   buildPayeeClusters,
+  withoutHiddenPayees,
   planRename,
   type RefusedSuggestions,
 } from './payeeCleanup';
-import { payeeLineDismissalKey, payeeMerchantDismissalKey } from './suggestionDismissals';
+import {
+  payeeHiddenDismissalKey,
+  payeeLineDismissalKey,
+  payeeMerchantDismissalKey,
+} from './suggestionDismissals';
 
 /**
  * The payee texts in these tests are the real shapes from the owner's
@@ -279,6 +284,69 @@ describe('buildPayeeClusters — suggestions the user has refused', () => {
     expect(buildPayeeClusters(rows, refusing({})).map((c) => c.key)).toEqual([
       'AMAZON.CO.UK', 'DEBIT INTEREST TO',
     ]);
+  });
+});
+
+/**
+ * The third refusal, and the widest: "never bring this payee to me again on
+ * this page". Unlike the other two it is not about a suggestion at all — it
+ * removes the payee from the summaries the whole screen is computed from, which
+ * is the only way to make one promise cover the list, the suggestions and every
+ * count on the page at once.
+ */
+describe('withoutHiddenPayees', () => {
+  const rows = summarisePayees([
+    txn({ id: 'a', description: 'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK' }),
+    txn({ id: 'b', description: 'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK' }),
+    txn({ id: 'c', description: 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK' }),
+    txn({ id: 'd', description: 'TFR 4471982' }),
+  ]);
+
+  it('drops exactly the payees hidden, and nothing that merely resembles them', () => {
+    const hidden = new Set([payeeHiddenDismissalKey('AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK')]);
+    expect(withoutHiddenPayees(rows, hidden).map((p) => p.description)).toEqual([
+      'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK',
+      'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK',
+      'TFR 4471982',
+    ]);
+  });
+
+  it('hands the same array back when nothing is hidden', () => {
+    // Not merely equal — the same array. A register can hold tens of thousands
+    // of payees, and the common case must not copy them on every render.
+    expect(withoutHiddenPayees(rows, new Set())).toBe(rows);
+  });
+
+  it('takes a hidden payee out of the suggestions and their counts as well', () => {
+    const hidden = new Set([payeeHiddenDismissalKey('AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK')]);
+    const clusters = buildPayeeClusters(withoutHiddenPayees(rows, hidden));
+    const amazon = clusters.find((c) => c.key === 'AMAZON.CO.UK');
+
+    // The difference from "Leave out", which takes a payee out of one grouping
+    // and leaves it in the list: this one is gone from both.
+    expect(amazon?.members.map((m) => m.description)).toEqual([
+      'AMZNMKTPLACE*1X6DN8XF5 AMAZON.CO.UK',
+      'AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK',
+    ]);
+    expect(amazon?.transactionCount).toBe(2);
+  });
+
+  it('stops offering a suggestion whose hidden payees leave nothing to merge', () => {
+    const hidden = new Set([
+      payeeHiddenDismissalKey('AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK'),
+      payeeHiddenDismissalKey('AMZNMKTPLACE*3W9NN1HR5 AMAZON.CO.UK'),
+    ]);
+    expect(buildPayeeClusters(withoutHiddenPayees(rows, hidden))).toEqual([]);
+  });
+
+  it('is not confused by a refusal of another kind about the same payee', () => {
+    // The three kinds are three statements. Refusing a payee's place in one
+    // grouping says nothing about whether the payee belongs on the page.
+    const notHidden = new Set([
+      payeeLineDismissalKey('AMAZON.CO.UK', 'AMAZON.CO.UK*EI8DN58J5 AMAZON.CO.UK'),
+      payeeMerchantDismissalKey('AMAZON.CO.UK'),
+    ]);
+    expect(withoutHiddenPayees(rows, notHidden)).toHaveLength(rows.length);
   });
 });
 

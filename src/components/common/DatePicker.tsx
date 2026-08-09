@@ -33,6 +33,17 @@ interface DatePickerProps {
    */
   usePortal?: boolean;
   /**
+   * Draw the little calendar glyph inside the field.
+   *
+   * Off where the field is squeezed into a register COLUMN. The glyph itself is
+   * 14px, but the padding reserved so the text never runs under it is 32px —
+   * and the register's Date column is 100px wide, of which a dd/mm/yyyy date
+   * needs about 70. Something had to go, and the glyph is the part that tells
+   * the user least: the field opens its calendar on focus and on click either
+   * way, so it is a hint about a way in that is already open.
+   */
+  showIcon?: boolean;
+  /**
    * A pulse — any change to this number — asking the field for the cursor with
    * the calendar left SHUT, and the current date selected ready to be typed
    * over.
@@ -54,9 +65,14 @@ interface DatePickerProps {
 const CALENDAR_WIDTH = 280;
 const CALENDAR_HEIGHT = 340;
 
+// `field` reserves room on the right for the glyph; `plain` is the same chrome
+// with that room given back to the date, and — at sm — a little of its side
+// padding too. Nothing asks for `plain` except a field squeezed into a column
+// too narrow for the glyph (see showIcon), and there the six pixels either side
+// are the difference between reading "15/01/2026" and reading "15/01/202".
 const SIZES = {
-  sm: { field: 'px-2 py-1.5 pr-8', icon: 'right-2', iconSize: 14 },
-  md: { field: 'px-3 py-2 pr-10', icon: 'right-3', iconSize: 16 },
+  sm: { field: 'px-2 py-1.5 pr-8', plain: 'px-1.5 py-1.5', icon: 'right-2', iconSize: 14 },
+  md: { field: 'px-3 py-2 pr-10', plain: 'px-3 py-2', icon: 'right-3', iconSize: 16 },
 } as const;
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -125,6 +141,7 @@ export default function DatePicker({
   'aria-describedby': ariaDescribedBy,
   size = 'md',
   usePortal = false,
+  showIcon = true,
   focusWithoutCalendarToken,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -415,12 +432,14 @@ export default function DatePicker({
           aria-describedby={ariaDescribedBy}
           required={required}
           autoComplete="off"
-          className={`w-full ${chrome.field} ${className}`}
+          className={`w-full ${showIcon ? chrome.field : chrome.plain} ${className}`}
         />
-        <CalendarIcon
-          size={chrome.iconSize}
-          className={`absolute ${chrome.icon} top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none`}
-        />
+        {showIcon && (
+          <CalendarIcon
+            size={chrome.iconSize}
+            className={`absolute ${chrome.icon} top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none`}
+          />
+        )}
       </div>
 
       {isOpen && (() => {

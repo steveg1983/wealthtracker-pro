@@ -12,11 +12,14 @@ import {
   summarisePayees,
   filterPayees,
   buildPayeeClusters,
+  withoutHiddenPayees,
   type PayeeCluster,
   type PayeeSummary,
 } from '../../utils/payeeCleanup';
 import {
   dismissedKeys,
+  isPayeeDismissalKind,
+  payeeHiddenDismissalKey,
   payeeLineDismissalKey,
   payeeMerchantDismissalKey,
 } from '../../utils/suggestionDismissals';
@@ -35,8 +38,14 @@ import type { DismissalKind, SuggestionDismissal } from '../../types';
 /** How many clusters to offer as one-click shortcuts. */
 const SUGGESTION_LIMIT = 8;
 
-/** The two kinds of refusal this screen records. */
-const PAYEE_KINDS: readonly DismissalKind[] = ['payee-merchant', 'payee-line'];
+/**
+ * How tall the payee list is, in px.
+ *
+ * A NUMBER on a wrapper, with `h-full` on the table inside it, and both halves
+ * are load-bearing — see the comment on the table below. This is the same shape
+ * the register uses (pages/AccountTransactions).
+ */
+const LIST_HEIGHT = 560;
 
 const dateRange = (payee: PayeeSummary): string => {
   const format = (d: Date): string =>
@@ -61,14 +70,66 @@ const withSessionKeys = (saved: Set<string>, thisSitting: ReadonlySet<string>): 
 
 interface DismissPrompt {
   kind: DismissalKind;
-  subjectKey: string;
+  /**
+   * One key per refusal to save: one for the two single-subject kinds, and one
+   * per ticked payee when a selection is being taken off the page.
+   */
+  subjectKeys: string[];
   /** Reads mid-sentence: "Do you want … eliminated from this report in future?" */
   subject: string;
   /** What answering No leaves behind. */
   keepingMeans: string;
   /** Said once the refusal is saved — the consequence, not the count. */
   success: string;
+  /**
+   * What NOT saving means, in the future tense. Named per refusal because the
+   * three consequences differ: a suggestion comes back as a suggestion, a
+   * hidden payee comes back into the list.
+   */
+  ifNotSaved: string;
 }
+
+/**
+ * A refusal the user made and the database would not take.
+ *
+ * Kept on the page rather than shouted once in a toast, because the payees it
+ * is about have already left the list for this sitting: without this the screen
+ * would look exactly as it does after a successful save, and the user would
+ * find out it had not worked the next time they opened the page. It carries the
+ * unsaved keys so Try again re-attempts precisely what failed.
+ */
+interface SaveFailure {
+  kind: DismissalKind;
+  /** Still unsaved — what Try again will attempt. */
+  subjectKeys: string[];
+  /** How many of the batch did save. */
+  saved: number;
+  ifNotSaved: string;
+  success: string;
+  /** Why, as the service reported it. */
+  reason: string;
+}
+
+/** What one pass over a batch of refusals actually managed to write. */
+interface SaveOutcome {
+  saved: number;
+  failedKeys: string[];
+  reason: string;
+}
+
+/**
+ * Why a save failed, in the words of whatever refused it.
+ *
+ * The database's own sentence, not a friendly paraphrase of it: a refusal this
+ * screen cannot save is nearly always structural — a constraint that has not
+ * been widened yet, a connection that is not there — and the exact wording is
+ * what makes it fixable rather than mysterious.
+ */
+const reasonFrom = (error: unknown): string => {
+  if (error instanceof Error && error.message.trim() !== '') return error.message;
+  if (typeof error === 'string' && error.trim() !== '') return error;
+  return 'no reason given';
+};
 
 export default function PayeeCleanup(): React.JSX.Element {
   const {
@@ -90,8 +151,12 @@ export default function PayeeCleanup(): React.JSX.Element {
   /** Refused for this sitting only — the answer to "No, just this once". */
   const [sittingMerchants, setSittingMerchants] = useState<ReadonlySet<string>>(new Set());
   const [sittingLines, setSittingLines] = useState<ReadonlySet<string>>(new Set());
+  const [sittingHidden, setSittingHidden] = useState<ReadonlySet<string>>(new Set());
   const [prompt, setPrompt] = useState<DismissPrompt | null>(null);
   const [savingDismissal, setSavingDismissal] = useState(false);
+  /** How far through a batch the save is, for the button that is waiting on it. */
+  const [savedSoFar, setSavedSoFar] = useState(0);
+  const [saveFailure, setSaveFailure] = useState<SaveFailure | null>(null);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
 
   // Read once when the page opens, the same as every sweep does: a refusal
@@ -104,16 +169,31 @@ export default function PayeeCleanup(): React.JSX.Element {
   // runs against the summaries (thousands) rather than the transactions (tens
   // of thousands), and the query is deferred so a keystroke never waits on the
   // filter — the list catches up a frame later instead of the field stuttering.
-  const payees = useMemo(() => summarisePayees(transactions), [transactions]);
-  const deferredQuery = useDeferredValue(query);
-  const shown = useMemo(() => filterPayees(payees, deferredQuery), [payees, deferredQuery]);
+  const everyPayee = useMemo(() => summarisePayees(transactions), [transactions]);
 
   const refused = useMemo(() => ({
     merchants: withSessionKeys(
       dismissedKeys(suggestionDismissals, 'payee-merchant'), sittingMerchants
     ),
     lines: withSessionKeys(dismissedKeys(suggestionDismissals, 'payee-line'), sittingLines),
-  }), [suggestionDismissals, sittingMerchants, sittingLines]);
+    hidden: withSessionKeys(dismissedKeys(suggestionDismissals, 'payee-hidden'), sittingHidden),
+  }), [suggestionDismissals, sittingMerchants, sittingLines, sittingHidden]);
+
+  /**
+   * The payees this screen still has anything to say about.
+   *
+   * Hidden payees are dropped HERE, before the list, the suggestions and every
+   * count are computed from it — so "off this page" means off all of it, and no
+   * figure can go on counting something the user cannot see.
+   */
+  const payees = useMemo(
+    () => withoutHiddenPayees(everyPayee, refused.hidden),
+    [everyPayee, refused.hidden]
+  );
+  const hiddenCount = everyPayee.length - payees.length;
+
+  const deferredQuery = useDeferredValue(query);
+  const shown = useMemo(() => filterPayees(payees, deferredQuery), [payees, deferredQuery]);
 
   const dismissalsChecked =
     suggestionDismissalsStatus === 'ready' || suggestionDismissalsStatus === 'error';
@@ -130,7 +210,7 @@ export default function PayeeCleanup(): React.JSX.Element {
   );
 
   const payeeDismissals = useMemo(
-    () => suggestionDismissals.filter(d => PAYEE_KINDS.includes(d.kind)),
+    () => suggestionDismissals.filter(d => isPayeeDismissalKind(d.kind)),
     [suggestionDismissals]
   );
 
@@ -211,11 +291,12 @@ export default function PayeeCleanup(): React.JSX.Element {
     setQuery('');
     setPrompt({
       kind: 'payee-merchant',
-      subjectKey,
+      subjectKeys: [subjectKey],
       subject: `the “${cluster.key}” suggestion`,
       keepingMeans: 'it drops off the suggestions for now',
       success: `“${cluster.key}” will not be suggested again. Nothing was renamed and no payee `
         + 'is hidden — bring it back any time from “Dismissed suggestions” at the foot of this page.',
+      ifNotSaved: 'it will be suggested again the next time this page opens',
     });
   }, [untick]);
 
@@ -226,30 +307,149 @@ export default function PayeeCleanup(): React.JSX.Element {
     untick([payee.description]);
     setPrompt({
       kind: 'payee-line',
-      subjectKey,
+      subjectKeys: [subjectKey],
       subject: `“${payee.description}” under “${merchantKey}”`,
       keepingMeans: 'it drops out of this suggestion for now',
       success: `“${payee.description}” will stay out of the “${merchantKey}” suggestion. `
         + 'Nothing was renamed and the payee is still in the list below.',
+      ifNotSaved: 'it will be part of that suggestion again the next time this page opens',
     });
   }, [untick]);
+
+  /**
+   * The widest refusal, and the one the owner asked for: the ticked payees come
+   * off this page altogether — out of the list, out of every suggestion, out of
+   * every count on the screen — rather than out of one grouping.
+   *
+   * Per payee, deliberately, so the answer is exactly as granular as the
+   * selection was: some of a suggestion, all of it, or a handful of unrelated
+   * lines picked out by hand. Each one is undone on its own from "Dismissed
+   * suggestions" at the foot of the page.
+   */
+  const hideSelected = useCallback((): void => {
+    const descriptions = selectedPayees.map(p => p.description);
+    if (descriptions.length === 0) return;
+    const subjectKeys = descriptions.map(payeeHiddenDismissalKey);
+
+    setSittingHidden(prev => {
+      const next = new Set(prev);
+      for (const key of subjectKeys) next.add(key);
+      return next;
+    });
+    untick(descriptions);
+    setActiveKey(null);
+    setSaveFailure(null);
+
+    const many = descriptions.length > 1;
+    // A SINGULAR phrase even for a batch ("this selection of 12 payees"): the
+    // prompt reads it mid-sentence three times, twice as the subject of a verb,
+    // and "these 12 payees is remembered as refused" is not a sentence.
+    const named = many
+      ? `this selection of ${descriptions.length.toLocaleString()} payees`
+      : `“${descriptions[0]}”`;
+    setPrompt({
+      kind: 'payee-hidden',
+      subjectKeys,
+      subject: named,
+      keepingMeans: many
+        ? 'the selection drops off this page for now'
+        : 'it drops off this page for now',
+      success: many
+        ? `${descriptions.length.toLocaleString()} payees will not be listed or suggested here `
+          + 'again. Nothing was renamed and no transaction changed — bring any of them back from '
+          + '“Dismissed suggestions” at the foot of this page.'
+        : `“${descriptions[0]}” will not be listed or suggested here again. Nothing was renamed `
+          + 'and no transaction changed — bring it back any time from “Dismissed suggestions” at '
+          + 'the foot of this page.',
+      ifNotSaved: many
+        ? 'they will be back in the list the next time this page opens'
+        : 'it will be back in the list the next time this page opens',
+    });
+  }, [selectedPayees, untick]);
+
+  /**
+   * Write a batch of refusals, one row each, and report exactly what got
+   * through. Sequential rather than in parallel: these are small batches, the
+   * order is the user's own, and a burst of inserts that half-fails is far
+   * harder to say anything true about afterwards.
+   *
+   * Never throws. The caller needs the partial result — which keys are saved
+   * and which are not — far more than it needs an exception.
+   */
+  const saveRefusals = useCallback(async (
+    kind: DismissalKind,
+    keys: string[]
+  ): Promise<SaveOutcome> => {
+    let saved = 0;
+    const failedKeys: string[] = [];
+    let reason = '';
+    for (const key of keys) {
+      try {
+        // No transaction ids, deliberately: this refusal is about payee text,
+        // which outlives any particular row — re-import a statement and the same
+        // wording arrives on brand new transactions.
+        await dismissSuggestion(kind, key, []);
+        saved += 1;
+        setSavedSoFar(saved);
+      } catch (error) {
+        failedKeys.push(key);
+        // The first reason is the one shown: a batch that fails fails for one
+        // cause (no connection, a constraint), and repeating it per row would
+        // bury the consequence under the same sentence forty times.
+        if (reason === '') reason = reasonFrom(error);
+      }
+    }
+    return { saved, failedKeys, reason };
+  }, [dismissSuggestion]);
 
   const confirmDismissal = useCallback(async (): Promise<void> => {
     if (!prompt) return;
     setSavingDismissal(true);
+    setSavedSoFar(0);
     try {
-      // No transaction ids, deliberately: this refusal is about payee text,
-      // which outlives any particular row — re-import a statement and the same
-      // wording arrives on brand new transactions.
-      await dismissSuggestion(prompt.kind, prompt.subjectKey, []);
-      showSuccess(prompt.success, 'Left out in future');
+      const outcome = await saveRefusals(prompt.kind, prompt.subjectKeys);
       setPrompt(null);
-    } catch (error) {
-      showError(error);
+      if (outcome.failedKeys.length === 0) {
+        showSuccess(prompt.success, 'Left out in future');
+        return;
+      }
+      // Said on the page rather than only in a toast: the payees are already
+      // out of the list, so the screen looks saved whether it saved or not.
+      setSaveFailure({
+        kind: prompt.kind,
+        subjectKeys: outcome.failedKeys,
+        saved: outcome.saved,
+        ifNotSaved: prompt.ifNotSaved,
+        success: prompt.success,
+        reason: outcome.reason,
+      });
+      showError(new Error('That could not be saved — see the note on the page.'));
     } finally {
       setSavingDismissal(false);
     }
-  }, [prompt, dismissSuggestion, showSuccess, showError]);
+  }, [prompt, saveRefusals, showSuccess, showError]);
+
+  const retrySave = useCallback(async (): Promise<void> => {
+    if (!saveFailure) return;
+    setSavingDismissal(true);
+    setSavedSoFar(0);
+    try {
+      const outcome = await saveRefusals(saveFailure.kind, saveFailure.subjectKeys);
+      if (outcome.failedKeys.length === 0) {
+        setSaveFailure(null);
+        showSuccess(saveFailure.success, 'Left out in future');
+        return;
+      }
+      setSaveFailure({
+        ...saveFailure,
+        subjectKeys: outcome.failedKeys,
+        saved: saveFailure.saved + outcome.saved,
+        reason: outcome.reason,
+      });
+    } finally {
+      setSavingDismissal(false);
+    }
+  }, [saveFailure, saveRefusals, showSuccess]);
 
   const handleRestore = useCallback(async (dismissal: SuggestionDismissal): Promise<void> => {
     setRestoringKey(dismissal.subjectKey);
@@ -266,7 +466,13 @@ export default function PayeeCleanup(): React.JSX.Element {
       };
       setSittingMerchants(forget);
       setSittingLines(forget);
-      showSuccess('It is back in the suggestions above.', 'Restored');
+      setSittingHidden(forget);
+      showSuccess(
+        dismissal.kind === 'payee-hidden'
+          ? 'That payee is back in the list above.'
+          : 'It is back in the suggestions above.',
+        'Restored'
+      );
     } catch (error) {
       showError(error);
     } finally {
@@ -443,9 +649,14 @@ export default function PayeeCleanup(): React.JSX.Element {
                   Not the same merchant
                 </button>
               </div>
+              {/* Three refusals, three consequences, said in the order they
+                  narrow: the user has to be able to tell which one they are
+                  invoking without learning any vocabulary. */}
               <p className="mt-1 text-xs text-blue-800/80 dark:text-blue-300/80">
-                Only some of them belong together? Use <strong>Leave out</strong> beside a payee to
-                keep just that one out of this suggestion.
+                Only some of them belong together? <strong>Leave out</strong> beside a payee keeps
+                just that one out of this grouping. <strong>Not the same merchant</strong> drops the
+                whole grouping. Both leave every payee in the list below — to take payees off this
+                page altogether, tick them and use <strong>Don't offer these again</strong>.
               </p>
             </div>
           )}
@@ -477,6 +688,13 @@ export default function PayeeCleanup(): React.JSX.Element {
           <span className="text-sm text-gray-600 dark:text-gray-400">
             Showing {shown.length.toLocaleString()} of {payees.length.toLocaleString()} payees
           </span>
+          {/* Only when there are some: a nil count is not news, it is noise. */}
+          {hiddenCount > 0 && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {hiddenCount.toLocaleString()} hidden — bring {hiddenCount === 1 ? 'it' : 'them'} back
+              from “Dismissed suggestions” below.
+            </span>
+          )}
           <button
             type="button"
             onClick={selectAllShown}
@@ -503,8 +721,18 @@ export default function PayeeCleanup(): React.JSX.Element {
             </span>
             <button
               type="button"
+              onClick={hideSelected}
+              disabled={selected.size === 0}
+              aria-describedby="payee-bulk-help"
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Don't offer these again
+            </button>
+            <button
+              type="button"
               onClick={() => setRenameOpen(true)}
               disabled={selected.size === 0}
+              aria-describedby="payee-bulk-help"
               className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Rename selected…
@@ -512,9 +740,57 @@ export default function PayeeCleanup(): React.JSX.Element {
           </div>
         </div>
 
+        {/* What each button does to the ticked rows, before either is pressed —
+            one changes your transactions, the other changes only this page. */}
+        <p id="payee-bulk-help" className="text-xs text-gray-500 dark:text-gray-400">
+          <strong>Rename selected…</strong> gives every ticked payee one name, on every transaction
+          behind it. <strong>Don't offer these again</strong> takes the ticked payees off this page
+          — out of the list, out of the suggestions and out of the counts — and changes no
+          transaction at all.
+        </p>
+
+        {saveFailure && (
+          <div
+            role="alert"
+            className="rounded-lg px-3 py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
+          >
+            <p className="text-sm">
+              {saveFailure.saved === 0
+                ? `Nothing was saved, so ${saveFailure.ifNotSaved}.`
+                : `${saveFailure.saved.toLocaleString()} of `
+                  + `${(saveFailure.saved + saveFailure.subjectKeys.length).toLocaleString()} `
+                  + 'were saved. The other '
+                  + `${saveFailure.subjectKeys.length.toLocaleString()} were not, so they will be `
+                  + 'back the next time this page opens.'}
+            </p>
+            <p className="mt-1 text-xs">Reason given: {saveFailure.reason}</p>
+            <button
+              type="button"
+              onClick={() => void retrySave()}
+              disabled={savingDismissal}
+              className="mt-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors disabled:opacity-50"
+            >
+              {savingDismissal ? 'Saving…' : 'Try again'}
+            </button>
+          </div>
+        )}
+
         {/* Virtualised: a full register can hold tens of thousands of distinct
-            payees, and rendering them all is what would freeze the tab. */}
-        <div style={{ height: 560 }}>
+            payees, and rendering them all is what would freeze the tab.
+            ─ WHY h-full IS NOT DECORATION ──────────────────────────────────
+            The height on this wrapper is the only definite one in the column,
+            and a virtualised list is measured, not laid out: AutoSizer asks the
+            browser how tall its parent is and renders NOTHING while the answer
+            is zero. VirtualizedTable's own root is `flex flex-col` with an AUTO
+            height, so without h-full it never claims the 560px above it, its
+            flex-1 list child resolves against a content height of nothing, and
+            the measurement comes back 0 — which is a table that says "9,137
+            payees" over a completely empty body. Under fifty rows the same
+            omission fails the other way: the plain list grows to its content,
+            overflows this box (which does not clip), and paints straight over
+            the "Dismissed suggestions" section beneath it. Both were on screen
+            in the owner's report. */}
+        <div style={{ height: LIST_HEIGHT }}>
           <VirtualizedTable
             items={shown}
             columns={columns}
@@ -522,15 +798,18 @@ export default function PayeeCleanup(): React.JSX.Element {
             onRowClick={(payee: PayeeSummary) => toggle(payee.description)}
             rowHeight={56}
             selectedItems={selected}
+            className="h-full"
             // A ticked row drops its zebra stripe, so it needs a colour of its
             // own or selection becomes invisible while scrolling.
             rowClassName={(payee: PayeeSummary) =>
               selected.has(payee.description) ? 'bg-blue-50 dark:bg-blue-900/30' : ''
             }
             emptyMessage={
-              payees.length === 0
+              everyPayee.length === 0
                 ? 'No transactions yet, so there are no payees to tidy.'
-                : 'No payee matches that search.'
+                : payees.length === 0
+                  ? 'Every payee is hidden. Bring one back from “Dismissed suggestions” below.'
+                  : 'No payee matches that search.'
             }
           />
         </div>
@@ -556,6 +835,13 @@ export default function PayeeCleanup(): React.JSX.Element {
           subject={prompt.subject}
           keepingMeans={prompt.keepingMeans}
           saving={savingDismissal}
+          // A batch of refusals is a batch of writes, and a button that says
+          // only "Saving…" for forty of them looks stuck rather than busy.
+          savingLabel={
+            prompt.subjectKeys.length > 1
+              ? `Saving ${savedSoFar.toLocaleString()} of ${prompt.subjectKeys.length.toLocaleString()}…`
+              : undefined
+          }
           onKeep={() => setPrompt(null)}
           onDismiss={() => void confirmDismissal()}
         />

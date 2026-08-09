@@ -136,18 +136,21 @@ const grid = (): HTMLElement => screen.getByRole('grid', { name: 'Synthetic Regi
  */
 const addBar = (): HTMLElement => screen.getByRole('form', { name: 'Add a transaction' });
 
-/** The quick-edit box, wherever the register has drawn it. */
-const quickEditBox = (): HTMLElement => {
-  const el = document.querySelector('[data-quick-edit-panel]');
-  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
-  return el;
-};
-
-/** The transaction the register says is active, by its description. */
+/**
+ * What the register's active row holds: its text, AND whatever has been typed
+ * into the boxes it has become.
+ *
+ * Both halves are needed. The row being edited has no description TEXT — that
+ * cell is an input now, and an input's value is not text content — so a helper
+ * that read only textContent could answer "which row is the highlight on?" for
+ * every row in the register except the one being worked on.
+ */
 const activeRowText = (): string => {
   const id = grid().getAttribute('aria-activedescendant');
-  if (!id) return '';
-  return document.getElementById(id)?.textContent ?? '';
+  const row = id ? document.getElementById(id) : null;
+  if (!row) return '';
+  const typed = Array.from(row.querySelectorAll('input')).map(input => input.value).join(' ');
+  return `${row.textContent ?? ''} ${typed}`;
 };
 
 /** …and where that row sits, or -1 for none. */
@@ -168,12 +171,23 @@ const selectionBar = (): HTMLElement => {
   return el;
 };
 
-/** The descriptions of every row the register marks as selected. */
+/**
+ * The descriptions of every row the register marks as selected.
+ *
+ * Read from the row's text AND from anything typed into it: when a run
+ * collapses back to a single row that row becomes the editor again, and its
+ * payee is then the value of an input rather than text on the page.
+ */
+const rowReads = (row: HTMLElement): string => {
+  const typed = Array.from(row.querySelectorAll('input')).map(input => input.value).join(' ');
+  return `${row.textContent ?? ''} ${typed}`;
+};
+
 const selectedDescriptions = (): string[] =>
   within(grid())
     .getAllByRole('row')
     .filter(row => row.getAttribute('aria-selected') === 'true')
-    .map(row => ROWS.find(r => row.textContent?.includes(r.description))?.description ?? '?');
+    .map(row => ROWS.find(r => rowReads(row).includes(r.description))?.description ?? '?');
 
 const openRegister = async (path = `/accounts/${ACCOUNT.id}`): Promise<void> => {
   renderRegister(path);
@@ -399,7 +413,7 @@ describe('Account register — Shift stretches the highlight over a run of rows'
     expect(screen.getByRole('button', { name: /^Reconcile 2$/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: /^Un-reconcile 1$/ })).toBeEnabled();
     // The single-row quick editor has stood down: it edits ONE transaction.
-    expect(screen.queryByLabelText('Close quick edit')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Stop editing this row')).not.toBeInTheDocument();
   });
 
   it('says the count out loud, in a region that was already there to say it in', async () => {
@@ -594,7 +608,7 @@ describe('Account register — copying a row into the add bar', () => {
     // quick-edit box still open up in the register, a draft down here — is
     // exactly the confusion this avoids.
     expect(grid().getAttribute('aria-activedescendant')).toBeNull();
-    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
   });
 });
 
@@ -611,7 +625,7 @@ describe('Account register — starting a new transaction', () => {
     });
     // The highlight let go, and the quick-edit box with it.
     expect(grid().getAttribute('aria-activedescendant')).toBeNull();
-    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
   });
 });
 
@@ -647,16 +661,22 @@ describe('Account register — the shortcut list', () => {
     expect(within(dialog).getByText(/Jump to the first or the last transaction/)).toBeInTheDocument();
     expect(within(dialog).getByText(/the same tick the R column shows/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Open the other half of a transfer/)).toBeInTheDocument();
-    // The quick-edit box's own keys, which is where most of the work in this
+    // The row editor's own keys, which is where most of the work in this
     // register actually happens. A printed list that stops at the row level
     // would be describing half the register — and one that still promised the
     // OLD rule ("Enter saves") would be describing a register that no longer
     // exists. The rhythm is two Enters now, and the list says so.
-    expect(within(dialog).getByText(/The quick edit box under a row/)).toBeInTheDocument();
+    //
+    // It also has to say WHERE the editing happens, and that changed: there is
+    // no box under the row any more, the row itself is the editor.
+    expect(within(dialog).getByText(/Editing the highlighted row in place/)).toBeInTheDocument();
     expect(within(dialog).getByText(/Accept what you have just typed or picked/)).toBeInTheDocument();
     expect(within(dialog).getByText(/type, Enter, Enter, type, Enter, Enter/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Close the box and go back to the list/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/Put the cursor in the quick edit box under the row/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Stop editing this row and go back to the list/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Put the cursor in the Date box of the highlighted row/)
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/quick edit box under/)).not.toBeInTheDocument();
     // And says out loud which keys the browser would not let it have.
     expect(within(dialog).getByText(/keeps those for opening its own windows and tabs/)).toBeInTheDocument();
   });
@@ -692,7 +712,7 @@ describe('Account register — F2 and the way back', () => {
 
     expect(fireEvent.keyDown(grid(), { key: 'F2' })).toBe(false);
 
-    const boxDate = within(quickEditBox()).getByLabelText('Transaction date');
+    const boxDate = screen.getByLabelText('Transaction date');
     await waitFor(() => {
       expect(document.activeElement).toBe(boxDate);
     });
@@ -706,7 +726,7 @@ describe('Account register — F2 and the way back', () => {
     // Still on the same row, so the next arrow key carries on where it was —
     // but the box itself has gone, which is the whole of what Escape promised.
     expect(activeRowText()).toContain('Marigold Insurance');
-    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
   });
 
   it('opens the box again on a row whose box had been closed', async () => {
@@ -715,18 +735,18 @@ describe('Account register — F2 and the way back', () => {
     fireEvent.keyDown(grid(), { key: 'Escape' }); // let go of the row entirely
     highlight('Marigold Insurance');             // …and take it again
 
-    within(quickEditBox()).getByLabelText('Transaction date');
+    screen.getByLabelText('Transaction date');
 
     // Esc closes the box, leaving the row where it was…
-    fireEvent.keyDown(within(quickEditBox()).getByLabelText('Description'), { key: 'Escape' });
-    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    fireEvent.keyDown(screen.getByLabelText('Transaction description'), { key: 'Escape' });
+    expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
     expect(activeRowText()).toContain('Marigold Insurance');
 
     // …and F2 brings it straight back, rather than being a dead key on a row
     // that is plainly still selected.
     expect(fireEvent.keyDown(grid(), { key: 'F2' })).toBe(false);
     await waitFor(() => {
-      expect(document.activeElement).toBe(within(quickEditBox()).getByLabelText('Transaction date'));
+      expect(document.activeElement).toBe(screen.getByLabelText('Transaction date'));
     });
   });
 
@@ -735,14 +755,14 @@ describe('Account register — F2 and the way back', () => {
     highlight('Marigold Insurance');
     fireEvent.keyDown(grid(), { key: 'F2' });
     await waitFor(() => {
-      expect(document.activeElement).toBe(within(quickEditBox()).getByLabelText('Transaction date'));
+      expect(document.activeElement).toBe(screen.getByLabelText('Transaction date'));
     });
 
     // Clear the highlight (the box unmounts) and pick a row again.
     fireEvent.keyDown(grid(), { key: 'Escape' });
     highlight('Thistledown Books');
 
-    within(quickEditBox()).getByLabelText('Transaction date');
+    screen.getByLabelText('Transaction date');
     // The cursor stays with the register — a stale F2 must not steal it back.
     expect(document.activeElement).toBe(grid());
   });

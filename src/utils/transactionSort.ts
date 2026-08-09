@@ -1,8 +1,28 @@
-import type { Transaction, Category } from '../types';
+import type { Transaction } from '../types';
 import { toDateMs } from './dateBoundary';
 
 export type TransactionSortField =
   | 'date' | 'description' | 'amount' | 'category' | 'tags' | 'payment' | 'deposit' | 'notes';
+
+/**
+ * What the Category column SAYS for a row — supplied by whoever draws that
+ * column, because a column has to sort by the text in front of the user.
+ *
+ * Handing in a function rather than the category list is the point of it. The
+ * comparator used to take `Category[]` and resolve the name itself, which meant
+ * it resolved a DIFFERENT string from the one on screen: the leaf name only
+ * ("Groceries" where the column read "Food > Groceries"), and nothing at all
+ * for a transfer entered by hand (their category is the literal 'transfer-out',
+ * which is no category's id, while the column reads "Transfer > Savings").
+ * Every transfer therefore scored exactly what an uncategorised row scores —
+ * the empty string — the two kinds tied, and the chronological tie-break below
+ * laid the whole block out by date. A register sorted by Category came back in
+ * date order.
+ *
+ * The register hands in the very function its Category cell renders with (see
+ * createCategoryLabeller), so the two cannot drift apart again.
+ */
+export type CategoryLabelFor = (transaction: Transaction) => string;
 
 /**
  * A transaction's day as a sortable instant, with an unreadable one sorting
@@ -143,7 +163,7 @@ export function compareChronological(a: Transaction, b: Transaction): number {
 export function transactionSortValue(
   t: Transaction,
   field: TransactionSortField,
-  categories: Category[]
+  categoryLabel: CategoryLabelFor
 ): string | number {
   switch (field) {
     case 'amount':
@@ -151,7 +171,7 @@ export function transactionSortValue(
     case 'deposit':
       return t.amount;
     case 'category':
-      return (categories.find(c => c.id === t.category)?.name ?? '').toLowerCase();
+      return categoryLabel(t).toLowerCase();
     case 'tags':
       return (t.tags ?? []).join(', ').toLowerCase();
     case 'notes':
@@ -181,7 +201,7 @@ export function compareTransactions(
   b: Transaction,
   field: TransactionSortField,
   direction: 'asc' | 'desc',
-  categories: Category[]
+  categoryLabel: CategoryLabelFor
 ): number {
   if (field === 'date') {
     // Negating the WHOLE comparator, not just the day. Reversing the day while
@@ -192,8 +212,42 @@ export function compareTransactions(
     return direction === 'asc' ? chronological : -chronological;
   }
 
-  const aValue = transactionSortValue(a, field, categories);
-  const bValue = transactionSortValue(b, field, categories);
+  const aValue = transactionSortValue(a, field, categoryLabel);
+  const bValue = transactionSortValue(b, field, categoryLabel);
+
+  if (field === 'category') {
+    const aIsUncategorised = aValue === '';
+    const bIsUncategorised = bValue === '';
+    if (aIsUncategorised !== bIsUncategorised) {
+      // ─ WHERE THE UNCATEGORISED ROWS GO ─────────────────────────────────
+      // Together, always — one block, never two — and at the FOOT under
+      // ascending, the head under descending.
+      //
+      // Which end is not a toss-up. "I sort by category to work through the
+      // uncategorised" is what the column is for on this screen, and the
+      // register OPENS AT THE FOOT (Money's own habit: oldest at the top,
+      // newest on the last line, and that last line is what you land on). A
+      // re-sort keeps the scroll position it was already in, so clicking
+      // Category on a freshly-opened register puts the work queue under the
+      // eyes that asked for it, with no scroll at all. Ascending would
+      // otherwise be the one arrangement that buries it eleven thousand rows
+      // above the fold.
+      //
+      // It flips with the direction rather than pinning to one end, so the
+      // other end of the queue is one further click away either way — and so
+      // that descending is the exact reverse of ascending, which is the least
+      // a second click on a header can promise.
+      //
+      // Blank means blank as the COLUMN means it: a row whose Category cell is
+      // empty. A row filed in a named bucket ("Unassigned (MS Money import)")
+      // shows that name, so it groups under that name — visibly, where it can
+      // be worked through as its own run.
+      const uncategorisedGoLast = direction === 'asc';
+      if (aIsUncategorised) return uncategorisedGoLast ? 1 : -1;
+      return uncategorisedGoLast ? -1 : 1;
+    }
+  }
+
   if (aValue < bValue) return direction === 'asc' ? -1 : 1;
   if (aValue > bValue) return direction === 'asc' ? 1 : -1;
 

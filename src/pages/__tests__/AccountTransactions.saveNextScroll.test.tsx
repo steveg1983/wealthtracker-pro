@@ -181,21 +181,30 @@ const scrollListTo = (offset: number): void => {
   fireEvent.scroll(el);
 };
 
-const quickEditBox = (): HTMLElement => {
-  const el = document.querySelector('[data-quick-edit-panel]');
-  if (!(el instanceof HTMLElement)) throw new Error('no quick-edit box is showing');
+/** The strip under the row being edited — the buttons and the hint. */
+const strip = (): HTMLElement => {
+  const el = document.querySelector('[data-quick-edit="actions"]');
+  if (!(el instanceof HTMLElement)) throw new Error('no row is being edited');
   return el;
 };
 
 const descriptionField = (): HTMLInputElement => {
-  const el = within(quickEditBox()).getByLabelText('Description');
+  const el = screen.getByLabelText('Transaction description');
   if (!(el instanceof HTMLInputElement)) throw new Error('the description is not an input');
   return el;
 };
 
+/**
+ * What the active row holds: its text, AND what has been typed into the boxes
+ * it has become — the row being edited has no description TEXT, because that
+ * cell is an input now.
+ */
 const activeRowText = (): string => {
   const id = grid().getAttribute('aria-activedescendant');
-  return (id ? document.getElementById(id)?.textContent : '') ?? '';
+  const row = id ? document.getElementById(id) : null;
+  if (!row) return '';
+  const typed = Array.from(row.querySelectorAll('input')).map(input => input.value).join(' ');
+  return `${row.textContent ?? ''} ${typed}`;
 };
 
 /**
@@ -280,7 +289,7 @@ describe('Account register — putting the quick-edit box away keeps your place'
     // goes with it, and the row's extra height goes with the box.
     fireEvent.mouseDown(document.body);
 
-    expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+    expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
     expect(grid().getAttribute('aria-activedescendant')).toBeNull();
     // Same container (it was being unmounted and replaced), same position (the
     // replacement started at the top), and no flash of the top on the way.
@@ -331,12 +340,12 @@ describe('Account register — putting the quick-edit box away keeps your place'
     const restingAt = container.scrollTop;
     const everyPositionFromHere = watchScrollTop(container);
 
-    fireEvent.click(within(quickEditBox()).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(strip()).getByRole('button', { name: 'Save' }));
     await waitFor(() => {
       expect(updateTransaction).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(document.querySelector('[data-quick-edit-panel]')).toBeNull();
+      expect(document.querySelector('[data-quick-edit="actions"]')).toBeNull();
     });
 
     expect(listViewport()).toBe(container);
@@ -353,10 +362,16 @@ describe('Account register — putting the quick-edit box away keeps your place'
     const centred = container.scrollTop;
     const everyPositionFromHere = watchScrollTop(container);
 
-    // The modal takes the box off screen for as long as it is open — the same
-    // vanishing row height, and so the same teleport underneath it, which the
-    // user met the moment they dismissed the modal.
-    fireEvent.click(within(grid()).getByText('Synthetic row 25'));
+    // The modal takes the editor off the row for as long as it is open — the
+    // same vanishing row height, and so the same teleport underneath it, which
+    // the user met the moment they dismissed the modal.
+    //
+    // Clicked on the Balance cell rather than on the payee: the row IS the
+    // editor now, so its description is an input with no text to find — and a
+    // click inside a field means typing, not "give me the full editor".
+    const editing = document.getElementById(grid().getAttribute('aria-activedescendant') ?? '');
+    if (!editing) throw new Error('no row is being edited');
+    fireEvent.click(within(editing).getByTestId('register-balance'));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Edit Transaction')).toBeInTheDocument();
 
@@ -384,7 +399,7 @@ describe('Account register — the row being worked on, virtualised', () => {
     // The adversarial save: every row a fresh object, landing between the write
     // and the advance.
     rebuildEverythingOnSave();
-    fireEvent.click(within(quickEditBox()).getByRole('button', { name: 'Save & Next' }));
+    fireEvent.click(within(strip()).getByRole('button', { name: 'Save & Next' }));
 
     await waitFor(() => {
       expect(descriptionField()).toHaveValue('Synthetic row 26');
@@ -397,9 +412,20 @@ describe('Account register — the row being worked on, virtualised', () => {
   it('stays put when the list is rebuilt AFTER the advance has landed', async () => {
     const { rerender } = await openRegister();
     clickRowInTheMiddle();
-    fireEvent.click(within(quickEditBox()).getByRole('button', { name: 'Save & Next' }));
+    fireEvent.click(within(strip()).getByRole('button', { name: 'Save & Next' }));
     await waitFor(() => {
       expect(descriptionField()).toHaveValue('Synthetic row 26');
+    });
+    // The ADVANCE's own scroll, waited for before its resting place is
+    // recorded. A Save & Next crosses an await and the scroll that follows runs
+    // in a passive effect, which React flushes on its own schedule — so the
+    // editor can be showing row 26 a moment before the register has been
+    // scrolled to it. Reading the position in that gap records the row BEFORE's
+    // resting place, and this test then reports the advance landing as if the
+    // rebuild below had caused it. (The two differ by a row here — 988 is row
+    // 25 centred with its editor, 1032 is row 26 centred with it.)
+    await waitFor(() => {
+      expect(centreOfActiveRow()).toBe(VIEWPORT_HEIGHT / 2);
     });
     const settledAt = listViewport().scrollTop;
     const everyPositionFromHere = watchScrollTop(listViewport());

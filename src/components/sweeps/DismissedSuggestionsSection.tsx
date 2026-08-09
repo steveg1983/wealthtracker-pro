@@ -24,9 +24,10 @@ const KIND_LABELS: Record<DismissalKind, string> = {
   // Payee cleanup owns its own list (DismissedPayeeSuggestions): these are
   // refusals about payee TEXT and carry no rows, so this section — which
   // describes a dismissal from the transactions it named — cannot show them.
-  // Labelled all the same, so the two kinds can never reach a sweep unnamed.
+  // Labelled all the same, so the three kinds can never reach a sweep unnamed.
   'payee-merchant': 'Not one merchant',
   'payee-line': 'Not part of that merchant',
+  'payee-hidden': 'Hidden from payee cleanup',
 };
 
 interface Props {

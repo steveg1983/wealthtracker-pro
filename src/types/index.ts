@@ -291,7 +291,7 @@ export interface SplitWriteResult {
  * to another, and those two offers have opposite consequences — refusing one
  * must never silently suppress the other.
  *
- * The two payee kinds are the odd ones out: they are refusals about payee TEXT,
+ * The payee kinds are the odd ones out: they are refusals about payee TEXT,
  * not about rows. Payee cleanup guesses which payee texts are one merchant, and
  * that guess is recomputed from the register every time the screen opens — so a
  * refusal of it has to outlive the transactions it happened to be drawn from
@@ -299,15 +299,34 @@ export interface SplitWriteResult {
  * therefore carry no subjectIds, and their subjectKey holds text rather than
  * ids. See utils/suggestionDismissals for the key format that keeps that safe.
  */
+
+/**
+ * The three granularities Payee cleanup can be told to stop offering, from
+ * narrowest to widest. They are separate kinds rather than one, because they
+ * have three different consequences and a user who invoked one must never have
+ * another applied for them:
+ *
+ *   payee-line      one payee kept out of ONE suggested merchant. The payee
+ *                   stays in the list and in every other suggestion.
+ *   payee-merchant  a whole suggested grouping refused. Every payee under it
+ *                   stays in the list, and each may still be renamed by hand.
+ *   payee-hidden    a payee taken off the screen altogether: out of the list,
+ *                   out of every suggestion, and out of every count on it.
+ */
+export type PayeeDismissalKind =
+  /** A whole suggested merchant on Payee cleanup: "these are not one shop". */
+  | 'payee-merchant'
+  /** One payee text kept out of a suggested merchant it otherwise matches. */
+  | 'payee-line'
+  /** One payee text the screen must stop listing and stop counting entirely. */
+  | 'payee-hidden';
+
 export type DismissalKind =
   | 'transfer-pair'
   | 'transfer-leg'
   | 'stranded'
   | 'duplicate'
-  /** A whole suggested merchant on Payee cleanup: "these are not one shop". */
-  | 'payee-merchant'
-  /** One payee text kept out of a suggested merchant it otherwise matches. */
-  | 'payee-line';
+  | PayeeDismissalKind;
 
 /**
  * A suggestion the user has told a sweep to stop offering. Holds no financial

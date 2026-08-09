@@ -18,6 +18,7 @@ import {
 } from './backupService';
 import {
   canonicalSubjectKey,
+  payeeHiddenDismissalKey,
   payeeLineDismissalKey,
   payeeMerchantDismissalKey,
 } from '../utils/suggestionDismissals';
@@ -767,6 +768,11 @@ describe('remapBackupIds', () => {
     const uuidShapedMerchant = 'abcdefab-cdef-abcd-efab-cdefabcdefab';
     const groupKey = payeeMerchantDismissalKey(uuidShapedMerchant);
     const lineKey = payeeLineDismissalKey(uuidShapedMerchant, T_SHOP);
+    // The hidden kind is the sharpest case of the three: ONE segment, and the
+    // payee text inside it is one of the file's own transaction ids. A bare
+    // segment there would be looked up, found, and rewritten — and the payee
+    // the owner struck off his cleanup screen would be back on it.
+    const hiddenKey = payeeHiddenDismissalKey(T_SHOP);
 
     const source = buildBackupBundle({
       sourceUserId: uid('0', 1),
@@ -776,6 +782,7 @@ describe('remapBackupIds', () => {
         suggestion_dismissals: [
           { id: DISMISSAL, kind: 'payee-merchant', subject_key: groupKey, subject_ids: [] },
           { id: uid('3', 2), kind: 'payee-line', subject_key: lineKey, subject_ids: [] },
+          { id: uid('3', 3), kind: 'payee-hidden', subject_key: hiddenKey, subject_ids: [] },
         ],
       },
     });
@@ -788,7 +795,11 @@ describe('remapBackupIds', () => {
 
     expect(bundle.data.suggestion_dismissals[0].subject_key).toBe(groupKey);
     expect(bundle.data.suggestion_dismissals[1].subject_key).toBe(lineKey);
-    // And nothing in either key was mistaken for a reference that went nowhere.
+    expect(bundle.data.suggestion_dismissals[2].subject_key).toBe(hiddenKey);
+    // Character for character, including the id-shaped payee text inside it.
+    expect(bundle.data.suggestion_dismissals[2].subject_key).toContain(T_SHOP);
+    // And nothing in any of the three keys was mistaken for a reference that
+    // went nowhere.
     expect(danglingRefs).toEqual([]);
   });
 
