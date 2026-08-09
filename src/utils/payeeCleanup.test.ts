@@ -214,7 +214,7 @@ describe('orderClusters', () => {
     txn({ id: 'z4', description: 'REF*32 ZEBRA.CO.UK' }),
   ]);
 
-  const keys = (order: 'transactions' | 'alphabetical'): string[] =>
+  const keys = (order: Parameters<typeof orderClusters>[1]): string[] =>
     orderClusters(buildPayeeClusters(rows), order).map((c) => c.key);
 
   it('puts the biggest tidy-up first when sorted by transactions', () => {
@@ -245,6 +245,48 @@ describe('orderClusters', () => {
   it('is stable enough to say nothing surprising about an empty list', () => {
     expect(orderClusters([], 'alphabetical')).toEqual([]);
     expect(orderClusters([], 'transactions')).toEqual([]);
+    expect(orderClusters([], 'most-payees')).toEqual([]);
+    expect(orderClusters([], 'fewest-payees')).toEqual([]);
+  });
+});
+
+describe('orderClusters by payee count', () => {
+  // Shapes chosen so payee order and transaction order DISAGREE — the fixture
+  // above has two payees everywhere, which would let a payee sort that secretly
+  // read transaction counts pass every assertion.
+  const rows = summarisePayees([
+    // BROAD — three payees, three transactions: widest spread, smallest pile.
+    txn({ id: 'b1', description: 'REF*41 BROAD.CO.UK' }),
+    txn({ id: 'b2', description: 'REF*42 BROAD.CO.UK' }),
+    txn({ id: 'b3', description: 'REF*43 BROAD.CO.UK' }),
+    // HEAVY — two payees, five transactions: biggest pile, narrowest spread.
+    txn({ id: 'h1', description: 'REF*51 HEAVY.CO.UK' }),
+    txn({ id: 'h2', description: 'REF*51 HEAVY.CO.UK' }),
+    txn({ id: 'h3', description: 'REF*51 HEAVY.CO.UK' }),
+    txn({ id: 'h4', description: 'REF*52 HEAVY.CO.UK' }),
+    txn({ id: 'h5', description: 'REF*52 HEAVY.CO.UK' }),
+    // EQUAL — three payees, four transactions: ties BROAD on payees, so the
+    // transaction pile decides between them.
+    txn({ id: 'e1', description: 'REF*61 EQUAL.CO.UK' }),
+    txn({ id: 'e2', description: 'REF*61 EQUAL.CO.UK' }),
+    txn({ id: 'e3', description: 'REF*62 EQUAL.CO.UK' }),
+    txn({ id: 'e4', description: 'REF*63 EQUAL.CO.UK' }),
+  ]);
+
+  const keys = (order: Parameters<typeof orderClusters>[1]): string[] =>
+    orderClusters(buildPayeeClusters(rows), order).map((c) => c.key);
+
+  it('puts the widest spread first under most payees, transactions breaking ties', () => {
+    expect(keys('most-payees')).toEqual(['EQUAL.CO.UK', 'BROAD.CO.UK', 'HEAVY.CO.UK']);
+  });
+
+  it('puts the near-singletons first under fewest payees, transactions breaking ties', () => {
+    expect(keys('fewest-payees')).toEqual(['HEAVY.CO.UK', 'EQUAL.CO.UK', 'BROAD.CO.UK']);
+  });
+
+  it('disagrees with the transaction order — payee count is its own question', () => {
+    expect(keys('transactions')).toEqual(['HEAVY.CO.UK', 'EQUAL.CO.UK', 'BROAD.CO.UK']);
+    expect(keys('most-payees')).not.toEqual(keys('transactions'));
   });
 });
 

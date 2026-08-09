@@ -3,9 +3,9 @@ import { groupUncategorisedByAccount } from '../uncategorisedByAccount';
 import type { SplitExpandedTransaction } from '../transactionSplits';
 
 const NAMES: Record<string, string> = {
-  a: 'Amex Gold',
-  b: 'Barclays Current',
-  h: 'HSBC Premier',
+  a: 'Argent Gold',
+  b: 'Bridgeford Current',
+  h: 'Harwich Premier',
 };
 
 const nameOf = (id: string): string => NAMES[id] ?? 'Unknown account';
@@ -42,7 +42,7 @@ describe('groupUncategorisedByAccount', () => {
   });
 
   it('breaks a tie by account name, not by arrival order', () => {
-    // Same count each. HSBC's rows arrive first, but Amex sorts first by name.
+    // Same count each. Harwich's rows arrive first, but Argent sorts first by name.
     const result = groupUncategorisedByAccount(
       [row('h', '1'), row('b', '2'), row('a', '3')],
       nameOf

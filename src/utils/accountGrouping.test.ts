@@ -119,11 +119,11 @@ describe('groupAccountsForDisplay', () => {
   // Deliberately awkward: the same institution in two casings, one blank
   // string, one absent, spread across three sections and out of section order.
   const book: GroupableAccount[] = [
-    acct('Coutts Current', 'current', 'Coutts'),
-    acct('Amex Platinum', 'credit', 'AMEX'),
+    acct('Calderbank Current', 'current', 'Calderbank'),
+    acct('Argent Platinum', 'credit', 'ARGENT'),
     acct('Loose Change', 'current'),
-    acct('Coutts Savings', 'savings', 'coutts'),
-    acct('Amex Gold', 'credit', 'Amex'),
+    acct('Calderbank Savings', 'savings', 'calderbank'),
+    acct('Argent Gold', 'credit', 'Argent'),
     acct('Barclays Current', 'current', 'Barclays'),
     acct('Blank Jar', 'savings', '   '),
   ];
@@ -150,7 +150,7 @@ describe('groupAccountsForDisplay', () => {
 
     it('keeps the caller\'s order inside a band — the page applies its own sort', () => {
       const groups = groupsOf(groupAccountsForDisplay(book, options));
-      expect(namesIn(groups[0].accounts)).toEqual(['Coutts Current', 'Loose Change', 'Barclays Current']);
+      expect(namesIn(groups[0].accounts)).toEqual(['Calderbank Current', 'Loose Change', 'Barclays Current']);
     });
 
     it('carries no sub-bands when the Institution switch is off', () => {
@@ -164,19 +164,19 @@ describe('groupAccountsForDisplay', () => {
 
     it('bands by institution alphabetically, unfiled accounts last', () => {
       const groups = groupsOf(groupAccountsForDisplay(book, options));
-      expect(groups.map(g => g.title)).toEqual(['AMEX', 'Barclays', 'Coutts', 'Other Accounts']);
+      expect(groups.map(g => g.title)).toEqual(['ARGENT', 'Barclays', 'Calderbank', 'Other Accounts']);
       expect(groups.every(g => g.kind === 'institution')).toBe(true);
     });
 
     it('merges casings into one band and prints the casing that arrived first', () => {
       const groups = groupsOf(groupAccountsForDisplay(book, options));
-      // 'AMEX' then 'Amex' is ONE institution — his data's own spelling wins.
-      const amex = groups.find(g => g.title === 'AMEX');
-      expect(namesIn(amex?.accounts ?? [])).toEqual(['Amex Platinum', 'Amex Gold']);
-      expect(groups.some(g => g.title === 'Amex')).toBe(false);
-      // …and 'coutts' joins 'Coutts' rather than starting a band of its own.
-      const coutts = groups.find(g => g.title === 'Coutts');
-      expect(namesIn(coutts?.accounts ?? [])).toEqual(['Coutts Current', 'Coutts Savings']);
+      // 'ARGENT' then 'Argent' is ONE institution — the book's own spelling wins.
+      const amex = groups.find(g => g.title === 'ARGENT');
+      expect(namesIn(amex?.accounts ?? [])).toEqual(['Argent Platinum', 'Argent Gold']);
+      expect(groups.some(g => g.title === 'Argent')).toBe(false);
+      // …and 'calderbank' joins 'Calderbank' rather than starting a band of its own.
+      const calderbank = groups.find(g => g.title === 'Calderbank');
+      expect(namesIn(calderbank?.accounts ?? [])).toEqual(['Calderbank Current', 'Calderbank Savings']);
     });
 
     it('files absent AND blank institutions under the one catch-all', () => {
@@ -188,11 +188,11 @@ describe('groupAccountsForDisplay', () => {
 
     it('ignores the accounts\' types entirely', () => {
       const groups = groupsOf(groupAccountsForDisplay(
-        [acct('Solo', 'hoverboard', 'Coutts')],
+        [acct('Solo', 'hoverboard', 'Calderbank')],
         options
       ));
       expect(groups).toHaveLength(1);
-      expect(groups[0].title).toBe('Coutts');
+      expect(groups[0].title).toBe('Calderbank');
     });
   });
 
@@ -209,24 +209,24 @@ describe('groupAccountsForDisplay', () => {
           title: 'Current Accounts',
           subs: [
             { title: 'Barclays', accounts: ['Barclays Current'] },
-            { title: 'Coutts', accounts: ['Coutts Current'] },
+            { title: 'Calderbank', accounts: ['Calderbank Current'] },
             { title: 'Other Accounts', accounts: ['Loose Change'] },
           ],
         },
         {
-          // 'Coutts Savings' carries the institution as 'coutts', yet its
-          // sub-band still reads 'Coutts': the spelling is settled once across
+          // 'Calderbank Savings' carries the institution as 'calderbank', yet its
+          // sub-band still reads 'Calderbank': the spelling is settled once across
           // the whole book, so one institution cannot head two sections two
           // different ways.
           title: 'Savings Accounts',
           subs: [
-            { title: 'Coutts', accounts: ['Coutts Savings'] },
+            { title: 'Calderbank', accounts: ['Calderbank Savings'] },
             { title: 'Other Accounts', accounts: ['Blank Jar'] },
           ],
         },
         {
           title: 'Credit Cards',
-          subs: [{ title: 'AMEX', accounts: ['Amex Platinum', 'Amex Gold'] }],
+          subs: [{ title: 'ARGENT', accounts: ['Argent Platinum', 'Argent Gold'] }],
         },
       ]);
     });
@@ -234,7 +234,7 @@ describe('groupAccountsForDisplay', () => {
     it('keeps the band\'s full account list alongside its sub-bands', () => {
       // The section heading counts and totals the WHOLE section, not one sub-band.
       const groups = groupsOf(groupAccountsForDisplay(book, options));
-      expect(namesIn(groups[0].accounts)).toEqual(['Coutts Current', 'Loose Change', 'Barclays Current']);
+      expect(namesIn(groups[0].accounts)).toEqual(['Calderbank Current', 'Loose Change', 'Barclays Current']);
     });
 
     it('puts the catch-all sub-band last inside every section that has one', () => {
@@ -248,11 +248,11 @@ describe('groupAccountsForDisplay', () => {
 
     it('merges casings within a section, not across the whole book', () => {
       const groups = groupsOf(groupAccountsForDisplay(
-        [acct('Card One', 'credit', 'AMEX'), acct('Card Two', 'credit', 'amex')],
+        [acct('Card One', 'credit', 'ARGENT'), acct('Card Two', 'credit', 'argent')],
         options
       ));
       expect(groups[0].subGroups).toHaveLength(1);
-      expect(groups[0].subGroups?.[0].title).toBe('AMEX');
+      expect(groups[0].subGroups?.[0].title).toBe('ARGENT');
     });
   });
 
@@ -293,7 +293,7 @@ describe('groupAccountsForDisplay', () => {
   });
 
   it('leaves the caller\'s array untouched in every mode', () => {
-    const input = [acct('Zed', 'current', 'Coutts'), acct('Ada', 'current')];
+    const input = [acct('Zed', 'current', 'Calderbank'), acct('Ada', 'current')];
     const before = namesIn(input);
     groupAccountsForDisplay(input, { byType: true, byInstitution: true });
     groupAccountsForDisplay(input, { byType: false, byInstitution: true });

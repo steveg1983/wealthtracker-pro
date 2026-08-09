@@ -333,7 +333,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
    *
    * That was the owner's bug: "Sometimes when I update the category and then
    * press 'save & next', I get kicked back to the start of the transaction
-   * list, which for my HSBC Premier Current Account is 2008." Every way of
+   * list, which for my oldest current account is 2008." Every way of
    * putting the quick-edit box away — Escape, the ×, the Save that ends a run,
    * opening the full editor over it — took the row's extra height away with it,
    * turned this back into a number, and teleported eleven thousand rows to

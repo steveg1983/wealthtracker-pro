@@ -60,7 +60,7 @@ vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions,
     transactionSplits,
-    accounts: [{ id: 'acc-1', name: 'HSBC Premier - Current Account' }],
+    accounts: [{ id: 'acc-1', name: 'Everyday Current Account' }],
   }),
 }));
 

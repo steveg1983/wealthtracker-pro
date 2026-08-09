@@ -351,7 +351,7 @@ const NOTHING_REFUSED: RefusedSuggestions = {
  * "where is the one I came here for". With every suggestion on screen rather
  * than a top handful, the second question starts being asked.
  */
-export type ClusterOrder = 'transactions' | 'alphabetical';
+export type ClusterOrder = 'transactions' | 'alphabetical' | 'most-payees' | 'fewest-payees';
 
 /**
  * Biggest win first: the transactions a merge would tidy, then the payees it
@@ -371,6 +371,25 @@ const BY_NAME = (a: PayeeCluster, b: PayeeCluster): number =>
   a.key.localeCompare(b.key, undefined, { sensitivity: 'base' }) || BY_TRANSACTIONS(a, b);
 
 /**
+ * Widest spread first: the group that fragmented into the most payees, however
+ * few transactions each carries. Transaction count then name break ties, so
+ * equal-width groups keep the "worth doing first" order between them.
+ */
+const BY_MOST_PAYEES = (a: PayeeCluster, b: PayeeCluster): number =>
+  b.members.length - a.members.length || BY_TRANSACTIONS(a, b);
+
+/** The same question from the other end: the near-singletons first. */
+const BY_FEWEST_PAYEES = (a: PayeeCluster, b: PayeeCluster): number =>
+  a.members.length - b.members.length || BY_TRANSACTIONS(a, b);
+
+const COMPARATORS: Record<ClusterOrder, (a: PayeeCluster, b: PayeeCluster) => number> = {
+  transactions: BY_TRANSACTIONS,
+  alphabetical: BY_NAME,
+  'most-payees': BY_MOST_PAYEES,
+  'fewest-payees': BY_FEWEST_PAYEES,
+};
+
+/**
  * The suggestions in the order the user asked for, as a NEW array.
  *
  * Copied rather than sorted in place because the caller's array is what every
@@ -381,7 +400,7 @@ const BY_NAME = (a: PayeeCluster, b: PayeeCluster): number =>
  * hundreds a real register produces.
  */
 export function orderClusters(clusters: PayeeCluster[], order: ClusterOrder): PayeeCluster[] {
-  return [...clusters].sort(order === 'alphabetical' ? BY_NAME : BY_TRANSACTIONS);
+  return [...clusters].sort(COMPARATORS[order]);
 }
 
 /**

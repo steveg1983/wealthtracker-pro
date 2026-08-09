@@ -18,7 +18,7 @@ import { useActivityTracking } from '../useActivityTracking';
 
 const sampleActivity = {
   type: 'account' as const,
-  title: 'HSBC PREMIER - Current Balance Updated',
+  title: 'MAIN CURRENT ACCOUNT - Balance Updated',
   description: 'Balance changed',
   amount: 369.92,
 };
@@ -36,7 +36,7 @@ describe('useActivityTracking user isolation', () => {
       result.current.addActivity(sampleActivity);
     });
 
-    expect(localStorage.getItem('recentActivities:user_steve')).toContain('HSBC PREMIER');
+    expect(localStorage.getItem('recentActivities:user_steve')).toContain('MAIN CURRENT');
     expect(localStorage.getItem('recentActivities')).toBeNull();
   });
 

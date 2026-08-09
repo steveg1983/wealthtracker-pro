@@ -569,12 +569,12 @@ describe('AccountSettingsModal', () => {
       const onSave = vi.fn();
       render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
 
-      fireEvent.change(screen.getByLabelText('Account name'), { target: { value: '  HSBC Current — Steve  ' } });
+      fireEvent.change(screen.getByLabelText('Account name'), { target: { value: '  Everyday Current — Renamed  ' } });
       fireEvent.click(screen.getByText('Save Changes'));
 
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
-          name: 'HSBC Current — Steve'
+          name: 'Everyday Current — Renamed'
         }));
       });
     });

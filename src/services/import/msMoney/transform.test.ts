@@ -403,8 +403,8 @@ describe('transformMsMoneyExport — no-duplication invariants', () => {
 
 describe('transformMsMoneyExport — investment cash pairing (hacctRel)', () => {
   const invAccounts = [
-    { id: 10, name: 'Rathbones - Share ISA', moneyType: 'investment', relatedAccountId: 11, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
-    { id: 11, name: 'Rathbones - Share ISA (Cash)', moneyType: 'bank', relatedAccountId: 10, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '250.00', closed: false, openDate: null, closeDate: null, comment: null },
+    { id: 10, name: 'Meridian - Share ISA', moneyType: 'investment', relatedAccountId: 11, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
+    { id: 11, name: 'Meridian - Share ISA (Cash)', moneyType: 'bank', relatedAccountId: 10, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '250.00', closed: false, openDate: null, closeDate: null, comment: null },
     // hacctRel between two NON-investment accounts (never seen in practice) —
     // left unpaired rather than guessed at
     { id: 12, name: 'Bank A', moneyType: 'bank', relatedAccountId: 13, currencyCode: 'GBP', openingBalance: '0', reconstructedBalance: '0', closed: false, openDate: null, closeDate: null, comment: null },
