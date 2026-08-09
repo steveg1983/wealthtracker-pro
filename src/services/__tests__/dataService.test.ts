@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createDataService, DataService } from '../api/dataService';
+import { AccountService } from '../api/accountService';
+import { TransactionService } from '../api/transactionService';
 import { createSimpleAccountService } from '../api/simpleAccountService';
 import type { Account, Budget, Category, Goal, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
@@ -1485,5 +1487,103 @@ describe('DataService linkSplitLineTransfer (local mode)', () => {
       .rejects.toThrow(/split line no longer exists/);
     await expect(service.linkSplitLineTransfer('leg', 'nope'))
       .rejects.toThrow(/Transaction not found/);
+  });
+});
+
+/**
+ * The realtime block's one door.
+ *
+ * The provider used to open its account channel through a second service and
+ * hold two handles; it now passes `onAccountUpdate` to this method and holds
+ * one. That makes the routing below load-bearing in a way it was not before —
+ * nothing else proves the account channel is opened at all, because the suite
+ * that covers the provider stubs this method out entirely.
+ *
+ * The services are spied rather than injected: what is under test is the
+ * DEFAULT wiring the app runs with, not a double's ability to be called.
+ */
+describe('DataService.subscribeToUpdates', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+
+  const cloudService = () => createDataService({
+    isSupabaseConfigured: () => true,
+    storageAdapter: createStorage(),
+    logger,
+    userIdService: {
+      ensureUserExists: vi.fn(),
+      getCurrentDatabaseUserId: vi.fn(() => 'db-user-1'),
+      getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-1', databaseId: 'db-user-1' }))
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opens both channels for the resolved owner, and one handle closes both', () => {
+    const closeAccounts = vi.fn();
+    const closeTransactions = vi.fn();
+    const accounts = vi.spyOn(AccountService, 'subscribeToAccounts').mockReturnValue(closeAccounts);
+    const transactions = vi.spyOn(TransactionService, 'subscribeToTransactions')
+      .mockReturnValue(closeTransactions);
+
+    const onAccountUpdate = vi.fn();
+    const onTransactionUpdate = vi.fn();
+    const stop = cloudService().subscribeToUpdates({ onAccountUpdate, onTransactionUpdate });
+
+    // The owner is the id the seam resolved for itself — never one a caller
+    // passed in — and each callback reaches its OWN channel. A swap here would
+    // reload the accounts on a transaction event and nothing on an account one.
+    expect(accounts).toHaveBeenCalledWith('db-user-1', onAccountUpdate);
+    expect(transactions).toHaveBeenCalledWith('db-user-1', onTransactionUpdate);
+
+    // One handle, both channels: the provider registers exactly this function
+    // as its teardown, and a channel it does not close outlives the login.
+    stop();
+    expect(closeAccounts).toHaveBeenCalledTimes(1);
+    expect(closeTransactions).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens only what it was asked for', () => {
+    const accounts = vi.spyOn(AccountService, 'subscribeToAccounts').mockReturnValue(vi.fn());
+    const transactions = vi.spyOn(TransactionService, 'subscribeToTransactions')
+      .mockReturnValue(vi.fn());
+
+    cloudService().subscribeToUpdates({ onTransactionUpdate: vi.fn() });
+
+    expect(transactions).toHaveBeenCalledTimes(1);
+    expect(accounts).not.toHaveBeenCalled();
+  });
+
+  it('opens nothing, and still hands back a handle, when no owner is resolved', () => {
+    const accounts = vi.spyOn(AccountService, 'subscribeToAccounts').mockReturnValue(vi.fn());
+    const transactions = vi.spyOn(TransactionService, 'subscribeToTransactions')
+      .mockReturnValue(vi.fn());
+
+    // B-8: an engine with nothing to listen to answers with a no-op rather than
+    // with nothing at all. The provider stores it and calls it on cleanup.
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-1', databaseId: null }))
+      }
+    });
+
+    const stop = service.subscribeToUpdates({
+      onAccountUpdate: vi.fn(),
+      onTransactionUpdate: vi.fn()
+    });
+
+    expect(accounts).not.toHaveBeenCalled();
+    expect(transactions).not.toHaveBeenCalled();
+    expect(typeof stop).toBe('function');
+    expect(() => {
+      stop();
+      stop();
+    }).not.toThrow();
   });
 });
