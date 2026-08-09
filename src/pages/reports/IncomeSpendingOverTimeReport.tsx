@@ -26,6 +26,7 @@ import { useCumulativeReport } from '../../hooks/useCumulativeReport';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
+import { preferences } from '../../services/preferencesService';
 
 /**
  * "Income and spending over time" — month by month, what came in against what
@@ -55,11 +56,11 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
   const chartRef = useRef<HTMLDivElement>(null);
   // Lines or bars — same data, same drill-in; the choice is persisted.
   const [chartType, setChartType] = useState<'line' | 'bar'>(() =>
-    localStorage.getItem('reportsTrendChartType') === 'bar' ? 'bar' : 'line'
+    preferences.getItem('reportsTrendChartType') === 'bar' ? 'bar' : 'line'
   );
   const handleChartType = (type: 'line' | 'bar'): void => {
     setChartType(type);
-    localStorage.setItem('reportsTrendChartType', type);
+    preferences.setItem('reportsTrendChartType', type);
   };
   // Month on its own, or the period to date — the chart and the table below it
   // always agree, because both read the same series.

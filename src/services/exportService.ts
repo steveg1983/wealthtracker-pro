@@ -3,6 +3,7 @@ import type { PeriodKey } from '../hooks/usePeriod';
 import { formatDecimal } from '../utils/decimal-format';
 import { buildCategoryNameLookup } from '../utils/categoryNames';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
+import { preferences } from './preferencesService';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -503,4 +504,14 @@ NEWFILEUID:${now}
   }
 }
 
-export const exportService = new ExportService();
+/**
+ * Templates travel with the account.
+ *
+ * A saved export ("Monthly Summary, CSV, transactions only") is a statement
+ * about how this user reports on their own money, not about the browser they
+ * built it in — and until now it existed on exactly one machine and was absent
+ * from every backup. The store is the preferences document; the VALUES are the
+ * same JSON they always were, so an existing browser's templates are read back
+ * unchanged and then follow the user from there.
+ */
+export const exportService = new ExportService({ storage: preferences });

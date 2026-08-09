@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { CalendarIcon } from './icons';
 import type { MatrixGroup, MonthlyCategoryMatrix } from '../utils/monthlyCategoryMatrix';
+import { preferences } from '../services/preferencesService';
 
 /**
  * "Monthly income and expenses" — the Microsoft Money report: every category
@@ -67,11 +68,11 @@ export default function MonthlyIncomeExpenseMatrix({
   // Group subtotals only, or every category beneath them — persisted like the
   // page's other view preferences. Groups-only keeps a deep tree readable.
   const [showDetail, setShowDetail] = useState<boolean>(
-    () => localStorage.getItem(DETAIL_KEY) !== '0'
+    () => preferences.getItem(DETAIL_KEY) !== '0'
   );
   const toggleDetail = (): void => {
     setShowDetail(prev => {
-      localStorage.setItem(DETAIL_KEY, prev ? '0' : '1');
+      preferences.setItem(DETAIL_KEY, prev ? '0' : '1');
       return !prev;
     });
   };

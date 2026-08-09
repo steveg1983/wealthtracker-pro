@@ -21,6 +21,7 @@ import {
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
 import { canonicalSubjectKey } from '../utils/suggestionDismissals';
 import { toDecimal } from '../utils/decimal';
+import { PreferencesService } from './preferencesService';
 
 /**
  * These run against the REAL storage stack — storageAdapter → encryptedStorage
@@ -839,5 +840,123 @@ describe('a corrupted collection', () => {
     const rows: unknown[] = [...seedAccounts(), 'not a record'];
     await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, rows);
     await expect(collectLocalBackupBundle()).rejects.toThrow(/not a record/);
+  });
+});
+
+// ── Preferences travel with a local file too ─────────────────────────────────
+
+/**
+ * A local device has no account to store preferences against, so the file IS
+ * the only copy of them there will ever be — which makes carrying them more
+ * important here than in the cloud, not less.
+ */
+describe('preferences in a local backup', () => {
+  /** A service with its own in-memory browser, so no suite leaks into another. */
+  const isolated = (initial: Record<string, string> = {}): PreferencesService => {
+    const values = { ...initial };
+    return new PreferencesService({
+      mirror: {
+        getItem: (key) => (key in values ? values[key] : null),
+        setItem: (key, value) => { values[key] = value; },
+        removeItem: (key) => { delete values[key]; },
+      },
+      transport: null,
+      debounceMs: 0,
+    });
+  };
+
+  const port = (service: PreferencesService) => ({
+    read: () => service.getDocument(),
+    write: (document: Parameters<PreferencesService['replaceAll']>[0]) => service.replaceAll(document),
+  });
+
+  it('exports what the device holds and restores it onto a device that has none', async () => {
+    await seedEverything();
+    const source = isolated();
+    source.setItem('accountsSortMode', 'balance-desc');
+    source.setItem('netWorthChartType', 'bar');
+
+    const exported = await collectLocalBackupBundle({ preferences: port(source) });
+    const onDisk = JSON.stringify(exported, null, 2);
+
+    await wipeLocalFinancialData(LOCAL_WIPE_CONFIRMATION);
+    const validation = validateBackupBundle(JSON.parse(onDisk));
+    if (!validation.ok) throw new Error(validation.problem);
+
+    const target = isolated();
+    const outcome = await restoreLocalBackupBundle(validation.bundle, {
+      newId: countingIds(),
+      preferences: port(target),
+    });
+
+    expect(outcome.preferencesRestored).toBe(2);
+    expect(outcome.preferencesFailure).toBeNull();
+    expect(target.getItem('accountsSortMode')).toBe('balance-desc');
+    expect(target.getItem('netWorthChartType')).toBe('bar');
+  });
+
+  it('brings the pinned accounts back pointing at the accounts that were restored', async () => {
+    // The silent failure this guards: ids inside a preference are not
+    // constrained by anything, so a verbatim restore leaves the dashboard
+    // pinning accounts belonging to the login the file came from.
+    await seedEverything();
+    const accountsBefore = await read(STORAGE_KEYS.ACCOUNTS);
+    const pinned = accountsBefore.slice(0, 2).map((account) => String(account.id));
+
+    const source = isolated();
+    source.setItem('dashboardKeyAccounts', JSON.stringify(pinned));
+
+    const onDisk = JSON.stringify(await collectLocalBackupBundle({ preferences: port(source) }), null, 2);
+    await wipeLocalFinancialData(LOCAL_WIPE_CONFIRMATION);
+    const validation = validateBackupBundle(JSON.parse(onDisk));
+    if (!validation.ok) throw new Error(validation.problem);
+
+    const target = isolated();
+    await restoreLocalBackupBundle(validation.bundle, { newId: countingIds(), preferences: port(target) });
+
+    const accountsAfter = await read(STORAGE_KEYS.ACCOUNTS);
+    const restoredPins: unknown = JSON.parse(target.getItem('dashboardKeyAccounts') ?? '[]');
+    const liveIds = new Set(accountsAfter.map((account) => String(account.id)));
+
+    expect(restoredPins).toHaveLength(2);
+    expect((restoredPins as string[]).every((id) => liveIds.has(id))).toBe(true);
+    // …and specifically NOT the ids the file carried.
+    expect(restoredPins).not.toEqual(pinned);
+  });
+
+  it('does not fail the restore when the settings cannot be saved', async () => {
+    // Preferences go in after every financial row. A complete ledger with
+    // default toggles is a good outcome that happens to be missing something.
+    await seedEverything();
+    const source = isolated();
+    source.setItem('accountsSortMode', 'name');
+    const onDisk = JSON.stringify(await collectLocalBackupBundle({ preferences: port(source) }), null, 2);
+
+    await wipeLocalFinancialData(LOCAL_WIPE_CONFIRMATION);
+    const validation = validateBackupBundle(JSON.parse(onDisk));
+    if (!validation.ok) throw new Error(validation.problem);
+
+    const outcome = await restoreLocalBackupBundle(validation.bundle, {
+      newId: countingIds(),
+      preferences: {
+        read: () => ({ version: 1, values: {} }),
+        write: () => Promise.reject(new Error('storage is full')),
+      },
+    });
+
+    expect(outcome.preferencesRestored).toBe(0);
+    expect(outcome.preferencesFailure).toBe('storage is full');
+    // The rows are all there regardless.
+    expect(await read(STORAGE_KEYS.TRANSACTIONS)).not.toHaveLength(0);
+  });
+
+  it('is not emptied by a wipe — deleting your data is not forgetting how you read it', async () => {
+    await seedEverything();
+    const service = isolated();
+    service.setItem('accountsSortMode', 'name');
+
+    await wipeLocalFinancialData(LOCAL_WIPE_CONFIRMATION);
+
+    expect(service.getItem('accountsSortMode')).toBe('name');
   });
 });

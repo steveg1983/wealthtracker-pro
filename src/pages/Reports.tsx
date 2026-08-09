@@ -15,6 +15,7 @@ import { toCumulativeMatrix } from '../utils/cumulativeSeries';
 import { useCumulativeReport } from '../hooks/useCumulativeReport';
 import { PERIOD_LABELS } from '../hooks/usePeriod';
 import type { ReportViewProps } from './reports/types';
+import { preferences } from '../services/preferencesService';
 
 /**
  * "Monthly income and expenses" — the Microsoft Money report, and the
@@ -43,11 +44,11 @@ export default function Reports({ picker }: ReportViewProps): React.JSX.Element 
   // controls VISIBILITY only: the classifier keeps revaluations out of the
   // income/expense/net totals unconditionally, toggle or not.
   const [showRevaluations, setShowRevaluations] = useState<boolean>(
-    () => localStorage.getItem('reportsShowRevaluations') === '1'
+    () => preferences.getItem('reportsShowRevaluations') === '1'
   );
   const toggleRevaluations = (): void => {
     setShowRevaluations(prev => {
-      localStorage.setItem('reportsShowRevaluations', prev ? '0' : '1');
+      preferences.setItem('reportsShowRevaluations', prev ? '0' : '1');
       return !prev;
     });
   };

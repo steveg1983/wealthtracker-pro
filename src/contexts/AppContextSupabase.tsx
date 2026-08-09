@@ -52,6 +52,7 @@ import type {
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { planCategoryTreeImport, planCategoryPrune, type CategoryTreeGroup } from '../utils/categoryTreeImport';
+import { preferences as preferencesService } from '../services/preferencesService';
 
 export interface Tag {
   id: string;
@@ -382,7 +383,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           markPhase('auth');
           if (databaseId) {
             appLogger.info('Database user ID resolved', { databaseId });
-            
+
+            // Bind the preferences document to this login. Deliberately NOT
+            // awaited: it is one small read that nothing on the critical path
+            // depends on, every surface already has this browser's copy to
+            // start from, and the service notifies its subscribers when the
+            // account's own settings land a moment later. Awaiting it would put
+            // a round trip in front of the first account query for no gain, and
+            // a slow or missing preferences table would delay the ledger.
+            void preferencesService.attach(databaseId);
+
             // Initialize AutoSync with the database ID ready
             await AutoSyncService.initialize(user.id);
             
@@ -423,6 +433,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // the sign-out was triggered): the cached history belongs to whoever
           // was signed in and must not survive on a shared browser.
           void transactionCache.clear();
+          // Stop writing this browser's copy up to a login that is no longer
+          // here. The mirror stays: it is what the next signed-out session
+          // reads, and it belongs to the browser rather than to the account.
+          preferencesService.detach();
         }
         
         // Categories MUST resolve before transactions/budgets are read:

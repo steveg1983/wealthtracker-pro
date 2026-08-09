@@ -82,6 +82,30 @@
 --                  <scratchpad>/local-core/schema.sql   -> no output
 --         (88 = this header is 85 lines and two blank ones.)
 --         Specs: verb-specs/integrity-*.
+--
+-- AMENDED 2026-08-09 (5), in THIS COPY ONLY, mirroring
+--         supabase/migrations/20260809160000_preferences_that_travel.sql:
+--         `user_preferences`, one row per user holding the settings that belong
+--         to the ACCOUNT rather than to the browser. A cloud backup carries the
+--         document (services/backupService writes it as a top-level
+--         `preferences` section), so a local file that could not hold it would
+--         restore the ledger and drop every choice about how to read it —
+--         which is the exact failure the cloud migration exists to fix.
+--
+--         THIS COPY ONLY, on amendment (2)'s precedent and for the same reason:
+--         the scratchpad draft predates the cloud migration, this file is what
+--         executes, and when the two are reconciled the change travels in this
+--         direction. This copy is now ahead of the draft by amendment (2)'s one
+--         column and by this one table.
+--
+--         NO OWNERSHIP PAIRING, and that is not an omission: the composite-FK
+--         pattern of 20260808170000 exists so that a row naming an ACCOUNT
+--         cannot name one belonging to somebody else. user_preferences names no
+--         account — it references users(id) alone, which is the anchor the
+--         pairing is built from, not a thing that needs pairing. Account ids do
+--         appear INSIDE the document (dashboardKeyAccounts, the archive
+--         overrides), and they are unreferencable text there by construction:
+--         see the note at the table.
 -- ============================================================================
 
 
@@ -1436,6 +1460,39 @@ CREATE TABLE widget_preferences (
   created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (user_id, widget_type)
+) STRICT;
+
+-- Mirrors supabase/migrations/20260809160000_preferences_that_travel.sql. One
+-- row per user, one versioned document, holding every setting that belongs to
+-- the account rather than to the browser.
+--
+-- Differences from the cloud, both forced by SQLite and neither a change of
+-- meaning:
+--   * jsonb has no local equivalent, so the document is TEXT guarded by
+--     json_valid() plus json_type() = 'object' — the pair that reproduces the
+--     cloud's jsonb-plus-jsonb_typeof check. A caller must not be able to store
+--     an array here; every reader indexes into it by key.
+--   * the cloud's size ceiling is `length(prefs::text) <= 262144`; length() over
+--     the TEXT is literally the same measurement, so the number is carried
+--     across unchanged rather than re-derived.
+--
+-- Account ids DO appear inside the document (dashboardKeyAccounts, the archive
+-- overrides map). They are deliberately NOT foreign keys and cannot be: they sit
+-- inside JSON, one level below anything a key can address. Nothing depends on
+-- them resolving — a pinned account that no longer exists is skipped by the
+-- dashboard, exactly as it is today — and the restore rewrites them through the
+-- same id map every other reference goes through (see
+-- backupService.remapPreferenceIds). That is the only mechanism available and
+-- the only one needed; a preference is not a ledger entry.
+CREATE TABLE user_preferences (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  prefs      TEXT NOT NULL DEFAULT '{}'
+             CHECK (json_valid(prefs) AND json_type(prefs) = 'object'),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  CHECK (length(prefs) <= 262144),
+  UNIQUE (user_id)
 ) STRICT;
 
 

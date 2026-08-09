@@ -2,6 +2,7 @@ import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, vi } from 'vitest';
+import { preferences } from '../services/preferencesService';
 
 vi.mock('@clerk/clerk-react', () => ({
   useUser: () => ({ user: null, isLoaded: true }),
@@ -59,6 +60,19 @@ afterEach(() => {
 // Reset mocks before each test
 beforeEach(() => {
   vi.clearAllMocks();
+  // Empty the preferences document too.
+  //
+  // A tier of settings that used to live in `localStorage` — pinned accounts,
+  // per-surface periods, grouping and sort choices, hidden register columns,
+  // archive cutoffs — now lives in a module-level service so that it can travel
+  // with the account (services/preferencesService). That service outlives an
+  // individual test the way a page reload does not, so without this a value set
+  // in one case would still be there in the next, and a suite's own
+  // `localStorage.clear()` would no longer mean "start from nothing".
+  //
+  // `detach` is the app's own sign-out path, not a test-only hatch: it forgets
+  // the signed-in user and everything held for them.
+  preferences.detach();
 });
 
 // Mock window.matchMedia

@@ -2,6 +2,7 @@
  * Date formatting utilities with locale detection
  * Automatically detects user's locale and formats dates accordingly
  */
+import { preferences } from '../services/preferencesService';
 
 // Detect user's locale from browser settings
 export function getUserLocale(): string {
@@ -10,19 +11,21 @@ export function getUserLocale(): string {
     (navigator.languages && navigator.languages[0]) || 
     'en-US';
   
-  // Store the preference in localStorage for consistency
-  const storedLocale = localStorage.getItem('preferredLocale');
+  // A chosen locale travels with the account: it decides how every date and
+  // amount in the app reads, and someone who set it once should not have to
+  // set it again on the next machine.
+  const storedLocale = preferences.getItem('preferredLocale');
   if (storedLocale) {
     return storedLocale;
   }
-  
-  localStorage.setItem('preferredLocale', browserLocale);
+
+  preferences.setItem('preferredLocale', browserLocale);
   return browserLocale;
 }
 
 // Set user's preferred locale
 export function setUserLocale(locale: string): void {
-  localStorage.setItem('preferredLocale', locale);
+  preferences.setItem('preferredLocale', locale);
 }
 
 // Determine if the user prefers UK date format (dd/mm/yyyy)

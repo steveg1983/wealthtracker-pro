@@ -2,7 +2,8 @@ import { useState, Suspense, useMemo } from 'react';
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, XCircleIcon, type IconProps } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, XCircleIcon, RefreshCwIcon, type IconProps } from '../../components/icons';
+import type { WipeProgress } from '../../services/import/msMoney/msMoneyImport';
 import { LoadingState } from '../../components/loading/LoadingState';
 import { createScopedLogger } from '../../loggers/scopedLogger';
 import { parseBankingOpsUrlState, replaceBrowserSearch, withBankingOpsUrlState } from '../../utils/bankingOpsUrlState';
@@ -38,6 +39,35 @@ const RestoreBackupModal = lazyWithRecovery(() => import('../../components/Resto
 const LoadTestDataModal = lazyWithRecovery(() => import('../../components/LoadTestDataModal'));
 const dataManagementLogger = createScopedLogger('DataManagementPage');
 
+/**
+ * Table names as a person would say them. The wipe reports the names the
+ * database uses, and "transaction_splits" on a confirmation dialog is the app
+ * talking to itself.
+ */
+const TABLE_LABELS: Record<string, string> = {
+  'transfer links': 'Disconnecting transfers',
+  transaction_splits: 'Split lines',
+  transactions: 'Transactions',
+  budgets: 'Budgets',
+  goals: 'Goals',
+  accounts: 'Accounts',
+  categories: 'Categories',
+};
+
+/**
+ * How full the bar is: the steps already finished, plus this step's own share.
+ *
+ * A step with no total contributes nothing beyond the steps behind it rather
+ * than jumping to full — a bar that reaches 100% and then keeps working is
+ * worse than one that moves in stages.
+ */
+const wipePercent = (progress: WipeProgress): number => {
+  const within = progress.total && progress.total > 0
+    ? Math.min(1, progress.deleted / progress.total)
+    : 0;
+  return Math.round(((progress.step - 1 + within) / progress.stepCount) * 100);
+};
+
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, resetLoadedData, isUsingSupabase } = useApp();
   const initialBankingOpsUrlState = useMemo(
@@ -68,6 +98,26 @@ export default function DataManagementSettings() {
   const [isClearing, setIsClearing] = useState(false);
   const [clearConfirmText, setClearConfirmText] = useState('');
   const [clearError, setClearError] = useState('');
+  /**
+   * What the wipe is doing right now.
+   *
+   * The delete used to be one statement per table, and on the owner's 51,000
+   * transactions the database gave up with "canceling statement due to
+   * statement timeout" — after the transfer links had been nulled and the
+   * splits deleted, so the login was left in a state nothing in the app
+   * produces. It is chunked now, which means it also TAKES time, and a button
+   * that says "Deleting…" for four minutes reads exactly like one that has
+   * hung. So it reports per table and per row, the way the restore dialog the
+   * owner liked does.
+   */
+  const [clearProgress, setClearProgress] = useState<WipeProgress | null>(null);
+  /**
+   * True when the failure happened part-way through, so some rows are gone and
+   * some are not. Every step is idempotent, so the recovery is to run it again
+   * — which is a far more useful thing to be told than the server's message
+   * alone.
+   */
+  const [clearPartial, setClearPartial] = useState(false);
 
   // ACTUALLY delete everything. The store has to be wiped first — the context's
   // resetLoadedData only forgets the loaded copy, so on cloud the data all came
@@ -81,11 +131,24 @@ export default function DataManagementSettings() {
   const handleClearData = async () => {
     setIsClearing(true);
     setClearError('');
+    setClearPartial(false);
+    setClearProgress(null);
+    // A local flag, not the state above: this function is read again after
+    // several awaits, and `clearProgress` there is the value from the render
+    // that created it — always null. The bug that would produce is the exact
+    // one this whole change exists to fix, in miniature: the user is told
+    // nothing about a half-finished wipe.
+    let sawProgress = false;
     try {
       const databaseUserId = DataService.getUserIds().databaseId;
       if (isUsingSupabase && supabase && databaseUserId) {
         const { wipeCloudData } = await import('../../services/import/msMoney/msMoneyImport');
-        await wipeCloudData(supabase, databaseUserId);
+        await wipeCloudData(supabase, databaseUserId, {
+          onProgress: (progress) => {
+            sawProgress = true;
+            setClearProgress(progress);
+          },
+        });
       } else {
         const { wipeLocalFinancialData, LOCAL_WIPE_CONFIRMATION } =
           await import('../../services/localBackupService');
@@ -100,6 +163,11 @@ export default function DataManagementSettings() {
     } catch (error) {
       dataManagementLogger.error('Clear all data failed', error);
       setClearError(error instanceof Error ? error.message : 'Failed to delete data.');
+      // Chunks commit as they go, so anything already reported is already gone.
+      // A local wipe is one IndexedDB transaction and cannot be half-done, and
+      // a cloud wipe that failed before its first report deleted nothing —
+      // telling either of them their data is half-gone would be its own harm.
+      setClearPartial(sawProgress);
       setIsClearing(false);
     }
   };
@@ -236,16 +304,65 @@ export default function DataManagementSettings() {
               <input
                 value={clearConfirmText}
                 onChange={(e) => setClearConfirmText(e.target.value)}
+                disabled={isClearing}
                 placeholder="DELETE"
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-40"
               />
             </div>
+
+            {/* Per table and per row, so a wipe that takes minutes on a large
+                register never looks like one that has hung. */}
+            {isClearing && clearProgress && (
+              <div className="mb-4" role="status" aria-live="polite">
+                <div className="flex items-center gap-2 mb-2">
+                  <RefreshCwIcon size={16} className="animate-spin text-red-600 dark:text-red-400" />
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {TABLE_LABELS[clearProgress.table] ?? clearProgress.table}
+                  </p>
+                </div>
+                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div
+                    className="h-full bg-red-600 transition-all duration-200"
+                    style={{ width: `${wipePercent(clearProgress)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 tabular-nums">
+                  Step {clearProgress.step} of {clearProgress.stepCount}
+                  {' — '}
+                  {clearProgress.total === undefined
+                    ? `${clearProgress.deleted.toLocaleString()} rows removed`
+                    : `${clearProgress.deleted.toLocaleString()} of ${clearProgress.total.toLocaleString()} rows`}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Leave this tab open until it finishes.
+                </p>
+              </div>
+            )}
+
             {clearError && (
-              <p className="text-sm text-red-600 dark:text-red-400 mb-4">{clearError}</p>
+              <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+                <p className="text-sm text-red-800 dark:text-red-300 font-mono break-words">{clearError}</p>
+                {/* The recovery, not just the failure. Every step of the wipe is
+                    idempotent — deleting rows that have already gone is a no-op
+                    — so running it again carries on from where it stopped. */}
+                {clearPartial && (
+                  <p className="text-sm text-red-800 dark:text-red-300 mt-2">
+                    Some data was deleted before this stopped, and the rest is still there. Nothing is
+                    broken by that and nothing needs undoing — <strong>run it again to finish</strong>.
+                    It will pick up where it left off.
+                  </p>
+                )}
+              </div>
             )}
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowDeleteConfirm(false); setClearConfirmText(''); setClearError(''); }}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setClearConfirmText('');
+                  setClearError('');
+                  setClearPartial(false);
+                  setClearProgress(null);
+                }}
                 disabled={isClearing}
                 className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40"
               >
@@ -256,7 +373,7 @@ export default function DataManagementSettings() {
                 disabled={isClearing || clearConfirmText.trim().toUpperCase() !== 'DELETE'}
                 className="flex-1 justify-center px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isClearing ? 'Deleting…' : 'Delete All Data'}
+                {isClearing ? 'Deleting…' : clearPartial ? 'Run it again' : 'Delete All Data'}
               </button>
             </div>
           </div>

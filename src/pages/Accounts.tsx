@@ -14,6 +14,7 @@ import { ArchiveIcon, SettingsIcon, WalletIcon, CheckCircleIcon, PieChartIcon, B
 import BankingCriticalIncidentBadge from '../components/BankingCriticalIncidentBadge';
 import { LoadingState } from '../components/loading/LoadingState';
 import { TRUELAYER_JWKS_CIRCUIT_EVENT_PREFIX } from '../constants/bankingOps';
+import { preferences } from '../services/preferencesService';
 
 // Bank connection management lives on this page (the natural home for it);
 // the Data Management page keeps only its URL-driven deep links for ops alerts.
@@ -58,7 +59,9 @@ import { SkeletonCard } from '../components/loading/Skeleton';
 function readStoredGrouping(): AccountGroupingOptions {
   try {
     return parseAccountGroupingPreference(
-      localStorage.getItem(ACCOUNT_GROUPING_STORAGE_KEY),
+      preferences.getItem(ACCOUNT_GROUPING_STORAGE_KEY),
+      // The pre-toggle key is read from the BROWSER: it was written before
+      // preferences travelled, so this migration has to look where it was left.
       localStorage.getItem(LEGACY_ACCOUNT_GROUPING_STORAGE_KEY)
     );
   } catch {
@@ -85,7 +88,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // off is a single flat list.
   const [grouping, setGrouping] = useState<AccountGroupingOptions>(readStoredGrouping);
   const [sortMode, setSortMode] = useState<AccountSortMode>(() => {
-    const stored = localStorage.getItem('accountsSortMode');
+    const stored = preferences.getItem('accountsSortMode');
     return stored === 'name' || stored === 'balance-desc' || stored === 'balance-asc'
       ? stored
       : 'default';
@@ -101,7 +104,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // folded when the Institution switch is flipped alongside it.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     try {
-      const stored = localStorage.getItem('accountsCollapsedGroups');
+      const stored = preferences.getItem('accountsCollapsedGroups');
       const parsed: unknown = stored ? JSON.parse(stored) : null;
       return Array.isArray(parsed)
         ? new Set(parsed.filter((key): key is string => typeof key === 'string'))
@@ -281,7 +284,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const handleGroupingChange = (next: AccountGroupingOptions) => {
     setGrouping(next);
     try {
-      localStorage.setItem(ACCOUNT_GROUPING_STORAGE_KEY, serializeAccountGroupingPreference(next));
+      preferences.setItem(ACCOUNT_GROUPING_STORAGE_KEY, serializeAccountGroupingPreference(next));
     } catch {
       // Storage unavailable — the choice still applies for this session.
     }
@@ -289,7 +292,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
   const handleSortChange = (value: AccountSortMode) => {
     setSortMode(value);
-    localStorage.setItem('accountsSortMode', value);
+    preferences.setItem('accountsSortMode', value);
   };
 
   // Fold a group open/closed and persist the whole collapsed set, so the choice
@@ -299,7 +302,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      localStorage.setItem('accountsCollapsedGroups', JSON.stringify([...next]));
+      preferences.setItem('accountsCollapsedGroups', JSON.stringify([...next]));
       return next;
     });
   }, []);

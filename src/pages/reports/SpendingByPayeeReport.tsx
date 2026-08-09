@@ -11,6 +11,7 @@ import { buildPayeeTotals, payeeKeyOf, NO_PAYEE_KEY, type PayeeTotalRow } from '
 import { formatDecimal } from '../../utils/decimal-format';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
+import { preferences } from '../../services/preferencesService';
 
 /**
  * "Spending by payee" — who the money actually went to.
@@ -38,11 +39,11 @@ export default function SpendingByPayeeReport({ picker }: ReportViewProps): Reac
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const [side, setSide] = useState<'expense' | 'income'>(() =>
-    localStorage.getItem(SIDE_KEY) === 'income' ? 'income' : 'expense'
+    preferences.getItem(SIDE_KEY) === 'income' ? 'income' : 'expense'
   );
   const handleSide = (next: 'expense' | 'income'): void => {
     setSide(next);
-    localStorage.setItem(SIDE_KEY, next);
+    preferences.setItem(SIDE_KEY, next);
   };
 
   const sideRows = side === 'income' ? flows.incomeRows : flows.expenseRows;

@@ -56,6 +56,7 @@ import { useBankConnectionSnapshot } from '../hooks/useBankConnectionSnapshot';
 import { DataService } from '../services/api/dataService';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
+import { preferences, type PreferenceStorage } from '../services/preferencesService';
 
 type TransactionWithBalance = Transaction & { balance: number };
 
@@ -265,9 +266,19 @@ const isTextEntryTarget = (target: EventTarget | null): boolean => {
   );
 };
 
-const readStored = <T,>(key: string, fallback: T): T => {
+/**
+ * A stored JSON value, from whichever store the key belongs in.
+ *
+ * The register's layout is deliberately split across the two. Column ORDER and
+ * which columns are HIDDEN are decisions about what matters in a statement, so
+ * they follow the account; column WIDTHS are pixels, and pixels belong to the
+ * screen they were dragged on. Carrying a 13-inch laptop's widths onto a
+ * 32-inch monitor would make the register worse on the bigger screen, which is
+ * the opposite of what "my settings followed me" is supposed to mean.
+ */
+const readStored = <T,>(store: PreferenceStorage, key: string, fallback: T): T => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = store.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -376,11 +387,11 @@ export default function AccountTransactions() {
     return () => window.removeEventListener('resize', measureTableHeight);
   }, [measureTableHeight, showFilters, sortField]);
   // Column layout (order + widths), drag-controlled and persisted per browser.
-  const [columnOrder, setColumnOrder] = useState<string[]>(() => readStored<string[]>(COLUMN_ORDER_KEY, []));
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => readStored<Record<string, number>>(COLUMN_WIDTHS_KEY, {}));
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => readStored<string[]>(preferences, COLUMN_ORDER_KEY, []));
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => readStored<Record<string, number>>(localStorage, COLUMN_WIDTHS_KEY, {}));
 
   useEffect(() => {
-    try { localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); } catch { /* storage may be unavailable */ }
+    try { preferences.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder)); } catch { /* storage may be unavailable */ }
   }, [columnOrder]);
   useEffect(() => {
     try { localStorage.setItem(COLUMN_WIDTHS_KEY, JSON.stringify(columnWidths)); } catch { /* storage may be unavailable */ }
@@ -391,8 +402,8 @@ export default function AccountTransactions() {
   }, []);
 
   // View dropdown: which columns are hidden, and how far back to show.
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => readStored<string[]>(HIDDEN_COLUMNS_KEY, DEFAULT_HIDDEN_COLUMNS));
-  const [archive, setArchive] = useState<ArchiveState>(() => readStored<ArchiveState>(ARCHIVE_KEY, { range: 'all', from: '', to: '' }));
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => readStored<string[]>(preferences, HIDDEN_COLUMNS_KEY, DEFAULT_HIDDEN_COLUMNS));
+  const [archive, setArchive] = useState<ArchiveState>(() => readStored<ArchiveState>(preferences, ARCHIVE_KEY, { range: 'all', from: '', to: '' }));
   const [showView, setShowView] = useState(false);
   // Soft archive (persistent, server-side) — distinct from the date-window
   // "archive" dropdown above. Off by default; the toggle appears only when the
@@ -408,10 +419,10 @@ export default function AccountTransactions() {
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    try { localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch { /* storage may be unavailable */ }
+    try { preferences.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(hiddenColumns)); } catch { /* storage may be unavailable */ }
   }, [hiddenColumns]);
   useEffect(() => {
-    try { localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive)); } catch { /* storage may be unavailable */ }
+    try { preferences.setItem(ARCHIVE_KEY, JSON.stringify(archive)); } catch { /* storage may be unavailable */ }
   }, [archive]);
 
   // Close the View dropdown on outside click.
