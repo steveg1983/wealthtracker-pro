@@ -73,7 +73,7 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
     [budget?.categoryId, resolveCategoryId]
   );
 
-  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+  const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     {
       categoryId: seededCategoryId,
       amount: budget?.amount?.toString() || '',
@@ -81,7 +81,7 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
       isActive: budget?.isActive !== false
     },
     {
-      onSubmit: (data) => {
+      onSubmit: async (data) => {
         const now = new Date();
         const budgetData = {
           categoryId: data.categoryId,
@@ -92,10 +92,14 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
           updatedAt: now
         };
 
+        // Awaited: a limit that failed to save must keep the modal open with
+        // the reason on screen. Unawaited, the save was assumed to have worked
+        // — the modal shut on a refusal that nobody saw, and the budget the
+        // user had just set simply was not there.
         if (budget) {
-          updateBudget(budget.id, budgetData);
+          await updateBudget(budget.id, budgetData);
         } else {
-          addBudget(budgetData);
+          await addBudget(budgetData);
         }
       },
       onClose
@@ -249,6 +253,11 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
           </div>
         </ModalBody>
         <ModalFooter>
+          {errors?.submit && (
+            <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-700 dark:text-red-300">{errors.submit}</p>
+            </div>
+          )}
           <div className="flex gap-3 w-full">
             <button
               type="button"
@@ -260,10 +269,12 @@ export default function BudgetModal({ isOpen, onClose, budget, onEditExisting }:
             {/* Disabled while the chosen category already has a budget: a
                 button that swallows the click and does nothing tells the user
                 less than one that visibly cannot be pressed, with the reason
-                sitting under the field. */}
+                sitting under the field. Disabled again while a save is in
+                flight, so a second press on a slow connection cannot ask for
+                the same budget twice. */}
             <button
               type="submit"
-              disabled={existingBudget !== null}
+              disabled={existingBudget !== null || isSubmitting}
               title={existingBudget ? `${existingBudgetName} already has a budget` : undefined}
               className="flex-1 justify-center px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"
             >

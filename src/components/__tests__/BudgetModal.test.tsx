@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { screen, fireEvent, cleanup } from '@testing-library/react';
+import { screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../test/testUtils';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import BudgetModal from '../BudgetModal';
@@ -188,5 +188,79 @@ describe('BudgetModal', () => {
     expect(updateBudget).toHaveBeenCalledWith('b-1', expect.objectContaining({
       categoryId: 'det-groceries',
     }));
+  });
+
+  describe('a save that does not go through', () => {
+    /**
+     * The sentence the context uses when a signed-in session's database id has
+     * not resolved yet. Any refusal would do — this modal used to close on all
+     * of them, because it launched the write and never looked back.
+     */
+    const REFUSAL = 'Still connecting to your account — please try again in a moment.';
+
+    /** Choose a category and an amount, as a person would before saving. */
+    const fillForm = (): void => {
+      openCategoryPicker();
+      fireEvent.click(screen.getByText('Groceries'));
+      fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '250' } });
+    };
+
+    it('stays open and says why, in the words the write used', async () => {
+      __setAppContextValue({ addBudget: vi.fn().mockRejectedValue(new Error(REFUSAL)) });
+      renderWithProviders(<BudgetModal {...defaultProps} />);
+      fillForm();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Budget' }));
+
+      const shown = await screen.findByText(REFUSAL);
+      // Exact equality, not "contains": a wrapper ("Error: …", "Could not save:
+      // …") is a different sentence from the one the write chose, and the user
+      // is owed that one.
+      expect(shown.textContent).toBe(REFUSAL);
+      // The modal is still here, with the work still in it — the whole point.
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+      expect(screen.getByPlaceholderText('0.00')).toHaveValue('250');
+      // Nothing to retry from is worse than a failed save: the button comes back.
+      expect(screen.getByRole('button', { name: 'Add Budget' })).toBeEnabled();
+    });
+
+    it('closes as before when the save goes through', async () => {
+      __setAppContextValue({ addBudget: vi.fn().mockResolvedValue(undefined) });
+      renderWithProviders(<BudgetModal {...defaultProps} />);
+      fillForm();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Budget' }));
+
+      await waitFor(() => expect(defaultProps.onClose).toHaveBeenCalledTimes(1));
+      expect(screen.queryByText(REFUSAL)).not.toBeInTheDocument();
+    });
+
+    it('cannot be asked for the same budget twice while the first save is in flight', async () => {
+      let settle = (): void => {};
+      const inFlight = vi.fn().mockImplementation(
+        () => new Promise<void>(resolve => { settle = () => resolve(); })
+      );
+      __setAppContextValue({ addBudget: inFlight });
+      renderWithProviders(<BudgetModal {...defaultProps} />);
+      fillForm();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add Budget' }));
+      expect(inFlight).toHaveBeenCalledTimes(1);
+      // The button says so…
+      expect(screen.getByRole('button', { name: 'Add Budget' })).toBeDisabled();
+
+      // …and the form refuses a second submit however it is reached, which is
+      // useModalForm's own re-entrancy guard rather than the disabled attribute.
+      const form = screen.getByRole('dialog').querySelector('form');
+      if (!form) throw new Error('No form rendered');
+      fireEvent.submit(form);
+
+      expect(inFlight).toHaveBeenCalledTimes(1);
+
+      settle();
+      await waitFor(() => expect(defaultProps.onClose).toHaveBeenCalledTimes(1));
+      expect(inFlight).toHaveBeenCalledTimes(1);
+    });
   });
 });

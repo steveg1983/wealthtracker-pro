@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useToast } from '../contexts/ToastContext';
 import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
@@ -41,6 +42,7 @@ export default function Budget() {
   // Get data from context
   const { budgets, updateBudget, deleteBudget, transactions, transactionSplits, categories, accounts } = useApp();
   const { checkEnhancedBudgetAlerts, checkBudgetAlerts, alertThreshold } = useNotifications();
+  const { showError } = useToast();
 
   // One evaluation instant for the whole page: every card, caption and total
   // describes the same "now".
@@ -197,8 +199,30 @@ export default function Budget() {
     setEditingBudget(null);
   };
 
-  const handleToggleActive = (budgetId: string, currentStatus: boolean | undefined) => {
-    updateBudget(budgetId, { isActive: !currentStatus });
+  /**
+   * Awaited, with the failure shown.
+   *
+   * These two are page actions rather than a form, so there is no modal to
+   * hold open — but the silence was the same: the write was launched and
+   * forgotten, and a refusal left the row looking exactly as it had before,
+   * with nothing said. The context leaves its own state alone when the write
+   * throws, so the card still shows the truth; the toast supplies the reason
+   * it did not change.
+   */
+  const handleToggleActive = async (budgetId: string, currentStatus: boolean | undefined): Promise<void> => {
+    try {
+      await updateBudget(budgetId, { isActive: !currentStatus });
+    } catch (error) {
+      showError(error);
+    }
+  };
+
+  const handleDelete = async (budgetId: string): Promise<void> => {
+    try {
+      await deleteBudget(budgetId);
+    } catch (error) {
+      showError(error);
+    }
   };
 
   const getProgressColor = (percentage: number) => {
@@ -402,7 +426,7 @@ export default function Budget() {
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleToggleActive(budget.id, budget.isActive)}
+                  onClick={() => void handleToggleActive(budget.id, budget.isActive)}
                   className={`px-3 py-1 text-sm rounded ${
                     budget.isActive !== false
                       ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
@@ -422,7 +446,7 @@ export default function Budget() {
                 <IconButton
                   onClick={() => {
                     if (confirm('Delete this budget?')) {
-                      deleteBudget(budget.id);
+                      void handleDelete(budget.id);
                     }
                   }}
                   icon={<DeleteIcon size={20} />}
