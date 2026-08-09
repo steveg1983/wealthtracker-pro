@@ -12,7 +12,6 @@ import { DataService } from '../services/api/dataService';
 // so this import is a statement about WHICH DOOR the boot uses, not about which
 // engine answers. That is what lets a local implementation be dropped in.
 import { dataPort } from '../services/port';
-import * as SimpleAccountService from '../services/api/simpleAccountService';
 import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';
@@ -776,21 +775,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isActive: account.isActive !== undefined ? account.isActive : true
       };
 
-      // Create in the database directly and wait for the response.
+      // One door, whoever is signed in. This used to fork on the Clerk id —
+      // a second account service for signed-in sessions, the seam for everyone
+      // else — and the two did not write the same account: the fork's writer
+      // sent the sort code, the account number, the opening balance date and
+      // the notes, and the seam's did not. Whichever half of that pair a given
+      // create happened to take decided whether the bank details the person had
+      // just typed existed afterwards. The seam's writer sends all four now, so
+      // there is nothing left for the fork to choose between.
       //
-      // Without a Clerk user this used to throw "User not authenticated" and
-      // stop there, which made adding an account impossible in demo/local mode
-      // — SimpleAccountService needs a Clerk id to resolve a database user and
-      // has no local branch at all. DataService is the same service layer every
-      // other write in this context already relies on for that case
-      // (updateAccount, deleteAccount and addTransaction all go through it),
-      // and it writes to the storage the local reads come from. It also carries
-      // the guard that matters: a signed-in session whose database id has not
-      // resolved yet is refused rather than quietly diverted into browser
-      // storage.
-      const newAccount = user?.id
-        ? await SimpleAccountService.createAccount(user.id, accountToCreate)
-        : await dataPort.createAccount(accountToCreate);
+      // What the seam resolves for itself is the owner, which is the whole
+      // point of it: no id is passed in, and a signed-in session whose database
+      // id has not resolved yet is refused by name rather than quietly diverted
+      // into browser storage to be lost at the next boot.
+      const newAccount = await dataPort.createAccount(accountToCreate);
       appLogger.info('Account created', newAccount);
 
       // Add to state
@@ -804,7 +802,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       appLogger.error('Failed to add account', error);
       throw error;
     }
-  }, [user]);
+  }, []);
 
   const updateAccount = useCallback(async (id: string, updates: AccountUpdate) => {
     try {

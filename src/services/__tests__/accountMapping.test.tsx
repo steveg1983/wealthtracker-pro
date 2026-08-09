@@ -1,13 +1,21 @@
 /**
  * The seam between the two account services.
  *
- * The app loads accounts through simpleAccountService at boot and through
- * accountService on every import, sync, realtime refresh and settings save.
- * While each service kept its OWN row mapper, an account changed shape
+ * The app used to load accounts through simpleAccountService at boot and
+ * through accountService on every import, sync, realtime refresh and settings
+ * save. While each service kept its OWN row mapper, an account changed shape
  * depending on which one had last run — and the bugs that caused could not be
  * seen from inside either file. Each test below is one of those bugs, written
  * against the real consumer wherever the consumer could be imported: the real
  * Account Settings modal, the real OFX identifier matcher.
+ *
+ * The app now has ONE account service (the seam's cloud half, accountService)
+ * and one mapper, so the alternation that caused those bugs cannot recur by the
+ * route it took. The retired service is still read through here on purpose: it
+ * is the only second opinion available, and a mapper that two independent
+ * callers agree on is a mapper whose field set is a contract rather than a
+ * habit. When it is finally deleted, these tests keep their consumers and lose
+ * their second caller.
  *
  * Every figure and identifier here is invented.
  */
@@ -122,13 +130,12 @@ const storage = () => ({
 
 const silent = { log: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
-/** The service the app boots through (AppContextSupabase line ~396). */
+/** The service the app used to boot through, kept as the second opinion. */
 const bootService = (table: AccountsTable) => createSimpleAccountService({
   supabaseClient: asClient(table),
   storageAdapter: storage(),
   userIdService: {
-    getDatabaseUserId: vi.fn(async () => USER_ID),
-    ensureUserExists: vi.fn(async () => USER_ID)
+    getDatabaseUserId: vi.fn(async () => USER_ID)
   },
   logger: silent
 });
@@ -268,6 +275,47 @@ describe('Account Settings and an alert the user did not touch', () => {
     expect(table.stored().low_balance_alert_enabled).toBe(true);
     expect(table.stored().low_balance_threshold).toBe(250);
     expect(table.stored().name).toBe('Everyday Current — joint');
+  });
+
+  it('gives back the bank details it was seeded with when the user saves something else', async () => {
+    // The same write-back the alert above is about, asked of the four fields
+    // the create path writes: this modal seeds its form from the account it was
+    // handed and sends every field back on every save, so they make the round
+    // trip on an edit that was about none of them. It matters more now that a
+    // created account arrives carrying them — before, a save could only blank
+    // what was already blank, and the same mechanism would now overwrite real
+    // details typed on the create form.
+    const table = createAccountsTable();
+    const [account] = await bootService(table).getAccounts(USER_ID);
+
+    renderSettings(account, table);
+
+    fireEvent.change(screen.getByLabelText('Account name'), {
+      target: { value: 'Everyday Current — joint' }
+    });
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => expect(table.writes).toHaveLength(1));
+
+    // The mechanism: they are IN the write, not merely left alone by it. An
+    // edit about the name carries the bank details back down with it, which is
+    // why a wrong value seeded into the form would be persisted as fact.
+    expect(table.writes[0]).toMatchObject({
+      sort_code: '11-22-33',
+      account_number: '87654321',
+      notes: 'Opened when the flat was bought'
+    });
+
+    expect(table.stored().sort_code).toBe('11-22-33');
+    // A current account's number is a bank number and is stored whole — the
+    // card rule would cut it to four, and this account is not a card.
+    expect(table.stored().account_number).toBe('87654321');
+    expect(table.stored().notes).toBe('Opened when the flat was bought');
+    // The date goes out as a Date and comes back as one; the day is what the
+    // column holds either way.
+    const asDay = (value: unknown): string =>
+      value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+    expect(asDay(table.stored().opening_balance_date)).toBe('2024-01-01');
   });
 
   it('still turns the alert off when the user actually turns it off', async () => {

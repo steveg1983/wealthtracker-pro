@@ -65,6 +65,36 @@ const createAccountsClient = (options: {
   return { client: asInjectedClient(stub), writes, typeReadCount: () => typeReads };
 };
 
+/**
+ * A stand-in for `accounts` on the CREATE path, behaving the way PostgREST does
+ * in the one respect these tests depend on: `.select()` after an insert returns
+ * the row as it now stands, which here is the payload that was actually
+ * written. That is what makes the round trip below real — the account handed
+ * back to the caller is mapped from what reached the table, not from what the
+ * caller asked for.
+ */
+const createInsertClient = () => {
+  const inserts: Record<string, unknown>[] = [];
+
+  const stub = {
+    from: () => ({
+      insert: (payload: Record<string, unknown>) => {
+        inserts.push(payload);
+        return {
+          select: () => ({
+            single: async () => ({
+              data: { id: 'acct-created', created_at: '2025-07-01T10:00:00.000Z', ...payload },
+              error: null
+            })
+          })
+        };
+      }
+    })
+  };
+
+  return { client: asInjectedClient(stub), inserts };
+};
+
 const createStorage = (initial: Account[] = []) => {
   const store = new Map<string, Account[]>([[STORAGE_KEYS.ACCOUNTS, initial]]);
   return {
@@ -259,6 +289,133 @@ describe('AccountService (deterministic fallback)', () => {
       expect(from).toHaveBeenCalledWith('accounts');
       expect(eqUser).toHaveBeenCalledWith('user_id', 'user-1');
       expect(eqActive).toHaveBeenCalledWith('is_active', false);
+    });
+  });
+
+  describe('creating an account in the cloud', () => {
+    // Invented throughout: no real bank, no real sort code, no real number.
+    const newAccount = (overrides: Partial<Account> = {}): Omit<Account, 'id'> => {
+      const { id: _id, ...rest } = baseAccount({
+        name: 'Rainy day',
+        type: 'current',
+        balance: 250.5,
+        currency: 'GBP',
+        institution: 'Invented Bank',
+        isActive: true,
+        openingBalance: 200,
+        openingBalanceDate: new Date('2025-01-01T00:00:00.000Z'),
+        sortCode: '12-34-56',
+        accountNumber: '12345678',
+        notes: 'Set aside for the boiler',
+        ...overrides
+      });
+      return rest;
+    };
+
+    const cloudService = (client: InjectedClient) => createAccountService({
+      isSupabaseConfigured: () => true,
+      storageAdapter: createStorage(),
+      logger,
+      now,
+      uuid,
+      supabaseClient: client
+    });
+
+    it('sends the bank details, the opening balance date and the notes', async () => {
+      // The regression this test exists for: the insert sent ten columns and
+      // named none of these four, so an account created through this writer
+      // arrived in the database with its sort code, account number, opening
+      // balance date and notes missing — fields the person had just typed.
+      const { client, inserts } = createInsertClient();
+
+      await cloudService(client).createAccount(
+        'db-user-1',
+        newAccount()
+      );
+
+      expect(inserts).toHaveLength(1);
+      expect(inserts[0]).toMatchObject({
+        sort_code: '12-34-56',
+        account_number: '12345678',
+        opening_balance_date: '2025-01-01T00:00:00.000Z',
+        notes: 'Set aside for the boiler'
+      });
+    });
+
+    it('names all four columns even when the account carries none of them', async () => {
+      // Sent as explicit NULLs rather than left out. None of the four columns
+      // has a database default, so NULL and "not mentioned" store the same
+      // thing — and naming them keeps the payload one shape whatever it holds.
+      const { client, inserts } = createInsertClient();
+
+      await cloudService(client).createAccount(
+        'db-user-1',
+        newAccount({
+          sortCode: undefined,
+          accountNumber: undefined,
+          openingBalanceDate: undefined,
+          notes: undefined
+        })
+      );
+
+      expect(inserts[0]).toMatchObject({
+        sort_code: null,
+        account_number: null,
+        opening_balance_date: null,
+        notes: null
+      });
+    });
+
+    it('B-7: hands back every field it was given', async () => {
+      // The write twin of the seam's read promise: what the app supplied to a
+      // create is what the create answers with, because the caller puts this
+      // object straight into app state and the account settings modal seeds
+      // its form from it. A field dropped on the way in is a field the user
+      // finds blank when they reopen the account.
+      const { client } = createInsertClient();
+
+      const created = await cloudService(client).createAccount(
+        'db-user-1',
+        newAccount()
+      );
+
+      expect(created).toMatchObject({
+        name: 'Rainy day',
+        // Stored as 'checking' and read back as the app's word for it.
+        type: 'current',
+        balance: 250.5,
+        openingBalance: 200,
+        currency: 'GBP',
+        institution: 'Invented Bank',
+        isActive: true,
+        sortCode: '12-34-56',
+        accountNumber: '12345678',
+        notes: 'Set aside for the boiler'
+      });
+      expect(created.openingBalanceDate?.toISOString()).toBe('2025-01-01T00:00:00.000Z');
+      expect(created.id).toBe('acct-created');
+    });
+
+    it('B-7: cuts a card number to its last four on the way in', async () => {
+      // A create knows the account type, so nothing has to be read to decide:
+      // a credit account's number is a card number, and a full one written
+      // here would live on in every backup and export taken afterwards.
+      const pan = '1111222233334444';
+      const { client, inserts } = createInsertClient();
+
+      const created = await cloudService(client).createAccount(
+        'db-user-1',
+        newAccount({
+          type: 'credit',
+          accountNumber: pan,
+          sortCode: undefined
+        })
+      );
+
+      expect(inserts[0].account_number).toBe('4444');
+      // Not merely truncated in one field — the number is nowhere in the write.
+      expect(JSON.stringify(inserts[0])).not.toContain(pan);
+      expect(created.accountNumber).toBe('4444');
     });
   });
 

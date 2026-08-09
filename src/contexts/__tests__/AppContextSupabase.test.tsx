@@ -46,14 +46,37 @@ vi.mock('@clerk/clerk-react', () => {
 
 // In-memory store backing the DataService/PlanningService local fallback.
 const memoryStore = vi.hoisted(() => new Map<string, unknown>());
-const accountIds = vi.hoisted(() => ({ next: 0 }));
 
 vi.mock('../../services/storageAdapter', () => {
+  /**
+   * A stored row stops being the caller's object, which is the one thing a
+   * store must not get wrong here.
+   *
+   * The real adapter writes through IndexedDB, so what goes in is cloned and
+   * what comes out is a fresh object every time. A double that keeps the
+   * reference it was handed pretends that boundary is not there — and the
+   * difference is not academic: the local balance update reads the account
+   * list and adjusts the balance ON the row it was given (dataService's
+   * updateAccountBalance), while the row a create returned is the same object
+   * the provider has just put into React state. Sharing it lets one write land
+   * twice — once in the store, once again when the provider adds its
+   * optimistic adjustment on top of a figure that had already moved.
+   *
+   * Rows only, and by hand rather than through structuredClone: the suite runs
+   * on vitest's mocked clock, whose Date is a subclass of the real one, and a
+   * structured clone hands back native Dates that `instanceof Date` then
+   * denies.
+   */
+  const storedCopy = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(row => (row && typeof row === 'object' && !Array.isArray(row) ? { ...row } : row))
+      : value;
+
   const adapter = {
     get: async <T,>(key: string): Promise<T | null> =>
-      memoryStore.has(key) ? (memoryStore.get(key) as T) : null,
+      memoryStore.has(key) ? (storedCopy(memoryStore.get(key)) as T) : null,
     set: async (key: string, value: unknown): Promise<void> => {
-      memoryStore.set(key, value);
+      memoryStore.set(key, storedCopy(value));
     },
     remove: async (key: string): Promise<void> => {
       memoryStore.delete(key);
@@ -105,22 +128,6 @@ vi.mock('../../services/autoSyncService', () => ({
   default: {
     initialize: async (): Promise<void> => {},
   },
-}));
-
-// Account create/read goes through SimpleAccountService when signed in.
-vi.mock('../../services/api/simpleAccountService', () => ({
-  getAccounts: async (): Promise<Account[]> => [],
-  createAccount: async (
-    _clerkId: string,
-    account: Omit<Account, 'id'>
-  ): Promise<Account> => ({
-    ...account,
-    id: `account-${(accountIds.next += 1)}`,
-  }),
-  subscribeToAccountChanges: async (
-    _clerkId: string,
-    _onChange: (payload: unknown) => void
-  ): Promise<() => void> => () => {},
 }));
 
 import { AppProvider, useApp } from '../AppContextSupabase';
@@ -181,7 +188,6 @@ const renderApp = async () => {
 describe('AppContextSupabase live provider', () => {
   beforeEach(() => {
     memoryStore.clear();
-    accountIds.next = 0;
 
     // The one hole in this suite's "no network" stubbing, and every boot below
     // fell through it.
