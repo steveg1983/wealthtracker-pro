@@ -1,20 +1,51 @@
 /**
- * Planning data persistence: budgets, goals, categories.
+ * Planning data persistence: budgets, goals, categories — THE CLOUD HALF, and
+ * only the cloud half.
  *
  * Until 2026-06 these entities lived ONLY in React state — every budget and
  * goal was lost on page refresh, and nothing reached the cloud tables that
  * have existed since the initial schema.
  *
- * Budgets and goals: Supabase when configured (per-user, RLS-scoped), with
- * encrypted localStorage as the offline fallback.
+ * Budgets and goals: Supabase, per-user and RLS-scoped.
  *
  * Categories: cloud-synced via the migrate_categories_atomic RPC. The default
  * category set uses non-UUID ids ('type-income', 'transfer-in', …) which the
  * uuid-keyed cloud table cannot store, AND transactions/budgets reference
  * categories by those text ids — so on a user's first cloud load the RPC
  * generates per-user uuids and remaps every reference in ONE database
- * transaction (orphaning is structurally impossible). Signed-out users keep
- * the encrypted-localStorage path with the original text ids.
+ * transaction (orphaning is structurally impossible).
+ *
+ * EVERY OPERATION HERE REQUIRES THE CLOUD CONNECTION AND A RESOLVED OWNER.
+ * Until 2026-08 each one carried a second half that wrote encrypted
+ * localStorage whenever Supabase was unconfigured OR the caller passed a null
+ * user id. That half is gone, and removing it changed no behaviour, because it
+ * could not run:
+ *
+ *  - The only production importer of this class is `dataService.ts` (`grep -rn
+ *    PlanningService src api scripts` — every other match is
+ *    `taxPlanningService`, an unrelated file, or a test).
+ *  - Every one of its call sites there sits inside a branch guarded by
+ *    `userId && this.supabaseChecker()`, where `userId` is resolved on the same
+ *    tick from `userIdService.getCurrentDatabaseUserId()` and `supabaseChecker`
+ *    is `isSupabaseConfigured`. So a call that arrives here has a non-null owner
+ *    and a configured client, and one that has neither never leaves DataService.
+ *  - `cloudReady` below is `isSupabaseConfigured() && supabase !== null`, and
+ *    supabaseClient defines `isSupabaseConfigured()` as exactly
+ *    `supabase !== null`. The caller's guard and this class's guard are the same
+ *    question, asked twice.
+ *
+ * So `cloudReady && userId` was always true when any of this ran, and the local
+ * branches were dead code holding a live hazard: a null owner did not fail and
+ * did not warn — it wrote the browser's copy, showed the user a saved budget,
+ * and lost it at the next boot when the cloud read beside it answered instead.
+ * Everything that is not a signed-in cloud session now goes through DataService,
+ * which owns the browser-storage engine and refuses a write while a session is
+ * still connecting. What is left here refuses by name.
+ *
+ * `getCategories` / `saveCategories` are NOT part of that retired half. They are
+ * the cloud branches' own offline cache — refreshed after every category row
+ * lands — and they are what a signed-in person's offline boot reads its category
+ * names from.
  */
 
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
@@ -184,17 +215,6 @@ export const goalToDb = (g: Partial<Goal>, userId?: string, existingMetadata?: R
   return row;
 };
 
-// ── Local fallback helpers ───────────────────────────────────────────────────
-
-const readLocal = async <T>(key: string): Promise<T[]> => {
-  const stored = await storageAdapter.get<T[]>(key);
-  return stored || [];
-};
-
-const writeLocal = async <T>(key: string, items: T[]): Promise<void> => {
-  await storageAdapter.set(key, items);
-};
-
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export class PlanningService {
@@ -205,218 +225,207 @@ export class PlanningService {
   // ----- Budgets -----
 
   static async getBudgets(userId: string | null): Promise<Budget[]> {
-    if (this.cloudReady && userId) {
-      // Inactive budgets load too: pausing a budget greys it out on the page
-      // (which filters on isActive where it matters), it must not make the
-      // budget vanish with no way to reactivate it.
-      const { data, error } = await supabase!
-        .from('budgets')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-      if (error) {
-        logger.error('getBudgets failed, using local fallback', error);
-        return readLocal<Budget>(STORAGE_KEYS.BUDGETS);
-      }
-      return ((data ?? []) as Row[]).map(budgetFromDb);
+    if (!this.cloudReady || !userId) {
+      throw new Error('getBudgets requires the cloud connection (local mode goes through DataService)');
     }
-    return readLocal<Budget>(STORAGE_KEYS.BUDGETS);
+
+    // Inactive budgets load too: pausing a budget greys it out on the page
+    // (which filters on isActive where it matters), it must not make the
+    // budget vanish with no way to reactivate it.
+    const { data, error } = await supabase!
+      .from('budgets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      // A FAILED CLOUD READ IS NO BUDGETS, NOT SOMEBODY ELSE'S. This used to
+      // fall back to browser storage, and for a signed-in session that is a
+      // store the cloud path never writes: demo data, or an old signed-out
+      // session's budgets, served as this account's with nothing on screen to
+      // say so — and editing one of those rows then fails against a cloud id
+      // that does not exist. Empty is the honest answer; the boot survives it
+      // (the whole load shares one catch, and a rejection here would replace
+      // the app with "Failed to load data" over a budget list); and the line
+      // below is where the failure is visible.
+      logger.error('getBudgets cloud read failed — returning no budgets', error);
+      return [];
+    }
+    return ((data ?? []) as Row[]).map(budgetFromDb);
   }
 
   static async createBudget(userId: string | null, budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> {
-    if (this.cloudReady && userId) {
-      const row = budgetToDb({ ...budget, spent: 0 }, userId);
-      if (!row.start_date) row.start_date = new Date().toISOString().slice(0, 10);
-      if (!row.name) row.name = budget.categoryId || 'Budget';
-      const { data, error } = await supabase!
-        .from('budgets')
-        .insert(row as never)
-        .select()
-        .single();
-      if (error) throw new Error(handleSupabaseError(error));
-      return budgetFromDb(data as Row);
+    if (!this.cloudReady || !userId) {
+      throw new Error('createBudget requires the cloud connection (local mode goes through DataService)');
     }
 
-    const newBudget: Budget = {
-      ...budget,
-      id: crypto.randomUUID(),
-      spent: 0,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    const budgets = await readLocal<Budget>(STORAGE_KEYS.BUDGETS);
-    budgets.push(newBudget);
-    await writeLocal(STORAGE_KEYS.BUDGETS, budgets);
-    return newBudget;
+    const row = budgetToDb({ ...budget, spent: 0 }, userId);
+    if (!row.start_date) row.start_date = new Date().toISOString().slice(0, 10);
+    if (!row.name) row.name = budget.categoryId || 'Budget';
+    const { data, error } = await supabase!
+      .from('budgets')
+      .insert(row as never)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return budgetFromDb(data as Row);
   }
 
   static async updateBudget(userId: string | null, id: string, updates: Partial<Budget>): Promise<Budget> {
-    if (this.cloudReady && userId) {
-      const { data, error } = await supabase!
-        .from('budgets')
-        .update(budgetToDb(updates) as never)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (error) throw new Error(handleSupabaseError(error));
-      return budgetFromDb(data as Row);
+    if (!this.cloudReady || !userId) {
+      throw new Error('updateBudget requires the cloud connection (local mode goes through DataService)');
     }
 
-    const budgets = await readLocal<Budget>(STORAGE_KEYS.BUDGETS);
-    const index = budgets.findIndex(b => b.id === id);
-    if (index === -1) throw new Error('Budget not found');
-    budgets[index] = { ...budgets[index], ...updates, updatedAt: new Date() };
-    await writeLocal(STORAGE_KEYS.BUDGETS, budgets);
-    return budgets[index];
+    const { data, error } = await supabase!
+      .from('budgets')
+      .update(budgetToDb(updates) as never)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return budgetFromDb(data as Row);
   }
 
   static async deleteBudget(userId: string | null, id: string): Promise<void> {
-    if (this.cloudReady && userId) {
-      const { error } = await supabase!
-        .from('budgets')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-      if (error) throw new Error(handleSupabaseError(error));
-      return;
+    if (!this.cloudReady || !userId) {
+      throw new Error('deleteBudget requires the cloud connection (local mode goes through DataService)');
     }
 
-    const budgets = await readLocal<Budget>(STORAGE_KEYS.BUDGETS);
-    await writeLocal(STORAGE_KEYS.BUDGETS, budgets.filter(b => b.id !== id));
+    const { error } = await supabase!
+      .from('budgets')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) throw new Error(handleSupabaseError(error));
   }
 
   // ----- Goals -----
 
   static async getGoals(userId: string | null): Promise<Goal[]> {
-    if (this.cloudReady && userId) {
-      const { data, error } = await supabase!
-        .from('goals')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-      if (error) {
-        logger.error('getGoals failed, using local fallback', error);
-        return readLocal<Goal>(STORAGE_KEYS.GOALS);
-      }
-      return ((data ?? []) as Row[]).map(goalFromDb);
+    if (!this.cloudReady || !userId) {
+      throw new Error('getGoals requires the cloud connection (local mode goes through DataService)');
     }
-    return readLocal<Goal>(STORAGE_KEYS.GOALS);
+
+    const { data, error } = await supabase!
+      .from('goals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      // No goals rather than another store's goals — the reasoning is on
+      // `getBudgets` above, and it applies here word for word.
+      logger.error('getGoals cloud read failed — returning no goals', error);
+      return [];
+    }
+    return ((data ?? []) as Row[]).map(goalFromDb);
   }
 
   static async createGoal(userId: string | null, goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
-    // `progress` IS the accumulated amount, so a goal created with money
-    // already put by starts at that figure — hard-coding 0 here banked the
-    // user's opening amount in local mode and threw it away in the cloud.
-    const startingAmount = goal.currentAmount ?? 0;
-
-    if (this.cloudReady && userId) {
-      const row = goalToDb({ ...goal, progress: startingAmount }, userId);
-      const { data, error } = await supabase!
-        .from('goals')
-        .insert(row as never)
-        .select()
-        .single();
-      if (error) throw new Error(handleSupabaseError(error));
-      return goalFromDb(data as Row);
+    if (!this.cloudReady || !userId) {
+      throw new Error('createGoal requires the cloud connection (local mode goes through DataService)');
     }
 
-    const newGoal: Goal = {
-      ...goal,
-      id: crypto.randomUUID(),
-      progress: startingAmount,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    const goals = await readLocal<Goal>(STORAGE_KEYS.GOALS);
-    goals.push(newGoal);
-    await writeLocal(STORAGE_KEYS.GOALS, goals);
-    return newGoal;
+    // `progress` IS the accumulated amount, so a goal created with money
+    // already put by starts at that figure — hard-coding 0 here threw the
+    // user's opening amount away.
+    const startingAmount = goal.currentAmount ?? 0;
+    const row = goalToDb({ ...goal, progress: startingAmount }, userId);
+    const { data, error } = await supabase!
+      .from('goals')
+      .insert(row as never)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return goalFromDb(data as Row);
   }
 
   static async updateGoal(userId: string | null, id: string, updates: Partial<Goal>): Promise<Goal> {
-    if (this.cloudReady && userId) {
-      // A metadata-backed field (type / linked accounts / contribution amount)
-      // shares one jsonb column with the other two, and PostgREST cannot merge
-      // server-side — so read the stored object and merge into it. Only the
-      // updates that actually touch metadata pay for the extra round trip.
-      let existingMetadata: Row | undefined;
-      const touchesMetadata =
-        updates.type !== undefined ||
-        updates.linkedAccountIds !== undefined ||
-        updates.contributionAmount !== undefined;
-      if (touchesMetadata) {
-        const { data: current, error: readError } = await supabase!
-          .from('goals')
-          .select('metadata')
-          .eq('id', id)
-          .eq('user_id', userId)
-          .single();
-        if (readError) throw new Error(handleSupabaseError(readError));
-        const stored = (current as Row | null)?.metadata;
-        existingMetadata = stored && typeof stored === 'object' ? (stored as Row) : undefined;
-      }
-
-      const { data, error } = await supabase!
-        .from('goals')
-        .update(goalToDb(updates, undefined, existingMetadata) as never)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (error) throw new Error(handleSupabaseError(error));
-      return goalFromDb(data as Row);
+    if (!this.cloudReady || !userId) {
+      throw new Error('updateGoal requires the cloud connection (local mode goes through DataService)');
     }
 
-    const goals = await readLocal<Goal>(STORAGE_KEYS.GOALS);
-    const index = goals.findIndex(g => g.id === id);
-    if (index === -1) throw new Error('Goal not found');
-    goals[index] = { ...goals[index], ...updates, updatedAt: new Date() };
-    await writeLocal(STORAGE_KEYS.GOALS, goals);
-    return goals[index];
+    // A metadata-backed field (type / linked accounts / contribution amount)
+    // shares one jsonb column with the other two, and PostgREST cannot merge
+    // server-side — so read the stored object and merge into it. Only the
+    // updates that actually touch metadata pay for the extra round trip.
+    let existingMetadata: Row | undefined;
+    const touchesMetadata =
+      updates.type !== undefined ||
+      updates.linkedAccountIds !== undefined ||
+      updates.contributionAmount !== undefined;
+    if (touchesMetadata) {
+      const { data: current, error: readError } = await supabase!
+        .from('goals')
+        .select('metadata')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
+      if (readError) throw new Error(handleSupabaseError(readError));
+      const stored = (current as Row | null)?.metadata;
+      existingMetadata = stored && typeof stored === 'object' ? (stored as Row) : undefined;
+    }
+
+    const { data, error } = await supabase!
+      .from('goals')
+      .update(goalToDb(updates, undefined, existingMetadata) as never)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    return goalFromDb(data as Row);
   }
 
   static async deleteGoal(userId: string | null, id: string): Promise<void> {
-    if (this.cloudReady && userId) {
-      const { error } = await supabase!
-        .from('goals')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-      if (error) throw new Error(handleSupabaseError(error));
-      return;
+    if (!this.cloudReady || !userId) {
+      throw new Error('deleteGoal requires the cloud connection (local mode goes through DataService)');
     }
 
-    const goals = await readLocal<Goal>(STORAGE_KEYS.GOALS);
-    await writeLocal(STORAGE_KEYS.GOALS, goals.filter(g => g.id !== id));
+    const { error } = await supabase!
+      .from('goals')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) throw new Error(handleSupabaseError(error));
   }
 
   // ----- Categories -----
 
-  /** Local read (signed-out mode and cache). */
+  /**
+   * The browser's copy of the cloud category list.
+   *
+   * THE CACHE, NOT A LOCAL MODE — which is why these two survived the retirement
+   * of everything else that touched browser storage here. Every category write
+   * below refreshes this copy after its row lands, and it is what a signed-in
+   * person's offline boot reads its category names from (through
+   * `ensureCategories`' error path, and through DataService's own read of the
+   * same key). Nothing about it answers "what are this account's categories" on
+   * its own: it only ever holds what the cloud last said.
+   */
   static async getCategories(): Promise<Category[]> {
-    return readLocal<Category>(STORAGE_KEYS.CATEGORIES);
+    const stored = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES);
+    return stored || [];
   }
 
-  /** Local write (signed-out mode and cache). */
+  /** Refresh the cache above. Called after every category row that lands. */
   static async saveCategories(categories: Category[]): Promise<void> {
-    await writeLocal(STORAGE_KEYS.CATEGORIES, categories);
+    await storageAdapter.set(STORAGE_KEYS.CATEGORIES, categories);
   }
 
   /**
-   * Cloud-aware category load with first-run migration/seeding.
+   * Cloud category load with first-run migration/seeding.
    *
-   * - Cloud has rows → return them (and refresh the local cache).
-   * - Cloud empty → run migrate_categories_atomic with the user's
-   *   localStorage categories (or the default set for brand-new users).
-   *   The RPC inserts uuid-keyed copies AND remaps every transaction/budget
-   *   category reference in one database transaction.
-   * - userId null / Supabase unavailable → local mode.
+   * - Cloud has rows → return them (and refresh the cache).
+   * - Cloud empty → run migrate_categories_atomic with the browser's cached
+   *   categories (or the default set for brand-new users). The RPC inserts
+   *   uuid-keyed copies AND remaps every transaction/budget category reference
+   *   in one database transaction.
+   * - Cloud read fails → the cached copy, which is this account's own list as of
+   *   the last successful load.
    */
   static async ensureCategories(userId: string | null): Promise<Category[]> {
     if (!this.cloudReady || !userId) {
-      const local = await this.getCategories();
-      return local.length > 0 ? local : getDefaultCategories();
+      throw new Error('ensureCategories requires the cloud connection (local mode goes through DataService)');
     }
 
     const { data, error } = await supabase!
@@ -427,7 +436,12 @@ export class PlanningService {
       .order('name', { ascending: true });
 
     if (error) {
-      logger.error('ensureCategories cloud read failed, using local fallback', error);
+      // THE CACHE, and it is the reason this branch is not the refusal above:
+      // these are this account's own cloud categories as of the last successful
+      // load, not another store's. Withholding them would blank the register's
+      // category column and the category filter for a person whose ledger is
+      // perfectly fine — offline, or through one failed request.
+      logger.error('ensureCategories cloud read failed, using the cached copy', error);
       const local = await this.getCategories();
       return local.length > 0 ? local : getDefaultCategories();
     }
@@ -473,25 +487,21 @@ export class PlanningService {
   }
 
   static async createCategory(userId: string | null, category: Omit<Category, 'id'>): Promise<Category> {
-    if (this.cloudReady && userId) {
-      const row = categoryToDb(category, userId);
-      const { data, error } = await supabase!
-        .from('categories')
-        .insert(row as never)
-        .select()
-        .single();
-      if (error) throw new Error(handleSupabaseError(error));
-      const created = categoryFromDb(data as Row);
-      const cache = await this.getCategories();
-      await this.saveCategories([...cache, created]);
-      return created;
+    if (!this.cloudReady || !userId) {
+      throw new Error('createCategory requires the cloud connection (local mode goes through DataService)');
     }
 
-    const newCategory: Category = { ...category, id: crypto.randomUUID() };
-    const categories = await this.getCategories();
-    categories.push(newCategory);
-    await this.saveCategories(categories);
-    return newCategory;
+    const row = categoryToDb(category, userId);
+    const { data, error } = await supabase!
+      .from('categories')
+      .insert(row as never)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    const created = categoryFromDb(data as Row);
+    const cache = await this.getCategories();
+    await this.saveCategories([...cache, created]);
+    return created;
   }
 
   /**
@@ -503,86 +513,75 @@ export class PlanningService {
    * number of rows actually deleted.
    */
   static async deleteUnusedCategories(userId: string | null, ids: string[]): Promise<number> {
+    // Nothing to prune is not a refusal: an import that plans no deletions asks
+    // anyway, and answering "there is no cloud connection" to a request that
+    // would send no rows would be an error message about a write nobody made.
     if (ids.length === 0) {
       return 0;
     }
 
-    if (this.cloudReady && userId) {
-      const { data, error } = await supabase!.rpc('delete_unused_categories', {
-        p_ids: ids,
-        p_user_id: userId
-      });
-      if (error) throw new Error(handleSupabaseError(error));
-      const deleted = typeof data === 'number' ? data : 0;
-      // The RPC may have skipped rows; refresh the cache from the cloud so
-      // the local view matches what actually survived.
-      const { data: rows, error: readError } = await supabase!
-        .from('categories')
-        .select('*')
-        .eq('user_id', userId);
-      if (!readError && rows) {
-        await this.saveCategories((rows as Row[]).map(categoryFromDb));
-      }
-      return deleted;
+    if (!this.cloudReady || !userId) {
+      throw new Error('deleteUnusedCategories requires the cloud connection (local mode goes through DataService)');
     }
 
-    // Local mode: the in-memory snapshot IS the source of truth, so the
-    // planner has seen every row and a plain filter is safe.
-    const categories = await this.getCategories();
-    const idSet = new Set(ids);
-    const remaining = categories.filter(c => !idSet.has(c.id) && !idSet.has(c.parentId ?? ''));
-    const deleted = categories.length - remaining.length;
-    await this.saveCategories(remaining);
+    const { data, error } = await supabase!.rpc('delete_unused_categories', {
+      p_ids: ids,
+      p_user_id: userId
+    });
+    if (error) throw new Error(handleSupabaseError(error));
+    const deleted = typeof data === 'number' ? data : 0;
+    // The RPC may have skipped rows; refresh the cache from the cloud so
+    // the local view matches what actually survived.
+    const { data: rows, error: readError } = await supabase!
+      .from('categories')
+      .select('*')
+      .eq('user_id', userId);
+    if (!readError && rows) {
+      await this.saveCategories((rows as Row[]).map(categoryFromDb));
+    }
     return deleted;
   }
 
   /** Bulk create — one insert round trip instead of N (used by tree imports). */
   static async createCategories(userId: string | null, newCategories: Array<Omit<Category, 'id'>>): Promise<Category[]> {
+    // Empty first, for the reason `deleteUnusedCategories` above gives.
     if (newCategories.length === 0) {
       return [];
     }
 
-    if (this.cloudReady && userId) {
-      const rows = newCategories.map(category => categoryToDb(category, userId));
-      const { data, error } = await supabase!
-        .from('categories')
-        .insert(rows as never)
-        .select();
-      if (error) throw new Error(handleSupabaseError(error));
-      const created = ((data ?? []) as Row[]).map(categoryFromDb);
-      const cache = await this.getCategories();
-      await this.saveCategories([...cache, ...created]);
-      return created;
+    if (!this.cloudReady || !userId) {
+      throw new Error('createCategories requires the cloud connection (local mode goes through DataService)');
     }
 
-    const created = newCategories.map(category => ({ ...category, id: crypto.randomUUID() } as Category));
-    const categories = await this.getCategories();
-    await this.saveCategories([...categories, ...created]);
+    const rows = newCategories.map(category => categoryToDb(category, userId));
+    const { data, error } = await supabase!
+      .from('categories')
+      .insert(rows as never)
+      .select();
+    if (error) throw new Error(handleSupabaseError(error));
+    const created = ((data ?? []) as Row[]).map(categoryFromDb);
+    const cache = await this.getCategories();
+    await this.saveCategories([...cache, ...created]);
     return created;
   }
 
   static async updateCategory(userId: string | null, id: string, updates: Partial<Category>): Promise<Category> {
-    if (this.cloudReady && userId) {
-      const { data, error } = await supabase!
-        .from('categories')
-        .update(categoryToDb(updates) as never)
-        .eq('id', id)
-        .eq('user_id', userId)
-        .select()
-        .single();
-      if (error) throw new Error(handleSupabaseError(error));
-      const updated = categoryFromDb(data as Row);
-      const cache = await this.getCategories();
-      await this.saveCategories(cache.map(c => c.id === id ? updated : c));
-      return updated;
+    if (!this.cloudReady || !userId) {
+      throw new Error('updateCategory requires the cloud connection (local mode goes through DataService)');
     }
 
-    const categories = await this.getCategories();
-    const index = categories.findIndex(c => c.id === id);
-    if (index === -1) throw new Error('Category not found');
-    categories[index] = { ...categories[index], ...updates };
-    await this.saveCategories(categories);
-    return categories[index];
+    const { data, error } = await supabase!
+      .from('categories')
+      .update(categoryToDb(updates) as never)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+    if (error) throw new Error(handleSupabaseError(error));
+    const updated = categoryFromDb(data as Row);
+    const cache = await this.getCategories();
+    await this.saveCategories(cache.map(c => c.id === id ? updated : c));
+    return updated;
   }
 
   /**
@@ -632,22 +631,21 @@ export class PlanningService {
   }
 
   static async deleteCategory(userId: string | null, id: string): Promise<void> {
-    if (this.cloudReady && userId) {
-      // parent_id FK is ON DELETE CASCADE — children go with the parent,
-      // matching the client-side behaviour below.
-      const { error } = await supabase!
-        .from('categories')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-      if (error) throw new Error(handleSupabaseError(error));
-      const cache = await this.getCategories();
-      await this.saveCategories(cache.filter(c => c.id !== id && c.parentId !== id));
-      return;
+    if (!this.cloudReady || !userId) {
+      throw new Error('deleteCategory requires the cloud connection (local mode goes through DataService)');
     }
 
-    const categories = await this.getCategories();
-    await this.saveCategories(categories.filter(c => c.id !== id && c.parentId !== id));
+    // parent_id FK is ON DELETE CASCADE — children go with the parent, and the
+    // cache below is dropped the same way so the browser's copy cannot keep a
+    // group of orphans whose parent the database has already removed.
+    const { error } = await supabase!
+      .from('categories')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+    if (error) throw new Error(handleSupabaseError(error));
+    const cache = await this.getCategories();
+    await this.saveCategories(cache.filter(c => c.id !== id && c.parentId !== id));
   }
 }
 
