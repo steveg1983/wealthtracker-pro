@@ -371,7 +371,11 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="CSV Import Wizard" size="xl">
-      <div className="flex flex-col h-[600px]">
+      {/* h-[600px] is the PREFERRED height; min-h-0 lets flex shrink it when
+          the Modal panel's max-height is smaller (a laptop with the window
+          half-height), so the step content scrolls inside itself instead of
+          the wizard's lower half being clipped off unreachable. */}
+      <div className="flex flex-col h-[600px] min-h-0">
         {/* Progress Steps */}
         <div className="flex items-center justify-center mb-6">
           <div className="flex items-center space-x-4">
@@ -402,7 +406,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
         </div>
 
         {/* Step Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {currentStep === 'upload' && (
             <div className="flex flex-col items-center justify-center h-full p-8">
               <div 

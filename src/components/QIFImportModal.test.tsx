@@ -27,7 +27,12 @@ vi.mock('./common/Modal', () => ({
         <button data-testid="modal-close" onClick={onClose}>Close</button>
         {children}
       </div>
-    ) : null
+    ) : null,
+  // The real ModalBody is the modal's one scrollable region; here it only
+  // needs to exist and render its children.
+  ModalBody: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="modal-body">{children}</div>
+  )
 }));
 
 // Mock LoadingButton

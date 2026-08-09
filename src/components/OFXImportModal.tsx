@@ -24,7 +24,7 @@ import { formatShortDate } from '../utils/dateFormatter';
 // states a figure in the currency the account is held in, and the reconciliation
 // screen compares it in that currency too.
 import { formatCurrency } from '../utils/currency-decimal';
-import { Modal } from './common/Modal';
+import { Modal, ModalBody } from './common/Modal';
 import {
   UploadIcon,
   FileTextIcon,
@@ -522,7 +522,11 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
   
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Import OFX File" size="lg">
-      <div className="p-6">
+      {/* ModalBody, not a bare div: the Modal panel is overflow-hidden with a
+          max height, and delegates scrolling to this element. A plain wrapper
+          means a long duplicate-review list silently pushes the import button
+          below the fold with no way to reach it. */}
+      <ModalBody>
         {!parseResult && !importResult && (
           <>
             {/* File Upload */}
@@ -990,7 +994,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
             </div>
           </div>
         )}
-      </div>
+      </ModalBody>
     </Modal>
   );
 }
