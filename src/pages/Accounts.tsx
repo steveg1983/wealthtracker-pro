@@ -40,6 +40,11 @@ import { useAccountBankSync } from '../hooks/useAccountBankSync';
 import PageWrapper from '../components/PageWrapper';
 import PageTip from '../components/PageTip';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
+import {
+  buildChildrenByParent,
+  buildTopLevelIdByAccountId,
+  selectTopLevelAccounts,
+} from '../utils/accountNesting';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
 
@@ -148,24 +153,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // parentAccountId points at another OPEN account renders nested inside that
   // parent's card instead of as a top-level card, and its balance counts
   // toward the parent's group total. It stays a full account — own register,
-  // transfers, reconciliation — only its placement here changes.
-  const nestedByParent = useMemo(() => {
-    const ids = new Set(openAccounts.map(a => a.id));
-    const map = new Map<string, Account[]>();
-    openAccounts.forEach(a => {
-      if (a.parentAccountId && ids.has(a.parentAccountId)) {
-        const list = map.get(a.parentAccountId);
-        if (list) list.push(a);
-        else map.set(a.parentAccountId, [a]);
-      }
-    });
-    return map;
-  }, [openAccounts]);
+  // transfers, reconciliation — only its placement here changes. The rules
+  // live in utils/accountNesting, shared with the Investments page so the two
+  // can never disagree about what a paired account is worth.
+  const nestedByParent = useMemo(() => buildChildrenByParent(openAccounts), [openAccounts]);
 
-  const topLevelAccounts = useMemo(() => {
-    const ids = new Set(openAccounts.map(a => a.id));
-    return openAccounts.filter(a => !(a.parentAccountId && ids.has(a.parentAccountId)));
-  }, [openAccounts]);
+  const topLevelAccounts = useMemo(() => selectTopLevelAccounts(openAccounts), [openAccounts]);
   const [closedAccounts, setClosedAccounts] = useState<Account[]>([]);
   const [showClosedAccounts, setShowClosedAccounts] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
@@ -262,24 +255,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // Which top-level card an account's money counts toward: itself, or the
   // nearest ancestor that IS a top-level card. A nested cash account belongs to
   // the band its PARENT sits in (Investments), not the one its own type or
-  // institution would suggest. The walk stops on a parent already seen, so a
-  // cycle in the data cannot hang the page.
-  const topLevelIdByAccountId = useMemo(() => {
-    const byId = new Map(openAccounts.map(a => [a.id, a]));
-    const resolve = (account: Account): string => {
-      const seen = new Set<string>([account.id]);
-      let current = account;
-      for (;;) {
-        const parentId = current.parentAccountId;
-        if (!parentId || seen.has(parentId)) return current.id;
-        const parent = byId.get(parentId);
-        if (!parent) return current.id;
-        seen.add(parentId);
-        current = parent;
-      }
-    };
-    return new Map(openAccounts.map(a => [a.id, resolve(a)]));
-  }, [openAccounts]);
+  // institution would suggest.
+  const topLevelIdByAccountId = useMemo(
+    () => buildTopLevelIdByAccountId(openAccounts),
+    [openAccounts]
+  );
 
   // A band's running total: every open account whose money counts toward one of
   // the band's cards, summed as Decimal (opening balance + its transactions) —
@@ -1224,6 +1204,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           ?? closedAccounts.find(a => a.id === settingsAccountId)
           ?? null
         }
+        // The open accounts, which is what the pairing field pairs with: a
+        // closed investment account is not somewhere money can be filed.
+        accounts={openAccounts}
         onSave={async (accountId, updates) => {
           // A closed account isn't in context state, so the context's in-place
           // patch lands on nothing — reopening one from here only reaches the

@@ -7,6 +7,7 @@ import { parseMoneyInput } from '../utils/decimal';
 import type { Account as BaseAccount, AccountUpdate } from '../types';
 import ToggleSwitch from './ui/ToggleSwitch';
 import CardNumberGuidance from './CardNumberGuidance';
+import GroupedAccountOptions from './common/GroupedAccountOptions';
 import {
   BANK_ACCOUNT_NUMBER_LENGTH,
   CARD_NUMBER_LABEL,
@@ -28,6 +29,12 @@ interface AccountSettingsModalProps {
   onClose: () => void;
   account: Account | null;
   onSave: (accountId: string, updates: AccountUpdate) => void | Promise<void>;
+  /**
+   * The other accounts in view, which is what the investment↔cash pairing
+   * field offers to pair with. Omitted by callers that have no list to give;
+   * the field then never appears, and no pairing is written either way.
+   */
+  accounts?: readonly BaseAccount[];
 }
 
 interface FormData {
@@ -42,6 +49,59 @@ interface FormData {
   isActive: boolean;
   lowBalanceAlertEnabled: boolean;
   lowBalanceThreshold: string;
+  /** Investment account this one's money sits inside; '' = not paired. */
+  parentAccountId: string;
+}
+
+const NO_PARENT_ACCOUNT = '';
+
+/** What the pairing field may offer this account, and whether it appears at all. */
+interface PairingState {
+  offered: boolean;
+  options: BaseAccount[];
+}
+
+/**
+ * Investment↔cash pairing, from the account being edited outwards.
+ *
+ * Pairing is ONE-DIRECTIONAL and ONE DEEP (the Microsoft Money model): a cash
+ * account sits inside an investment account, and that is the whole shape. So
+ * the field is offered only while this account is not itself an investment
+ * account and nothing is already nested inside it, and the candidates exclude
+ * any investment account that is itself paired — three guards that between them
+ * make a grandparent, a self-parent and a cycle unrepresentable from the UI.
+ *
+ * `selectedType` is the type CURRENTLY CHOSEN in the form, not the stored one:
+ * switching an account to Investments takes the field away with it, exactly as
+ * switching to Credit Card takes the sort code away.
+ *
+ * The account's existing parent is always among the candidates, even if it
+ * would no longer qualify. A select whose value is missing from its own option
+ * list silently shows something else, and saving that would re-parent the
+ * account to whatever happened to be first.
+ */
+function resolvePairing(
+  account: BaseAccount,
+  accounts: readonly BaseAccount[],
+  selectedType: BaseAccount['type']
+): PairingState {
+  const hasChildren = accounts.some(a => a.parentAccountId === account.id);
+  const options = accounts.filter(a =>
+    a.type === 'investment' &&
+    a.id !== account.id &&
+    a.isActive !== false &&
+    !a.parentAccountId
+  );
+  const current = account.parentAccountId
+    ? accounts.find(a => a.id === account.parentAccountId)
+    : undefined;
+  if (current && !options.some(a => a.id === current.id)) {
+    options.push(current);
+  }
+  return {
+    offered: selectedType !== 'investment' && !hasChildren && options.length > 0,
+    options
+  };
 }
 
 const accountTypeOptions = [
@@ -58,7 +118,8 @@ export default function AccountSettingsModal({
   isOpen,
   onClose,
   account,
-  onSave
+  onSave,
+  accounts = []
 }: AccountSettingsModalProps) {
   const { formData, updateField, handleSubmit, setFormData, errors, isSubmitting } = useModalForm<FormData>(
     {
@@ -72,7 +133,8 @@ export default function AccountSettingsModal({
       notes: '',
       isActive: true,
       lowBalanceAlertEnabled: false,
-      lowBalanceThreshold: ''
+      lowBalanceThreshold: '',
+      parentAccountId: NO_PARENT_ACCOUNT
     },
     {
       onSubmit: async (data) => {
@@ -99,7 +161,14 @@ export default function AccountSettingsModal({
           accountNumber: accountNumberForStorage(data.accountNumber, isCardAccountType(data.type)),
           isActive: data.isActive,
           lowBalanceAlertEnabled: data.lowBalanceAlertEnabled,
-          lowBalanceThreshold: data.lowBalanceThreshold ? parseMoneyInput(data.lowBalanceThreshold) ?? undefined : undefined
+          lowBalanceThreshold: data.lowBalanceThreshold ? parseMoneyInput(data.lowBalanceThreshold) ?? undefined : undefined,
+          // Only ever written when the field was on screen: a modal opened
+          // without an account list, or on an account the pairing rules rule
+          // out, must not silently unpair anything. null (not undefined)
+          // clears it — mapAccountToDb drops undefined fields.
+          ...(resolvePairing(account, accounts, data.type).offered
+            ? { parentAccountId: data.parentAccountId || null }
+            : {})
         };
 
         if (data.openingBalance !== '') {
@@ -130,7 +199,8 @@ export default function AccountSettingsModal({
         notes: account.notes || '',
         isActive: account.isActive !== false,
         lowBalanceAlertEnabled: account.lowBalanceAlertEnabled ?? false,
-        lowBalanceThreshold: account.lowBalanceThreshold != null ? account.lowBalanceThreshold.toString() : ''
+        lowBalanceThreshold: account.lowBalanceThreshold != null ? account.lowBalanceThreshold.toString() : '',
+        parentAccountId: account.parentAccountId ?? NO_PARENT_ACCOUNT
       });
     }
   }, [account, setFormData]);
@@ -162,6 +232,7 @@ export default function AccountSettingsModal({
   // the save is a plain row update that carries the account's own status back
   // (so editing a closed account never quietly reopens it).
   const isClosedAccount = account.isActive === false;
+  const pairing = resolvePairing(account, accounts, formData.type);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Account Settings" size="md">
@@ -281,6 +352,31 @@ export default function AccountSettingsModal({
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
               {isCreditCard && <CardNumberGuidance value={formData.accountNumber} />}
+            </div>
+          )}
+
+          {/* Investment↔cash pairing */}
+          {pairing.offered && (
+            <div>
+              <label htmlFor="account-parent" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Part of investment account
+              </label>
+              <select
+                id="account-parent"
+                value={formData.parentAccountId}
+                onChange={(e) => updateField('parentAccountId', e.target.value)}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              >
+                <option value={NO_PARENT_ACCOUNT}>None</option>
+                {/* Grouped and alphabetised like every other account dropdown. */}
+                <GroupedAccountOptions accounts={pairing.options} />
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                For the cash held alongside an investment account. This account
+                keeps its own register and transactions; it moves inside that
+                account on the Accounts page, and its balance counts towards
+                that investment's value.
+              </p>
             </div>
           )}
 

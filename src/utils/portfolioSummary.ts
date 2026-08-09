@@ -1,0 +1,271 @@
+import type { Account, Category, Transaction, TransactionSplit } from '../types';
+import { toDecimal, sumDecimals, type DecimalInstance } from './decimal';
+import { toDecimalAccount, toDecimalTransaction } from './decimal-converters';
+import { calculateTotalBalance } from './calculations-decimal';
+import { buildTopLevelIdByAccountId, groupByTopLevelId } from './accountNesting';
+import { buildCategoryKindLookup, classifyFlow } from './incomeExpense';
+import { expandSplitTransactions, type SplitExpandedTransaction } from './transactionSplits';
+import { buildNetWorthSnapshots } from './netWorthSeries';
+import type { PeriodRange } from '../hooks/usePeriod';
+
+/**
+ * What a portfolio is worth, and what of that the owner actually put in.
+ *
+ * THE PORTFOLIO IS THE PAIR, NOT THE SECURITIES ACCOUNT (the Microsoft Money
+ * model). A brokerage account and its settlement cash are one holding to the
+ * person who owns them: money sitting in the cash side is money that has not
+ * left the portfolio, so a value that omits it drops to zero the moment
+ * everything is sold. Every figure here therefore runs over the investment
+ * account TOGETHER WITH every account nested inside it (Account.parentAccountId
+ * — see utils/accountNesting), and each account is counted in exactly one line.
+ *
+ * Value is the ledger figure — opening balance plus the account's transactions,
+ * Decimal throughout — not the cached `balance` column, so the page agrees with
+ * the Accounts page and the net-worth report to the penny.
+ */
+
+/** One nested account inside a portfolio line. */
+export interface PortfolioCashLine {
+  accountId: string;
+  /**
+   * 'Cash' for the parent's own "<Name> (Cash)" account (what the importer
+   * creates and what the Accounts page prints), otherwise the account's name —
+   * printing "Fund ISA (Cash)" underneath "Fund ISA" says the same word twice.
+   */
+  label: string;
+  value: DecimalInstance;
+}
+
+/** One row of the Holdings list, and one slice of the allocation donut. */
+export interface PortfolioLine {
+  accountId: string;
+  name: string;
+  /** Secondary line of the row; empty when the account names no institution. */
+  institution: string;
+  /** The investment account plus everything nested inside it. */
+  value: DecimalInstance;
+  /** The nested part of `value`, itemised. Empty when nothing is paired. */
+  cash: PortfolioCashLine[];
+  /** Share of the whole portfolio, 0–100. Zero when the portfolio is worth nothing. */
+  allocation: DecimalInstance;
+}
+
+/**
+ * Transfer legs counted as external because nothing identifies their other
+ * side. They are counted rather than dropped — a real contribution that lost
+ * its link is still a contribution — so this is how much of
+ * `netContributions` rests on that assumption.
+ */
+export interface UnattributedTransfers {
+  count: number;
+  /** Gross magnitude of those legs. */
+  amount: DecimalInstance;
+}
+
+export interface PortfolioSummary {
+  /** One row per top-level investment account, in the order given. */
+  lines: PortfolioLine[];
+  /** Every account counted: the investment accounts and everything nested in them. */
+  memberAccounts: Account[];
+  /** Total value of every line. */
+  value: DecimalInstance;
+  /**
+   * NET EXTERNAL CONTRIBUTIONS: money transferred INTO the portfolio from
+   * outside it, less money transferred back OUT. Signed, so a portfolio that
+   * has paid out more than it took in reports a negative figure.
+   *
+   * Movements BETWEEN a pair's own accounts (selling a fund into its own
+   * settlement cash) are not contributions and are excluded. Growth, dividends,
+   * fees and revaluations are not contributions either — they are what the
+   * money DID once inside, which is exactly why `totalReturn` can measure them.
+   */
+  netContributions: DecimalInstance;
+  /** value − netContributions: everything the portfolio earned or lost. */
+  totalReturn: DecimalInstance;
+  /**
+   * Return as a percentage of what was put in, or null when nothing was —
+   * there is no such thing as a return on nothing, and printing "0.00%" for
+   * it states a fact that was never measured.
+   */
+  returnPercent: DecimalInstance | null;
+  unattributedTransfers: UnattributedTransfers;
+}
+
+export interface PortfolioSummaryInput {
+  /** The accounts in view. Closed accounts are absent, so they nest nowhere. */
+  accounts: readonly Account[];
+  transactions: readonly Transaction[];
+  /** Split lines, so a transfer leg inside a split is classified as one. */
+  transactionSplits: readonly TransactionSplit[];
+  categories: readonly Category[];
+}
+
+const ZERO = toDecimal(0);
+
+/** Category id → the account its "To/From <account>" filing names. */
+function transferCategoryAccounts(categories: readonly Category[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const category of categories) {
+    if (category.isTransferCategory === true && category.accountId) {
+      map.set(category.id, category.accountId);
+    }
+  }
+  return map;
+}
+
+/**
+ * The account on the other side of a transfer, or undefined when nothing says.
+ *
+ * Order follows resolveTransferOtherSide: the linked row's OWN accountId is
+ * authoritative (transfer_account_id is denormalised and imported history
+ * routinely carries a link with no denormalised account on one leg), then the
+ * denormalised id, then the "To/From <account>" category the row is filed
+ * under — which is how a hand-entered transfer names its target before the two
+ * legs are ever linked.
+ *
+ * A SPLIT LINE gets the category alone: the virtual row inherits its parent's
+ * link fields, which belong to the parent's own leg, not to this line's.
+ */
+function counterpartyAccountId(
+  row: SplitExpandedTransaction,
+  transactionsById: ReadonlyMap<string, Transaction>,
+  categoryAccounts: ReadonlyMap<string, string>
+): string | undefined {
+  if (row.isSplitLine !== true) {
+    const linked = row.linkedTransferId ? transactionsById.get(row.linkedTransferId) : undefined;
+    if (linked) return linked.accountId;
+    if (row.transferAccountId) return row.transferAccountId;
+  }
+  return categoryAccounts.get(row.category);
+}
+
+export function buildPortfolioSummary(input: PortfolioSummaryInput): PortfolioSummary {
+  const { accounts, transactions, transactionSplits, categories } = input;
+
+  // Same walk the Accounts page uses, so a paired account lands in the same
+  // place on both pages — and each account in exactly one line, even if a
+  // paired cash account is later retyped 'investment' (it resolves to its
+  // parent, so it is counted inside that line, never again beside it).
+  const topLevelIdByAccountId = buildTopLevelIdByAccountId(accounts);
+  const membersByTopLevelId = groupByTopLevelId(accounts, topLevelIdByAccountId);
+  const roots = accounts.filter(
+    a => a.type === 'investment' && topLevelIdByAccountId.get(a.id) === a.id
+  );
+
+  // A root is always in its own group (it resolves to itself), so the fallback
+  // only satisfies the map's optional lookup.
+  const membersOf = (root: Account): readonly Account[] =>
+    membersByTopLevelId.get(root.id) ?? [root];
+
+  const memberAccounts = roots.flatMap(membersOf);
+  const memberIds = new Set(memberAccounts.map(a => a.id));
+
+  const memberTransactions = transactions.filter(t => memberIds.has(t.accountId));
+  const decimalTransactions = memberTransactions.map(toDecimalTransaction);
+
+  const valueOf = (group: readonly Account[]): DecimalInstance =>
+    calculateTotalBalance(group.map(toDecimalAccount), decimalTransactions);
+
+  const lineValues = roots.map(root => {
+    const members = membersOf(root);
+    const nested = members.filter(m => m.id !== root.id);
+    return {
+      root,
+      value: valueOf(members),
+      cash: nested.map(child => ({
+        accountId: child.id,
+        label: child.name === `${root.name} (Cash)` ? 'Cash' : child.name,
+        value: valueOf([child]),
+      })),
+    };
+  });
+
+  const value = sumDecimals(lineValues.map(l => l.value));
+  const lines: PortfolioLine[] = lineValues.map(line => ({
+    accountId: line.root.id,
+    name: line.root.name,
+    institution: line.root.institution ?? '',
+    value: line.value,
+    cash: line.cash,
+    allocation: value.isZero() ? ZERO : line.value.dividedBy(value).times(100),
+  }));
+
+  // Contributions: transfer rows sitting on a member account whose other side
+  // is NOT in the same pair. Amounts are signed, so money in and money out net
+  // in one pass.
+  const categoryKinds = buildCategoryKindLookup([...categories]);
+  const categoryAccounts = transferCategoryAccounts(categories);
+  const memberRows = expandSplitTransactions(memberTransactions, [...transactionSplits]);
+  // A counterpart can sit in any account, so this indexes everything — but only
+  // when there is something to look up. On a set with no investment accounts it
+  // would be the largest allocation on the page, for nothing.
+  const transactionsById: ReadonlyMap<string, Transaction> = memberRows.length > 0
+    ? new Map(transactions.map(t => [t.id, t]))
+    : new Map();
+
+  let netContributions = ZERO;
+  let unattributedCount = 0;
+  let unattributedAmount = ZERO;
+  for (const row of memberRows) {
+    if (classifyFlow(row, categoryKinds) !== 'transfer') continue;
+    const other = counterpartyAccountId(row, transactionsById, categoryAccounts);
+    if (
+      other !== undefined &&
+      topLevelIdByAccountId.get(other) === topLevelIdByAccountId.get(row.accountId)
+    ) {
+      continue;
+    }
+    const amount = toDecimal(row.amount);
+    netContributions = netContributions.plus(amount);
+    if (other === undefined) {
+      unattributedCount += 1;
+      unattributedAmount = unattributedAmount.plus(amount.abs());
+    }
+  }
+
+  const totalReturn = value.minus(netContributions);
+
+  return {
+    lines,
+    memberAccounts,
+    value,
+    netContributions,
+    totalReturn,
+    returnPercent: netContributions.greaterThan(0)
+      ? totalReturn.dividedBy(netContributions).times(100)
+      : null,
+    unattributedTransfers: { count: unattributedCount, amount: unattributedAmount },
+  };
+}
+
+/** One point of the portfolio's value over time. */
+export interface PortfolioHistoryPoint {
+  /** Axis label: a day for short windows, a month for long ones. */
+  label: string;
+  value: number;
+}
+
+/**
+ * What the portfolio was ACTUALLY worth at each point in `range`: per-account
+ * opening balance plus its transactions up to that date, summed over the pair.
+ *
+ * The net-worth walk does exactly this and already gets the hard parts right —
+ * an opening balance folded in on its effective date rather than backdated to
+ * the beginning of time, and a cadence that switches to month-end on long
+ * windows. Its net worth of a set of accounts is the signed sum of their
+ * balances, which for a portfolio is its value.
+ */
+export function buildPortfolioHistory(
+  memberAccounts: readonly Account[],
+  transactions: readonly Transaction[],
+  range: PeriodRange,
+  now: Date = new Date()
+): PortfolioHistoryPoint[] {
+  const memberIds = new Set(memberAccounts.map(a => a.id));
+  return buildNetWorthSnapshots(
+    [...memberAccounts],
+    transactions.filter(t => memberIds.has(t.accountId)),
+    range,
+    now
+  ).map(point => ({ label: point.label, value: point.netWorth }));
+}

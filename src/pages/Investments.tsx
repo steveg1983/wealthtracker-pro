@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
@@ -9,14 +9,15 @@ import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, parseMoneyInput } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import PageWrapper from '../components/PageWrapper';
 import GroupedAccountOptions from '../components/common/GroupedAccountOptions';
+import { buildPortfolioSummary, buildPortfolioHistory } from '../utils/portfolioSummary';
 
 export default function Investments() {
-  const { accounts, transactions, updateAccount } = useApp();
+  const { accounts, transactions, transactionSplits, categories, updateAccount } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -29,104 +30,57 @@ export default function Investments() {
     return `${formatDecimal(value, decimals)}%`;
   };
 
-  // Get investment accounts only
-  const investmentAccounts = accounts.filter(acc => acc.type === 'investment');
-  
-  // Calculate portfolio value from investment accounts using Decimal
-  const portfolioValue = investmentAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-  
-  // Calculate invested amount from investment-related transactions
-  const investmentTransactions = transactions.filter(t => 
-    t.category?.toLowerCase().includes('invest') || 
-    investmentAccounts.some(acc => t.accountId === acc.id)
+  const openAccounts = useMemo(() => accounts.filter(acc => acc.isActive !== false), [accounts]);
+
+  // The portfolio set that drives the tabs and the empty state: every
+  // investment account, including one paired inside another.
+  const investmentAccounts = useMemo(
+    () => openAccounts.filter(acc => acc.type === 'investment'),
+    [openAccounts]
   );
-  
-  // Expenses are stored signed (negative); invested total is a positive magnitude
-  const totalInvested = investmentTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    
-  const totalReturn = portfolioValue - totalInvested;
-  const returnPercentage = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 
-  // Create holdings data from investment accounts
-  const holdings = investmentAccounts.map((acc) => {
-    const numericBalance = typeof acc.balance === 'string' ? parseMoneyInput(acc.balance) ?? 0 : acc.balance;
-    return {
-      name: acc.name,
-      value: numericBalance,
-      allocation: portfolioValue > 0 ? (numericBalance / portfolioValue) * 100 : 0,
-      return: 0, // Would need historical data to calculate actual returns
-      ticker: acc.institution || 'N/A'
-    };
-  });
+  const accountsById = useMemo(
+    () => new Map(openAccounts.map(acc => [acc.id, acc])),
+    [openAccounts]
+  );
 
-  // Create performance data based on transactions
-  const generatePerformanceData = () => {
-    const data: Array<{ month: string; value: number }> = [];
-    const today = new Date();
-    let periodMonths = 12; // Default to 1Y
-    
-    // Adjust period based on selection
-    switch (selectedPeriod) {
-      case '1M': periodMonths = 1; break;
-      case '3M': periodMonths = 3; break;
-      case '6M': periodMonths = 6; break;
-      case '1Y': periodMonths = 12; break;
-      case 'ALL': {
-        // Find earliest transaction date
-        const earliestDate = investmentTransactions.reduce((earliest, t) => {
-          const tDate = new Date(t.date);
-          return tDate < earliest ? tDate : earliest;
-        }, new Date());
-        periodMonths = Math.max(12, Math.ceil((today.getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
-        break;
-      }
-    }
-    
-    let cumulativeValue = 0;
-    
-    for (let i = periodMonths - 1; i >= 0; i--) {
-      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      
-      // Get all transactions up to this month
-      const transactionsUpToDate = investmentTransactions.filter(t => {
-        const tDate = new Date(t.date);
-        return tDate <= new Date(date.getFullYear(), date.getMonth() + 1, 0);
-      });
-      
-      // Calculate cumulative invested amount
-      // Expenses are stored signed (negative); invested total is a positive magnitude
-      const totalInvestedUpToDate = transactionsUpToDate
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        
-      const totalWithdrawnUpToDate = transactionsUpToDate
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      cumulativeValue = totalInvestedUpToDate - totalWithdrawnUpToDate;
-      
-      // For the current month, use actual portfolio value
-      if (i === 0) {
-        cumulativeValue = portfolioValue;
-      } else {
-        // Add some simulated growth for historical data (since we don't have actual historical values)
-        const monthsFromNow = i;
-        const estimatedGrowthRate = returnPercentage > 0 ? (returnPercentage / 100) / 12 : 0;
-        cumulativeValue = cumulativeValue * (1 + (estimatedGrowthRate * monthsFromNow));
-      }
-      
-      data.push({
-        month: date.toLocaleString('default', { month: 'short' }),
-        value: Math.max(0, cumulativeValue)
-      });
-    }
-    
-    return data;
-  };
+  // Value, contributions and return over the investment↔cash PAIRS — an
+  // account's settlement cash is part of what the portfolio is worth, and
+  // moving money between the two sides is not a contribution. See
+  // utils/portfolioSummary; the nesting rules are the Accounts page's own.
+  const summary = useMemo(
+    () => buildPortfolioSummary({ accounts: openAccounts, transactions, transactionSplits, categories }),
+    [openAccounts, transactions, transactionSplits, categories]
+  );
 
-  const performanceData = generatePerformanceData();
+  // The window the chart covers. 'ALL' is unbounded at both ends, which the
+  // history walk reads as "first transaction until today".
+  const historyRange = useMemo(() => {
+    if (selectedPeriod === 'ALL') return { from: null, to: null };
+    const months = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12 }[selectedPeriod];
+    const now = new Date();
+    return { from: new Date(now.getFullYear(), now.getMonth() - months, now.getDate()), to: now };
+  }, [selectedPeriod]);
+
+  // Real history: what the pair was worth on each date, never a projection of
+  // today's figure backwards.
+  const performanceData = useMemo(
+    () => buildPortfolioHistory(summary.memberAccounts, transactions, historyRange),
+    [summary.memberAccounts, transactions, historyRange]
+  );
+
+  // Numbers for the donut, converted once at the chart boundary.
+  const allocationData = useMemo(
+    () => summary.lines.map(line => ({
+      name: line.name,
+      ticker: line.institution || 'N/A',
+      value: line.value.toNumber()
+    })),
+    [summary.lines]
+  );
+
+  const holdings = summary.lines;
+  const isGain = summary.totalReturn.greaterThanOrEqualTo(0);
   // Use consistent colors for better visual coherence
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
@@ -256,7 +210,7 @@ export default function Investments() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(portfolioValue)}
+                {formatCurrency(summary.value)}
               </p>
             </div>
             <BarChart3Icon className="text-primary" size={24} />
@@ -266,9 +220,12 @@ export default function Investments() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Invested</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Net Contributions</p>
               <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">
-                {formatCurrency(totalInvested)}
+                {formatCurrency(summary.netContributions)}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Transferred in, less transferred out
               </p>
             </div>
             <BarChart3Icon className="text-blue-500" size={24} />
@@ -279,11 +236,11 @@ export default function Investments() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
-              <p className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {totalReturn >= 0 ? '+' : ''}{formatCurrency(totalReturn)}
+              <p className={`text-2xl font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {isGain ? '+' : ''}{formatCurrency(summary.totalReturn)}
               </p>
             </div>
-            <TrendingUpIcon className={totalReturn >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingUpIcon className={isGain ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
 
@@ -291,14 +248,44 @@ export default function Investments() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Return %</p>
-              <p className={`text-2xl font-bold ${returnPercentage >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {returnPercentage >= 0 ? '+' : ''}{formatPercentage(returnPercentage)}
-              </p>
+              {summary.returnPercent === null ? (
+                <>
+                  <p className="text-2xl font-bold text-gray-500 dark:text-gray-400">—</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    No contributions to measure a return against
+                  </p>
+                </>
+              ) : (
+                <p className={`text-2xl font-bold ${isGain ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {isGain ? '+' : ''}{formatPercentage(summary.returnPercent)}
+                </p>
+              )}
             </div>
-            <TrendingDownIcon className={returnPercentage >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingDownIcon
+              className={
+                summary.returnPercent === null
+                  ? 'text-gray-400'
+                  : isGain ? 'text-green-500' : 'text-red-500'
+              }
+              size={24}
+            />
           </div>
         </div>
         </div>
+
+        {/* What the contributions figure rests on. Says what could be WRONG
+            with it, not how many rows there are — and renders nothing at all
+            when every transfer is accounted for. */}
+        {summary.unattributedTransfers.count > 0 && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
+            <p className="text-sm text-amber-900 dark:text-amber-200">
+              {formatCurrency(summary.unattributedTransfers.amount)} of transfers in and out of
+              these accounts have no matching row in another account, so they are counted as
+              money from outside. Any that were moves within the portfolio make Net Contributions
+              too big and Total Return too small.
+            </p>
+          </div>
+        )}
 
         {/* Performance Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
@@ -324,7 +311,7 @@ export default function Investments() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={performanceData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="month" stroke="#9CA3AF" />
+              <XAxis dataKey="label" stroke="#9CA3AF" />
               <YAxis 
                 stroke="#9CA3AF" 
                 tickFormatter={(value: number) => {
@@ -371,18 +358,18 @@ export default function Investments() {
           ) : (
             <div className="space-y-4">
               {holdings.map((holding, index) => {
-                const account = investmentAccounts.find(a => a.name === holding.name);
+                const account = accountsById.get(holding.accountId);
                 if (!account) return null;
-                
+
                 return (
-                  <div 
-                    key={account.id} 
+                  <div
+                    key={account.id}
                     className="border-b dark:border-gray-700 pb-4 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 -mx-2 px-2 py-2 rounded"
                     onClick={() => setSelectedAccountId(account.id)}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
-                        <div 
+                        <div
                           className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         />
@@ -390,7 +377,9 @@ export default function Investments() {
                           <h3 className="font-medium text-gray-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
                             {holding.name}
                           </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{holding.ticker}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {holding.institution || 'N/A'}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -402,12 +391,27 @@ export default function Investments() {
                         )}
                       </div>
                     </div>
+                    {/* The paired cash, inside the line rather than beside it:
+                        the row's value already contains it, so this says what
+                        part of the total is not invested. */}
+                    {holding.cash.map(cash => (
+                      <p
+                        key={cash.accountId}
+                        className="ml-5 mb-2 flex justify-between text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        <span>{cash.label}</span>
+                        <span className="tabular-nums">{formatCurrency(cash.value)}</span>
+                      </p>
+                    ))}
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div 
+                        <div
                           className="h-2 rounded-full"
-                          style={{ 
-                            width: `${holding.allocation}%`,
+                          style={{
+                            // Clamped for layout only: a line can be worth a
+                            // negative amount, and a negative width renders
+                            // nothing anywhere.
+                            width: `${Math.min(100, Math.max(0, holding.allocation.toNumber()))}%`,
                             backgroundColor: COLORS[index % COLORS.length]
                           }}
                         />
@@ -436,7 +440,7 @@ export default function Investments() {
                 <ResponsiveContainer width="100%" height="100%">
                   <RePieChart>
                     <Pie
-                      data={holdings}
+                      data={allocationData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -444,7 +448,7 @@ export default function Investments() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {holdings.map((_, index) => (
+                      {allocationData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -461,13 +465,13 @@ export default function Investments() {
               </div>
               <div className="mt-4 space-y-2">
                 {holdings.map((holding, index) => (
-                  <div key={holding.name} className="flex items-center justify-between text-sm">
+                  <div key={holding.accountId} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <div 
+                      <div
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: COLORS[index % COLORS.length] }}
                       />
-                      <span className="text-gray-700 dark:text-gray-300">{holding.ticker}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{holding.institution || 'N/A'}</span>
                     </div>
                     <span className="text-gray-900 dark:text-white font-medium">
                       {formatPercentage(holding.allocation)}
@@ -485,12 +489,12 @@ export default function Investments() {
           <div className="flex items-start gap-3">
             <AlertCircleIcon className="text-blue-700 dark:text-blue-400 mt-1" size={20} />
             <div>
-              <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
+              <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">How these figures are worked out</h3>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                <li>• Add investment accounts to track your portfolio</li>
-                <li>• Record investment transactions with appropriate categories</li>
-                <li>• Review your asset allocation regularly</li>
-                <li>• Consider your risk tolerance and investment timeline</li>
+                <li>• A line is worth the investment account plus any cash account paired with it — set the pairing in Account Settings → Part of investment account</li>
+                <li>• Money transferred in from elsewhere counts as a contribution; moving money between an investment account and its own cash does not</li>
+                <li>• Total Return is what the portfolio is worth today less what was put into it</li>
+                <li>• The chart is the balance history of these accounts, not a projection</li>
               </ul>
             </div>
           </div>

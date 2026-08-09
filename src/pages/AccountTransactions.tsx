@@ -2921,11 +2921,13 @@ export default function AccountTransactions() {
         onClose={() => setShowShortcuts(false)}
       />
 
-      {/* Account Settings — opened directly from the register header. */}
+      {/* Account Settings — opened directly from the register header. Same
+          modal, same fields as the Accounts page, pairing included. */}
       <AccountSettingsModal
         isOpen={showAccountSettings}
         onClose={() => setShowAccountSettings(false)}
         account={account}
+        accounts={accounts}
         onSave={async (accountId, updates) => {
           await updateAccount(accountId, updates);
           // Rename/close also updates the account's transfer category via the
