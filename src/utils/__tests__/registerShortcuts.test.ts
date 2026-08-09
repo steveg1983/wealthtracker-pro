@@ -6,6 +6,7 @@ import {
   findTypeAheadMatch,
   isAppleKeyboard,
   isTypeAheadKey,
+  nextStripButtonIndex,
   printableKeys,
   REGISTER_SHORTCUT_GROUPS,
 } from '../registerShortcuts';
@@ -109,6 +110,41 @@ describe('type-ahead — where it lands', () => {
     expect(findTypeAheadMatch(ROWS, 'zzz', -1)).toBe(-1);
     expect(findTypeAheadMatch([], 'a', -1)).toBe(-1);
     expect(findTypeAheadMatch(ROWS, '', -1)).toBe(-1);
+  });
+});
+
+describe('the arrows along the row editor’s action strip', () => {
+  // Four buttons is the full strip: Confirm, Save & Next, Save, ×.
+  const FOUR = 4;
+
+  it('steps right and left one button at a time', () => {
+    expect(nextStripButtonIndex(1, FOUR, 'ArrowRight')).toBe(2);
+    expect(nextStripButtonIndex(2, FOUR, 'ArrowLeft')).toBe(1);
+  });
+
+  it('wraps at both ends rather than leaving anyone stuck', () => {
+    expect(nextStripButtonIndex(FOUR - 1, FOUR, 'ArrowRight')).toBe(0);
+    expect(nextStripButtonIndex(0, FOUR, 'ArrowLeft')).toBe(FOUR - 1);
+  });
+
+  it('jumps to the ends on Home and End', () => {
+    expect(nextStripButtonIndex(2, FOUR, 'Home')).toBe(0);
+    expect(nextStripButtonIndex(0, FOUR, 'End')).toBe(FOUR - 1);
+  });
+
+  it('leaves every other key to whoever else wants it', () => {
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab', ' ', 'a']) {
+      expect(nextStripButtonIndex(0, FOUR, key)).toBeNull();
+    }
+  });
+
+  it('says no rather than guessing when there is nothing to step along', () => {
+    // A row with no next transaction shows two buttons, not four; a strip
+    // mid-save shows fewer still, because a disabled button is not in the walk.
+    expect(nextStripButtonIndex(0, 1, 'ArrowRight')).toBe(0);
+    expect(nextStripButtonIndex(0, 0, 'ArrowRight')).toBeNull();
+    expect(nextStripButtonIndex(-1, FOUR, 'ArrowRight')).toBeNull();
+    expect(nextStripButtonIndex(FOUR, FOUR, 'ArrowRight')).toBeNull();
   });
 });
 

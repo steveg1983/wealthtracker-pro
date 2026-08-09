@@ -263,14 +263,23 @@ export default function Layout(): React.JSX.Element {
               label="Accounts"
               icon={WalletIcon}
               homeTo="/accounts"
+              // Investments sits here, under Transactions, and no longer under
+              // Manage. A holding IS an account — it has a balance, it moves,
+              // it counts towards net worth — so it belongs with the things you
+              // OWN, next to the transactions that feed it. Manage is data
+              // admin: categories, payees, tags, imports. Same page, same icon;
+              // only the menu it hangs off changed.
               items={[
                 { to: '/accounts', icon: WalletIcon, label: 'All Accounts' },
                 { to: '/transactions', icon: CreditCardIcon, label: 'Transactions' },
+                { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
                 { to: '/reconciliation', icon: ArrowRightLeftIcon, label: 'Reconciliation' },
                 { to: '/categorisation', icon: TagIcon, label: 'Categorisation' },
                 { to: '/open-banking', icon: BankIcon, label: 'Bank Feeds' },
               ]}
-              activePaths={['/accounts', '/transactions', '/reconciliation', '/categorisation', '/open-banking']}
+              // The highlight follows the menu: on /investments it is Accounts
+              // that lights up now, not Manage.
+              activePaths={['/accounts', '/transactions', '/investments', '/reconciliation', '/categorisation', '/open-banking']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -298,16 +307,19 @@ export default function Layout(): React.JSX.Element {
               label="Manage"
               icon={SettingsIcon}
               homeTo="/settings/categories"
+              // Categories, Payees, Tags — in the order they matter to someone
+              // tidying up a statement. Every transaction has a category and a
+              // payee; tags are the optional third thing, and were sitting in
+              // front of the one people open most.
               items={[
                 { to: '/settings/categories', icon: TagIcon, label: 'Categories' },
-                { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
                 { to: '/settings/payees', icon: UsersIcon, label: 'Payees' },
+                { to: '/settings/tags', icon: HashIcon, label: 'Tags' },
                 { to: '/enhanced-import', icon: UploadIcon, label: 'Import Data' },
                 { to: '/export-manager', icon: DownloadIcon, label: 'Export Data' },
-                { to: '/investments', icon: TrendingUpIcon, label: 'Investments' },
                 { to: '/documents', icon: FolderIcon, label: 'Documents' },
               ]}
-              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/enhanced-import', '/export-manager', '/documents', '/investments']}
+              activePaths={['/settings/categories', '/settings/tags', '/settings/payees', '/enhanced-import', '/export-manager', '/documents']}
               openDropdown={openDropdown}
               setOpenDropdown={setOpenDropdown}
             />
@@ -594,9 +606,11 @@ export default function Layout(): React.JSX.Element {
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      {/* Same order as the desktop Manage menu — the drawer and
+                          the top nav must not teach two different shapes. */}
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/payees" icon={UsersIcon} label="Payees" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />

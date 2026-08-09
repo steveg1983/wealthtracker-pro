@@ -875,8 +875,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         );
       })()}
 
-      {/* Group + sort controls, with bank connections on the right */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-4">
+      {/* Group + sort controls, with bank connections on the right.
+          ─ WHICH LABEL GOES WITH WHICH CONTROL ────────────────────────────
+          The gap BEFORE a label has to beat the gap AFTER it, or the eye files
+          the label with the group it has just finished reading. "Sort:" used to
+          fail that test: its label box was a fixed w-20 while the word is about
+          half that, so 50-odd pixels of nothing sat between "Sort:" and its own
+          Default button while only 24 separated it from the Institution button
+          before it — and it read as Institution's caption.
+          The fixed width now applies ONLY below sm, where the two rows stack
+          and it is what lines the pill groups up under each other; side by side
+          each label is its own width, 8px from its controls and 32 from the
+          group before. */}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mb-4">
         {/* w-full below sm: each control needs to OWN its row for the pill
             group inside to stretch — as content-sized flex items the two
             rows ended at different x and the pills could not line up.
@@ -887,7 +898,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             list. The p-0.5 is not decoration — it matches the height the Sort
             group gets from its own border and padding, so the two rows line up. */}
         <div className="w-full sm:w-auto flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Group by:</span>
+          {/* Semibold, and a grade darker: these two words are the only thing
+              telling anyone what the row of pills beside them does, and at
+              gray-500/normal they read as a footnote to the buttons rather than
+              as their name. */}
+          <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-20 sm:w-auto shrink-0">Group by:</span>
           <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex gap-2 p-0.5">
             <button
               type="button"
@@ -918,7 +933,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           </div>
         </div>
         <div className="w-full sm:w-auto flex items-center gap-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400 w-20 shrink-0">Sort:</span>
+          <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-20 sm:w-auto shrink-0">Sort:</span>
           <div className="grid grid-flow-col auto-cols-fr flex-1 sm:flex-none sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-0.5">
             <button
               onClick={() => handleSortChange('default')}
@@ -958,10 +973,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           </div>
         </div>
         {/* Search — the way to find one account among two hundred. On a
-            phone it takes the first row, full width; the pills follow. */}
-        <div className="order-first basis-full sm:order-none sm:basis-auto flex items-center gap-2">
+            phone it takes the first row, full width; the pills follow.
+
+            GROWS into whatever the toolbar has spare, rather than sitting at a
+            fixed 224px with a corridor of nothing between it and Refresh feeds.
+            basis-56 is the size it falls back to, so when the window is too
+            narrow to hold everything the row WRAPS at the old width instead of
+            squeezing the box down to a slot too small to read a bank's name
+            in. */}
+        <div className="order-first basis-full sm:order-none sm:basis-56 sm:grow flex items-center gap-2">
           <label htmlFor="account-search" className="sr-only">Search accounts by name or institution</label>
-          <div className="relative flex-1 sm:flex-none">
+          {/* min-w-0 so the growing/shrinking happens to the box rather than
+              being refused by the input's own intrinsic width. */}
+          <div className="relative flex-1 min-w-0">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
             <input
               id="account-search"
@@ -969,7 +993,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
               value={accountSearch}
               onChange={(e) => setAccountSearch(e.target.value)}
               placeholder="Search accounts…"
-              className="w-full sm:w-56 pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           {isSearching && (

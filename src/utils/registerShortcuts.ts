@@ -145,6 +145,48 @@ export function findTypeAheadMatch(
 }
 
 /**
+ * The button the row editor's action strip should move the cursor to, or null
+ * when this key is not one of the strip's.
+ *
+ * ─ WHY THE STRIP HAS ARROWS AT ALL ─────────────────────────────────────────
+ * Enter, in a field, hands the cursor to Save & Next — the button a run of
+ * categories presses a hundred times. But some rows are the END of a run: "save
+ * just this one and let me look at it". Before this, that meant Tab (which
+ * walks on into the rest of the page if you overshoot) or the mouse. Now the
+ * strip is one group the arrows walk along, so saving a single row is
+ * type, Enter, right-arrow, Enter — without the hand leaving the keyboard.
+ *
+ * It WRAPS on purpose: four buttons at most, and a group you can get stuck at
+ * the end of is a group people stop trusting the arrows in.
+ *
+ * ─ WHY THIS CANNOT DISTURB ANYTHING ELSE ───────────────────────────────────
+ * The caller only asks when the cursor is ON one of the strip's buttons, so an
+ * arrow inside a text field is still the text cursor moving, and an arrow on
+ * the list is still the highlight moving a row. The register's own handler
+ * stands down for anything wearing the editor's mark either way (see
+ * isInsideQuickEdit), so these keys were doing nothing before.
+ */
+export function nextStripButtonIndex(
+  current: number,
+  count: number,
+  key: string
+): number | null {
+  if (count === 0 || current < 0 || current >= count) return null;
+  switch (key) {
+    case 'ArrowRight':
+      return (current + 1) % count;
+    case 'ArrowLeft':
+      return (current - 1 + count) % count;
+    case 'Home':
+      return 0;
+    case 'End':
+      return count - 1;
+    default:
+      return null;
+  }
+}
+
+/**
  * Does this machine label the modifier ⌘ or Ctrl?
  *
  * Only ever used for what is PRINTED. The handlers accept ctrlKey or metaKey
@@ -235,6 +277,11 @@ export const REGISTER_SHORTCUT_GROUPS: readonly RegisterShortcutGroup[] = [
       {
         keys: ['Enter'],
         what: 'Pressed again, on Save & Next: saves the row, moves to the next one, and puts the cursor back in the field you were in — so a run of categories is type, Enter, Enter, type, Enter, Enter. On the last transaction there is nothing to move to, so it simply saves and closes.',
+      },
+      {
+        keys: ['→'],
+        alsoKeys: ['←'],
+        what: 'Once the cursor is on a button under the row, step along the rest of them — Save & Next, Save, and the × that closes. So "save just this one" is Enter, then →, then Enter. Home and End jump to the first and last button.',
       },
       {
         keys: ['Esc'],

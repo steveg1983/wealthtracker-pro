@@ -236,6 +236,92 @@ describe('Accounts page — the two Group by switches', () => {
   });
 });
 
+/**
+ * The toolbar, after the owner used it in a browser: the two labels read as
+ * captions rather than names, "Sort:" sat nearer the previous group's last
+ * button than its own first one, and the search box held a fixed 224px with a
+ * corridor of nothing between it and Refresh feeds.
+ *
+ * jsdom has no layout, so it cannot tell you that any of that LOOKS right — the
+ * owner's eye settles that. What it can hold is the structure the look depends
+ * on: which utilities are present, which are gone, and which of two gaps is the
+ * bigger number. Take the flex-grow off, or put the fixed width back, and these
+ * fail.
+ */
+describe('Accounts page — the toolbar reads as three labelled groups', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  const labelSpan = (text: string): HTMLElement => {
+    const el = screen.getByText(text);
+    if (!(el instanceof HTMLElement)) throw new Error(`no ${text} label`);
+    return el;
+  };
+
+  it('sets both labels apart from the controls they name', async () => {
+    renderAccounts();
+    await screen.findByRole('heading', { level: 2, name: 'Current Accounts' });
+
+    for (const text of ['Group by:', 'Sort:']) {
+      // Bold, and a grade darker than the buttons' own text: a label the same
+      // weight and colour as everything else names nothing.
+      expect(labelSpan(text).className).toContain('font-semibold');
+      expect(labelSpan(text).className).toContain('text-gray-600');
+      expect(labelSpan(text).className).not.toContain('text-gray-500');
+    }
+  });
+
+  it('leaves each label closer to its own controls than to the group before', async () => {
+    renderAccounts();
+    await screen.findByRole('heading', { level: 2, name: 'Current Accounts' });
+
+    // The fixed w-20 label box is why "Sort:" drifted: at 80px wide for a word
+    // half that, the gap AFTER the label beat the gap before it, and the eye
+    // filed it with the Institution button. It survives only below sm, where
+    // the groups stack and it is what lines the pill rows up.
+    const sort = labelSpan('Sort:');
+    expect(sort.className).toContain('w-20');
+    expect(sort.className).toContain('sm:w-auto');
+
+    // Side by side, the gap BEFORE a label (between groups) has to beat the gap
+    // after it (label to controls). gap-x-8 = 32px against the groups' own
+    // gap-2 = 8px.
+    const toolbar = sort.closest('.flex-wrap');
+    if (!(toolbar instanceof HTMLElement)) throw new Error('no toolbar row');
+    expect(toolbar.className).toContain('gap-x-8');
+    const group = sort.parentElement;
+    if (!(group instanceof HTMLElement)) throw new Error('no sort group');
+    expect(group.className).toContain('gap-2');
+    expect(group.className).not.toContain('gap-x-8');
+  });
+
+  it('lets the search box grow into the space beside it instead of fixing its width', async () => {
+    renderAccounts();
+    await screen.findByRole('heading', { level: 2, name: 'Current Accounts' });
+
+    const box = screen.getByRole('searchbox');
+    // No w-56 any more: the input fills whatever its wrapper is given…
+    expect(box.className).toContain('w-full');
+    expect(box.className).not.toContain('sm:w-56');
+
+    // …and the wrapper takes the toolbar's slack, falling back to the old
+    // 224px (basis-56) so a crowded row wraps rather than squeezing the box
+    // down to a slot too small to read a bank's name in.
+    const field = box.parentElement;
+    if (!(field instanceof HTMLElement)) throw new Error('no search field');
+    expect(field.className).toContain('flex-1');
+    expect(field.className).toContain('min-w-0');
+    const wrapper = field.parentElement;
+    if (!(wrapper instanceof HTMLElement)) throw new Error('no search group');
+    expect(wrapper.className).toContain('sm:grow');
+    expect(wrapper.className).toContain('sm:basis-56');
+    // Still first and full width on a phone, where it has its own row.
+    expect(wrapper.className).toContain('order-first');
+    expect(wrapper.className).toContain('basis-full');
+  });
+});
+
 describe('Accounts page — search', () => {
   beforeEach(() => {
     localStorage.clear();
