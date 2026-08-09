@@ -5,7 +5,7 @@ import { useUser } from '@clerk/clerk-react';
  * The keys these notifications used to live under — ONE flat localStorage
  * entry for whoever happened to use this browser. Signing in as a different
  * user showed the previous user's alerts: real account names, real balance
- * movements. Found live 2026-07-26, one user's "HSBC PREMIER balance updated"
+ * movements. Found live 2026-07-26, one user's "balance updated" account activity
  * visible inside another user's session on the same phone.
  *
  * Purged on sight rather than migrated: an unscoped entry cannot prove whose

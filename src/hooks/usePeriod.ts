@@ -102,6 +102,28 @@ interface PeriodSelection {
   explicit: boolean;
 }
 
+/**
+ * Carry a stored selection over to a second key, once.
+ *
+ * When one control is split into two, the half that keeps the old key keeps
+ * the user's choice and the new half would silently start from its default —
+ * so a dashboard set to "All time" would come back half on "All time" and half
+ * on twelve months, with nothing said. Copying the selection (and its explicit
+ * flag and custom bounds) the first time the new key is read means the split
+ * changes the layout and nothing else. A no-op once the new key exists.
+ */
+export function seedPeriodSelection(fromKey: string, toKey: string): void {
+  if (localStorage.getItem(toKey) !== null) return;
+  const stored = localStorage.getItem(fromKey);
+  if (stored === null) return;
+
+  localStorage.setItem(toKey, stored);
+  for (const suffix of ['Explicit', 'CustomStart', 'CustomEnd']) {
+    const value = localStorage.getItem(`${fromKey}${suffix}`);
+    if (value !== null) localStorage.setItem(`${toKey}${suffix}`, value);
+  }
+}
+
 function readStoredSelection(storageKey: string, defaultKey: PeriodKey): PeriodSelection {
   const stored = localStorage.getItem(storageKey);
   if (stored === null || !isPeriodKey(stored)) return { period: defaultKey, explicit: false };

@@ -1050,7 +1050,7 @@ NEWFILEUID:NONE
 });
 
 describe('a tag that is present but empty', () => {
-  // Regression: a Coutts (Sage-format) export writes <MEMO></MEMO> for a
+  // Regression: a private-bank Sage-format export writes <MEMO></MEMO> for a
   // transaction with no memo. The old reader was `closed || unclosed`, and ''
   // is falsy, so it fell through to the line-terminated read and captured the
   // literal "</MEMO>". 17 of the 19 transactions in the reported file were

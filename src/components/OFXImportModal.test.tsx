@@ -80,14 +80,19 @@ vi.mock('./icons', () => ({
 
 // Mock Modal component
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) => 
+  Modal: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) =>
     isOpen ? (
       <div data-testid="modal">
         <div data-testid="modal-title">{title}</div>
         <button data-testid="modal-close" onClick={onClose}>Close</button>
         {children}
       </div>
-    ) : null
+    ) : null,
+  // The real ModalBody is the modal's one scrollable region; here it only
+  // needs to exist and render its children.
+  ModalBody: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="modal-body">{children}</div>
+  )
 }));
 
 // Mock LoadingButton

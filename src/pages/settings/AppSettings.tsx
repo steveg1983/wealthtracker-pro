@@ -22,8 +22,6 @@ export default function AppSettings() {
     setThemeSchedule,
     showInvestments,
     setShowInvestments,
-    showEnhancedInvestments,
-    setShowEnhancedInvestments,
     enableGoalCelebrations,
     setEnableGoalCelebrations
   } = usePreferences();
@@ -48,9 +46,11 @@ export default function AppSettings() {
     { value: 'scheduled', label: 'Scheduled', icon: ClockIcon },
   ];
 
-  // Only the investment pages are optional. The other toggles that used to live
+  // Only the Investments page is optional. The other toggles that used to live
   // here gated nothing — their pages are either always in the sidebar or have
-  // been retired — so hiding them misled people into thinking they had an effect.
+  // been retired — so hiding them misled people into thinking they had an
+  // effect. "Investment Analytics" went the same way: the page it showed
+  // (/enhanced-investments) invented its own risk and ESG figures.
   const pageToggles = [
     {
       title: 'Investments',
@@ -58,13 +58,6 @@ export default function AppSettings() {
       value: showInvestments,
       onChange: setShowInvestments,
       icon: showInvestments ? EyeIcon : EyeOffIcon
-    },
-    {
-      title: 'Investment Analytics',
-      description: 'Show enhanced investment analytics',
-      value: showEnhancedInvestments,
-      onChange: setShowEnhancedInvestments,
-      icon: showEnhancedInvestments ? EyeIcon : EyeOffIcon
     }
   ];
 

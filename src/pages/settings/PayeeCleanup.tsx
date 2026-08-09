@@ -87,16 +87,27 @@ const withSessionKeys = (saved: Set<string>, thisSitting: ReadonlySet<string>): 
 };
 
 /**
- * The two orders, in the words of the question each one answers. "Most
+ * The orders, in the words of the question each one answers. "Most
  * transactions" is the order the screen has always used and still opens in —
  * the biggest win first, which is why the old eight chips showed what they
- * showed — and A–Z is the one the owner asked for, a click away.
+ * showed. The payee-count pair reads the same list by how far a merchant
+ * fragmented, from either end; A–Z is "where is the one I came here for".
  */
 const ORDERS: ReadonlyArray<{ value: ClusterOrder; label: string; hint: string }> = [
   {
     value: 'transactions',
     label: 'Most transactions',
     hint: 'Biggest tidy-up first',
+  },
+  {
+    value: 'most-payees',
+    label: 'Most payees',
+    hint: 'Widest spread first',
+  },
+  {
+    value: 'fewest-payees',
+    label: 'Fewest payees',
+    hint: 'Near-singletons first',
   },
   {
     value: 'alphabetical',

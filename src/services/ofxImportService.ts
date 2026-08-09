@@ -302,7 +302,7 @@ export class OFXImportService {
    * not here" from "the tag is here and empty".
    *
    * The old readers were `closed || unclosed`, which cannot make that
-   * distinction, because an empty value is '' and '' is falsy. A Coutts export
+   * distinction, because an empty value is '' and '' is falsy. A Sage-format private-bank export
    * writes <MEMO></MEMO> for a transaction with no memo, so the closed read
    * correctly returned '', the || fell through to the unclosed read, and that
    * one runs to the end of the LINE — capturing the literal text "</MEMO>".

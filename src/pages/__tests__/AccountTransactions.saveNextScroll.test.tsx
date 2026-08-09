@@ -12,8 +12,8 @@ import type { Account, Category, Transaction } from '../../types';
 
 /**
  * "Sometimes when I update the category and then press 'save & next', I get
- * kicked back to the start of the transaction list, which for my HSBC Premier
- * Current Account is 2008. I then need to scroll all the way back to the
+ * kicked back to the start of the transaction list, which for my oldest
+ * current account is 2008. I then need to scroll all the way back to the
  * current date." — the owner.
  *
  * His register is sorted oldest-first, so "2008" is scroll position zero.

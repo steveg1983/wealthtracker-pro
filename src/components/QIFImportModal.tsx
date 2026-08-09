@@ -5,7 +5,7 @@ import { qifImportService } from '../services/qifImportService';
 import { transactionImportService } from '../services/transactionImportService';
 import type { Account } from '../types';
 import type { QIFParseResult } from '../services/qifImportService';
-import { Modal } from './common/Modal';
+import { Modal, ModalBody } from './common/Modal';
 import {
   UploadIcon,
   FileTextIcon,
@@ -208,7 +208,10 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
   
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Import QIF File" size="lg">
-      <div className="p-6">
+      {/* ModalBody, not a bare div: the Modal panel is overflow-hidden with a
+          max height, and delegates scrolling to this element — a long preview
+          list must scroll, not push the import button out of reach. */}
+      <ModalBody>
         {!parseResult && !importResult && (
           <>
             {/* File Upload */}
@@ -467,7 +470,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
             </div>
           </div>
         )}
-      </div>
+      </ModalBody>
     </Modal>
   );
 }

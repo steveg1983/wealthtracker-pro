@@ -47,7 +47,8 @@ export default function Layout(): React.JSX.Element {
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   // advancedExpanded removed — Advanced section now uses TopNavDropdown on desktop and direct links on mobile
-  const [investmentsExpanded, setInvestmentsExpanded] = useState(false);
+  // investmentsExpanded removed with /enhanced-investments — Investments has no
+  // sub-pages left, so it is a plain link in the drawer.
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
   const desktopSearchRef = useRef<GlobalSearchHandle | null>(null);
@@ -58,10 +59,7 @@ export default function Layout(): React.JSX.Element {
   const isDemoModeRoutingEnabled =
     isDemoModeRuntimeAllowed(import.meta.env) && searchParams.get('demo') === 'true';
   const { registration } = useServiceWorker();
-  const {
-    showInvestments,
-    showEnhancedInvestments,
-  } = usePreferences();
+  const { showInvestments } = usePreferences();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
   const [showGlobalAddTransaction, setShowGlobalAddTransaction] = useState(false);
 
@@ -558,30 +556,17 @@ export default function Layout(): React.JSX.Element {
                   )}
                 </div>
 
-                {/* Investments with Sub-navigation */}
-                {(showInvestments || showEnhancedInvestments) && (
-                  <div>
-                    <Link
-                      to={isDemoModeRoutingEnabled ? '/investments?demo=true' : '/investments'}
-                      onClick={() => {
-                        setInvestmentsExpanded(!investmentsExpanded);
-                        toggleMobileMenu();
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
-                    >
-                      <TrendingUpIcon size={18} />
-                      <span className="flex-1 text-sm text-left">Investments</span>
-                      <ChevronRightIcon 
-                        size={14} 
-                        className={`text-gray-400 transition-transform duration-200 ${investmentsExpanded ? 'rotate-90' : ''}`} 
-                      />
-                    </Link>
-                    {investmentsExpanded && (
-                      <div className="mt-1 space-y-1">
-                        {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
-                      </div>
-                    )}
-                  </div>
+                {/* Investments. A plain link, not a disclosure: the one child
+                    it ever had was /enhanced-investments, and a chevron that
+                    expands to nothing is a promise the menu cannot keep. */}
+                {showInvestments && (
+                  <SidebarLink
+                    to="/investments"
+                    icon={TrendingUpIcon}
+                    label="Investments"
+                    isCollapsed={false}
+                    onNavigate={toggleMobileMenu}
+                  />
                 )}
                 
                 {/* Plan (Budget, Goals, Forecasting, Calendar) is desk work

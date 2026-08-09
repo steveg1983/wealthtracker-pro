@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput, toDecimal } from '../utils/decimal';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon, KeyboardIcon } from '../components/icons';
+import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon, KeyboardIcon, AlertCircleIcon } from '../components/icons';
 import DatePicker from '../components/common/DatePicker';
 import MoneyInput from '../components/common/MoneyInput';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -48,6 +49,10 @@ import {
 } from '../utils/registerShortcuts';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
+import { buildAttentionItems } from '../utils/attentionItems';
+import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
+import { buildAccountBankLinks } from '../hooks/useAccountBankSync';
+import { useBankConnectionSnapshot } from '../hooks/useBankConnectionSnapshot';
 import { DataService } from '../services/api/dataService';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
@@ -283,6 +288,7 @@ export default function AccountTransactions() {
     setTransactionsCleared, setTransactionArchived,
   } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const { userId: clerkUserId } = useClerkAuth();
   const { showError, showInfo, showSuccess } = useToast();
   const { compactView, setCompactView: _setCompactView } = usePreferences();
 
@@ -782,6 +788,29 @@ export default function AccountTransactions() {
 
   // Bank balance from TrueLayer sync (or null if not available)
   const bankBalance = account?.bankBalance ?? null;
+
+  /**
+   * Why the dashboard sent them here.
+   *
+   * "Needs Your Attention" used to click through to a register that said
+   * nothing about the warning, so the trip ended in a guess. Same builder, same
+   * sentence — one account's worth of it, from connections already in memory,
+   * so this costs a map lookup and no request. Nothing to say renders nothing.
+   */
+  const bankConnections = useBankConnectionSnapshot();
+  const attentionReason = useMemo(() => {
+    if (!account) return null;
+    const links = buildAccountBankLinks(bankConnections);
+    const [item] = buildAttentionItems({
+      accounts: [account],
+      balanceOf: () => computedAccountBalance,
+      linkOf: (id) => links.get(id),
+      autoSyncMode: clerkUserId ? loadAutoSyncPrefs(clerkUserId).mode : 'off',
+      formatMoney: formatCurrency,
+      now: new Date(),
+    });
+    return item?.reason ?? null;
+  }, [account, bankConnections, computedAccountBalance, clerkUserId, formatCurrency]);
 
   /**
    * What to say when the register is not in date order.
@@ -2209,7 +2238,19 @@ export default function AccountTransactions() {
           </div>
         </div>
       </div>
-      
+
+      {/* The reason the dashboard sent them here, said where the money is. */}
+      {attentionReason && (
+        <div
+          className="flex items-start gap-3 rounded-xl border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3"
+          role="status"
+          data-testid="account-attention-banner"
+        >
+          <AlertCircleIcon size={18} className="text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <p className="text-sm text-gray-700 dark:text-gray-200">{attentionReason}</p>
+        </div>
+      )}
+
       {/* Main content — single-viewport layout: toolbar, table, bottom dock */}
       <div className="flex flex-col gap-3">
       {/* Toolbar: filter toggle + table size toggle. On a phone the three
@@ -2880,11 +2921,13 @@ export default function AccountTransactions() {
         onClose={() => setShowShortcuts(false)}
       />
 
-      {/* Account Settings — opened directly from the register header. */}
+      {/* Account Settings — opened directly from the register header. Same
+          modal, same fields as the Accounts page, pairing included. */}
       <AccountSettingsModal
         isOpen={showAccountSettings}
         onClose={() => setShowAccountSettings(false)}
         account={account}
+        accounts={accounts}
         onSave={async (accountId, updates) => {
           await updateAccount(accountId, updates);
           // Rename/close also updates the account's transfer category via the

@@ -8,12 +8,23 @@ const ORDER: PeriodKey[] = ['this-month', 'last-month', 'tax-year', 'last-12-mon
  * The shared reporting-period control (pair with usePeriod). Same segmented
  * style as the Accounts page toolbar, so every reporting surface reads the
  * same and MEANS the same.
+ *
+ * `label` names WHAT this control governs. It is optional only because most
+ * surfaces have one period; where a page shows two, six identically-worded
+ * buttons twice over is unusable without it — by ear and by keyboard alike.
  */
-export default function PeriodPicker({ picker }: { picker: UsePeriodResult }): React.JSX.Element {
+export default function PeriodPicker({ picker, label }: {
+  picker: UsePeriodResult;
+  label?: string;
+}): React.JSX.Element {
   const { period, setPeriod, customStart, customEnd, setCustomStart, setCustomEnd } = picker;
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div
+      className="flex flex-wrap items-center gap-3"
+      role={label ? 'group' : undefined}
+      aria-label={label}
+    >
       {/* flex-wrap is the phone story: six segments need ~490px and a phone
           offers ~340, so the pill breaks into two rows there — the options
           stack rather than run off the screen edge. One row from md up. */}

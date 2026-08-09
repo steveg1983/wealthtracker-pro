@@ -174,7 +174,7 @@ export const DEFAULT_ACCOUNT_GROUPING: AccountGroupingOptions = { byType: true, 
 
 /**
  * What a band groups BY. The page keys its collapsed-set entries off this
- * ("type:current", "institution:Coutts"), so a fold survives the other switch
+ * ("type:current", "institution:Calderbank"), so a fold survives the other switch
  * being flipped and can never leak across the two dimensions.
  */
 export type AccountGroupKind = 'type' | 'institution';
@@ -221,7 +221,7 @@ const institutionKey = (account: GroupableAccount): string =>
 /**
  * The spelling each institution prints under: the casing that arrived first
  * across the WHOLE list. Resolved once and shared by every band, so a nested
- * view cannot head one section 'Coutts' and the next 'coutts' just because a
+ * view cannot head one section 'Calderbank' and the next 'calderbank' just because a
  * stray row was typed in lower case.
  */
 function institutionDisplayNames(accounts: readonly GroupableAccount[]): Map<string, string> {

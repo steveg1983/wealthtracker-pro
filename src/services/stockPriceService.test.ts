@@ -1,854 +1,296 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  configureStockPriceService,
+  resetStockPriceService,
+  fetchQuotes,
+  searchSymbols,
+  MAX_SYMBOLS_PER_REQUEST
+} from './stockPriceService';
+
 /**
- * StockPriceService Tests
- * Tests for stock price fetching, caching, and portfolio calculations
+ * The client half of the quote path.
+ *
+ * These specs exist because of what the previous implementation did: it fetched
+ * Yahoo directly (blocked by CSP, and no CORS headers either), retried three
+ * times, then returned `null` — and `getMultipleStockQuotes` dropped the failed
+ * symbols from its Map entirely. The screen could not tell "still loading" from
+ * "this will never work". So the behaviour pinned here is mostly about
+ * FAILURES BEING VISIBLE.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  getStockQuote,
-  getMultipleStockQuotes,
-  convertStockPrice,
-  calculatePortfolioMetrics,
-  clearQuoteCache,
-  validateSymbol,
-  configureStockPriceService,
-  resetStockPriceService
-} from './stockPriceService';
-import { toDecimal } from '../utils/decimal';
-import { errorHandlingService } from './errorHandlingService';
+interface StubResponseInit {
+  status?: number;
+  body: unknown;
+}
 
-// Mock dependencies
-vi.mock('../utils/currency', () => ({
-  getExchangeRates: vi.fn()
-}));
-
-vi.mock('./errorHandlingService', () => ({
-  errorHandlingService: {
-    handleError: vi.fn()
-  },
-  ErrorCategory: {
-    NETWORK: 'network'
-  },
-  ErrorSeverity: {
-    LOW: 'low',
-    MEDIUM: 'medium'
-  },
-  retryWithBackoff: vi.fn()
-}));
-
-// Mock fetch
-global.fetch = vi.fn();
-const mockFetch = global.fetch as any;
-
-// Mock currency rates
-const { getExchangeRates } = await import('../utils/currency');
-const mockGetExchangeRates = getExchangeRates as any;
-
-// Mock retry function
-const { retryWithBackoff } = await import('./errorHandlingService');
-const mockRetryWithBackoff = retryWithBackoff as any;
-
-describe('StockPriceService', () => {
-  const env = import.meta.env as Record<string, string | boolean | undefined>;
-  const originalMode = env.MODE;
-  const originalDev = env.DEV;
-  const originalProd = env.PROD;
-  const mockYahooResponse = {
-    chart: {
-      result: [{
-        meta: {
-          symbol: 'AAPL',
-          regularMarketPrice: 150.25,
-          chartPreviousClose: 148.50,
-          currency: 'USD',
-          marketCap: 2500000000000,
-          regularMarketVolume: 75000000,
-          regularMarketDayHigh: 151.00,
-          regularMarketDayLow: 149.50,
-          fiftyTwoWeekHigh: 180.00,
-          fiftyTwoWeekLow: 125.00,
-          longName: 'Apple Inc.',
-          exchangeName: 'NASDAQ'
-        }
-      }]
-    }
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    clearQuoteCache();
-    env.MODE = originalMode;
-    env.DEV = originalDev;
-    env.PROD = originalProd;
-
-    configureStockPriceService({
-      fetch: mockFetch,
-      locationSearch: () => '',
-      now: () => Date.now(),
-      timeoutSignal: () => null,
-      logger: { warn: vi.fn(), error: vi.fn() }
-    });
-    
-    // Setup default mocks
-    mockGetExchangeRates.mockResolvedValue({
-      USD: 1.25,
-      EUR: 1.15,
-      GBP: 1.00
-    });
-    
-    mockRetryWithBackoff.mockImplementation((fn, _options) => fn());
-    
-    // Reset fetch mock to default behavior
-    mockFetch.mockReset();
+const jsonResponse = ({ status = 200, body }: StubResponseInit): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+const quoteEntry = (symbol: string, price: string, previousClose?: string) => ({
+  symbol,
+  price,
+  currency: 'GBP',
+  ...(previousClose === undefined ? {} : { previousClose }),
+  name: `${symbol} plc`,
+  asOf: '2026-08-08T16:35:00.000Z'
+});
+
+describe('fetchQuotes', () => {
+  beforeEach(() => {
     resetStockPriceService();
   });
 
-  describe('getStockQuote', () => {
-    it('fetches stock quote successfully', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-      
-      mockRetryWithBackoff.mockImplementation((fn) => fn());
+  it('posts the symbols to our own endpoint, not to Yahoo', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ body: { quotes: [quoteEntry('SHEL.L', '32.775', '32.6')] } })
+    );
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'tok' });
 
-      const quote = await getStockQuote('AAPL');
+    await fetchQuotes(['SHEL.L']);
 
-      expect(quote).not.toBeNull();
-      expect(quote!.symbol).toBe('AAPL');
-      expect(quote!.price.toNumber()).toBe(150.25);
-      expect(quote!.previousClose.toNumber()).toBe(148.50);
-      expect(quote!.change.toNumber()).toBe(1.75);
-      expect(quote!.changePercent.toNumber()).toBeCloseTo(1.178, 2);
-      expect(quote!.currency).toBe('USD');
-      expect(quote!.name).toBe('Apple Inc.');
-      expect(quote!.exchange).toBe('NASDAQ');
-      expect(quote!.lastUpdated).toBeInstanceOf(Date);
-    });
-
-    it('calculates change and change percent correctly', async () => {
-      const responseWithNegativeChange = {
-        chart: {
-          result: [{
-            meta: {
-              symbol: 'TSLA',
-              regularMarketPrice: 200.00,
-              chartPreviousClose: 210.00,
-              currency: 'USD'
-            }
-          }]
-        }
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(responseWithNegativeChange)
-      });
-
-      const quote = await getStockQuote('TSLA');
-
-      expect(quote).not.toBeNull();
-      expect(quote!.change.toNumber()).toBe(-10.00);
-      expect(quote!.changePercent.toNumber()).toBeCloseTo(-4.762, 2);
-    });
-
-    it('handles zero previous close gracefully', async () => {
-      const responseWithZeroPrevClose = {
-        chart: {
-          result: [{
-            meta: {
-              symbol: 'ZERO',
-              regularMarketPrice: 10.00,
-              chartPreviousClose: 0.01, // Small non-zero value to pass validation
-              currency: 'USD'
-            }
-          }]
-        }
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(responseWithZeroPrevClose)
-      });
-      
-      mockRetryWithBackoff.mockImplementation((fn) => fn());
-
-      const quote = await getStockQuote('ZERO');
-
-      expect(quote).not.toBeNull();
-      // With such a small previous close, the percentage should be very large
-      expect(quote!.changePercent.toNumber()).toBeGreaterThan(900);
-    });
-
-    it('cleans and validates symbols', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-
-      await getStockQuote('  aapl  ');
-      
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('AAPL'),
-        expect.any(Object)
-      );
-    });
-
-    it('uses mock stock data in non-production demo mode', async () => {
-      env.MODE = 'test';
-      env.DEV = true;
-      env.PROD = false;
-      configureStockPriceService({
-        fetch: mockFetch,
-        locationSearch: () => '?demo=true',
-        now: () => Date.now(),
-        timeoutSignal: () => null,
-        logger: { warn: vi.fn(), error: vi.fn() }
-      });
-
-      const quote = await getStockQuote('AAPL');
-
-      expect(quote).not.toBeNull();
-      expect(quote!.name).toBe('Apple Inc.');
-      expect(quote!.symbol).toBe('AAPL');
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it('ignores demo query fallback in production runtime', async () => {
-      env.MODE = 'production';
-      env.DEV = false;
-      env.PROD = true;
-      configureStockPriceService({
-        fetch: mockFetch,
-        locationSearch: () => '?demo=true',
-        now: () => Date.now(),
-        timeoutSignal: () => null,
-        logger: { warn: vi.fn(), error: vi.fn() }
-      });
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-
-      const quote = await getStockQuote('AAPL');
-
-      expect(quote).not.toBeNull();
-      expect(quote!.price.toNumber()).toBe(150.25);
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-    });
-
-    it('rejects invalid symbols', async () => {
-      const result = await getStockQuote('INVALID_VERY_LONG_SYMBOL');
-      expect(result).toBeNull();
-      expect(errorHandlingService.handleError).toHaveBeenCalled();
-    });
-
-    it('caches quotes correctly', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-
-      // First call
-      const quote1 = await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      // Second call should use cache
-      const quote2 = await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(1); // Still 1
-      
-      // Compare without timestamps (which will differ)
-      expect(quote1!.symbol).toBe(quote2!.symbol);
-      expect(quote1!.price.toNumber()).toBe(quote2!.price.toNumber());
-      expect(quote1!.currency).toBe(quote2!.currency);
-    });
-
-    it('expires cache after TTL', async () => {
-      vi.useFakeTimers();
-      
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-
-      // First call
-      await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      // Advance time past TTL (1 minute)
-      vi.advanceTimersByTime(61 * 1000);
-
-      // Second call should fetch again
-      await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-    });
-
-    it('tries multiple endpoints on failure', async () => {
-      // First call fails, second succeeds
-      mockFetch
-        .mockRejectedValueOnce(new Error('First endpoint failed'))
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockYahooResponse)
-        });
-
-      mockRetryWithBackoff.mockImplementation(async (fn) => {
-        try {
-          return await fn();
-        } catch {
-          // Try again with different endpoint
-          return await fn();
-        }
-      });
-
-      const quote = await getStockQuote('AAPL');
-      expect(quote).not.toBeNull();
-      expect(quote!.symbol).toBe('AAPL');
-    });
-
-    it('handles network errors gracefully', async () => {
-      const networkError = new Error('Network failed');
-      mockFetch.mockRejectedValue(networkError);
-      mockRetryWithBackoff.mockRejectedValue(networkError);
-
-      const quote = await getStockQuote('AAPL');
-      
-      expect(quote).toBeNull();
-      expect(errorHandlingService.handleError).toHaveBeenCalledWith(
-        expect.any(Error),
-        expect.objectContaining({
-          category: 'network',
-          severity: 'low',
-          context: { symbol: 'AAPL' }
-        })
-      );
-    });
-
-    it('handles malformed API responses', async () => {
-      const malformedResponses = [
-        {}, // No chart
-        { chart: {} }, // No result
-        { chart: { result: [] } }, // Empty result
-        { chart: { result: [{}] } }, // No meta
-        { chart: { result: [{ meta: {} }] } }, // No price data
-        { chart: { result: [{ meta: { regularMarketPrice: 150 } }] } } // No previous close
-      ];
-
-      for (const response of malformedResponses) {
-        mockFetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(response)
-        });
-        
-        mockRetryWithBackoff.mockImplementation(() => {
-          throw new Error('Invalid response format');
-        });
-
-        const quote = await getStockQuote('AAPL');
-        expect(quote).toBeNull();
-      }
-    });
-
-    it('handles HTTP errors', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        statusText: 'Not Found'
-      });
-
-      mockRetryWithBackoff.mockImplementation(() => {
-        throw new Error('HTTP 404: Not Found');
-      });
-
-      const quote = await getStockQuote('INVALID');
-      expect(quote).toBeNull();
-    });
-
-    it('includes optional fields when available', async () => {
-      const completeResponse = {
-        chart: {
-          result: [{
-            meta: {
-              symbol: 'AAPL',
-              regularMarketPrice: 150.25,
-              chartPreviousClose: 148.50,
-              currency: 'USD',
-              marketCap: 2500000000000,
-              regularMarketVolume: 75000000,
-              regularMarketDayHigh: 151.00,
-              regularMarketDayLow: 149.50,
-              fiftyTwoWeekHigh: 180.00,
-              fiftyTwoWeekLow: 125.00,
-              longName: 'Apple Inc.',
-              shortName: 'Apple',
-              exchangeName: 'NASDAQ'
-            }
-          }]
-        }
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(completeResponse)
-      });
-      
-      mockRetryWithBackoff.mockImplementation((fn) => fn());
-
-      const quote = await getStockQuote('AAPL');
-
-      expect(quote).not.toBeNull();
-      expect(quote!.marketCap?.toNumber()).toBe(2500000000000);
-      expect(quote!.volume).toBe(75000000);
-      expect(quote!.dayHigh?.toNumber()).toBe(151.00);
-      expect(quote!.dayLow?.toNumber()).toBe(149.50);
-      expect(quote!.fiftyTwoWeekHigh?.toNumber()).toBe(180.00);
-      expect(quote!.fiftyTwoWeekLow?.toNumber()).toBe(125.00);
-    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    // 'self' is the only origin our CSP connect-src allows, and it is the only
+    // origin that can actually reach Yahoo (server-side).
+    expect(url).toBe('/api/quotes');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({ symbols: ['SHEL.L'] });
   });
 
-  describe('getMultipleStockQuotes', () => {
-    it('fetches multiple quotes in parallel', async () => {
-      const symbols = ['AAPL', 'GOOGL', 'MSFT'];
-      
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('AAPL')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { result: [{ meta: { symbol: 'AAPL', regularMarketPrice: 150, chartPreviousClose: 149, currency: 'USD' } }] }
-            })
-          });
-        } else if (url.includes('GOOGL')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { result: [{ meta: { symbol: 'GOOGL', regularMarketPrice: 2500, chartPreviousClose: 2490, currency: 'USD' } }] }
-            })
-          });
-        } else if (url.includes('MSFT')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { result: [{ meta: { symbol: 'MSFT', regularMarketPrice: 300, chartPreviousClose: 295, currency: 'USD' } }] }
-            })
-          });
-        }
-        return Promise.reject(new Error('Unknown symbol'));
-      });
+  it('sends the session token so the proxy is not an open market-data API', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ body: { quotes: [] } }));
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'session-jwt' });
 
-      const quotes = await getMultipleStockQuotes(symbols);
+    await fetchQuotes(['AAPL']);
 
-      expect(quotes.size).toBe(3);
-      expect(quotes.has('AAPL')).toBe(true);
-      expect(quotes.has('GOOGL')).toBe(true);
-      expect(quotes.has('MSFT')).toBe(true);
-      expect(quotes.get('AAPL')!.price.toNumber()).toBe(150);
-    });
-
-    it('handles empty symbol array', async () => {
-      const quotes = await getMultipleStockQuotes([]);
-      expect(quotes.size).toBe(0);
-    });
-
-    it('handles null/undefined input', async () => {
-      const quotes1 = await getMultipleStockQuotes(null as any);
-      const quotes2 = await getMultipleStockQuotes(undefined as any);
-      
-      expect(quotes1.size).toBe(0);
-      expect(quotes2.size).toBe(0);
-    });
-
-    it('continues processing when some quotes fail', async () => {
-      const symbols = ['AAPL', 'INVALID', 'MSFT'];
-      
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('AAPL')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { result: [{ meta: { symbol: 'AAPL', regularMarketPrice: 150, chartPreviousClose: 149, currency: 'USD' } }] }
-            })
-          });
-        } else if (url.includes('INVALID')) {
-          return Promise.reject(new Error('Invalid symbol'));
-        } else if (url.includes('MSFT')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { result: [{ meta: { symbol: 'MSFT', regularMarketPrice: 300, chartPreviousClose: 295, currency: 'USD' } }] }
-            })
-          });
-        }
-        return Promise.reject(new Error('Unknown symbol'));
-      });
-
-      mockRetryWithBackoff.mockImplementation(async (fn) => {
-        return await fn(); // Let invalid symbols fail
-      });
-
-      const quotes = await getMultipleStockQuotes(symbols);
-
-      expect(quotes.size).toBe(2);
-      expect(quotes.has('AAPL')).toBe(true);
-      expect(quotes.has('INVALID')).toBe(false);
-      expect(quotes.has('MSFT')).toBe(true);
-    });
-
-    it('processes symbols in batches', async () => {
-      // Test with more than 5 symbols to trigger batching
-      const symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NFLX', 'META'];
-      
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          chart: { result: [{ meta: { symbol: 'TEST', regularMarketPrice: 100, chartPreviousClose: 99, currency: 'USD' } }] }
-        })
-      });
-
-      const quotes = await getMultipleStockQuotes(symbols);
-
-      expect(quotes.size).toBe(7);
-    });
-
-    it('handles general errors', async () => {
-      // Force an error by making symbols.map throw
-      const symbols = null as any;
-      
-      const quotes = await getMultipleStockQuotes(symbols);
-
-      expect(quotes.size).toBe(0);
-    });
+    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers);
+    expect(headers.get('Authorization')).toBe('Bearer session-jwt');
   });
 
-  describe('convertStockPrice', () => {
-    it('returns original price for same currency', async () => {
-      const price = toDecimal(100);
-      const converted = await convertStockPrice(price, 'USD', 'USD');
-      expect(converted.toNumber()).toBe(100);
+  it('keeps the price as a Decimal, so 32.775 does not become 32.78', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () =>
+        jsonResponse({ body: { quotes: [quoteEntry('SHEL.L', '32.775', '32.6')] } })
+      ),
+      getAuthToken: async () => 'tok'
     });
 
-    it('converts USD to GBP', async () => {
-      mockGetExchangeRates.mockResolvedValue({
-        USD: 1.25,
-        GBP: 1.00
-      });
-
-      const price = toDecimal(125); // $125
-      const converted = await convertStockPrice(price, 'USD', 'GBP');
-      expect(converted.toNumber()).toBe(100); // £100
-    });
-
-    it('converts GBP to USD', async () => {
-      mockGetExchangeRates.mockResolvedValue({
-        USD: 1.25,
-        GBP: 1.00
-      });
-
-      const price = toDecimal(100); // £100
-      const converted = await convertStockPrice(price, 'GBP', 'USD');
-      expect(converted.toNumber()).toBe(125); // $125
-    });
-
-    it('converts between non-GBP currencies', async () => {
-      mockGetExchangeRates.mockResolvedValue({
-        USD: 1.25,
-        EUR: 1.15,
-        GBP: 1.00
-      });
-
-      const price = toDecimal(125); // $125
-      const converted = await convertStockPrice(price, 'USD', 'EUR');
-      // $125 -> £100 -> €115
-      expect(converted.toNumber()).toBe(115);
-    });
-
-    it('handles missing exchange rates', async () => {
-      mockGetExchangeRates.mockResolvedValue({
-        USD: 1.25
-        // Missing EUR rate
-      });
-
-      const price = toDecimal(100);
-      const converted = await convertStockPrice(price, 'EUR', 'USD');
-      // Should use rate of 1 for missing currency
-      expect(converted.toNumber()).toBe(125);
-    });
-
-    it('returns original price on error', async () => {
-      mockGetExchangeRates.mockRejectedValue(new Error('Network error'));
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const price = toDecimal(100);
-      const converted = await convertStockPrice(price, 'USD', 'GBP');
-      expect(converted.toNumber()).toBe(100);
-    });
+    const { quotes } = await fetchQuotes(['SHEL.L']);
+    expect(quotes.get('SHEL.L')?.price.toString()).toBe('32.775');
   });
 
-  describe('calculatePortfolioMetrics', () => {
-    const mockHoldings = [
-      { symbol: 'AAPL', shares: toDecimal(10), averageCost: toDecimal(140) },
-      { symbol: 'GOOGL', shares: toDecimal(2), averageCost: toDecimal(2400) }
-    ];
-
-    beforeEach(() => {
-      mockFetch.mockImplementation((url: string) => {
-        if (url.includes('AAPL')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { 
-                result: [{ 
-                  meta: { 
-                    symbol: 'AAPL', 
-                    regularMarketPrice: 150, 
-                    chartPreviousClose: 149, 
-                    currency: 'USD',
-                    longName: 'Apple Inc.'
-                  } 
-                }] 
-              }
-            })
-          });
-        } else if (url.includes('GOOGL')) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({
-              chart: { 
-                result: [{ 
-                  meta: { 
-                    symbol: 'GOOGL', 
-                    regularMarketPrice: 2500, 
-                    chartPreviousClose: 2490, 
-                    currency: 'USD',
-                    longName: 'Alphabet Inc.'
-                  } 
-                }] 
-              }
-            })
-          });
-        }
-        return Promise.reject(new Error('Unknown symbol'));
-      });
-
-      // Mock currency conversion (no conversion needed for USD to USD)
-      mockGetExchangeRates.mockResolvedValue({
-        USD: 1.25,
-        GBP: 1.00
-      });
+  it('derives the day move from the previous close', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () =>
+        jsonResponse({ body: { quotes: [quoteEntry('SHEL.L', '32.775', '32.6')] } })
+      ),
+      getAuthToken: async () => 'tok'
     });
 
-    it('calculates portfolio metrics correctly', async () => {
-      const metrics = await calculatePortfolioMetrics(mockHoldings, 'USD');
+    const quote = (await fetchQuotes(['SHEL.L'])).quotes.get('SHEL.L');
+    expect(quote?.change?.toString()).toBe('0.175');
+    expect(quote?.changePercent?.toFixed(4)).toBe('0.5368');
+  });
 
-      expect(metrics.totalValue.toNumber()).toBe(6500); // 10*150 + 2*2500
-      expect(metrics.totalCost.toNumber()).toBe(6200); // 10*140 + 2*2400
-      expect(metrics.totalGain.toNumber()).toBe(300);
-      expect(metrics.totalGainPercent.toNumber()).toBeCloseTo(4.84, 2);
-
-      expect(metrics.holdings).toHaveLength(2);
-      
-      const appleHolding = metrics.holdings.find(h => h.symbol === 'AAPL');
-      expect(appleHolding).toBeDefined();
-      expect(appleHolding!.marketValue.toNumber()).toBe(1500);
-      expect(appleHolding!.gain.toNumber()).toBe(100);
-      expect(appleHolding!.gainPercent.toNumber()).toBeCloseTo(7.14, 2);
-      expect(appleHolding!.allocation.toNumber()).toBeCloseTo(23.08, 2);
-
-      const googleHolding = metrics.holdings.find(h => h.symbol === 'GOOGL');
-      expect(googleHolding).toBeDefined();
-      expect(googleHolding!.marketValue.toNumber()).toBe(5000);
-      expect(googleHolding!.gain.toNumber()).toBe(200);
-      expect(googleHolding!.gainPercent.toNumber()).toBeCloseTo(4.17, 2);
-      expect(googleHolding!.allocation.toNumber()).toBeCloseTo(76.92, 2);
+  it('reports no move rather than +0.00 when there is no previous close', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () => jsonResponse({ body: { quotes: [quoteEntry('FUND.L', '3.4271')] } })),
+      getAuthToken: async () => 'tok'
     });
 
-    it('handles missing quotes gracefully', async () => {
-      mockFetch.mockRejectedValue(new Error('No quotes available'));
+    const quote = (await fetchQuotes(['FUND.L'])).quotes.get('FUND.L');
+    expect(quote?.previousClose).toBeNull();
+    expect(quote?.change).toBeNull();
+    expect(quote?.changePercent).toBeNull();
+  });
 
-      const metrics = await calculatePortfolioMetrics(mockHoldings, 'USD');
-
-      // Should use average cost as current price
-      expect(metrics.totalValue.toNumber()).toBe(6200); // Same as cost
-      expect(metrics.totalGain.toNumber()).toBe(0);
-      expect(metrics.totalGainPercent.toNumber()).toBe(0);
-    });
-
-    it('handles empty holdings', async () => {
-      const metrics = await calculatePortfolioMetrics([], 'USD');
-
-      expect(metrics.totalValue.toNumber()).toBe(0);
-      expect(metrics.totalCost.toNumber()).toBe(0);
-      expect(metrics.totalGain.toNumber()).toBe(0);
-      expect(metrics.totalGainPercent.toNumber()).toBe(0);
-      expect(metrics.holdings).toHaveLength(0);
-    });
-
-    it('handles zero cost basis', async () => {
-      const freeHoldings = [
-        { symbol: 'FREE', shares: toDecimal(100), averageCost: toDecimal(0) }
-      ];
-
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          chart: { 
-            result: [{ 
-              meta: { 
-                symbol: 'FREE', 
-                regularMarketPrice: 10, 
-                chartPreviousClose: 9, 
-                currency: 'USD'
-              } 
-            }] 
+  it('surfaces a per-symbol failure instead of omitting the symbol', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () =>
+        jsonResponse({
+          body: {
+            quotes: [
+              quoteEntry('AAPL', '231.59', '229.35'),
+              { symbol: 'NOTREAL', error: 'NOTREAL was not found' }
+            ]
           }
         })
-      });
-
-      const metrics = await calculatePortfolioMetrics(freeHoldings, 'USD');
-
-      expect(metrics.totalValue.toNumber()).toBe(1000);
-      expect(metrics.totalCost.toNumber()).toBe(0);
-      expect(metrics.totalGain.toNumber()).toBe(1000);
-      expect(metrics.totalGainPercent.toNumber()).toBe(0); // Avoid division by zero
+      ),
+      getAuthToken: async () => 'tok'
     });
 
-    it('converts currencies correctly', async () => {
-      const ukHoldings = [
-        { symbol: 'AAPL', shares: toDecimal(10), averageCost: toDecimal(140) }
-      ];
-
-      const metrics = await calculatePortfolioMetrics(ukHoldings, 'GBP');
-
-      // Should convert USD prices to GBP
-      expect(metrics.totalValue.toNumber()).toBe(1200); // 1500 / 1.25
-      expect(metrics.totalCost.toNumber()).toBe(1120); // 1400 / 1.25
-    });
+    const { quotes, errors } = await fetchQuotes(['AAPL', 'NOTREAL']);
+    expect(quotes.has('AAPL')).toBe(true);
+    expect(quotes.has('NOTREAL')).toBe(false);
+    expect(errors.get('NOTREAL')).toBe('NOTREAL was not found');
   });
 
-  describe('clearQuoteCache', () => {
-    it('clears the quote cache', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-
-      // Populate cache
-      await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      // Second call uses cache
-      await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-
-      // Clear cache
-      clearQuoteCache();
-
-      // Third call should fetch again
-      await getStockQuote('AAPL');
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+  it('marks every symbol in the batch when the endpoint itself fails', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () =>
+        jsonResponse({ status: 502, body: { error: 'Unable to fetch quotes', code: 'internal_error' } })
+      ),
+      getAuthToken: async () => 'tok'
     });
+
+    const { quotes, errors } = await fetchQuotes(['AAPL', 'SHEL.L']);
+    expect(quotes.size).toBe(0);
+    expect(errors.get('AAPL')).toBe('Unable to fetch quotes');
+    expect(errors.get('SHEL.L')).toBe('Unable to fetch quotes');
   });
 
-  describe('validateSymbol', () => {
-    it('returns true for valid symbols', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockYahooResponse)
-      });
-
-      const isValid = await validateSymbol('AAPL');
-      expect(isValid).toBe(true);
+  it('says to sign in again on a 401 rather than "not found"', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () => new Response('nope', { status: 401 })),
+      getAuthToken: async () => null
     });
 
-    it('returns false for invalid symbols', async () => {
-      mockFetch.mockRejectedValue(new Error('Symbol not found'));
-      mockRetryWithBackoff.mockRejectedValue(new Error('Symbol not found'));
-
-      const isValid = await validateSymbol('INVALID');
-      expect(isValid).toBe(false);
-    });
+    const { errors } = await fetchQuotes(['AAPL']);
+    expect(errors.get('AAPL')).toBe('Sign in again to fetch prices');
   });
 
-  describe('edge cases and error handling', () => {
-    it('handles AbortSignal timeout', async () => {
-      mockFetch.mockRejectedValue(new Error('The operation was aborted'));
-      mockRetryWithBackoff.mockRejectedValue(new Error('The operation was aborted'));
-
-      const quote = await getStockQuote('TIMEOUT');
-      expect(quote).toBeNull();
+  it('turns a thrown network error into a per-symbol reason, never a null price', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () => {
+        throw new Error('Failed to fetch');
+      }),
+      getAuthToken: async () => 'tok'
     });
 
-    it('handles JSON parsing errors', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.reject(new Error('Invalid JSON'))
-      });
+    const { quotes, errors } = await fetchQuotes(['AAPL']);
+    expect(quotes.size).toBe(0);
+    expect(errors.get('AAPL')).toBe('Could not reach the price service');
+  });
 
-      mockRetryWithBackoff.mockImplementation(() => {
-        throw new Error('Invalid JSON');
-      });
-
-      const quote = await getStockQuote('BADSON');
-      expect(quote).toBeNull();
+  it('answers for a symbol the endpoint ignored, instead of leaving it blank forever', async () => {
+    configureStockPriceService({
+      fetch: vi.fn(async () =>
+        jsonResponse({ body: { quotes: [quoteEntry('AAPL', '231.59', '229.35')] } })
+      ),
+      getAuthToken: async () => 'tok'
     });
 
-    it('handles missing meta fields gracefully', async () => {
-      const partialResponse = {
-        chart: {
-          result: [{
-            meta: {
-              symbol: 'PARTIAL',
-              regularMarketPrice: 100,
-              chartPreviousClose: 99
-              // Missing optional fields
-            }
-          }]
+    const { errors } = await fetchQuotes(['AAPL', 'GHOST']);
+    expect(errors.get('GHOST')).toBe('No answer for GHOST');
+  });
+
+  it('deduplicates and upper-cases before asking', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ body: { quotes: [quoteEntry('AAPL', '231.59', '229.35')] } })
+    );
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'tok' });
+
+    await fetchQuotes(['aapl', 'AAPL', ' aapl ']);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ symbols: ['AAPL'] });
+  });
+
+  it('splits a long list into successive requests rather than truncating it', async () => {
+    const symbols = Array.from({ length: MAX_SYMBOLS_PER_REQUEST + 3 }, (_, i) => `SYM${i}`);
+    const fetchMock = vi.fn(async () => jsonResponse({ body: { quotes: [] } }));
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'tok' });
+
+    const { errors } = await fetchQuotes(symbols);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Dropping the tail of a watchlist without saying so is the omission this
+    // rewrite exists to remove: every symbol is accounted for.
+    expect(errors.size).toBe(symbols.length);
+  });
+
+  it('serves a repeat request from cache instead of re-asking', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ body: { quotes: [quoteEntry('AAPL', '231.59', '229.35')] } })
+    );
+    let clock = 1_000;
+    configureStockPriceService({
+      fetch: fetchMock,
+      getAuthToken: async () => 'tok',
+      now: () => clock
+    });
+
+    await fetchQuotes(['AAPL']);
+    clock += 30_000;
+    const second = await fetchQuotes(['AAPL']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(second.quotes.get('AAPL')?.price.toString()).toBe('231.59');
+  });
+
+  it('re-asks once the cached quote is older than a minute', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ body: { quotes: [quoteEntry('AAPL', '231.59', '229.35')] } })
+    );
+    let clock = 1_000;
+    configureStockPriceService({
+      fetch: fetchMock,
+      getAuthToken: async () => 'tok',
+      now: () => clock
+    });
+
+    await fetchQuotes(['AAPL']);
+    clock += 120_000;
+    await fetchQuotes(['AAPL']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks for nothing when given nothing', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ body: { quotes: [] } }));
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'tok' });
+
+    const { quotes, errors } = await fetchQuotes([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(quotes.size).toBe(0);
+    expect(errors.size).toBe(0);
+  });
+});
+
+describe('searchSymbols', () => {
+  beforeEach(() => {
+    resetStockPriceService();
+  });
+
+  it('queries our lookup endpoint and maps the rows', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        body: {
+          matches: [
+            { symbol: 'SHEL.L', name: 'Shell plc', exchange: 'LSE', type: 'Equity' },
+            { symbol: 'SHEL', name: 'Shell plc', exchange: 'NYQ', type: 'Equity' }
+          ]
         }
-      };
+      })
+    );
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'tok' });
 
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(partialResponse)
-      });
+    const matches = await searchSymbols('shell');
 
-      const quote = await getStockQuote('PARTIAL');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/quotes-search?q=shell');
+    expect(matches.map((m) => m.symbol)).toEqual(['SHEL.L', 'SHEL']);
+    expect(matches[0].exchange).toBe('LSE');
+  });
 
-      expect(quote).not.toBeNull();
-      expect(quote!.currency).toBe('USD'); // Default
-      expect(quote!.marketCap).toBeUndefined();
-      expect(quote!.volume).toBeUndefined();
-      expect(quote!.name).toBeUndefined();
+  it('throws when the lookup is unavailable instead of reporting "nothing matched"', async () => {
+    // Telling someone their real ticker does not exist, because our search was
+    // down, is the worse of the two possible mistakes.
+    configureStockPriceService({
+      fetch: vi.fn(async () =>
+        jsonResponse({ status: 502, body: { error: 'Symbol lookup is unavailable' } })
+      ),
+      getAuthToken: async () => 'tok'
     });
 
-    it('handles very large numbers', async () => {
-      const largeNumberResponse = {
-        chart: {
-          result: [{
-            meta: {
-              symbol: 'LARGE',
-              regularMarketPrice: 999999999999,
-              chartPreviousClose: 999999999998,
-              currency: 'USD',
-              marketCap: 50000000000000
-            }
-          }]
-        }
-      };
+    await expect(searchSymbols('shell')).rejects.toThrow('Symbol lookup is unavailable');
+  });
 
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(largeNumberResponse)
-      });
+  it('does not call the endpoint for an empty query', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ body: { matches: [] } }));
+    configureStockPriceService({ fetch: fetchMock, getAuthToken: async () => 'tok' });
 
-      const quote = await getStockQuote('LARGE');
-
-      expect(quote).not.toBeNull();
-      expect(quote!.price.toNumber()).toBe(999999999999);
-      expect(quote!.marketCap?.toNumber()).toBe(50000000000000);
-    });
+    expect(await searchSymbols('   ')).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

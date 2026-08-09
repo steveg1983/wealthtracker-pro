@@ -9,6 +9,9 @@
     "api/stripe/reconcile.ts": {
       "maxDuration": 60
     },
+    "api/cron/quotes.ts": {
+      "maxDuration": 60
+    },
     "api/**/*.ts": {
       "maxDuration": 10
     }
@@ -21,6 +24,10 @@
     {
       "path": "/api/cron/retention",
       "schedule": "45 3 * * 1"
+    },
+    {
+      "path": "/api/cron/quotes",
+      "schedule": "20 4 * * 2-6"
     }
   ],
   "rewrites": [

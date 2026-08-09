@@ -1,88 +1,118 @@
-import { getExchangeRates } from '../utils/currency';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
-import { errorHandlingService, ErrorCategory, ErrorSeverity, retryWithBackoff } from './errorHandlingService';
 import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
-import { isDemoModeRuntimeAllowed } from '../utils/runtimeMode';
+import { getSupabaseAccessToken } from '../lib/supabaseToken';
+
+/**
+ * Market quotes, from OUR OWN endpoint.
+ *
+ * ── WHY NOT YAHOO DIRECTLY ──────────────────────────────────────────────────
+ * This module used to fetch query1/query2.finance.yahoo.com from the browser.
+ * That could never work: our CSP `connect-src` (vercel.json) does not list
+ * Yahoo, and Yahoo sends no CORS headers, so the request was blocked and — on
+ * the rare path where it was not — the response was unreadable. Every failure
+ * was retried three times and then swallowed to `null`, which is why the
+ * watchlist showed "Loading…" forever and every symbol the user typed into "add
+ * a holding" was reported as "not found".
+ *
+ * The quote path now runs server-side (api/quotes.ts), where Yahoo answers
+ * fine, and this module calls `/api/quotes` — which `connect-src 'self'`
+ * already permits.
+ *
+ * ── FAILURES ARE NAMED, NEVER DROPPED ───────────────────────────────────────
+ * `fetchQuotes` returns a result for EVERY symbol asked for: a quote or a
+ * reason. The previous `getMultipleStockQuotes` returned a Map containing only
+ * the successes, so a caller could not tell a symbol that failed from one it
+ * never asked about — which is precisely how a permanently-broken watchlist
+ * looked like a slow one.
+ *
+ * ── UNITS ───────────────────────────────────────────────────────────────────
+ * Prices arrive already normalised to major units (pence → pounds) as decimal
+ * STRINGS; see api/_lib/quotes.ts for the GBp/GBP trap. Nothing here divides by
+ * anything: if a price ever looks 100x wrong, the bug is at the proxy, in one
+ * place, and not scattered across the UI.
+ */
+
+/** How the app talks about a priced instrument. */
+export interface StockQuote {
+  symbol: string;
+  /** Per unit, in the MAJOR unit of `currency`. */
+  price: DecimalInstance;
+  /** Major-unit ISO code: 'GBP', never 'GBp'. */
+  currency: string;
+  /** null when the response carried no previous close — not zero. */
+  previousClose: DecimalInstance | null;
+  /** price − previousClose, or null when there is no previous close. */
+  change: DecimalInstance | null;
+  /** The same move as a percentage, or null. */
+  changePercent: DecimalInstance | null;
+  name?: string;
+  /** When the exchange priced it. */
+  asOf: Date;
+}
+
+/** One instrument the lookup found. */
+export interface SymbolMatch {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
+
+/**
+ * A batch's outcome. Both maps are keyed by the symbol AS ASKED FOR (upper
+ * -cased), so a caller can look up either by the string it rendered.
+ */
+export interface QuoteBatch {
+  quotes: Map<string, StockQuote>;
+  /** Symbol → a sentence safe to show the user. */
+  errors: Map<string, string>;
+}
+
+/** Matches the proxy's own ceiling (api/_lib/quotes.ts). */
+export const MAX_SYMBOLS_PER_REQUEST = 25;
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type TokenGetter = () => Promise<string | null>;
+
 interface StockPriceDependencies {
   fetch?: FetchLike | null;
-  locationSearch?: () => string;
+  /**
+   * Supplies the Clerk session JWT for the Authorization header. Defaults to
+   * the app-wide registry AuthContext populates — the same token supabase-js
+   * sends — so no component has to wire one up for quotes to work.
+   */
+  getAuthToken?: TokenGetter;
   now?: () => number;
-  timeoutSignal?: (ms: number) => AbortSignal | null;
   logger?: ScopedLogger;
 }
 
 interface NormalizedDependencies {
   fetch: FetchLike | null;
-  locationSearch: () => string;
+  getAuthToken: TokenGetter;
   now: () => number;
-  timeoutSignal: (ms: number) => AbortSignal | null;
   logger: ScopedLogger;
 }
 
-export interface StockQuote {
-  symbol: string;
-  price: DecimalInstance;
-  currency: string;
-  change: DecimalInstance;
-  changePercent: DecimalInstance;
-  previousClose: DecimalInstance;
-  marketCap?: DecimalInstance;
-  volume?: number;
-  dayHigh?: DecimalInstance;
-  dayLow?: DecimalInstance;
-  fiftyTwoWeekHigh?: DecimalInstance;
-  fiftyTwoWeekLow?: DecimalInstance;
-  name?: string;
-  exchange?: string;
-  lastUpdated: Date;
+function getDefaultDependencies(): NormalizedDependencies {
+  return {
+    fetch: typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null,
+    getAuthToken: getSupabaseAccessToken,
+    now: () => Date.now(),
+    logger: createScopedLogger('StockPriceService')
+  };
 }
-
-interface CachedQuote extends StockQuote {
-  timestamp: number;
-}
-
-// Cache for stock quotes (1 minute TTL)
-const quoteCache = new Map<string, CachedQuote>();
-const CACHE_TTL = 60 * 1000; // 1 minute
 
 let dependencies: NormalizedDependencies = getDefaultDependencies();
-
-function getDefaultDependencies(): NormalizedDependencies {
-  const globalFetch = typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null;
-  const logger = createScopedLogger('StockPriceService');
-  const locationSearch = () => {
-    if (typeof window !== 'undefined' && window.location) {
-      return window.location.search ?? '';
-    }
-    return '';
-  };
-  const timeoutSignal = (ms: number) => {
-    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-      return AbortSignal.timeout(ms);
-    }
-    return null;
-  };
-  return {
-    fetch: globalFetch,
-    locationSearch,
-    now: () => Date.now(),
-    timeoutSignal,
-    logger
-  };
-}
 
 export function configureStockPriceService(overrides: StockPriceDependencies = {}): void {
   dependencies = {
     ...dependencies,
     ...(overrides.fetch !== undefined ? { fetch: overrides.fetch } : {}),
-    ...(overrides.locationSearch ? { locationSearch: overrides.locationSearch } : {}),
+    ...(overrides.getAuthToken ? { getAuthToken: overrides.getAuthToken } : {}),
     ...(overrides.now ? { now: overrides.now } : {}),
-    ...(overrides.timeoutSignal ? { timeoutSignal: overrides.timeoutSignal } : {}),
     ...(overrides.logger ? { logger: overrides.logger } : {})
-  }; // apply overrides
+  };
 }
 
 export function resetStockPriceService(): void {
@@ -90,386 +120,225 @@ export function resetStockPriceService(): void {
   quoteCache.clear();
 }
 
-// Yahoo Finance API proxy endpoints
-// Note: Using proxy services as Yahoo Finance doesn't have official API
-const YAHOO_FINANCE_ENDPOINTS = [
-  'https://query1.finance.yahoo.com/v8/finance/chart/',
-  'https://query2.finance.yahoo.com/v8/finance/chart/'
-];
-
-/**
- * Clean and validate stock symbol
- */
-function cleanSymbol(symbol: string): string {
-  return symbol.toUpperCase().trim();
+interface CachedQuote {
+  quote: StockQuote;
+  storedAt: number;
 }
 
 /**
- * Generate mock stock data for demo mode
+ * Quotes are daily-close grade (the product is Microsoft Money's model), so a
+ * short client cache only stops a tab-switch from re-asking. The real caching
+ * is the proxy's `s-maxage=900`.
  */
-function generateMockStockQuote(symbol: string): StockQuote {
-  // Generate realistic but fake stock prices
-  const mockData: Record<string, { price: number; name: string; change: number }> = {
-    'AAPL': { price: 189.50, name: 'Apple Inc.', change: 2.34 },
-    'GOOGL': { price: 142.75, name: 'Alphabet Inc.', change: -1.12 },
-    'MSFT': { price: 378.20, name: 'Microsoft Corporation', change: 4.56 },
-    'AMZN': { price: 156.80, name: 'Amazon.com Inc.', change: 1.89 },
-    'TSLA': { price: 245.30, name: 'Tesla Inc.', change: -5.67 },
-    'META': { price: 512.40, name: 'Meta Platforms Inc.', change: 3.21 },
-    'NVDA': { price: 723.90, name: 'NVIDIA Corporation', change: 12.45 },
-    'BRK.B': { price: 367.50, name: 'Berkshire Hathaway Inc.', change: 0.98 },
-    'JPM': { price: 195.60, name: 'JPMorgan Chase & Co.', change: 2.10 },
-    'V': { price: 276.30, name: 'Visa Inc.', change: 1.45 }
-  };
+const CACHE_TTL_MS = 60_000;
+const quoteCache = new Map<string, CachedQuote>();
 
-  const defaultMock = {
-    price: 100 + Math.random() * 400,
-    name: `${symbol} Corp.`,
-    change: (Math.random() - 0.5) * 10
-  };
+const cleanSymbol = (symbol: string): string => symbol.trim().toUpperCase();
 
-  const data = mockData[symbol.toUpperCase()] || defaultMock;
-  const price = toDecimal(data.price);
-  const change = toDecimal(data.change);
-  const changePercent = price.greaterThan(0) ? change.dividedBy(price.minus(change)).times(100) : toDecimal(0);
-  const previousClose = price.minus(change);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-  return {
-    symbol: symbol.toUpperCase(),
+/** A decimal from a wire value that may be a string or a number. */
+const readDecimal = (value: unknown): DecimalInstance | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return toDecimal(value);
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = toDecimal(value);
+    return parsed.isNaN() ? null : parsed;
+  }
+  return null;
+};
+
+const readString = (source: Record<string, unknown>, key: string): string | null => {
+  const value = source[key];
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+};
+
+function toStockQuote(entry: Record<string, unknown>): StockQuote | null {
+  const symbol = readString(entry, 'symbol');
+  const price = readDecimal(entry.price);
+  if (symbol === null || price === null) return null;
+
+  const previousClose = readDecimal(entry.previousClose);
+  const change = previousClose === null ? null : price.minus(previousClose);
+  const changePercent =
+    change === null || previousClose === null || previousClose.isZero()
+      ? null
+      : change.dividedBy(previousClose).times(100);
+
+  const asOfText = readString(entry, 'asOf');
+  const asOfDate = asOfText === null ? null : new Date(asOfText);
+
+  const quote: StockQuote = {
+    symbol: cleanSymbol(symbol),
     price,
-    currency: 'USD',
+    currency: readString(entry, 'currency') ?? 'GBP',
+    previousClose,
     change,
     changePercent,
-    previousClose,
-    marketCap: price.times(toDecimal(Math.random() * 1000000000 + 100000000)),
-    volume: Math.floor(Math.random() * 50000000 + 1000000),
-    dayHigh: price.times(toDecimal(1 + Math.random() * 0.02)),
-    dayLow: price.times(toDecimal(1 - Math.random() * 0.02)),
-    fiftyTwoWeekHigh: price.times(toDecimal(1.2 + Math.random() * 0.3)),
-    fiftyTwoWeekLow: price.times(toDecimal(0.5 + Math.random() * 0.3)),
-    name: data.name,
-    exchange: 'NASDAQ',
-    lastUpdated: getCurrentDate()
+    asOf: asOfDate && !Number.isNaN(asOfDate.getTime()) ? asOfDate : new Date(dependencies.now())
   };
-}
-
-/**
- * Get stock quote from Yahoo Finance
- */
-export async function getStockQuote(symbol: string): Promise<StockQuote | null> {
-  try {
-    const cleanedSymbol = cleanSymbol(symbol);
-    
-    // Validate symbol
-    if (!cleanedSymbol || cleanedSymbol.length > 10) {
-      throw new Error('Invalid stock symbol');
-    }
-
-    if (isDemoModeStockFallbackEnabled()) {
-      // Return mock data for demo mode
-      return generateMockStockQuote(cleanedSymbol);
-    }
-    
-    // Check cache first
-    const cached = quoteCache.get(cleanedSymbol);
-    if (cached && dependencies.now() - cached.timestamp < CACHE_TTL) {
-      return cached;
-    }
-
-    // Try to fetch with retry logic
-    const quote = await retryWithBackoff(
-      () => fetchQuoteFromEndpoints(cleanedSymbol),
-      {
-        maxRetries: 3,
-        initialDelay: 500,
-        onRetry: (attempt, error) => {
-          dependencies.logger.warn?.(`Stock quote fetch attempt ${attempt} failed:`, error.message);
-        }
-      }
-    );
-
-    if (quote) {
-      // Cache the result
-      const cachedQuote: CachedQuote = {
-        ...quote,
-        timestamp: dependencies.now()
-      };
-      quoteCache.set(cleanedSymbol, cachedQuote);
-    }
-
-    return quote;
-  } catch (error) {
-    errorHandlingService.handleError(error as Error, {
-      category: ErrorCategory.NETWORK,
-      severity: ErrorSeverity.LOW,
-      context: { symbol },
-      userMessage: `Unable to fetch quote for ${symbol}. Please try again later.`,
-      retryable: true
-    });
-    return null;
+  const name = readString(entry, 'name');
+  if (name !== null) {
+    quote.name = name;
   }
-}
-
-/**
- * Fetch quote from available endpoints
- */
-async function fetchQuoteFromEndpoints(symbol: string): Promise<StockQuote | null> {
-  const errors: Error[] = [];
-  const fetchImpl = ensureFetch();
-  
-  // Try multiple endpoints for redundancy
-  for (const endpoint of YAHOO_FINANCE_ENDPOINTS) {
-    try {
-      const response = await fetchImpl(`${endpoint}${symbol}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        signal: dependencies.timeoutSignal(5000) ?? undefined
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const quote = data.chart?.result?.[0];
-      
-      if (!quote || !quote.meta) {
-        throw new Error('Invalid response format');
-      }
-
-      const meta = quote.meta;
-      const regularMarketPrice = meta.regularMarketPrice;
-      const previousClose = meta.chartPreviousClose || meta.previousClose;
-      
-      if (!regularMarketPrice || !previousClose) {
-        throw new Error('Missing price data');
-      }
-      
-      const price = toDecimal(regularMarketPrice);
-      const prevClose = toDecimal(previousClose);
-      const change = price.minus(prevClose);
-      const changePercent = prevClose.greaterThan(0) ? change.dividedBy(prevClose).times(100) : toDecimal(0);
-
-      const stockQuote: StockQuote = {
-        symbol: symbol,
-        price: price,
-        currency: meta.currency || 'USD',
-        change: change,
-        changePercent: changePercent,
-        previousClose: prevClose,
-        marketCap: meta.marketCap ? toDecimal(meta.marketCap) : undefined,
-        volume: meta.regularMarketVolume,
-        dayHigh: meta.regularMarketDayHigh ? toDecimal(meta.regularMarketDayHigh) : undefined,
-        dayLow: meta.regularMarketDayLow ? toDecimal(meta.regularMarketDayLow) : undefined,
-        fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ? toDecimal(meta.fiftyTwoWeekHigh) : undefined,
-        fiftyTwoWeekLow: meta.fiftyTwoWeekLow ? toDecimal(meta.fiftyTwoWeekLow) : undefined,
-        name: meta.longName || meta.shortName,
-        exchange: meta.exchangeName,
-        lastUpdated: getCurrentDate()
-      };
-
-      return stockQuote;
-    } catch (error) {
-      errors.push(error as Error);
-      continue;
-    }
-  }
-
-  // All endpoints failed
-  if (errors.length > 0) {
-    throw new Error(`All endpoints failed: ${errors.map(e => e.message).join(', ')}`);
-  }
-  
-  return null;
-}
-
-
-/**
- * Get multiple stock quotes in parallel with error handling
- */
-export async function getMultipleStockQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {
-  try {
-    const quotes = new Map<string, StockQuote>();
-    
-    // Validate input
-    if (!symbols || symbols.length === 0) {
-      return quotes;
-    }
-    
-    // Limit concurrent requests
-    const MAX_CONCURRENT = 5;
-    const _results: Array<{ symbol: string; quote: StockQuote | null }> = [];
-
-    for (let i = 0; i < symbols.length; i += MAX_CONCURRENT) {
-      const batch = symbols.slice(i, i + MAX_CONCURRENT);
-      const batchPromises = batch.map(async (symbol) => ({
-        symbol,
-        quote: await getStockQuote(symbol)
-      }));
-      
-      const batchResults = await Promise.allSettled(batchPromises);
-
-      batchResults.forEach((result, _index) => {
-        if (result.status === 'fulfilled' && result.value.quote) {
-          quotes.set(result.value.symbol, result.value.quote);
-        }
-      });
-    }
-    
-    return quotes;
-  } catch (error) {
-    errorHandlingService.handleError(error as Error, {
-      category: ErrorCategory.NETWORK,
-      severity: ErrorSeverity.MEDIUM,
-      context: { symbols },
-      userMessage: 'Failed to fetch stock quotes. Please try again later.'
-    });
-    return new Map();
-  }
-}
-
-/**
- * Convert stock price to base currency
- */
-export async function convertStockPrice(
-  price: DecimalInstance,
-  stockCurrency: string,
-  baseCurrency: string
-): Promise<DecimalInstance> {
-  if (stockCurrency === baseCurrency) {
-    return price;
-  }
-
-  try {
-    const rates = await getExchangeRates();
-    
-    // Convert to GBP first (as base), then to target currency
-    const priceInGBP = stockCurrency === 'GBP' 
-      ? price 
-      : price.dividedBy(toDecimal(rates[stockCurrency] || 1));
-    
-    const priceInBaseCurrency = baseCurrency === 'GBP'
-      ? priceInGBP
-      : priceInGBP.times(toDecimal(rates[baseCurrency] || 1));
-
-    return priceInBaseCurrency;
-  } catch (error) {
-    dependencies.logger.error('Error converting stock price:', error as Error);
-    return price; // Return original price if conversion fails
-  }
-}
-
-/**
- * Calculate portfolio metrics with live prices
- */
-export interface PortfolioMetrics {
-  totalValue: DecimalInstance;
-  totalCost: DecimalInstance;
-  totalGain: DecimalInstance;
-  totalGainPercent: DecimalInstance;
-  holdings: Array<{
-    symbol: string;
-    name: string;
-    shares: DecimalInstance;
-    averageCost: DecimalInstance;
-    currentPrice: DecimalInstance;
-    marketValue: DecimalInstance;
-    gain: DecimalInstance;
-    gainPercent: DecimalInstance;
-    allocation: DecimalInstance;
-    currency: string;
-  }>;
-}
-
-export async function calculatePortfolioMetrics(
-  holdings: Array<{ symbol: string; shares: DecimalInstance; averageCost: DecimalInstance }>,
-  baseCurrency: string
-): Promise<PortfolioMetrics> {
-  const symbols = holdings.map(h => h.symbol);
-  const quotes = await getMultipleStockQuotes(symbols);
-  
-  let totalValue = toDecimal(0);
-  let totalCost = toDecimal(0);
-  
-  const enhancedHoldings = await Promise.all(holdings.map(async (holding) => {
-    const quote = quotes.get(holding.symbol);
-    const currentPrice = quote?.price || holding.averageCost;
-    const currency = quote?.currency || baseCurrency;
-    
-    // Convert prices to base currency
-    const convertedPrice = await convertStockPrice(currentPrice, currency, baseCurrency);
-    const convertedCost = await convertStockPrice(holding.averageCost, currency, baseCurrency);
-    
-    const marketValue = convertedPrice.times(holding.shares);
-    const costBasis = convertedCost.times(holding.shares);
-    const gain = marketValue.minus(costBasis);
-    const gainPercent = costBasis.greaterThan(0) ? gain.dividedBy(costBasis).times(100) : toDecimal(0);
-    
-    totalValue = totalValue.plus(marketValue);
-    totalCost = totalCost.plus(costBasis);
-    
-    return {
-      symbol: holding.symbol,
-      name: quote?.name || holding.symbol,
-      shares: holding.shares,
-      averageCost: holding.averageCost,
-      currentPrice: currentPrice,
-      marketValue: marketValue,
-      gain: gain,
-      gainPercent: gainPercent,
-      allocation: toDecimal(0), // Will be calculated after total
-      currency: currency
-    };
-  }));
-  
-  // Calculate allocations
-  enhancedHoldings.forEach(holding => {
-    holding.allocation = totalValue.greaterThan(0) ? holding.marketValue.dividedBy(totalValue).times(100) : toDecimal(0);
-  });
-  
-  const totalGain = totalValue.minus(totalCost);
-  const totalGainPercent = totalCost.greaterThan(0) ? totalGain.dividedBy(totalCost).times(100) : toDecimal(0);
-  
-  return {
-    totalValue,
-    totalCost,
-    totalGain,
-    totalGainPercent,
-    holdings: enhancedHoldings
-  };
-}
-
-/**
- * Clear quote cache
- */
-export function clearQuoteCache(): void {
-  quoteCache.clear();
-}
-
-/**
- * Validate if a symbol exists
- */
-export async function validateSymbol(symbol: string): Promise<boolean> {
-  const quote = await getStockQuote(symbol);
-  return quote !== null;
+  return quote;
 }
 
 function ensureFetch(): FetchLike {
   if (!dependencies.fetch) {
-    throw new Error('Fetch API is not available. Provide a fetch implementation via configureStockPriceService.');
+    throw new Error('Fetch API is not available. Provide one via configureStockPriceService.');
   }
   return dependencies.fetch;
 }
 
-function getCurrentDate(): Date {
-  return new Date(dependencies.now());
+async function authorizedHeaders(): Promise<Headers> {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const token = await dependencies.getAuthToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
 }
 
-function isDemoModeStockFallbackEnabled(): boolean {
-  if (!isDemoModeRuntimeAllowed(import.meta.env)) {
-    return false;
+/** The endpoint's `{ error, code }` body as a sentence, or a generic one. */
+async function describeFailure(response: Response, fallback: string): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    if (isRecord(body)) {
+      const message = readString(body, 'error');
+      if (message !== null) return message;
+    }
+  } catch {
+    /* a non-JSON error body tells the user nothing useful */
   }
-  const urlParams = new URLSearchParams(dependencies.locationSearch());
-  return urlParams.get('demo') === 'true';
+  return response.status === 401 || response.status === 403
+    ? 'Sign in again to fetch prices'
+    : fallback;
+}
+
+/**
+ * Quotes for a list of symbols. Every distinct symbol appears in exactly one of
+ * the two maps — never in neither.
+ *
+ * Lists longer than the proxy's ceiling are sent in successive requests rather
+ * than truncated: dropping the tail of a watchlist without saying so is the
+ * silent omission this rewrite exists to remove.
+ */
+export async function fetchQuotes(symbols: readonly string[]): Promise<QuoteBatch> {
+  const quotes = new Map<string, StockQuote>();
+  const errors = new Map<string, string>();
+
+  const wanted: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of symbols) {
+    const symbol = cleanSymbol(raw);
+    if (symbol === '' || seen.has(symbol)) continue;
+    seen.add(symbol);
+
+    const cached = quoteCache.get(symbol);
+    if (cached && dependencies.now() - cached.storedAt < CACHE_TTL_MS) {
+      quotes.set(symbol, cached.quote);
+      continue;
+    }
+    wanted.push(symbol);
+  }
+
+  for (let i = 0; i < wanted.length; i += MAX_SYMBOLS_PER_REQUEST) {
+    const batch = wanted.slice(i, i + MAX_SYMBOLS_PER_REQUEST);
+    try {
+      const response = await ensureFetch()('/api/quotes', {
+        method: 'POST',
+        headers: await authorizedHeaders(),
+        body: JSON.stringify({ symbols: batch })
+      });
+
+      if (!response.ok) {
+        const message = await describeFailure(response, 'Prices are unavailable right now');
+        batch.forEach((symbol) => errors.set(symbol, message));
+        continue;
+      }
+
+      const body: unknown = await response.json();
+      const entries = isRecord(body) && Array.isArray(body.quotes) ? body.quotes : [];
+      const answered = new Set<string>();
+
+      for (const entry of entries) {
+        if (!isRecord(entry)) continue;
+        const symbol = readString(entry, 'symbol');
+        if (symbol === null) continue;
+        const key = cleanSymbol(symbol);
+        answered.add(key);
+
+        const failure = readString(entry, 'error');
+        if (failure !== null) {
+          errors.set(key, failure);
+          continue;
+        }
+        const quote = toStockQuote(entry);
+        if (!quote) {
+          errors.set(key, `Couldn't read the price for ${key}`);
+          continue;
+        }
+        quotes.set(key, quote);
+        quoteCache.set(key, { quote, storedAt: dependencies.now() });
+      }
+
+      // A symbol we asked about and the endpoint said nothing about. Should not
+      // happen — the proxy answers every symbol — but if it ever does, the user
+      // is told rather than left watching a spinner.
+      batch
+        .filter((symbol) => !answered.has(symbol))
+        .forEach((symbol) => errors.set(symbol, `No answer for ${symbol}`));
+    } catch (error) {
+      dependencies.logger.warn?.('Quote request failed', error);
+      const message = 'Could not reach the price service';
+      batch.forEach((symbol) => errors.set(symbol, message));
+    }
+  }
+
+  return { quotes, errors };
+}
+
+/**
+ * Instruments matching a free-text query — a ticker or a name.
+ *
+ * This is also what REPLACED symbol validation. The old `validateSymbol` asked
+ * for a quote and read null as "no such symbol", so it rejected every ticker on
+ * earth (the fetch could not succeed) and would still have rejected a real fund
+ * that happens to have no price today. Picking a symbol from this lookup means
+ * there is nothing left to validate: it came from the instrument list.
+ *
+ * Throws on an unavailable lookup, because "nothing matched" and "the lookup is
+ * broken" are different answers and only one of them means the user's ticker
+ * does not exist.
+ */
+export async function searchSymbols(query: string): Promise<SymbolMatch[]> {
+  const trimmed = query.trim();
+  if (trimmed === '') return [];
+
+  const response = await ensureFetch()(`/api/quotes-search?q=${encodeURIComponent(trimmed)}`, {
+    method: 'GET',
+    headers: await authorizedHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await describeFailure(response, 'Symbol lookup is unavailable'));
+  }
+
+  const body: unknown = await response.json();
+  const rows = isRecord(body) && Array.isArray(body.matches) ? body.matches : [];
+
+  const matches: SymbolMatch[] = [];
+  for (const row of rows) {
+    if (!isRecord(row)) continue;
+    const symbol = readString(row, 'symbol');
+    if (symbol === null) continue;
+    matches.push({
+      symbol: cleanSymbol(symbol),
+      name: readString(row, 'name') ?? cleanSymbol(symbol),
+      exchange: readString(row, 'exchange') ?? '',
+      type: readString(row, 'type') ?? ''
+    });
+  }
+  return matches;
 }

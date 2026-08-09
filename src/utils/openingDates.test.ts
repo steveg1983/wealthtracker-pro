@@ -67,8 +67,8 @@ describe('effectiveOpeningDate — precedence', () => {
 
 describe('findSiblingAccount — the "(Cash)" pairing, both directions', () => {
   const accounts = [
-    account({ id: 'inv', name: 'Rathbones - Share ISA', type: 'investment' }),
-    account({ id: 'cash', name: 'Rathbones - Share ISA (Cash)' }),
+    account({ id: 'inv', name: 'Meridian - Share ISA', type: 'investment' }),
+    account({ id: 'cash', name: 'Meridian - Share ISA (Cash)' }),
     account({ id: 'other', name: 'Everyday Current' }),
   ];
 

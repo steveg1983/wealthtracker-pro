@@ -90,6 +90,9 @@ describe('AccountSettingsModal', () => {
       expect(screen.getByLabelText('Bank account number')).toBeInTheDocument();
       expect(screen.getByText('Institution')).toBeInTheDocument();
       expect(screen.getByText('Notes')).toBeInTheDocument();
+      // Pairing needs an account list to pair with; without one there is
+      // nothing to offer and nothing is written either way.
+      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
     });
 
     it('populates form with account data', () => {
@@ -329,6 +332,124 @@ describe('AccountSettingsModal', () => {
     });
   });
 
+  /**
+   * Investment↔cash pairing (the Microsoft Money model): a cash account is
+   * filed inside the investment account whose money it holds. One-directional
+   * and one deep, so the field is offered only where that shape holds.
+   */
+  describe('Part of investment account', () => {
+    const investment: Account = {
+      id: 'inv1', name: 'Fund ISA', type: 'investment', balance: 0, currency: 'GBP',
+      lastUpdated: new Date('2026-01-01')
+    };
+    const otherInvestment: Account = { ...investment, id: 'inv2', name: 'Workplace Pension' };
+    const pairable = { ...defaultProps, accounts: [mockAccount, investment] };
+
+    it('offers every investment account, and None', () => {
+      render(<AccountSettingsModal {...pairable} accounts={[mockAccount, investment, otherInvestment]} />);
+
+      const field = screen.getByLabelText('Part of investment account');
+      expect(field).toContainHTML('<option value="">None</option>');
+      expect(field).toContainHTML('<option value="inv1">Fund ISA</option>');
+      expect(field).toContainHTML('<option value="inv2">Workplace Pension</option>');
+      // The account being edited is not somewhere it can be filed.
+      expect(field).not.toContainHTML('value="acc1"');
+    });
+
+    it('saves the chosen investment account', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...pairable} onSave={onSave} />);
+
+      fireEvent.change(screen.getByLabelText('Part of investment account'), {
+        target: { value: 'inv1' }
+      });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
+          parentAccountId: 'inv1'
+        }));
+      });
+    });
+
+    it('clears the pairing with null, which is what empties the column', async () => {
+      const onSave = vi.fn();
+      const paired = { ...mockAccount, parentAccountId: 'inv1' };
+      render(<AccountSettingsModal {...pairable} account={paired} accounts={[paired, investment]} onSave={onSave} />);
+
+      expect(screen.getByLabelText('Part of investment account')).toHaveValue('inv1');
+      fireEvent.change(screen.getByLabelText('Part of investment account'), { target: { value: '' } });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      // undefined would leave the stored parent in place — mapAccountToDb
+      // skips undefined fields.
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
+          parentAccountId: null
+        }));
+      });
+    });
+
+    it('does not offer pairing for an investment account — pairing runs one way', () => {
+      render(<AccountSettingsModal {...pairable} account={{ ...mockAccount, type: 'investment' }} />);
+
+      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
+    });
+
+    it('takes the field away, and writes nothing, when the type is switched to Investments', async () => {
+      const onSave = vi.fn();
+      render(<AccountSettingsModal {...pairable} onSave={onSave} />);
+
+      expect(screen.getByLabelText('Part of investment account')).toBeInTheDocument();
+      fireEvent.change(screen.getByDisplayValue('Current Account'), { target: { value: 'investment' } });
+      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Save Changes'));
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledTimes(1);
+      });
+      expect(onSave.mock.calls[0][1]).not.toHaveProperty('parentAccountId');
+    });
+
+    it('does not offer pairing to an account that already has accounts inside it', () => {
+      const child = { ...investment, id: 'child1', type: 'savings' as const, parentAccountId: 'acc1' };
+      render(<AccountSettingsModal {...pairable} accounts={[mockAccount, investment, child]} />);
+
+      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
+    });
+
+    it('does not offer an investment account that is itself paired inside another', () => {
+      const nested = { ...otherInvestment, parentAccountId: 'inv1' };
+      render(<AccountSettingsModal {...pairable} accounts={[mockAccount, investment, nested]} />);
+
+      const field = screen.getByLabelText('Part of investment account');
+      expect(field).toContainHTML('value="inv1"');
+      expect(field).not.toContainHTML('value="inv2"');
+    });
+
+    it('keeps the current parent selectable even once it would no longer qualify', () => {
+      const nowNested = { ...investment, parentAccountId: 'inv2' };
+      const paired = { ...mockAccount, parentAccountId: 'inv1' };
+      render(
+        <AccountSettingsModal
+          {...pairable}
+          account={paired}
+          accounts={[paired, nowNested, otherInvestment]}
+        />
+      );
+
+      // A select whose value is absent from its options shows something else,
+      // and saving that would re-file the account somewhere nobody chose.
+      expect(screen.getByLabelText('Part of investment account')).toHaveValue('inv1');
+    });
+
+    it('says nothing about pairing when there is no investment account to pair with', () => {
+      render(<AccountSettingsModal {...defaultProps} accounts={[mockAccount]} />);
+
+      expect(screen.queryByLabelText('Part of investment account')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Opening Balance', () => {
     it('accepts decimal values', () => {
       render(<AccountSettingsModal {...defaultProps} />);
@@ -448,12 +569,12 @@ describe('AccountSettingsModal', () => {
       const onSave = vi.fn();
       render(<AccountSettingsModal {...defaultProps} onSave={onSave} />);
 
-      fireEvent.change(screen.getByLabelText('Account name'), { target: { value: '  HSBC Current — Steve  ' } });
+      fireEvent.change(screen.getByLabelText('Account name'), { target: { value: '  Everyday Current — Renamed  ' } });
       fireEvent.click(screen.getByText('Save Changes'));
 
       await waitFor(() => {
         expect(onSave).toHaveBeenCalledWith('acc1', expect.objectContaining({
-          name: 'HSBC Current — Steve'
+          name: 'Everyday Current — Renamed'
         }));
       });
     });
