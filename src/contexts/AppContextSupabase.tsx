@@ -1283,13 +1283,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [transactions]);
 
-  // Budget operations — persisted via PlanningService (Supabase or local)
+  // Budget operations — persisted through the seam, which resolves the owner
+  // itself (the id used to be resolved here and handed over; a null one wrote
+  // browser storage under a signed-in session, and the budget was gone at the
+  // next boot).
   const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'spent'>) => {
     try {
-      const created = await PlanningService.createBudget(
-        userIdService.getCurrentDatabaseUserId(),
-        budget
-      );
+      const created = await dataPort.createBudget(budget);
       setBudgets(prev => [...prev, created]);
     } catch (error) {
       appLogger.error('Failed to add budget', error);
@@ -1299,11 +1299,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateBudget = useCallback(async (id: string, updates: Partial<Budget>) => {
     try {
-      const updated = await PlanningService.updateBudget(
-        userIdService.getCurrentDatabaseUserId(),
-        id,
-        updates
-      );
+      const updated = await dataPort.updateBudget(id, updates);
       setBudgets(prev => prev.map(b => b.id === id ? updated : b));
     } catch (error) {
       appLogger.error('Failed to update budget', error);
@@ -1313,7 +1309,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteBudget = useCallback(async (id: string) => {
     try {
-      await PlanningService.deleteBudget(userIdService.getCurrentDatabaseUserId(), id);
+      await dataPort.deleteBudget(id);
       setBudgets(prev => prev.filter(b => b.id !== id));
     } catch (error) {
       appLogger.error('Failed to delete budget', error);
