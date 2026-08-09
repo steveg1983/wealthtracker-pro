@@ -156,6 +156,8 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'setTransactionArchived',
   'archiveTransactionsBefore',
   'unarchiveAccount',
+  // Bulk writes
+  'importTransactions',
   // Transfer writes
   'linkTransferPair',
   'linkSplitLineTransfer',
@@ -322,6 +324,38 @@ const BULK_PRUNE: Record<DataPortEngine, { describes: string; reverifies: boolea
   'browser-storage': { describes: 'does what the plan says', reverifies: false },
   supabase: { describes: 're-judges every row and keeps the ones still in use', reverifies: true },
   'local-core': { describes: 're-judges every row and keeps the ones still in use', reverifies: true }
+};
+
+/**
+ * B-9 — how a bulk import can fail, and whether it can say how far it has got.
+ *
+ * The rule EVERY engine keeps, asserted below rather than declared: `inserted`
+ * is a PREFIX count. Rows [0, inserted) of the file are in the account, rows
+ * [inserted, total) are not, in file order. Both callers slice the array they
+ * handed in at that number to name the missing payments to somebody holding the
+ * statement, so a count that merely totalled the rows written — with the gaps
+ * anywhere else — would send them looking for the wrong transactions.
+ *
+ * `partial` is how far a failure can get, and it follows from the size of the
+ * unit each engine writes in: the cloud posts chunks that each commit on their
+ * own, so it can stop at any chunk boundary; a device write is ONE store
+ * transaction, so it is 0 or all of them. Both are prefixes.
+ *
+ * `reportsProgress` is whether `onProgress` can fire before the answer. An
+ * engine that commits in pieces can count them honestly; one atomic write has
+ * no fraction to report, and inventing one is the bar-creeping-to-90% lie that
+ * keeps somebody waiting on a write that already failed.
+ */
+const BULK_IMPORT: Record<
+  DataPortEngine,
+  { partial: 'all-or-nothing' | 'any prefix'; reportsProgress: boolean }
+> = {
+  // One IndexedDB transaction covering the rows and the balance together.
+  'browser-storage': { partial: 'all-or-nothing', reportsProgress: false },
+  // Chunks of a thousand, each its own database transaction.
+  supabase: { partial: 'any prefix', reportsProgress: true },
+  // One store transaction, same as the browser and for the same reason.
+  'local-core': { partial: 'all-or-nothing', reportsProgress: false }
 };
 
 /**
@@ -780,6 +814,138 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         }
         expect(balances.get(ACCOUNT_A)?.balance).toBe(0.3);
         expect(balances.get(ACCOUNT_A)?.txnCount).toBe(1);
+      });
+    });
+
+    describe('importing a file', () => {
+      /**
+       * A statement as a parser hands one over: drafts, no ids — and every row
+       * naming the WRONG account, because that is what a real file does. A CSV
+       * says "Barclays" in a column and a parser guesses at it; the destination
+       * the user picked is the one that must win.
+       *
+       * The three amounts are another IEEE-754 trap: 10.1 + 20.2 + 0.3 is
+       * 30.599999999999998 in float, and this is the largest single balance
+       * movement anything in the app makes.
+       */
+      const statement = (): Array<Omit<Transaction, 'id'>> => [
+        {
+          accountId: ACCOUNT_A,
+          amount: 10.1,
+          date: AT('2025-02-03'),
+          description: 'CHEQUE PAID IN',
+          category: 'cat-everyday',
+          type: 'income'
+        },
+        {
+          accountId: ACCOUNT_A,
+          amount: 20.2,
+          date: AT('2025-02-04'),
+          description: 'REFUND FROM SHOP',
+          category: 'cat-everyday',
+          type: 'income'
+        },
+        {
+          accountId: ACCOUNT_A,
+          amount: 0.3,
+          date: AT('2025-02-05'),
+          description: 'INTEREST',
+          category: 'cat-everyday',
+          type: 'income'
+        }
+      ];
+
+      it('files every row into the account it was told, and moves that balance to the penny', async () => {
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        const rows = statement();
+
+        const result = await port.importTransactions(ACCOUNT_C, rows);
+
+        expect(result.inserted).toBe(rows.length);
+        expect(result.total).toBe(rows.length);
+        expect(result.complete).toBe(true);
+        // Never more "already here" than "here": the second number is a subset
+        // of the first, not a separate pile added beside it.
+        expect(result.alreadyPresent).toBeLessThanOrEqual(result.inserted);
+
+        const state = await read();
+        const landed = state.transactions.filter(t => t.accountId === ACCOUNT_C);
+        expect(landed.map(t => t.description).sort()).toEqual(
+          rows.map(row => row.description).sort()
+        );
+        // Every row usable at once: an id of its own, and no two the same.
+        expect(new Set(landed.map(t => t.id)).size).toBe(rows.length);
+        expect(landed.every(t => Boolean(t.id))).toBe(true);
+
+        // The destination beat the parser's guess — for the rows AND for the
+        // money. A statement filed into the wrong account is a register that
+        // disagrees with the bank by whatever the file was worth.
+        expect(balanceOf(state, ACCOUNT_C)).toBe(30.6);
+        expect(balanceOf(state, ACCOUNT_A)).toBe(-70.1);
+        expect(state.transactions.some(t => t.accountId === ACCOUNT_A)).toBe(false);
+      });
+
+      it('B-9: what it says landed is a prefix of the file, and the rest really is absent', async () => {
+        // The rule both importers depend on LITERALLY: each slices the array it
+        // handed in at `inserted` and shows the remainder as "these payments
+        // are missing". So this asks the store what it holds and compares it
+        // against exactly that slice. An implementation that reported a count
+        // it had not written — or wrote rows it did not count — fails here
+        // rather than in front of somebody comparing a paper statement.
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        const rows = statement();
+        const before = asComparable(await read());
+
+        // An account that is not there: the one refusal every engine makes for
+        // itself (the cloud RPC's account_not_found_or_not_owned, and the same
+        // judgement on a device), and the cheapest way to ask for a write that
+        // does not happen.
+        const result = await port.importTransactions('acct-that-is-not-there', rows);
+
+        expect(result.complete).toBe(false);
+        // Prose, because the caller renders it (rule 4 of the seam).
+        expect(typeof result.error).toBe('string');
+        expect(result.error).not.toBe('');
+        expect(result.total).toBe(rows.length);
+
+        const state = await read();
+        expect(state.transactions.map(t => t.description))
+          .toEqual(rows.slice(0, result.inserted).map(row => row.description));
+        // And a write that did not happen changed nothing else either.
+        expect(asComparable(state)).toBe(before);
+      });
+
+      it(`B-9: when the store fails mid-import, this engine lands ${BULK_IMPORT[engine].partial}`, async () => {
+        // REPORTED, NOT THROWN. "412 of 900 landed" is an outcome the caller
+        // has to render — the missing rows are named on screen — so a store
+        // that will not answer must come back as a result, not as a rejection
+        // the import dialog would turn into "Import failed" and nothing else.
+        const port = await harness.createUnreadable();
+        const rows = statement();
+
+        const result = await port.importTransactions(ACCOUNT_C, rows);
+
+        expect(result.complete).toBe(false);
+        expect(result.total).toBe(rows.length);
+        if (BULK_IMPORT[engine].partial === 'all-or-nothing') {
+          expect([0, rows.length]).toContain(result.inserted);
+        } else {
+          expect(result.inserted).toBeGreaterThanOrEqual(0);
+          expect(result.inserted).toBeLessThanOrEqual(rows.length);
+        }
+      });
+
+      it('writes nothing at all when the file has no rows', async () => {
+        // The ordinary case rather than a caller's mistake: a statement whose
+        // every row was already in the register arrives here empty, because the
+        // duplicate check ran before anyone knew what would be left.
+        const { port, read } = await harness.create({ accounts: threeAccounts() });
+        const before = asComparable(await read());
+
+        const result = await port.importTransactions(ACCOUNT_C, []);
+
+        expect(result).toMatchObject({ inserted: 0, alreadyPresent: 0, total: 0, complete: true });
+        expect(asComparable(await read())).toBe(before);
       });
     });
 

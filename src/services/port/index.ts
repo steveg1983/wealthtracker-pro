@@ -17,8 +17,11 @@ export type {
   AccountBalanceSnapshot,
   BootTransactionStats,
   BootTransactionsResult,
+  BulkImportProgress,
+  BulkImportResult,
   DataPort,
   DataPortAccountWrites,
+  DataPortBulkWrites,
   DataPortDismissalWrites,
   DataPortLifecycle,
   DataPortPlanningWrites,
@@ -26,6 +29,7 @@ export type {
   DataPortSplitWrites,
   DataPortTransactionWrites,
   DataPortTransferWrites,
+  ImportSourceKind,
   MoneyNumber
 } from './dataPort';
 

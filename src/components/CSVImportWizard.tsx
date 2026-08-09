@@ -1,12 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { enhancedCsvImportService, type ColumnMapping, type ImportProfile, type ImportResult } from '../services/enhancedCsvImportService';
-import {
-  transactionImportService,
-  type BulkImportResult
-} from '../services/transactionImportService';
-import { importTransactionsLocally } from '../services/localTransactionImportService';
+import { dataPort, type BulkImportResult } from '../services/port';
 import { summariseMissingRows, type MissingRowsSummary } from '../utils/partialImportSummary';
 import type { Account, Transaction } from '../types';
 import {
@@ -94,10 +89,8 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     accounts,
     transactions,
     categories,
-    isUsingSupabase,
     refreshAccountsAndTransactions
   } = useApp();
-  const { getToken } = useAuth();
   const [currentStep, setCurrentStep] = useState<WizardStep>('upload');
   const [csvContent, setCsvContent] = useState('');
   const [headers, setHeaders] = useState<string[]>([]);
@@ -313,10 +306,12 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
 
         // ── Write, one account at a time, each batch all-or-nothing ────────
         //
-        // Cloud: one `import_transactions_atomic` per chunk. Local: one
-        // IndexedDB `setMany` covering the rows and the balance together.
-        // Awaited either way — the un-awaited per-row loop this replaces fired
-        // every write at once and dropped every promise.
+        // One call per account, through the seam: whichever store this app is
+        // holding decides for itself how to make a batch atomic (one
+        // `import_transactions_atomic` per chunk in the cloud, one IndexedDB
+        // write covering the rows and the balance on a device) and answers with
+        // the same shape either way. Awaited — the un-awaited per-row loop this
+        // replaces fired every write at once and dropped every promise.
         //
         // A failing account does NOT stop the rest: these are separate accounts
         // with nothing to do with each other, and refusing to file the Barclays
@@ -327,10 +322,6 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
           const existing = byAccount.get(accountId);
           if (existing) existing.push(draft);
           else byAccount.set(accountId, [draft]);
-        }
-
-        if (isUsingSupabase && byAccount.size > 0) {
-          transactionImportService.setAuthTokenProvider(() => getToken());
         }
 
         let landed = 0;
@@ -348,20 +339,18 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
         for (const [accountId, rows] of byAccount) {
           const account = accountsById.get(accountId);
           // A multi-account file writes one account at a time, so the count on
-          // screen is what has landed ACROSS accounts so far — the cloud path
-          // reports per chunk, the local one only when its single atomic write
-          // for that account is done.
+          // screen is what has landed ACROSS accounts so far — a store that
+          // commits in chunks reports each one, a store whose write is a single
+          // atomic transaction reports nothing until that account is done.
           const alreadyLanded = landed;
-          const outcome: BulkImportResult = isUsingSupabase
-            ? await transactionImportService.importInChunks(accountId, rows, {
-                // Fires between chunks, so it can also land after unmount.
-                onProgress: p => {
-                  if (isMountedRef.current) {
-                    setProgress({ inserted: alreadyLanded + p.inserted, total: rowsToWrite });
-                  }
-                }
-              })
-            : await importTransactionsLocally(accountId, rows);
+          const outcome: BulkImportResult = await dataPort.importTransactions(accountId, rows, {
+            // Fires between chunks, so it can also land after unmount.
+            onProgress: p => {
+              if (isMountedRef.current) {
+                setProgress({ inserted: alreadyLanded + p.inserted, total: rowsToWrite });
+              }
+            }
+          });
 
           landed += outcome.inserted;
           if (isMountedRef.current && rowsToWrite > 0) {

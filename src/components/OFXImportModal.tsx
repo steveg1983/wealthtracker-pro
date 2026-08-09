@@ -1,12 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { ofxImportService } from '../services/ofxImportService';
-import {
-  transactionImportService,
-  type BulkImportResult
-} from '../services/transactionImportService';
-import { importTransactionsLocally } from '../services/localTransactionImportService';
+import { dataPort, type BulkImportResult } from '../services/port';
 import { summariseMissingRows, type MissingRowsSummary } from '../utils/partialImportSummary';
 import {
   planAccountDetailsBackfill,
@@ -124,10 +119,8 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
     transactions,
     categories,
     updateAccount,
-    isUsingSupabase,
     refreshAccountsAndTransactions
   } = useApp();
-  const { getToken } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   /**
@@ -398,34 +391,36 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
       // of rows sharing a day was a race (the other half of the same defect is
       // written up in src/utils/transactionSort.ts).
       //
-      // Both paths below are all-or-nothing and both report what the write
-      // itself confirmed:
+      // One call, through the seam, whichever store this app is holding. Both
+      // engines behind it are all-or-nothing per unit and both report what the
+      // write itself confirmed:
       //   cloud — /api/data/import-transactions, one `import_transactions_atomic`
       //           per chunk, each its own database transaction;
-      //   local — one IndexedDB `setMany` covering the rows AND the balance.
+      //   device — one IndexedDB `setMany` covering the rows AND the balance.
       //
-      // `source: 'ofx'` is not a label. It tells the importer that every row
+      // `source: 'ofx'` is not a label. It tells the store that every row
       // carries the bank's own FITID (this modal writes it into `notes`), so
-      // each one is keyed by it in the database — which is what lets a chunk
-      // whose response was lost be posted again without paying for the
-      // statement twice, and what makes "just import the file again" true of
-      // the register and not only of this screen.
+      // each one can be keyed by it — which is what lets a chunk whose response
+      // was lost be posted again without paying for the statement twice, and
+      // what makes "just import the file again" true of the register and not
+      // only of this screen.
       // The size of the job, known now that duplicates have been dropped and
       // before a single row is written. Nothing is claimed as inserted yet.
       if (isMountedRef.current) {
         setProgress({ inserted: 0, total: result.transactions.length });
       }
 
-      const outcome: BulkImportResult = isUsingSupabase
-        ? await (async () => {
-            transactionImportService.setAuthTokenProvider(() => getToken());
-            return transactionImportService.importInChunks(destinationId, result.transactions, {
-              source: 'ofx',
-              // Fires between chunks, so it can also land after unmount.
-              onProgress: p => { if (isMountedRef.current) setProgress(p); }
-            });
-          })()
-        : await importTransactionsLocally(destinationId, result.transactions);
+      const outcome: BulkImportResult = await dataPort.importTransactions(
+        destinationId,
+        result.transactions,
+        {
+          source: 'ofx',
+          // Fires between chunks where the store commits in chunks; a single
+          // atomic write has no honest fraction and reports nothing until it
+          // is done. Either way it can land after unmount.
+          onProgress: p => { if (isMountedRef.current) setProgress(p); }
+        }
+      );
 
       // Re-read from the store rather than trusting the drafts: after this the
       // register shows what was actually written, including on a partial.
@@ -549,7 +544,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
         setProgress(null);
       }
     }
-  }, [accounts, file, getToken, importAnywayFitIds, isUsingSupabase, parseResult, refreshAccountsAndTransactions, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
+  }, [accounts, file, importAnywayFitIds, parseResult, refreshAccountsAndTransactions, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
 
   // Reset modal
   const resetModal = useCallback(() => {

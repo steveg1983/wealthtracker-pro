@@ -3,15 +3,23 @@ import { createDataService, DataService } from '../api/dataService';
 import { AccountService } from '../api/accountService';
 import { TransactionService } from '../api/transactionService';
 import { createSimpleAccountService } from '../api/simpleAccountService';
+import { registerSupabaseTokenGetter } from '../../lib/supabaseToken';
 import type { Account, Budget, Category, Goal, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
 const createStorage = (initial: Record<string, unknown> = {}) => {
   const store = new Map<string, unknown>(Object.entries(initial));
+  const put = (key: string, value: unknown): void => {
+    store.set(key, Array.isArray(value) ? [...value] : value);
+  };
   return {
     get: vi.fn(async (key: string) => store.get(key) ?? null),
     set: vi.fn(async (key: string, value: unknown) => {
-      store.set(key, Array.isArray(value) ? [...value] : value);
+      put(key, value);
+    }),
+    /** Several keys as one unit — what the real adapter promises the bulk import. */
+    setMany: vi.fn(async (entries: ReadonlyArray<{ key: string; value: unknown }>) => {
+      for (const { key, value } of entries) put(key, value);
     }),
     snapshot: (key: string) => store.get(key)
   };
@@ -2515,5 +2523,262 @@ describe('DataService.subscribeToUpdates', () => {
       stop();
       stop();
     }).not.toThrow();
+  });
+});
+
+/**
+ * Which writer a file goes to, and what it is given.
+ *
+ * This decision used to be made TWICE, in two React components, each reading
+ * `isUsingSupabase` off the context and each holding its own Clerk token to
+ * hand the cloud client. Both are now one call to the seam, so this is where
+ * the fork lives and this is where it is tested: the components no longer have
+ * an opinion to get wrong.
+ *
+ * Both writers are injected doubles. What they DO is already proved against
+ * real behaviour elsewhere (transactionImportService.test.ts,
+ * localTransactionImportService.test.ts, and the contract suite, which drives
+ * the real device importer through a real store); what is at stake here is the
+ * routing, the call shape, and the fact that a wrongly-routed statement is a
+ * register that disagrees with a bank.
+ */
+describe('DataService.importTransactions (which writer gets the file)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+
+  /** Two rows of an invented statement, as a parser hands them over. */
+  const statement = (): Array<Omit<Transaction, 'id'>> => [
+    {
+      accountId: 'acct-1',
+      amount: -12.75,
+      date: new Date('2025-02-03T00:00:00.000Z'),
+      description: 'DIRECT DEBIT THAMES WATER',
+      category: 'bills',
+      type: 'expense'
+    },
+    {
+      accountId: 'acct-1',
+      amount: 312.75,
+      date: new Date('2025-02-04T00:00:00.000Z'),
+      description: 'TWO WAY SWEEP IN',
+      category: 'transfer',
+      type: 'income'
+    }
+  ];
+
+  const landed = (rows: ReadonlyArray<unknown>) => ({
+    inserted: rows.length,
+    alreadyPresent: 0,
+    total: rows.length,
+    complete: true as const
+  });
+
+  const cloudClient = () => ({
+    setAuthTokenProvider: vi.fn(),
+    importInChunks: vi.fn(async (_accountId: string, rows: ReadonlyArray<unknown>) => landed(rows))
+  });
+
+  const deviceWriter = () =>
+    vi.fn(async (_accountId: string, rows: ReadonlyArray<unknown>) => landed(rows));
+
+  const resolvedOwner = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => 'db-user-1' as string | null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-1', databaseId: 'db-user-1' }))
+  };
+  const noOwner = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+  };
+
+  afterEach(() => {
+    // The registry is module state shared with every other suite in this file.
+    registerSupabaseTokenGetter(null);
+  });
+
+  it('signed in: posts the file through the chunked cloud client, and nothing goes to the device', async () => {
+    const client = cloudClient();
+    const device = deviceWriter();
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      userIdService: resolvedOwner,
+      storageAdapter: createStorage(),
+      logger,
+      bulkImportService: client,
+      localBulkImport: device
+    });
+    const rows = statement();
+
+    await service.importTransactions('acct-1', rows);
+
+    expect(client.importInChunks).toHaveBeenCalledTimes(1);
+    expect(client.importInChunks).toHaveBeenCalledWith('acct-1', rows, {});
+    expect(device).not.toHaveBeenCalled();
+  });
+
+  it('installs the session token on the client BEFORE the first chunk is posted', async () => {
+    // Order is the whole point: the client posts with whatever provider it is
+    // holding, so installing one after the call would authenticate the SECOND
+    // import of a session and 401 the first.
+    const order: string[] = [];
+    const client = {
+      setAuthTokenProvider: vi.fn(() => { order.push('token'); }),
+      importInChunks: vi.fn(async (_accountId: string, rows: ReadonlyArray<unknown>) => {
+        order.push('post');
+        return landed(rows);
+      })
+    };
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      userIdService: resolvedOwner,
+      storageAdapter: createStorage(),
+      logger,
+      bulkImportService: client
+    });
+
+    await service.importTransactions('acct-1', statement());
+
+    expect(order).toEqual(['token', 'post']);
+  });
+
+  it('authenticates with the very token AuthContext registered for the session', async () => {
+    // The relocation, end to end. The CSV wizard used to pass Clerk's own
+    // `getToken` from a React hook; the seam takes the same session's token
+    // from the registry AuthContext fills, so nothing in the UI has to know
+    // that an import is authenticated at all.
+    registerSupabaseTokenGetter(async () => 'jwt-from-the-session');
+    const client = cloudClient();
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      userIdService: resolvedOwner,
+      storageAdapter: createStorage(),
+      logger,
+      bulkImportService: client
+    });
+
+    await service.importTransactions('acct-1', statement());
+
+    const provider = client.setAuthTokenProvider.mock.calls[0][0];
+    expect(typeof provider).toBe('function');
+    expect(await provider()).toBe('jwt-from-the-session');
+  });
+
+  it('on a device: writes through the atomic store import, with this service\'s own store and ids', async () => {
+    // The store matters as much as the route. The device importer defaults to
+    // the app's real adapter when handed nothing, so a service told to use a
+    // different store must hand that store over — otherwise a demo import
+    // would write the signed-out user's encrypted store instead.
+    const client = cloudClient();
+    const device = deviceWriter();
+    const storage = createStorage();
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      userIdService: noOwner,
+      storageAdapter: storage,
+      logger,
+      uuid: () => 'generated-id',
+      bulkImportService: client,
+      localBulkImport: device
+    });
+    const rows = statement();
+
+    await service.importTransactions('acct-1', rows);
+
+    expect(client.importInChunks).not.toHaveBeenCalled();
+    expect(device).toHaveBeenCalledTimes(1);
+    const [accountId, given, options] = device.mock.calls[0];
+    expect(accountId).toBe('acct-1');
+    expect(given).toBe(rows);
+    expect(options?.uuid?.()).toBe('generated-id');
+    await options?.store?.setMany?.([{ key: 'k', value: [1] }]);
+    expect(storage.setMany).toHaveBeenCalledWith([{ key: 'k', value: [1] }]);
+  });
+
+  it('carries what the caller said about the rows to the writer that ran', async () => {
+    // `source: 'ofx'` is what lets a re-posted chunk be refused instead of
+    // paid for twice, and `onProgress` is what the progress bar is drawn from.
+    // Both are the caller's statement about the rows, not the route's.
+    const client = cloudClient();
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      userIdService: resolvedOwner,
+      storageAdapter: createStorage(),
+      logger,
+      bulkImportService: client
+    });
+    const onProgress = vi.fn();
+
+    await service.importTransactions('acct-1', statement(), { source: 'ofx', onProgress });
+
+    expect(client.importInChunks).toHaveBeenCalledWith(
+      'acct-1',
+      expect.any(Array),
+      { source: 'ofx', onProgress }
+    );
+  });
+
+  it('hands the writer\'s answer back exactly as it came, prefix count and all', async () => {
+    // B-9. The caller slices the rows it handed in at `inserted` to name the
+    // payments that are missing, so a route that rounded this up — or lost the
+    // sentence saying what stopped it — would report rows as landed that are
+    // not in the account.
+    const client = cloudClient();
+    client.importInChunks.mockResolvedValueOnce({
+      inserted: 1,
+      alreadyPresent: 0,
+      total: 2,
+      complete: false,
+      error: 'Import request failed (503)'
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => true,
+      userIdService: resolvedOwner,
+      storageAdapter: createStorage(),
+      logger,
+      bulkImportService: client
+    });
+
+    const outcome = await service.importTransactions('acct-1', statement());
+
+    expect(outcome).toEqual({
+      inserted: 1,
+      alreadyPresent: 0,
+      total: 2,
+      complete: false,
+      error: 'Import request failed (503)'
+    });
+  });
+
+  it('refuses rather than writing elsewhere when the store cannot write as one unit', async () => {
+    // Unreachable in the app — the real adapter writes many keys as one — and
+    // reachable from a test double that does not. Falling through to the
+    // importer's default would put the rows in the app's real store while the
+    // test watched an empty double.
+    const client = cloudClient();
+    const device = deviceWriter();
+    const partialAdapter = {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {})
+    };
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      userIdService: noOwner,
+      storageAdapter: partialAdapter,
+      logger,
+      bulkImportService: client,
+      localBulkImport: device
+    });
+
+    const outcome = await service.importTransactions('acct-1', statement());
+
+    expect(outcome).toEqual({
+      inserted: 0,
+      alreadyPresent: 0,
+      total: 2,
+      complete: false,
+      error: 'This device cannot store the import as one piece, so nothing was written.'
+    });
+    expect(device).not.toHaveBeenCalled();
+    expect(client.importInChunks).not.toHaveBeenCalled();
   });
 });

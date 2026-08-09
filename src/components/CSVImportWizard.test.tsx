@@ -8,12 +8,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CSVImportWizard from './CSVImportWizard';
 import { enhancedCsvImportService } from '../services/enhancedCsvImportService';
-import { transactionImportService } from '../services/transactionImportService';
-import { importTransactionsLocally } from '../services/localTransactionImportService';
+import { dataPort } from '../services/port';
 
 const mockRefreshAccountsAndTransactions = vi.fn().mockResolvedValue(undefined);
-/** Flipped per test to exercise the cloud path and the local one. */
-let mockIsUsingSupabase = false;
 
 // Mock all dependencies
 vi.mock('../contexts/AppContextSupabase', () => ({
@@ -28,29 +25,25 @@ vi.mock('../contexts/AppContextSupabase', () => ({
       { id: 'cat-1', name: 'Food', type: 'expense' },
       { id: 'cat-2', name: 'Income', type: 'income' },
     ],
-    isUsingSupabase: mockIsUsingSupabase,
     refreshAccountsAndTransactions: mockRefreshAccountsAndTransactions,
   }),
 }));
 
-vi.mock('@clerk/clerk-react', () => ({
-  useAuth: () => ({ getToken: vi.fn().mockResolvedValue('test-token') }),
-}));
-
 /**
- * Both write paths are mocked, because what these tests check is what the
- * wizard REPORTS about a write — which can only be checked by controlling what
- * the write says it did.
+ * THE WRITE, which is now one door rather than two.
+ *
+ * The wizard used to choose between the cloud client and the browser-storage
+ * importer itself, off `isUsingSupabase`, and these tests mocked both. It asks
+ * the seam once now; which store answers is the seam's business and is tested
+ * where that decision lives (dataService.test.ts). What is mocked here is the
+ * ANSWER, because what these tests check is what the wizard reports about a
+ * write — and that can only be checked by controlling what the write says it
+ * did.
  */
-vi.mock('../services/transactionImportService', () => ({
-  transactionImportService: {
-    setAuthTokenProvider: vi.fn(),
-    importInChunks: vi.fn(),
+vi.mock('../services/port', () => ({
+  dataPort: {
+    importTransactions: vi.fn(),
   },
-}));
-
-vi.mock('../services/localTransactionImportService', () => ({
-  importTransactionsLocally: vi.fn(),
 }));
 
 /**
@@ -196,13 +189,9 @@ describe('CSVImportWizard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsUsingSupabase = false;
     // Default: the write does what it was asked. Tests about a failing write
     // override this.
-    vi.mocked(importTransactionsLocally).mockImplementation(
-      async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
-    );
-    vi.mocked(transactionImportService.importInChunks).mockImplementation(
+    vi.mocked(dataPort.importTransactions).mockImplementation(
       async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
     );
   });
@@ -661,13 +650,16 @@ describe('CSVImportWizard', () => {
       await waitFor(() => {
         expect(screen.getByText('Import Complete!')).toBeInTheDocument();
       });
-      expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
-      expect(importTransactionsLocally).toHaveBeenCalledWith(
+      expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
         'acc-1',
         expect.arrayContaining([
           expect.objectContaining({ description: 'GROCERY STORE', accountId: 'acc-1' }),
           expect.objectContaining({ description: 'SALARY', accountId: 'acc-1' })
-        ])
+        ]),
+        // The destination the wizard resolved, the rows it routed there, and a
+        // way to hear about them landing. Nothing about which store answers.
+        { onProgress: expect.any(Function) }
       );
       expect(mockRefreshAccountsAndTransactions).toHaveBeenCalled();
     });
@@ -688,16 +680,20 @@ describe('CSVImportWizard', () => {
       await waitFor(() => {
         expect(screen.getByText('Import Complete!')).toBeInTheDocument();
       });
-      expect(importTransactionsLocally).toHaveBeenCalledWith('acc-1', [
-        expect.objectContaining({ description: 'GROCERY STORE', categoryConfirmed: false }),
-        expect.objectContaining({ description: 'SALARY', categoryConfirmed: true })
-      ]);
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
+        'acc-1',
+        [
+          expect.objectContaining({ description: 'GROCERY STORE', categoryConfirmed: false }),
+          expect.objectContaining({ description: 'SALARY', categoryConfirmed: true })
+        ],
+        { onProgress: expect.any(Function) }
+      );
     });
 
     it('shows the Imported tile as what LANDED, not what the file offered', async () => {
       // The file offers two; the write confirms one. The tile must say one.
       vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
-      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 1,
         alreadyPresent: 0,
         total: 2,
@@ -717,7 +713,7 @@ describe('CSVImportWizard', () => {
 
     it('names the row that never landed, and what its absence means', async () => {
       vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
-      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 1,
         alreadyPresent: 0,
         total: 2,
@@ -748,8 +744,8 @@ describe('CSVImportWizard', () => {
       await waitFor(() => {
         expect(screen.getByText('Import Complete!')).toBeInTheDocument();
       });
-      expect(importTransactionsLocally).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(importTransactionsLocally).mock.calls.map(call => call[0]))
+      expect(dataPort.importTransactions).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(dataPort.importTransactions).mock.calls.map(call => call[0]))
         .toEqual(['acc-1', 'acc-2']);
     });
 
@@ -759,7 +755,7 @@ describe('CSVImportWizard', () => {
       vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
         parsedAs([...twoRows, { ...twoRows[0], description: 'TRANSFER IN', accountId: 'acc-2' }])
       );
-      vi.mocked(importTransactionsLocally)
+      vi.mocked(dataPort.importTransactions)
         .mockResolvedValueOnce({ inserted: 2, alreadyPresent: 0, total: 2, complete: true })
         .mockResolvedValueOnce({ inserted: 0, alreadyPresent: 0, total: 1, complete: false, error: 'offline' });
 
@@ -788,9 +784,11 @@ describe('CSVImportWizard', () => {
       });
       expect(screen.getByText(/Barclays Everyday.*you have no account of that name/)).toBeInTheDocument();
       // One row routed, so one row landed — not the parser's two.
-      expect(importTransactionsLocally).toHaveBeenCalledWith('acc-1', [
-        expect.objectContaining({ description: 'GROCERY STORE' })
-      ]);
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
+        'acc-1',
+        [expect.objectContaining({ description: 'GROCERY STORE' })],
+        { onProgress: expect.any(Function) }
+      );
     });
 
     it('says when no Account column was mapped at all', async () => {
@@ -804,7 +802,7 @@ describe('CSVImportWizard', () => {
         expect(screen.getByText('Nothing was imported')).toBeInTheDocument();
       });
       expect(screen.getByText(/No column is mapped to/)).toBeInTheDocument();
-      expect(importTransactionsLocally).not.toHaveBeenCalled();
+      expect(dataPort.importTransactions).not.toHaveBeenCalled();
     });
 
     it('surfaces a thrown import instead of leaving a dead button', async () => {
@@ -833,7 +831,7 @@ describe('CSVImportWizard', () => {
       const heldWrite = () => {
         let release: (() => void) | null = null;
         const finished = new Promise<void>(resolve => { release = resolve; });
-        vi.mocked(importTransactionsLocally).mockImplementationOnce(async (_accountId, rows) => {
+        vi.mocked(dataPort.importTransactions).mockImplementationOnce(async (_accountId, rows) => {
           await finished;
           return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
         });
@@ -878,21 +876,35 @@ describe('CSVImportWizard', () => {
           expect(screen.getByText('Import Complete!')).toBeInTheDocument();
         });
         expect(enhancedCsvImportService.importTransactions).toHaveBeenCalledTimes(1);
-        expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
+        expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
       });
     });
 
-    it('uses the cloud endpoint when signed in', async () => {
-      mockIsUsingSupabase = true;
+    it('counts the rows as a chunked store reports them, without waiting for the end', async () => {
+      // A signed-in import posts in chunks and says so between them. The
+      // wizard's job is to put those figures on screen as they arrive rather
+      // than jumping from nothing to done — which is what a 900-row statement
+      // looks like otherwise.
       vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(parsedAs(twoRows));
+      let release: (() => void) | null = null;
+      const finished = new Promise<void>(resolve => { release = resolve; });
+      vi.mocked(dataPort.importTransactions).mockImplementationOnce(async (_accountId, rows, options) => {
+        options?.onProgress?.({ inserted: 1, total: rows.length });
+        await finished;
+        return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+      });
 
       await runImport();
 
       await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent('Importing… 1 of 2 transactions');
+      });
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+
+      release?.();
+      await waitFor(() => {
         expect(screen.getByText('Import Complete!')).toBeInTheDocument();
       });
-      expect(transactionImportService.importInChunks).toHaveBeenCalledTimes(1);
-      expect(importTransactionsLocally).not.toHaveBeenCalled();
     });
   });
 
@@ -1190,8 +1202,8 @@ describe('CSVImportWizard', () => {
       // Not the result step, and not the write: a CSV names its columns in words
       // only its author knows, so nothing is imported before someone confirms.
       expect(screen.queryByText('Import Complete!')).not.toBeInTheDocument();
-      expect(transactionImportService.importInChunks).not.toHaveBeenCalled();
-      expect(importTransactionsLocally).not.toHaveBeenCalled();
+      expect(dataPort.importTransactions).not.toHaveBeenCalled();
+      expect(dataPort.importTransactions).not.toHaveBeenCalled();
     });
 
     /**

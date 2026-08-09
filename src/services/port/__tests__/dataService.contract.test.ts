@@ -45,11 +45,25 @@ const createStore = (fixture: PortFixture) => {
     return Array.isArray(stored) ? (stored as T[]) : [];
   };
 
+  const put = (key: string, value: unknown): void => {
+    data.set(key, Array.isArray(value) ? [...value] : value);
+  };
+
   return {
     adapter: {
       get: vi.fn(async (key: string) => data.get(key) ?? null),
       set: vi.fn(async (key: string, value: unknown) => {
-        data.set(key, Array.isArray(value) ? [...value] : value);
+        put(key, value);
+      }),
+      /**
+       * Several keys as ONE unit, which is what the real adapter promises and
+       * what the bulk import is built on: the rows and the balance move
+       * together or neither does. A Map cannot half-apply a loop that does not
+       * throw, so the promise holds here for the same reason it holds in an
+       * IndexedDB transaction — nothing else can see the middle of it.
+       */
+      setMany: vi.fn(async (entries: ReadonlyArray<{ key: string; value: unknown }>) => {
+        for (const { key, value } of entries) put(key, value);
       })
     },
     read: async (): Promise<PortStoreState> => ({
@@ -149,7 +163,7 @@ const createUnreadableBrowserStoragePort = async (): Promise<DataPort> => {
   return createDataService({
     isSupabaseConfigured: () => false,
     hasCloudSession: () => false,
-    storageAdapter: { get: vi.fn(refuse), set: vi.fn(refuse) },
+    storageAdapter: { get: vi.fn(refuse), set: vi.fn(refuse), setMany: vi.fn(refuse) },
     planningService: refusingPlanningService(),
     logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
     now: () => new Date('2025-06-01T09:00:00.000Z'),

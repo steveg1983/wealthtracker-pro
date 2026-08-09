@@ -233,6 +233,7 @@ vi.mock('../../services/port', () => {
     setTransactionArchived: refuse('setTransactionArchived'),
     archiveTransactionsBefore: refuse('archiveTransactionsBefore'),
     unarchiveAccount: refuse('unarchiveAccount'),
+    importTransactions: refuse('importTransactions'),
     linkTransferPair: refuse('linkTransferPair'),
     linkSplitLineTransfer: refuse('linkSplitLineTransfer'),
     unlinkTransfers: refuse('unlinkTransfers'),

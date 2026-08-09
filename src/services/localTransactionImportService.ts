@@ -1,13 +1,13 @@
 import type { Account, Transaction } from '../types';
-import type { BulkImportResult } from './transactionImportService';
+import type { BulkImportResult } from './port/dataPort';
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
 import { normalizeTransactionDates, toDateValue } from '../utils/dateBoundary';
 import { toDecimal } from '../utils/decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
- * Bulk transaction import for local/demo mode — the no-cloud twin of
- * transactionImportService.
+ * Bulk transaction import for local/demo mode — the DEVICE half of the seam's
+ * `importTransactions`, and the no-cloud twin of transactionImportService.
  *
  * ── WHY IT EXISTS ───────────────────────────────────────────────────────────
  * Signed in, a file import goes to /api/data/import-transactions, which puts

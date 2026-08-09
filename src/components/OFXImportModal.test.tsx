@@ -3,8 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import OFXImportModal from './OFXImportModal';
 import { ofxImportService } from '../services/ofxImportService';
-import { transactionImportService } from '../services/transactionImportService';
-import { importTransactionsLocally } from '../services/localTransactionImportService';
+import { dataPort } from '../services/port';
 import type { Account } from '../types';
 
 type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
@@ -115,8 +114,6 @@ vi.mock('./loading/LoadingState', () => ({
 // Mock AppContext
 const mockUpdateAccount = vi.fn();
 const mockRefreshAccountsAndTransactions = vi.fn().mockResolvedValue(undefined);
-/** Flipped per test to exercise the cloud path and the local one. */
-let mockIsUsingSupabase = false;
 const mockAccount = (overrides: Partial<Account> & Pick<Account, 'id' | 'name' | 'type'>): Account => ({
   balance: 0,
   currency: 'GBP',
@@ -168,13 +165,8 @@ vi.mock('../contexts/AppContextSupabase', () => ({
     transactions: mockTransactions,
     categories: mockCategories,
     updateAccount: mockUpdateAccount,
-    isUsingSupabase: mockIsUsingSupabase,
     refreshAccountsAndTransactions: mockRefreshAccountsAndTransactions
   })
-}));
-
-vi.mock('@clerk/clerk-react', () => ({
-  useAuth: () => ({ getToken: vi.fn().mockResolvedValue('test-token') })
 }));
 
 // Mock OFX import service
@@ -185,19 +177,20 @@ vi.mock('../services/ofxImportService', () => ({
 }));
 
 /**
- * The two write paths. Both are mocked, because what this file tests is what
- * the modal REPORTS about a write — and the only way to test that honestly is
- * to control what the write says it did.
+ * THE WRITE, which is now one door rather than two.
+ *
+ * The dialog used to choose between the cloud client and the browser-storage
+ * importer itself, off `isUsingSupabase`, and this file mocked both. It asks
+ * the seam once now; which store answers is the seam's business and is tested
+ * where that decision lives (dataService.test.ts). What is mocked here is the
+ * ANSWER, because what this file tests is what the modal REPORTS about a write
+ * — and the only way to test that honestly is to control what the write says
+ * it did.
  */
-vi.mock('../services/transactionImportService', () => ({
-  transactionImportService: {
-    setAuthTokenProvider: vi.fn(),
-    importInChunks: vi.fn()
+vi.mock('../services/port', () => ({
+  dataPort: {
+    importTransactions: vi.fn()
   }
-}));
-
-vi.mock('../services/localTransactionImportService', () => ({
-  importTransactionsLocally: vi.fn()
 }));
 
 // Mock window methods
@@ -221,13 +214,9 @@ describe('OFXImportModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsUsingSupabase = false;
     // Default: the write does what it was asked. Tests that care about a
     // failing write override this.
-    vi.mocked(importTransactionsLocally).mockImplementation(
-      async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
-    );
-    vi.mocked(transactionImportService.importInChunks).mockImplementation(
+    vi.mocked(dataPort.importTransactions).mockImplementation(
       async (_accountId, rows) => ({ inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true })
     );
   });
@@ -741,11 +730,13 @@ describe('OFXImportModal', () => {
         expect(screen.getByTestId('check-icon')).toBeInTheDocument();
       });
 
-      // One awaited, atomic write for the whole file — not a row at a time.
-      expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
-      expect(importTransactionsLocally).toHaveBeenCalledWith(
+      // One awaited, all-or-nothing write for the whole file — not a row at a
+      // time — into the account this dialog matched.
+      expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
         'acc1',
-        [{ id: 'trans1', amount: 100, description: 'Test' }]
+        [{ id: 'trans1', amount: 100, description: 'Test' }],
+        { source: 'ofx', onProgress: expect.any(Function) }
       );
       // And the register is re-read, so the screen shows what actually landed.
       expect(mockRefreshAccountsAndTransactions).toHaveBeenCalled();
@@ -832,7 +823,7 @@ describe('OFXImportModal', () => {
         );
         let release: (() => void) | null = null;
         const finished = new Promise<void>(resolve => { release = resolve; });
-        vi.mocked(importTransactionsLocally).mockImplementationOnce(async (_accountId, rows) => {
+        vi.mocked(dataPort.importTransactions).mockImplementationOnce(async (_accountId, rows) => {
           await finished;
           return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
         });
@@ -872,7 +863,7 @@ describe('OFXImportModal', () => {
         await waitFor(() => {
           expect(screen.getByText('Import Successful!')).toBeInTheDocument();
         });
-        expect(importTransactionsLocally).toHaveBeenCalledTimes(1);
+        expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -920,7 +911,7 @@ describe('OFXImportModal', () => {
     };
 
     it('reports what LANDED, not what the file offered', async () => {
-      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 2,
         alreadyPresent: 0,
         total: 3,
@@ -940,7 +931,7 @@ describe('OFXImportModal', () => {
     });
 
     it('names the payment that is missing, and what its absence means', async () => {
-      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 2,
         alreadyPresent: 0,
         total: 3,
@@ -965,7 +956,7 @@ describe('OFXImportModal', () => {
     it('holds back the Bank Balance and says why', async () => {
       // Setting a statement's closing figure on a register that only holds part
       // of that statement produces an unexplained difference in Reconciliation.
-      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 2,
         alreadyPresent: 0,
         total: 3,
@@ -983,7 +974,7 @@ describe('OFXImportModal', () => {
     });
 
     it('says plainly when nothing at all was written', async () => {
-      vi.mocked(importTransactionsLocally).mockResolvedValueOnce({
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 0,
         alreadyPresent: 0,
         total: 3,
@@ -1018,8 +1009,9 @@ describe('OFXImportModal', () => {
       // already has under the bank's own id, looks like on screen. Adding the
       // two figures together would claim work that did not happen; leaving the
       // second out would report rows as missing when they are in the register.
-      mockIsUsingSupabase = true;
-      vi.mocked(transactionImportService.importInChunks).mockResolvedValueOnce({
+      // Only a store that can be asked twice ever answers this way; the modal
+      // reads the shape, not the store.
+      vi.mocked(dataPort.importTransactions).mockResolvedValueOnce({
         inserted: 3,
         alreadyPresent: 2,
         total: 3,
@@ -1051,8 +1043,7 @@ describe('OFXImportModal', () => {
       { ...sampleTransaction, description: 'TWO WAY SWEEP IN', amount: 312.75, date: day, statementSequence: 2 }
     ];
 
-    const importThrough = async (viaCloud: boolean): Promise<void> => {
-      mockIsUsingSupabase = viaCloud;
+    const importThrough = async (): Promise<void> => {
       const parsed = createMockImportResult({
         transactions: ordered,
         statementRows: ordered.map((t, i) => statementRow(t, `fit-${i}`)),
@@ -1076,32 +1067,68 @@ describe('OFXImportModal', () => {
       });
     };
 
-    it('hands the ordinal to the cloud write', async () => {
-      await importThrough(true);
+    it('hands the ordinal, and everything else about the rows, to the seam', async () => {
+      await importThrough();
 
-      expect(transactionImportService.importInChunks).toHaveBeenCalledWith(
+      expect(dataPort.importTransactions).toHaveBeenCalledTimes(1);
+      expect(dataPort.importTransactions).toHaveBeenCalledWith(
+        // The account this dialog matched or the user picked — the whole point
+        // of the matching work above is that the statement reaches THIS one.
         'acc2',
         expect.arrayContaining([
           expect.objectContaining({ description: 'DIRECT DEBIT', statementSequence: 0 }),
           expect.objectContaining({ description: 'STANDING ORDER OUT', statementSequence: 1 }),
           expect.objectContaining({ description: 'TWO WAY SWEEP IN', statementSequence: 2 })
         ]),
-        // And says these rows carry the bank's own FITID, which is what the
-        // database keys them by — see transactionImportService.provenanceFor.
+        // And says these rows carry the bank's own FITID, which is what a store
+        // able to key them by it will use — see dataPort.ImportSourceKind.
         // onProgress rides along so the dialog can count rows as they land.
         { source: 'ofx', onProgress: expect.any(Function) }
       );
     });
 
-    it('hands the ordinal to the local write', async () => {
-      await importThrough(false);
+    it('counts the rows as a chunked store reports them, without waiting for the end', async () => {
+      // A store that commits in pieces says so between them; the dialog puts
+      // those figures on screen as they arrive rather than jumping from
+      // nothing to done, which is what a 183-row statement looks like
+      // otherwise. A store with one atomic write reports nothing and the bar
+      // stays honestly indeterminate — the case the test above this covers.
+      let release: (() => void) | null = null;
+      const finished = new Promise<void>(resolve => { release = resolve; });
+      vi.mocked(dataPort.importTransactions).mockImplementationOnce(async (_accountId, rows, options) => {
+        options?.onProgress?.({ inserted: 2, total: rows.length });
+        await finished;
+        return { inserted: rows.length, alreadyPresent: 0, total: rows.length, complete: true };
+      });
 
-      expect(importTransactionsLocally).toHaveBeenCalledWith(
-        'acc2',
-        expect.arrayContaining([
-          expect.objectContaining({ description: 'TWO WAY SWEEP IN', statementSequence: 2 })
-        ])
-      );
+      const parsed = createMockImportResult({
+        transactions: ordered,
+        statementRows: ordered.map((t, i) => statementRow(t, `fit-${i}`)),
+        matchedAccount: mockAccounts[1],
+        newTransactions: 3
+      });
+      vi.mocked(ofxImportService.importTransactions)
+        .mockResolvedValueOnce(parsed)
+        .mockResolvedValueOnce(parsed);
+
+      render(<OFXImportModal {...defaultProps} />);
+      fireEvent.change(document.getElementById('ofx-upload')!, {
+        target: { files: [new File(['OFX content'], 'test.ofx', { type: 'application/ofx' })] }
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('loading-button')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByTestId('loading-button'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent('Importing… 2 of 3 transactions');
+      });
+      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '67');
+
+      release?.();
+      await waitFor(() => {
+        expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+      });
     });
   });
 
