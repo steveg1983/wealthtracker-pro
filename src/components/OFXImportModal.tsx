@@ -36,6 +36,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import ImportProgress from './common/ImportProgress';
 import AccountSelector from './common/AccountSelector';
 import type { Account } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -129,6 +130,13 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
   const { getToken } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  /**
+   * What the WRITE has confirmed so far, never what was hoped for. `total` is
+   * set once the rows to write are known; `inserted` only ever moves on a
+   * report from the writing path (chunk by chunk in the cloud; the local write
+   * is one atomic transaction and reports nothing until it is done).
+   */
+  const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
   const [parseResult, setParseResult] = useState<ImportTransactionsResult | null>(null);
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
@@ -402,11 +410,19 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
       // whose response was lost be posted again without paying for the
       // statement twice, and what makes "just import the file again" true of
       // the register and not only of this screen.
+      // The size of the job, known now that duplicates have been dropped and
+      // before a single row is written. Nothing is claimed as inserted yet.
+      if (isMountedRef.current) {
+        setProgress({ inserted: 0, total: result.transactions.length });
+      }
+
       const outcome: BulkImportResult = isUsingSupabase
         ? await (async () => {
             transactionImportService.setAuthTokenProvider(() => getToken());
             return transactionImportService.importInChunks(destinationId, result.transactions, {
-              source: 'ofx'
+              source: 'ofx',
+              // Fires between chunks, so it can also land after unmount.
+              onProgress: p => { if (isMountedRef.current) setProgress(p); }
             });
           })()
         : await importTransactionsLocally(destinationId, result.transactions);
@@ -530,6 +546,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
     } finally {
       if (isMountedRef.current) {
         setIsProcessing(false);
+        setProgress(null);
       }
     }
   }, [accounts, file, getToken, importAnywayFitIds, isUsingSupabase, parseResult, refreshAccountsAndTransactions, saveDetails, selectedAccountId, skipDuplicates, transactions, categories, updateAccount]);
@@ -539,6 +556,7 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
     setFile(null);
     setParseResult(null);
     setImportResult(null);
+    setProgress(null);
     setSelectedAccountId('');
     setAccountIsUserChoice(false);
     setSaveDetailsOverride(null);
@@ -567,19 +585,21 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Drag and drop your .ofx file here, or click to browse
               </p>
-              <input
-                type="file"
-                accept=".ofx"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="ofx-upload"
-              />
-              <label
-                htmlFor="ofx-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
-              >
+              {/* sr-only, NOT hidden: display:none takes the input out of the
+                  tab order entirely, and a <label> cannot hold focus in its
+                  place — so the only way to reach this picker was a mouse.
+                  Off-screen the input still takes focus, and focus-within
+                  paints the ring on the button the user can actually see. */}
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
                 <FileTextIcon size={20} />
                 Select OFX File
+                <input
+                  type="file"
+                  accept=".ofx"
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                  id="ofx-upload"
+                />
               </label>
             </div>
             
@@ -824,16 +844,30 @@ export default function OFXImportModal({ isOpen, onClose, initialFile }: OFXImpo
               </div>
             </div>
             
+            {/* What the import is doing, from the click onwards — the file's
+                own count until the write reports one of its own. */}
+            {isProcessing && (
+              <ImportProgress
+                inserted={progress?.inserted ?? null}
+                total={progress?.total ?? willImport}
+              />
+            )}
+
             {/* Actions */}
             <div className="flex justify-end gap-3">
               <button
                 onClick={resetModal}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                disabled={isProcessing}
+                // Said, not just enforced: a dead button with no explanation is
+                // indistinguishable from a broken one.
+                title={isProcessing ? 'Import in progress' : undefined}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <LoadingButton
                 isLoading={isProcessing}
+                loadingText="Importing…"
                 onClick={processImport}
                 disabled={!selectedAccountId && !parseResult.matchedAccount}
                 className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"

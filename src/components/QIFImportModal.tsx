@@ -15,6 +15,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import ImportProgress from './common/ImportProgress';
 import AccountSelector from './common/AccountSelector';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -37,6 +38,9 @@ interface QIFImportModalProps {
 }
 
 type QIFImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
+
+/** How often the row-at-a-time local write refreshes the count on screen. */
+const PROGRESS_EVERY = 25;
 
 type ImportOutcome =
   | {
@@ -61,6 +65,12 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
   const { formatCurrency } = useCurrencyDecimal();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  /**
+   * What the WRITE has confirmed so far, never what was hoped for. `total` is
+   * set the moment the rows to write are known (after duplicates are dropped),
+   * so the dialog can name the size of the job before the first row lands;
+   * `inserted` only ever moves on a report from the writing path.
+   */
   const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
   const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
   const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
@@ -171,6 +181,12 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
       let insertedCount = result.transactions.length;
       let complete = true;
 
+      // The size of the job, known now that duplicates have been dropped and
+      // before a single row is written. Nothing is claimed as inserted yet.
+      if (isMountedRef.current) {
+        setProgress({ inserted: 0, total: result.transactions.length });
+      }
+
       if (isUsingSupabase) {
         // Cloud: write via the chunked, awaited bulk endpoint (one atomic RPC
         // per chunk) so a large statement can't flood the API and lose rows.
@@ -192,8 +208,17 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
         }
       } else {
         // Local/demo mode: no cloud endpoint — write sequentially and awaited.
+        // Every row is its own write here, so the count on screen is a real
+        // count of rows in the register, not an estimate.
+        let written = 0;
         for (const transaction of result.transactions) {
           await addTransaction(transaction);
+          written += 1;
+          // Not per row: a 10,000-row file would be 10,000 renders, and the
+          // bar cannot show more steps than it has pixels anyway.
+          if (isMountedRef.current && (written % PROGRESS_EVERY === 0 || written === result.transactions.length)) {
+            setProgress({ inserted: written, total: result.transactions.length });
+          }
         }
       }
 
@@ -256,19 +281,21 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Drag and drop your .qif file here, or click to browse
               </p>
-              <input
-                type="file"
-                accept=".qif"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="qif-upload"
-              />
-              <label
-                htmlFor="qif-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
-              >
+              {/* sr-only, NOT hidden: display:none takes the input out of the
+                  tab order entirely, and a <label> cannot hold focus in its
+                  place — so the only way to reach this picker was a mouse.
+                  Off-screen the input still takes focus, and focus-within
+                  paints the ring on the button the user can actually see. */}
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
                 <FileTextIcon size={20} />
                 Select QIF File
+                <input
+                  type="file"
+                  accept=".qif"
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                  id="qif-upload"
+                />
               </label>
             </div>
             
@@ -376,20 +403,13 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
               </div>
             </div>
             
-            {/* Progress (large cloud imports run in chunks) */}
-            {isProcessing && progress && progress.total > 0 && (
-              <div>
-                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-                  <span>Importing…</span>
-                  <span>{progress.inserted.toLocaleString()} / {progress.total.toLocaleString()}</span>
-                </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[#1a2332] dark:bg-blue-500 transition-all"
-                    style={{ width: `${Math.min(100, Math.round((progress.inserted / progress.total) * 100))}%` }}
-                  />
-                </div>
-              </div>
+            {/* What the import is doing, from the click onwards — the file's
+                own count until the write reports one of its own. */}
+            {isProcessing && (
+              <ImportProgress
+                inserted={progress?.inserted ?? null}
+                total={progress?.total ?? parseResult.transactions.length}
+              />
             )}
 
             {/* Actions */}
@@ -397,12 +417,16 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
               <button
                 onClick={resetModal}
                 disabled={isProcessing}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50"
+                // Said, not just enforced: a dead button with no explanation is
+                // indistinguishable from a broken one.
+                title={isProcessing ? 'Import in progress' : undefined}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <LoadingButton
                 isLoading={isProcessing}
+                loadingText="Importing…"
                 onClick={processImport}
                 disabled={!selectedAccountId}
                 className="flex items-center gap-2 px-6 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50"

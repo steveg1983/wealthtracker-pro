@@ -35,17 +35,19 @@ vi.mock('./common/Modal', () => ({
   )
 }));
 
-// Mock LoadingButton
+// Mock LoadingButton. `disabled={isLoading || disabled}` mirrors the real
+// component — a stub that stayed clickable while loading would let a test
+// "prove" the button cannot double-fire when in truth only the stub couldn't.
 vi.mock('./loading/LoadingState', () => ({
-  LoadingButton: ({ isLoading, onClick, disabled, children, className }: { isLoading: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; className?: string }) => (
-    <button 
+  LoadingButton: ({ isLoading, onClick, disabled, children, className, loadingText = 'Loading...' }: { isLoading: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; className?: string; loadingText?: string }) => (
+    <button
       data-testid="loading-button"
-      onClick={onClick} 
-      disabled={disabled}
+      onClick={onClick}
+      disabled={isLoading || disabled}
       className={className}
       data-loading={isLoading}
     >
-      {isLoading ? 'Loading...' : children}
+      {isLoading ? loadingText : children}
     </button>
   )
 }));
@@ -183,10 +185,30 @@ describe('QIFImportModal', () => {
 
     it('renders file input with correct attributes', () => {
       render(<QIFImportModal {...defaultProps} />);
-      
+
       const fileInput = document.getElementById('qif-upload');
       expect(fileInput).toHaveAttribute('accept', '.qif');
       expect(fileInput).toHaveAttribute('type', 'file');
+    });
+
+    /**
+     * The picker was `className="hidden"` — display:none, which takes the input
+     * out of the tab order altogether, and a <label> cannot hold focus in its
+     * place. There was no way to reach it but a mouse.
+     *
+     * sr-only keeps it off screen and IN the tab order; focus-within paints the
+     * ring on the button the user can actually see, so the focus is not
+     * invisible either.
+     */
+    it('leaves the file picker in the tab order, with a visible focus ring', () => {
+      render(<QIFImportModal {...defaultProps} />);
+
+      const fileInput = document.getElementById('qif-upload');
+      expect(fileInput).not.toHaveClass('hidden');
+      expect(fileInput).toHaveClass('sr-only');
+      expect(fileInput).not.toBeDisabled();
+      expect(fileInput).not.toHaveAttribute('tabindex', '-1');
+      expect(fileInput?.closest('label')?.className).toContain('focus-within:ring-2');
     });
   });
 
@@ -481,6 +503,69 @@ describe('QIFImportModal', () => {
       expect(mockAddTransaction).toHaveBeenCalledWith({ id: 'trans1', amount: 100, description: 'Test' });
     });
 
+    /**
+     * Pressing Import on a long statement used to leave the dialog completely
+     * still — no count, no bar, nothing to say the click had even been
+     * accepted. The only action available to somebody watching that is to
+     * press the button again.
+     */
+    describe('while the write is running', () => {
+      /** A write held open, so the in-flight state can be looked at. */
+      const heldWrite = () => {
+        vi.mocked(qifImportService.importTransactions).mockResolvedValueOnce({
+          transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
+          newTransactions: 1,
+          duplicates: 0,
+          invalidDates: 0,
+          matchedCategories: 0,
+          unmatchedCategories: []
+        });
+        let release: (() => void) | null = null;
+        const finished = new Promise<void>(resolve => { release = resolve; });
+        mockAddTransaction.mockImplementationOnce(async () => { await finished; });
+        return { release: () => release?.() };
+      };
+
+      it('says it is importing, and names the size of the job', async () => {
+        const write = heldWrite();
+        chooseAccount(CURRENT_ACCOUNT);
+        fireEvent.click(screen.getByTestId('loading-button'));
+
+        // Announced politely rather than by stealing focus.
+        const status = await screen.findByRole('status');
+        expect(status).toHaveTextContent('Importing 1 transactions…');
+        expect(screen.getByRole('progressbar')).toBeInTheDocument();
+
+        write.release();
+        await waitFor(() => {
+          expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+        });
+        // The summary takes over; the progress region goes with it.
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+
+      it('cannot be fired twice, and says why Cancel is unavailable', async () => {
+        const write = heldWrite();
+        chooseAccount(CURRENT_ACCOUNT);
+        fireEvent.click(screen.getByTestId('loading-button'));
+        await screen.findByRole('status');
+
+        expect(screen.getByTestId('loading-button')).toBeDisabled();
+        const cancel = screen.getByText('Cancel').closest('button');
+        expect(cancel).toBeDisabled();
+        expect(cancel).toHaveAttribute('title', 'Import in progress');
+
+        // A second press while it runs must not start a second import.
+        fireEvent.click(screen.getByTestId('loading-button'));
+        write.release();
+        await waitFor(() => {
+          expect(screen.getByText('Import Successful!')).toBeInTheDocument();
+        });
+        expect(qifImportService.importTransactions).toHaveBeenCalledTimes(1);
+        expect(mockAddTransaction).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it('shows duplicate count in success message', async () => {
       const mockImportResult = {
         transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
@@ -530,9 +615,9 @@ describe('QIFImportModal', () => {
       );
       
       fireEvent.click(importButton);
-      
+
       expect(importButton).toHaveAttribute('data-loading', 'true');
-      expect(importButton).toHaveTextContent('Loading...');
+      expect(importButton).toHaveTextContent('Importing…');
     });
 
     it('calls import service with correct parameters', async () => {

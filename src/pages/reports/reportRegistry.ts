@@ -104,6 +104,18 @@ export const REPORTS: ReportDefinition[] = [
     component: lazyWithRecovery(() => import('./AccountBalancesReport')),
   },
   {
+    id: 'account-distribution',
+    title: 'Account distribution',
+    description: 'Which accounts hold the money you have, ranked, with each one’s share.',
+    group: 'what-i-have',
+    icon: PieChartIcon,
+    // A snapshot of what the accounts hold NOW — there is no "distribution last
+    // March" to draw, so the hub's period picker is hidden rather than shown
+    // governing nothing.
+    usesPeriod: false,
+    component: lazyWithRecovery(() => import('./AccountDistributionReport')),
+  },
+  {
     id: 'monthly-income-expenses',
     title: 'Monthly income and expenses',
     description: 'Every category down the side, the months across the top.',

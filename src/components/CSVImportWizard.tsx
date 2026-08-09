@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { enhancedCsvImportService, type ColumnMapping, type ImportProfile, type ImportResult } from '../services/enhancedCsvImportService';
@@ -21,10 +21,19 @@ import {
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
 import { Modal } from './common/Modal';
+import ImportProgress from './common/ImportProgress';
 import CSVBankTemplates from './CSVBankTemplates';
+import { formatShortDate } from '../utils/dateFormatter';
+import { formatCurrency } from '../utils/currency-decimal';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 const logger = createScopedLogger('CSVImportWizard');
+
+/** How many of the file's rows the preview step shows. */
+const PREVIEW_ROWS = 5;
+
+const previewHeadCell =
+  'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider';
 
 interface CSVImportWizardProps {
   isOpen: boolean;
@@ -100,6 +109,12 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
   const [importError, setImportError] = useState<string | null>(null);
   const [showDuplicates, setShowDuplicates] = useState(true);
   const [duplicateThreshold, setDuplicateThreshold] = useState(90);
+  /**
+   * What the WRITE has confirmed so far, never what was hoped for. `total` is
+   * set once every row has been routed to an account; `inserted` only ever
+   * moves on a report from a writing path.
+   */
+  const [progress, setProgress] = useState<{ inserted: number; total: number } | null>(null);
 
   // An import awaits several writes and can settle after the wizard unmounts;
   // a setState then runs against a torn-down react-dom. Same pattern as the
@@ -122,6 +137,7 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     setSelectedProfile(null);
     setImportResult(null);
     setImportError(null);
+    setProgress(null);
   };
 
   /**
@@ -321,13 +337,36 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
         let reason: string | undefined;
         const missingByAccount: WizardOutcome['missingByAccount'] = [];
 
+        // The size of the job, known now that every row has been routed to an
+        // account and before a single one is written. Nothing is claimed as
+        // inserted yet.
+        const rowsToWrite = routed.length;
+        if (isMountedRef.current && rowsToWrite > 0) {
+          setProgress({ inserted: 0, total: rowsToWrite });
+        }
+
         for (const [accountId, rows] of byAccount) {
           const account = accountsById.get(accountId);
+          // A multi-account file writes one account at a time, so the count on
+          // screen is what has landed ACROSS accounts so far — the cloud path
+          // reports per chunk, the local one only when its single atomic write
+          // for that account is done.
+          const alreadyLanded = landed;
           const outcome: BulkImportResult = isUsingSupabase
-            ? await transactionImportService.importInChunks(accountId, rows)
+            ? await transactionImportService.importInChunks(accountId, rows, {
+                // Fires between chunks, so it can also land after unmount.
+                onProgress: p => {
+                  if (isMountedRef.current) {
+                    setProgress({ inserted: alreadyLanded + p.inserted, total: rowsToWrite });
+                  }
+                }
+              })
             : await importTransactionsLocally(accountId, rows);
 
           landed += outcome.inserted;
+          if (isMountedRef.current && rowsToWrite > 0) {
+            setProgress({ inserted: landed, total: rowsToWrite });
+          }
           if (!outcome.complete) {
             missingByAccount.push({
               accountName: account?.name ?? 'this account',
@@ -374,14 +413,79 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
     } finally {
       if (isMountedRef.current) {
         setIsProcessing(false);
+        setProgress(null);
       }
     }
   };
 
   // Target fields for mapping
-  const targetFields = type === 'transaction' 
+  const targetFields = type === 'transaction'
     ? ['date', 'description', 'amount', 'category', 'accountName', 'tags', 'notes', 'balance']
     : ['name', 'type', 'balance', 'currency', 'institution'];
+
+  /**
+   * The preview, built the way the import builds it.
+   *
+   * ── WHY NOT THE RAW CELLS ───────────────────────────────────────────────────
+   * This table used to print `row[headers.indexOf(mapping.sourceColumn)]` per
+   * target field. For the many UK banks that ship SEPARATE Debit and Credit
+   * columns, both mapped to `amount`, that showed the FIRST mapping's cell and
+   * nothing else — so every credit row (empty Debit cell) previewed blank while
+   * the import wrote it correctly. The screen said one thing and the register
+   * said another, on the exact rows people check hardest.
+   *
+   * generatePreview wraps the SAME buildTransactionFromRow the import uses, so
+   * the debit/credit resolution, the explicit type column, the date parsing and
+   * the skipping of rows with no usable amount are all one implementation. What
+   * is on screen is what will be written.
+   *
+   * ── WHY ONE CALL PER ROW ────────────────────────────────────────────────────
+   * generatePreview DROPS rows it cannot build (a zero-amount debit/credit pair
+   * carries no direction, so it is not imported). Called once for the batch, the
+   * output no longer lines up with the file's rows and a dropped row simply
+   * vanishes from the preview. One call per row keeps the alignment, which is
+   * what lets a skipped row be shown AS skipped — the honest answer, and the one
+   * that stops a user hunting for it in the register afterwards.
+   *
+   * Accounts are not previewed this way: generatePreview builds transactions,
+   * and an account import's fields (name, currency, institution) are the file's
+   * own cells with nothing to resolve.
+   */
+  const previewRows = useMemo(() => {
+    if (type !== 'transaction') return null;
+    return data.slice(0, PREVIEW_ROWS).map(row => ({
+      row,
+      built: enhancedCsvImportService.generatePreview(headers, [row], mappings).transactions[0] ?? null
+    }));
+  }, [type, data, headers, mappings]);
+
+  /** Which optional columns the file actually maps, so none is a column of dashes. */
+  const previewShowsCategory = mappings.some(m => m.targetField === 'category');
+  const previewShowsAccount = mappings.some(m => m.targetField === 'accountName');
+
+  /**
+   * The file's own date cell for a row.
+   *
+   * The one raw value the preview keeps, because it is the one the built value
+   * can hide: 01/06/2025 is the 1st of June or the 6th of January depending on
+   * a decision made inside the parser, and reading the built date alone can
+   * never catch that. Every other column is shown as it will be written.
+   */
+  const sourceDateCell = (row: string[]): string => {
+    const mapping = mappings.find(m => m.targetField === 'date');
+    const index = mapping ? headers.indexOf(mapping.sourceColumn || '') : -1;
+    return index >= 0 ? (row[index] ?? '') : '';
+  };
+
+  /**
+   * The currency to print a previewed amount in: the DESTINATION account's,
+   * matching the write path and summariseMissingRows. These are the numbers
+   * printed on the statement in front of the user, and converting them to a
+   * display currency would make them unfindable. Falls back to the same 'GBP'
+   * the write path falls back to when the file names no account.
+   */
+  const previewCurrency = (accountName: string | undefined): string =>
+    accounts.find(account => account.name === accountName)?.currency ?? 'GBP';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="CSV Import Wizard" size="xl">
@@ -435,19 +539,22 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Drag and drop your CSV file here, or click to browse
                 </p>
-                <input
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="csv-upload"
-                />
-                <label
-                  htmlFor="csv-upload"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer"
-                >
+                {/* sr-only, NOT hidden: display:none takes the input out of
+                    the tab order entirely, and a <label> cannot hold focus in
+                    its place — so the only way to reach this picker was a
+                    mouse. Off-screen the input still takes focus, and
+                    focus-within paints the ring on the button the user can
+                    actually see. */}
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a2332] text-white rounded-lg hover:bg-secondary cursor-pointer focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
                   <FileTextIcon size={20} />
                   Select File
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    className="sr-only"
+                    id="csv-upload"
+                  />
                 </label>
               </div>
 
@@ -596,45 +703,126 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
               {/* Preview Table */}
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                  <caption className="sr-only">
+                    {previewRows
+                      ? 'The first rows of the file as they will be written'
+                      : 'The first rows of the file'}
+                  </caption>
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      {targetFields
-                        .filter(field => mappings.some(m => m.targetField === field))
-                        .map(field => (
-                          <th
-                            key={field}
-                            className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                          >
-                            {field}
-                          </th>
-                        ))}
+                      {previewRows ? (
+                        <>
+                          <th scope="col" className={previewHeadCell}>Date</th>
+                          <th scope="col" className={previewHeadCell}>Description</th>
+                          <th scope="col" className={`${previewHeadCell} text-right`}>Amount</th>
+                          <th scope="col" className={previewHeadCell}>Type</th>
+                          {previewShowsCategory && <th scope="col" className={previewHeadCell}>Category</th>}
+                          {previewShowsAccount && <th scope="col" className={previewHeadCell}>Account</th>}
+                        </>
+                      ) : (
+                        targetFields
+                          .filter(field => mappings.some(m => m.targetField === field))
+                          .map(field => (
+                            <th key={field} scope="col" className={previewHeadCell}>
+                              {field}
+                            </th>
+                          ))
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
-                    {data.slice(0, 5).map((row, rowIndex) => (
-                      <tr key={rowIndex}>
-                        {targetFields
-                          .filter(field => mappings.some(m => m.targetField === field))
-                          .map(field => {
-                            const mapping = mappings.find(m => m.targetField === field);
-                            const columnIndex = mapping ? headers.indexOf(mapping.sourceColumn || '') : -1;
-                            const value = columnIndex >= 0 ? row[columnIndex] : '';
-                            
+                    {previewRows
+                      ? previewRows.map(({ row, built }, rowIndex) => {
+                          const columns = 4 + (previewShowsCategory ? 1 : 0) + (previewShowsAccount ? 1 : 0);
+                          if (!built) {
+                            // Shown rather than dropped: this row carries no
+                            // usable amount, so the import will pass over it —
+                            // and silence here is how somebody spends an
+                            // evening looking for it in the register.
                             return (
-                              <td key={field} className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                                {mapping?.transform ? mapping.transform(value)?.toString() ?? '' : value}
-                              </td>
+                              <tr key={rowIndex}>
+                                <td colSpan={columns} className="px-4 py-2 text-sm text-amber-700 dark:text-amber-400">
+                                  Will be skipped — this row has no usable amount
+                                </td>
+                              </tr>
                             );
-                          })}
-                      </tr>
-                    ))}
+                          }
+                          const date = built.date instanceof Date ? built.date : new Date(String(built.date));
+                          const shown = formatShortDate(date);
+                          const source = sourceDateCell(row);
+                          const amount = built.amount ?? 0;
+                          return (
+                            <tr key={rowIndex}>
+                              <td className="px-4 py-2 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                                {shown || <span className="text-amber-700 dark:text-amber-400">Unreadable date</span>}
+                                {/* The file's own cell, when it does not read
+                                    back identically — the one place a wrong
+                                    day/month order can be spotted. */}
+                                {source && source !== shown && (
+                                  <span className="block text-xs text-gray-400 dark:text-gray-500">
+                                    in the file: {source}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                {built.description ?? ''}
+                              </td>
+                              <td
+                                className={`px-4 py-2 text-sm text-right tabular-nums whitespace-nowrap ${
+                                  amount < 0
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : 'text-green-700 dark:text-green-400'
+                                }`}
+                              >
+                                {formatCurrency(amount, previewCurrency(built.accountName))}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                {built.type ?? ''}
+                              </td>
+                              {previewShowsCategory && (
+                                <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                  {built.category ?? ''}
+                                </td>
+                              )}
+                              {previewShowsAccount && (
+                                <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                  {built.accountName ?? ''}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })
+                      : data.slice(0, PREVIEW_ROWS).map((row, rowIndex) => (
+                          <tr key={rowIndex}>
+                            {targetFields
+                              .filter(field => mappings.some(m => m.targetField === field))
+                              .map(field => {
+                                const mapping = mappings.find(m => m.targetField === field);
+                                const columnIndex = mapping ? headers.indexOf(mapping.sourceColumn || '') : -1;
+                                const value = columnIndex >= 0 ? row[columnIndex] : '';
+
+                                return (
+                                  <td key={field} className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                    {mapping?.transform ? mapping.transform(value)?.toString() ?? '' : value}
+                                  </td>
+                                );
+                              })}
+                          </tr>
+                        ))}
                   </tbody>
                 </table>
               </div>
 
-              {data.length > 5 && (
+              {previewRows && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  These are the values that will be written — a bank&apos;s separate Debit and Credit
+                  columns have already been resolved into one signed amount.
+                </p>
+              )}
+
+              {data.length > PREVIEW_ROWS && (
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  Showing 5 of {data.length} rows
+                  Showing {PREVIEW_ROWS} of {data.length} rows
                 </p>
               )}
 
@@ -802,8 +990,10 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-600">
+        {/* Footer Actions — during a write this row becomes the progress
+            region, because it is the one part of the wizard that never
+            scrolls out of sight. */}
+        <div className="flex justify-between items-center gap-4 p-6 border-t border-gray-200 dark:border-gray-600">
           <button
             onClick={currentStep === 'upload' ? onClose : () => {
               const steps: WizardStep[] = ['upload', 'mapping', 'preview', 'result'];
@@ -812,11 +1002,24 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
                 setCurrentStep(steps[currentIndex - 1]);
               }
             }}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            disabled={isProcessing}
+            // Said, not just enforced: a dead button with no explanation is
+            // indistinguishable from a broken one.
+            title={isProcessing ? 'Import in progress' : undefined}
+            className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeftIcon size={20} />
             {currentStep === 'upload' ? 'Cancel' : 'Back'}
           </button>
+
+          {/* No row count until the rows have been routed to accounts: how many
+              a file will write is not known while duplicates are still being
+              weighed, and a number here would be a guess presented as a fact. */}
+          {isProcessing && (
+            <div className="flex-1 min-w-0">
+              <ImportProgress inserted={progress?.inserted ?? null} total={progress?.total ?? null} />
+            </div>
+          )}
 
           <div className="flex gap-3">
             {currentStep === 'result' ? (
@@ -838,6 +1041,7 @@ export default function CSVImportWizard({ isOpen, onClose, type, initialFile }: 
             ) : (
               <LoadingButton
                 isLoading={isProcessing}
+                loadingText="Importing…"
                 onClick={() => {
                   if (currentStep === 'mapping') {
                     setCurrentStep('preview');
