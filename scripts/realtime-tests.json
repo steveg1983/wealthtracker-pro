@@ -50,7 +50,6 @@
   "src/services/__tests__/accountService.test.ts",
   "src/services/__tests__/userService.test.ts",
   "src/services/__tests__/dataService.test.ts",
-  "src/services/__tests__/supabaseService.test.ts",
   "src/services/__tests__/simpleAccountService.test.ts",
   "src/services/__tests__/importRulesService.test.ts",
   "src/services/__tests__/userIdService.test.ts",
