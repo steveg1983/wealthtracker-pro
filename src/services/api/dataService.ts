@@ -22,6 +22,7 @@ import {
   isCardAccountType
 } from '../../utils/accountNumberInput';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
+import { getDefaultCategories } from '../../data/defaultCategories';
 import type { AccountBalanceSnapshot, BootTransactionsResult, DataPort } from '../port/dataPort';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
@@ -46,7 +47,17 @@ type TransactionServiceLike = Pick<typeof TransactionService,
    */
   getAccountBalances?: () => Promise<ReadonlyMap<string, AccountBalanceSnapshot>>;
 };
-type PlanningServiceLike = Pick<typeof PlanningService, 'mergeCategories'>;
+/**
+ * `mergeCategories` is required; the READS are optional, for the same reason
+ * `loadTransactionsForBoot` above is — a partial test double that supplies no
+ * cloud planning leaves the seam serving the browser-local collections, which
+ * is the honest answer for a store with no cloud behind it.
+ *
+ * Derived from the real service rather than re-declared, so a signature that
+ * changes there cannot silently drift from what is called here.
+ */
+type PlanningServiceLike = Pick<typeof PlanningService, 'mergeCategories'> &
+  Partial<Pick<typeof PlanningService, 'getBudgets' | 'getGoals' | 'ensureCategories'>>;
 type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
 type UserIdServiceLike = Pick<typeof userIdService,
@@ -1430,22 +1441,92 @@ class DataServiceImpl implements DataPort {
     }));
   }
 
-  // Budgets/goals/categories are local-only here (PlanningService owns the
-  // cloud path) — but a signed-in session must still never read them from
-  // browser-local storage, so the same pending gate applies.
+  /**
+   * The owner's budgets, from whichever store actually holds them.
+   *
+   * PlanningService owns the cloud query and this class owns the browser-local
+   * collection, so the seam's answer is one branch over the other — the shape
+   * `getAccounts` above already has.
+   *
+   * THE ID IS RESOLVED HERE AND ONLY PASSED ON WHEN IT IS REAL.
+   * `PlanningService.getBudgets(null)` does not fail and does not complain: it
+   * quietly reads browser storage instead. A caller that handed it a null
+   * would therefore serve a signed-in person somebody else's budgets — demo
+   * data, an old import — with a well-formed list and no error anywhere to say
+   * so. That is why the null is unrepresentable at this seam (rule 1: no
+   * operation takes a user id) and why the call shape is pinned by a test.
+   *
+   * The pending gate stays on the local branch: a budget is MONEY, an amount
+   * against a category, so a session still resolving its database id gets
+   * nothing rather than the browser's copy. (Categories are the deliberate
+   * exception — see `prepareCategories`, which explains why names are not
+   * money.)
+   */
   async getBudgets(): Promise<Budget[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.getBudgets) {
+      return this.planningService.getBudgets(userId);
+    }
     if (this.isCloudSessionPending()) return [];
     return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
 
+  /** The owner's goals. Same branch, same null rule, as `getBudgets` above. */
   async getGoals(): Promise<Goal[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.getGoals) {
+      return this.planningService.getGoals(userId);
+    }
     if (this.isCloudSessionPending()) return [];
     return this.readCollection<Goal>(STORAGE_KEYS.GOALS);
   }
 
+  /**
+   * What is stored, and nothing more. The boot does not use this — it uses
+   * `prepareCategories` below, which is allowed to seed and to migrate. This
+   * one stays local-only and gated because it answers "what is in the browser's
+   * copy", which is a question the cloud has no part in.
+   */
   async getCategories(): Promise<Category[]> {
     if (this.isCloudSessionPending()) return [];
     return this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+  }
+
+  /**
+   * The categories the ledger is about to be read through.
+   *
+   * ORDERING IS LOAD-BEARING — this must resolve before any transaction or
+   * budget read. The cloud branch runs the one-time id migration
+   * (`migrate_categories_atomic`: per-user uuids for the categories AND the
+   * remap of every transaction and budget that referenced the old ids, in one
+   * database transaction), so rows read before it lands carry ids that are
+   * about to stop existing. The full rule, and why it binds implementations
+   * this class knows nothing about, is on `DataPortLifecycle.prepareCategories`.
+   */
+  async prepareCategories(): Promise<Category[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker() && this.planningService.ensureCategories) {
+      return this.planningService.ensureCategories(userId);
+    }
+
+    // NO `isCloudSessionPending()` GUARD HERE. That is deliberate, it is the
+    // only read on this class without one, and it must stay that way.
+    //
+    // The gate exists to stop a signed-in view being served another store's
+    // MONEY — demo accounts, an old import's transactions, somebody else's
+    // budgets. A category list is not money. It is the set of NAMES rows are
+    // filed under, and this browser's copy is the very list the account's own
+    // copy was migrated from, so serving it costs nothing and hides nothing.
+    //
+    // What it buys: a session whose database id has not resolved yet still
+    // knows what its categories are called. Gate it "for consistency" and that
+    // boot renders a register of blank category cells and an empty category
+    // filter for however long the id takes — for the sake of withholding a list
+    // of words. The retired boot called `ensureCategories(null)` at exactly
+    // this point and got exactly this behaviour; keeping it is the reason this
+    // routing change is invisible to the person using it.
+    const local = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    return local.length > 0 ? local : getDefaultCategories();
   }
 
   private async updateAccountBalance(accountId: string, amount: number): Promise<void> {
@@ -1659,6 +1740,10 @@ export class DataService {
 
   static getCategories(): Promise<Category[]> {
     return this.service.getCategories();
+  }
+
+  static prepareCategories(): Promise<Category[]> {
+    return this.service.prepareCategories();
   }
 
   static subscribeToUpdates(callbacks: {

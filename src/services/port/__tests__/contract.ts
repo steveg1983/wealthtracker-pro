@@ -34,6 +34,7 @@ import type {
   Account,
   Budget,
   Category,
+  Goal,
   SuggestionDismissal,
   Transaction,
   TransactionSplit
@@ -53,6 +54,7 @@ export interface PortFixture {
   splits?: TransactionSplit[];
   categories?: Category[];
   budgets?: Budget[];
+  goals?: Goal[];
   dismissals?: SuggestionDismissal[];
 }
 
@@ -67,6 +69,7 @@ export interface PortStoreState {
   splits: TransactionSplit[];
   categories: Category[];
   budgets: Budget[];
+  goals: Goal[];
   dismissals: SuggestionDismissal[];
 }
 
@@ -155,6 +158,28 @@ const SERVER_BALANCES: Record<DataPortEngine, 'empty' | 'answers'> = {
   'local-core': 'answers'
 };
 
+/**
+ * B-4 — what `prepareCategories` does with a store that has none.
+ *
+ * All three must hand back a usable set (a ledger with no categories has
+ * nowhere to file anything), and that part is asserted equal. Where they differ
+ * is whether the set they handed back is also IN the store afterwards, which
+ * decides whether the next read sees the same list or the defaults again.
+ *
+ * `describes` is the sentence the test names itself with, so a new engine's row
+ * is a claim someone has to write down rather than a boolean nobody reads.
+ */
+const PREPARE_CATEGORIES: Record<DataPortEngine, { describes: string; persists: boolean }> = {
+  // Hands back the defaults and writes nothing: the browser's copy is a cache,
+  // and a cache that invents its own contents is no longer a cache.
+  'browser-storage': { describes: 'answers with the defaults and stores nothing', persists: false },
+  // Migrates the list it was given (or the defaults) into per-user rows, and
+  // remaps every reference to it in the same database transaction.
+  supabase: { describes: 'migrates a set into the account and keeps it', persists: true },
+  // Seeds its defaults into the one store it has; nothing to remap, ever.
+  'local-core': { describes: 'seeds the defaults into the store', persists: true }
+};
+
 // ── Fixture builders ────────────────────────────────────────────────────────
 // Invented data throughout: made-up account names, made-up amounts.
 
@@ -193,6 +218,30 @@ const aCategory = (id: string, name: string, rest: Partial<Category> = {}): Cate
   level: 'detail',
   isActive: true,
   ...rest
+});
+
+const aBudget = (id: string, categoryId: string, amount: number): Budget => ({
+  id,
+  categoryId,
+  amount,
+  period: 'monthly',
+  isActive: true,
+  spent: 0,
+  createdAt: AT('2025-01-01'),
+  updatedAt: AT('2025-01-01')
+});
+
+const aGoal = (id: string, name: string, targetAmount: number): Goal => ({
+  id,
+  name,
+  type: 'savings',
+  targetAmount,
+  currentAmount: 0,
+  targetDate: AT('2026-01-01'),
+  isActive: true,
+  createdAt: AT('2025-01-01'),
+  updatedAt: AT('2025-01-01'),
+  progress: 0
 });
 
 /** Three accounts and nothing else — the starting point for most tests. */
@@ -489,6 +538,115 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const balances = await port.getAccountBalances();
 
         expect(balances.size).toBe(0);
+      });
+    });
+
+    describe('preparing the categories', () => {
+      it(`B-4: with nothing stored, this engine ${PREPARE_CATEGORIES[engine].describes}`, async () => {
+        // Never empty, whatever the store holds. This is the list the register,
+        // the budgets page and every category filter are built from, and the
+        // boot does not ask twice — an engine that answered [] here would put a
+        // person in front of a ledger with nowhere to file anything and no way
+        // to make one.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          categories: []
+        });
+
+        const prepared = await port.prepareCategories();
+
+        expect(prepared.length).toBeGreaterThan(0);
+        expect(prepared.every(category => typeof category.id === 'string' && category.id !== ''))
+          .toBe(true);
+        expect(prepared.every(category => typeof category.name === 'string' && category.name !== ''))
+          .toBe(true);
+
+        // Where the engines part company: whether that set was also written.
+        const stored = (await read()).categories;
+        if (PREPARE_CATEGORIES[engine].persists) {
+          expect(stored.map(category => category.id).sort())
+            .toEqual(prepared.map(category => category.id).sort());
+        } else {
+          expect(stored).toEqual([]);
+        }
+      });
+
+      it('finishes its work before a transaction read can see the rows', async () => {
+        // The ordering the boot depends on, stated where an implementation can
+        // be held to it rather than only where it is obeyed.
+        //
+        // An engine is allowed to renumber categories on first use — the cloud
+        // does exactly that, and remaps every transaction and budget reference
+        // in the same database transaction. What it is NOT allowed to do is
+        // leave that work running behind the promise it just resolved: the app
+        // reads its transactions next, and rows carrying the OLD ids would
+        // point at categories that no longer exist. Nothing throws when that
+        // happens. The register simply comes up with its category column blank.
+        //
+        // So: whatever prepareCategories resolves with IS the set the rows that
+        // follow are filed under, and IS what a later read of the same question
+        // gives back.
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          categories: [aCategory('cat-everyday', 'Everyday'), aCategory('cat-bills', 'Bills')],
+          transactions: [
+            aTransaction('txn-1', { category: 'cat-everyday' }),
+            aTransaction('txn-2', { amount: -20, category: 'cat-bills' })
+          ]
+        });
+
+        const prepared = await port.prepareCategories();
+        const boot = await port.loadBootTransactions();
+
+        const preparedIds = new Set(prepared.map(category => category.id));
+        boot.transactions
+          .filter(transaction => transaction.category)
+          .forEach(transaction => {
+            expect(preparedIds.has(transaction.category)).toBe(true);
+          });
+        expect((await port.getCategories()).map(category => category.id).sort())
+          .toEqual([...preparedIds].sort());
+      });
+    });
+
+    describe('budgets and goals', () => {
+      it('answers for the owner it resolved itself, and only that owner', async () => {
+        // Rule 1 of the seam: no read takes a user id, every implementation
+        // resolves its own owner. That rule has teeth precisely because
+        // getting it wrong is SILENT — the wrong owner's budgets are a
+        // perfectly well-formed list of amounts, and nothing on screen says
+        // whose. Two isolated stores, asked the same question, is the cheapest
+        // way to make a mixed-up owner fail here instead of in front of
+        // somebody.
+        const mine = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-mine', 'cat-everyday', 200)],
+          goals: [aGoal('goal-mine', 'New boiler', 1500)]
+        });
+        const theirs = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-theirs', 'cat-bills', 75)],
+          goals: [aGoal('goal-theirs', 'Someone else’s holiday', 900)]
+        });
+
+        expect((await mine.port.getBudgets()).map(budget => budget.id)).toEqual(['budget-mine']);
+        expect((await mine.port.getGoals()).map(goal => goal.id)).toEqual(['goal-mine']);
+        expect((await theirs.port.getBudgets()).map(budget => budget.id)).toEqual(['budget-theirs']);
+        expect((await theirs.port.getGoals()).map(goal => goal.id)).toEqual(['goal-theirs']);
+      });
+
+      it('hands back the amounts it was given, to the penny', async () => {
+        // A budget and a goal are money on a page. 0.1 + 0.2 territory again:
+        // an engine that round-trips these through a float column would be
+        // caught here rather than by a limit that is a penny out.
+        const { port } = await harness.create({
+          accounts: threeAccounts(),
+          budgets: [aBudget('budget-1', 'cat-everyday', 70.1)],
+          goals: [aGoal('goal-1', 'Rainy day', 0.3)]
+        });
+
+        expect((await port.getBudgets())[0].amount).toBe(70.1);
+        expect((await port.getGoals())[0].targetAmount).toBe(0.3);
       });
     });
 

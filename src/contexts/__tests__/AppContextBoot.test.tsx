@@ -168,18 +168,30 @@ const countingStore = () => {
 };
 
 /**
- * The seam's store, broken for every collection except the named one.
+ * The seam's store, broken for every collection except the named ones.
  *
- * A single key is kept answerable because the reads differ in what they promise:
- * the boot's transactions and its split lines resolve empty whatever happens,
- * while the account list does not pretend (see the test below).
+ * Some keys are kept answerable because the boot's reads differ in what they
+ * promise. Only two of them promise to resolve whatever happens — the boot's
+ * transactions and its split lines — and those are the subject here, so they
+ * are the ones left broken. Everything else is answered, because a read that
+ * never promised to survive an unopenable store would only be proving that it
+ * does not, which is already known and is not what this file is about:
+ *
+ *  - ACCOUNTS: deliberately not in the never-rejects set. An empty account list
+ *    is not a missing optimisation, it is a signed-in person shown a ledger
+ *    with no accounts in it (see the test below).
+ *  - CATEGORIES, BUDGETS, GOALS: PlanningService's reads, which now come
+ *    through the seam as well. They make the same choice the account list does
+ *    — a broken store is an error, not an empty budget page — and they used to
+ *    sit outside this store only because they reached the module-level adapter
+ *    directly, which was an accident of routing rather than a decision.
  */
-const refusingEverythingBut = (answerable: string) => ({
+const refusingEverythingBut = (answerable: readonly string[]) => ({
   isSupabaseConfigured: () => false,
   hasCloudSession: () => false,
   storageAdapter: {
     get: vi.fn(async <T,>(key: string): Promise<T | null> => {
-      if (key !== answerable) {
+      if (!answerable.includes(key)) {
         throw new Error('The store could not be opened');
       }
       return memoryStore.has(key) ? (memoryStore.get(key) as T) : null;
@@ -200,6 +212,17 @@ const workingStore = () => ({
     memoryStore.set(key, value);
   },
 });
+
+/**
+ * Every boot read that does NOT promise to resolve when the store refuses.
+ * What is left broken is exactly the pair that does.
+ */
+const READS_THAT_DO_NOT_PRETEND = [
+  STORAGE_KEYS.ACCOUNTS,
+  STORAGE_KEYS.CATEGORIES,
+  STORAGE_KEYS.BUDGETS,
+  STORAGE_KEYS.GOALS
+] as const;
 
 const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
 
@@ -229,10 +252,10 @@ describe('the boot', () => {
     // lie than an honest error. It behaves exactly as the direct call it
     // replaced did — see the equivalence pinned in dataService.test.ts.
     //
-    // Only the SEAM's store is broken here. PlanningService reads the module
-    // store directly and keeps working, so a failure in this test is the port's
-    // and nobody else's.
-    DataService.configure(refusingEverythingBut(STORAGE_KEYS.ACCOUNTS));
+    // Only the SEAM's store is broken here, and only for the two reads whose
+    // promise is the subject. Everything else the boot asks for is answered, so
+    // a failure in this test is those two reads' and nobody else's.
+    DataService.configure(refusingEverythingBut(READS_THAT_DO_NOT_PRETEND));
 
     render(
       <AppProvider>
@@ -247,7 +270,7 @@ describe('the boot', () => {
   });
 
   it('leaves no sync error behind when the ledger reads refuse to answer', async () => {
-    DataService.configure(refusingEverythingBut(STORAGE_KEYS.ACCOUNTS));
+    DataService.configure(refusingEverythingBut(READS_THAT_DO_NOT_PRETEND));
 
     const { result } = renderHook(() => useApp(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));

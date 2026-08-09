@@ -36,6 +36,7 @@ const createStore = (fixture: PortFixture) => {
     [STORAGE_KEYS.TRANSACTION_SPLITS, [...(fixture.splits ?? [])]],
     [STORAGE_KEYS.CATEGORIES, [...(fixture.categories ?? [])]],
     [STORAGE_KEYS.BUDGETS, [...(fixture.budgets ?? [])]],
+    [STORAGE_KEYS.GOALS, [...(fixture.goals ?? [])]],
     [STORAGE_KEYS.SUGGESTION_DISMISSALS, [...(fixture.dismissals ?? [])]]
   ]);
 
@@ -57,8 +58,39 @@ const createStore = (fixture: PortFixture) => {
       splits: collection(STORAGE_KEYS.TRANSACTION_SPLITS),
       categories: collection(STORAGE_KEYS.CATEGORIES),
       budgets: collection(STORAGE_KEYS.BUDGETS),
+      goals: collection(STORAGE_KEYS.GOALS),
       dismissals: collection(STORAGE_KEYS.SUGGESTION_DISMISSALS)
     })
+  };
+};
+
+/**
+ * PlanningService, refusing to answer.
+ *
+ * Budgets, goals and categories are the one part of the seam whose CLOUD half
+ * lives in another service — and that service is not storage-injectable: it
+ * reads the module-level adapter directly, which is a store this harness does
+ * not own and cannot reset between tests. So it is stubbed out entirely, and
+ * stubbed to REFUSE rather than to answer.
+ *
+ * That is the whole point of it. The harness declares `engine:
+ * 'browser-storage'`, and this is what makes the declaration checkable: if a
+ * routing change ever sent one of these reads down the cloud branch, the
+ * contract suite would stop describing the engine it claims to describe. A
+ * double that quietly answered would let that happen in silence; this one
+ * fails, by name, on the read that strayed.
+ */
+const refusingPlanningService = () => {
+  const refuse = async (): Promise<never> => {
+    throw new Error(
+      'The browser-storage engine must not reach PlanningService — this read took the cloud branch'
+    );
+  };
+  return {
+    mergeCategories: vi.fn(refuse),
+    getBudgets: vi.fn(refuse),
+    getGoals: vi.fn(refuse),
+    ensureCategories: vi.fn(refuse)
   };
 };
 
@@ -71,6 +103,7 @@ const createBrowserStoragePort = async (fixture: PortFixture): Promise<DataPortU
     isSupabaseConfigured: () => false,
     hasCloudSession: () => false,
     storageAdapter: store.adapter,
+    planningService: refusingPlanningService(),
     logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
     now: () => new Date('2025-06-01T09:00:00.000Z'),
     uuid: () => `generated-${++sequence}`,
@@ -100,6 +133,7 @@ const createUnreadableBrowserStoragePort = async (): Promise<DataPort> => {
     isSupabaseConfigured: () => false,
     hasCloudSession: () => false,
     storageAdapter: { get: vi.fn(refuse), set: vi.fn(refuse) },
+    planningService: refusingPlanningService(),
     logger: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
     now: () => new Date('2025-06-01T09:00:00.000Z'),
     uuid: () => 'generated-1',

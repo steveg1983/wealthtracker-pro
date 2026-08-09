@@ -473,13 +473,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           preferencesService.detach();
         }
         
-        // Categories MUST resolve before transactions/budgets are read:
-        // ensureCategories runs the one-time cloud migration on first
-        // signed-in load (per-user uuid ids + atomic remap of the category
-        // references on transactions and budgets) — reading those first
-        // would snapshot pre-remap ids into state.
-        const planningUserId = userIdService.getCurrentDatabaseUserId();
-        const loadedCategories = await PlanningService.ensureCategories(planningUserId);
+        // Categories first, and that is a CONSTRAINT rather than a preference:
+        // this line may not move below the transaction read. The reason it may
+        // not — the one-time id migration and the remap that comes with it —
+        // now lives on the seam, where every implementation can be held to it,
+        // rather than here where only this call site could read it. See
+        // DataPortLifecycle.prepareCategories.
+        const loadedCategories = await dataPort.prepareCategories();
         setCategories(loadedCategories);
         markPhase('categories');
 
@@ -519,9 +519,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        // Still ONE Promise.all: two independent reads that have no reason to
+        // queue behind each other, and turning them into two awaits would add a
+        // round trip to every signed-in boot for nothing.
+        //
+        // The database id no longer travels from here — the seam resolves its
+        // own owner, which is what stops a caller passing a null one and being
+        // served the browser's budgets in a signed-in session with no error to
+        // show for it.
         const [loadedBudgets, loadedGoals] = await Promise.all([
-          PlanningService.getBudgets(planningUserId),
-          PlanningService.getGoals(planningUserId)
+          dataPort.getBudgets(),
+          dataPort.getGoals()
         ]);
         setBudgets(loadedBudgets);
         setGoals(loadedGoals);
