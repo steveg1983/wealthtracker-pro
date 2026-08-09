@@ -42,9 +42,10 @@
  *
  * This is the seam as it stands, not as it will end: the operations below are
  * exactly the ones DataService owns today, under the names it uses today.
- * Bulk import, backup/restore/wipe, and the capability descriptor that will
- * retire `isUsingSupabase` all join this interface as their consumers are
- * routed through it. The names here are today's names
+ * Bulk import has joined it (the CSV and OFX importers write through
+ * `importTransactions`); backup/restore/wipe and the capability descriptor that
+ * will retire `isUsingSupabase` join as their consumers are routed through it
+ * in turn. The names here are today's names
  * deliberately: renaming and re-routing in one step would make a rename
  * indistinguishable from a behaviour change in review.
  */
@@ -234,6 +235,135 @@ export interface DataPortTransactionWrites {
   archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number>;
   /** Bring an account's archived rows back into the register. Returns rows touched. */
   unarchiveAccount(accountId: string): Promise<number>;
+}
+
+/**
+ * How far a bulk import got, reported while it is still running.
+ *
+ * `inserted` is the same number `BulkImportResult.inserted` ends up holding,
+ * seen part-way: rows of THIS import that are in the account so far. It is what
+ * the progress bar is drawn from, so an implementation that cannot honestly
+ * measure its own progress must stay silent rather than estimate — see the
+ * divergence on `importTransactions` below.
+ */
+export interface BulkImportProgress {
+  /** Rows of the import that are in the account so far. */
+  inserted: number;
+  /** Total rows to import. */
+  total: number;
+}
+
+/**
+ * What a bulk import DID, as opposed to what the file offered.
+ *
+ * ── `inserted` IS A PREFIX COUNT (divergence B-9) ───────────────────────────
+ *
+ * Rows `[0, inserted)` of the array that was handed in are in the account; rows
+ * `[inserted, total)` are not, IN FILE ORDER. That is not a description of how
+ * one engine happens to work, it is the contract: both callers slice the
+ * original array at this number to name the payments that are missing, on
+ * screen, to somebody holding the statement they came from. A count that
+ * merely totalled the rows written — with the gaps anywhere else in the file —
+ * would have them looking for the wrong transactions.
+ *
+ * How far a partial can get differs, and is declared rather than asserted
+ * equal: the cloud posts in chunks that each commit on their own, so it can
+ * stop anywhere; a device write is one atomic transaction, so its answer is
+ * always 0 or all of them. Both keep the prefix rule — 0 and `total` are
+ * prefixes too.
+ */
+export interface BulkImportResult {
+  /**
+   * Rows of the import that are now IN THE ACCOUNT — written by this run, or
+   * refused by the store as a repeat of a row this same run had already
+   * written (see `alreadyPresent`). Always a PREFIX: rows [inserted, total)
+   * are the ones that are missing, in file order.
+   */
+  inserted: number;
+  /**
+   * How many of `inserted` the store already held under this import's own id
+   * and therefore did not write again — a re-posted chunk after a timeout, or
+   * a statement offering rows the account already has under the bank's own
+   * transaction id. Counted as landed because they ARE landed; reported
+   * separately because "we wrote 900 rows" and "800 of those were already
+   * here" are different sentences and the user is owed the true one.
+   *
+   * An engine with no request to re-send and no id to collide with answers 0,
+   * and that is a statement rather than a stub.
+   */
+  alreadyPresent: number;
+  /** Rows the caller asked to import. */
+  total: number;
+  /** True when the whole import landed. */
+  complete: boolean;
+  /** Why it stopped, in prose a user can act on, when it did not finish. */
+  error?: string;
+}
+
+/**
+ * What the rows carry with them, which decides what a store can key them by.
+ *
+ * 'ofx' says every row holds the bank's own transaction id (the OFX modal
+ * writes it into `notes`), which OFX guarantees unique within the account — so
+ * an engine can refuse a second copy of one it already has, and "just import
+ * the file again" becomes true of the register rather than only of the screen.
+ * 'file' says the rows have no identity of their own beyond their position,
+ * which is all a CSV or a QIF can promise.
+ */
+export type ImportSourceKind = 'ofx' | 'file';
+
+export interface DataPortBulkWrites {
+  /**
+   * Add a file's worth of transactions to one account.
+   *
+   * The rows are drafts, exactly as a create takes them, and the account they
+   * go into is the one named HERE — the destination the user chose wins over
+   * whatever a parser guessed for each row.
+   *
+   * ── WHAT IT PROMISES ────────────────────────────────────────────────────
+   *
+   * The account's balance moves by the sum of the rows that landed, to the
+   * penny, and it moves WITH them: no engine may leave a register holding rows
+   * a balance does not account for. Every engine writes in units that are
+   * all-or-nothing (one database transaction in the cloud, one store write on a
+   * device), so a failure leaves a whole unit unwritten rather than half of one.
+   *
+   * `inserted` is a PREFIX count. The rule, and why the callers depend on it
+   * literally, is written out on {@link BulkImportResult}.
+   *
+   * IT DOES NOT REJECT for a store that refused the write: a bulk import is
+   * reported, not thrown, because "412 of 900 landed" is an outcome a caller
+   * has to render rather than a failure it can retry blindly. It may reject for
+   * a caller error.
+   *
+   * ── DIVERGENCE B-9 ──────────────────────────────────────────────────────
+   *
+   * Two things differ and are declared rather than asserted equal:
+   *
+   *   HOW FAR A PARTIAL GETS — the cloud commits chunk by chunk and can stop
+   *   at any chunk boundary; a device write is one transaction, so its answer
+   *   is 0 or all of them.
+   *
+   *   WHETHER PROGRESS IS REPORTED — `onProgress` fires per committed chunk in
+   *   the cloud and never on a device, because one atomic write has no honest
+   *   fraction. A caller must therefore treat silence as normal and never wait
+   *   on a first report.
+   *
+   * IT DOES NOT TAKE AN OWNER, and the rule stated at length on
+   * `createBudget` applies here with the most money on it of anywhere in this
+   * seam: a statement filed into the wrong store is a register that disagrees
+   * with the bank by however much the file was worth.
+   */
+  importTransactions(
+    accountId: string,
+    transactions: ReadonlyArray<Omit<Transaction, 'id'>>,
+    options?: {
+      /** Called as rows land, where the engine can honestly measure it. */
+      onProgress?: (progress: BulkImportProgress) => void;
+      /** What the rows carry; defaults to 'file'. See {@link ImportSourceKind}. */
+      source?: ImportSourceKind;
+    }
+  ): Promise<BulkImportResult>;
 }
 
 export interface DataPortTransferWrites {
@@ -559,6 +689,7 @@ export interface DataPort extends
   DataPortReads,
   DataPortAccountWrites,
   DataPortTransactionWrites,
+  DataPortBulkWrites,
   DataPortTransferWrites,
   DataPortSplitWrites,
   DataPortPlanningWrites,

@@ -1,14 +1,26 @@
 import type { Transaction } from '../types';
+import type {
+  BulkImportProgress,
+  BulkImportResult,
+  ImportSourceKind
+} from './port/dataPort';
 import { readFitId } from '../utils/statementDuplicates';
 import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
- * Bulk transaction import client.
+ * Bulk transaction import client — the CLOUD half of the seam's
+ * `importTransactions`.
  *
  * File imports (QIF/CSV/OFX) used to write one row at a time from the browser,
  * un-awaited — a large statement fired thousands of concurrent writes that the
  * API rejected en masse. This posts the rows to /api/data/import-transactions in
  * awaited chunks, each of which the server inserts in a single atomic RPC.
+ *
+ * The shapes it answers with — {@link BulkImportProgress},
+ * {@link BulkImportResult} and {@link ImportSourceKind} — are declared on the
+ * seam rather than here, because they are the contract EVERY engine keeps, and
+ * this file is one engine. The prefix rule stated on `BulkImportResult` is the
+ * rule the chunk loop below is what enforces.
  */
 
 type FetchLike = typeof fetch;
@@ -22,37 +34,6 @@ interface TransactionImportServiceOptions {
   delay?: (ms: number) => Promise<void>;
   /** Injectable for the same reason ids are elsewhere: determinism in tests. */
   runId?: () => string;
-}
-
-export interface BulkImportProgress {
-  /** Rows of the import that are in the account so far. */
-  inserted: number;
-  /** Total rows to import. */
-  total: number;
-}
-
-export interface BulkImportResult {
-  /**
-   * Rows of `transactions` that are now IN THE ACCOUNT — written by this run,
-   * or refused by the database as a repeat of a row this same run had already
-   * written (see `alreadyPresent`). Always a PREFIX of `transactions`: rows
-   * [inserted, total) are the ones that are missing, in file order.
-   */
-  inserted: number;
-  /**
-   * How many of `inserted` the database already held under this import's own
-   * id and therefore did not write again — a re-posted chunk after a timeout,
-   * or an OFX statement offering rows the account already has under the bank's
-   * own FITID. Counted as landed because they ARE landed; reported separately
-   * because "we wrote 900 rows" and "800 of those were already here" are
-   * different sentences and the user is owed the true one.
-   */
-  alreadyPresent: number;
-  total: number;
-  /** True when every chunk succeeded. */
-  complete: boolean;
-  /** Message from the first chunk that failed, if any. */
-  error?: string;
 }
 
 // Must stay <= the endpoint's MAX_ROWS, and small enough to sit well under
@@ -111,9 +92,6 @@ const FILE_IMPORT_SOURCE = 'file-import';
 const MAX_FITID_LENGTH = 120;
 
 const logger = createScopedLogger('TransactionImportService');
-
-/** Which importer is calling, which decides what a row's id can be made of. */
-export type ImportSourceKind = 'ofx' | 'file';
 
 interface ImportRow {
   date: string;
@@ -298,7 +276,7 @@ const toRow = (
   };
 };
 
-const chunk = <T>(items: T[], size: number): T[][] => {
+const chunk = <T>(items: ReadonlyArray<T>, size: number): T[][] => {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
     out.push(items.slice(i, i + size));
@@ -437,7 +415,7 @@ export class TransactionImportService {
    */
   async importInChunks(
     accountId: string,
-    transactions: Omit<Transaction, 'id'>[],
+    transactions: ReadonlyArray<Omit<Transaction, 'id'>>,
     opts: {
       onProgress?: (progress: BulkImportProgress) => void;
       /**

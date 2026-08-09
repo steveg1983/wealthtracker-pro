@@ -11,7 +11,7 @@ import { TransactionService, type TransactionLoadResult } from './transactionSer
 import { PlanningService } from './planningService';
 import { SuggestionDismissalService } from './suggestionDismissalService';
 import { isSupabaseConfigured } from './supabaseClient';
-import { hasSupabaseTokenGetter } from '../../lib/supabaseToken';
+import { getSupabaseAccessToken, hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { toDecimal, type DecimalInstance } from '../../utils/decimal';
@@ -23,7 +23,21 @@ import {
 } from '../../utils/accountNumberInput';
 import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
 import { getDefaultCategories } from '../../data/defaultCategories';
-import type { AccountBalanceSnapshot, BootTransactionsResult, DataPort } from '../port/dataPort';
+import type {
+  AccountBalanceSnapshot,
+  BootTransactionsResult,
+  BulkImportProgress,
+  BulkImportResult,
+  DataPort,
+  ImportSourceKind
+} from '../port/dataPort';
+// Type-only, so the bulk importers themselves stay out of the boot chunk —
+// the values are fetched on demand (see `cloudBulkImportClient`).
+import type { TransactionImportService } from '../transactionImportService';
+import type {
+  LocalImportOptions,
+  LocalTransactionImportStore
+} from '../localTransactionImportService';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
@@ -73,7 +87,25 @@ type SuggestionDismissalServiceLike = Pick<typeof SuggestionDismissalService,
   'list' | 'dismiss' | 'restore'>;
 type UserIdServiceLike = Pick<typeof userIdService,
   'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
-type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
+/**
+ * `setMany` is OPTIONAL for the same reason the reads above are: a partial
+ * double stays a usable stand-in. It is the "write these keys as one unit"
+ * promise, which only the bulk import needs — and an adapter that cannot make
+ * that promise is told so rather than worked around (see `localImportStore`).
+ */
+type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'> &
+  Partial<Pick<typeof storageAdapter, 'setMany'>>;
+/** The chunked cloud import client, narrowed to what the seam asks of it. */
+type BulkImportClientLike = Pick<TransactionImportService,
+  'setAuthTokenProvider' | 'importInChunks'>;
+/** The device-side atomic import, in the shape the seam calls it. */
+type LocalBulkImporter = (
+  accountId: string,
+  transactions: ReadonlyArray<Omit<Transaction, 'id'>>,
+  options?: LocalImportOptions
+) => Promise<BulkImportResult>;
+/** The session token the cloud import posts with. Null when signed out. */
+type AuthTokenProvider = () => Promise<string | null>;
 type SupabaseChecker = () => boolean;
 type CloudSessionChecker = () => boolean;
 type DateProvider = () => Date;
@@ -93,6 +125,19 @@ export interface DataServiceOptions {
   isSupabaseConfigured?: SupabaseChecker;
   /** Whether a signed-in (Clerk) session exists right now. */
   hasCloudSession?: CloudSessionChecker;
+  /**
+   * The two bulk-import writers. Absent means "fetch the real one when an
+   * import runs" rather than "do without": there is no honest fallback for a
+   * write, and a bulk write is the largest one this class makes.
+   */
+  bulkImportService?: BulkImportClientLike;
+  localBulkImport?: LocalBulkImporter;
+  /**
+   * How the cloud import authenticates. Defaults to the registry AuthContext
+   * fills with the signed-in session's Clerk getToken — the same token every
+   * other cloud call on this class travels with.
+   */
+  authTokenProvider?: AuthTokenProvider;
 }
 
 class DataServiceImpl implements DataPort {
@@ -108,6 +153,9 @@ class DataServiceImpl implements DataPort {
   private readonly uuid: UuidGenerator;
   private readonly supabaseChecker: SupabaseChecker;
   private readonly hasCloudSession: CloudSessionChecker;
+  private readonly injectedBulkImportService: BulkImportClientLike | null;
+  private readonly injectedLocalBulkImport: LocalBulkImporter | null;
+  private readonly authTokenProvider: AuthTokenProvider;
 
   constructor(options: DataServiceOptions = {}) {
     this.accountService = options.accountService ?? AccountService;
@@ -134,6 +182,9 @@ class DataServiceImpl implements DataPort {
     });
     this.supabaseChecker = options.isSupabaseConfigured ?? isSupabaseConfigured;
     this.hasCloudSession = options.hasCloudSession ?? hasSupabaseTokenGetter;
+    this.injectedBulkImportService = options.bulkImportService ?? null;
+    this.injectedLocalBulkImport = options.localBulkImport ?? null;
+    this.authTokenProvider = options.authTokenProvider ?? getSupabaseAccessToken;
   }
 
   private isSupabaseReady(): boolean {
@@ -588,6 +639,118 @@ class DataServiceImpl implements DataPort {
     });
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
     return count;
+  }
+
+  /**
+   * The chunked cloud import client, fetched the first time an import runs.
+   *
+   * DYNAMICALLY IMPORTED ON PURPOSE. This class is in the boot chunk — the
+   * context reaches it on the first paint — while the two importers are code
+   * only a person importing a file ever executes. A static import here was
+   * built and measured: it puts both of them in everyone's first load and
+   * takes the boot chunk from 323.8 KB gzipped to 326.1 KB, on a budget it is
+   * already over. Dynamic keeps them as their own chunks — 1.9 KB and 0.7 KB
+   * gzipped — fetched when Import is pressed, on a connection that has just
+   * served a dialog several times their size.
+   */
+  private async cloudBulkImportClient(): Promise<BulkImportClientLike> {
+    if (this.injectedBulkImportService) return this.injectedBulkImportService;
+    const { transactionImportService } = await import('../transactionImportService');
+    return transactionImportService;
+  }
+
+  /** The device-side atomic import. Loaded on demand for the reason above. */
+  private async deviceBulkImporter(): Promise<LocalBulkImporter> {
+    if (this.injectedLocalBulkImport) return this.injectedLocalBulkImport;
+    const { importTransactionsLocally } = await import('../localTransactionImportService');
+    return importTransactionsLocally;
+  }
+
+  /**
+   * This implementation's own store, in the shape the device importer takes.
+   *
+   * The importer defaults to the app's adapter when handed nothing, and that
+   * default is right in production — it IS this.storage — but wrong in a test
+   * that injected one: a write meant for a double's Map would land in the real
+   * encrypted store instead. So the store is passed explicitly, and an adapter
+   * that cannot write several keys as one unit gets `null` rather than a
+   * silent redirection (see the refusal in `importTransactions`).
+   *
+   * The wrappers exist because the adapter's methods use `this`; the generic
+   * arrow keeps `get` generic, which a `.bind()` would not.
+   */
+  private localImportStore(): LocalTransactionImportStore | null {
+    const storage = this.storage;
+    const setMany = storage.setMany;
+    if (typeof setMany !== 'function') return null;
+    return {
+      get: <T>(key: string): Promise<T | null> => storage.get<T>(key),
+      setMany: entries => setMany.call(storage, entries)
+    };
+  }
+
+  /**
+   * Add a file's worth of transactions to one account.
+   *
+   * THE ROUTE, AND ONLY THE ROUTE. Both halves of this already existed and are
+   * unchanged: the chunked poster to /api/data/import-transactions, and the
+   * one-IndexedDB-transaction writer. What changed is who decides between them
+   * — it was the CSV wizard and the OFX dialog, each reading `isUsingSupabase`
+   * off the context and each holding its own Clerk token, and it is now this
+   * one line. The predicate is the same one `DataService.isUsingSupabase()`
+   * answers with, evaluated at the moment of the write rather than at the boot
+   * that last set that state.
+   *
+   * THE TOKEN IS THE SEAM'S OWN. The dialogs used to hand the client a
+   * `() => getToken()` closure out of Clerk's React hook immediately before
+   * posting; it is installed here instead, at the same moment — on the same
+   * tick as the write, before the first chunk — from the registry AuthContext
+   * fills with the same session's getToken. A component asking a data layer to
+   * authenticate itself was the last thing keeping a token in the UI.
+   *
+   * NO PENDING-SESSION GUARD, DELIBERATELY. Every planning write on this class
+   * refuses while a signed-in session is still resolving its database id; this
+   * one keeps today's behaviour and writes the browser's store, because
+   * changing it is a decision about what an import does mid-connection and
+   * belongs in a change that says so rather than in a routing move.
+   */
+  async importTransactions(
+    accountId: string,
+    transactions: ReadonlyArray<Omit<Transaction, 'id'>>,
+    options: {
+      onProgress?: (progress: BulkImportProgress) => void;
+      source?: ImportSourceKind;
+    } = {}
+  ): Promise<BulkImportResult> {
+    if (this.isSupabaseReady()) {
+      const client = await this.cloudBulkImportClient();
+      client.setAuthTokenProvider(this.authTokenProvider);
+      return client.importInChunks(accountId, transactions, options);
+    }
+
+    const store = this.localImportStore();
+    if (!store) {
+      // Unreachable in the app: the real adapter writes many keys as one unit.
+      // Reachable from a test double that does not, and the honest answer
+      // there is to refuse rather than write to the store the double replaced.
+      return {
+        inserted: 0,
+        alreadyPresent: 0,
+        total: transactions.length,
+        complete: false,
+        error: 'This device cannot store the import as one piece, so nothing was written.'
+      };
+    }
+
+    const importLocally = await this.deviceBulkImporter();
+    // `source` says how the rows may be keyed against ones already held, and
+    // `onProgress` measures a write that commits in pieces. A single atomic
+    // write has neither an id space nor a fraction, so it is handed neither —
+    // the silence is declared on the seam (B-9) rather than papered over.
+    return importLocally(accountId, transactions, {
+      store,
+      uuid: () => this.generateId()
+    });
   }
 
   /** Every split line of the user's transactions (for category aggregation). */
@@ -2065,6 +2228,17 @@ export class DataService {
 
   static confirmTransactionCategories(ids: string[]): Promise<number> {
     return this.service.confirmTransactionCategories(ids);
+  }
+
+  static importTransactions(
+    accountId: string,
+    transactions: ReadonlyArray<Omit<Transaction, 'id'>>,
+    options?: {
+      onProgress?: (progress: BulkImportProgress) => void;
+      source?: ImportSourceKind;
+    }
+  ): Promise<BulkImportResult> {
+    return this.service.importTransactions(accountId, transactions, options);
   }
 
   static archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {

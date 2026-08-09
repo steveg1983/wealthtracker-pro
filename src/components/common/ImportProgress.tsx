@@ -12,11 +12,11 @@ import React from 'react';
  *
  * ── HONESTY OVER DECORATION ─────────────────────────────────────────────────
  * A percentage is only drawn from a number the writing path actually reported.
- * The cloud path posts in chunks and reports after each one
- * (transactionImportService.importInChunks → onProgress), so it can be
- * measured. A local write is ONE all-or-nothing IndexedDB transaction: there is
- * no honest fraction of it, so nothing pretends there is — the bar is
- * indeterminate and the text names the size of the job instead. A bar creeping
+ * The cloud store posts in chunks and reports after each one
+ * (dataPort.importTransactions → onProgress), so it can be measured. A device
+ * write is ONE all-or-nothing IndexedDB transaction: there is no honest
+ * fraction of it, so nothing pretends there is — the bar is indeterminate and
+ * the text names the size of the job instead. A bar creeping
  * towards 90% on a timer is a lie, and the one time it matters it is the lie
  * that keeps somebody waiting on a write that already failed.
  *
