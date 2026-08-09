@@ -29,6 +29,47 @@ const baseAccount = (overrides: Partial<Account> = {}): Account => ({
   ...overrides
 });
 
+/**
+ * The sentence a write refuses with while a signed-in session is still
+ * resolving its database id — the one every other write on the class already
+ * uses.
+ *
+ * Written out in full, and compared in full, because it is what the person
+ * reads. `rejects.toThrow('…')` matches a SUBSTRING, so it would stay green on
+ * "Failed to save budget: Still connecting…" — exactly the wrapping the seam
+ * forbids, since a sentence that says only that something went wrong is not
+ * one anybody can act on.
+ */
+const STILL_CONNECTING = 'Still connecting to your account — please try again in a moment.';
+
+/** The whole refusal, or a sentence saying there wasn't one. */
+const refusalMessage = async (write: Promise<unknown>): Promise<string> => {
+  try {
+    await write;
+    return 'the write was not refused';
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+};
+
+/**
+ * A signed-in (Clerk) session whose database user id has not resolved yet —
+ * still connecting, or resolution failed. The state the guard is about.
+ */
+const pendingUserIdService = () => ({
+  ensureUserExists: vi.fn(),
+  getCurrentDatabaseUserId: vi.fn(() => null),
+  getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: null }))
+});
+
+/**
+ * A comparable picture of one stored collection, for "the refusal changed
+ * nothing at all" — the contract suite's `asComparable`, narrowed to the store
+ * a planning write could have touched.
+ */
+const asComparable = (storage: ReturnType<typeof createStorage>, key: string): string =>
+  JSON.stringify(storage.snapshot(key) ?? null);
+
 const baseTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
   id: 'txn-1',
   accountId: 'acct-1',
@@ -333,6 +374,25 @@ describe('DataService (deterministic fallback)', () => {
         }
       });
 
+    /** The same session one step earlier: signed in, database id not resolved. */
+    const stillConnecting = (
+      planningService: ReturnType<typeof cloudPlanningService>,
+      storage: ReturnType<typeof createStorage>
+    ) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: pendingUserIdService()
+      });
+
+    /** A budget already in the browser's copy, so "nothing changed" has something to say. */
+    const storedBudget = { id: 'budget-already-here', categoryId: 'cat-everyday', amount: 200, spent: 0 };
+
     it('creates a budget under the resolved database id, and never under null', async () => {
       const planningService = cloudPlanningService();
       const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [] });
@@ -431,6 +491,66 @@ describe('DataService (deterministic fallback)', () => {
       expect(planningService.updateBudget).not.toHaveBeenCalled();
       expect(planningService.deleteBudget).not.toHaveBeenCalled();
     });
+
+    // THE DELIBERATE BEHAVIOUR CHANGE, one test per operation, here and in the
+    // goal and category blocks below.
+    //
+    // A signed-in session whose database id has not resolved yet — the seconds
+    // after a boot, or a resolution that failed outright — used to fall through
+    // to the local branch, because neither half of `userId && configured` is a
+    // refusal on its own. The budget landed in browser storage, the modal
+    // showed it as saved, and it was gone at the next boot: the read beside it
+    // goes to the cloud, where the row never was. Nothing threw and nothing
+    // logged, so there was no way to even know it had happened.
+    //
+    // Now the write refuses, in words the person can act on twenty seconds
+    // later — and refuses BEFORE reading or writing the store, so there is
+    // nothing half-done left behind either. That second half is what the
+    // byte-identical check below is for.
+
+    it('refuses to create a budget while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [storedBudget] });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.BUDGETS);
+
+      expect(await refusalMessage(service.createBudget(budgetInput()))).toBe(STILL_CONNECTING);
+
+      // Refused, not re-routed: neither store was asked to take it.
+      expect(planningService.createBudget).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.BUDGETS)).toBe(before);
+    });
+
+    it('refuses to update a budget while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [storedBudget] });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.BUDGETS);
+
+      expect(await refusalMessage(service.updateBudget('budget-already-here', { amount: 70.1 })))
+        .toBe(STILL_CONNECTING);
+
+      expect(planningService.updateBudget).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.BUDGETS)).toBe(before);
+    });
+
+    it('refuses to delete a budget while the session is still resolving, and writes nothing', async () => {
+      // The delete is the one where falling through was worst: the local branch
+      // would have removed a budget from the browser's copy that the cloud —
+      // the store this session is about to read from — still has.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.BUDGETS]: [storedBudget] });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.BUDGETS);
+
+      expect(await refusalMessage(service.deleteBudget('budget-already-here'))).toBe(STILL_CONNECTING);
+
+      expect(planningService.deleteBudget).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.BUDGETS)).toBe(before);
+    });
   });
 
   describe('goal writes', () => {
@@ -499,6 +619,30 @@ describe('DataService (deterministic fallback)', () => {
           getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-user-1', databaseId: 'db-user-1' }))
         }
       });
+
+    /** The same session one step earlier: signed in, database id not resolved. */
+    const stillConnecting = (
+      planningService: ReturnType<typeof cloudPlanningService>,
+      storage: ReturnType<typeof createStorage>
+    ) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: pendingUserIdService()
+      });
+
+    /** A goal already in the browser's copy, so "nothing changed" has something to say. */
+    const storedGoal = {
+      id: 'goal-already-here',
+      name: 'New boiler',
+      targetAmount: 1500,
+      progress: 250.05
+    };
 
     it('creates a goal under the resolved database id, and never under null', async () => {
       const planningService = cloudPlanningService();
@@ -603,6 +747,55 @@ describe('DataService (deterministic fallback)', () => {
       expect(planningService.updateGoal).not.toHaveBeenCalled();
       expect(planningService.deleteGoal).not.toHaveBeenCalled();
     });
+
+    // The behaviour change, operation for operation. The budget block above
+    // argues it; a goal loses the same way, and the update carries a
+    // contribution, so a fall-through would bank real money in a store the next
+    // boot never reads.
+
+    it('refuses to create a goal while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [storedGoal] });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.GOALS);
+
+      expect(await refusalMessage(service.createGoal(goalInput()))).toBe(STILL_CONNECTING);
+
+      expect(planningService.createGoal).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.GOALS)).toBe(before);
+    });
+
+    it('refuses to update a goal while the session is still resolving, and writes nothing', async () => {
+      // Including the update that IS a contribution: £250 put towards the
+      // boiler, banked in the browser's copy and gone by morning, is money the
+      // person believes they have set aside.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [storedGoal] });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.GOALS);
+
+      expect(await refusalMessage(
+        service.updateGoal('goal-already-here', { progress: 500.05, currentAmount: 500.05 })
+      )).toBe(STILL_CONNECTING);
+
+      expect(planningService.updateGoal).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.GOALS)).toBe(before);
+    });
+
+    it('refuses to delete a goal while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.GOALS]: [storedGoal] });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.GOALS);
+
+      expect(await refusalMessage(service.deleteGoal('goal-already-here'))).toBe(STILL_CONNECTING);
+
+      expect(planningService.deleteGoal).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.GOALS)).toBe(before);
+    });
   });
 
   describe('category writes', () => {
@@ -683,6 +876,35 @@ describe('DataService (deterministic fallback)', () => {
         now,
         userIdService: ids
       });
+
+    /** The same session one step earlier: signed in, database id not resolved. */
+    const stillConnecting = (
+      planningService: ReturnType<typeof cloudPlanningService>,
+      storage: ReturnType<typeof createStorage>
+    ) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        planningService,
+        storageAdapter: storage,
+        logger,
+        uuid,
+        now,
+        userIdService: pendingUserIdService()
+      });
+
+    /** A group and its child, already in the browser's copy. */
+    const storedCategories = [
+      { id: 'cat-group', name: 'Motoring', type: 'expense', level: 'sub', isActive: true },
+      {
+        id: 'cat-child',
+        name: 'Fuel',
+        type: 'expense',
+        level: 'detail',
+        parentId: 'cat-group',
+        isActive: true
+      }
+    ];
 
     it('creates a category under the resolved database id, and never under null', async () => {
       const planningService = cloudPlanningService();
@@ -869,6 +1091,95 @@ describe('DataService (deterministic fallback)', () => {
       // One asked for, and it took its child with it: two actually went.
       await expect(service.deleteUnusedCategories(['cat-group'])).resolves.toBe(2);
       expect(await service.getCategories()).toEqual([]);
+    });
+
+    // The behaviour change on all five category writes — and the asymmetry that
+    // has to survive review. `prepareCategories` deliberately has NO pending
+    // gate, because a category list is not money: serving the browser's copy of
+    // the NAMES to a session still resolving its id costs nothing, and
+    // withholding them would blank the register's category column for no gain.
+    // That argument does not reach a WRITE. A write mints an id in a store the
+    // cloud will never hear about; the person names "Fuel", files three
+    // transactions under that id, and finds all three uncategorised in the
+    // morning. Reading names and writing rows are different questions, and
+    // making the two "consistent" in either direction breaks one of them.
+
+    it('refuses to create a category while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: storedCategories });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.CATEGORIES);
+
+      expect(await refusalMessage(service.createCategory(categoryInput()))).toBe(STILL_CONNECTING);
+
+      expect(planningService.createCategory).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.CATEGORIES)).toBe(before);
+    });
+
+    it('refuses a bulk create while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: storedCategories });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.CATEGORIES);
+
+      expect(await refusalMessage(
+        service.createCategories([categoryInput({ name: 'Parking' })])
+      )).toBe(STILL_CONNECTING);
+
+      expect(planningService.createCategories).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.CATEGORIES)).toBe(before);
+
+      // And the empty case still asks nobody and refuses nobody: there is no
+      // write to lose, so an error message here would be about nothing.
+      await expect(service.createCategories([])).resolves.toEqual([]);
+      await expect(service.deleteUnusedCategories([])).resolves.toBe(0);
+    });
+
+    it('refuses to update a category while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: storedCategories });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.CATEGORIES);
+
+      expect(await refusalMessage(service.updateCategory('cat-child', { name: 'Petrol' })))
+        .toBe(STILL_CONNECTING);
+
+      expect(planningService.updateCategory).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.CATEGORIES)).toBe(before);
+    });
+
+    it('refuses to delete a category while the session is still resolving, and writes nothing', async () => {
+      // A delete that fell through took the group's children with it — out of
+      // the browser's copy only, while the cloud kept all three. The next boot
+      // would put them straight back, so the person deletes twice and believes
+      // the app is ignoring them.
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: storedCategories });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.CATEGORIES);
+
+      expect(await refusalMessage(service.deleteCategory('cat-group'))).toBe(STILL_CONNECTING);
+
+      expect(planningService.deleteCategory).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.CATEGORIES)).toBe(before);
+    });
+
+    it('refuses a prune while the session is still resolving, and writes nothing', async () => {
+      const planningService = cloudPlanningService();
+      const storage = createStorage({ [STORAGE_KEYS.CATEGORIES]: storedCategories });
+      const service = stillConnecting(planningService, storage);
+      const before = asComparable(storage, STORAGE_KEYS.CATEGORIES);
+
+      expect(await refusalMessage(service.deleteUnusedCategories(['cat-group', 'cat-child'])))
+        .toBe(STILL_CONNECTING);
+
+      expect(planningService.deleteUnusedCategories).not.toHaveBeenCalled();
+      expect(storage.set).not.toHaveBeenCalled();
+      expect(asComparable(storage, STORAGE_KEYS.CATEGORIES)).toBe(before);
     });
   });
 
