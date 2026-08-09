@@ -4,7 +4,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React, { useLayoutEffect, useRef } from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Modal, ModalBody, ModalFooter } from './Modal';
 
@@ -196,47 +197,135 @@ describe('Modal', () => {
   });
 
   describe('focus management', () => {
-    it('focuses modal when opened', async () => {
+    it('focuses the panel the moment it opens, with no timer to wait out', () => {
       const { rerender } = render(
         <Modal isOpen={false} onClose={mockOnClose} title="Test">
           Content
         </Modal>
       );
-      
+
       rerender(
         <Modal isOpen={true} onClose={mockOnClose} title="Test">
           Content
         </Modal>
       );
-      
-      await waitFor(() => {
-        const modal = screen.getByRole('dialog', { hidden: true });
-        expect(document.activeElement).toBe(modal);
-      });
+
+      // Deliberately synchronous — no waitFor, no timer advance. Focus used to
+      // arrive 50ms after opening, so anything typed inside that window was
+      // swallowed by the non-editable panel div; callers' tests had to sleep
+      // before they could type a word.
+      const modal = screen.getByRole('dialog', { hidden: true });
+      expect(document.activeElement).toBe(modal);
     });
 
-    it('restores focus to previous element when closed', async () => {
+    it('leaves an autoFocus child holding the cursor', () => {
+      // React commits a child's autoFocus before the parent's layout effect, so
+      // the dialog finds the box already focused and must not take it back.
+      // This is the RenamePayeesModal case: its name box carries autoFocus, and
+      // the old timer fired afterwards and yanked the cursor out of it.
+      render(
+        <Modal isOpen={true} onClose={mockOnClose} title="Rename selected payees">
+          <ModalBody>
+            <input type="text" autoFocus placeholder="New payee name" />
+          </ModalBody>
+        </Modal>
+      );
+
+      expect(screen.getByPlaceholderText('New payee name')).toHaveFocus();
+    });
+
+    it('queues no timer when it opens, so nothing can move the cursor later', () => {
+      // The structural guarantee behind the assertions above: focus is taken in
+      // the layout phase and nothing is left on the queue. A delayed focus would
+      // still pass a synchronous assertion and then steal the cursor a moment
+      // later, from someone already typing — which is precisely what happened.
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+      render(
+        <Modal isOpen={true} onClose={mockOnClose} title="Test">
+          <ModalBody>
+            <input type="text" autoFocus placeholder="New payee name" />
+          </ModalBody>
+        </Modal>
+      );
+
+      // A zero delay is React's own scheduler flushing work. What must never
+      // exist again is a DEFERRED callback — the steal was setTimeout(…, 50).
+      const deferred = setTimeoutSpy.mock.calls.filter(([, delay]) => Number(delay) > 0);
+      expect(deferred).toHaveLength(0);
+
+      setTimeoutSpy.mockRestore();
+    });
+
+    it('does not steal focus a child claimed in its own layout effect', () => {
+      function SelfFocusing(): React.JSX.Element {
+        const ref = useRef<HTMLInputElement>(null);
+        // A child's layout effects run before its parent's, so content that
+        // puts the cursor somewhere specific has already won by the time the
+        // dialog looks.
+        useLayoutEffect(() => { ref.current?.focus(); }, []);
+        return <input ref={ref} type="text" placeholder="Amount" />;
+      }
+
+      render(
+        <Modal isOpen={true} onClose={mockOnClose} title="Test">
+          <ModalBody>
+            <SelfFocusing />
+          </ModalBody>
+        </Modal>
+      );
+
+      expect(screen.getByPlaceholderText('Amount')).toHaveFocus();
+    });
+
+    it('focuses a declared [autofocus] element rather than the panel', () => {
+      function DeclaresAutofocus(): React.JSX.Element {
+        const ref = useRef<HTMLInputElement>(null);
+        // The literal attribute, set before the dialog's layout effect runs and
+        // WITHOUT focusing anything — React 18 does not reflect its autoFocus
+        // prop to the DOM, so this stands in for markup that truly carries it.
+        // Nothing else here can move the cursor, so if the box ends up focused
+        // it is the dialog's [autofocus] branch that did it.
+        useLayoutEffect(() => { ref.current?.setAttribute('autofocus', ''); }, []);
+        return <input ref={ref} type="text" placeholder="Sort code" />;
+      }
+
+      render(
+        <Modal isOpen={true} onClose={mockOnClose} title="Test">
+          <ModalBody>
+            <DeclaresAutofocus />
+          </ModalBody>
+        </Modal>
+      );
+
+      expect(screen.getByPlaceholderText('Sort code')).toHaveFocus();
+    });
+
+    it('restores focus to previous element when closed', () => {
       const button = document.createElement('button');
       button.textContent = 'Open Modal';
       document.body.appendChild(button);
       button.focus();
-      
+
       const { rerender } = render(
         <Modal isOpen={true} onClose={mockOnClose} title="Test">
           Content
         </Modal>
       );
-      
+
+      // The opener must be what was focused BEFORE the dialog took over — the
+      // capture happens in the same layout effect that takes focus, ahead of
+      // it, so it can never record the panel itself.
+      expect(document.activeElement).toBe(screen.getByRole('dialog', { hidden: true }));
+
       rerender(
         <Modal isOpen={false} onClose={mockOnClose} title="Test">
           Content
         </Modal>
       );
-      
-      await waitFor(() => {
-        expect(document.activeElement).toBe(button);
-      });
-      
+
+      expect(document.activeElement).toBe(button);
+
       document.body.removeChild(button);
     });
 
@@ -584,15 +673,11 @@ describe('real-world scenarios', () => {
   });
 
   describe('focus stability across parent re-renders', () => {
-    it('does not steal focus from an input when onClose identity changes', async () => {
+    it('does not steal focus from an input when onClose identity changes', () => {
       // Callers routinely pass inline `onClose={() => …}` — a NEW function
-      // identity per render. The old effect depended on onClose, so every
-      // parent re-render (e.g. typing into a search box) re-ran the delayed
-      // modalRef.focus() and stole the cursor after each keystroke.
-      // (Real 50ms open-focus timer; the suite mocks system time, so fake
-      // timers are unavailable here.)
-      const settle = () => new Promise((resolve) => { setTimeout(resolve, 120); });
-
+      // identity per render. An effect that depended on onClose would re-run on
+      // every parent re-render (e.g. each keystroke of a caller-owned search
+      // box) and re-take focus; both effects depend on isOpen alone.
       const view = render(
         <Modal isOpen={true} onClose={() => {}} title="Search">
           <ModalBody>
@@ -600,8 +685,6 @@ describe('real-world scenarios', () => {
           </ModalBody>
         </Modal>
       );
-      // Let the initial open-focus timer fire first
-      await settle();
 
       const input = screen.getByPlaceholderText('Search for your bank...');
       input.focus();
@@ -616,7 +699,6 @@ describe('real-world scenarios', () => {
           </ModalBody>
         </Modal>
       );
-      await settle();
 
       expect(input).toHaveFocus();
     });
