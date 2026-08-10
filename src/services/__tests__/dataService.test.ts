@@ -4,6 +4,7 @@ import { AccountService } from '../api/accountService';
 import { TransactionService } from '../api/transactionService';
 import { createSimpleAccountService } from '../api/simpleAccountService';
 import { registerSupabaseTokenGetter } from '../../lib/supabaseToken';
+import { buildBackupBundle } from '../backupService';
 import type { Account, Budget, Category, Goal, Transaction, TransactionSplit } from '../../types';
 import { STORAGE_KEYS } from '../storageAdapter';
 
@@ -2780,5 +2781,224 @@ describe('DataService.importTransactions (which writer gets the file)', () => {
     });
     expect(device).not.toHaveBeenCalled();
     expect(client.importInChunks).not.toHaveBeenCalled();
+  });
+});
+
+describe('DataService backup and restore (which store the file comes from, and goes to)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+
+  /**
+   * A file, in the shape the format actually has. Nothing here is read by the
+   * routing — it is handed straight to whichever engine answers — but a real
+   * bundle keeps the test honest about what crosses the seam.
+   */
+  const bundle = () => buildBackupBundle({
+    sourceUserId: 'source-login',
+    exportedAt: '2026-03-04T10:00:00.000Z',
+    data: {
+      accounts: [{ id: 'acct-1', name: 'Everyday', type: 'current', balance: '10.00' }],
+      transactions: [
+        { id: 'txn-1', account_id: 'acct-1', amount: '-10.00', date: '2026-02-01', description: 'Shop' }
+      ]
+    },
+    preferences: null
+  });
+
+  const cloudOutcome = {
+    restored: [{ label: 'Accounts', rows: 1 }],
+    accountsRelinked: 0,
+    transactionsRelinked: 0,
+    preferencesRestored: 0,
+    preferencesFailure: null,
+    danglingRefs: []
+  };
+
+  const deviceOutcome = { ...cloudOutcome, notStoredLocally: [] };
+
+  const cloudEngine = () => ({
+    userFinancialDataIsEmpty: vi.fn(async () => true),
+    collectBackupBundle: vi.fn(async () => bundle()),
+    restoreBackupBundle: vi.fn(async () => cloudOutcome)
+  });
+
+  const deviceEngine = () => ({
+    localFinancialDataIsEmpty: vi.fn(async () => true),
+    collectLocalBackupBundle: vi.fn(async () => bundle()),
+    restoreLocalBackupBundle: vi.fn(async () => deviceOutcome)
+  });
+
+  const signedIn = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => 'db-user-1' as string | null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: 'clerk-1', databaseId: 'db-user-1' }))
+  };
+  const signedOut = {
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => null),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+  };
+
+  const service = (
+    options: { signedIn: boolean; cloud: ReturnType<typeof cloudEngine>; device: ReturnType<typeof deviceEngine> }
+  ) => createDataService({
+    isSupabaseConfigured: () => options.signedIn,
+    hasCloudSession: () => options.signedIn,
+    userIdService: options.signedIn ? signedIn : signedOut,
+    storageAdapter: createStorage(),
+    logger,
+    uuid: () => 'generated-1',
+    cloudBackup: options.cloud,
+    deviceBackup: options.device
+  });
+
+  describe('signed in', () => {
+    it('asks the login whether it is empty, and never asks the browser', async () => {
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+
+      await expect(service({ signedIn: true, cloud, device }).financialDataIsEmpty()).resolves.toBe(true);
+
+      expect(cloud.userFinancialDataIsEmpty).toHaveBeenCalledWith('db-user-1');
+      expect(device.localFinancialDataIsEmpty).not.toHaveBeenCalled();
+    });
+
+    it('reads the backup out of the login, with BOTH ids the fourteen tables are keyed by', async () => {
+      // Thirteen tables hang off the database id; recurring_transactions hangs
+      // off the Clerk id. Resolving only one of them writes a file that is
+      // missing a table and says nothing about it.
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+      const onProgress = vi.fn();
+
+      await service({ signedIn: true, cloud, device }).collectBackup({ onProgress });
+
+      expect(cloud.collectBackupBundle).toHaveBeenCalledTimes(1);
+      expect(cloud.collectBackupBundle).toHaveBeenCalledWith(
+        { databaseUserId: 'db-user-1', clerkUserId: 'clerk-1' },
+        { onProgress }
+      );
+      expect(device.collectLocalBackupBundle).not.toHaveBeenCalled();
+    });
+
+    it('restores into the login, and says nothing was left behind', async () => {
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+      const onProgress = vi.fn();
+      const file = bundle();
+
+      const outcome = await service({ signedIn: true, cloud, device }).restoreBackup(file, { onProgress });
+
+      expect(cloud.restoreBackupBundle).toHaveBeenCalledWith(file, 'db-user-1', { onProgress });
+      expect(device.restoreLocalBackupBundle).not.toHaveBeenCalled();
+      // A login holds every table the format carries. The empty list is that
+      // statement — the dialog renders a warning when it is NOT empty.
+      expect(outcome.notStoredLocally).toEqual([]);
+      expect(outcome.restored).toEqual(cloudOutcome.restored);
+    });
+  });
+
+  describe('on a device', () => {
+    it('asks the browser, through THIS service\'s store', async () => {
+      // The store matters as much as the route: the engine defaults to the
+      // app's real adapter when handed nothing, so a service told to use
+      // another store must hand that store over or it reads the wrong device.
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+
+      await expect(service({ signedIn: false, cloud, device }).financialDataIsEmpty()).resolves.toBe(true);
+
+      expect(cloud.userFinancialDataIsEmpty).not.toHaveBeenCalled();
+      const [options] = device.localFinancialDataIsEmpty.mock.calls[0];
+      expect(typeof options.store.get).toBe('function');
+      expect(typeof options.store.setMany).toBe('function');
+    });
+
+    it('reads the backup out of the browser, with no owner anywhere in sight', async () => {
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+      const onProgress = vi.fn();
+
+      await service({ signedIn: false, cloud, device }).collectBackup({ onProgress });
+
+      expect(cloud.collectBackupBundle).not.toHaveBeenCalled();
+      const [options] = device.collectLocalBackupBundle.mock.calls[0];
+      expect(options.onProgress).toBe(onProgress);
+      expect(typeof options.store.setMany).toBe('function');
+    });
+
+    it('restores into the browser with this service\'s own id generator', async () => {
+      // THE REMAP. Every row in a backup gets a fresh id on the way in, because
+      // the primary keys in the file are unique across the whole store rather
+      // than per owner — so a file restored anywhere but where it came from
+      // carries ids belonging to somebody else's rows. Handing the engine this
+      // service's generator is what makes that operation reproducible; the
+      // engine's own default is crypto.randomUUID, which is what this resolves
+      // to in the app.
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+      const onProgress = vi.fn();
+      const file = bundle();
+
+      const outcome = await service({ signedIn: false, cloud, device }).restoreBackup(file, { onProgress });
+
+      expect(cloud.restoreBackupBundle).not.toHaveBeenCalled();
+      expect(device.restoreLocalBackupBundle).toHaveBeenCalledTimes(1);
+      const [restored, options] = device.restoreLocalBackupBundle.mock.calls[0];
+      expect(restored).toBe(file);
+      expect(options.onProgress).toBe(onProgress);
+      expect(typeof options.store.setMany).toBe('function');
+      expect(typeof options.newId).toBe('function');
+      expect(options.newId()).toBe('generated-1');
+      expect(outcome.notStoredLocally).toEqual([]);
+    });
+  });
+
+  describe('a signed-in session whose database id has not resolved yet', () => {
+    const pending = (cloud: ReturnType<typeof cloudEngine>, device: ReturnType<typeof deviceEngine>) =>
+      createDataService({
+        isSupabaseConfigured: () => true,
+        hasCloudSession: () => true,
+        userIdService: pendingUserIdService(),
+        storageAdapter: createStorage(),
+        logger,
+        cloudBackup: cloud,
+        deviceBackup: device
+      });
+
+    const NOTHING_TO_READ =
+      'This session has no database identity yet, so there is nothing to read. Reload the page and try again.';
+    const NOT_SCOPED =
+      'This session has no database identity yet, so a restore cannot be scoped to your login. Reload the page and try again.';
+
+    it('refuses to build a file out of whatever the browser happens to hold', async () => {
+      // The failure this closes is not an error message, it is a person keeping
+      // a file they believe holds their ledger and finding demo data in it.
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+
+      expect(await refusalMessage(pending(cloud, device).collectBackup())).toBe(NOTHING_TO_READ);
+      expect(cloud.collectBackupBundle).not.toHaveBeenCalled();
+      expect(device.collectLocalBackupBundle).not.toHaveBeenCalled();
+    });
+
+    it('refuses to answer "is it empty" rather than saying yes about the wrong store', async () => {
+      // `true` here unlocks the restore button. Over a login full of data that
+      // is the worst answer available.
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+
+      expect(await refusalMessage(pending(cloud, device).financialDataIsEmpty())).toBe(NOT_SCOPED);
+      expect(cloud.userFinancialDataIsEmpty).not.toHaveBeenCalled();
+      expect(device.localFinancialDataIsEmpty).not.toHaveBeenCalled();
+    });
+
+    it('refuses to pour a file into browser storage the app will never read again', async () => {
+      const cloud = cloudEngine();
+      const device = deviceEngine();
+
+      expect(await refusalMessage(pending(cloud, device).restoreBackup(bundle()))).toBe(NOT_SCOPED);
+      expect(cloud.restoreBackupBundle).not.toHaveBeenCalled();
+      expect(device.restoreLocalBackupBundle).not.toHaveBeenCalled();
+    });
   });
 });

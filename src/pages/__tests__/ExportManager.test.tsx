@@ -11,6 +11,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { buildBackupBundle } from '../../services/backupService';
 import type { Account, Category, Transaction } from '../../types';
 
 const accounts: Account[] = [
@@ -96,6 +97,21 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => appValue
 }));
 
+/**
+ * The seam, mocked as ONE door.
+ *
+ * These assertions were first written against the page as it stood — reading
+ * `DataService.getUserIds()`, branching on the database id, and calling one of
+ * two collectors itself — and run green there. Only the mock changed: which
+ * store a backup is read out of is the seam's business now, and it is pinned
+ * where that decision lives (dataService.test.ts, "which store the backup comes
+ * from"). What this file still owns is the FILE: that what the seam handed back
+ * is what landed on disk, and that a refusal is shown rather than swallowed.
+ */
+const seam = vi.hoisted(() => ({ collectBackup: vi.fn() }));
+
+vi.mock('../../services/port', () => ({ dataPort: seam }));
+
 describe('Export Data page', () => {
   // Every module under src/ is re-imported per test (see beforeEach), so the
   // providers have to come from the SAME graph as the page — a React context
@@ -118,6 +134,8 @@ describe('Export Data page', () => {
   beforeEach(async () => {
     localStorage.clear();
     downloads.length = 0;
+    appValue.isUsingSupabase = false;
+    seam.collectBackup.mockReset();
 
     // A fresh module graph per test, so each one gets the exportService
     // singleton a newly-opened browser would get: it caches its templates in
@@ -283,6 +301,87 @@ describe('Export Data page', () => {
     it('has no History tab promising a feature that records nothing', () => {
       renderPage();
       expect(screen.queryByRole('button', { name: /History/i })).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * The full backup — the only export that can be restored, and the only one
+   * that reads whole rows out of the store rather than the app's React state.
+   */
+  describe('the full backup', () => {
+    const bundle = buildBackupBundle({
+      sourceUserId: 'source-login',
+      exportedAt: '2026-03-04T10:00:00.000Z',
+      data: {
+        accounts: [{ id: 'acct-1', name: 'Everyday', type: 'current', balance: '10.00' }],
+        transactions: [
+          { id: 'txn-1', account_id: 'acct-1', amount: '-10.00', date: '2026-02-01', description: 'Shop' }
+        ]
+      },
+      preferences: null
+    });
+
+    const download = (): void => {
+      fireEvent.click(screen.getByRole('button', { name: /Download full backup/i }));
+    };
+
+    it('writes the file the seam handed back, named for the day it was taken', async () => {
+      seam.collectBackup.mockResolvedValue(bundle);
+      renderPage();
+      download();
+
+      await waitFor(() => expect(downloads).toHaveLength(1));
+      expect(downloads[0].filename).toBe('wealthtracker-backup-2026-03-04.json');
+      expect(JSON.parse(downloads[0].text)).toEqual(JSON.parse(JSON.stringify(bundle)));
+    });
+
+    it('asks the seam once, and gives it somewhere to report progress', async () => {
+      // A real dataset is 50k+ rows and 50+ round trips. The page has to hand
+      // over a reporter or the button sits silent long enough to look broken.
+      seam.collectBackup.mockImplementation(async (options: { onProgress?: (p: unknown) => void }) => {
+        options.onProgress?.({
+          entity: 'transaction_splits',
+          entityNumber: 4,
+          entityCount: 14,
+          rows: 1234
+        });
+        return bundle;
+      });
+      renderPage();
+      download();
+
+      await waitFor(() => expect(downloads).toHaveLength(1));
+      expect(seam.collectBackup).toHaveBeenCalledTimes(1);
+      const [options] = seam.collectBackup.mock.calls[0];
+      expect(typeof options.onProgress).toBe('function');
+      // No owner, ever: the page does not know whose data this is, which is the
+      // whole point of the operation living behind the seam.
+      expect(Object.keys(options)).toEqual(['onProgress']);
+    });
+
+    it('says what the store said and writes no file when the read fails', async () => {
+      seam.collectBackup.mockRejectedValue(new Error('Could not read transactions for the backup: timeout'));
+      renderPage();
+      download();
+
+      await screen.findByText(/The backup stopped and no file was written/i);
+      expect(screen.getByText(/Could not read transactions for the backup: timeout/)).toBeInTheDocument();
+      expect(downloads).toHaveLength(0);
+    });
+
+    it('shows the seam\'s refusal rather than writing a file made of the wrong data', async () => {
+      // This page used to make this judgement itself, from a database id it had
+      // asked for. The sentence is now the seam's, and it is REACHED — a
+      // refusal that never reached the screen would leave the button looking
+      // like it had done nothing.
+      seam.collectBackup.mockRejectedValue(new Error(
+        'This session has no database identity yet, so there is nothing to read. Reload the page and try again.'
+      ));
+      renderPage();
+      download();
+
+      await screen.findByText(/no database identity yet/i);
+      expect(downloads).toHaveLength(0);
     });
   });
 

@@ -25,11 +25,15 @@ import { splitDeclaresTransferLeg } from '../../utils/transactionSplits';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type {
   AccountBalanceSnapshot,
+  BackupBundle,
+  BackupRestoreOutcome,
   BootTransactionsResult,
   BulkImportProgress,
   BulkImportResult,
   DataPort,
-  ImportSourceKind
+  ExportProgress,
+  ImportSourceKind,
+  RestoreProgress
 } from '../port/dataPort';
 // Type-only, so the bulk importers themselves stay out of the boot chunk —
 // the values are fetched on demand (see `cloudBulkImportClient`).
@@ -38,6 +42,12 @@ import type {
   LocalImportOptions,
   LocalTransactionImportStore
 } from '../localTransactionImportService';
+// Type-only for the same reason, and it matters more here: backupService
+// reaches for a Supabase client in its first lines, so a static import would
+// put the whole backup/restore machinery — and that client — in front of every
+// user on first paint for a feature most of them press once a year.
+import type * as CloudBackupService from '../backupService';
+import type * as DeviceBackupService from '../localBackupService';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
@@ -98,6 +108,20 @@ type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'> &
 /** The chunked cloud import client, narrowed to what the seam asks of it. */
 type BulkImportClientLike = Pick<TransactionImportService,
   'setAuthTokenProvider' | 'importInChunks'>;
+/**
+ * The two backup engines, each narrowed to the three entry points the seam
+ * routes to.
+ *
+ * Derived from the real modules rather than re-declared, so a signature that
+ * changes there cannot silently drift from what is called here — and so the
+ * FORMAT stays theirs. This class decides which engine answers; it does not
+ * know what a bundle contains, and adding a table to a backup must never mean
+ * editing this file.
+ */
+type CloudBackupLike = Pick<typeof CloudBackupService,
+  'userFinancialDataIsEmpty' | 'collectBackupBundle' | 'restoreBackupBundle'>;
+type DeviceBackupLike = Pick<typeof DeviceBackupService,
+  'localFinancialDataIsEmpty' | 'collectLocalBackupBundle' | 'restoreLocalBackupBundle'>;
 /** The device-side atomic import, in the shape the seam calls it. */
 type LocalBulkImporter = (
   accountId: string,
@@ -133,6 +157,13 @@ export interface DataServiceOptions {
   bulkImportService?: BulkImportClientLike;
   localBulkImport?: LocalBulkImporter;
   /**
+   * The two backup engines. Absent means "fetch the real one when a backup
+   * runs", exactly as the importers above: there is no honest fallback for
+   * reading somebody's whole ledger out, and none at all for putting it back.
+   */
+  cloudBackup?: CloudBackupLike;
+  deviceBackup?: DeviceBackupLike;
+  /**
    * How the cloud import authenticates. Defaults to the registry AuthContext
    * fills with the signed-in session's Clerk getToken — the same token every
    * other cloud call on this class travels with.
@@ -155,6 +186,8 @@ class DataServiceImpl implements DataPort {
   private readonly hasCloudSession: CloudSessionChecker;
   private readonly injectedBulkImportService: BulkImportClientLike | null;
   private readonly injectedLocalBulkImport: LocalBulkImporter | null;
+  private readonly injectedCloudBackup: CloudBackupLike | null;
+  private readonly injectedDeviceBackup: DeviceBackupLike | null;
   private readonly authTokenProvider: AuthTokenProvider;
 
   constructor(options: DataServiceOptions = {}) {
@@ -184,6 +217,8 @@ class DataServiceImpl implements DataPort {
     this.hasCloudSession = options.hasCloudSession ?? hasSupabaseTokenGetter;
     this.injectedBulkImportService = options.bulkImportService ?? null;
     this.injectedLocalBulkImport = options.localBulkImport ?? null;
+    this.injectedCloudBackup = options.cloudBackup ?? null;
+    this.injectedDeviceBackup = options.deviceBackup ?? null;
     this.authTokenProvider = options.authTokenProvider ?? getSupabaseAccessToken;
   }
 
@@ -750,6 +785,140 @@ class DataServiceImpl implements DataPort {
     return importLocally(accountId, transactions, {
       store,
       uuid: () => this.generateId()
+    });
+  }
+
+  // ── Backup, emptiness and restore ─────────────────────────────────────────
+  //
+  // ROUTING, AND ONLY ROUTING. Both engines already existed, are already
+  // covered by suites of their own, and are not touched here: backupService
+  // reads whole rows out of the database and restores them chunk by chunk;
+  // localBackupService reads browser storage and writes the restore back as ONE
+  // IndexedDB transaction. What changed is who chooses between them. It was the
+  // export page and the restore dialog, each calling `DataService.getUserIds()`
+  // and branching on whether a database id came back — which is the seam's rule
+  // 1 (identity is internal) being broken in the two places where getting it
+  // wrong costs a person their whole ledger rather than one row.
+
+  /** The cloud backup engine, fetched the first time a backup runs. */
+  private async cloudBackupEngine(): Promise<CloudBackupLike> {
+    if (this.injectedCloudBackup) return this.injectedCloudBackup;
+    return import('../backupService');
+  }
+
+  /** The device backup engine. Loaded on demand for the same reason. */
+  private async deviceBackupEngine(): Promise<DeviceBackupLike> {
+    if (this.injectedDeviceBackup) return this.injectedDeviceBackup;
+    return import('../localBackupService');
+  }
+
+  /**
+   * This implementation's own store, in the shape the device backup takes.
+   *
+   * The same "several keys as one unit" slice the bulk import writes through —
+   * one IndexedDB transaction is what makes a local restore all-or-nothing, and
+   * it is the same promise for the same reason, so it is the same helper rather
+   * than a second one free to drift from it. Passed explicitly for the reason
+   * `localImportStore` sets out: the engine defaults to the app's real adapter
+   * when handed nothing, which is right in production and wrong in a test that
+   * injected a store.
+   */
+  private requireDeviceBackupStore(): LocalTransactionImportStore {
+    const store = this.localImportStore();
+    if (!store) {
+      // Unreachable in the app: the real adapter writes many keys as one unit.
+      throw new Error(
+        'This device cannot write several records as one piece, so a backup cannot be put back safely here.'
+      );
+    }
+    return store;
+  }
+
+  /**
+   * A signed-in session whose database id has not resolved yet.
+   *
+   * Reads elsewhere on this class answer `[]` in that state and writes refuse.
+   * Neither is available here: an empty BUNDLE is a file a person would keep
+   * believing it held their ledger, and `true` from the emptiness check would
+   * unlock the restore button over a login full of data. So both refuse, in the
+   * sentence the screen used to supply for itself.
+   */
+  private guardBackupIdentity(refusal: string): void {
+    if (this.isCloudSessionPending()) {
+      throw new Error(refusal);
+    }
+  }
+
+  /** True when this store holds no accounts, categories or transactions. */
+  async financialDataIsEmpty(): Promise<boolean> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      const { userFinancialDataIsEmpty } = await this.cloudBackupEngine();
+      return userFinancialDataIsEmpty(userId);
+    }
+
+    this.guardBackupIdentity(
+      'This session has no database identity yet, so a restore cannot be scoped to your login. Reload the page and try again.'
+    );
+    const { localFinancialDataIsEmpty } = await this.deviceBackupEngine();
+    return localFinancialDataIsEmpty({ store: this.requireDeviceBackupStore() });
+  }
+
+  /** Read every table whole and build the file the user downloads. */
+  async collectBackup(options: {
+    onProgress?: (progress: ExportProgress) => void;
+  } = {}): Promise<BackupBundle> {
+    const { databaseId, clerkId } = this.userIdService.getCurrentUserIds();
+    if (databaseId && this.supabaseChecker()) {
+      const { collectBackupBundle } = await this.cloudBackupEngine();
+      // The Clerk id travels beside the database id because ONE of the fourteen
+      // tables is keyed by it (recurring_transactions). Resolving both here is
+      // the whole of what the export page used to do for itself.
+      return collectBackupBundle(
+        { databaseUserId: databaseId, clerkUserId: clerkId },
+        { onProgress: options.onProgress }
+      );
+    }
+
+    this.guardBackupIdentity(
+      'This session has no database identity yet, so there is nothing to read. Reload the page and try again.'
+    );
+    const { collectLocalBackupBundle } = await this.deviceBackupEngine();
+    return collectLocalBackupBundle({
+      onProgress: options.onProgress,
+      store: this.requireDeviceBackupStore()
+    });
+  }
+
+  /** Pour a file back into an empty store. */
+  async restoreBackup(
+    bundle: BackupBundle,
+    options: { onProgress?: (progress: RestoreProgress) => void } = {}
+  ): Promise<BackupRestoreOutcome> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      const { restoreBackupBundle } = await this.cloudBackupEngine();
+      const outcome = await restoreBackupBundle(bundle, userId, {
+        onProgress: options.onProgress
+      });
+      // A login holds every table the format carries, so nothing in the file
+      // was left behind. An empty list here is that statement, not a stub.
+      return { ...outcome, notStoredLocally: [] };
+    }
+
+    this.guardBackupIdentity(
+      'This session has no database identity yet, so a restore cannot be scoped to your login. Reload the page and try again.'
+    );
+    const { restoreLocalBackupBundle } = await this.deviceBackupEngine();
+    return restoreLocalBackupBundle(bundle, {
+      onProgress: options.onProgress,
+      store: this.requireDeviceBackupStore(),
+      // The id remap is the part of a restore that makes a file usable in a
+      // store it did not come from, and it mints one id per row. Handing it
+      // this service's own generator is what lets a test hold the whole
+      // operation still — the engine's own default is crypto.randomUUID, which
+      // is exactly what this resolves to in the app.
+      newId: () => this.generateId()
     });
   }
 
@@ -2239,6 +2408,23 @@ export class DataService {
     }
   ): Promise<BulkImportResult> {
     return this.service.importTransactions(accountId, transactions, options);
+  }
+
+  static financialDataIsEmpty(): Promise<boolean> {
+    return this.service.financialDataIsEmpty();
+  }
+
+  static collectBackup(options?: {
+    onProgress?: (progress: ExportProgress) => void;
+  }): Promise<BackupBundle> {
+    return this.service.collectBackup(options);
+  }
+
+  static restoreBackup(
+    bundle: BackupBundle,
+    options?: { onProgress?: (progress: RestoreProgress) => void }
+  ): Promise<BackupRestoreOutcome> {
+    return this.service.restoreBackup(bundle, options);
   }
 
   static archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {
