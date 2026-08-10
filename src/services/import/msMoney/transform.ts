@@ -69,7 +69,11 @@ export interface MnyTransaction {
   payeeId: number | null;
   memo: string | null;
   ref: string | null;
-  clearedStatus: number;    // 0 unreconciled, 1 cleared, 2 reconciled
+  /**
+   * Money's TRN.cs, verbatim: 0 unreconciled, 1 cleared (C), 2 reconciled (R).
+   * Both of the app's flags are derived from it — see `baseFields` below.
+   */
+  clearedStatus: number;
   linkAccountId: number | null;
   role: MnyRole;
   splitParentId?: number | null;
@@ -325,8 +329,32 @@ function transformTransactions(
     date: isoToDate(t.date as string),
     description: describe(t),
     accountId: acctId(t.accountId),
-    // Money cs: 2 = reconciled (the app's "cleared"); 0/1 are not.
-    cleared: t.clearedStatus === 2,
+    // ── Money's cs scale onto the app's TWO flags ────────────────────────────
+    // Money kept exactly the two states this app now keeps, so nothing has to
+    // be flattened (src/utils/transactionReconciliation.ts states the pair):
+    //
+    //   cs 0  neither                                → cleared false, reconciled false
+    //   cs 1  C — a WORKING mark, ticked off a
+    //         statement during a balance that was
+    //         never finished                         → cleared TRUE,  reconciled false
+    //   cs 2  R — COMMITTED by finishing a balance
+    //         against a stated ending balance        → cleared true,  reconciled TRUE
+    //
+    // `cleared` is therefore "marked at all", C or R: an R row in Money was a
+    // C row that got finished, and the app says the same thing about its own
+    // pair (`reconciled` implies `cleared`). This was `=== 2` and threw the C
+    // rows away — they arrived as plain unmarked rows, and every balance
+    // session its owner had left half-done came back as though it had never
+    // been started. Money writes 0, 1 or 2 here and nothing else; a value
+    // outside that scale is still a mark and still not a commitment.
+    cleared: t.clearedStatus >= 1,
+    // Stated on EVERY row, the false ones included. An absent `reconciled`
+    // means "this row predates the split between marking and committing, so
+    // ask `cleared`" — a fallback for history, and an imported row is not
+    // history: this importer has read Money's own answer and knows it. Left
+    // unsaid, every C row above would be read as committed work its owner
+    // never confirmed.
+    reconciled: t.clearedStatus === 2,
     notes: notesOf(t),
     bankReference: t.ref || undefined,
   });

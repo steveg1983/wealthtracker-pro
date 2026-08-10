@@ -128,7 +128,27 @@ interface AccountSelectorProps<T extends SelectableAccount> {
   /** Fired when focus leaves the picker entirely — for call sites that mark a
       field "touched" on blur before showing its validation message. */
   onBlur?: () => void;
+  /**
+   * What Enter means on the CLOSED trigger.
+   *
+   * 'open' (the default) is the ARIA combobox convention: Enter opens the list.
+   *
+   * 'pass-through' leaves Enter alone so the surrounding form can act on it —
+   * the register's Quick Add row, where Enter is "add this transaction" from
+   * every field. This picker and CategorySelector take turns in that one slot,
+   * so they answer the key identically or the row behaves differently
+   * depending on which question it is asking. Space and the arrows still open.
+   */
+  closedEnter?: 'open' | 'pass-through';
 }
+
+/**
+ * A key that types a character, as opposed to one that commands. Alt is
+ * excluded as well as Ctrl/Meta: a macOS Option chord produces a one-character
+ * key the user meant as a shortcut, not as a filter.
+ */
+const isPrintableKey = (e: React.KeyboardEvent): boolean =>
+  e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
 
 /** One institution sub-band: a heading (or none) and the rows beneath it. */
 interface VisibleSubBand<T extends SelectableAccount> {
@@ -164,6 +184,7 @@ export default function AccountSelector<T extends SelectableAccount>({
   ariaDescribedBy,
   onBlur,
   openSearchToken,
+  closedEnter = 'open',
 }: AccountSelectorProps<T>): React.JSX.Element {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -172,6 +193,7 @@ export default function AccountSelector<T extends SelectableAccount>({
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const instanceId = useId();
   const listboxId = `${instanceId}-listbox`;
@@ -285,6 +307,19 @@ export default function AccountSelector<T extends SelectableAccount>({
     setHighlightIndex(-1);
   }, [showDropdown, searchTerm]);
 
+  // The search box takes the keyboard as the list opens, with the caret AFTER
+  // whatever seeded it: opening by typing puts that character in the box, and a
+  // browser that parked the caret at 0 would send the next keystroke in front
+  // of it. Keyed on showDropdown alone, so it runs once per opening.
+  useEffect(() => {
+    if (!showDropdown) return;
+    const el = searchInputRef.current;
+    if (!el) return;
+    el.focus();
+    const end = el.value.length;
+    el.setSelectionRange(end, end);
+  }, [showDropdown]);
+
   // Close on outside click. The portaled menu lives outside containerRef, so
   // it is checked separately — otherwise a click on a row would count as
   // "outside" and close the menu before the option's onClick could fire.
@@ -323,6 +358,7 @@ export default function AccountSelector<T extends SelectableAccount>({
 
   const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (showDropdown) return; // the search input owns keys while open
+    if (e.key === 'Enter' && closedEnter === 'pass-through') return; // the form's key
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       setShowDropdown(true);
@@ -333,6 +369,13 @@ export default function AccountSelector<T extends SelectableAccount>({
     ) {
       e.preventDefault();
       onAccountChange('');
+    } else if (isPrintableKey(e)) {
+      // Typing opens the list with that character already filtering it — the
+      // behaviour a native <select> had and this control lost. Space is caught
+      // above and opens with an empty search: a leading space filters nothing.
+      e.preventDefault();
+      setSearchTerm(e.key);
+      setShowDropdown(true);
     }
   };
 
@@ -536,6 +579,7 @@ export default function AccountSelector<T extends SelectableAccount>({
           <div className="flex-1 min-w-0">
             {showDropdown ? (
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}

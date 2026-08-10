@@ -4,7 +4,7 @@
 //! # What `cleared` means, and why the bank cannot decide it
 //!
 //! `is_cleared` is not "the bank has processed this". It is "the USER has
-//! checked this row against their statement and finalised the reconciliation".
+//! checked this row against their statement" — a MARK they made.
 //! `ofxImportService.ts:558-565` says it in as many words, and the migration
 //! that made the feed agree (`20260807180000`) says it again. So a row arriving
 //! from a bank *cannot* be pre-cleared: importing the statement is the moment
@@ -12,9 +12,28 @@
 //! the one step that would have caught a missing or wrong entry.
 //!
 //! A row arriving from a file the user's own bookkeeping produced is different.
-//! A QIF `C*` and a Money `clearedStatus = 2` are the user's own past
-//! reconciliation, exported. Dropping them re-asks for work that was done, on
-//! every row of a decade of history.
+//! A QIF `C*` and a Money `clearedStatus` of 1 or 2 are the user's own past
+//! marks, exported. Dropping them re-asks for work that was done, on every row
+//! of a decade of history.
+//!
+//! # Two flags, since the app stopped making one do both jobs
+//!
+//! Migration `20260810200000` split the single flag into the two states
+//! Microsoft Money always kept, and `src/utils/transactionReconciliation.ts`
+//! holds the rule:
+//!
+//! * `is_cleared` — MARKED. A working tick, kept across sessions, settling
+//!   nothing.
+//! * `is_reconciled` — COMMITTED. Produced only by finishing a reconciliation
+//!   against an ending balance the user stated.
+//!
+//! Only one importer answers the second one. Money's `clearedStatus` is a
+//! three-value SCALE, not a flag — 0 neither, 1 C (marked), 2 R (committed) —
+//! so `transform.ts` maps it onto both, and this module ports both. The other
+//! three file importers write no committed flag at all, and that silence is
+//! itself the rule they are read by: an unstated `reconciled` means "ask
+//! `cleared`". [`ClearedPolicy::decide_reconciled`] returns `None` for exactly
+//! those three, so "states nothing" and "states false" stay different answers.
 //!
 //! # The trap, in the words of the document that found it
 //!
@@ -45,6 +64,11 @@
 //! *forgets* the QIF and Money policies raises no error and loses no data: it
 //! produces silently-unreconciled history, and nobody finds out until a user
 //! opens Reconciliation against ten years of ticks that are gone.
+//!
+//! The second flag fails the opposite way and is worse for it. Take Money's C
+//! rows as committed and the app reports reconciliations that never happened —
+//! tens of thousands of them, against statements nobody confirmed, with nothing
+//! on screen to say so. That is the failure reconciliation exists to catch.
 
 use serde::{Deserialize, Serialize};
 
@@ -83,10 +107,11 @@ pub enum ClearedPolicy {
     /// same answer — and if a bank ever ships a CSV with a reconciliation
     /// column, this is the arm that changes and the other two must not.
     NoClearedColumn,
-    /// **MS Money.** `clearedStatus == 2`. Money's own scale is 0
-    /// unreconciled, 1 cleared, 2 reconciled, and only the third is this app's
-    /// "cleared".
-    ReconciledStatus,
+    /// **MS Money.** Money's own three-value scale, which answers BOTH flags:
+    /// 0 neither, 1 C (marked, a balance session left unfinished), 2 R (marked
+    /// *and* committed). The only policy here that states anything at all about
+    /// `is_reconciled` — see [`ClearedPolicy::decide_reconciled`].
+    MoneyStatusScale,
 }
 
 impl ClearedPolicy {
@@ -116,8 +141,48 @@ impl ClearedPolicy {
             Self::FileFlag => matches!(flag, Some("X" | "*")),
             // `enhancedCsvImportService.ts:417`.
             Self::NoClearedColumn => false,
-            // `import/msMoney/transform.ts:328-329`.
-            Self::ReconciledStatus => flag == Some("2"),
+            // `import/msMoney/transform.ts` — MARKED is C or R, so 1 counts.
+            // Anything off Money's scale (including a QIF flag sent here by
+            // mistake) is not a number on it and is not a mark.
+            Self::MoneyStatusScale => matches!(flag, Some("1" | "2")),
+        }
+    }
+
+    /// Apply the policy to the COMMITTED flag — `transactions.is_reconciled`.
+    ///
+    /// `None` is not `Some(false)`. It means this importer states nothing about
+    /// the committed flag, and `src/utils/transactionReconciliation.ts` then
+    /// reads the row through `cleared` instead. Three of the four policies are
+    /// in that position and the distinction is load-bearing: a `Some(false)`
+    /// from Money says "marked, deliberately not committed", where a `None`
+    /// from QIF says "this format never had an answer to give".
+    ///
+    /// Four arms, written out rather than defaulted, for the same reason
+    /// [`Self::decide`] has four: a fifth policy must not inherit an answer
+    /// nobody chose for it.
+    #[must_use]
+    // Three arms answer `None` and `match_same_arms` wants them merged. They
+    // stay apart for the reason the same lint is silenced on [`Self::decide`]:
+    // the three silences have three different causes — a bank that writes no
+    // mark to commit, a QIF format that has no committed field, a CSV that has
+    // no reconciliation column at all — and the day any one of them gains an
+    // answer it must be able to move without dragging the other two with it.
+    #[allow(clippy::match_same_arms)]
+    pub fn decide_reconciled(self, flag: Option<&str>) -> Option<bool> {
+        match self {
+            // Nothing arrives from a bank pre-marked, so there is nothing to
+            // commit and no column written either way.
+            Self::NeverPreCleared => None,
+            // `qifImportService.ts` writes `cleared` and stops there: a QIF `C*`
+            // row carries no committed flag, and is read through its mark.
+            Self::FileFlag => None,
+            // `enhancedCsvImportService.ts` — no cleared column, no committed
+            // one either.
+            Self::NoClearedColumn => None,
+            // `import/msMoney/transform.ts` — R and only R. Stated on every row
+            // including the false ones, because the importer read Money's own
+            // answer and an unstated flag would be read as the mark.
+            Self::MoneyStatusScale => Some(flag == Some("2")),
         }
     }
 }
@@ -133,7 +198,7 @@ impl ImportSource {
             Self::BankFeed | Self::Ofx => ClearedPolicy::NeverPreCleared,
             Self::Qif => ClearedPolicy::FileFlag,
             Self::Csv => ClearedPolicy::NoClearedColumn,
-            Self::MsMoney => ClearedPolicy::ReconciledStatus,
+            Self::MsMoney => ClearedPolicy::MoneyStatusScale,
         }
     }
 }
@@ -152,8 +217,16 @@ pub struct PlanClearedFlag {
 /// The answer, and the policy that produced it.
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanClearedFlagResult {
-    /// What `transactions.is_cleared` will hold.
+    /// What `transactions.is_cleared` will hold — the MARK.
     pub cleared: bool,
+    /// What `transactions.is_reconciled` will hold, when this importer states
+    /// it at all.
+    ///
+    /// Absent from the serialised answer when the importer says nothing, which
+    /// is not the same as saying `false`: the row is then read through
+    /// `cleared`. Only MS Money answers here, and it answers on every row.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reconciled: Option<bool>,
     /// Which of the four rules decided. Carried so that three sources answering
     /// `false` remain three distinguishable answers.
     pub policy: ClearedPolicy,
@@ -163,8 +236,10 @@ pub struct PlanClearedFlagResult {
 #[must_use]
 pub fn plan_cleared_flag(command: &PlanClearedFlag) -> PlanClearedFlagResult {
     let policy = command.source.cleared_policy();
+    let flag = command.cleared_flag.as_deref();
     PlanClearedFlagResult {
-        cleared: policy.decide(command.cleared_flag.as_deref()),
+        cleared: policy.decide(flag),
+        reconciled: policy.decide_reconciled(flag),
         policy,
     }
 }
@@ -206,13 +281,53 @@ mod tests {
     }
 
     #[test]
-    fn moneys_scale_has_three_values_and_only_the_third_is_cleared() {
+    fn moneys_scale_has_three_values_and_answers_both_flags() {
         let policy = ImportSource::MsMoney.cleared_policy();
-        assert!(!policy.decide(Some("0")), "0 = unreconciled");
-        assert!(!policy.decide(Some("1")), "1 = cleared, which is not this");
-        assert!(policy.decide(Some("2")), "2 = reconciled");
+        // 0 — neither.
+        assert!(!policy.decide(Some("0")));
+        assert_eq!(policy.decide_reconciled(Some("0")), Some(false));
+        // 1 — C: a mark, and NOT a commitment. The one that used to be thrown
+        // away, and the one that must never be promoted.
+        assert!(policy.decide(Some("1")), "C is a mark");
+        assert_eq!(
+            policy.decide_reconciled(Some("1")),
+            Some(false),
+            "C is a balance session nobody finished"
+        );
+        // 2 — R: marked and committed.
+        assert!(policy.decide(Some("2")));
+        assert_eq!(policy.decide_reconciled(Some("2")), Some(true));
+        // Off the scale entirely: not a mark, and certainly not a commitment.
         assert!(!policy.decide(Some("3")));
+        assert!(!policy.decide(Some("*")), "a QIF flag is not on Money's scale");
         assert!(!policy.decide(None));
+        assert_eq!(policy.decide_reconciled(None), Some(false));
+    }
+
+    #[test]
+    fn only_money_states_the_committed_flag_and_silence_is_not_false() {
+        // The asymmetry transactionReconciliation.ts is built on: an unstated
+        // committed flag sends the reader back to the mark, so a port that
+        // answered `Some(false)` for QIF would un-reconcile every ticked row a
+        // QIF ever carried.
+        for source in [
+            ImportSource::BankFeed,
+            ImportSource::Ofx,
+            ImportSource::Qif,
+            ImportSource::Csv,
+        ] {
+            for flag in [Some("*"), Some("X"), Some("2"), Some("1"), None] {
+                assert_eq!(
+                    source.cleared_policy().decide_reconciled(flag),
+                    None,
+                    "{source:?} states nothing about the committed flag ({flag:?})"
+                );
+            }
+        }
+        assert!(ImportSource::MsMoney
+            .cleared_policy()
+            .decide_reconciled(None)
+            .is_some());
     }
 
     #[test]

@@ -228,7 +228,7 @@ function feedOverlap(payload) {
 //
 // Where the flag goes, per format, and where it deliberately does not:
 //
-//   qif       a `C` line carrying it. The one format that states a
+//   qif       a `C` line carrying it. The one FILE FORMAT that states a
 //             reconciliation status of its own.
 //   ms_money  `clearedStatus`, as Money's own 0/1/2 code.
 //   ofx       NOWHERE. OFX has no such tag, and the policy does not read one.
@@ -236,6 +236,17 @@ function feedOverlap(payload) {
 //
 // That asymmetry is the test: a spec can send `cleared_flag: "*"` to the CSV
 // source, and both sides must still answer false.
+//
+// TWO FLAGS, AND ONLY ONE IMPORTER ANSWERS THE SECOND
+// ---------------------------------------------------
+// Since migration 20260810200000 the app keeps `is_cleared` (the MARK) apart
+// from `is_reconciled` (the COMMITMENT). Money's scale carries both — 1 is C,
+// marked and not committed; 2 is R, both — so `transformMsMoneyExport` states
+// them separately and the answer below carries both. The other three importers
+// write no committed flag at all, so `reconciled` is ABSENT from their answers
+// rather than false: an unstated flag sends the reader back to the mark
+// (src/utils/transactionReconciliation.ts), which is a third thing and must not
+// be flattened into the second.
 
 const OFX_ONE_ROW =
   '<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>GBP</CURDEF>' +
@@ -310,7 +321,9 @@ async function clearedFlag(payload) {
       },
       '2026-03-01T00:00:00.000Z',
     );
-    return { cleared: result.transactions[0].cleared };
+    // Both flags: the only importer of the four that states the second one.
+    const row = result.transactions[0];
+    return { cleared: row.cleared, reconciled: row.reconciled };
   }
 
   // The bank feed's policy lives in SQL (`import_bank_transactions_atomic`),

@@ -34,7 +34,7 @@ import type { Account, Category, Transaction } from '../../types';
  * defaults into the category box again, so you can just start typing the search
  * again… Maybe the same if you are in description."
  *
- * So six things have to hold, and each has a test here:
+ * So seven things have to hold, and each has a test here:
  *   1. the fields are cells of the CLICKED ROW, under the columns they belong
  *      to, and the strip below holds buttons and hint and nothing else;
  *   2. a row that is not being edited is drawn exactly as it was;
@@ -46,7 +46,10 @@ import type { Account, Category, Transaction } from '../../types';
  *      chooses with it, a button is pressed by it, and neither also saves;
  *   6. every way the editor closes — Save, Escape, the × — hands the keyboard
  *      back to the list with the row still highlighted, so the arrow keys
- *      carry on rather than scrolling.
+ *      carry on rather than scrolling;
+ *   7. selecting text in a field is selecting text, even when the mouse comes
+ *      up outside the field — the row does not read it as the second click
+ *      that opens the full editor.
  *
  * WHAT JSDOM CANNOT DO: no layout. That the columns line up under their headers
  * at real widths, that a 100px Date column holds a dd/mm/yyyy picker, that the
@@ -341,6 +344,130 @@ describe('Account register — the row itself becomes the editor', () => {
     fireEvent.click(within(editorRow()).getByTestId('register-balance'));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Edit Transaction')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Selecting text in the row's own box, when the mouse comes up outside it.
+ *
+ * The owner's report, made while cleaning up imported descriptions: he drags to
+ * select the text in the description box, lets go slightly outside the box, and
+ * the Edit Transaction window opens over what he was about to retype. He was
+ * only selecting text. It bites constantly, because letting go a few pixels low
+ * or right of a 36px-tall box is the normal way to select a whole line.
+ *
+ * WHY IT HAPPENS, and why the row editor's existing guard cannot see it: a
+ * browser dispatches `click` on the nearest COMMON ANCESTOR of where the button
+ * went down and where it came up. Down in the description box and up on the
+ * row makes that ancestor THE ROW — so the click arrives with the row as its
+ * target, and the cells' own stopPropagation (which can only speak for clicks
+ * that TARGET them) never hears it. The register then reads a click on a row
+ * that is already the editor as "give me the full editor".
+ *
+ * The gesture is told apart by where it BEGAN — see useRowClickGesture, which
+ * also explains why `window.getSelection()` cannot answer this: text selected
+ * inside an <input> lives in the control, not the document, and Chrome and
+ * Safari report the document selection as collapsed throughout.
+ *
+ * WHAT JSDOM CANNOT DO: it has no pointer, so it neither synthesises the
+ * ancestor click nor moves the caret. Both are done here by hand — the click is
+ * dispatched on the row exactly as a browser would dispatch it, and the
+ * selection the drag would have made is set on the input — and what is being
+ * proved is what the register does with them. That a real drag in a real
+ * browser produces this sequence is the browser check named in the handover.
+ */
+describe('Account register — a drag that selects text is not a click', () => {
+  /** Where the press landed, where the button came up, and what the browser makes of it. */
+  const dragFromTo = (from: Element, to: Element, ancestorClicked: Element): void => {
+    fireEvent.mouseDown(from);
+    fireEvent.mouseUp(to);
+    fireEvent.click(ancestorClicked);
+  };
+
+  /** The cell a field sits in — the sliver of table the editor's shell covers. */
+  const cellOf = (field: Element): Element => {
+    const cell = field.closest('[role="gridcell"]');
+    if (!cell) throw new Error('the field is not in a cell of the grid');
+    return cell;
+  };
+
+  it('leaves the full editor shut when the drag began in the description box', async () => {
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    const input = descriptionField();
+    const row = editorRow();
+    // The press focuses the box and the drag selects a word — both of which a
+    // browser does for itself, and jsdom does not.
+    input.focus();
+    fireEvent.mouseDown(input);
+    input.setSelectionRange(0, 9);
+    fireEvent.mouseUp(row);
+    fireEvent.click(row);
+
+    expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    // …and the selection SURVIVES. Nothing may re-render or take the focus on
+    // the way past: either would collapse what he was in the middle of
+    // selecting, which is the same loss by a quieter route.
+    expect(isEditing()).toBe(true);
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(9);
+    expect(activeRowText()).toContain('Sandpiper Foods');
+  });
+
+  it('leaves it shut for the category picker too, box or the sliver of cell around it', async () => {
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    const row = editorRow();
+    const category = within(row).getByRole('combobox', { name: 'Category' });
+
+    // Ours is a DIV wearing role="combobox" with the search box inside it, so
+    // "began in a control" has to be answered by role as well as by tag.
+    dragFromTo(category, row, row);
+    expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
+
+    // And the cell AROUND a field counts as the field: the editor's cell shell
+    // covers the whole cell on purpose, so that aiming at the box and missing
+    // it by three pixels types rather than opening the modal. A drag from those
+    // three pixels is owed the same answer.
+    dragFromTo(cellOf(descriptionField()), row, row);
+    expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
+    expect(isEditing()).toBe(true);
+  });
+
+  it('still opens the full editor for a genuine second click, wherever it lands on the row', async () => {
+    await openRegister();
+    clickRow('Sandpiper Foods');
+
+    const row = editorRow();
+    const balance = within(row).getByTestId('register-balance');
+
+    // Down and up on parts of the row that are NOT fields — so the browser's
+    // ancestor is once again the row, and the click looks IDENTICAL to the one
+    // the drag produced. Only where it began differs, which is the whole of the
+    // distinction being drawn.
+    dragFromTo(balance, row, row);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Edit Transaction')).toBeInTheDocument();
+  });
+
+  it('still turns a row that was not being edited into the editor', async () => {
+    await openRegister();
+
+    // The first click on a row is never the full editor, and the guard must not
+    // make it nothing at all: press and release on the row, as a mouse does.
+    const target = within(grid()).getByText('Cobblestone Cafe');
+    dragFromTo(target, target, target);
+
+    expect(isEditing()).toBe(true);
+    expect(activeRowText()).toContain('Cobblestone Cafe');
+    expect(descriptionField()).toHaveValue('Cobblestone Cafe');
+    expect(screen.queryByText('Edit Transaction')).not.toBeInTheDocument();
   });
 });
 

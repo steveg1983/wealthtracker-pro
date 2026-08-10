@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useCallback, Suspense, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { dataPort } from '../services/port';
@@ -49,6 +49,21 @@ import {
 } from '../utils/accountNesting';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
+import {
+  AccountRowColumns,
+  AccountBalanceCell,
+  AccountCountCell,
+  AccountRowEmptyCell,
+  AccountRowActionSlot,
+  ACCOUNT_ROW_SELECTED_CLASS,
+} from '../components/AccountRowColumns';
+import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
+import {
+  currentPageProvenance,
+  readResumeCrumbs,
+  withProvenance,
+  type ProvenanceState,
+} from '../utils/navigationProvenance';
 
 /**
  * The two "Group by" switches as stored. Read through the shared parser, which
@@ -70,7 +85,75 @@ function readStoredGrouping(): AccountGroupingOptions {
   }
 }
 
-export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
+/** A row's element id, so the arrow keys can hand it the focus by name. */
+const rowDomId = (accountId: string): string => `account-row-${accountId}`;
+
+/**
+ * Did this click land on one of the row's own controls?
+ *
+ * Bounded by the row, the way useRowClickGesture bounds its own search: only
+ * this row's subtree can speak for this row. A control anywhere else — the
+ * section heading above it, say — says nothing about a click inside a card.
+ *
+ * `a` as well as `button`: the account NAME is a link now, and a click on it is
+ * a request to open the account, not to pick the row out.
+ */
+const clickedOwnControl = (target: EventTarget | null, row: Element): boolean => {
+  if (!(target instanceof Element)) return false;
+  const control = target.closest('a, button, input');
+  return control !== null && row.contains(control);
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+/**
+ * The way back FROM a register, as this page reads it.
+ *
+ * The mechanism is navigationProvenance's, unchanged: on the way into a
+ * register this page writes its own crumbs (`{ accountId }`) into the
+ * provenance it sends, and the register's back button hands exactly those
+ * crumbs back — it never looks inside them, which is why each origin gets to
+ * own its own shape. Parsed rather than trusted, because a history entry can
+ * have been written by last week's build; anything unreadable reads as "an
+ * ordinary arrival", which is the safe answer (no row is singled out).
+ */
+const readArrivalAccountId = (state: unknown): string | null => {
+  const crumbs = readResumeCrumbs(state);
+  if (!isRecord(crumbs)) return null;
+  const accountId: unknown = crumbs.accountId;
+  return typeof accountId === 'string' && accountId !== '' ? accountId : null;
+};
+
+/**
+ * The list as it is DRAWN, once the search and the folds have had their say.
+ *
+ * Computed once and read twice — by the renderer, and by the arrow keys that
+ * walk it — so "the rows on screen" cannot mean two different things. A model
+ * built separately for the keyboard would skip a folded band on one of the two
+ * and strand the highlight on a row nobody can see.
+ */
+interface DisplayedSubBand {
+  label: string;
+  title: string;
+  /** The whole sub-band: its count and total describe this, not the filtered rows. */
+  accounts: readonly Account[];
+  /** What actually renders, sorted and filtered. */
+  displayed: Account[];
+}
+
+interface DisplayedBand {
+  group: AccountDisplayGroup<Account>;
+  displayed: Account[];
+  subBands: DisplayedSubBand[] | null;
+  isExpanded: boolean;
+}
+
+type DisplayedList =
+  | { mode: 'flat'; accounts: Account[] }
+  | { mode: 'grouped'; bands: DisplayedBand[] };
+
+export default function Accounts() {
   const { accounts, transactions, serverBalances, updateAccount, closeAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
   const { showError } = useToast();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
@@ -186,12 +269,27 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [showClosedAccounts, setShowClosedAccounts] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
 
+  /**
+   * Still on screen? The closed list is fetched, and the fetch outlives the
+   * page whenever somebody leaves before it lands — a state write after that is
+   * a write to a component that no longer exists (and, under a test runner
+   * tearing the DOM down, an intermittent failure in whatever suite happens to
+   * be running next). Guarded here rather than only in the mount effect,
+   * because every caller below is equally able to be the last one out.
+   */
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const loadClosedAccounts = useCallback(async () => {
     try {
-      setClosedAccounts(await dataPort.listClosedAccounts());
+      const closed = await dataPort.listClosedAccounts();
+      if (isMountedRef.current) setClosedAccounts(closed);
     } catch {
       // Non-fatal: the section simply shows empty; a retry happens on next open.
-      setClosedAccounts([]);
+      if (isMountedRef.current) setClosedAccounts([]);
     }
   }, []);
 
@@ -374,6 +472,358 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }
   };
 
+  // ── Which rows are on screen ───────────────────────────────────────────────
+
+  // Search matching. An empty query matches nothing here on purpose — the
+  // caller only filters while `isSearching`, so the full grouped view is what
+  // shows when the box is clear.
+  const normalizedSearch = accountSearch.trim().toLowerCase();
+  const isSearching = normalizedSearch.length > 0;
+  const accountMatchesSearch = useCallback(
+    (account: Account): boolean =>
+      account.name.toLowerCase().includes(normalizedSearch) ||
+      (account.institution?.toLowerCase().includes(normalizedSearch) ?? false),
+    [normalizedSearch]
+  );
+  // A nested cash account rides inside its parent's card, never as a card of its
+  // own, so a hit on the child keeps the parent in the results (the child still
+  // shows nested inside it) rather than vanishing with nowhere to appear.
+  const accountOrChildMatches = useCallback(
+    (account: Account): boolean =>
+      accountMatchesSearch(account) ||
+      (nestedByParent.get(account.id) ?? []).some(accountMatchesSearch),
+    [accountMatchesSearch, nestedByParent]
+  );
+  const matchedTopLevelCount = isSearching
+    ? topLevelAccounts.filter(accountOrChildMatches).length
+    : topLevelAccounts.length;
+
+  // The collapsed-set key and the region id both key off the band's dimension
+  // and label — see `collapsedGroups` for why the dimension is part of the key.
+  const collapseKeyFor = (kind: AccountGroupKind, label: string) => `${kind}:${label}`;
+  const groupRegionId = (kind: AccountGroupKind, label: string) =>
+    `account-group-${kind}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+
+  /**
+   * The whole list, decided once: which bands survive the search, which are
+   * folded away, and the accounts inside each — sorted as the Sort switch says.
+   *
+   * The renderer walks this, and so does the keyboard. That is the point: the
+   * arrows must move through exactly the rows a person can see, and a second
+   * model built for them would eventually disagree with the first about a
+   * folded band or a filtered row.
+   */
+  const displayedList = useMemo<DisplayedList>(() => {
+    if (accountBands.mode === 'flat') {
+      return {
+        mode: 'flat',
+        accounts: sortAccounts(
+          isSearching ? accountBands.accounts.filter(accountOrChildMatches) : accountBands.accounts
+        ),
+      };
+    }
+    const bands: DisplayedBand[] = [];
+    for (const group of accountBands.groups) {
+      const displayed = isSearching ? group.accounts.filter(accountOrChildMatches) : group.accounts;
+      // A search that hides its own hits would be worse than no search, so a
+      // band with no match drops out entirely instead of showing an empty card.
+      if (isSearching && displayed.length === 0) continue;
+      // Sub-bands are filtered the same way, and an all-miss sub-band drops out
+      // while its siblings keep their headings.
+      const subBands = group.subGroups
+        ?.map(sub => ({
+          label: sub.label,
+          title: sub.title,
+          accounts: sub.accounts,
+          displayed: sortAccounts(isSearching ? sub.accounts.filter(accountOrChildMatches) : sub.accounts),
+        }))
+        .filter(sub => sub.displayed.length > 0) ?? null;
+      bands.push({
+        group,
+        displayed: sortAccounts(displayed),
+        subBands,
+        // While searching, collapse is deliberately ignored: a folded section
+        // must not swallow a result the user is actively looking for.
+        isExpanded: isSearching || !collapsedGroups.has(collapseKeyFor(group.kind, group.label)),
+      });
+    }
+    return { mode: 'grouped', bands };
+  }, [accountBands, isSearching, accountOrChildMatches, sortAccounts, collapsedGroups]);
+
+  /**
+   * Every row on screen, top to bottom.
+   *
+   * A nested cash account follows its parent, because that is where it is
+   * drawn: it is a row like any other — its own register, its own figures — and
+   * arrowing down a card only to jump over the cash sitting inside it would be
+   * the list disagreeing with itself.
+   */
+  const navigableRowIds = useMemo<string[]>(() => {
+    const withNested = (list: readonly Account[]): string[] =>
+      list.flatMap(account => [
+        account.id,
+        ...(nestedByParent.get(account.id) ?? []).map(child => child.id),
+      ]);
+    if (displayedList.mode === 'flat') return withNested(displayedList.accounts);
+    const ids: string[] = [];
+    for (const band of displayedList.bands) {
+      if (!band.isExpanded) continue;
+      if (band.subBands) {
+        for (const sub of band.subBands) ids.push(...withNested(sub.displayed));
+      } else {
+        ids.push(...withNested(band.displayed));
+      }
+    }
+    return ids;
+  }, [displayedList, nestedByParent]);
+
+  // ── The register's selection idiom, brought to the list ────────────────────
+
+  /**
+   * The row the user has picked out, if any.
+   *
+   * The same three gestures the register answers to: click a row's plain
+   * background to select it (the NAME is a link, and opens the account —
+   * selecting is what the rest of the row means), walk the selection with the
+   * arrows, Enter to open, Escape to let go. Nothing here writes anything: a
+   * selection is a place to be, not a change to the ledger.
+   */
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  /**
+   * Where the user is coming back FROM, when it is a register they opened here.
+   *
+   * The crumb is read straight off the live location rather than kept in state:
+   * it belongs to the history entry, so the browser's own Back button restores
+   * it too, and a re-render cannot lose it.
+   */
+  const arrivalAccountId = readArrivalAccountId(location.state);
+  const { isFocused: isArrivalRow, focusRef: scrollArrivalRowIntoView } =
+    useArrivalRowFocus(arrivalAccountId);
+
+  // Arriving from a register selects the row you left, so the way back lands
+  // you exactly where you were — highlighted, floating, and with the arrows
+  // live from that row.
+  useEffect(() => {
+    if (arrivalAccountId !== null) setSelectedAccountId(arrivalAccountId);
+  }, [arrivalAccountId]);
+
+  /**
+   * The arrival row itself: focused, then scrolled into the middle of the view.
+   *
+   * Focus first and WITHOUT its own scrolling, so the hook's centring is the
+   * one that decides where the row lands. Focus rather than highlight alone
+   * because the point of coming back is to carry on from there — the arrows
+   * have to be live without hunting for the list with the Tab key.
+   */
+  const arrivalRowRef = useCallback((node: HTMLDivElement | null): void => {
+    node?.focus({ preventScroll: true });
+    scrollArrivalRowIntoView(node);
+  }, [scrollArrivalRowIntoView]);
+
+  /** The path into an account's register, demo session and all. */
+  const registerPath = useCallback(
+    (accountId: string): string => preserveDemoParam(`/accounts/${accountId}`, location.search),
+    [location.search]
+  );
+
+  /**
+   * What this page hands the register on the way in.
+   *
+   * `path` and `label` are what the register's back button becomes — the same
+   * words it has always shown, because this IS the accounts list. `resume` is
+   * this page's own note to itself, handed back untouched when the user
+   * returns (see readArrivalAccountId).
+   */
+  const registerLinkState = useCallback(
+    (accountId: string): ProvenanceState =>
+      withProvenance(currentPageProvenance(location, 'Back to Accounts', { accountId })),
+    [location]
+  );
+
+  const openAccount = useCallback((accountId: string): void => {
+    navigate(registerPath(accountId), { state: registerLinkState(accountId) });
+  }, [navigate, registerPath, registerLinkState]);
+
+  /**
+   * Pick a row out, and give it the keyboard.
+   *
+   * The focus is what makes the arrows live on the row just clicked, without a
+   * second click to "focus the list" — the same courtesy the register does for
+   * its grid. preventScroll because the click proves the row is already on
+   * screen.
+   */
+  const selectRow = useCallback((accountId: string, node: HTMLElement | null): void => {
+    setSelectedAccountId(accountId);
+    node?.focus({ preventScroll: true });
+  }, []);
+
+  /**
+   * Walk the selection by `delta` rows, across sections and into the cash rows
+   * nested in a card.
+   *
+   * With nothing selected yet the key selects the row it was pressed on — the
+   * list is being entered, and jumping to a neighbour of nowhere would be a
+   * surprise. The ends stop rather than wrap, which is what every list the user
+   * already knows does.
+   */
+  const moveSelection = useCallback((fromRowId: string, delta: number): void => {
+    if (navigableRowIds.length === 0) return;
+    // -1 covers both "nothing selected" and "the selected row is filtered away"
+    // — in either case this key is an arrival on the row it was pressed on.
+    const currentIndex = selectedAccountId === null ? -1 : navigableRowIds.indexOf(selectedAccountId);
+    const nextId = currentIndex === -1
+      ? fromRowId
+      : navigableRowIds[Math.min(navigableRowIds.length - 1, Math.max(0, currentIndex + delta))];
+    if (nextId === undefined) return;
+    setSelectedAccountId(nextId);
+    const node = document.getElementById(rowDomId(nextId));
+    // The row is already rendered — only its tabindex changes — so it can be
+    // handed the focus directly. `nearest`: browsing, so the least scroll that
+    // shows the row, and none at all while it is already visible.
+    node?.focus({ preventScroll: true });
+    node?.scrollIntoView?.({ block: 'nearest' });
+  }, [navigableRowIds, selectedAccountId]);
+
+  /**
+   * The keys, on the row that has the focus.
+   *
+   * On the ROW rather than on the page, which is what keeps them out of the way
+   * of everything else here: a search box, a sort button or a group heading has
+   * the focus while it is being used, so the arrows never reach this at all.
+   * There is no window-level listener to fight with.
+   */
+  const handleRowKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLDivElement>,
+    accountId: string
+  ): void => {
+    // A key pressed inside one of the row's own controls belongs to that
+    // control: Enter on the Reconcile button must reconcile, not re-open the
+    // account underneath it.
+    if (event.target !== event.currentTarget) return;
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowUp':
+        // Claimed outright: the page must not also scroll, and the app-wide
+        // shortcut listener must not see a key the list has answered.
+        event.preventDefault();
+        event.stopPropagation();
+        moveSelection(accountId, event.key === 'ArrowDown' ? 1 : -1);
+        break;
+      case 'Enter':
+        event.preventDefault();
+        event.stopPropagation();
+        openAccount(accountId);
+        break;
+      case 'Escape':
+        // Claimed ONLY when there is something to let go of. Escape belongs to
+        // whatever layer is outermost, and a list holding nothing is not a
+        // layer — the register keeps the same rule.
+        if (selectedAccountId === null) return;
+        event.preventDefault();
+        event.stopPropagation();
+        // Let go of the row, and leave the focus where it is: the user is still
+        // standing here, they have simply stopped pointing at anything.
+        setSelectedAccountId(null);
+        break;
+      default:
+        break;
+    }
+  }, [moveSelection, openAccount, selectedAccountId]);
+
+  /**
+   * The row Tab lands on: the selected one, or the first if the selection is
+   * nowhere to be seen.
+   *
+   * That second case is real — search for something the selected row does not
+   * match and it stops being drawn. Without the fallback the list would have no
+   * tab stop at all, and the whole thing would be unreachable from the keyboard
+   * until the box was cleared.
+   */
+  const tabStopRowId = selectedAccountId !== null && navigableRowIds.includes(selectedAccountId)
+    ? selectedAccountId
+    : navigableRowIds[0];
+
+  /**
+   * Everything that makes a div one of this list's rows.
+   *
+   * Shared by both kinds of row — the account card and the cash row nested in
+   * it — because they are the same thing to a keyboard: a place the selection
+   * can be.
+   *
+   * ─ ONE TAB STOP FOR THE WHOLE LIST ─────────────────────────────────────────
+   * Roving tabindex: one row (see tabStopRowId) is the tab stop, and every
+   * other row is reached from it with the arrows. With two hundred accounts a
+   * page that made each row its own tab stop would take two hundred presses to
+   * get past.
+   *
+   * ─ WHY aria-current AND NOT aria-selected ──────────────────────────────────
+   * aria-selected belongs to an option, a row or a tab — it says nothing on a
+   * plain card, and giving the list grid semantics to earn it would have to
+   * demote the account names from headings, which is how a screen-reader user
+   * navigates this page. aria-current is the marker the app's other "this is
+   * the one you came for" surfaces already use (see useArrivalFocus), and the
+   * row itself takes the focus as the selection moves, so the reader announces
+   * the row rather than relying on the marker alone.
+   */
+  const rowProps = (accountId: string) => {
+    const isSelected = selectedAccountId === accountId;
+    return {
+      id: rowDomId(accountId),
+      tabIndex: accountId === tabStopRowId ? 0 : -1,
+      'aria-current': isSelected ? ('true' as const) : undefined,
+      onClick: (event: React.MouseEvent<HTMLDivElement>): void => {
+        // A nested cash row sits INSIDE its parent's card: whatever this click
+        // means, it means it for one row only.
+        event.stopPropagation();
+        // A click on the name, or on any of the row's buttons, is that
+        // control's — the row keeps out of it.
+        //
+        // No useRowClickGesture here, and the reason is worth stating: that
+        // hook exists for a gesture that BEGINS in an editing control and ends
+        // on the row, which the browser then reports as a click on the row. A
+        // row on this page has no editing controls at all — a link and some
+        // buttons, whose clicks are caught by the test above — and its text is
+        // drawn `select-none` (the same answer VirtualizedTable gives its
+        // clickable rows), so there is no drag for it to be the tail of.
+        if (clickedOwnControl(event.target, event.currentTarget)) return;
+        selectRow(accountId, event.currentTarget);
+      },
+      onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>): void => handleRowKeyDown(event, accountId),
+    };
+  };
+
+  /** The look of a row that is selected, or the one it has when it is not. */
+  const rowSkin = (accountId: string, unselected: string): string =>
+    selectedAccountId === accountId ? ACCOUNT_ROW_SELECTED_CLASS : unselected;
+
+  /**
+   * "Agree this account with the bank" — the same control for every row.
+   *
+   * One function rather than one per row type, because a nested cash account
+   * reconciles exactly as its parent does: same screen, same `from=accounts` so
+   * the way back is right, and scoped to ITS id. It used to have no reconcile
+   * button at all, which meant the only paired accounts in the book — the
+   * Money-imported investment sleeves, the ones whose cash actually moves —
+   * were the ones you could not reconcile from the list.
+   *
+   * Named for the account it belongs to: a card now shows two of these, and
+   * "Reconcile" twice over is a control nobody can tell apart by ear.
+   */
+  const renderReconcileButton = (account: Account): ReactNode => (
+    <button
+      type="button"
+      onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search))}
+      className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+      title={`Reconcile ${account.name}`}
+      aria-label={`Reconcile ${account.name}`}
+    >
+      <CheckCircleIcon size={20} />
+      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+        Reconcile
+      </span>
+    </button>
+  );
 
   // ONE card for every grouping view — identical layout, stats and actions
   // (settings / sync / reconcile / close) regardless of how the list is
@@ -386,23 +836,31 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                   return (
                   <div
                     key={account.id}
-                    className="p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-gray-200 transition-all duration-300 cursor-pointer"
-                    onClick={(e) => {
-                      // Don't navigate if clicking on buttons or inputs
-                      if ((e.target as HTMLElement).closest('button, input')) return;
-                      if (onAccountClick) {
-                        onAccountClick(account.id);
-                      } else {
-                        navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
-                      }
-                    }}
+                    ref={isArrivalRow(account.id) ? arrivalRowRef : undefined}
+                    {...rowProps(account.id)}
+                    className={`p-3 sm:p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                      account.id,
+                      'bg-white dark:bg-gray-800 shadow-lg border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-gray-200'
+                    )}`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <TypeIcon className={typeColor} size={16} />
-                          <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate min-w-0 flex-1">
-                            {account.name}
+                          {/* The name is the way IN — a real link, so it can be
+                              opened in a new tab, followed from the keyboard,
+                              or copied as an address. The rest of the row means
+                              "pick this one out", which is why the two are not
+                              the same gesture any more. */}
+                          <h3 className="text-base md:text-lg font-medium truncate min-w-0 flex-1">
+                            <Link
+                              to={registerPath(account.id)}
+                              state={registerLinkState(account.id)}
+                              className="block truncate text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                              title={`Open ${account.name}`}
+                            >
+                              {account.name}
+                            </Link>
                           </h3>
                           {/* The figure the card exists to show, where a
                               banking list puts it: right of the name. The
@@ -455,77 +913,32 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         )}
                       </div>
                       
-                      {/* Phones: a wrapping row (the stat columns plus the
-                          buttons need ~490px and the card offers ~330, so the
-                          stats take one row and the buttons the next). From sm
-                          up it is a GRID of fixed columns — four stat columns,
-                          then five reserved button slots — so every figure and
-                          every button lands at the same x on every card. An
-                          account without a bank feed keeps an EMPTY feed cell
-                          rather than letting the buttons shuffle left; muscle
-                          memory is the point.
-
-                          To Review joined as the FOURTH stat column, which is
-                          what moved the other three left: the buttons are
-                          anchored to the right-hand edge, so a new column takes
-                          its room from the space before them rather than from
-                          them. It sits after Unreconciled because the two are
-                          the same shape of question — how much is outstanding —
-                          and reading them as a pair is the point. */}
+                      {/* The columns. Their definition — and the reason the
+                          nested cash row below reads down the same lines — is
+                          in components/AccountRowColumns. */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 sm:grid sm:grid-cols-[6.5rem_7.5rem_5.5rem_5.5rem_repeat(5,3rem)] sm:justify-items-end sm:items-center sm:gap-x-2 sm:gap-y-0">
-                              {/* Balance info columns */}
-                              <div className="text-right">
-                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank Bal</p>
-                                <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-                                  {account.bankBalance != null
-                                    ? formatDisplayCurrency(account.bankBalance, account.currency)
-                                    : 'N/A'}
-                                </p>
-                              </div>
-                              <div className="hidden sm:block text-right">
-                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Bal</p>
-                                <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
-                                  {formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Unreconciled</p>
-                                <p className={`text-sm font-semibold tabular-nums ${
-                                  getUnreconciledCount(account.id) > 0
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-blue-600 dark:text-blue-400'
-                                }`}>
-                                  {getUnreconciledCount(account.id)}
-                                </p>
-                              </div>
+                            <AccountRowColumns>
+                              <AccountBalanceCell
+                                label="Bank Bal"
+                                value={account.bankBalance != null
+                                  ? formatDisplayCurrency(account.bankBalance, account.currency)
+                                  : 'N/A'}
+                              />
+                              <AccountBalanceCell
+                                label="Account Bal"
+                                value={formatDisplayCurrency(computeAccountBalance(account.id), account.currency)}
+                                smOnly
+                              />
+                              <AccountCountCell label="Unreconciled" count={getUnreconciledCount(account.id)} />
                               {/* To Review — freshly imported rows nobody has
                                   dealt with, so the size of the job is visible
                                   from the list rather than only from inside the
-                                  register.
-
-                                  A QUIET 0 RATHER THAN NOTHING, unlike the
-                                  register's own counter, and the difference is
-                                  the surface not an inconsistency: this is a
-                                  COLUMN. A column of figures with a blank in it
-                                  reads as "not known", and the eye has to stop
-                                  and work out which. Its neighbour has said 0
-                                  the same way since the page was built, and
-                                  matching it is what keeps the pair readable at
-                                  a glance. The register's box is chrome, not a
-                                  column, and there it is absence that means
-                                  "nothing to do". */}
-                              <div className="text-right">
-                                <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">To Review</p>
-                                <p className={`text-sm font-semibold tabular-nums ${
-                                  (toReviewByAccount.get(account.id) ?? 0) > 0
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-blue-600 dark:text-blue-400'
-                                }`}>
-                                  {toReviewByAccount.get(account.id) ?? 0}
-                                </p>
-                              </div>
-                              <div className="flex items-center justify-end">
+                                  register. It sits after Unreconciled because
+                                  the two are the same shape of question — how
+                                  much is outstanding — and reading them as a
+                                  pair is the point. */}
+                              <AccountCountCell label="To Review" count={toReviewByAccount.get(account.id) ?? 0} />
+                              <AccountRowActionSlot>
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
@@ -538,10 +951,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                   </span>
                                 </button>
                                 )}
-                              </div>
+                              </AccountRowActionSlot>
                               {/* Feed slot — rendered for every account so
                                   the three buttons to its right never move. */}
-                              <div className="flex items-center justify-end">
+                              <AccountRowActionSlot>
                                 {bankLink && (bankLink.status === 'reauth_required' ? (
                                   <div className="relative group">
                                     <IconButton
@@ -572,7 +985,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     </span>
                                   </div>
                                 ))}
-                              </div>
+                              </AccountRowActionSlot>
+                              <AccountRowActionSlot>
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => setSettingsAccountId(account.id)}
@@ -580,22 +994,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     variant="ghost"
                                     size="md"
                                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
-                                    title="Account Settings"
+                                    title={`Account settings for ${account.name}`}
                                   />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Settings
                                   </span>
                                 </div>
-                                <button
-                                  onClick={() => navigate(preserveDemoParam(`/reconciliation?account=${account.id}&from=accounts`, location.search))}
-                                  className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
-                                  title="Reconcile transactions"
-                                >
-                                  <CheckCircleIcon size={20} />
-                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Reconcile
-                                  </span>
-                                </button>
+                              </AccountRowActionSlot>
+                              <AccountRowActionSlot>{renderReconcileButton(account)}</AccountRowActionSlot>
+                              <AccountRowActionSlot>
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => handleClose(account.id)}
@@ -603,102 +1010,113 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     variant="ghost"
                                     size="md"
                                     className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[48px] min-h-[48px]"
-                                    title="Close account"
+                                    title={`Close ${account.name}`}
                                   />
                                   <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Close
                                   </span>
                                 </div>
-                            </div>
+                              </AccountRowActionSlot>
+                            </AccountRowColumns>
                       </div>
                     </div>
 
                     {/* Nested cash accounts (investment↔cash pairing): the
-                        Money model shows the pair as one account, cash inside. */}
+                        Money model shows the pair as one account, cash inside.
+
+                        A ROW LIKE ANY OTHER, from here down. It is inset on the
+                        LEFT — the dashes, the indent, the wallet mark and the
+                        word Cash are what say it belongs to the card above it —
+                        and from the figures rightwards it is its parent's twin:
+                        the same columns, in the same places, so Account Bal sits
+                        under Account Bal and its Reconcile button under its
+                        parent's. It has always been a full account (its own
+                        register, its own transfers, its own reconciliation);
+                        this is the list finally saying so.
+
+                        `sm:pr-0` is what puts its right-hand edge where the
+                        card's is: the pill sits INSIDE the card's padding, so
+                        any padding of its own would hold the columns short of
+                        the parent's by that much. What is left is the pill's
+                        own 1px border — a hairline, and its own outline, which
+                        is a better thing to leave alone than to cancel with a
+                        negative margin somebody would later have to explain. */}
                     {(nestedByParent.get(account.id) ?? []).map(child => {
                       const childName = child.name === `${account.name} (Cash)` ? 'Cash' : child.name;
-                      const childUnreconciled = getUnreconciledCount(child.id);
-                      const childToReview = toReviewByAccount.get(child.id) ?? 0;
                       return (
                         <div
                           key={child.id}
-                          className="mt-3 ml-6 sm:ml-9 flex items-center gap-3 rounded-xl border border-dashed border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60 px-3 py-2.5 cursor-pointer hover:border-gray-400 dark:hover:border-gray-400 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if ((e.target as HTMLElement).closest('button, input')) return;
-                            if (onAccountClick) {
-                              onAccountClick(child.id);
-                            } else {
-                              navigate(preserveDemoParam(`/accounts/${child.id}`, location.search));
-                            }
-                          }}
+                          ref={isArrivalRow(child.id) ? arrivalRowRef : undefined}
+                          {...rowProps(child.id)}
+                          className={`mt-3 ml-6 sm:ml-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-xl border border-dashed pl-3 pr-3 sm:pr-0 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${rowSkin(
+                            child.id,
+                            'border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60 hover:border-gray-400 dark:hover:border-gray-400'
+                          )}`}
                         >
-                          <WalletIcon className="text-teal-600 dark:text-teal-400 flex-shrink-0" size={14} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{childName}</p>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400">Cash account</p>
-                          </div>
-                          <div className="text-right sm:w-[7.5rem]">
-                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account Bal</p>
-                            <p className="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <WalletIcon className="text-teal-600 dark:text-teal-400 flex-shrink-0" size={14} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                <Link
+                                  to={registerPath(child.id)}
+                                  state={registerLinkState(child.id)}
+                                  className="block truncate text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                  title={`Open ${child.name}`}
+                                >
+                                  {childName}
+                                </Link>
+                              </p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">Cash account</p>
+                            </div>
+                            {/* Phones: the balance beside the name, exactly as
+                                the parent card does it, because the Account Bal
+                                column is off at that width. */}
+                            <span className="sm:hidden shrink-0 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
                               {formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
-                            </p>
+                            </span>
                           </div>
-                          <div className="text-right sm:w-[5.5rem]">
-                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Unreconciled</p>
-                            <p className={`text-sm font-semibold tabular-nums ${
-                              childUnreconciled > 0
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-blue-600 dark:text-blue-400'
-                            }`}>
-                              {childUnreconciled}
-                            </p>
-                          </div>
-                          {/* A nested cash account is a full account with its
-                              own register, so it has its own arrivals to deal
-                              with and gets the column too. Same width as its
-                              parent's, so the two lines read down. */}
-                          <div className="text-right sm:w-[5.5rem]">
-                            <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">To Review</p>
-                            <p className={`text-sm font-semibold tabular-nums ${
-                              childToReview > 0
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-blue-600 dark:text-blue-400'
-                            }`}>
-                              {childToReview}
-                            </p>
-                          </div>
-                          <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
+                          <AccountRowColumns>
+                            {/* Bank Bal: an EMPTY slot, not a missing column. A
+                                cash sleeve has no feed of its own — the money
+                                arrives through the investment account it belongs
+                                to — so there is no bank figure to show and
+                                "N/A" would only invite the question. Dropping
+                                the column instead would pull every figure after
+                                it one place left, which is the misalignment this
+                                whole row was rebuilt to end. */}
+                            <AccountRowEmptyCell />
+                            <AccountBalanceCell
+                              label="Account Bal"
+                              value={formatDisplayCurrency(computeAccountBalance(child.id), child.currency)}
+                              smOnly
+                            />
+                            <AccountCountCell label="Unreconciled" count={getUnreconciledCount(child.id)} />
+                            {/* Its own register means its own arrivals to deal
+                                with, so it gets this column too. */}
+                            <AccountCountCell label="To Review" count={toReviewByAccount.get(child.id) ?? 0} />
+                            {/* Portfolio, feed and settings: not this row's to
+                                offer. The slots stay so the Reconcile button
+                                lands under its parent's. */}
+                            <AccountRowEmptyCell />
+                            <AccountRowEmptyCell />
+                            <AccountRowEmptyCell />
+                            <AccountRowActionSlot>{renderReconcileButton(child)}</AccountRowActionSlot>
+                            {/* The chevron says "this row leads somewhere",
+                                which it does — through the name beside it.
+                                Decoration, so it is hidden from a screen
+                                reader, which has the link itself. */}
+                            <AccountRowActionSlot>
+                              <span aria-hidden="true" className="flex items-center">
+                                <ChevronRightIcon size={16} className="text-gray-400 flex-shrink-0" />
+                              </span>
+                            </AccountRowActionSlot>
+                          </AccountRowColumns>
                         </div>
                       );
                     })}
                   </div>
     );
   };
-
-  // Search matching. An empty query matches nothing here on purpose — the
-  // caller only filters while `isSearching`, so the full grouped view is what
-  // shows when the box is clear.
-  const normalizedSearch = accountSearch.trim().toLowerCase();
-  const isSearching = normalizedSearch.length > 0;
-  const accountMatchesSearch = (account: Account): boolean =>
-    account.name.toLowerCase().includes(normalizedSearch) ||
-    (account.institution?.toLowerCase().includes(normalizedSearch) ?? false);
-  // A nested cash account rides inside its parent's card, never as a card of its
-  // own, so a hit on the child keeps the parent in the results (the child still
-  // shows nested inside it) rather than vanishing with nowhere to appear.
-  const accountOrChildMatches = (account: Account): boolean =>
-    accountMatchesSearch(account) ||
-    (nestedByParent.get(account.id) ?? []).some(accountMatchesSearch);
-  const matchedTopLevelCount = isSearching
-    ? topLevelAccounts.filter(accountOrChildMatches).length
-    : topLevelAccounts.length;
-
-  // The collapsed-set key and the region id both key off the band's dimension
-  // and label — see `collapsedGroups` for why the dimension is part of the key.
-  const collapseKeyFor = (kind: AccountGroupKind, label: string) => `${kind}:${label}`;
-  const groupRegionId = (kind: AccountGroupKind, label: string) =>
-    `account-group-${kind}-${label.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
 
   // The band's own glyph: its section's icon and colour for a type band, the
   // bank mark for an institution band.
@@ -716,26 +1134,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   // institution sub-bands holding them. The heading always shows the full
   // band's name, count and total, so a collapsed band still tells you what it
   // is worth.
-  const renderAccountBand = (group: AccountDisplayGroup<Account>): ReactNode => {
-    const displayedAccounts = isSearching
-      ? group.accounts.filter(accountOrChildMatches)
-      : group.accounts;
-    // A search that hides its own hits would be worse than no search, so a
-    // band with no match drops out entirely instead of showing an empty card.
-    if (isSearching && displayedAccounts.length === 0) return null;
-
-    // Sub-bands are filtered the same way, and an all-miss sub-band drops out
-    // while its siblings keep their headings.
-    const subBands = group.subGroups
-      ?.map(sub => ({
-        ...sub,
-        displayed: isSearching ? sub.accounts.filter(accountOrChildMatches) : sub.accounts,
-      }))
-      .filter(sub => sub.displayed.length > 0);
-
-    // While searching, collapse is deliberately ignored: a folded section must
-    // not swallow a result the user is actively looking for.
-    const isExpanded = isSearching || !collapsedGroups.has(collapseKeyFor(group.kind, group.label));
+  //
+  // What is IN the band was decided by `displayedList` — the same answer the
+  // arrow keys walk, so the two can never differ about which rows exist.
+  const renderAccountBand = ({ group, displayed, subBands, isExpanded }: DisplayedBand): ReactNode => {
     const regionId = groupRegionId(group.kind, group.label);
 
     return (
@@ -794,11 +1196,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                           {subTotal}
                         </p>
                       </div>
-                      {sortAccounts(sub.displayed).map(renderAccountCard)}
+                      {sub.displayed.map(renderAccountCard)}
                     </div>
                   );
                 })
-              : sortAccounts(displayedAccounts).map(renderAccountCard)}
+              : displayed.map(renderAccountCard)}
           </div>
         )}
       </div>
@@ -1092,15 +1494,13 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
             <SkeletonCard className="h-48" />
             <SkeletonCard className="h-48" />
           </>
-        ) : accountBands.mode === 'flat' ? (
+        ) : displayedList.mode === 'flat' ? (
           /* Both switches off: one list, no band chrome at all. */
           <div className="space-y-3">
-            {sortAccounts(
-              isSearching ? accountBands.accounts.filter(accountOrChildMatches) : accountBands.accounts
-            ).map(renderAccountCard)}
+            {displayedList.accounts.map(renderAccountCard)}
           </div>
         ) : (
-          accountBands.groups.map(renderAccountBand)
+          displayedList.bands.map(renderAccountBand)
         )}
       </div>
 
@@ -1261,10 +1661,12 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           formatted: formatDisplayCurrency(computeAccountBalance(a.id), a.currency),
         }))}
         formatTotal={(v) => formatDisplayCurrency(v)}
+        // Through the same door as a click on an account's name, provenance and
+        // all: coming back from a register opened here lands on that account's
+        // row rather than at the top of the list.
         onOpenAccount={(accountId) => {
           setBreakdownView(null);
-          if (onAccountClick) onAccountClick(accountId);
-          else navigate(preserveDemoParam(`/accounts/${accountId}`, location.search));
+          openAccount(accountId);
         }}
       />
 
@@ -1303,7 +1705,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       <PageTip
         id="accounts-intro"
         title="Manage your accounts"
-        description="Add bank accounts, credit cards, savings, and investments. Click any account to view its transactions. Use the settings icon on each account to configure alerts and reconciliation."
+        description="Add bank accounts, credit cards, savings, and investments. Click an account's name to open its transactions, or click the row to pick it out and walk the list with the arrow keys. Use the settings icon on each account to configure alerts and reconciliation."
       />
     </PageWrapper>
   );}

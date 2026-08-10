@@ -179,6 +179,86 @@ describe('CategorySelector', () => {
       const payslip = options.find(o => o.textContent?.includes('Payslip'));
       expect(payslip).toHaveAttribute('aria-selected', 'true');
     });
+
+    /**
+     * Typing at a closed picker used to do nothing at all — the list had to be
+     * opened first, by a key nobody can guess. The control this replaced was a
+     * native <select>, where the first letter jumped straight to the match.
+     */
+    it('opens on a typed character, with that character already filtering', () => {
+      render(
+        <CategorySelector
+          selectedCategory=""
+          onCategoryChange={vi.fn()}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+          includeAllTypes
+        />
+      );
+      const trigger = screen.getByRole('combobox', { name: 'Category' });
+
+      fireEvent.keyDown(trigger, { key: 'g' });
+
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      // Nothing to retype: the key that opened the list is the filter's first
+      // character.
+      expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveValue('g');
+      expect(screen.getByText('Groceries')).toBeInTheDocument();
+      expect(screen.queryByText('Payslip')).not.toBeInTheDocument();
+    });
+
+    it('opens on Space with an EMPTY search, not a leading blank', () => {
+      render(
+        <CategorySelector
+          selectedCategory=""
+          onCategoryChange={vi.fn()}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+        />
+      );
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Category' }), { key: ' ' });
+
+      expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveValue('');
+      expect(screen.getByText('Payslip')).toBeInTheDocument();
+    });
+
+    it('leaves a shortcut chord alone rather than reading it as a filter', () => {
+      render(
+        <CategorySelector
+          selectedCategory=""
+          onCategoryChange={vi.fn()}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+        />
+      );
+      const trigger = screen.getByRole('combobox', { name: 'Category' });
+
+      fireEvent.keyDown(trigger, { key: 'f', ctrlKey: true });
+
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('hands Enter to the surrounding form when asked to pass it through', () => {
+      render(
+        <CategorySelector
+          selectedCategory=""
+          onCategoryChange={vi.fn()}
+          transactionType="income"
+          placeholder={PLACEHOLDER}
+          closedEnter="pass-through"
+        />
+      );
+      const trigger = screen.getByRole('combobox', { name: 'Category' });
+
+      // Not claimed, and the list stays shut — the register's add bar is
+      // reading that key as "+ Add".
+      expect(fireEvent.keyDown(trigger, { key: 'Enter' })).toBe(true);
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+      // Every other way in still works.
+      fireEvent.keyDown(trigger, { key: ' ' });
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    });
   });
 
   describe('revaluation categories (the third kind of movement)', () => {
