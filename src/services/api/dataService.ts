@@ -33,6 +33,7 @@ import type {
   AccountBalanceSnapshot,
   BackupBundle,
   BackupRestoreOutcome,
+  BootSnapshot,
   BootTransactionsResult,
   BulkImportProgress,
   BulkImportResult,
@@ -403,6 +404,104 @@ class DataServiceImpl implements DataPort {
       this.logger.error('Error loading account balances:', error as Error);
       return new Map();
     }
+  }
+
+  /**
+   * The whole boot in one call — the sequence the boot effect used to hold.
+   *
+   * Nothing here is new work: it is the six reads the effect made, in the order
+   * it made them, moved to where the ORDER can be held against every
+   * implementation instead of against one call site. Three things in that order
+   * are rules rather than habits, and each is stated where it happens:
+   *
+   *  1. the accounts read answers all three of the boot's account cases by
+   *     itself — the signed-in one, the signed-in-but-unresolved one, and the
+   *     demo/signed-out one — because the branch that used to choose between
+   *     them is the branch already inside `listAccounts`;
+   *  2. the categories are AWAITED before the transaction read, because on a
+   *     first signed-in load preparing them renumbers every category and remaps
+   *     every reference to it (see `prepareCategories`);
+   *  3. the budgets and the goals go together in ONE `Promise.all`, because
+   *     they are independent and serialising them would add a round trip to
+   *     every signed-in boot in exchange for nothing.
+   *
+   * NEVER REJECTS — the seam says so, and this is where that is made true. This
+   * call is the only thing inside the boot's one outer catch, so a rejection
+   * here is a full-page "Failed to load data". A store that will not open costs
+   * whatever could not be read: the snapshot carries what was gathered before
+   * the failure, and the transaction stats say `load failed` out loud on the
+   * boot-timing line — the same floor, and the same words, `loadBootTransactions`
+   * already keeps.
+   */
+  async loadBoot(): Promise<BootSnapshot> {
+    const phases: Record<string, number> = {};
+    let phaseStart = performance.now();
+    const markPhase = (name: string): void => {
+      phases[name] = Math.round(performance.now() - phaseStart);
+      phaseStart = performance.now();
+    };
+
+    const snapshot: BootSnapshot = {
+      accounts: [],
+      categories: [],
+      transactions: [],
+      // The shape a failed transaction read already answers with, so a snapshot
+      // that never got that far says the same thing the read itself would have.
+      transactionStats: { cached: 0, fetched: 0, total: 0, fullFetchReason: 'load failed' },
+      splits: [],
+      budgets: [],
+      goals: [],
+      phases
+    };
+
+    try {
+      // One account read for every boot. The three cases the effect used to
+      // branch on are the three branches inside this method: cloud rows for a
+      // resolved login, nothing at all while a session is still connecting, and
+      // the browser's own list for demo and signed-out sessions.
+      snapshot.accounts = await this.listAccounts();
+      markPhase('accounts');
+
+      // Categories first, and that is a CONSTRAINT rather than a preference:
+      // this line may not move below the transaction read. On a first signed-in
+      // load it runs `migrate_categories_atomic` — per-user uuids for the
+      // categories AND the remap of every transaction and budget that
+      // referenced the old ids, in one database transaction. Rows read before
+      // that lands carry ids that are about to stop existing, and nothing
+      // throws when that happens: the register simply comes up with its
+      // category column blank.
+      snapshot.categories = await this.prepareCategories();
+      markPhase('categories');
+
+      const boot = await this.loadBootTransactions();
+      snapshot.transactions = boot.transactions;
+      snapshot.transactionStats = boot.stats;
+      markPhase('transactions');
+
+      // Split lines ride along with the transactions, and a failure here must
+      // not cost the app its boot: split parents then pass through category
+      // aggregation whole. The catch is here rather than on the seam because,
+      // unlike the boot's transactions, this read has no "empty is an honest
+      // answer" story to tell — the refresh paths make the same choice.
+      try {
+        snapshot.splits = await this.listTransactionSplits();
+      } catch (splitError) {
+        this.logger.error('Failed to load transaction splits', splitError as Error);
+        snapshot.splits = [];
+      }
+      markPhase('splits');
+
+      // ONE Promise.all: two independent reads with no reason to queue behind
+      // each other.
+      const [budgets, goals] = await Promise.all([this.listBudgets(), this.listGoals()]);
+      snapshot.budgets = budgets;
+      snapshot.goals = goals;
+      markPhase('planning');
+    } catch (error) {
+      this.logger.error('Error loading the boot snapshot:', error as Error);
+    }
+
+    return snapshot;
   }
 
   async listAccounts(): Promise<Account[]> {
@@ -2583,6 +2682,10 @@ export class DataService {
 
   static listClosedAccounts(): Promise<Account[]> {
     return this.service.listClosedAccounts();
+  }
+
+  static loadBoot(): Promise<BootSnapshot> {
+    return this.service.loadBoot();
   }
 
   static listAccounts(): Promise<Account[]> {

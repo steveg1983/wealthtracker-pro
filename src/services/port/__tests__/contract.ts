@@ -33,8 +33,8 @@
  * files call it.
  */
 
-import { describe, it, expect } from 'vitest';
-import type { BackupBundle, BackupEntity, BackupRow, DataPort } from '../dataPort';
+import { describe, it, expect, vi } from 'vitest';
+import type { BackupBundle, BackupEntity, BackupRow, BootSnapshot, DataPort } from '../dataPort';
 import type {
   Account,
   Budget,
@@ -142,6 +142,8 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'listGoals',
   'listCategories',
   'listSuggestionDismissals',
+  // The boot, in one answer
+  'loadBoot',
   // Account writes
   'createAccount',
   'updateAccount',
@@ -241,6 +243,40 @@ const BOOT_PROVENANCE: Record<DataPortEngine, { snapshots: boolean; reasonWhenUn
   supabase: { snapshots: true, reasonWhenUncached: 'no cache' },
   // One store read, and honest about it — the rows are already on the device.
   'local-core': { snapshots: false, reasonWhenUncached: 'local mode' }
+};
+
+/**
+ * BOOT_COMPOSITION — HOW an engine answers `loadBoot`, which is a different
+ * question from what it answers with.
+ *
+ * The snapshot's CONTENTS are asserted equal for everybody: the same accounts,
+ * the same prepared categories, the same rows, the budgets and the goals. What
+ * cannot be asserted equal is the shape of the machinery underneath, and the
+ * difference is not cosmetic — it decides what a test is even able to observe.
+ *
+ * `fansOut: true` means the composite is BUILT FROM the seam's own other reads,
+ * so each one is separately observable and the ordering rules between them can
+ * be proved by holding one and watching whether the next starts. That is how
+ * the two rules below are proved today, and it is the only way they can be
+ * proved from outside.
+ *
+ * `fansOut: false` means the answer is indivisible — one crossing, one
+ * transaction, one snapshot — and there is no "before" or "after" inside it to
+ * observe. Ordering is not kept there, it is unable to be broken there, which
+ * is a stronger property and a differently-shaped assertion: the rules below
+ * then check the OUTCOME (the rows are filed under the categories the same
+ * answer carried) and that the composite really did not fan out.
+ *
+ * The 'local-core' row is a CLAIM the later slices have to make true, not a
+ * description of something that exists.
+ */
+const BOOT_COMPOSITION: Record<DataPortEngine, { describes: string; fansOut: boolean }> = {
+  // Six ordered reads of the one store it has.
+  'browser-storage': { describes: 'six ordered reads of the one store it has', fansOut: true },
+  // The same six, each a network crossing, in the order the boot depended on.
+  supabase: { describes: 'six crossings, in the order the boot depended on', fansOut: true },
+  // One crossing, one transaction, one snapshot — nothing to order.
+  'local-core': { describes: 'one crossing, one transaction, one snapshot', fansOut: false }
 };
 
 /**
@@ -594,6 +630,25 @@ const transactionOf = (state: PortStoreState, id: string): Transaction | undefin
  * be reduced to without the suite knowing which it is looking at.
  */
 const asComparable = (state: PortStoreState): string => JSON.stringify(state);
+
+/**
+ * The OUTCOME the categories-before-transactions rule exists to produce, asked
+ * of a snapshot rather than of an order of calls.
+ *
+ * Whatever the categories were renumbered to, the rows in the same snapshot are
+ * filed under THOSE ids — not under the ones that were there when the boot
+ * started. Nothing throws when that goes wrong; the register simply comes up
+ * with its category column blank, which is why it is asserted rather than
+ * assumed.
+ */
+const expectRowsFiledUnderTheSnapshotsCategories = (boot: BootSnapshot): void => {
+  const categoryIds = new Set(boot.categories.map(category => category.id));
+  boot.transactions
+    .filter(transaction => transaction.category)
+    .forEach(transaction => {
+      expect(categoryIds.has(transaction.category)).toBe(true);
+    });
+};
 
 export function runDataPortContract(name: string, harness: DataPortContractHarness): void {
   const { engine } = harness;
@@ -2583,6 +2638,214 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           }
         }
       );
+    });
+
+    // ── The boot, in one answer ───────────────────────────────────────────
+    //
+    // These three rules used to live at the app's own boot effect, proved
+    // against a stubbed seam. They are here now, and that MOVE is the point:
+    // proved at the call site they held only for the one call site, and the
+    // second implementation of the seam would have inherited none of them. The
+    // app's boot test keeps the question it is actually good at — did every
+    // piece of state come through the door — and the door's own promises are
+    // kept here, once, for every engine.
+    describe('the boot, in one answer', () => {
+      /**
+       * Let everything that CAN progress, progress.
+       *
+       * Nothing in these tests is time-dependent: the only thing that can
+       * unblock the sequence is the promise the test itself holds, so a turn of
+       * the event loop is enough to prove that whatever has not started by now
+       * is waiting rather than merely slow.
+       */
+      const settleWhatCan = (): Promise<void> =>
+        new Promise(resolve => {
+          setTimeout(resolve, 0);
+        });
+
+      const aLedgerToBootOn = (): PortFixture => ({
+        accounts: threeAccounts(),
+        categories: [aCategory('cat-everyday', 'Everyday'), aCategory('cat-bills', 'Bills')],
+        transactions: [
+          aTransaction('txn-1', { category: 'cat-everyday' }),
+          aTransaction('txn-2', { amount: -20, category: 'cat-bills' })
+        ],
+        budgets: [aBudget('budget-1', 'cat-everyday', 200)],
+        goals: [aGoal('goal-1', 'New boiler', 1500)]
+      });
+
+      it(`does not read a transaction until the categories are settled — ${BOOT_COMPOSITION[engine].describes}`, async () => {
+        // THE ordering rule, and the reason the boot is one call rather than
+        // six: on a first signed-in load, preparing the categories renumbers
+        // every one of them AND remaps every transaction and budget that
+        // referenced the old ids, in one database transaction. A transaction
+        // read that started before that finished would hand the app rows
+        // pointing at categories about to stop existing — a register whose
+        // category column is blank, with nothing thrown anywhere to say why.
+        //
+        // Holding the categories is what makes this a proof rather than a
+        // reading of the source: reordering the two, or gathering them into a
+        // Promise.all, both start the transaction read while this one is still
+        // outstanding, and both fail here.
+        const { port } = await harness.create(aLedgerToBootOn());
+
+        let boot: BootSnapshot;
+
+        if (BOOT_COMPOSITION[engine].fansOut) {
+          const order: string[] = [];
+          const prepareCategories = port.prepareCategories.bind(port);
+          const loadBootTransactions = port.loadBootTransactions.bind(port);
+          let settleCategories!: () => void;
+          const categoriesHeld = new Promise<void>(resolve => {
+            settleCategories = resolve;
+          });
+
+          vi.spyOn(port, 'prepareCategories').mockImplementation(async () => {
+            order.push('categories:started');
+            await categoriesHeld;
+            const prepared = await prepareCategories();
+            order.push('categories:settled');
+            return prepared;
+          });
+          vi.spyOn(port, 'loadBootTransactions').mockImplementation(async () => {
+            order.push('transactions:started');
+            return loadBootTransactions();
+          });
+
+          const inFlight = port.loadBoot();
+          await settleWhatCan();
+
+          // Everything before the categories has run; nothing after them has.
+          expect(order).toEqual(['categories:started']);
+
+          settleCategories();
+          boot = await inFlight;
+
+          expect(order).toEqual([
+            'categories:started',
+            'categories:settled',
+            'transactions:started'
+          ]);
+        } else {
+          // One indivisible answer: there is no "before" inside it to observe,
+          // and that is a stronger property than an order kept correctly — it
+          // is an order that cannot be got wrong. What IS observable is that the
+          // composite really did not fan out into the seam's own reads.
+          const prepareCategories = vi.spyOn(port, 'prepareCategories');
+          const loadBootTransactions = vi.spyOn(port, 'loadBootTransactions');
+
+          boot = await port.loadBoot();
+
+          expect(prepareCategories).not.toHaveBeenCalled();
+          expect(loadBootTransactions).not.toHaveBeenCalled();
+        }
+
+        // The outcome the ordering exists to produce: whatever the categories
+        // were renumbered to, the rows in the SAME snapshot are filed under
+        // those ids. Nothing throws when this goes wrong — the register simply
+        // comes up with its category column blank.
+        expectRowsFiledUnderTheSnapshotsCategories(boot);
+
+        // And the snapshot really is the whole boot, however it was gathered.
+        // An engine that answered a partial one would leave the app deciding
+        // which of its own pages to open empty.
+        expect(boot.accounts.map(account => account.id).sort())
+          .toEqual([ACCOUNT_A, ACCOUNT_B, ACCOUNT_C]);
+        expect(boot.categories.length).toBeGreaterThan(0);
+        expect(boot.transactions.map(transaction => transaction.id).sort())
+          .toEqual(['txn-1', 'txn-2']);
+        expect(boot.budgets.map(budget => budget.id)).toEqual(['budget-1']);
+        expect(boot.goals.map(goal => goal.id)).toEqual(['goal-1']);
+        // The stats describe the array beside them, exactly as they do when the
+        // transaction read is asked on its own: the boot-timing line prints
+        // this figure, and the next slowness report starts from it.
+        expect(boot.transactionStats.total).toBe(boot.transactions.length);
+        // A Date crosses as a Date (rule 3). These rows go straight into the
+        // balance maths, and a string here is a NaN there.
+        boot.transactions.forEach(transaction => {
+          expect(transaction.date).toBeInstanceOf(Date);
+        });
+        // Diagnostic, and required to exist: the one console line a production
+        // slowness report is read off is built from it.
+        expect(Object.values(boot.phases).every(ms => typeof ms === 'number')).toBe(true);
+      });
+
+      it('asks for the budgets and the goals together, not one after the other', async () => {
+        // They are independent reads. Serialising them adds a whole round trip
+        // to every signed-in boot in exchange for nothing, and it is the kind of
+        // change that looks tidier in a diff than it is on a slow connection.
+        const { port } = await harness.create(aLedgerToBootOn());
+
+        if (!BOOT_COMPOSITION[engine].fansOut) {
+          // Nothing to serialise: one transaction reads both. The claim worth
+          // checking is that it really is one — a composite that quietly fanned
+          // out into the seam's own reads would have the round trip back.
+          const listBudgets = vi.spyOn(port, 'listBudgets');
+          const listGoals = vi.spyOn(port, 'listGoals');
+
+          const boot = await port.loadBoot();
+
+          expect(listBudgets).not.toHaveBeenCalled();
+          expect(listGoals).not.toHaveBeenCalled();
+          expect(boot.budgets.map(budget => budget.id)).toEqual(['budget-1']);
+          expect(boot.goals.map(goal => goal.id)).toEqual(['goal-1']);
+          return;
+        }
+
+        const started: string[] = [];
+        const listBudgets = port.listBudgets.bind(port);
+        const listGoals = port.listGoals.bind(port);
+        let landBudgets!: () => void;
+        const budgetsInFlight = new Promise<void>(resolve => {
+          landBudgets = resolve;
+        });
+
+        vi.spyOn(port, 'listBudgets').mockImplementation(async () => {
+          started.push('listBudgets');
+          await budgetsInFlight;
+          return listBudgets();
+        });
+        vi.spyOn(port, 'listGoals').mockImplementation(async () => {
+          started.push('listGoals');
+          return listGoals();
+        });
+
+        const inFlight = port.loadBoot();
+        await settleWhatCan();
+
+        // The goals started while the budgets were still outstanding: that is
+        // what "one Promise.all" means, and two sequential awaits could not
+        // produce it.
+        expect(started).toEqual(['listBudgets', 'listGoals']);
+
+        landBudgets();
+        const boot = await inFlight;
+
+        expect(boot.budgets.map(budget => budget.id)).toEqual(['budget-1']);
+        expect(boot.goals.map(goal => goal.id)).toEqual(['goal-1']);
+      });
+
+      it('answers, with the reason said out loud, when the store will not open', async () => {
+        // The same floor `loadBootTransactions` keeps, and now the more
+        // important one: this call is the ONLY thing inside the boot's single
+        // outer catch, so a rejection here is a full-page "Failed to load data"
+        // in front of somebody whose next reload would have worked. A store
+        // that will not open costs whatever could not be read — never a throw —
+        // and the transaction stats say why, in the words the boot-timing line
+        // prints.
+        const port = await harness.createUnreadable();
+
+        const boot = await port.loadBoot();
+
+        expect(boot.accounts).toEqual([]);
+        expect(boot.transactions).toEqual([]);
+        expect(boot.splits).toEqual([]);
+        expect(boot.budgets).toEqual([]);
+        expect(boot.goals).toEqual([]);
+        expect(boot.transactionStats.total).toBe(0);
+        expect(typeof boot.transactionStats.fullFetchReason).toBe('string');
+        expect(boot.transactionStats.fullFetchReason).not.toBe('');
+      });
     });
   });
 }
