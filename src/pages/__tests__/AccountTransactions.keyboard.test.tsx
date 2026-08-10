@@ -158,13 +158,13 @@ beforeEach(() => {
     isLoading: false,
     deleteTransaction,
   });
-  vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue([]);
+  vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([]);
   stubLayout();
 });
 
 afterEach(() => {
   restoreLayout();
-  vi.mocked(DataService.getClosedAccounts).mockRestore();
+  vi.mocked(DataService.listClosedAccounts).mockRestore();
   __resetAppContextValue();
 });
 

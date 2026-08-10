@@ -187,9 +187,9 @@ vi.mock('../../services/port', () => {
   // operation added to the seam and not answered here turns that test red, and
   // that is how the local edition finds out what it owes.
   const dataPort: DataPort = {
-    getAccounts: answer('getAccounts', seam.accounts),
-    getClosedAccounts: answer('getClosedAccounts', [] as Account[]),
-    getTransactions: answer('getTransactions', seam.transactions),
+    listAccounts: answer('listAccounts', seam.accounts),
+    listClosedAccounts: answer('listClosedAccounts', [] as Account[]),
+    listTransactions: answer('listTransactions', seam.transactions),
     loadBootTransactions: async () => {
       seam.calls.push('loadBootTransactions');
       return {
@@ -203,12 +203,12 @@ vi.mock('../../services/port', () => {
       };
     },
     getAccountBalances: answer('getAccountBalances', seam.balances),
-    getAllTransactionSplits: answer('getAllTransactionSplits', seam.splits),
-    getTransactionSplits: async () => seam.splits,
-    getBudgets: answer('getBudgets', seam.budgets),
-    getGoals: answer('getGoals', seam.goals),
-    getCategories: answer('getCategories', seam.categories),
-    getSuggestionDismissals: answer('getSuggestionDismissals', []),
+    listTransactionSplits: answer('listTransactionSplits', seam.splits),
+    listTransactionSplitsFor: async () => seam.splits,
+    listBudgets: answer('listBudgets', seam.budgets),
+    listGoals: answer('listGoals', seam.goals),
+    listCategories: answer('listCategories', seam.categories),
+    listSuggestionDismissals: answer('listSuggestionDismissals', []),
     prepareCategories: async () => {
       seam.calls.push('prepareCategories');
       if (seam.hold) {
@@ -235,7 +235,7 @@ vi.mock('../../services/port', () => {
     // quietly succeeding. A boot that wrote anything would fail by name here.
     createAccount: refuse('createAccount'),
     updateAccount: refuse('updateAccount'),
-    deleteAccount: refuse('deleteAccount'),
+    closeAccount: refuse('closeAccount'),
     createTransaction: refuse('createTransaction'),
     updateTransaction: refuse('updateTransaction'),
     deleteTransaction: refuse('deleteTransaction'),
@@ -340,14 +340,14 @@ describe('the boot, through the seam and nothing else', () => {
 
     // And the door was actually the door — every boot read went through it.
     expect(new Set(seam.calls)).toEqual(new Set([
-      'getAccounts',
+      'listAccounts',
       'getAccountBalances',
       'prepareCategories',
       'prepareCategories:resolved',
       'loadBootTransactions',
-      'getAllTransactionSplits',
-      'getBudgets',
-      'getGoals',
+      'listTransactionSplits',
+      'listBudgets',
+      'listGoals',
     ]));
   });
 
@@ -396,13 +396,13 @@ describe('the boot, through the seam and nothing else', () => {
     });
 
     const { dataPort } = await import('../../services/port');
-    vi.spyOn(dataPort, 'getBudgets').mockImplementation(async () => {
-      started.push('getBudgets');
+    vi.spyOn(dataPort, 'listBudgets').mockImplementation(async () => {
+      started.push('listBudgets');
       await budgetsInFlight;
       return seam.budgets;
     });
-    vi.spyOn(dataPort, 'getGoals').mockImplementation(async () => {
-      started.push('getGoals');
+    vi.spyOn(dataPort, 'listGoals').mockImplementation(async () => {
+      started.push('listGoals');
       return seam.goals;
     });
 
@@ -410,7 +410,7 @@ describe('the boot, through the seam and nothing else', () => {
 
     // Goals started while budgets were still outstanding: that is what "one
     // Promise.all" means, and two sequential awaits could not produce it.
-    await waitFor(() => expect(started).toEqual(['getBudgets', 'getGoals']));
+    await waitFor(() => expect(started).toEqual(['listBudgets', 'listGoals']));
 
     landBudgets();
     await waitFor(() => expect(result.current.isLoading).toBe(false));

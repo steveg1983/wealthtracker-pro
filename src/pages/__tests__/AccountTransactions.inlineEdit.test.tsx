@@ -199,11 +199,11 @@ beforeEach(() => {
     getSubCategories: (parentId?: string) => CATEGORIES.filter(c => c.level === 'sub' && c.parentId === parentId),
     getDetailCategories: (parentId?: string) => CATEGORIES.filter(c => c.level === 'detail' && c.parentId === parentId),
   });
-  vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue([]);
+  vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([]);
 });
 
 afterEach(() => {
-  vi.mocked(DataService.getClosedAccounts).mockRestore();
+  vi.mocked(DataService.listClosedAccounts).mockRestore();
   __resetAppContextValue();
 });
 

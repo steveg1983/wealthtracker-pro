@@ -76,7 +76,7 @@ describe('DataService suggestion dismissals (local/demo)', () => {
 
     // A second service instance reading the same storage is what "close the
     // sweep and come back later" actually looks like.
-    const reloaded = await localService(storage).getSuggestionDismissals();
+    const reloaded = await localService(storage).listSuggestionDismissals();
     expect(reloaded).toHaveLength(1);
     expect(reloaded[0]).toMatchObject({
       kind: 'duplicate',
@@ -95,7 +95,7 @@ describe('DataService suggestion dismissals (local/demo)', () => {
     const again = await service.dismissSuggestion('transfer-pair', 'a|b', ['a', 'b']);
 
     expect(again.id).toBe(first.id);
-    expect(await service.getSuggestionDismissals()).toHaveLength(1);
+    expect(await service.listSuggestionDismissals()).toHaveLength(1);
   });
 
   it('keeps the four kinds apart, even for the same rows', async () => {
@@ -106,7 +106,7 @@ describe('DataService suggestion dismissals (local/demo)', () => {
     await service.dismissSuggestion('transfer-pair', 'a|b', ['a', 'b']);
     await service.dismissSuggestion('duplicate', 'a|b', ['a', 'b']);
 
-    const stored = await service.getSuggestionDismissals();
+    const stored = await service.listSuggestionDismissals();
     expect(stored.map(d => d.kind).sort()).toEqual(['duplicate', 'transfer-pair']);
   });
 
@@ -119,7 +119,7 @@ describe('DataService suggestion dismissals (local/demo)', () => {
     await service.dismissSuggestion('duplicate', 'c|d', ['c', 'd']);
     await service.restoreSuggestion('duplicate', 'a|b');
 
-    const stored = await service.getSuggestionDismissals();
+    const stored = await service.listSuggestionDismissals();
     expect(stored.map(d => d.subjectKey)).toEqual(['c|d']);
   });
 
@@ -137,7 +137,7 @@ describe('DataService suggestion dismissals (local/demo)', () => {
 
     await service.deleteTransaction('import');
 
-    const survivors = await service.getSuggestionDismissals();
+    const survivors = await service.listSuggestionDismissals();
     expect(survivors.map(d => d.id)).toEqual(['d2']);
     // And the delete still did its own job: the balance is reversed.
     expect(storage.snapshot(STORAGE_KEYS.ACCOUNTS)).toEqual([

@@ -222,9 +222,9 @@ describe('DataService (deterministic fallback)', () => {
     });
 
     // The boot's own read sequence, in the order AppContext runs it.
-    await service.getAccounts();
+    await service.listAccounts();
     await service.loadBootTransactions();
-    await service.getAllTransactionSplits();
+    await service.listTransactionSplits();
 
     const accountReads = storage.get.mock.calls.filter(
       ([key]) => key === STORAGE_KEYS.ACCOUNTS
@@ -259,7 +259,7 @@ describe('DataService (deterministic fallback)', () => {
       }
     });
 
-    await expect(service.getAccounts()).resolves.toHaveLength(1);
+    await expect(service.listAccounts()).resolves.toHaveLength(1);
     expect(accountService.getAccounts).toHaveBeenCalledTimes(1);
     expect(accountService.getAccounts).toHaveBeenCalledWith('db-user-1');
   });
@@ -303,8 +303,8 @@ describe('DataService (deterministic fallback)', () => {
       }
     });
 
-    await expect(service.getBudgets()).resolves.toEqual([]);
-    await expect(service.getGoals()).resolves.toEqual([]);
+    await expect(service.listBudgets()).resolves.toEqual([]);
+    await expect(service.listGoals()).resolves.toEqual([]);
 
     expect(planningService.getBudgets).toHaveBeenCalledTimes(1);
     expect(planningService.getBudgets).toHaveBeenCalledWith('db-user-1');
@@ -492,7 +492,7 @@ describe('DataService (deterministic fallback)', () => {
 
       const edited = await service.updateBudget('budget-generated', { amount: 70.1 });
       expect(edited.amount).toBe(70.1);
-      expect(await service.getBudgets()).toEqual([edited]);
+      expect(await service.listBudgets()).toEqual([edited]);
 
       // A budget that is not there is refused by name rather than created, and
       // the refusal leaves the store exactly as it was — the lookup happens
@@ -501,10 +501,10 @@ describe('DataService (deterministic fallback)', () => {
       // rule now lives on this class, so this is where it is held.)
       await expect(service.updateBudget('budget-nowhere', { amount: 1 }))
         .rejects.toThrow('Budget not found');
-      expect(await service.getBudgets()).toEqual([edited]);
+      expect(await service.listBudgets()).toEqual([edited]);
 
       await service.deleteBudget('budget-generated');
-      expect(await service.getBudgets()).toEqual([]);
+      expect(await service.listBudgets()).toEqual([]);
 
       expect(planningService.createBudget).not.toHaveBeenCalled();
       expect(planningService.updateBudget).not.toHaveBeenCalled();
@@ -757,17 +757,17 @@ describe('DataService (deterministic fallback)', () => {
 
       const edited = await service.updateGoal('goal-generated', { progress: 1500, currentAmount: 1500 });
       expect(edited.progress).toBe(1500);
-      expect(await service.getGoals()).toEqual([edited]);
+      expect(await service.listGoals()).toEqual([edited]);
 
       // Same refusal as the budget block above, for the same reason, and the
       // same reason it is asserted here: the rule moved onto this class when
       // PlanningService's local half was retired.
       await expect(service.updateGoal('goal-nowhere', { progress: 1 }))
         .rejects.toThrow('Goal not found');
-      expect(await service.getGoals()).toEqual([edited]);
+      expect(await service.listGoals()).toEqual([edited]);
 
       await service.deleteGoal('goal-generated');
-      expect(await service.getGoals()).toEqual([]);
+      expect(await service.listGoals()).toEqual([]);
 
       expect(planningService.createGoal).not.toHaveBeenCalled();
       expect(planningService.updateGoal).not.toHaveBeenCalled();
@@ -1081,7 +1081,7 @@ describe('DataService (deterministic fallback)', () => {
 
       // The cascade: the group goes and takes its children with it.
       await service.deleteCategory('category-1');
-      expect(await service.getCategories()).toEqual([]);
+      expect(await service.listCategories()).toEqual([]);
 
       expect(planningService.createCategory).not.toHaveBeenCalled();
       expect(planningService.createCategories).not.toHaveBeenCalled();
@@ -1116,7 +1116,7 @@ describe('DataService (deterministic fallback)', () => {
       await expect(service.deleteUnusedCategories(['cat-keep', 'cat-nowhere'])).resolves.toBe(1);
       // One asked for, and it took its child with it: two actually went.
       await expect(service.deleteUnusedCategories(['cat-group'])).resolves.toBe(2);
-      expect(await service.getCategories()).toEqual([]);
+      expect(await service.listCategories()).toEqual([]);
     });
 
     // The behaviour change on all five category writes — and the asymmetry that
@@ -1242,7 +1242,7 @@ describe('DataService (deterministic fallback)', () => {
       now,
       userIdService: userId
     });
-    await expect(throughTheSeam.getAccounts()).rejects.toThrow(/could not be opened/);
+    await expect(throughTheSeam.listAccounts()).rejects.toThrow(/could not be opened/);
   });
 
   it('refuses an edit that would drop a linked transfer line, and refuses to un-split', async () => {
@@ -1326,15 +1326,15 @@ describe('DataService (deterministic fallback)', () => {
       userIdService: userId // getCurrentDatabaseUserId → null
     });
 
-    expect(await service.getAccounts()).toEqual([]);
-    expect(await service.getClosedAccounts()).toEqual([]);
-    expect(await service.getTransactions()).toEqual([]);
-    expect(await service.getAllTransactionSplits()).toEqual([]);
-    expect(await service.getBudgets()).toEqual([]);
-    expect(await service.getCategories()).toEqual([]);
+    expect(await service.listAccounts()).toEqual([]);
+    expect(await service.listClosedAccounts()).toEqual([]);
+    expect(await service.listTransactions()).toEqual([]);
+    expect(await service.listTransactionSplits()).toEqual([]);
+    expect(await service.listBudgets()).toEqual([]);
+    expect(await service.listCategories()).toEqual([]);
     await expect(service.createTransaction(baseTransaction({ id: undefined as never })))
       .rejects.toThrow(/Still connecting/);
-    await expect(service.deleteAccount('demo-open')).rejects.toThrow(/Still connecting/);
+    await expect(service.closeAccount('demo-open')).rejects.toThrow(/Still connecting/);
     expect(storage.set).not.toHaveBeenCalled();
 
     // No session at all (demo / local-only mode): the local fallback still works.
@@ -1347,8 +1347,8 @@ describe('DataService (deterministic fallback)', () => {
       now,
       userIdService: userId
     });
-    expect(await localService.getAccounts()).toHaveLength(2);
-    expect(await localService.getClosedAccounts()).toHaveLength(1);
+    expect(await localService.listAccounts()).toHaveLength(2);
+    expect(await localService.listClosedAccounts()).toHaveLength(1);
   });
 
   it('still names the categories while a signed-in session is resolving — the one read without the gate', async () => {
@@ -1385,7 +1385,7 @@ describe('DataService (deterministic fallback)', () => {
     });
 
     // The gated read says nothing, as it must.
-    expect(await service.getCategories()).toEqual([]);
+    expect(await service.listCategories()).toEqual([]);
     // The boot's read still names them.
     expect((await service.prepareCategories()).map(category => category.id))
       .toEqual(['cat-everyday']);
@@ -1473,7 +1473,7 @@ describe('DataService (deterministic fallback)', () => {
       userIdService: userId
     });
 
-    const accounts = await DataService.getAccounts();
+    const accounts = await DataService.listAccounts();
     expect(accounts[0].id).toBe('static-account');
   });
 });

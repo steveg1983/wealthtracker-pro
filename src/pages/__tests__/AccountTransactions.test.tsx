@@ -20,7 +20,7 @@ import type { Account, Category, Transaction } from '../../types';
  * three states now: open (the register), closed (an honest page offering the
  * re-open, the Accounts-page rule), and genuinely gone.
  *
- * Closed accounts load from DataService.getClosedAccounts — not the context —
+ * Closed accounts load from DataService.listClosedAccounts — not the context —
  * so they are injected by spying on that call. Every figure and name here is
  * synthetic (this repo is public).
  */
@@ -108,14 +108,14 @@ describe('Account register — open, closed, and gone', () => {
       refreshCategories,
       refreshAccountsAndTransactions,
     });
-    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue([CLOSED_ACCOUNT]);
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([CLOSED_ACCOUNT]);
   });
 
   afterEach(() => {
     // Only the closed-accounts spy is restored. vi.restoreAllMocks() would
     // also strip the shared setup's window.matchMedia implementation, and the
     // register's row components read prefers-reduced-motion through it.
-    vi.mocked(DataService.getClosedAccounts).mockRestore();
+    vi.mocked(DataService.listClosedAccounts).mockRestore();
     __resetAppContextValue();
   });
 
@@ -127,7 +127,7 @@ describe('Account register — open, closed, and gone', () => {
     expect(screen.getAllByText('Synthetic open row').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Re-open and view' })).not.toBeInTheDocument();
     // An ordinary register costs no extra request: the lookup only fires on a miss.
-    expect(DataService.getClosedAccounts).not.toHaveBeenCalled();
+    expect(DataService.listClosedAccounts).not.toHaveBeenCalled();
   });
 
   it('meets a closed account with its name and the re-open offer, not its transactions', async () => {
@@ -149,7 +149,7 @@ describe('Account register — open, closed, and gone', () => {
   });
 
   it('says an account is gone only when it is in neither list', async () => {
-    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue([]);
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([]);
     renderRegister('/accounts/acc-vanished');
 
     expect(await screen.findByText('This account no longer exists')).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe('Account register — open, closed, and gone', () => {
 
   it('waits for the closed list rather than flashing an error at an account that exists', async () => {
     let release: (accounts: Account[]) => void = () => {};
-    vi.spyOn(DataService, 'getClosedAccounts').mockReturnValue(
+    vi.spyOn(DataService, 'listClosedAccounts').mockReturnValue(
       new Promise<Account[]>(resolve => { release = resolve; })
     );
 
@@ -182,7 +182,7 @@ describe('Account register — open, closed, and gone', () => {
 
     expect(await screen.findByText('Loading account…')).toBeInTheDocument();
     // Nothing is decided yet, so nothing is asked of the server either.
-    expect(DataService.getClosedAccounts).not.toHaveBeenCalled();
+    expect(DataService.listClosedAccounts).not.toHaveBeenCalled();
   });
 
   it('re-opens the account through the context, then renders its register in place', async () => {
@@ -382,11 +382,11 @@ describe('Account register — the running Balance column', () => {
       categories: CATEGORIES,
       isLoading: false,
     });
-    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue([]);
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([]);
   });
 
   afterEach(() => {
-    vi.mocked(DataService.getClosedAccounts).mockRestore();
+    vi.mocked(DataService.listClosedAccounts).mockRestore();
     __resetAppContextValue();
   });
 

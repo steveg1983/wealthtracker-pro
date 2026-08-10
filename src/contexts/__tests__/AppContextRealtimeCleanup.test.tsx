@@ -311,7 +311,7 @@ describe('the boot’s realtime subscription', () => {
     // re-resolved it on every event; the seam reads the id the boot resolved.
     // Both answer the same question today — the point of pinning it is that
     // only one of them can still be answering the PREVIOUS login's question.
-    const portAccounts = vi.spyOn(DataService, 'getAccounts');
+    const portAccounts = vi.spyOn(DataService, 'listAccounts');
 
     renderHook(() => useApp(), { wrapper });
     await waitFor(() => expect(subscriptions).toHaveLength(1));

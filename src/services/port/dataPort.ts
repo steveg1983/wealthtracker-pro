@@ -41,15 +41,34 @@
  * ── Scope ────────────────────────────────────────────────────────────────
  *
  * This is the seam as it stands, not as it will end: the operations below are
- * exactly the ones DataService owns today, under the names it uses today.
- * Bulk import has joined it (the CSV and OFX importers write through
- * `importTransactions`), and so have the backup, the emptiness check, the
- * restore, the wipe and the Microsoft Money migration. The capability
- * descriptor has joined too, and with it went the last question the app asked
- * about its engine BY NAME: nothing above this file says `isUsingSupabase` any
- * more. The names here are today's names deliberately: renaming and re-routing
- * in one step would make a rename indistinguishable from a behaviour change in
- * review.
+ * exactly the ones DataService owns today. Bulk import has joined it (the CSV
+ * and OFX importers write through `importTransactions`), and so have the
+ * backup, the emptiness check, the restore, the wipe and the Microsoft Money
+ * migration. The capability descriptor has joined too, and with it went the
+ * last question the app asked about its engine BY NAME: nothing above this
+ * file says `isUsingSupabase` any more.
+ *
+ * ── The names ────────────────────────────────────────────────────────────
+ *
+ * Every operation carried DataService's own name while the app was being moved
+ * onto this file, deliberately: renaming and re-routing in one step would have
+ * made a rename indistinguishable from a behaviour change in review. The
+ * re-routing is finished, so the names below are the seam's own, and they
+ * follow two rules an implementation is expected to keep:
+ *
+ * `list…` ENUMERATES — every row of one kind this store holds, or every row of
+ * one kind belonging to one parent, and then `…For` names the parent. That
+ * suffix is what stops `listTransactionSplits` (all of them, for category
+ * aggregation) and `listTransactionSplitsFor` (one transaction's lines) from
+ * being told apart only by their arity at the call site. A read that answers
+ * something other than an enumeration keeps `get…`: `getAccountBalances` hands
+ * back a lookup table with an "I don't know" state rather than a list of
+ * balances, and `prepareCategories` is not a read at all.
+ *
+ * AN OPERATION IS NAMED FOR WHAT IT DOES, not for the button that calls it.
+ * `closeAccount` is the one that had to be renamed for that rule: it was
+ * `deleteAccount`, it has never deleted an account in any implementation, and
+ * the screen that calls it already asks "Close this account?".
  */
 
 import type {
@@ -181,13 +200,13 @@ export interface AccountBalanceSnapshot {
  * language that no implementation actually has.
  */
 export interface DataPortReads {
-  getAccounts(): Promise<Account[]>;
-  /** Closed accounts are excluded from `getAccounts` and read on demand. */
-  getClosedAccounts(): Promise<Account[]>;
-  getTransactions(): Promise<Transaction[]>;
+  listAccounts(): Promise<Account[]>;
+  /** Closed accounts are excluded from `listAccounts` and read on demand. */
+  listClosedAccounts(): Promise<Account[]>;
+  listTransactions(): Promise<Transaction[]>;
   /**
    * The boot's transaction read, which is a different question from
-   * `getTransactions`: that one always wants a straight re-pull (bank sync,
+   * `listTransactions`: that one always wants a straight re-pull (bank sync,
    * real-time refresh), this one is allowed to serve a local snapshot and ask
    * only for what changed, and must report which it did.
    *
@@ -229,13 +248,13 @@ export interface DataPortReads {
    */
   getAccountBalances(): Promise<ReadonlyMap<string, AccountBalanceSnapshot>>;
   /** Every split line the owner has, for category aggregation. */
-  getAllTransactionSplits(): Promise<TransactionSplit[]>;
+  listTransactionSplits(): Promise<TransactionSplit[]>;
   /** One transaction's lines, in display order (`sortOrder`), empty when not split. */
-  getTransactionSplits(transactionId: string): Promise<TransactionSplit[]>;
-  getBudgets(): Promise<Budget[]>;
-  getGoals(): Promise<Goal[]>;
-  getCategories(): Promise<Category[]>;
-  getSuggestionDismissals(): Promise<SuggestionDismissal[]>;
+  listTransactionSplitsFor(transactionId: string): Promise<TransactionSplit[]>;
+  listBudgets(): Promise<Budget[]>;
+  listGoals(): Promise<Goal[]>;
+  listCategories(): Promise<Category[]>;
+  listSuggestionDismissals(): Promise<SuggestionDismissal[]>;
 }
 
 export interface DataPortAccountWrites {
@@ -246,7 +265,7 @@ export interface DataPortAccountWrites {
    * and its transactions stay exactly where they are. Nothing in this seam
    * hard-deletes an account, because a deleted account is a hole in a ledger.
    */
-  deleteAccount(id: string): Promise<void>;
+  closeAccount(id: string): Promise<void>;
 }
 
 export interface DataPortTransactionWrites {
@@ -896,7 +915,7 @@ export interface DataPortLifecycle {
    * implementation needs one, the one-time migration that has to finish first.
    *
    * Lifecycle rather than a read, and the distinction is the whole point:
-   * `getCategories` asks what is stored, this one is allowed to CHANGE what is
+   * `listCategories` asks what is stored, this one is allowed to CHANGE what is
    * stored.
    *
    * **ORDERING IS LOAD-BEARING. This must resolve before any transaction or

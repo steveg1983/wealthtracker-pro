@@ -75,7 +75,7 @@ export interface AppContextType extends AppState {
   // Account operations
   addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
   updateAccount: (id: string, updates: AccountUpdate) => Promise<void>;
-  deleteAccount: (id: string) => Promise<void>;
+  closeAccount: (id: string) => Promise<void>;
 
   // Transaction operations — async so callers can surface save failures.
   addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
@@ -474,7 +474,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // itself (ensureUserExists sets it), so this asks the same
             // question of the same table through the same row mapper — and it
             // stops the boot naming a service, which is the point.
-            const accounts = await dataPort.getAccounts();
+            const accounts = await dataPort.listAccounts();
             appLogger.info('Accounts loaded', { count: accounts.length });
             setAccounts(accounts);
             markPhase('accounts');
@@ -528,7 +528,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // the boot's transactions, this read has no "empty is an honest answer"
         // story to tell, and the refresh sites below share the same handling.
         try {
-          setTransactionSplitsState(await dataPort.getAllTransactionSplits());
+          setTransactionSplitsState(await dataPort.listTransactionSplits());
         } catch (splitError) {
           appLogger.error('Failed to load transaction splits', splitError);
           setTransactionSplitsState([]);
@@ -547,7 +547,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // unread. A signed-in boot never evaluates the await below, so its
         // sequence of awaits is exactly what it was.
         if (!user) {
-          const localAccounts = await dataPort.getAccounts();
+          const localAccounts = await dataPort.listAccounts();
           if (localAccounts.length > 0) {
             setAccounts(localAccounts);
           }
@@ -562,8 +562,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // served the browser's budgets in a signed-in session with no error to
         // show for it.
         const [loadedBudgets, loadedGoals] = await Promise.all([
-          dataPort.getBudgets(),
-          dataPort.getGoals()
+          dataPort.listBudgets(),
+          dataPort.listGoals()
         ]);
         setBudgets(loadedBudgets);
         setGoals(loadedGoals);
@@ -701,19 +701,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 // port has no captured id to re-resolve — it answers [] while a
                 // session is still connecting, and never reaches for another
                 // login's rows.
-                const updatedAccounts = await dataPort.getAccounts();
+                const updatedAccounts = await dataPort.listAccounts();
                 appLogger.debug('Accounts reloaded', { count: updatedAccounts.length });
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
 
                 // Also refresh transactions to update account balances
-                const updatedTransactions = await dataPort.getTransactions();
+                const updatedTransactions = await dataPort.listTransactions();
                 setTransactions(updatedTransactions);
 
                 // Splits ride along — without this, a split edited on another
                 // device leaves this device's category views stale.
                 try {
-                  setTransactionSplitsState(await dataPort.getAllTransactionSplits());
+                  setTransactionSplitsState(await dataPort.listTransactionSplits());
                 } catch (splitError) {
                   appLogger.error('Failed to refresh transaction splits', splitError);
                 }
@@ -724,19 +724,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               
               debouncedUpdate('transaction', async () => {
                 // Reload transactions when any change happens
-                const updatedTransactions = await dataPort.getTransactions();
+                const updatedTransactions = await dataPort.listTransactions();
                 setTransactions(updatedTransactions);
 
                 // Splits ride along — without this, a split edited on another
                 // device leaves this device's category views stale.
                 try {
-                  setTransactionSplitsState(await dataPort.getAllTransactionSplits());
+                  setTransactionSplitsState(await dataPort.listTransactionSplits());
                 } catch (splitError) {
                   appLogger.error('Failed to refresh transaction splits', splitError);
                 }
 
                 // Also refresh accounts to update balances
-                const updatedAccounts = await dataPort.getAccounts();
+                const updatedAccounts = await dataPort.listAccounts();
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
               });
@@ -802,13 +802,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Narrow refresh for the bank-sync path: only accounts + transactions come from
-  // Supabase here (getAccounts/getTransactions route to the cloud services), so we
+  // Supabase here (listAccounts/listTransactions route to the cloud services), so we
   // never touch budgets/goals/categories which load from a different source.
   const refreshAccountsAndTransactions = useCallback(async () => {
     try {
       const [updatedAccounts, updatedTransactions] = await Promise.all([
-        dataPort.getAccounts(),
-        dataPort.getTransactions()
+        dataPort.listAccounts(),
+        dataPort.listTransactions()
       ]);
       setAccounts(updatedAccounts);
       setTransactions(updatedTransactions);
@@ -872,14 +872,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const deleteAccount = useCallback(async (id: string) => {
+  const closeAccount = useCallback(async (id: string) => {
     try {
-      await dataPort.deleteAccount(id);
+      await dataPort.closeAccount(id);
       setAccounts(prev => prev.filter(a => a.id !== id));
       // Also remove related transactions
       setTransactions(prev => prev.filter(t => t.accountId !== id));
     } catch (error) {
-      appLogger.error('Failed to delete account', error);
+      appLogger.error('Failed to close account', error);
       throw error;
     }
   }, []);
@@ -1082,7 +1082,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const getTransactionSplits = useCallback(async (transactionId: string) => {
     try {
-      return await dataPort.getTransactionSplits(transactionId);
+      return await dataPort.listTransactionSplitsFor(transactionId);
     } catch (error) {
       appLogger.error('Failed to load transaction splits', error);
       throw error;
@@ -1102,7 +1102,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // (rather than synthesising them) so ids match the server's; a failed
       // re-read only staleness-es this transaction's lines until next load.
       try {
-        const freshSplits = result.isSplit ? await dataPort.getTransactionSplits(transactionId) : [];
+        const freshSplits = result.isSplit ? await dataPort.listTransactionSplitsFor(transactionId) : [];
         setTransactionSplitsState(prev => [
           ...prev.filter(s => s.transactionId !== transactionId),
           ...freshSplits,
@@ -1268,7 +1268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshSuggestionDismissals = useCallback(async () => {
     setSuggestionDismissalsStatus('loading');
     try {
-      setSuggestionDismissals(await dataPort.getSuggestionDismissals());
+      setSuggestionDismissals(await dataPort.listSuggestionDismissals());
       setSuggestionDismissalsStatus('ready');
     } catch (error) {
       // Never thrown on: a sweep that cannot read the dismissals still has to
@@ -1868,8 +1868,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await refreshCategories();
     }
     const [reloadedBudgets, reloadedGoals] = await Promise.all([
-      dataPort.getBudgets(),
-      dataPort.getGoals()
+      dataPort.listBudgets(),
+      dataPort.listGoals()
     ]);
     setBudgets(reloadedBudgets);
     setGoals(reloadedGoals);
@@ -1900,7 +1900,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Account operations
     addAccount,
     updateAccount,
-    deleteAccount,
+    closeAccount,
     
     // Transaction operations
     addTransaction,

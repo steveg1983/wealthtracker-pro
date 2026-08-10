@@ -320,7 +320,7 @@ export default function AccountTransactions() {
     }
     let cancelled = false;
     setClosedLookup({ status: 'loading' });
-    dataPort.getClosedAccounts()
+    dataPort.listClosedAccounts()
       .then(list => {
         if (!cancelled) {
           setClosedLookup({ status: 'done', account: list.find(a => a.id === accountId) ?? null });

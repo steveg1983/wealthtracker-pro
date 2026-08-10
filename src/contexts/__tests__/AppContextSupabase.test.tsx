@@ -253,7 +253,7 @@ describe('AppContextSupabase live provider', () => {
       expect(result.current.accounts[0].balance).toBe(1000);
     });
 
-    it('deleteAccount removes the account and its transactions', async () => {
+    it('closeAccount takes the account and its transactions out of the live lists', async () => {
       const { result } = await renderApp();
 
       let doomed!: Account;
@@ -277,12 +277,13 @@ describe('AppContextSupabase live provider', () => {
       expect(result.current.transactions).toHaveLength(2);
 
       await act(async () => {
-        await result.current.deleteAccount(doomed.id);
+        await result.current.closeAccount(doomed.id);
       });
 
       expect(result.current.accounts).toHaveLength(1);
       expect(result.current.accounts[0].id).toBe(kept.id);
-      // The deleted account's transactions go with it; others survive.
+      // The closed account's transactions go out of view with it (they are
+      // still in the store — a close is not a delete); others survive.
       expect(result.current.transactions).toHaveLength(1);
       expect(result.current.transactions[0].accountId).toBe(kept.id);
     });

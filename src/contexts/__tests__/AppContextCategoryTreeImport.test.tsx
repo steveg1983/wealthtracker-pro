@@ -142,9 +142,9 @@ vi.mock('../../services/port', () => {
 
   const dataPort: DataPort = {
     // Boot reads. Empty on purpose: this test is about the categories.
-    getAccounts: async (): Promise<Account[]> => [],
-    getClosedAccounts: async (): Promise<Account[]> => [],
-    getTransactions: async (): Promise<Transaction[]> => seam.transactions,
+    listAccounts: async (): Promise<Account[]> => [],
+    listClosedAccounts: async (): Promise<Account[]> => [],
+    listTransactions: async (): Promise<Transaction[]> => seam.transactions,
     loadBootTransactions: async (): Promise<BootTransactionsResult> => ({
       transactions: seam.transactions,
       stats: {
@@ -155,12 +155,12 @@ vi.mock('../../services/port', () => {
       },
     }),
     getAccountBalances: async (): Promise<ReadonlyMap<string, AccountBalanceSnapshot>> => new Map(),
-    getAllTransactionSplits: async (): Promise<TransactionSplit[]> => [],
-    getTransactionSplits: async (): Promise<TransactionSplit[]> => [],
-    getBudgets: async (): Promise<Budget[]> => [],
-    getGoals: async (): Promise<Goal[]> => [],
-    getCategories: async (): Promise<Category[]> => seam.bootCategories,
-    getSuggestionDismissals: async (): Promise<SuggestionDismissal[]> => [],
+    listTransactionSplits: async (): Promise<TransactionSplit[]> => [],
+    listTransactionSplitsFor: async (): Promise<TransactionSplit[]> => [],
+    listBudgets: async (): Promise<Budget[]> => [],
+    listGoals: async (): Promise<Goal[]> => [],
+    listCategories: async (): Promise<Category[]> => seam.bootCategories,
+    listSuggestionDismissals: async (): Promise<SuggestionDismissal[]> => [],
 
     // The lifecycle read the import finishes on — and the one the boot starts
     // on. Which answer it gives depends on which it is, and that is exactly the
@@ -206,7 +206,7 @@ vi.mock('../../services/port', () => {
     // these would be doing something nobody asked it to.
     createAccount: refuse('createAccount'),
     updateAccount: refuse('updateAccount'),
-    deleteAccount: refuse('deleteAccount'),
+    closeAccount: refuse('closeAccount'),
     createTransaction: refuse('createTransaction'),
     updateTransaction: refuse('updateTransaction'),
     deleteTransaction: refuse('deleteTransaction'),
