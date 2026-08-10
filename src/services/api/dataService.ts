@@ -5,12 +5,18 @@
  * and handles the switch between Supabase (cloud) and localStorage (fallback)
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { UserService } from './userService';
 import { AccountService } from './accountService';
 import { TransactionService, type TransactionLoadResult } from './transactionService';
 import { PlanningService } from './planningService';
 import { SuggestionDismissalService } from './suggestionDismissalService';
-import { isSupabaseConfigured } from './supabaseClient';
+// The client itself, not only the "is it configured?" question. The chunked
+// wipe and the Money migration are handed a client rather than reaching for
+// one, and this module is already in this file's chunk — so naming the export
+// beside the checker costs nothing and is what lets the two React pages that
+// used to hold a Postgres client stop holding one.
+import { isSupabaseConfigured, supabase } from './supabaseClient';
 import { getSupabaseAccessToken, hasSupabaseTokenGetter } from '../../lib/supabaseToken';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
@@ -32,8 +38,11 @@ import type {
   BulkImportResult,
   DataPort,
   ExportProgress,
+  ImportProgress,
   ImportSourceKind,
-  RestoreProgress
+  MsMoneyImportResult,
+  RestoreProgress,
+  WipeProgress
 } from '../port/dataPort';
 // Type-only, so the bulk importers themselves stay out of the boot chunk —
 // the values are fetched on demand (see `cloudBulkImportClient`).
@@ -48,6 +57,11 @@ import type {
 // user on first paint for a feature most of them press once a year.
 import type * as CloudBackupService from '../backupService';
 import type * as DeviceBackupService from '../localBackupService';
+// Type-only for the third time, and for the strongest version of the reason:
+// this module carries the whole Microsoft Money migration — the planner, the
+// two-pass transfer linking, the chunked writer — and exactly the people who
+// press Import once ever should be the people who download it.
+import type * as MsMoneyImportService from '../import/msMoney/msMoneyImport';
 import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
@@ -119,9 +133,22 @@ type BulkImportClientLike = Pick<TransactionImportService,
  * editing this file.
  */
 type CloudBackupLike = Pick<typeof CloudBackupService,
-  'userFinancialDataIsEmpty' | 'collectBackupBundle' | 'restoreBackupBundle'>;
+  'userFinancialDataIsEmpty' | 'collectBackupBundle' | 'restoreBackupBundle'
+  | 'wipeUserFinancialData'>;
 type DeviceBackupLike = Pick<typeof DeviceBackupService,
-  'localFinancialDataIsEmpty' | 'collectLocalBackupBundle' | 'restoreLocalBackupBundle'>;
+  'localFinancialDataIsEmpty' | 'collectLocalBackupBundle' | 'restoreLocalBackupBundle'
+  | 'wipeLocalFinancialData'>;
+/**
+ * The Microsoft Money engine, narrowed to the three entry points the seam
+ * routes to: the chunked wipe, the cloud writer and the device writer.
+ *
+ * Derived from the real module for the reason the backup engines above are —
+ * the FORMAT and the write path stay theirs. This class decides which one
+ * answers; it does not know what a .mny file contains, and adding a phase to
+ * the import must never mean editing this file.
+ */
+type MsMoneyEngineLike = Pick<typeof MsMoneyImportService,
+  'wipeCloudData' | 'importToCloud' | 'importToLocalStorage'>;
 /** The device-side atomic import, in the shape the seam calls it. */
 type LocalBulkImporter = (
   accountId: string,
@@ -164,6 +191,19 @@ export interface DataServiceOptions {
   cloudBackup?: CloudBackupLike;
   deviceBackup?: DeviceBackupLike;
   /**
+   * The Microsoft Money engine. Absent means "fetch the real one when a
+   * migration runs", exactly as the four above — and for the sharpest version
+   * of the reason: a total migration replaces every row a person has.
+   */
+  msMoneyEngine?: MsMoneyEngineLike;
+  /**
+   * The authenticated Postgres client the chunked wipe and the cloud migration
+   * are handed. Defaults to the app's own. Injectable so a test can watch what
+   * a wipe is pointed at without a network — never so a caller can choose a
+   * different login.
+   */
+  cloudClient?: SupabaseClient | null;
+  /**
    * How the cloud import authenticates. Defaults to the registry AuthContext
    * fills with the signed-in session's Clerk getToken — the same token every
    * other cloud call on this class travels with.
@@ -188,6 +228,8 @@ class DataServiceImpl implements DataPort {
   private readonly injectedLocalBulkImport: LocalBulkImporter | null;
   private readonly injectedCloudBackup: CloudBackupLike | null;
   private readonly injectedDeviceBackup: DeviceBackupLike | null;
+  private readonly injectedMsMoneyEngine: MsMoneyEngineLike | null;
+  private readonly cloudClient: SupabaseClient | null;
   private readonly authTokenProvider: AuthTokenProvider;
 
   constructor(options: DataServiceOptions = {}) {
@@ -219,6 +261,8 @@ class DataServiceImpl implements DataPort {
     this.injectedLocalBulkImport = options.localBulkImport ?? null;
     this.injectedCloudBackup = options.cloudBackup ?? null;
     this.injectedDeviceBackup = options.deviceBackup ?? null;
+    this.injectedMsMoneyEngine = options.msMoneyEngine ?? null;
+    this.cloudClient = options.cloudClient !== undefined ? options.cloudClient : supabase;
     this.authTokenProvider = options.authTokenProvider ?? getSupabaseAccessToken;
   }
 
@@ -919,6 +963,164 @@ class DataServiceImpl implements DataPort {
       // operation still — the engine's own default is crypto.randomUUID, which
       // is exactly what this resolves to in the app.
       newId: () => this.generateId()
+    });
+  }
+
+  // ── Erasing it, and replacing it ──────────────────────────────────────────
+  //
+  // ROUTING, AND ONLY ROUTING, again. The chunked wipe and the Money migration
+  // are unchanged, still covered by their own suites, and still the only code
+  // that knows how either job is done. What changed is who chooses between the
+  // engines: it was the Danger Zone page and the Import page, each holding a
+  // Postgres client of its own and each reading `isUsingSupabase` off the
+  // context to decide — a React page importing a database client to erase
+  // somebody's ledger with is the seam's rule 1 broken in the two places where
+  // getting it wrong costs the most.
+
+  /** The Microsoft Money engine, fetched the first time a wipe or import runs. */
+  private async msMoneyEngine(): Promise<MsMoneyEngineLike> {
+    if (this.injectedMsMoneyEngine) return this.injectedMsMoneyEngine;
+    return import('../import/msMoney/msMoneyImport');
+  }
+
+  /**
+   * The authenticated client the cloud engines are handed.
+   *
+   * Unreachable in the app while `isSupabaseReady()` is true — that predicate
+   * IS `supabase !== null` plus a resolved owner — so this refusal exists for
+   * the one case a type cannot rule out: a test that injected `cloudClient:
+   * null` and a configured checker. Refusing names the contradiction; carrying
+   * on would ask an engine to erase a login through a client that is not there.
+   */
+  private requireCloudClient(): SupabaseClient {
+    if (!this.cloudClient) {
+      throw new Error(
+        'There is no connection to your account right now, so nothing was changed. Reload the page and try again.'
+      );
+    }
+    return this.cloudClient;
+  }
+
+  /**
+   * The phrase both destructive engines demand before they will do anything.
+   *
+   * Supplied by the implementation rather than carried across the seam, because
+   * the CONFIRMATION is the screen's job and it already does it: the Danger Zone
+   * will not enable its button until DELETE is typed, and the restore dialog
+   * will not enable its own until this exact phrase is. Neither ever wiped
+   * implicitly, and neither starts now.
+   *
+   * Stated here as a literal, which makes it the third copy — the SQL function's
+   * own check and `LOCAL_WIPE_CONFIRMATION` are the other two. That is safe
+   * precisely because both of those CHECK it: a copy that drifted would refuse
+   * every wipe on the first run rather than weaken one, and the contract suite
+   * asks for a wipe that works.
+   */
+  private static readonly WIPE_CONFIRMATION = 'DELETE EVERYTHING';
+
+  /**
+   * Erase everything this store holds.
+   *
+   * ── WHY THE CLOUD BRANCH IS TWO CALLS ───────────────────────────────────
+   *
+   * Not belt and braces — they empty different things, and neither on its own
+   * satisfies what the seam promises.
+   *
+   * The CHUNKED pass is the one with the rows in it. It deletes in pieces small
+   * enough that no single statement can be cancelled by the database's own
+   * timeout, which is the failure it exists because of: one `DELETE FROM
+   * transactions` over 51,000 rows died half-way, after the transfer links had
+   * been nulled and the splits deleted, and left a login in a state nothing in
+   * the app produces. It also reports as it goes, which is what stops a wipe
+   * that legitimately takes minutes from reading as one that has hung.
+   *
+   * The RPC is the one with the REST of the tables in it — investments, and the
+   * four keyed only by the user (dismissed suggestions, dashboard layouts,
+   * widget preferences, notifications). Nothing cascades those away, so the
+   * chunked pass leaves them, and a backup carries every one of them. Restoring
+   * a file onto the survivors collides with `widget_preferences_user_id_widget_type_key`
+   * part-way through, in front of somebody who has just deliberately erased
+   * their own login. That is the failure a restore must never have, so "wiped"
+   * has to mean every table the file carries. It also writes the per-row audit
+   * for anything still standing.
+   *
+   * THE ORDER IS LOAD-BEARING. Chunked first: the RPC's own deletes are one
+   * statement per table, which is exactly what timed out, so by the time it runs
+   * there must be nothing large left for it to do. It leaves `user_preferences`
+   * alone in both directions — erasing a ledger is not a request to forget that
+   * somebody prefers twelve-month charts.
+   *
+   * On a device it is one write, so there is no fraction to report and none is
+   * invented.
+   */
+  async wipeAllFinancialData(options: {
+    onProgress?: (progress: WipeProgress) => void;
+  } = {}): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      const client = this.requireCloudClient();
+      const { wipeCloudData } = await this.msMoneyEngine();
+      await wipeCloudData(client, userId, { onProgress: options.onProgress });
+      const { wipeUserFinancialData } = await this.cloudBackupEngine();
+      await wipeUserFinancialData(DataServiceImpl.WIPE_CONFIRMATION, userId);
+      return;
+    }
+
+    this.guardBackupIdentity(
+      'This session has no database identity yet, so there is nothing here that can safely be erased. Reload the page and try again.'
+    );
+    const { wipeLocalFinancialData } = await this.deviceBackupEngine();
+    await wipeLocalFinancialData(DataServiceImpl.WIPE_CONFIRMATION, {
+      store: this.requireDeviceBackupStore()
+    });
+  }
+
+  /**
+   * Replace everything with a parsed Microsoft Money file.
+   *
+   * The wipe in front of it is the importer's own — it reports through the same
+   * progress channel as the rest of the migration, and reads the surviving state
+   * afterwards so that a partial wipe cannot become a double import. That is why
+   * this does not call `wipeAllFinancialData` first: the migration is one
+   * operation with a wipe inside it, not two operations in a row, and taking the
+   * wipe out here would leave the plan built against the wrong picture.
+   *
+   * A PENDING SESSION IS REFUSED, and this is the one place that refusal is
+   * unarguable. Before this, a signed-in session whose database id had not
+   * resolved yet fell through to the browser's store — so a person's whole
+   * financial history was written where their signed-in app will never read it
+   * again, the page reloaded, and everything they had migrated was simply not
+   * there. The screen said it worked.
+   */
+  async importMsMoney(
+    result: MsMoneyImportResult,
+    options: { onProgress?: (progress: ImportProgress) => void } = {}
+  ): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    const engine = await this.msMoneyEngine();
+    if (userId && this.supabaseChecker()) {
+      await engine.importToCloud(
+        result,
+        this.requireCloudClient(),
+        userId,
+        // The engine's own default is crypto.randomUUID, which is what this
+        // resolves to in the app; handing it this service's generator is what
+        // lets a test hold a whole migration still.
+        () => this.generateId(),
+        { onProgress: options.onProgress }
+      );
+      return;
+    }
+
+    this.guardBackupIdentity(
+      'This session has no database identity yet, so a migration cannot be written to your login. Reload the page and try again.'
+    );
+    await engine.importToLocalStorage(result, STORAGE_KEYS, {
+      onProgress: options.onProgress,
+      // Passed explicitly for the reason `localImportStore` sets out: the
+      // engine defaults to the app's real adapter when handed nothing, which is
+      // right in production and wrong in a test that injected a store.
+      store: this.requireDeviceBackupStore()
     });
   }
 
@@ -2323,6 +2525,23 @@ class DataServiceImpl implements DataPort {
     return this.isSupabaseReady();
   }
 
+  /**
+   * NEVER JOINS THE SEAM, and is down to its last consumer.
+   *
+   * Identity is internal to an implementation (rule 1 of the port), so this is
+   * the opposite of what the seam promises — it exists only because two screens
+   * still choose their own WORDS from it. The data operations that used to
+   * branch on it are all gone: the export, the emptiness check, the restore,
+   * the wipe and the Money migration each resolve their own owner now.
+   *
+   * What is left is one file. RestoreBackupModal reads it to decide whether the
+   * dialog says "login" or "device", whether a failed restore warns about a
+   * partly-populated store, and whether a signed-in session is still connecting
+   * and must be blocked from starting. All three are capability questions, and
+   * they leave with `capabilities()` — at which point this method and its static
+   * twin are deleted, and the fact that nothing calls them IS the proof the
+   * seam closed.
+   */
   getUserIds(): { clerkId: string | null; databaseId: string | null } {
     return this.userIdService.getCurrentUserIds();
   }
@@ -2425,6 +2644,19 @@ export class DataService {
     options?: { onProgress?: (progress: RestoreProgress) => void }
   ): Promise<BackupRestoreOutcome> {
     return this.service.restoreBackup(bundle, options);
+  }
+
+  static wipeAllFinancialData(
+    options?: { onProgress?: (progress: WipeProgress) => void }
+  ): Promise<void> {
+    return this.service.wipeAllFinancialData(options);
+  }
+
+  static importMsMoney(
+    result: MsMoneyImportResult,
+    options?: { onProgress?: (progress: ImportProgress) => void }
+  ): Promise<void> {
+    return this.service.importMsMoney(result, options);
   }
 
   static archiveTransactionsBefore(accountId: string, cutoff: Date): Promise<number> {

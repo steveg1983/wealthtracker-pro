@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ToastProvider } from '../../../contexts/ToastContext';
 import { __setAppContextValue, __resetAppContextValue } from '../../../test/mocks/AppContextSupabase';
-import type { WipeOptions, WipeProgress } from '../../../services/import/msMoney/msMoneyImport';
+import type { WipeProgress } from '../../../services/port';
 
 /**
  * "Delete All Data" as the user meets it.
@@ -14,18 +14,16 @@ import type { WipeOptions, WipeProgress } from '../../../services/import/msMoney
  * deleted. The user was left with a half-wiped login, an error about a
  * statement, and no idea that running it again would finish the job.
  *
- * So these cover the three things the dialog now has to do: SAY what it is
- * doing while it does it, REFUSE to be clicked mid-run, and on failure say the
- * one thing that helps — run it again.
+ * So these cover the three things the dialog has to do: SAY what it is doing
+ * while it does it, REFUSE to be clicked mid-run, and on failure say the one
+ * thing that helps — run it again.
+ *
+ * Every assertion below was written against the page while it still chose
+ * between two engines with a Postgres client of its own, and run green against
+ * it. Only the mock changed afterwards — from the engine to the one door the
+ * page now knocks on — which is what makes this suite evidence that the routing
+ * changed nothing the user can see.
  */
-
-/** Whoever is signed in, so the page takes the cloud branch. */
-vi.mock('../../../services/api/dataService', () => ({
-  DataService: { getUserIds: () => ({ clerkId: 'clerk_1', databaseId: 'db-user-1' }) },
-}));
-
-/** A configured cloud, so `isUsingSupabase && supabase && databaseUserId` holds. */
-vi.mock('../../../lib/supabase', () => ({ supabase: { from: () => ({}) } }));
 
 /** The wipe itself is covered in wipeCloudData.test; here it is a script. */
 const wipeScript: {
@@ -36,16 +34,18 @@ const wipeScript: {
   hold: Promise<void> | null;
 } = { steps: [], failWith: null, calls: 0, hold: null };
 
-vi.mock('../../../services/import/msMoney/msMoneyImport', () => ({
-  wipeCloudData: async (_client: unknown, _userId: string, options: WipeOptions = {}) => {
-    wipeScript.calls += 1;
-    for (const step of wipeScript.steps) {
-      options.onProgress?.(step);
-      // Let React paint between steps, the way a real round trip does.
-      await Promise.resolve();
-    }
-    if (wipeScript.hold !== null) await wipeScript.hold;
-    if (wipeScript.failWith !== null) throw new Error(wipeScript.failWith);
+vi.mock('../../../services/port', () => ({
+  dataPort: {
+    wipeAllFinancialData: async (options: { onProgress?: (p: WipeProgress) => void } = {}) => {
+      wipeScript.calls += 1;
+      for (const step of wipeScript.steps) {
+        options.onProgress?.(step);
+        // Let React paint between steps, the way a real round trip does.
+        await Promise.resolve();
+      }
+      if (wipeScript.hold !== null) await wipeScript.hold;
+      if (wipeScript.failWith !== null) throw new Error(wipeScript.failWith);
+    },
   },
 }));
 
@@ -74,8 +74,8 @@ describe('Delete All Data — while it runs', () => {
     wipeScript.failWith = null;
     wipeScript.calls = 0;
     wipeScript.hold = null;
-    // Signed in with a working cloud, so the page takes the branch that calls
-    // wipeCloudData rather than the browser-local one.
+    // Signed in with a working cloud. The page no longer picks an engine — the
+    // seam does — but this is still what decides the copy on the cards above.
     __setAppContextValue({ isUsingSupabase: true });
   });
 
@@ -138,8 +138,8 @@ describe('Delete All Data — when it stops part-way', () => {
     wipeScript.failWith = null;
     wipeScript.calls = 0;
     wipeScript.hold = null;
-    // Signed in with a working cloud, so the page takes the branch that calls
-    // wipeCloudData rather than the browser-local one.
+    // Signed in with a working cloud. The page no longer picks an engine — the
+    // seam does — but this is still what decides the copy on the cards above.
     __setAppContextValue({ isUsingSupabase: true });
   });
 

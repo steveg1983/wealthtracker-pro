@@ -30,15 +30,19 @@ export type {
   DataPortBulkWrites,
   DataPortDismissalWrites,
   DataPortLifecycle,
+  DataPortMigration,
   DataPortPlanningWrites,
   DataPortReads,
   DataPortSplitWrites,
   DataPortTransactionWrites,
   DataPortTransferWrites,
   ExportProgress,
+  ImportProgress,
   ImportSourceKind,
   MoneyNumber,
-  RestoreProgress
+  MsMoneyImportResult,
+  RestoreProgress,
+  WipeProgress
 } from './dataPort';
 
 export const dataPort: DataPort = DataService;
