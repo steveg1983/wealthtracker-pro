@@ -26,12 +26,17 @@ interface SwipeableTransactionRowProps {
    * Should a row that has arrived and not been dealt with be drawn as new?
    *
    * OFF BY DEFAULT, and asked for explicitly by the caller, because "new" is a
-   * fact about a job rather than about a transaction: it means something in the
-   * account register, where there is a To Review counter above the list and a
-   * filter that narrows to exactly these rows, and it means nothing on the
-   * Transactions page, which is a search over everything and offers neither.
-   * Marking a row where there is nothing to do about it as a SET is how people
-   * learn to ignore the marking on the screen where it matters.
+   * fact about a job rather than about a transaction: it means something on a
+   * screen that carries a To Review counter and a filter narrowing to exactly
+   * these rows, and it means nothing on a screen that offers neither. Marking a
+   * row where there is nothing to do about it as a SET is how people learn to
+   * ignore the marking on the screen where it matters.
+   *
+   * Two callers pass it, and both earn it: the account register, and the
+   * Transactions page — which grew the same counter and the same filter when it
+   * was brought up to the register's manners, so its rows now lead somewhere
+   * too. Anything else that lists transactions (a report, a search result, a
+   * dashboard card) still gets the default and still says nothing.
    */
   markNewArrivals?: boolean;
 }

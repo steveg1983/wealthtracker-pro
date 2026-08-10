@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams , useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -23,6 +23,8 @@ import PageTip from '../components/PageTip';
 import TransactionContextMenu from '../components/TransactionContextMenu';
 import { useToast } from '../contexts/ToastContext';
 import { TransactionRow } from '../components/TransactionRow';
+import { transactionRowDomId } from '../components/transactionRowDomId';
+import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
 // Lazy load list components that are conditionally rendered
 const InfiniteScrollTransactionList = lazyWithRecovery(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
@@ -59,11 +61,28 @@ const Transactions = React.memo(function Transactions() {
   const [transactionsPerPage, setTransactionsPerPage] = useState(20); // Increased for better UX
   const [sortField, setSortField] = useState<'date' | 'account' | 'description' | 'category' | 'amount'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [bulkSelectMode, _setBulkSelectMode] = useState(false);
-  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+  /**
+   * The ONE row the keyboard is on — the register's highlight, on this table.
+   *
+   * There is no bulk-selection mode here to fight with, and that is a fact
+   * rather than a hope: the page carried a `bulkSelectMode` flag whose setter
+   * was never called and a selected-id set that nothing could ever add to, so
+   * the desktop row's click did nothing at all and the phone list's checkboxes
+   * could never appear. Both are gone; the click was free, and this is what
+   * now has it. If a bulk mode is ever wanted here, TransactionRow still has
+   * the props for it and states which of the two wins the click.
+   */
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
+  /**
+   * "Show me only what has arrived and not been dealt with" — the register's
+   * To Review box, pressed.
+   */
+  const [reviewOnly, setReviewOnly] = useState(false);
   const [columnWidths, setColumnWidths] = useState({
     date: 110,
-    reconciled: 40,
+    // Room for the header word: this column is headed C/R, not R, because it
+    // now draws both of Money's letters.
+    reconciled: 56,
     account: 140,
     description: 260,
     category: 160,
@@ -109,6 +128,45 @@ const Transactions = React.memo(function Transactions() {
     categories,
     filterOptions,
     sortOptions
+  );
+
+  /**
+   * How many of the rows in front of the user have arrived and not been dealt
+   * with — the figure in the To Review box.
+   *
+   * COUNTED OVER THE ROWS THIS PAGE IS SHOWING, deliberately, and not over the
+   * whole book. The box is a button: pressing it must produce exactly this many
+   * rows, or the number is a lie the moment it is believed. The register counts
+   * the same predicate over its own filtered list for the same reason.
+   *
+   * `reviewOnly` is deliberately NOT a dependency: this counts the list BEFORE
+   * the review filter, so pressing the button cannot change the number the
+   * button is showing.
+   */
+  const toReviewCount = useMemo(
+    () => countAwaitingReview(filteredAndSortedTransactions),
+    [filteredAndSortedTransactions]
+  );
+
+  /**
+   * Nothing left to review ends the filter, rather than leaving somebody
+   * looking at an empty list with the button that got them there gone (the box
+   * hides itself at zero — the house rule that a zero count renders nothing).
+   *
+   * Cannot loop: toReviewCount is computed from the list above, without it.
+   */
+  useEffect(() => {
+    if (toReviewCount === 0) setReviewOnly(false);
+  }, [toReviewCount]);
+
+  /**
+   * The rows the page actually lists. One more filter on the end of the chain,
+   * applied here rather than inside the hook so the count above can be taken
+   * from the list without it.
+   */
+  const visibleTransactions = useMemo(
+    () => (reviewOnly ? filteredAndSortedTransactions.filter(isAwaitingReview) : filteredAndSortedTransactions),
+    [filteredAndSortedTransactions, reviewOnly]
   );
 
   // Get account ID from URL params
@@ -160,7 +218,11 @@ const Transactions = React.memo(function Transactions() {
       hidden: ''
     },
     reconciled: {
-      label: 'R',
+      // The register's own header, because the column now draws the register's
+      // own two letters: C is a mark made while balancing, R is a
+      // reconciliation that was finished. A column headed R that showed both
+      // would be naming one of the two states it holds.
+      label: 'C/R',
       sortable: false,
       className: 'text-center',
       cellClassName: 'px-2',
@@ -313,10 +375,10 @@ const Transactions = React.memo(function Transactions() {
 
   // Pagination logic - show all transactions if account is selected
   const showAllTransactions = !!accountIdFromUrl;
-  const totalPages = showAllTransactions ? 1 : Math.ceil(filteredAndSortedTransactions.length / transactionsPerPage);
+  const totalPages = showAllTransactions ? 1 : Math.ceil(visibleTransactions.length / transactionsPerPage);
   const startIndex = showAllTransactions ? 0 : (currentPage - 1) * transactionsPerPage;
-  const endIndex = showAllTransactions ? filteredAndSortedTransactions.length : startIndex + transactionsPerPage;
-  const paginatedTransactions = filteredAndSortedTransactions.slice(startIndex, endIndex);
+  const endIndex = showAllTransactions ? visibleTransactions.length : startIndex + transactionsPerPage;
+  const paginatedTransactions = visibleTransactions.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
   const resetPagination = useCallback(() => {
@@ -346,6 +408,152 @@ const Transactions = React.memo(function Transactions() {
     setIsDetailsViewOpen(true);
   }, []);
 
+  // ── Picking a row out, and walking the list ────────────────────────────────
+  //
+  // The register's idiom, on this table: a click highlights the row, the arrows
+  // move the highlight, Enter opens whatever a click opens, Escape lets go.
+  //
+  // ─ WHY THE ROWS ARE READ THROUGH A REF ────────────────────────────────────
+  // TransactionRow is memoised on a hand-written comparator, so a handler whose
+  // identity changed with the selection would be either stale in every row or
+  // the cause of every row re-rendering on each arrow key — and this table has
+  // an "All transactions" page size. The two handlers below therefore keep ONE
+  // identity for the life of the page and read what they need from here.
+  //
+  // The rows are the ones ON SCREEN. The ends stop rather than wrap and rather
+  // than turning the page: the highlight can only ever be somewhere the user
+  // can see it, which is also why a row hidden by a filter or left on another
+  // page simply stops being the highlight without anything having to notice.
+  const navigationRef = useRef<{ rows: Transaction[]; selectedId: string | null }>({
+    rows: [],
+    selectedId: null
+  });
+  useEffect(() => {
+    navigationRef.current = { rows: paginatedTransactions, selectedId: selectedTransactionId };
+  }, [paginatedTransactions, selectedTransactionId]);
+
+  /**
+   * Highlight `id` and hand it the focus.
+   *
+   * The row is already rendered — only its tabindex changes — so it can be
+   * given the focus by name. `preventScroll` with `scrollIntoView({ block:
+   * 'nearest' })` after it: browsing wants the least scroll that shows the row,
+   * and none at all while it is already on screen. (The register centres
+   * instead, but only while a row is being EDITED, and no row is edited here.)
+   */
+  const selectRow = useCallback((id: string): void => {
+    setSelectedTransactionId(id);
+    const node = document.getElementById(transactionRowDomId(id));
+    node?.focus({ preventScroll: true });
+    node?.scrollIntoView?.({ block: 'nearest' });
+  }, []);
+
+  /**
+   * A click on a row: the first one picks it out, a second on the same row
+   * opens it.
+   *
+   * The second click is the register's own idiom (there, a click on the row it
+   * is already editing asks for the full editor), and it opens exactly what
+   * clicking the description has always opened here — one destination, so the
+   * two cannot drift.
+   */
+  const handleRowClick = useCallback((transaction: Transaction): void => {
+    if (navigationRef.current.selectedId === transaction.id) {
+      handleView(transaction);
+      return;
+    }
+    selectRow(transaction.id);
+  }, [handleView, selectRow]);
+
+  /**
+   * The keys, on the row that has the focus.
+   *
+   * On the ROW rather than on the page or the window, which is what keeps them
+   * out of everything else's way: the search box, a filter, a sortable column
+   * header or one of the row's own buttons has the focus while it is being
+   * used, so the arrows never reach this at all — by construction, not by a
+   * list of exceptions. The row's own handler has already refused any key that
+   * was pressed inside one of its boxes.
+   *
+   * Everything claimed is also stopped: the app carries a window-level shortcut
+   * listener, and an Escape or an Enter it sees after this page has answered it
+   * would be one gesture doing two things.
+   */
+  const handleRowKeyDown = useCallback((
+    event: React.KeyboardEvent<HTMLTableRowElement>,
+    transaction: Transaction
+  ): void => {
+    const { rows, selectedId } = navigationRef.current;
+    const claim = (): void => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    /**
+     * Walk by `delta`, or land on the row the key was pressed on.
+     *
+     * -1 covers both "nothing is highlighted" and "the highlight is on a row
+     * this page no longer shows" — in either case the key is an arrival on the
+     * row under the user's hand, and jumping to a neighbour of nowhere would be
+     * a surprise.
+     */
+    const move = (delta: number): void => {
+      if (rows.length === 0) return;
+      const currentIndex = selectedId === null ? -1 : rows.findIndex(row => row.id === selectedId);
+      const next = currentIndex === -1
+        ? transaction
+        : rows[Math.min(rows.length - 1, Math.max(0, currentIndex + delta))];
+      if (next === undefined) return;
+      selectRow(next.id);
+    };
+
+    switch (event.key) {
+      case 'ArrowDown':
+        claim();
+        move(1);
+        break;
+      case 'ArrowUp':
+        claim();
+        move(-1);
+        break;
+      case 'Home':
+        claim();
+        if (rows[0]) selectRow(rows[0].id);
+        break;
+      case 'End':
+        claim();
+        if (rows[rows.length - 1]) selectRow(rows[rows.length - 1].id);
+        break;
+      case 'Enter':
+        claim();
+        // Whatever a click opens — the transaction's details. One call, so
+        // the keyboard and the mouse cannot end up at different screens.
+        handleView(transaction);
+        break;
+      case 'Escape':
+        // Claimed ONLY when there is something to let go of. Escape belongs to
+        // whatever layer is outermost, and a list holding nothing is not a
+        // layer — the register and the Accounts list keep the same rule.
+        if (selectedId === null) return;
+        claim();
+        // The focus stays where it is: the user is still standing here, they
+        // have simply stopped pointing at anything.
+        setSelectedTransactionId(null);
+        break;
+      default:
+        break;
+    }
+  }, [handleView, selectRow]);
+
+  /**
+   * The single tab stop for the whole table (see TransactionRow's isTabStop):
+   * the highlighted row while it is on screen, and otherwise the first row, so
+   * Tab always lands somewhere the arrows can start from.
+   */
+  const tabStopRowId = selectedTransactionId !== null
+    && paginatedTransactions.some(t => t.id === selectedTransactionId)
+    ? selectedTransactionId
+    : paginatedTransactions[0]?.id;
+
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setEditingTransaction(null);
@@ -359,7 +567,7 @@ const Transactions = React.memo(function Transactions() {
   // Calculate totals using decimal arithmetic
   const totals = useMemo(() => {
     const decimalTransactions = getDecimalTransactions();
-    const filteredIds = new Set(filteredAndSortedTransactions.map(t => t.id));
+    const filteredIds = new Set(visibleTransactions.map(t => t.id));
     
     return decimalTransactions
       .filter((t: DecimalTransaction) => filteredIds.has(t.id))
@@ -375,7 +583,7 @@ const Transactions = React.memo(function Transactions() {
         expense: toDecimal(0),
         get net() { return this.income.plus(this.expense); } // expenses are already negative
       });
-  }, [filteredAndSortedTransactions, getDecimalTransactions]);
+  }, [visibleTransactions, getDecimalTransactions]);
 
   // Each transaction's running balance for ITS account.
   //
@@ -716,6 +924,49 @@ const Transactions = React.memo(function Transactions() {
             </div>
           </div>
 
+          {/* To Review — how many rows have arrived and not been dealt with,
+              and the switch that narrows the list to exactly them. The
+              register's box, in the same words and the same colours.
+
+              NOTHING AT ZERO. Not a greyed-out button, not "To Review 0" — the
+              house rule is that a zero count renders nothing, because a
+              permanent box reading 0 is a box the eye learns to skip, and then
+              it says nothing on the day it reads 40.
+
+              It is here rather than nowhere because the bold in the list has to
+              lead somewhere: marking rows as new on a page that offered no way
+              to work through them was the reason this page did not mark them at
+              all (see SwipeableTransactionRow's markNewArrivals). Not redundant
+              with the filters above it either — none of type, account, date or
+              search can express "arrived and not dealt with". */}
+          {toReviewCount > 0 && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => { setReviewOnly(prev => !prev); resetPagination(); }}
+                aria-pressed={reviewOnly}
+                className={`flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                  reviewOnly
+                    ? 'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-gray-50 dark:bg-gray-700'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={
+                  reviewOnly
+                    ? 'Showing only transactions that have arrived and not been dealt with. Click to show them all again.'
+                    : 'Transactions that arrived from an import and have not been saved yet. Click to show only those.'
+                }
+              >
+                To Review
+                {/* Amber, the colour this app already uses for "this wants your
+                    attention". The number is the point, so it carries the
+                    colour rather than the whole button. */}
+                <span className="inline-flex items-center px-1.5 py-0 rounded-full text-xs font-semibold tabular-nums bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                  {toReviewCount}
+                </span>
+              </button>
+            </div>
+          )}
+
           {/* Archived transactions toggle — only shown when some exist */}
           {archivedCount > 0 && (
             <div className="flex items-center gap-2 pt-1">
@@ -736,7 +987,7 @@ const Transactions = React.memo(function Transactions() {
         </div>
 
         {/* Transactions List */}
-        {filteredAndSortedTransactions.length === 0 ? (
+        {visibleTransactions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
             {transactions.length === 0 
@@ -755,15 +1006,17 @@ const Transactions = React.memo(function Transactions() {
             ) : (
               <Suspense fallback={<SkeletonList items={5} className="p-4" />}>
                 <InfiniteScrollTransactionList
-                  transactions={filteredAndSortedTransactions} // Use all filtered transactions, not paginated
+                  transactions={visibleTransactions} // Use all filtered transactions, not paginated
                   accounts={accounts}
                   categories={categories}
                   formatCurrency={formatCurrency}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onView={handleView}
-                  selectedTransactions={selectedTransactions}
-                  onSelectionChange={bulkSelectMode ? setSelectedTransactions : undefined}
+                  // The phone gets the mark too, now that this page carries the
+                  // To Review counter and filter that make it a job rather than
+                  // a decoration — see the prop's own note.
+                  markNewArrivals
                   itemsPerBatch={20}
                 />
               </Suspense>
@@ -796,7 +1049,15 @@ const Transactions = React.memo(function Transactions() {
             ) : (
               <div className={isWideView ? '' : 'overflow-x-auto'} role="region" aria-label="Transactions table">
                 <table className="w-full" style={{ tableLayout: 'fixed' }} role="table" aria-label="Financial transactions">
-                <caption className="sr-only">List of financial transactions with sortable columns. Use arrow keys to navigate and Enter to sort.</caption>
+                {/* Says what the keys actually do now. It used to promise
+                    "Enter to sort", which was only ever true with a column
+                    header focused — a screen-reader user who took it at its
+                    word on a row got a transaction opened instead. */}
+                <caption className="sr-only">
+                  List of financial transactions. Tab into the list, then use the up and down arrow keys to move between
+                  transactions, Enter to open the highlighted one, and Escape to let go of it. On a column header, Enter
+                  sorts by that column.
+                </caption>
                 <thead className="bg-[#1a2332] dark:bg-gray-700 border-b border-[#2d3a4d] dark:border-gray-600 sticky top-0 z-10">
                   <tr role="row">
                     {columnOrder.map(renderHeaderCell)}
@@ -820,6 +1081,10 @@ const Transactions = React.memo(function Transactions() {
                         onView={handleView}
                         columnOrder={columnOrder}
                         columnWidths={columnWidths}
+                        isCurrentRow={selectedTransactionId === transaction.id}
+                        isTabStop={tabStopRowId === transaction.id}
+                        onRowClick={handleRowClick}
+                        onRowKeyDown={handleRowKeyDown}
                         runningBalance={runningBalances.get(transaction.id)}
                         onContextMenu={(e, t) => setContextMenu({ x: e.clientX, y: e.clientY, transaction: t })}
                         categories={flatCategories}
@@ -842,8 +1107,8 @@ const Transactions = React.memo(function Transactions() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {showAllTransactions 
-                      ? `Showing all ${filteredAndSortedTransactions.length} transactions`
-                      : `Showing ${startIndex + 1} to ${Math.min(endIndex, filteredAndSortedTransactions.length)} of ${filteredAndSortedTransactions.length} transactions`
+                      ? `Showing all ${visibleTransactions.length} transactions`
+                      : `Showing ${startIndex + 1} to ${Math.min(endIndex, visibleTransactions.length)} of ${visibleTransactions.length} transactions`
                     }
                   </span>
                   <label htmlFor="per-page-desktop" className="sr-only">Items per page</label>
@@ -851,7 +1116,7 @@ const Transactions = React.memo(function Transactions() {
                     id="per-page-desktop"
                     value={transactionsPerPage}
                     onChange={(e) => {
-                      const value = e.target.value === 'all' ? filteredAndSortedTransactions.length : Number(e.target.value);
+                      const value = e.target.value === 'all' ? visibleTransactions.length : Number(e.target.value);
                       setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
@@ -944,8 +1209,8 @@ const Transactions = React.memo(function Transactions() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
                     {showAllTransactions 
-                      ? `All ${filteredAndSortedTransactions.length}`
-                      : `${startIndex + 1}-${Math.min(endIndex, filteredAndSortedTransactions.length)} of ${filteredAndSortedTransactions.length}`
+                      ? `All ${visibleTransactions.length}`
+                      : `${startIndex + 1}-${Math.min(endIndex, visibleTransactions.length)} of ${visibleTransactions.length}`
                     }
                   </span>
                   <label htmlFor="per-page-mobile" className="sr-only">Items per page</label>
@@ -953,7 +1218,7 @@ const Transactions = React.memo(function Transactions() {
                     id="per-page-mobile"
                     value={transactionsPerPage}
                     onChange={(e) => {
-                      const value = e.target.value === 'all' ? filteredAndSortedTransactions.length : Number(e.target.value);
+                      const value = e.target.value === 'all' ? visibleTransactions.length : Number(e.target.value);
                       setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
@@ -1057,7 +1322,7 @@ const Transactions = React.memo(function Transactions() {
             </thead>
             <tbody>
               {(() => {
-                const txns = filteredAndSortedTransactions
+                const txns = visibleTransactions
                   .filter(t => {
                     if (breakdownType === 'income') return t.type === 'income';
                     if (breakdownType === 'expense') return t.type === 'expense';
@@ -1133,7 +1398,7 @@ const Transactions = React.memo(function Transactions() {
       <PageTip
         id="transactions-intro"
         title="Your transactions"
-        description="Filter by account, date range, or search by description. Right-click any transaction for quick actions. The Balance column shows your running account balance."
+        description="Filter by account, date range, or search by description. Click a transaction to pick it out, then use the arrow keys to move and Enter to open it — the same as in an account register. Right-click any transaction for quick actions. The Balance column shows your running account balance."
       />
     </PageWrapper>
   );

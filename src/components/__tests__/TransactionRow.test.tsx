@@ -110,9 +110,9 @@ describe('TransactionRow', () => {
 
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
-    // Look for the CheckIcon in the reconciled column
-    const checkIcon = screen.getByTestId('check-icon');
-    expect(checkIcon).toBeInTheDocument();
+    // Money's letters, not a tick: cleared with nothing said about `reconciled`
+    // is the pre-migration shape, which isReconciled reads as committed.
+    expect(screen.getByTitle('Reconciled')).toHaveTextContent('R');
   });
 
   it('does not show cleared indicator when transaction is not cleared', () => {
@@ -122,7 +122,7 @@ describe('TransactionRow', () => {
 
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
-    expect(screen.queryByTestId('check-icon')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Reconciled')).not.toBeInTheDocument();
   });
 
   it('calls onEdit when edit button is clicked', () => {

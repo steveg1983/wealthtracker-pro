@@ -58,6 +58,9 @@ import {
   ACCOUNT_ROW_SELECTED_CLASS,
 } from '../components/AccountRowColumns';
 import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
+// The same predicate the Transactions table asks, kept in one place: a click on
+// a row's own button belongs to the button, on both pages.
+import { clickedOwnControl } from '../hooks/useRowClickGesture';
 import {
   currentPageProvenance,
   readResumeCrumbs,
@@ -87,22 +90,6 @@ function readStoredGrouping(): AccountGroupingOptions {
 
 /** A row's element id, so the arrow keys can hand it the focus by name. */
 const rowDomId = (accountId: string): string => `account-row-${accountId}`;
-
-/**
- * Did this click land on one of the row's own controls?
- *
- * Bounded by the row, the way useRowClickGesture bounds its own search: only
- * this row's subtree can speak for this row. A control anywhere else — the
- * section heading above it, say — says nothing about a click inside a card.
- *
- * `a` as well as `button`: the account NAME is a link now, and a click on it is
- * a request to open the account, not to pick the row out.
- */
-const clickedOwnControl = (target: EventTarget | null, row: Element): boolean => {
-  if (!(target instanceof Element)) return false;
-  const control = target.closest('a, button, input');
-  return control !== null && row.contains(control);
-};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
