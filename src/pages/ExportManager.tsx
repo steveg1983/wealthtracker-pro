@@ -68,7 +68,10 @@ const isoDay = (date: Date): string => {
 };
 
 export default function ExportManager(): React.JSX.Element {
-  const { transactions, transactionSplits, accounts, categories, isUsingSupabase } = useApp();
+  // `capabilities` is here for ONE SENTENCE of copy on the full-backup card:
+  // whether the file about to be downloaded is a second copy of rows a database
+  // holds, or the only copy that exists. Nothing on this page branches on it.
+  const { transactions, transactionSplits, accounts, categories, capabilities } = useApp();
   const { showError, showSuccess } = useToast();
   const { displayCurrency } = useCurrencyDecimal();
   // The app-wide period control, so "last month" here means what it means on
@@ -466,7 +469,7 @@ export default function ExportManager(): React.JSX.Element {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Full backup</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-4">
-                  {isUsingSupabase
+                  {capabilities.edition === 'cloud'
                     ? 'Every record we hold for you, straight from the database — accounts, transactions, splits, categories, budgets, goals, investments and the rest.'
                     : 'Everything this browser is holding — accounts, transactions, splits, categories, budgets and goals. Nothing here has been sent anywhere, so this file is the only copy that exists.'}
                   {' '}This is the only export that can be restored: Settings &rarr; Data Management

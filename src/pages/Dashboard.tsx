@@ -1,9 +1,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
-import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
 import LazyErrorBoundary from '../components/LazyErrorBoundary';
@@ -20,41 +17,25 @@ const ImprovedDashboard = lazyWithRecovery(() => import('../components/dashboard
 
 
 export default function Dashboard() {
-  const { accounts } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
-  const { user } = useAuth();
-  const [_supabaseConnected, setSupabaseConnected] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  
-  // Check Supabase connection and migration status
-  useEffect(() => {
-    const checkSupabase = async () => {
-      if (supabase && user) {
-        try {
-          // Simple test query to check connection
-          const { error } = await supabase
-            .from('user_profiles')
-            .select('id')
-            .limit(1);
-          
-          setSupabaseConnected(!error);
-          if (!error) {
-            // Silent auto-migration - no user interaction needed
-            // Migration happens automatically in AppContextSupabase
-          } else {
-            // Supabase connection issue - handled silently
-          }
-        } catch {
-          // Supabase connection failed - handled silently
-          setSupabaseConnected(false);
-        }
-      } else {
-        setSupabaseConnected(false);
-      }
-    };
-    
-    checkSupabase();
-  }, [user, accounts.length, showOnboarding]);
+
+  // Retired 2026-08-10: the Supabase "connection check".
+  //
+  // It was the last direct Postgres client in a React page, and it was not a
+  // read at all — it selected one id out of `user_profiles`, put the result in
+  // a state variable named `_supabaseConnected` that NOTHING read, and
+  // re-rendered the dashboard to store it. It re-ran on every change of user,
+  // account count and onboarding flag, so every account added fired another
+  // query whose answer was discarded. Its own comment said the migration it was
+  // watching for "happens automatically in AppContextSupabase", which is true:
+  // the boot prepares categories and runs the id migration through the seam,
+  // and it is the seam that reports a store it cannot reach.
+  //
+  // Nothing observable goes with it — an unread state variable has no screen —
+  // so there is no capability to route this through. It is deleted rather than
+  // ported, and with it go this page's imports of the database client, the auth
+  // context and the app context, none of which it used for anything else.
 
   // Check if onboarding should be shown
   useEffect(() => {

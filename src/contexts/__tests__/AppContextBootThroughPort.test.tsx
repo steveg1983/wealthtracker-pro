@@ -27,10 +27,10 @@
  * beside the contract suite.
  *
  * NOT through the door yet, and deliberately named so the silence is not read
- * as a claim: `isUsingSupabase` (still DataService's own answer — it is a
- * capability question, and retiring it is its own slice), the real-time
- * subscriptions, and the suggestion dismissals, which are not a boot read at
- * all (they load on demand).
+ * as a claim: the real-time subscriptions, and the suggestion dismissals, which
+ * are not a boot read at all (they load on demand). `isUsingSupabase` used to
+ * be on this list; it is gone from the app entirely, and the stub answers the
+ * capability descriptor that replaced it.
  */
 
 import React, { ReactNode } from 'react';
@@ -219,6 +219,18 @@ vi.mock('../../services/port', () => {
     },
     initialize: async () => {},
     subscribeToUpdates: () => () => {},
+    // A device, with nobody signed in — which is what the rest of this file
+    // arranges (the id service below hands back a null CURRENT id, so every
+    // service that is not the seam stays off the network). Realtime false keeps
+    // the boot's subscription block shut, which is this stub's whole interest in
+    // the descriptor: the block is proved in AppContextRealtimeCleanup.test.
+    capabilities: () => ({
+      edition: 'device' as const,
+      session: 'anonymous' as const,
+      realtime: false,
+      maxConcurrentWrites: 1,
+      backupTarget: 'device' as const,
+    }),
     // Writes: none of them belong to a boot, so each one says so rather than
     // quietly succeeding. A boot that wrote anything would fail by name here.
     createAccount: refuse('createAccount'),

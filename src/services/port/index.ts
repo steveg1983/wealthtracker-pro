@@ -28,6 +28,8 @@ export type {
   DataPortAccountWrites,
   DataPortBackupLifecycle,
   DataPortBulkWrites,
+  DataPortCapabilities,
+  DataPortCapabilityDescriptor,
   DataPortDismissalWrites,
   DataPortLifecycle,
   DataPortMigration,
@@ -36,12 +38,14 @@ export type {
   DataPortSplitWrites,
   DataPortTransactionWrites,
   DataPortTransferWrites,
+  Edition,
   ExportProgress,
   ImportProgress,
   ImportSourceKind,
   MoneyNumber,
   MsMoneyImportResult,
   RestoreProgress,
+  SessionState,
   WipeProgress
 } from './dataPort';
 

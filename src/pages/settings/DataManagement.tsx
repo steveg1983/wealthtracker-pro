@@ -67,7 +67,11 @@ const wipePercent = (progress: WipeProgress): number => {
 };
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, resetLoadedData, isUsingSupabase } = useApp();
+  // `capabilities` is here for TWO SENTENCES of copy on the backup cards below:
+  // whether a backup is a second copy of rows a database holds or the only copy
+  // there is, and whether a restore goes into a login or into this device.
+  // Nothing on this page branches on it — the wipe and the restore ask the seam.
+  const { accounts, transactions, budgets, resetLoadedData, capabilities } = useApp();
   const initialBankingOpsUrlState = useMemo(
     () => parseBankingOpsUrlState(typeof window !== 'undefined' ? window.location.search : ''),
     []
@@ -214,14 +218,14 @@ export default function DataManagementSettings() {
             to="/export-manager"
             icon={DownloadIcon}
             title="Download a backup"
-            description={isUsingSupabase
+            description={capabilities.edition === 'cloud'
               ? 'Every record, straight from the database, as plain JSON'
               : 'Everything this browser holds, as plain JSON — the only copy there is'}
           />
           <ActionButton
             icon={UploadIcon}
             title="Restore from backup"
-            description={isUsingSupabase
+            description={capabilities.edition === 'cloud'
               ? 'Read a backup file back in — only into an empty login'
               : 'Read a backup file back in — only into an empty device'}
             onClick={() => setShowRestoreBackup(true)}
