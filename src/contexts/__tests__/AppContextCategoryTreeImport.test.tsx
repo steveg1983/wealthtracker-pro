@@ -44,6 +44,7 @@ import type {
 } from '../../types';
 import type {
   AccountBalanceSnapshot,
+  BootSnapshot,
   BootTransactionsResult,
   DataPort,
   DataPortCapabilities
@@ -140,6 +141,22 @@ vi.mock('../../services/port', () => {
 
   let minted = 0;
 
+  /**
+   * The lifecycle read the import finishes on — and the one the boot starts on.
+   * Which answer it gives depends on which it is, and that is exactly the
+   * distinction the tests below assert.
+   *
+   * Named rather than inlined because the boot reaches it through `loadBoot`
+   * now: the composite has to go through THIS function, not a copy of it, or
+   * the boot would take an answer the import's re-read is still expecting to
+   * give.
+   */
+  const prepareCategories = async (): Promise<Category[]> => {
+    seam.calls.push('prepareCategories');
+    seam.prepareCalls += 1;
+    return seam.prepareCalls === 1 ? seam.bootCategories : seam.authoritativeCategories;
+  };
+
   const dataPort: DataPort = {
     // Boot reads. Empty on purpose: this test is about the categories.
     listAccounts: async (): Promise<Account[]> => [],
@@ -162,14 +179,28 @@ vi.mock('../../services/port', () => {
     listCategories: async (): Promise<Category[]> => seam.bootCategories,
     listSuggestionDismissals: async (): Promise<SuggestionDismissal[]> => [],
 
-    // The lifecycle read the import finishes on — and the one the boot starts
-    // on. Which answer it gives depends on which it is, and that is exactly the
-    // distinction the test asserts.
-    prepareCategories: async (): Promise<Category[]> => {
-      seam.calls.push('prepareCategories');
-      seam.prepareCalls += 1;
-      return seam.prepareCalls === 1 ? seam.bootCategories : seam.authoritativeCategories;
-    },
+    /**
+     * The boot, composed from the reads above — a fan-out engine, which is
+     * what makes the boot's ask of `prepareCategories` the first one and the
+     * import's re-read the second.
+     */
+    loadBoot: async (): Promise<BootSnapshot> => ({
+      accounts: [],
+      categories: await prepareCategories(),
+      transactions: seam.transactions,
+      transactionStats: {
+        cached: 0,
+        fetched: seam.transactions.length,
+        total: seam.transactions.length,
+        fullFetchReason: 'stubbed seam',
+      },
+      splits: [],
+      budgets: [],
+      goals: [],
+      phases: {},
+    }),
+
+    prepareCategories,
     initialize: async (): Promise<void> => {},
     subscribeToUpdates: (): (() => void) => () => {},
     // A device with nobody signed in: realtime off keeps the boot's

@@ -195,6 +195,86 @@ export interface AccountBalanceSnapshot {
 }
 
 /**
+ * Everything the app boots with, in one answer.
+ *
+ * Six questions the boot used to ask one after another — the accounts, the
+ * categories (prepared, not merely listed), the transactions and their stats,
+ * the split lines, the budgets, the goals. They are gathered here because the
+ * ORDER between them is a rule rather than an accident (categories before
+ * transactions; budgets and goals together, never one after the other), and a
+ * rule spread over six call-site awaits can only be kept by the one call site
+ * that happens to read it. Gathered, it becomes the implementation's rule, and
+ * every implementation is held to it by the same contract test.
+ *
+ * `phases` is the boot-timing breakdown, in milliseconds, measured where the
+ * work actually happens. The app prints it on one console line, so a slow load
+ * can be attributed from the console of any environment, production included.
+ * An implementation names its own phases; nothing branches on the keys.
+ */
+export interface BootSnapshot {
+  accounts: Account[];
+  categories: Category[];
+  transactions: Transaction[];
+  transactionStats: BootTransactionStats;
+  splits: TransactionSplit[];
+  budgets: Budget[];
+  goals: Goal[];
+  /** Milliseconds per phase, named by the implementation. Diagnostic only. */
+  phases: Record<string, number>;
+}
+
+/**
+ * The boot, as ONE crossing.
+ *
+ * Separate from the reads because it is not one: it may CHANGE the store on the
+ * way past (see `prepareCategories`, whose one-time id migration is the reason
+ * the ordering inside this snapshot is load-bearing), and because a second
+ * implementation is expected to answer it in a way that has nothing to do with
+ * calling the reads six times. The cloud composes it from its own reads — six
+ * network crossings in the order the app depended on — and a local core answers
+ * it from one transaction against one file. Both satisfy the same contract, and
+ * the difference is declared in the contract suite's BOOT_COMPOSITION table
+ * rather than discovered.
+ */
+export interface DataPortBoot {
+  /**
+   * The whole boot in one call.
+   *
+   * ── WHY `getAccountBalances` IS NOT IN THIS SNAPSHOT ──────────────────────
+   *
+   * It is the one boot read deliberately left OUTSIDE, and the omission is
+   * load-bearing rather than an oversight to tidy up later.
+   *
+   * Those figures exist for exactly the seconds a long history is in flight.
+   * Until the first page of transactions lands, every client-side ledger sum is
+   * just the opening balance, so the dashboard would open on zeros; the
+   * server-computed map lands early and lets it open on real money instead. The
+   * whole value of it is that it arrives BEFORE the rest of the boot does.
+   *
+   * Folding it in here would close that window completely. The map would arrive
+   * with — not before — the transactions it was meant to cover for, so the
+   * seeding rule (which fires only while `transactions.length === 0`) would
+   * have nothing left to seed, and every account would read £0.00 for the whole
+   * boot instead of for none of it. A read whose entire purpose is to be early
+   * cannot be bundled with the thing it is early for.
+   *
+   * So it stays the parallel seventh read, and the call site fires it EARLIER
+   * than it used to — before this call is awaited rather than in the middle of
+   * the sequence. It takes no arguments, which is what makes that possible: the
+   * seam resolves its own owner (rule 1), so there is nothing this call has to
+   * resolve first for it to be startable.
+   *
+   * **NEVER REJECTS.** The boot effect has ONE outer catch, and reaching it
+   * puts a full-page "Failed to load data" in front of somebody whose ledger
+   * may be perfectly fine. This call is now the only thing inside that try, so
+   * it carries the same floor `loadBootTransactions` does: a store that will
+   * not open costs whatever could not be read, said out loud in
+   * `transactionStats.fullFetchReason`, and never a rejected promise.
+   */
+  loadBoot(): Promise<BootSnapshot>;
+}
+
+/**
  * Reads. None of them take a filter: the app loads its ledger and does its own
  * filtering in memory, and pretending otherwise here would invent a query
  * language that no implementation actually has.
@@ -1059,6 +1139,7 @@ export interface DataPortCapabilityDescriptor {
 /** The whole seam as it stands. */
 export interface DataPort extends
   DataPortReads,
+  DataPortBoot,
   DataPortAccountWrites,
   DataPortTransactionWrites,
   DataPortBulkWrites,

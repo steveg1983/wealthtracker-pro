@@ -31,6 +31,14 @@
  * are not a boot read at all (they load on demand). `isUsingSupabase` used to
  * be on this list; it is gone from the app entirely, and the stub answers the
  * capability descriptor that replaced it.
+ *
+ * TWO RULES THAT USED TO BE PROVED HERE ARE NOW PROVED ELSEWHERE, and they were
+ * MOVED rather than dropped — categories-before-transactions, and budgets and
+ * goals together. Both were properties of the boot's own sequence of awaits
+ * while there was one; the sequence is now `loadBoot`, so both are properties
+ * of the seam, and they are asserted in `services/port/__tests__/contract.ts`
+ * against every engine instead of here against a stub. Proving them here would
+ * now prove only that the stub obeys itself.
  */
 
 import React, { ReactNode } from 'react';
@@ -88,17 +96,15 @@ vi.mock('@/contexts/AuthContext', () => {
 /**
  * Everything the stubbed seam answers with, plus the log of what it was asked.
  *
- * `hold` is how the ORDER is proved rather than merely observed: a boot read
- * that is left hanging tells us exactly which other reads were willing to start
- * without it.
+ * The log is what proves the door was the door: an operation that turns up in
+ * it that the boot has no business calling, or a piece of state that arrives
+ * without its operation appearing, both fail below.
  */
 const seam = vi.hoisted(() => {
   const AT = (day: string): Date => new Date(`${day}T12:00:00.000Z`);
 
   return {
     calls: [] as string[],
-    /** Set by a test to keep `prepareCategories` from resolving. */
-    hold: null as Promise<void> | null,
     accounts: [
       {
         id: 'acct-from-the-seam',
@@ -209,14 +215,32 @@ vi.mock('../../services/port', () => {
     listGoals: answer('listGoals', seam.goals),
     listCategories: answer('listCategories', seam.categories),
     listSuggestionDismissals: answer('listSuggestionDismissals', []),
-    prepareCategories: async () => {
-      seam.calls.push('prepareCategories');
-      if (seam.hold) {
-        await seam.hold;
-      }
-      seam.calls.push('prepareCategories:resolved');
-      return seam.categories;
+    /**
+     * The composite, answering with all six at once — which is exactly what an
+     * engine is free to do, and what the local edition will do from one
+     * transaction against one file. The reads above stay in the stub, still
+     * logging, precisely so that a boot which reached PAST this answer for any
+     * of them would show up in the call log below.
+     */
+    loadBoot: async () => {
+      seam.calls.push('loadBoot');
+      return {
+        accounts: seam.accounts,
+        categories: seam.categories,
+        transactions: seam.transactions,
+        transactionStats: {
+          cached: 0,
+          fetched: seam.transactions.length,
+          total: seam.transactions.length,
+          fullFetchReason: 'stubbed seam',
+        },
+        splits: seam.splits,
+        budgets: seam.budgets,
+        goals: seam.goals,
+        phases: { accounts: 0, categories: 0, transactions: 0, splits: 0, planning: 0 },
+      };
     },
+    prepareCategories: answer('prepareCategories', seam.categories),
     initialize: async () => {},
     subscribeToUpdates: () => () => {},
     // A device, with nobody signed in — which is what the rest of this file
@@ -315,7 +339,6 @@ const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{childre
 describe('the boot, through the seam and nothing else', () => {
   beforeEach(() => {
     seam.calls.length = 0;
-    seam.hold = null;
   });
 
   it('takes every piece of its financial state from the port', async () => {
@@ -338,86 +361,19 @@ describe('the boot, through the seam and nothing else', () => {
     // balance maths, and a string here would be a NaN there.
     expect(result.current.transactions[0].date).toBeInstanceOf(Date);
 
-    // And the door was actually the door — every boot read went through it.
+    // And the door was actually the door — TWO calls, and every piece of state
+    // above came through one of them.
+    //
+    // It used to be six reads, and the shrink is the whole of this slice: the
+    // boot now asks one composite question and starts the balances beside it.
+    // The reads it replaced are still in the stub and still log themselves, so
+    // a boot that reached past `loadBoot` for any of them — an account list
+    // re-read "just to be sure", a second split fetch — would put an extra name
+    // in this set and fail here.
     expect(new Set(seam.calls)).toEqual(new Set([
-      'listAccounts',
+      'loadBoot',
       'getAccountBalances',
-      'prepareCategories',
-      'prepareCategories:resolved',
-      'loadBootTransactions',
-      'listTransactionSplits',
-      'listBudgets',
-      'listGoals',
     ]));
-  });
-
-  it('does not read a transaction until the categories are prepared', async () => {
-    // The ordering the seam calls load-bearing, proved at the call site rather
-    // than assumed from the source order.
-    //
-    // On a first signed-in load `prepareCategories` runs the one-time id
-    // migration: every category gets a per-user uuid AND every transaction and
-    // budget that referenced the old ids is remapped, in one database
-    // transaction. A transaction read that started before that finished would
-    // hand the app rows pointing at categories about to stop existing — a
-    // register whose category column is blank, with nothing thrown anywhere to
-    // say why.
-    //
-    // Holding the categories is what makes this a proof: reordering the two
-    // reads, or gathering them into a Promise.all, both start the transaction
-    // read while this one is still outstanding, and both fail below.
-    let landCategories!: () => void;
-    seam.hold = new Promise<void>(resolve => {
-      landCategories = resolve;
-    });
-
-    const { result } = renderHook(() => useApp(), { wrapper });
-
-    await waitFor(() => expect(seam.calls).toContain('prepareCategories'));
-    expect(seam.calls).not.toContain('loadBootTransactions');
-
-    landCategories();
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(seam.calls.indexOf('prepareCategories:resolved'))
-      .toBeLessThan(seam.calls.indexOf('loadBootTransactions'));
-    expect(result.current.transactions.map(transaction => transaction.id))
-      .toEqual(['txn-from-the-seam']);
-  });
-
-  it('asks for the budgets and the goals together, not one after the other', async () => {
-    // They are independent reads. Serialising them would add a whole round trip
-    // to every signed-in boot in exchange for nothing, and it is the kind of
-    // change that looks tidier in a diff than it is on a slow connection.
-    const started: string[] = [];
-    let landBudgets!: () => void;
-    const budgetsInFlight = new Promise<void>(resolve => {
-      landBudgets = resolve;
-    });
-
-    const { dataPort } = await import('../../services/port');
-    vi.spyOn(dataPort, 'listBudgets').mockImplementation(async () => {
-      started.push('listBudgets');
-      await budgetsInFlight;
-      return seam.budgets;
-    });
-    vi.spyOn(dataPort, 'listGoals').mockImplementation(async () => {
-      started.push('listGoals');
-      return seam.goals;
-    });
-
-    const { result } = renderHook(() => useApp(), { wrapper });
-
-    // Goals started while budgets were still outstanding: that is what "one
-    // Promise.all" means, and two sequential awaits could not produce it.
-    await waitFor(() => expect(started).toEqual(['listBudgets', 'listGoals']));
-
-    landBudgets();
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.budgets.map(budget => budget.id)).toEqual(['budget-from-the-seam']);
-    expect(result.current.goals.map(goal => goal.id)).toEqual(['goal-from-the-seam']);
-
-    vi.restoreAllMocks();
   });
 
   it('stubs the whole seam — exactly the operations it names, no more and no fewer', async () => {

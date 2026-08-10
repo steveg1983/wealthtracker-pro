@@ -404,6 +404,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       teardowns.push(teardown);
     };
 
+    // ONE RENDER WHERE THERE WERE SEVERAL — a declared change, not a side
+    // effect of tidying.
+    //
+    // The boot used to set its state in six instalments, each after its own
+    // await, so the provider published several partly-filled states on the way
+    // up: the accounts alone, then the categories, then the transactions, and
+    // so on. Everything the boot reads now arrives in one snapshot and the
+    // setters run in the same tick, so React batches them into a single render.
+    //
+    // WHO COULD SEE THOSE PARTLY-FILLED STATES. A signed-in session: nobody.
+    // SupabaseDataLoader holds the whole app behind a loading screen until
+    // `isLoading` goes false in this effect's `finally`, so no consumer renders
+    // during the boot at all. A demo or signed-out session does render
+    // throughout, and there the change is strictly in its favour — a reader
+    // that used to be handed transactions before the budgets that are compared
+    // against them now gets both at once, or neither.
+    //
+    // The one rule written against a partly-filled state is the balance seeding
+    // in utils/accountBalances, which stands the store's own figures in while
+    // `transactions.length === 0`. It is unaffected in both directions: the
+    // balances are still the parallel read they always were, started before the
+    // snapshot below is awaited, and the only sessions that render mid-boot are
+    // the ones with no server balances to seed from (the call is guarded on a
+    // resolved login).
     const initializeData = async () => {
       setIsLoading(true);
       setSyncError(null);
@@ -469,21 +493,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             appLogger.info('Loading application data');
             markPhase('services');
 
-            // Through the seam, in the position the direct call held. The
-            // database id resolved above is the one the port reads back for
-            // itself (ensureUserExists sets it), so this asks the same
-            // question of the same table through the same row mapper — and it
-            // stops the boot naming a service, which is the point.
-            const accounts = await dataPort.listAccounts();
-            appLogger.info('Accounts loaded', { count: accounts.length });
-            setAccounts(accounts);
-            markPhase('accounts');
-
             // One round trip for every account's balance, started here and
-            // deliberately NOT awaited: the paged transaction load must not
-            // wait on it. Those pages are ~77% of the boot, and until they
+            // deliberately NOT awaited: the rest of the boot must not wait on
+            // it. The transaction pages are ~77% of that boot, and until they
             // land every client-side balance is zero — these figures let the
             // dashboard paint real money in the meantime.
+            //
+            // It starts EARLIER than it used to (it sat below the account read
+            // that has since moved into the snapshot) and it stays OUT of that
+            // snapshot, which is the same decision said twice: a read whose
+            // whole value is arriving before the ledger does cannot be bundled
+            // with the ledger. The guard is unchanged — a resolved login, and
+            // nothing else, has server-side balances to ask for.
             const balancesStart = performance.now();
             serverBalancesLoaded = dataPort.getAccountBalances().then(balances => {
               phases.balances = Math.round(performance.now() - balancesStart);
@@ -491,12 +512,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             });
           } else {
             appLogger.warn('Failed to resolve database user ID - no data will be loaded');
-            setAccounts([]);
           }
         } else {
           // No user logged in
           appLogger.info('No user logged in');
-          setAccounts([]);
           // Signed out (this effect re-runs when Clerk's user goes away, however
           // the sign-out was triggered): the cached history belongs to whoever
           // was signed in and must not survive on a shared browser.
@@ -507,67 +526,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           preferencesService.detach();
         }
         
-        // Categories first, and that is a CONSTRAINT rather than a preference:
-        // this line may not move below the transaction read. The reason it may
-        // not — the one-time id migration and the remap that comes with it —
-        // now lives on the seam, where every implementation can be held to it,
-        // rather than here where only this call site could read it. See
-        // DataPortLifecycle.prepareCategories.
-        const loadedCategories = await dataPort.prepareCategories();
-        setCategories(loadedCategories);
-        markPhase('categories');
+        // ONE crossing for everything the app boots with.
+        //
+        // Six awaits used to stand here — the accounts, the categories, the
+        // transactions, the split lines, and the budgets and goals together —
+        // and the ORDER between three of them was a rule this call site was the
+        // only place able to keep: categories before transactions (the one-time
+        // id migration remaps every reference as it lands), budgets and goals in
+        // one Promise.all, and the account read answering all three of the
+        // boot's account cases. Those rules now live on the seam, where every
+        // implementation is held to them by the same contract tests, and where
+        // the local edition can answer the whole question from one transaction
+        // against one file instead of crossing a process six times.
+        //
+        // The account list is no longer read twice, either: the signed-out
+        // fallback that used to run below is the same `listAccounts` branch the
+        // snapshot already takes.
+        const boot = await dataPort.loadBoot();
+        // loadBoot never rejects (contract rule 81) — the floor exists for the
+        // TRANSIENT case, where an empty register beside a working account list
+        // beats a full-page error nobody needed. But when the transaction read
+        // failed AND no account came back either, the store itself is refusing:
+        // an app rendering nothing at all is a worse lie than an error screen
+        // with a Retry that will genuinely help. Both signals are the
+        // snapshot's own honest answers, not a rethrow.
+        if (boot.transactionStats.fullFetchReason === 'load failed' && boot.accounts.length === 0) {
+          setSyncError('Failed to load data. Using offline mode.');
+        }
+        appLogger.info('Accounts loaded', { count: boot.accounts.length });
 
-        // Now load transactions, budgets, and goals (post-remap views).
-        const boot = await dataPort.loadBootTransactions();
+        // In the source order the six awaits set them in. React batches these
+        // into ONE render where the sequence produced several — the declared
+        // change, argued in the note above the effect body.
+        setAccounts(boot.accounts);
+        setCategories(boot.categories);
         setTransactions(boot.transactions);
-        markPhase('transactions');
-
-        // Split lines ride along with transactions; a failure here must not
-        // block the app (split parents then pass through aggregation whole).
-        // The catch stays where it is rather than moving onto the seam: unlike
-        // the boot's transactions, this read has no "empty is an honest answer"
-        // story to tell, and the refresh sites below share the same handling.
-        try {
-          setTransactionSplitsState(await dataPort.listTransactionSplits());
-        } catch (splitError) {
-          appLogger.error('Failed to load transaction splits', splitError);
-          setTransactionSplitsState([]);
-        }
-        markPhase('splits');
-
-        // Without an authenticated user (demo / local-only mode) the account
-        // read above returns nothing — it needs a database user id. Ask the
-        // seam for the storage-backed accounts instead, so demo mode shows
-        // accounts everywhere (accounts page, dashboard distribution,
-        // add-transaction modal).
-        //
-        // Guarded rather than unconditional, and that is the point of this
-        // step: the boot used to read the account list a SECOND time on every
-        // load — signed-in ones included, where the answer was thrown away
-        // unread. A signed-in boot never evaluates the await below, so its
-        // sequence of awaits is exactly what it was.
-        if (!user) {
-          const localAccounts = await dataPort.listAccounts();
-          if (localAccounts.length > 0) {
-            setAccounts(localAccounts);
-          }
-        }
-
-        // Still ONE Promise.all: two independent reads that have no reason to
-        // queue behind each other, and turning them into two awaits would add a
-        // round trip to every signed-in boot for nothing.
-        //
-        // The database id no longer travels from here — the seam resolves its
-        // own owner, which is what stops a caller passing a null one and being
-        // served the browser's budgets in a signed-in session with no error to
-        // show for it.
-        const [loadedBudgets, loadedGoals] = await Promise.all([
-          dataPort.listBudgets(),
-          dataPort.listGoals()
-        ]);
-        setBudgets(loadedBudgets);
-        setGoals(loadedGoals);
-        markPhase('planning');
+        setTransactionSplitsState(boot.splits);
+        setBudgets(boot.budgets);
+        setGoals(boot.goals);
+        // Measured where the work happens. `auth` and `services` above were
+        // measured here because they happen here; these five were not.
+        Object.assign(phases, boot.phases);
 
         setLastSyncTime(new Date());
         // Settled long ago in practice (it started before the slowest phase) —
@@ -585,7 +584,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // stats on every answer and a stated reason whenever it did not serve a
         // snapshot, so the old `?? 'no cache'` had become a branch that could
         // not be taken. Both SENTENCES are unchanged.
-        const txnStats = boot.stats;
+        const txnStats = boot.transactionStats;
         const txnSummary = txnStats.fullFetchReason === null
           ? `${txnStats.total.toLocaleString()} transactions ` +
             `(${txnStats.cached.toLocaleString()} from cache + ${txnStats.fetched.toLocaleString()} delta)`

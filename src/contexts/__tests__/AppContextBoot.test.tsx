@@ -253,8 +253,13 @@ describe('the boot', () => {
     // replaced did — see the equivalence pinned in dataService.test.ts.
     //
     // Only the SEAM's store is broken here, and only for the two reads whose
-    // promise is the subject. Everything else the boot asks for is answered, so
-    // a failure in this test is those two reads' and nobody else's.
+    // promise is the subject. The account list ANSWERS — with a real account —
+    // because that is what the transient case looks like: a person with data
+    // whose transaction read wobbled. (The all-empty variant is the next test,
+    // and it earns the opposite answer.)
+    memoryStore.set(STORAGE_KEYS.ACCOUNTS, [
+      { id: 'acc-1', name: 'Everyday', type: 'current', balance: 0, currency: 'GBP', isActive: true },
+    ]);
     DataService.configure(refusingEverythingBut(READS_THAT_DO_NOT_PRETEND));
 
     render(
@@ -270,6 +275,9 @@ describe('the boot', () => {
   });
 
   it('leaves no sync error behind when the ledger reads refuse to answer', async () => {
+    memoryStore.set(STORAGE_KEYS.ACCOUNTS, [
+      { id: 'acc-1', name: 'Everyday', type: 'current', balance: 0, currency: 'GBP', isActive: true },
+    ]);
     DataService.configure(refusingEverythingBut(READS_THAT_DO_NOT_PRETEND));
 
     const { result } = renderHook(() => useApp(), { wrapper });
@@ -279,6 +287,19 @@ describe('the boot', () => {
     // An unreadable store means no rows — not a broken app.
     expect(result.current.transactions).toEqual([]);
     expect(result.current.transactionSplits).toEqual([]);
+  });
+
+  it('shows the error page when the store answers nothing at all', async () => {
+    // TOTAL failure: the transaction read failed AND no account came back.
+    // Rule 81 still holds — loadBoot resolved — but an app rendering nothing
+    // at all is a worse lie than an error screen whose Retry will genuinely
+    // help. The call site reads the snapshot's own honest signals and says so.
+    DataService.configure(refusingEverythingBut([]));
+
+    const { result } = renderHook(() => useApp(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.syncError).toBe('Failed to load data. Using offline mode.');
   });
 
   it('does not let a slow balances round trip hold up the transactions', async () => {
