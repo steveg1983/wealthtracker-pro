@@ -84,20 +84,34 @@ interface LoadingButtonProps {
   className?: string;
   disabled?: boolean;
   onClick?: () => void;
+  /**
+   * Why this button is unavailable, for the pointer.
+   *
+   * A disabled button that will not say why is indistinguishable from a broken
+   * one — the complaint that started the CSV wizard's rebuild. Optional, but
+   * anything passing `disabled` should be passing this too.
+   */
+  title?: string;
+  /** The id of the visible text stating that same reason, for a screen reader. */
+  'aria-describedby'?: string;
 }
 
-export function LoadingButton({ 
-  isLoading, 
-  children, 
-  loadingText = 'Loading...', 
+export function LoadingButton({
+  isLoading,
+  children,
+  loadingText = 'Loading...',
   className = '',
   disabled = false,
-  onClick
+  onClick,
+  title,
+  'aria-describedby': ariaDescribedBy
 }: LoadingButtonProps): React.JSX.Element {
   return (
     <button
       onClick={onClick}
       disabled={isLoading || disabled}
+      title={title}
+      aria-describedby={ariaDescribedBy}
       className={`relative ${className} ${isLoading ? 'cursor-not-allowed' : ''}`}
     >
       <span className={`${isLoading ? 'invisible' : ''}`}>{children}</span>

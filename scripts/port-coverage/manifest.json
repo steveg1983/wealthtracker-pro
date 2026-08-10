@@ -147,6 +147,7 @@
     "src/utils/clerkSafarifix.ts": {"status":"pending"},
     "src/utils/csvExport.ts": {"status":"pending"},
     "src/utils/cumulativeSeries.ts": {"status":"pending"},
+    "src/utils/csvMappingPrefill.ts": {"status":"pending","note":"Which of a saved set of column names apply to the file in hand, for the CSV wizard's template and profile prefill. Sits beside enhancedCsvImportService.ts, which is itself pending: the same import path, the same disposition."},
     "src/utils/currency-decimal.ts": {"status":"pending","ids":["#33","T-9"],"cited_by":["AUDIT3"]},
     "src/utils/currency.ts": {"status":"pending"},
     "src/utils/dateBoundary.ts": {"status":"pending","note":"toDateMs is what statementDuplicates.ts reads a date through, and crates/wealth-core/src/admission/day.rs is the port of the part that matters — the ECMAScript date-only form INCLUDING its rollover (30 February is 2 March, measured). V8 non-standard fallback parsing is deliberately not ported and admission-specs/dedupe-a-date-only-the-browser-can-read-* pins the difference from both sides. normalizeTransactionDates is a read-path helper with no admission decision in it."},
