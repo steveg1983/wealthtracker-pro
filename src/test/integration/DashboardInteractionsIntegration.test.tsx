@@ -178,26 +178,26 @@ describe('Dashboard Interactions Integration', () => {
       }
     });
 
-    it('should expose quick actions shortcuts', async () => {
+    it('no longer ends in a row of quick-action tiles', async () => {
+      // Same reasoning as the Recent Transactions card above: four 140px tiles
+      // closed the page — Add Transaction, View Accounts, Set Budget, Reports —
+      // and each was a second door to a room already on screen. The sidebar
+      // names those destinations permanently, and adding a transaction belongs
+      // in the register that will hold it. The phone keeps its floating "+"
+      // (components/MobileBottomNav), where the sidebar is behind a tap.
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
       });
+      // The Performance section always renders once the dashboard body is up,
+      // so absence is being asserted against a painted page.
+      await screen.findByRole('heading', { name: /^performance$/i }, { timeout: 15000 });
 
-      const addTransactionButton = await screen.findByText(/add transaction/i);
-      await user.click(addTransactionButton);
-
-      await waitFor(() => {
-        expect(screen.getByRole('dialog')).toBeInTheDocument();
-      });
-
-      await user.keyboard('{Escape}');
-
-      await waitFor(() => {
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-      });
-    });
+      expect(screen.queryByRole('navigation', { name: /quick actions/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /add a new transaction/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /set up or view budgets/i })).not.toBeInTheDocument();
+    }, 20000);
 
     it('should render dashboard widgets container', async () => {
       renderWithProviders(<Dashboard />);

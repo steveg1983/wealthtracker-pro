@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import MobileBottomNav from '../MobileBottomNav';
 
@@ -63,5 +63,35 @@ describe('MobileBottomNav', () => {
       expect(link.className).toContain('min-w-[48px]');
       expect(link.className).toContain('min-h-[48px]');
     }
+  });
+});
+
+/**
+ * The floating "+" is the phone's ONLY way to add without first navigating —
+ * the desktop dashboard's four quick-action tiles have gone, and on a phone the
+ * sidebar that names those destinations is behind a tap. So this button, and
+ * the two things it offers, are load-bearing on mobile and are pinned here.
+ */
+describe('the phone quick-add', () => {
+  it('offers a floating + that opens Add Transaction and Add Account', () => {
+    renderAt('/dashboard');
+
+    const fab = screen.getByRole('button', { name: 'Quick actions' });
+    // Phone only, and clear of the bottom bar and the home indicator.
+    expect(fab.className).toContain('md:hidden');
+    expect(fab.className).toContain('fixed');
+
+    fireEvent.click(fab);
+
+    expect(screen.getByRole('link', { name: 'Add Transaction' }))
+      .toHaveAttribute('href', '/transactions?action=add');
+    expect(screen.getByRole('link', { name: 'Add Account' }))
+      .toHaveAttribute('href', '/accounts?action=add');
+  });
+
+  it('keeps the menu shut until it is asked for', () => {
+    renderAt('/dashboard');
+
+    expect(screen.queryByRole('link', { name: 'Add Transaction' })).not.toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
 import { computeCategoryHealth } from '../../utils/categoryHealth';
+import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon, MergeIcon } from '../../components/icons';
 import { PlusIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
 import type { Category as AppCategory, CategoryMergeResult } from '../../types';
@@ -64,6 +65,10 @@ interface SortableCategoryProps {
   isMergeMode: boolean;
   /** Set when merge mode is on and this row cannot be merged; the row dims and says why. */
   mergeBlockedReason?: string | null;
+  /** True for a row the data-health panel has just pointed at. */
+  isHighlighted?: boolean;
+  /** Put on the ONE highlighted row that should scroll itself into view. */
+  highlightRef?: (node: HTMLElement | null) => void;
   onEdit: () => void;
   onDelete: () => void;
   onMerge: () => void;
@@ -78,6 +83,8 @@ function SortableCategory({
   isDeleteMode,
   isMergeMode,
   mergeBlockedReason: mergeBlocked,
+  isHighlighted = false,
+  highlightRef,
   onEdit,
   onDelete,
   onMerge,
@@ -111,9 +118,17 @@ function SortableCategory({
   return (
     <div ref={setNodeRef} style={style}>
       <div
+        ref={highlightRef}
+        // `aria-current` rather than colour alone: a row the panel pointed at
+        // is "the one you asked for", and that has to reach a screen reader as
+        // well as an eye. Same tint as a drill-down arrival elsewhere in the
+        // app (hooks/useArrivalFocus), so being landed on always looks the same.
+        aria-current={isHighlighted ? 'true' : undefined}
         className={`flex items-center justify-between p-2 rounded ${
           isDragging ? 'opacity-50' : ''
         } ${mergeUnavailable ? 'opacity-60' : ''} ${
+          isHighlighted ? ARRIVAL_ROW_CLASS : ''
+        } ${
           isEditMode ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
         }`}
       >
@@ -286,6 +301,20 @@ export default function CategoriesSettings() {
   const [viewingCategoryId, setViewingCategoryId] = useState<string | null>(null);
   const [viewingCategoryName, setViewingCategoryName] = useState<string>('');
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+  /**
+   * The rows the data-health panel has just pointed at, and a token that
+   * changes on every ask so the same rows can be scrolled to twice. Null until
+   * the user asks — nothing about this page changes for anyone who doesn't.
+   */
+  const [emptyHighlight, setEmptyHighlight] = useState<{
+    ids: Set<string>;
+    /** The one that scrolls itself into view. */
+    firstId: string;
+    token: string;
+  } | null>(null);
+  // Only the FIRST of them scrolls: dragging the view to each in turn would
+  // land on the last one, which is not the one being introduced.
+  const { focusRef: scrollHighlightIntoView } = useArrivalRowFocus(emptyHighlight?.token ?? null);
 
   // Initialize category order from existing categories
   useState(() => {
@@ -598,6 +627,82 @@ export default function CategoriesSettings() {
     }
   };
 
+  /**
+   * Data-health remedy 1: open the import bucket's rows so they can be filed.
+   *
+   * Straight to the list, past the "Would you like to see all transactions?"
+   * confirmation a click on the tree gets — the user has just clicked an action
+   * that says what it does, and asking them to confirm their own sentence twice
+   * is friction, not safety.
+   */
+  const fileUnassignedBucket = (categoryId: string): void => {
+    setViewingCategoryId(categoryId);
+    setViewingCategoryName(categories.find(c => c.id === categoryId)?.name ?? 'Unassigned');
+    setShowTransactionsModal(true);
+  };
+
+  /**
+   * Data-health remedy 2: put the empty categories on screen with deletion
+   * reachable.
+   *
+   * Three things have to be true before "delete this category" is one click
+   * away, and the panel's action does all three rather than describing them:
+   * the row must be VISIBLE (its group expanded — detail rows live inside
+   * collapsed subs), it must be FOUND (highlighted, and the first scrolled to,
+   * in a tree hundreds of rows long), and the delete affordance must be LIVE
+   * (this page keeps deletion behind Edit → Delete mode, so we arrive in it,
+   * with the red panel above the tree already explaining what a click now
+   * means). Nothing is deleted for the user: an empty category still asks
+   * before it goes.
+   */
+  const showEmptyCategories = (): void => {
+    const ids = categoryHealth.emptyCategoryIds;
+    if (ids.length === 0) return;
+
+    setIsEditMode(true);
+    setIsDeleteMode(true);
+    setIsMergeMode(false);
+    setEditingCategoryId(null);
+
+    // Every ancestor of every flagged row, so none of them is hiding inside a
+    // collapsed group when the user looks.
+    const byId = new Map(categories.map(c => [c.id, c]));
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        // `!next.has` is the loop's floor as well as its filter: a parentId
+        // cycle in bad data would otherwise spin here for ever.
+        let parentId: string | null = byId.get(id)?.parentId ?? null;
+        while (parentId !== null && parentId !== '' && !next.has(parentId)) {
+          next.add(parentId);
+          parentId = byId.get(parentId)?.parentId ?? null;
+        }
+      }
+      return next;
+    });
+
+    // A fresh token every time, so asking twice scrolls back twice.
+    setEmptyHighlight({
+      ids: new Set(ids),
+      firstId: ids[0],
+      token: `${ids[0]}#${Date.now()}`,
+    });
+  };
+
+  /** Which of the highlighted rows, if any, this row is. */
+  const highlightPropsFor = (categoryId: string): {
+    isHighlighted: boolean;
+    highlightRef?: (node: HTMLElement | null) => void;
+  } => {
+    if (emptyHighlight === null || !emptyHighlight.ids.has(categoryId)) {
+      return { isHighlighted: false };
+    }
+    return {
+      isHighlighted: true,
+      highlightRef: categoryId === emptyHighlight.firstId ? scrollHighlightIntoView : undefined,
+    };
+  };
+
   const renderCategorySection = (title: string, parentId: string) => {
     // Inactive categories (a closed account's transfer category) stay out of
     // sight — reopening the account brings them back automatically.
@@ -662,6 +767,7 @@ export default function CategoriesSettings() {
                       isDeleteMode={isDeleteMode}
                       isMergeMode={isMergeMode}
                       mergeBlockedReason={isMergeMode ? mergeBlockedReason(subCategory, categories) : null}
+                      {...highlightPropsFor(subCategory.id)}
                       onEdit={() => startEditing(subCategory.id)}
                       onDelete={() => handleDelete(subCategory.id)}
                       onMerge={() => handleMerge(subCategory.id)}
@@ -702,6 +808,7 @@ export default function CategoriesSettings() {
                                   isDeleteMode={isDeleteMode}
                                   isMergeMode={isMergeMode}
                                   mergeBlockedReason={isMergeMode ? mergeBlockedReason(detailCategory, categories) : null}
+                                  {...highlightPropsFor(detailCategory.id)}
                                   onEdit={() => startEditing(detailCategory.id)}
                                   onDelete={() => handleDelete(detailCategory.id)}
                                   onMerge={() => handleMerge(detailCategory.id)}
@@ -735,6 +842,9 @@ export default function CategoriesSettings() {
               if (isDeleteMode) setIsDeleteMode(false);
               if (isMergeMode) setIsMergeMode(false);
               setEditingCategoryId(null);
+              // Leaving edit mode is the user saying they are done with the
+              // rows the health panel pointed at, so the highlight goes with it.
+              if (isEditMode) setEmptyHighlight(null);
             }}
             className={`w-8 h-8 flex items-center justify-center transition-colors ${
               isEditMode
@@ -865,8 +975,14 @@ export default function CategoriesSettings() {
         </div>
       )}
 
-      {/* Data health — where the category data is weak (renders nothing when clean) */}
-      <CategoryDataHealthPanel health={categoryHealth} />
+      {/* Data health — where the category data is weak (renders nothing when
+          clean). Every line it shows carries an action, and both of the actions
+          that land on THIS page are wired here. */}
+      <CategoryDataHealthPanel
+        health={categoryHealth}
+        onFileUnassignedBucket={fileUnassignedBucket}
+        onShowEmptyCategories={showEmptyCategories}
+      />
 
       {/* Categories Tree — the scrolling region on desktop */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
@@ -896,6 +1012,7 @@ export default function CategoriesSettings() {
                       isDeleteMode={isDeleteMode}
                       isMergeMode={isMergeMode}
                       mergeBlockedReason={isMergeMode ? mergeBlockedReason(category, categories) : null}
+                      {...highlightPropsFor(category.id)}
                       onEdit={() => startEditing(category.id)}
                       onDelete={() => handleDelete(category.id)}
                       onMerge={() => handleMerge(category.id)}

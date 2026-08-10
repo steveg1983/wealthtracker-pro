@@ -1,11 +1,12 @@
 /**
- * The dashboard's three claims about itself:
+ * The dashboard's four claims about itself:
  *
  *  - every "Needs Your Attention" row says WHY, on screen and to a screen
  *    reader, in the same words (they used to be written by two different rules,
  *    and the on-screen half went blank for any threshold but £500);
  *  - the account picker can start from everything or from nothing;
- *  - the two halves of "Your Reports" keep their own clocks.
+ *  - the two halves of "Your Reports" keep their own clocks;
+ *  - it ends in figures, not in a second copy of the navigation.
  *
  * Every account name, figure and institution here is invented.
  */
@@ -88,7 +89,6 @@ vi.mock('../charts/DashboardCharts', () => ({
   BarChart: () => <div data-testid="bar-chart" />,
 }));
 
-vi.mock('../AddTransactionModal', () => ({ default: () => null }));
 vi.mock('../EditTransactionModal', () => ({ default: () => null }));
 vi.mock('../IncomeExpenseBreakdownModal', () => ({ default: () => null }));
 vi.mock('../common/Modal', () => ({
@@ -312,5 +312,38 @@ describe('Your Reports — two columns, two clocks', () => {
     fireEvent.click(within(legend).getByRole('button', { name: /Feed Account A/ }));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/transactions?account=acc-a');
+  });
+});
+
+/**
+ * The page used to close with four 140px tiles — Add Transaction, View
+ * Accounts, Set Budget, Reports — each a second door to a room already on
+ * screen: the sidebar names all three destinations permanently, and adding a
+ * transaction belongs in the register that will hold it. They pushed the
+ * figures up a screenful to repeat the navigation, so they are gone.
+ *
+ * The phone's floating "+" is a different thing and stays; it is pinned in
+ * components/__tests__/MobileBottomNav.test.tsx, where it actually lives.
+ */
+describe('the foot of the dashboard', () => {
+  beforeEach(() => {
+    mocks.app.accounts = [account({ id: 'acc-a', name: 'Feed Account A', openingBalance: 100 })];
+  });
+
+  it('has no quick-action tiles', () => {
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByRole('navigation', { name: 'Quick actions' })).not.toBeInTheDocument();
+    for (const label of ['Add a new transaction', 'View all accounts', 'Set up or view budgets', 'View reports']) {
+      expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it('does not carry an add-transaction dialog it can no longer open', () => {
+    // The tiles were the only thing that opened it; a modal nobody can reach
+    // is dead weight in the dashboard's chunk.
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByText('Add Transaction')).not.toBeInTheDocument();
   });
 });

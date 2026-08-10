@@ -10,8 +10,6 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   WalletIcon,
-  TargetIcon,
-  CreditCardIcon,
   PieChartIcon,
   SettingsIcon,
   XIcon,
@@ -21,7 +19,6 @@ import {
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
-import AddTransactionModal from '../AddTransactionModal';
 import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
@@ -72,7 +69,6 @@ export function ImprovedDashboard() {
   const location = useLocation();
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
   // A row in the breakdown list opens the full editor — check details, fix a
   // category — and the list re-derives live, so a re-categorised transaction
@@ -990,59 +986,15 @@ export function ImprovedDashboard() {
         </section>
       )}
 
-      {/* Quick Actions — desktop only: on a phone the + button's menu
-          covers adding, and budgets/goals are desk work. */}
-      <nav aria-label="Quick actions" className="hidden md:grid md:grid-cols-4 gap-6">
-        <button
-          onClick={() => setShowAddTransactionModal(true)}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="Add a new transaction"
-        >
-          <CreditCardIcon size={32} className="mx-auto mb-3 text-[#1a2332] dark:text-gray-300" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Add Transaction
-          </span>
-        </button>
-
-        <button
-          onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="View all accounts"
-        >
-          <WalletIcon size={32} className="mx-auto mb-3 text-blue-600" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            View Accounts
-          </span>
-        </button>
-
-        <button
-          onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="Set up or view budgets"
-        >
-          <TargetIcon size={32} className="mx-auto mb-3 text-amber-600" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Set Budget
-          </span>
-        </button>
-
-        <button
-          onClick={() => navigate(preserveDemoParam('/reports', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="View reports"
-        >
-          <TrendingUpIcon size={32} className="mx-auto mb-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Reports
-          </span>
-        </button>
-      </nav>
-      
-      {/* Add Transaction Modal */}
-      <AddTransactionModal
-        isOpen={showAddTransactionModal}
-        onClose={() => setShowAddTransactionModal(false)}
-      />
+      {/* No quick-action tiles here.
+          Four 140px cards used to close the page — Add Transaction, View
+          Accounts, Set Budget, Reports — and every one of them was a second
+          door to a room already on screen: the sidebar names all three
+          destinations permanently, and adding a transaction belongs in the
+          register that will hold it. A dashboard's job is to SHOW, and the
+          tiles pushed the figures up a screenful to repeat the navigation.
+          The phone keeps its floating "+" (components/MobileBottomNav) — there
+          the sidebar is behind a tap, so quick-add is the only door. */}
     </div>
   );
 }
