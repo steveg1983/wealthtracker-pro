@@ -229,7 +229,7 @@ describe('Reconciliation — finalizing is gated on a confirmed balance', () => 
     expect(finalize).toBeDisabled();
     // Named as a consequence, beside the box that has to be confirmed.
     expect(
-      screen.getByText(/Confirm the bank balance to finish\. Until you do, your marks stay a working list/)
+      screen.getByText(/Confirm the closing balance to finish\. Until you do, your marks stay a working list/)
     ).toBeInTheDocument();
     // And the escape hatch is gone for good.
     expect(screen.queryByText('Finalize Anyway')).not.toBeInTheDocument();
@@ -281,7 +281,7 @@ describe('Reconciliation — finalizing is gated on a confirmed balance', () => 
     expect(screen.getByRole('button', { name: /Finalize Reconciliation/ })).toBeEnabled();
 
     fireEvent.click(screen.getByTitle('Click to change or remove'));
-    fireEvent.change(screen.getByLabelText('Bank balance'), { target: { value: '55' } });
+    fireEvent.change(screen.getByLabelText('Closing balance'), { target: { value: '55' } });
 
     expect(screen.getByRole('button', { name: /Finalize Reconciliation/ })).toBeDisabled();
   });
@@ -298,7 +298,7 @@ describe('Reconciliation — finalizing is gated on a confirmed balance', () => 
     renderReconciliation();
 
     fireEvent.click(screen.getByTitle('Click to change or remove'));
-    const input = screen.getByLabelText('Bank balance');
+    const input = screen.getByLabelText('Closing balance');
     fireEvent.change(input, { target: { value: '61.25' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
