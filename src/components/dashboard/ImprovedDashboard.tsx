@@ -10,8 +10,6 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   WalletIcon,
-  TargetIcon,
-  CreditCardIcon,
   PieChartIcon,
   SettingsIcon,
   XIcon,
@@ -21,7 +19,6 @@ import {
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
-import AddTransactionModal from '../AddTransactionModal';
 import EditTransactionModal from '../EditTransactionModal';
 import IncomeExpenseBreakdownModal from '../IncomeExpenseBreakdownModal';
 import { Modal, ModalBody } from '../common/Modal';
@@ -35,6 +32,7 @@ import {
   CustomReportWidget,
 } from './reportWidgets/DashboardReportWidgets';
 import DashboardWidgetCard from './reportWidgets/DashboardWidgetCard';
+import { useReportDrill } from './reportWidgets/useReportDrill';
 import { WIDGET_CHART_HEIGHT } from './reportWidgets/widgetChrome';
 import { BUILT_IN_REPORTS, type PinnableReportId } from './reportWidgets/pinnableReports';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/DashboardCharts';
@@ -71,7 +69,6 @@ export function ImprovedDashboard() {
   const location = useLocation();
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
-  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense' | null>(null);
   // A row in the breakdown list opens the full editor — check details, fix a
   // category — and the list re-derives live, so a re-categorised transaction
@@ -102,6 +99,10 @@ export function ImprovedDashboard() {
   // Performance keeps its OWN period (and storage key) so changing what the
   // pinned reports cover never silently rewrites the headline income figure.
   const performancePeriod = usePeriod('dashboardPerformance', 'this-month');
+  // The Account Distribution card lives here rather than in
+  // DashboardReportWidgets, so it reaches for the same click-through as its
+  // neighbours instead of growing a second one that drifts.
+  const openReport = useReportDrill();
 
   const togglePinnedReport = (id: PinnableReportId): void => {
     setPinnedReports(prev => {
@@ -491,7 +492,7 @@ export function ImprovedDashboard() {
               {assetsReports.length > 0 && (
                 <>
                   <PeriodPicker picker={assetsPeriod} label="Period for net worth reports" />
-                  {assetsReports.map(id => <NetWorthWidget key={id} range={assetsPeriod.range} />)}
+                  {assetsReports.map(id => <NetWorthWidget key={id} picker={assetsPeriod} />)}
                 </>
               )}
 
@@ -501,7 +502,12 @@ export function ImprovedDashboard() {
                   are what the accounts hold now.
 
                   The title opens the full report (every account, not five);
-                  each legend row still opens ITS account's transactions. */}
+                  each legend row still opens ITS account's transactions.
+
+                  No period travels with that click, deliberately: the report
+                  states none of its own, and sending one would move the window
+                  the NEXT report opens on from a control the destination does
+                  not even show. The way back travels — see useReportDrill. */}
               {pieData.length > 0 && (
                 <DashboardWidgetCard
                   title="Account Distribution"
@@ -516,7 +522,7 @@ export function ImprovedDashboard() {
                       </span>
                     </>
                   }
-                  onOpen={() => navigate(preserveDemoParam('/reports/account-distribution', location.search))}
+                  onOpen={() => openReport('account-distribution')}
                 >
                   {/* Chart takes a fixed column; the legend gets ALL remaining
                       width so account names show as much text as the card
@@ -574,8 +580,8 @@ export function ImprovedDashboard() {
               <PeriodPicker picker={flowsPeriod} label="Period for income and spending reports" />
               {flowsReports.map(id => (
                 id === 'income-expense-trend'
-                  ? <IncomeExpenseTrendWidget key={id} range={flowsPeriod.range} />
-                  : <ExpenseCategoriesWidget key={id} range={flowsPeriod.range} />
+                  ? <IncomeExpenseTrendWidget key={id} picker={flowsPeriod} />
+                  : <ExpenseCategoriesWidget key={id} picker={flowsPeriod} />
               ))}
             </div>
           )}
@@ -980,59 +986,15 @@ export function ImprovedDashboard() {
         </section>
       )}
 
-      {/* Quick Actions — desktop only: on a phone the + button's menu
-          covers adding, and budgets/goals are desk work. */}
-      <nav aria-label="Quick actions" className="hidden md:grid md:grid-cols-4 gap-6">
-        <button
-          onClick={() => setShowAddTransactionModal(true)}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="Add a new transaction"
-        >
-          <CreditCardIcon size={32} className="mx-auto mb-3 text-[#1a2332] dark:text-gray-300" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Add Transaction
-          </span>
-        </button>
-
-        <button
-          onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="View all accounts"
-        >
-          <WalletIcon size={32} className="mx-auto mb-3 text-blue-600" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            View Accounts
-          </span>
-        </button>
-
-        <button
-          onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="Set up or view budgets"
-        >
-          <TargetIcon size={32} className="mx-auto mb-3 text-amber-600" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Set Budget
-          </span>
-        </button>
-
-        <button
-          onClick={() => navigate(preserveDemoParam('/reports', location.search))}
-          className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all text-center min-h-[140px] flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
-          aria-label="View reports"
-        >
-          <TrendingUpIcon size={32} className="mx-auto mb-3 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-          <span className="text-base font-semibold text-gray-900 dark:text-white">
-            Reports
-          </span>
-        </button>
-      </nav>
-      
-      {/* Add Transaction Modal */}
-      <AddTransactionModal
-        isOpen={showAddTransactionModal}
-        onClose={() => setShowAddTransactionModal(false)}
-      />
+      {/* No quick-action tiles here.
+          Four 140px cards used to close the page — Add Transaction, View
+          Accounts, Set Budget, Reports — and every one of them was a second
+          door to a room already on screen: the sidebar names all three
+          destinations permanently, and adding a transaction belongs in the
+          register that will hold it. A dashboard's job is to SHOW, and the
+          tiles pushed the figures up a screenful to repeat the navigation.
+          The phone keeps its floating "+" (components/MobileBottomNav) — there
+          the sidebar is behind a tap, so quick-add is the only door. */}
     </div>
   );
 }

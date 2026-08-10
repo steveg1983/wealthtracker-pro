@@ -408,10 +408,12 @@ describe('Account register — Shift stretches the highlight over a run of rows'
     fireEvent.keyDown(grid(), { key: 'ArrowDown', shiftKey: true });
 
     expect(selectionBar()).toHaveTextContent('3 transactions selected');
-    // Two of the three are unreconciled, one is reconciled already — the
-    // buttons say so rather than claiming all three.
-    expect(screen.getByRole('button', { name: /^Reconcile 2$/ })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /^Un-reconcile 1$/ })).toBeEnabled();
+    // Two of the three are unmarked, one is marked already — the buttons say so
+    // rather than claiming all three. They say "Mark", not "Reconcile":
+    // these write the working flag, and only finalizing a reconciliation
+    // reconciles anything.
+    expect(screen.getByRole('button', { name: /^Mark 2$/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Unmark 1$/ })).toBeEnabled();
     // The single-row quick editor has stood down: it edits ONE transaction.
     expect(screen.queryByLabelText('Stop editing this row')).not.toBeInTheDocument();
   });

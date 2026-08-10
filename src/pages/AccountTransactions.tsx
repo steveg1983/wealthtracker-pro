@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput, toDecimal } from '../utils/decimal';
+import { isReconciled } from '../utils/transactionReconciliation';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon, KeyboardIcon, AlertCircleIcon } from '../components/icons';
@@ -39,6 +40,7 @@ import { computeArchiveWindow, ARCHIVE_PRESETS, type ArchiveRange } from '../uti
 import { effectiveOpeningDate, findSiblingAccount } from '../utils/openingDates';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
+import { readProvenance, returnState } from '../utils/navigationProvenance';
 import { planBulkDelete, type BulkDeletePlan } from '../utils/registerBulkDelete';
 import { DATE_COLUMN_WIDTH_PX } from '../utils/registerDateColumn';
 import {
@@ -48,6 +50,7 @@ import {
   isTypeAheadKey,
 } from '../utils/registerShortcuts';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
+import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
@@ -289,6 +292,14 @@ export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  /**
+   * Where the user came from, when whoever sent them here said so.
+   *
+   * Absent on an ordinary visit from the accounts list, a bookmark or a
+   * refresh — and then the back button reads "Back to Accounts" exactly as it
+   * always has.
+   */
+  const backTo = readProvenance(location.state);
   const {
     accounts, transactions, categories, isLoading,
     deleteTransaction, addTransaction, updateAccount,
@@ -416,6 +427,18 @@ export default function AccountTransactions() {
   const [showArchived, setShowArchived] = useState(
     () => new URLSearchParams(location.search).get('showArchived') === '1'
   );
+  /**
+   * Is the register narrowed to the rows that arrived and have not been dealt
+   * with — the "To Review" box in the toolbar, pressed?
+   *
+   * NOT PERSISTED, unlike every other view setting on this page (columns, the
+   * date window, the sort). Those describe how you like to read a register;
+   * this describes a job you are part-way through, and a job you finished
+   * yesterday must not still be filtering the register tomorrow. Coming back to
+   * a register showing four of its nine hundred rows, with no memory of why, is
+   * the worst kind of stale state — it looks like data loss.
+   */
+  const [reviewOnly, setReviewOnly] = useState(false);
   const viewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -470,8 +493,15 @@ export default function AccountTransactions() {
       if (params.get('showArchived') === '1') setShowArchived(true);
       params.delete('showArchived');
     }
-    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
-  }, [accountId, location.pathname, location.search, navigate]);
+    // The state is carried across by hand. React Router gives a replaced entry
+    // null state unless told otherwise, and the state here is the provenance
+    // that knows the way back to whatever sent the user — the duplicate sweep,
+    // a notification. Consuming the deep link must not cost them the way home.
+    navigate(
+      { pathname: location.pathname, search: params.toString() },
+      { replace: true, state: location.state }
+    );
+  }, [accountId, location.pathname, location.search, location.state, navigate]);
 
   // location.search is a dependency for the already-mounted case: landing on
   // the register that is ALREADY open only changes the search string, and
@@ -680,7 +710,52 @@ export default function AccountTransactions() {
     // categoryLabel, which is memoised on exactly them (and on accounts) — so a
     // renamed category rebuilds the labeller and this list follows.
   }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, archiveWindow, showArchived, sortField, sortDirection, categoryLabel]);
-  
+
+  /**
+   * How many rows in front of the user have arrived and not been dealt with —
+   * the figure in the toolbar's "To Review" box.
+   *
+   * COUNTED OVER THE ROWS THE REGISTER IS SHOWING, deliberately, and not over
+   * the account as a whole. The box is a button: pressing it must produce
+   * exactly this many rows, or the number is a lie the very moment it is
+   * believed. Counting the whole account would say "3" while a date window hid
+   * two of them, and clicking would then empty the register.
+   *
+   * The Accounts list counts the same predicate over the whole account, because
+   * there is no view to narrow there — one rule (isAwaitingReview), asked of
+   * whatever population the screen is actually showing.
+   *
+   * `reviewOnly` is deliberately NOT a dependency: this counts the list BEFORE
+   * the review filter, so pressing the button cannot change the number the
+   * button is showing.
+   */
+  const toReviewCount = useMemo(
+    () => countAwaitingReview(accountTransactions),
+    [accountTransactions]
+  );
+
+  /**
+   * Nothing left to review ends the filter, rather than leaving somebody
+   * looking at an empty register with the button that got them there gone (the
+   * box hides itself at zero — the house rule that a zero count renders
+   * nothing). Reviewing the last row is a success, and it should read like one.
+   *
+   * Cannot loop: toReviewCount is computed from the unfiltered list above.
+   */
+  useEffect(() => {
+    if (toReviewCount === 0) setReviewOnly(false);
+  }, [toReviewCount]);
+
+  /**
+   * The rows the table actually lists. One more filter on the end of the chain,
+   * applied here rather than inside `accountTransactions` so the count above
+   * can be taken from the list without it.
+   */
+  const visibleTransactions = useMemo<Transaction[]>(
+    () => (reviewOnly ? accountTransactions.filter(isAwaitingReview) : accountTransactions),
+    [accountTransactions, reviewOnly]
+  );
+
   // Calculate running balance
   const transactionsWithBalance = useMemo<TransactionWithBalance[]>(() => {
     if (!account) return [] as TransactionWithBalance[];
@@ -709,11 +784,11 @@ export default function AccountTransactions() {
     }
 
     // Display the filtered subset, each carrying its true running balance.
-    return accountTransactions.map(t => ({
+    return visibleTransactions.map(t => ({
       ...t,
       balance: balanceMap.get(t.id) ?? 0
     }));
-  }, [account, accountTransactions, fullAccountTransactions]);
+  }, [account, visibleTransactions, fullAccountTransactions]);
 
   // Build display rows with virtual Opening Balance as first entry
   const displayRows = useMemo<DisplayRow[]>(() => {
@@ -778,13 +853,17 @@ export default function AccountTransactions() {
     return [openingBalanceRow, ...transactionsWithBalance];
   }, [account, transactionsWithBalance, fullAccountTransactions, openingEffectiveDate, sortField, sortDirection]);
 
-  // Calculate unreconciled total
+  // What is NOT RECONCILED, in money — the same question the Accounts page's
+  // Unreconciled column answers in rows, and it has to be the same answer. A
+  // marked-but-unfinalized row is still outstanding here, exactly as it is
+  // there. Decimal, because this is money on screen.
   const unreconciledTotal = useMemo(() => {
     if (!account) return 0;
 
     return accountTransactions
-      .filter(t => !t.cleared)
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => !isReconciled(t))
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0))
+      .toNumber();
   }, [account, accountTransactions]);
 
   // The true account balance = opening + Σ ALL its transactions. Computed over
@@ -1192,15 +1271,15 @@ export default function AccountTransactions() {
   }, []);
 
   /**
-   * Reconcile (or un-reconcile) the given rows.
+   * Mark (or unmark) the given rows.
    *
    * Straight down setTransactionsCleared — the SAME write the reconciliation
-   * screen's checkbox makes, in one round trip. Which matters beyond tidiness:
-   * an is_cleared update can fire the archive sweep server-side
-   * (trg_sweep_reconciled_into_archive), so a row reconciled on or before its
-   * account's archive cutoff drops out of the live list. That is the
-   * checkbox's existing behaviour, and routing the key through the same call
-   * is what keeps the two identical rather than quietly divergent.
+   * screen's checkbox makes, in one round trip, so the two surfaces cannot
+   * drift. And it is a MARK, not a reconciliation: only finalizing a
+   * reconciliation commits anything, which is why nothing here disappears into
+   * the archive the way it used to (that sweep now hangs off the committed
+   * flag). Unmarking a row that WAS reconciled takes the commitment with it —
+   * the store's own rule, mirrored in reconciledAfterMarking.
    */
   const applyCleared = useCallback(async (ids: string[], cleared: boolean): Promise<void> => {
     if (ids.length === 0) return;
@@ -1215,18 +1294,18 @@ export default function AccountTransactions() {
   }, [setTransactionsCleared, showError]);
 
   /**
-   * Space: reconcile the highlighted row, or un-reconcile it if it already is.
+   * Space: mark the highlighted row, or unmark it if it is marked already.
    *
    * Over a multi-row selection the question is asked once for the whole run:
-   * if ANY row is still unreconciled, Space reconciles the lot — that is what
-   * someone ticking off a statement means. Only when every one of them is
-   * already reconciled does Space undo them, so the key can never half-do a
-   * selection and leave the user unsure which way it went.
+   * if ANY row is still unmarked, Space marks the lot — that is what someone
+   * ticking off a statement means. Only when every one of them is marked
+   * already does Space undo them, so the key can never half-do a selection and
+   * leave the user unsure which way it went.
    */
   const toggleClearedOnSelection = useCallback((): void => {
     if (selectedRows.length === 0) return;
-    const anyUnreconciled = selectedRows.some(row => !row.cleared);
-    void applyCleared(selectedRows.map(row => row.id), anyUnreconciled);
+    const anyUnmarked = selectedRows.some(row => !row.cleared);
+    void applyCleared(selectedRows.map(row => row.id), anyUnmarked);
   }, [selectedRows, applyCleared]);
 
   /**
@@ -1821,7 +1900,17 @@ export default function AccountTransactions() {
       // registerDateColumn.
       width: `${DATE_COLUMN_WIDTH_PX}px`,
       accessor: (transaction) => (
-        <span className="text-sm text-gray-900 dark:text-white">
+        <span className={`text-sm text-gray-900 dark:text-white ${
+          // Microsoft Money's convention, and the only one this register needed:
+          // a row that has just arrived is bold until somebody saves it. Date
+          // and Description carry it and nothing else does — two cells at
+          // opposite ends of the row make the line read as bold at a glance,
+          // while bolding every cell would fight the amounts (which use weight
+          // for money in/out) and the amber suggestion badge.
+          isOpeningBalanceRow(transaction) || !isAwaitingReview(transaction)
+            ? ''
+            : 'font-semibold'
+        }`}>
           {isOpeningBalanceRow(transaction) && transaction.noDateSet
             ? <span className="italic text-gray-400">no date set</span>
             : new Date(transaction.date).toLocaleDateString('en-GB')}
@@ -1833,11 +1922,21 @@ export default function AccountTransactions() {
     },
     {
       key: 'reconciled',
-      header: 'R',
+      // Microsoft Money's own column, and its own two letters: C is a mark made
+      // while balancing, R is a reconciliation that was finished. One tick for
+      // both was what let a working mark pass for settled work.
+      header: 'C/R',
       width: '35px',
       accessor: (transaction) => (
-        transaction.cleared ? (
-          <span className="text-blue-600 dark:text-blue-400">✓</span>
+        isReconciled(transaction) ? (
+          <span className="text-blue-600 dark:text-blue-400 font-semibold" title="Reconciled">R</span>
+        ) : transaction.cleared ? (
+          <span
+            className="text-gray-500 dark:text-gray-400 font-semibold"
+            title="Marked while balancing — not reconciled until you finalize"
+          >
+            C
+          </span>
         ) : null
       ),
       className: 'text-center',
@@ -1847,13 +1946,26 @@ export default function AccountTransactions() {
       key: 'description',
       header: 'Description',
       width: undefined, // flex column — uses flex:1 via className
-      accessor: (transaction) => (
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm text-gray-900 dark:text-white truncate">
-            {transaction.description}
-          </span>
-        </div>
-      ),
+      accessor: (transaction) => {
+        const awaitingReview = !isOpeningBalanceRow(transaction) && isAwaitingReview(transaction);
+        return (
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-sm text-gray-900 dark:text-white truncate ${
+              awaitingReview ? 'font-semibold' : ''
+            }`}>
+              {transaction.description}
+            </span>
+            {/* WEIGHT IS A VISUAL CUE AND NOTHING ELSE (WCAG 1.4.1, and the
+                same reasoning as SuggestedCategoryBadge's sr-only clause). Bold
+                is invisible to a screen reader and to anyone reading the
+                register one row at a time in a magnifier, so the fact is also
+                stated in words — off-screen, because on-screen it would be a
+                second marker for one fact and the whole point of the bold is
+                that it costs the row no space. */}
+            {awaitingReview && <span className="sr-only">— new, not reviewed yet</span>}
+          </div>
+        );
+      },
       className: 'flex-1 min-w-0',
       headerClassName: 'flex-1 min-w-0',
       sortable: true,
@@ -2154,13 +2266,20 @@ export default function AccountTransactions() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Back button */}
+      {/* The way back.
+          Normally to the accounts list; but a register reached from somewhere
+          that said where it came from returns THERE instead, restored — the
+          duplicate sweep reopens on the pair the user jumped from rather than
+          leaving them on a settings page with the dialog gone. See
+          utils/navigationProvenance. */}
       <button
-        onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
+        onClick={() => (backTo
+          ? navigate(backTo.path, { state: returnState(backTo) })
+          : navigate(preserveDemoParam('/accounts', location.search)))}
         className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-3 self-start"
       >
         <ArrowLeftIcon size={16} />
-        <span className="text-sm">Back to Accounts</span>
+        <span className="text-sm">{backTo ? backTo.label : 'Back to Accounts'}</span>
       </button>
 
       {/* Compact header with inline stat boxes. flex-wrap: the three stat
@@ -2390,6 +2509,48 @@ export default function AccountTransactions() {
             </div>
           )}
         </div>
+
+        {/* To Review — how many rows have arrived and not been dealt with, and
+            the switch that narrows the register to exactly them.
+
+            NOTHING AT ZERO. Not a greyed-out button, not "To Review 0" — the
+            house rule is that a zero count renders nothing, because a permanent
+            box reading 0 is a box the eye learns to skip, and then it says
+            nothing on the day it reads 40. Its absence is the "all done", which
+            is why finishing the last row makes it disappear (and, in the effect
+            beside toReviewCount, drops the filter with it rather than leaving
+            an empty register behind).
+
+            Beside View rather than in it: this is a job, not a preference. */}
+        {toReviewCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setReviewOnly(prev => !prev)}
+            aria-pressed={reviewOnly}
+            className={`flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+              reviewOnly
+                ? 'border-[#1a2332] dark:border-blue-500 text-[#1a2332] dark:text-blue-400 bg-gray-50 dark:bg-gray-700'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+            title={
+              reviewOnly
+                ? 'Showing only transactions that have arrived and not been dealt with. Click to show them all again.'
+                : 'Transactions that arrived from an import and have not been saved yet. Click to show only those.'
+            }
+          >
+            To Review
+            {/* Amber, the colour this app already uses for "this wants your
+                attention" (the suggested-category badge, the uncategorised
+                bar), and sized like the tag pills the register already draws so
+                a toolbar with a count in it still reads as one row of
+                controls. The number is the point, so it carries the colour
+                rather than the whole button — a fully amber button in a row of
+                grey ones reads as an error. */}
+            <span className="inline-flex items-center px-1.5 py-0 rounded-full text-xs font-semibold tabular-nums bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              {toReviewCount}
+            </span>
+          </button>
+        )}
         </div>
         <button
           onClick={() => setTableExpanded(prev => !prev)}
@@ -2521,6 +2682,11 @@ export default function AccountTransactions() {
           transactions={transactionsWithBalance}
           accounts={[]}
           categories={categories}
+          // A phone is still looking at the REGISTER, with the same To Review
+          // box above it and the same filter, so it gets the same bold. The
+          // Transactions page renders this identical list and does not ask for
+          // it, because there is no counter and no filter there to act on.
+          markNewArrivals
           formatCurrency={(n) => formatCurrency(n, account.currency)}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
           onView={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}
@@ -2643,7 +2809,7 @@ export default function AccountTransactions() {
       {!tableExpanded && hasMultiSelection && (
         <RegisterSelectionBar
           count={selectedRows.length}
-          unreconciledCount={selectedRows.filter(row => !row.cleared).length}
+          unmarkedCount={selectedRows.filter(row => !row.cleared).length}
           archivableCount={selectedRows.filter(row => !row.archived).length}
           busy={bulkBusy}
           onReconcile={() => { void applyCleared(selectedRows.map(row => row.id), true); }}

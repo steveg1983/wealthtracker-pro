@@ -12,6 +12,21 @@ export interface NetWorthSnapshot {
 }
 
 /**
+ * A point on the net-worth line, named so a link can carry it.
+ *
+ * The Dashboard widget and the full report build their series from THIS
+ * function over the same window, so a point clicked on the card names the same
+ * point on the report. Local calendar parts, not toISOString: the snapshots are
+ * local dates (month-ends built with the local constructor), and a UTC string
+ * would name the day before for anyone west of Greenwich.
+ */
+export function netWorthPointToken(date: Date): string {
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
  * Net worth over time from first principles: per-account running balance
  * (opening balance + cumulative transactions, Decimal throughout) snapshotted
  * at each point in the period. One forward walk — transactions accumulate from

@@ -416,6 +416,60 @@ describe('AppContextSupabase live provider', () => {
       expect(result.current.accounts[0].balance).toBe(1000);
     });
 
+    /**
+     * THE UNLOCK BUG, in the place it actually bit.
+     *
+     * The store had always done the right thing — the cloud through
+     * transactions_linked_transfer_id_fkey (ON DELETE SET NULL), browser
+     * storage once its own mirror was written — but the provider only FILTERED
+     * the deleted row out of state and left the survivor's linkedTransferId
+     * pointing at it. Every screen reads state, so until the next boot the
+     * survivor still looked like half of a pair: the editor went on refusing to
+     * move it ("delete the transfer and recreate it") and the register went on
+     * offering to jump to a transaction that no longer existed. The only exit
+     * anybody found was to delete the survivor as well, which is how an
+     * imported row gets destroyed to fix a category.
+     */
+    it('deleting one leg of a transfer leaves the survivor UNLINKED in state', async () => {
+      const { result } = await renderApp();
+
+      let from!: Account;
+      let to!: Account;
+      await act(async () => {
+        from = await result.current.addAccount(createAccountInput());
+        to = await result.current.addAccount(createAccountInput({ name: 'Savings' }));
+      });
+
+      await act(async () => {
+        await result.current.addTransaction(
+          createTransactionInput(from.id, { amount: -500, description: 'Transfer out' })
+        );
+      });
+      const sourceId = result.current.transactions[0].id;
+
+      // The other side, created by the app and linked to it.
+      await act(async () => {
+        await result.current.createTransferCounterpart(sourceId, to.id);
+      });
+      const counterpartId = result.current.transactions.find(t => t.id !== sourceId)!.id;
+      expect(
+        result.current.transactions.find(t => t.id === sourceId)?.linkedTransferId
+      ).toBe(counterpartId);
+
+      await act(async () => {
+        await result.current.deleteTransaction(counterpartId);
+      });
+
+      const survivor = result.current.transactions.find(t => t.id === sourceId)!;
+      // THE FIX: no dangling pointer, so the row is re-pointable again.
+      expect(survivor.linkedTransferId).toBeUndefined();
+      // …and nothing else changed. It is an UNMATCHED leg, which is a real
+      // state with a repair flow, not something to re-type on the user's behalf.
+      expect(survivor.type).toBe('transfer');
+      expect(survivor.transferAccountId).toBe(to.id);
+      expect(survivor.amount).toBe(-500);
+    });
+
     it('updateTransaction changing -100 → -150 LOWERS the balance by 50', async () => {
       const { result } = await renderApp();
 

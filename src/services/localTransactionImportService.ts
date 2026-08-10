@@ -126,6 +126,20 @@ export async function importTransactionsLocally(
         // These rows go straight back into app state via the context refresh,
         // so the date must be a real Date and not the string a file gave.
         date: toDateValue(transaction.date),
+        // NEW WORK, like every row the cloud twin writes. The register prints
+        // these bold and counts them in its "To Review" box until somebody
+        // saves one; see src/utils/transactionReview.ts for the rule and
+        // supabase/migrations/20260810090000_imported_rows_arrive_new.sql for
+        // the cloud side of it.
+        //
+        // A LITERAL, set here rather than read off the draft, for the reason
+        // the RPC states: every row that reaches this function came out of a
+        // statement file the user has just handed the app, and a per-row key
+        // the parsers each have to remember has exactly one realistic failure
+        // mode — a parser that forgets, which is silent and indistinguishable
+        // from the feature not working. Written last so it cannot be
+        // overridden by a draft that says otherwise.
+        needsReview: true,
         id: newId()
       };
     });

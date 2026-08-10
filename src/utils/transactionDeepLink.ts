@@ -1,3 +1,5 @@
+import { carryDemoFlag } from './navigation';
+
 /**
  * The register deep link for a single transaction:
  * `/accounts/<accountId>?txn=<transactionId>`.
@@ -15,10 +17,5 @@ export function buildTransactionRegisterPath(
   transactionId: string,
   currentSearch: string
 ): string {
-  const params = new URLSearchParams();
-  params.set('txn', transactionId);
-  if (new URLSearchParams(currentSearch).get('demo') === 'true') {
-    params.set('demo', 'true');
-  }
-  return `/accounts/${accountId}?${params.toString()}`;
+  return carryDemoFlag(`/accounts/${accountId}?txn=${encodeURIComponent(transactionId)}`, currentSearch);
 }

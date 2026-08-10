@@ -30,12 +30,17 @@ describe('ReconciliationFinalizationModal', () => {
   const onFinalize = vi.fn();
   const onCreateAdjustment = vi.fn();
 
-  const renderModal = (props: { bankBalance: number | null; clearedBalance: number }) =>
+  const renderModal = (props: {
+    confirmedBalance: number;
+    clearedBalance: number;
+    awaitingFinalizeCount?: number;
+  }) =>
     renderWithProviders(
       <ReconciliationFinalizationModal
         isOpen={true}
-        bankBalance={props.bankBalance}
+        confirmedBalance={props.confirmedBalance}
         clearedBalance={props.clearedBalance}
+        awaitingFinalizeCount={props.awaitingFinalizeCount ?? 3}
         onClose={onClose}
         onFinalize={onFinalize}
         onCreateAdjustment={onCreateAdjustment}
@@ -47,26 +52,43 @@ describe('ReconciliationFinalizationModal', () => {
   });
 
   it('shows the balanced state and finalizes when difference is zero', () => {
-    renderModal({ bankBalance: 100, clearedBalance: 100 });
+    renderModal({ confirmedBalance: 100, clearedBalance: 100 });
     expect(screen.getByText('Account Balanced!')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Complete Reconciliation'));
     expect(onFinalize).toHaveBeenCalledTimes(1);
   });
 
+  it('says what completing will do, in rows and in money', () => {
+    // The old flow ended on "Reconciliation complete." with nothing to check it
+    // against, which is how a button that did nothing passed for one that did.
+    renderModal({ confirmedBalance: 100, clearedBalance: 100, awaitingFinalizeCount: 4 });
+    expect(screen.getByText(/Reconciles 4 transactions against £100\.00/)).toBeInTheDocument();
+  });
+
   it('treats a sub-penny difference as balanced', () => {
-    renderModal({ bankBalance: 100.001, clearedBalance: 100 });
+    renderModal({ confirmedBalance: 100.001, clearedBalance: 100 });
     expect(screen.getByText('Account Balanced!')).toBeInTheDocument();
   });
 
-  it('offers finalize-anyway when no bank balance is set', () => {
-    renderModal({ bankBalance: null, clearedBalance: 100 });
-    expect(screen.getByText('No Bank Balance Set')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Finalize Anyway'));
+  it('finalizes against a confirmed balance of zero', () => {
+    // £0.00 is a real statement balance — one account in this product is swept
+    // to zero every night. "Confirmed" and "non-zero" are different questions.
+    renderModal({ confirmedBalance: 0, clearedBalance: 0, awaitingFinalizeCount: 2 });
+    expect(screen.getByText('Account Balanced!')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Complete Reconciliation'));
     expect(onFinalize).toHaveBeenCalledTimes(1);
   });
 
+  it('has no "finalize anyway" escape hatch', () => {
+    // It cannot be rendered without a confirmed balance (the type says so), so
+    // there is no branch left that finalizes against nothing.
+    renderModal({ confirmedBalance: 100, clearedBalance: 87.96 });
+    expect(screen.queryByText('Finalize Anyway')).not.toBeInTheDocument();
+    expect(screen.queryByText('No Bank Balance Set')).not.toBeInTheDocument();
+  });
+
   it('pre-fills the adjustment amount with the remaining difference', () => {
-    renderModal({ bankBalance: 87.96, clearedBalance: 100 });
+    renderModal({ confirmedBalance: 87.96, clearedBalance: 100 });
     // difference = -12.04 → expense of 12.04
     const amountInput = screen.getByLabelText(/Amount/) as HTMLInputElement;
     expect(amountInput.value).toBe('12.04');
@@ -74,18 +96,18 @@ describe('ReconciliationFinalizationModal', () => {
   });
 
   it('labels the adjustment as income when the bank balance is higher', () => {
-    renderModal({ bankBalance: 150, clearedBalance: 100 });
+    renderModal({ confirmedBalance: 150, clearedBalance: 100 });
     expect(screen.getByText(/Amount \(Income\)/)).toBeInTheDocument();
   });
 
   it('disables Create Adjustment until a category is chosen', () => {
-    renderModal({ bankBalance: 87.96, clearedBalance: 100 });
+    renderModal({ confirmedBalance: 87.96, clearedBalance: 100 });
     expect(screen.getByText('Create Adjustment')).toBeDisabled();
     expect(onCreateAdjustment).not.toHaveBeenCalled();
   });
 
   it('rejects a zero adjustment amount', () => {
-    renderModal({ bankBalance: 87.96, clearedBalance: 100 });
+    renderModal({ confirmedBalance: 87.96, clearedBalance: 100 });
     const amountInput = screen.getByLabelText(/Amount/);
     fireEvent.change(amountInput, { target: { value: '0' } });
     expect(screen.getByText('Enter an amount greater than zero.')).toBeInTheDocument();

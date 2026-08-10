@@ -4,6 +4,7 @@ import { useHapticFeedback, HapticPattern } from '../hooks/useHapticFeedback';
 import { EditIcon, DeleteIcon, CheckIcon, StarIcon, FolderIcon } from './icons';
 import SuggestedCategoryBadge from './SuggestedCategoryBadge';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
+import { isAwaitingReview } from '../utils/transactionReview';
 import type { Transaction, Account } from '../types';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
@@ -21,6 +22,18 @@ interface SwipeableTransactionRowProps {
   onToggleFavorite?: (transaction: Transaction) => void;
   isSelected?: boolean;
   onToggleSelection?: (id: string) => void;
+  /**
+   * Should a row that has arrived and not been dealt with be drawn as new?
+   *
+   * OFF BY DEFAULT, and asked for explicitly by the caller, because "new" is a
+   * fact about a job rather than about a transaction: it means something in the
+   * account register, where there is a To Review counter above the list and a
+   * filter that narrows to exactly these rows, and it means nothing on the
+   * Transactions page, which is a search over everything and offers neither.
+   * Marking a row where there is nothing to do about it as a SET is how people
+   * learn to ignore the marking on the screen where it matters.
+   */
+  markNewArrivals?: boolean;
 }
 
 export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
@@ -35,9 +48,11 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
   onCategorize,
   onToggleFavorite,
   isSelected = false,
-  onToggleSelection
+  onToggleSelection,
+  markNewArrivals = false
 }: SwipeableTransactionRowProps): React.JSX.Element {
   const formattedDate = useFormattedDate(transaction.date);
+  const isNewArrival = markNewArrivals && isAwaitingReview(transaction);
   const { trigger: triggerHaptic } = useHapticFeedback();
   const [offset, setOffset] = useState(0);
   const [isRevealed, setIsRevealed] = useState<'left' | 'right' | null>(null);
@@ -194,13 +209,27 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900 dark:text-white truncate">
+              {/* Microsoft Money's bold, on the card. The desktop register
+                  weights Date and Description; here the card's own two lines
+                  are the same pair, so the description goes from medium to
+                  bold and the date darkens with it. Anything heavier would
+                  fight the amount, which uses weight for money. */}
+              <p className={`text-gray-900 dark:text-white truncate ${
+                isNewArrival ? 'font-bold' : 'font-medium'
+              }`}>
                 {transaction.description}
+                {/* Weight is a visual cue and nothing else (WCAG 1.4.1) — see
+                    the identical clause in the register's own column. */}
+                {isNewArrival && <span className="sr-only">— new, not reviewed yet</span>}
               </p>
               {/* One truncating line, and the category by NAME — the raw
                   field is the category's id, which on a phone read as a
                   jumble of letters and numbers. */}
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+              <p className={`text-sm truncate ${
+                isNewArrival
+                  ? 'font-semibold text-gray-700 dark:text-gray-300'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}>
                 {formattedDate}
                 {' · '}
                 {categoryName ?? <span className="italic">Uncategorised</span>}

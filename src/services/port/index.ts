@@ -46,6 +46,7 @@ export type {
   ImportSourceKind,
   MoneyNumber,
   MsMoneyImportResult,
+  ReconciliationOutcome,
   RestoreProgress,
   SessionState,
   WipeProgress

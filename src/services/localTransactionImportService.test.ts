@@ -186,6 +186,30 @@ describe('importTransactionsLocally', () => {
     expect(accounts.find(a => a.id === 'acc-savings')?.balance).toBe(5000);
   });
 
+  /**
+   * Every imported row lands as NEW WORK, so the register prints it bold and
+   * the To Review box counts it — the Microsoft Money convention, on a device
+   * as in the cloud (import_transactions_atomic writes the same literal).
+   *
+   * Asserted over drafts that explicitly say otherwise, because that is the
+   * rule: the writer decides, not the parser. Reading a per-row flag would put
+   * the decision in three parsers, and a parser that forgot it would fail
+   * silently — rows import, nothing lights up, and the feature looks switched
+   * off rather than broken.
+   */
+  it('marks every imported row as new work, whatever the drafts said', async () => {
+    const alreadyReviewed = statement.map(row => ({ ...row, needsReview: false }));
+    const { store, setMany } = makeStore();
+
+    await importTransactionsLocally('acc-current', alreadyReviewed, { store, uuid: () => 'id' });
+
+    const rows = writtenTransactions(setMany);
+    // Row 0 is the transaction that was already held — untouched, and still
+    // not new: an import must not reopen history it did not write.
+    expect(rows[0].needsReview).toBeUndefined();
+    expect(rows.slice(1).every(r => r.needsReview === true)).toBe(true);
+  });
+
   it('files rows against the destination, overruling whatever the parser guessed', async () => {
     const misrouted = statement.map(row => ({ ...row, accountId: 'default' }));
     const { store, setMany } = makeStore();

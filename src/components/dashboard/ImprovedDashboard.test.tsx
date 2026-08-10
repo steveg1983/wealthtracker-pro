@@ -1,11 +1,12 @@
 /**
- * The dashboard's three claims about itself:
+ * The dashboard's four claims about itself:
  *
  *  - every "Needs Your Attention" row says WHY, on screen and to a screen
  *    reader, in the same words (they used to be written by two different rules,
  *    and the on-screen half went blank for any threshold but £500);
  *  - the account picker can start from everything or from nothing;
- *  - the two halves of "Your Reports" keep their own clocks.
+ *  - the two halves of "Your Reports" keep their own clocks;
+ *  - it ends in figures, not in a second copy of the navigation.
  *
  * Every account name, figure and institution here is invented.
  */
@@ -15,7 +16,7 @@ import type { ReactNode } from 'react';
 import { ImprovedDashboard } from './ImprovedDashboard';
 import type { Account, Transaction } from '../../types';
 import type { BankConnection } from '../../services/bankConnectionService';
-import type { PeriodRange } from '../../hooks/usePeriod';
+import type { PeriodRange, UsePeriodResult } from '../../hooks/usePeriod';
 
 const USER_ID = 'user_testonly_0001';
 
@@ -66,15 +67,18 @@ vi.mock('react-router-dom', async () => {
 const describeRange = (range: PeriodRange): string =>
   `${range.from ? range.from.toISOString().slice(0, 10) : 'none'}..${range.to ? range.to.toISOString().slice(0, 10) : 'none'}`;
 
+// The widgets are handed the whole picker, not just its resolved bounds: the
+// window they draw AND the window their click-through carries have to be the
+// same one, and two props saying nearly the same thing is how they drift.
 vi.mock('./reportWidgets/DashboardReportWidgets', () => ({
-  NetWorthWidget: ({ range }: { range: PeriodRange }) => (
-    <div data-testid="net-worth-widget">{describeRange(range)}</div>
+  NetWorthWidget: ({ picker }: { picker: UsePeriodResult }) => (
+    <div data-testid="net-worth-widget">{describeRange(picker.range)}</div>
   ),
-  IncomeExpenseTrendWidget: ({ range }: { range: PeriodRange }) => (
-    <div data-testid="income-expense-widget">{describeRange(range)}</div>
+  IncomeExpenseTrendWidget: ({ picker }: { picker: UsePeriodResult }) => (
+    <div data-testid="income-expense-widget">{describeRange(picker.range)}</div>
   ),
-  ExpenseCategoriesWidget: ({ range }: { range: PeriodRange }) => (
-    <div data-testid="expense-categories-widget">{describeRange(range)}</div>
+  ExpenseCategoriesWidget: ({ picker }: { picker: UsePeriodResult }) => (
+    <div data-testid="expense-categories-widget">{describeRange(picker.range)}</div>
   ),
   CustomReportWidget: () => <div data-testid="custom-report-widget" />,
 }));
@@ -85,7 +89,6 @@ vi.mock('../charts/DashboardCharts', () => ({
   BarChart: () => <div data-testid="bar-chart" />,
 }));
 
-vi.mock('../AddTransactionModal', () => ({ default: () => null }));
 vi.mock('../EditTransactionModal', () => ({ default: () => null }));
 vi.mock('../IncomeExpenseBreakdownModal', () => ({ default: () => null }));
 vi.mock('../common/Modal', () => ({
@@ -290,12 +293,16 @@ describe('Your Reports — two columns, two clocks', () => {
    * The card used to be the only one of the four with no way into a full
    * report — the other three opened theirs from the title.
    */
-  it('opens the full Account Distribution report from its title', () => {
+  it('opens the full Account Distribution report from its title, saying where it came from', () => {
     render(<ImprovedDashboard />);
 
     fireEvent.click(screen.getByRole('button', { name: /Account Distribution/ }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith('/reports/account-distribution');
+    // No period on the URL: this report states none of its own, and one sent
+    // anyway would move the window the NEXT report opens on.
+    expect(mocks.navigate).toHaveBeenCalledWith('/reports/account-distribution', {
+      state: { from: { path: '/dashboard', label: 'Back to Dashboard' } },
+    });
   });
 
   it('still opens an account’s transactions from its legend row', () => {
@@ -305,5 +312,38 @@ describe('Your Reports — two columns, two clocks', () => {
     fireEvent.click(within(legend).getByRole('button', { name: /Feed Account A/ }));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/transactions?account=acc-a');
+  });
+});
+
+/**
+ * The page used to close with four 140px tiles — Add Transaction, View
+ * Accounts, Set Budget, Reports — each a second door to a room already on
+ * screen: the sidebar names all three destinations permanently, and adding a
+ * transaction belongs in the register that will hold it. They pushed the
+ * figures up a screenful to repeat the navigation, so they are gone.
+ *
+ * The phone's floating "+" is a different thing and stays; it is pinned in
+ * components/__tests__/MobileBottomNav.test.tsx, where it actually lives.
+ */
+describe('the foot of the dashboard', () => {
+  beforeEach(() => {
+    mocks.app.accounts = [account({ id: 'acc-a', name: 'Feed Account A', openingBalance: 100 })];
+  });
+
+  it('has no quick-action tiles', () => {
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByRole('navigation', { name: 'Quick actions' })).not.toBeInTheDocument();
+    for (const label of ['Add a new transaction', 'View all accounts', 'Set up or view budgets', 'View reports']) {
+      expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
+    }
+  });
+
+  it('does not carry an add-transaction dialog it can no longer open', () => {
+    // The tiles were the only thing that opened it; a modal nobody can reach
+    // is dead weight in the dashboard's chunk.
+    render(<ImprovedDashboard />);
+
+    expect(screen.queryByText('Add Transaction')).not.toBeInTheDocument();
   });
 });

@@ -68,6 +68,8 @@ describe('computeCategoryHealth', () => {
     );
     expect(health.uncategorizedCount).toBe(1);
     expect(health.unassignedBucketCount).toBe(1);
+    // The line's REMEDY needs to know which bucket to open, not just how many.
+    expect(health.unassignedBucketCategoryId).toBe('cat-unassigned');
     expect(health.danglingCount).toBe(0);
     // Money in reflects the review-band sums (in for a positive amount).
     expect(health.uncategorizedIn).toBe(5000);
@@ -139,6 +141,65 @@ describe('computeCategoryHealth', () => {
     const health = computeCategoryHealth([parent], splits, CATEGORIES);
     // cat-empty now has a split line → only cat-salary remains unused.
     expect(health.emptyCategoryCount).toBe(1);
+  });
+
+  /**
+   * Every measure carries what its remedy needs to ACT — which bucket, which
+   * categories — because a warning the user cannot act on from where they read
+   * it is a complaint (see CategoryDataHealthPanel).
+   */
+  describe('each measure carries what its remedy needs', () => {
+    it('names the empty categories, and the count is that list’s length', () => {
+      const health = computeCategoryHealth(
+        [txn({ id: 't1', category: 'cat-groceries', amount: -30 })],
+        [],
+        CATEGORIES
+      );
+      expect(health.emptyCategoryIds).toEqual(['cat-salary', 'cat-empty']);
+      // The number the user reads and the rows that light up cannot disagree.
+      expect(health.emptyCategoryCount).toBe(health.emptyCategoryIds.length);
+    });
+
+    it('names no bucket and no categories when there is nothing to point at', () => {
+      const health = computeCategoryHealth(
+        [txn({ id: 't1', category: 'cat-groceries', amount: -30 })],
+        [],
+        [{ id: 'cat-groceries', name: 'Groceries', type: 'expense', level: 'detail' }]
+      );
+      expect(health.unassignedBucketCategoryId).toBeNull();
+      expect(health.emptyCategoryIds).toEqual([]);
+    });
+
+    it('a bucket id is present whenever the bucket count is — the promise the panel relies on', () => {
+      const parent = txn({ id: 'p1', category: '', amount: -100, isSplit: true });
+      const health = computeCategoryHealth(
+        [parent],
+        [split({ id: 's1', transactionId: 'p1', category: 'cat-unassigned', amount: -100, sortOrder: 0 })],
+        CATEGORIES
+      );
+      expect(health.unassignedBucketCount).toBeGreaterThan(0);
+      expect(health.unassignedBucketCategoryId).not.toBeNull();
+    });
+
+    it('with two buckets, points at the one holding the most rows', () => {
+      // Not the case today (one importer, one bucket) — pinned so a second
+      // importer's bucket cannot silently send the user to the emptier list.
+      const withSecondBucket: Category[] = [
+        ...CATEGORIES,
+        { id: 'cat-unassigned-2', name: 'Unassigned (other)', type: 'both', level: 'detail', isUnassignedBucket: true },
+      ];
+      const health = computeCategoryHealth(
+        [
+          txn({ id: 't1', category: 'cat-unassigned-2', amount: -10 }),
+          txn({ id: 't2', category: 'cat-unassigned', amount: -10 }),
+          txn({ id: 't3', category: 'cat-unassigned', amount: -10 }),
+        ],
+        [],
+        withSecondBucket
+      );
+      expect(health.unassignedBucketCount).toBe(3);
+      expect(health.unassignedBucketCategoryId).toBe('cat-unassigned');
+    });
   });
 
   it('transfer-type rows never inflate the uncategorised total', () => {

@@ -300,7 +300,9 @@ describe('EditTransactionModal', () => {
     it('displays status checkboxes', () => {
       renderModal(true, null);
       
-      expect(screen.getByText('Reconciled')).toBeInTheDocument();
+      // The working flag says so in words: only finalizing a reconciliation
+      // reconciles anything.
+      expect(screen.getByText('Marked against a statement')).toBeInTheDocument();
       expect(screen.getByText('Linked to bank statement')).toBeInTheDocument();
     });
 

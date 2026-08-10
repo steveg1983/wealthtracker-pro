@@ -83,7 +83,9 @@ import type {
   SuggestionDismissal,
   Transaction,
   TransactionSplit,
-  TransactionSplitInput
+  TransactionSplitInput,
+  TransferDisplacedDisposition,
+  TransferRepointResult
 } from '../../types';
 /**
  * The backup FILE format, imported rather than restated.
@@ -348,28 +350,155 @@ export interface DataPortAccountWrites {
   closeAccount(id: string): Promise<void>;
 }
 
+/**
+ * What finishing a reconciliation DID, as opposed to what was on screen.
+ *
+ * The count is the number of rows this finalize converted from marked to
+ * committed — not how many the account holds, and not how many were ticked
+ * (rows already committed are not counted twice). The screen reports it back,
+ * because "Reconciliation complete" with no number is the sentence the old
+ * flow ended on and it is what made a button that did nothing look like a
+ * button that worked.
+ */
+export interface ReconciliationOutcome {
+  /** Rows converted from marked to committed by this call. */
+  reconciled: number;
+  /** The ending balance the account now records; the next session opens on it. */
+  endingBalance: number;
+  /** The day the account now records as its last reconciliation. */
+  reconciledOn: Date;
+}
+
 export interface DataPortTransactionWrites {
   createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction>;
   /**
    * A partial update of the fields a row's own editor owns.
    *
-   * **Divergence D-7**: only these fifteen are honoured by the cloud
+   * **Divergence D-7**: only these sixteen are honoured by the cloud
    * implementation — `description, amount, type, date, accountId, category,
-   * categoryConfirmed, notes, tags, isRecurring, cleared, transferAccountId,
-   * metadata, categoryId, merchantName`. Anything else is silently discarded
-   * there, silently applied by browser storage, and refused by name by the
-   * local core. Callers must send only those fifteen: every field outside the
-   * list has a dedicated operation on this interface, and the dedicated
-   * operation is the contract (archiving is `setTransactionArchived`, linking
-   * is the transfer group, splitting is `setTransactionSplits`).
+   * categoryConfirmed, needsReview, notes, tags, isRecurring, cleared,
+   * transferAccountId, metadata, categoryId, merchantName`. Anything else is
+   * silently discarded there, silently applied by browser storage, and refused
+   * by name by the local core. Callers must send only those sixteen: every
+   * field outside the list has a dedicated operation on this interface, and the
+   * dedicated operation is the contract (archiving is `setTransactionArchived`,
+   * linking is the transfer group, splitting is `setTransactionSplits`).
+   *
+   * `needsReview` is the only one of the sixteen that is meaningful ONLY as
+   * `false`, and it has no dedicated operation on purpose. Ending a review is
+   * not a thing a user does to a row; it is what happens when they save one, so
+   * it rides the save that caused it — one write, one audit entry, no race
+   * between a save and a separate "and I've now looked at it" call. Which is
+   * also why NO engine may infer it: a caller that does not mention the field
+   * leaves it exactly as it was, however much else it changed. The bulk
+   * categorise sweep, the payee rename and the transfer-link repair all come
+   * through here and none of them is a person reading a row.
    */
   updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction>;
+  /**
+   * Remove one row and reverse its account's balance.
+   *
+   * ── IT UNLINKS THE SURVIVOR ─────────────────────────────────────────────
+   *
+   * Deleting one half of a linked transfer leaves the OTHER half in place — the
+   * movement is not undone, only half of it is (see describeDeleteStranding,
+   * which is what the confirmation says out loud). What must not survive is the
+   * LINK: a row pointing at an id that no longer exists is a row every screen
+   * still treats as half of a transfer, so the editor goes on refusing to move
+   * it and the register goes on offering to jump to a transaction that is gone.
+   *
+   * Every engine therefore leaves the survivor unlinked, and states it here
+   * because it is not free anywhere: the cloud gets it from
+   * `transactions_linked_transfer_id_fkey`, which is ON DELETE SET NULL, and
+   * browser storage has to do it by hand.
+   *
+   * The survivor keeps its `type`, its To/From category and its
+   * `transferAccountId`: it is an UNMATCHED transfer leg, which is a real state
+   * the app has a name and a repair flow for, and re-typing it on the user's
+   * behalf would be inventing an answer to a question only they can settle.
+   */
   deleteTransaction(id: string): Promise<void>;
-  /** Bulk reconciliation flag. Balance-neutral by definition. Returns rows touched. */
+  /**
+   * Mark rows off against a statement, or take the mark back. Balance-neutral
+   * by definition. Returns rows touched.
+   *
+   * A MARK IS NOT A RECONCILIATION. This is Microsoft Money's C — a working
+   * flag, persisted immediately so eight hundred ticks survive walking away
+   * from the screen, and settling nothing on its own. Only
+   * {@link DataPortTransactionWrites.finalizeReconciliation} commits.
+   *
+   * Every engine keeps one rule about the committed flag beside it: marking
+   * LEAVES it alone, unmarking CLEARS it. A row that is not ticked cannot be a
+   * row a statement was balanced against, and the pair (committed, unmarked)
+   * would put the cleared balance and the reconciled set permanently out of
+   * step. The rule is written once, in
+   * src/utils/transactionReconciliation.ts (`reconciledAfterMarking`), and read
+   * from there rather than restated per engine.
+   */
   setTransactionsCleared(ids: string[], cleared: boolean): Promise<number>;
-  /** Fill-blanks only: rows that already carry a category are left alone. */
+  /**
+   * Finish a reconciliation: commit this account's marked rows and record what
+   * they were settled against.
+   *
+   * ── WHAT IT PROMISES ────────────────────────────────────────────────────
+   *
+   * Afterwards, every row of the account that was MARKED AND NOT YET COMMITTED
+   * is committed, and the account records the day and the ending balance the
+   * user confirmed — the two facts Money showed at the top of the next
+   * reconciliation ("last reconciled on…, ending balance…"), and the two the
+   * next session opens from.
+   *
+   * It converts exactly the working set. Rows that a store cannot say anything
+   * about — written before the committed flag existed, so their mark is the
+   * only answer they carry — are LEFT ALONE rather than swept in: they already
+   * read as reconciled everywhere (see transactionReconciliation.ts), and
+   * rewriting them would re-stamp a whole history to change nothing anybody
+   * can see.
+   *
+   * All-or-nothing in every implementation: the rows and the account's record
+   * of them land together or neither does. The intermediate state — rows
+   * committed against a statement the account has no memory of — is what makes
+   * the NEXT reconciliation open at a figure that is not the one this one
+   * finished on.
+   *
+   * Balance-neutral. `endingBalance` is a RECORD of what a person confirmed,
+   * never an amount added to anything, and no engine may reconcile `balance`
+   * to it — a difference between the two is the thing the screen exists to
+   * show, and silently closing it would be inventing money.
+   *
+   * IT REJECTS an account that is not the caller's, and an absent ending
+   * balance. `0` is a perfectly good ending balance (an account swept to zero
+   * every night closes on exactly that), so "no balance" and "zero" are
+   * different arguments and only the first is refused.
+   *
+   * **Divergence D-9**: `reconciledOn` is a `Date` here because that is what
+   * the caller holds, but which calendar day an instant belongs to is answered
+   * differently by the implementations — the same disagreement declared for
+   * `archiveTransactionsBefore` at D-8. Callers should pass a day that is
+   * unambiguous.
+   */
+  finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<ReconciliationOutcome>;
+  /**
+   * Fill-blanks only: rows that already carry a category are left alone.
+   *
+   * Leaves `needsReview` alone too, and the contrast with
+   * `confirmTransactionCategories` is deliberate: this is a decision about a
+   * CATEGORY taken from a list of payees, not a decision about each row, so the
+   * rows it fills stay in the register's To Review list.
+   */
   applyCategoryToUncategorized(ids: string[], category: string): Promise<number>;
-  /** Agree with a suggested category; one boolean, never the category itself. */
+  /**
+   * Agree with a suggested category; one boolean, never the category itself.
+   *
+   * Also clears `needsReview` on every row it confirms. Both surfaces that call
+   * this are a person looking at a row and answering the question it was
+   * asking, and the one-click answer is still an answer — a register that kept
+   * the row bold afterwards would be nagging about work already done.
+   */
   confirmTransactionCategories(ids: string[]): Promise<number>;
   /** Soft-archive one row: hidden from the register, never deleted, reversible. */
   setTransactionArchived(id: string, archived: boolean): Promise<void>;
@@ -473,6 +602,15 @@ export interface DataPortBulkWrites {
    * go into is the one named HERE — the destination the user chose wins over
    * whatever a parser guessed for each row.
    *
+   * EVERY ROW IT WRITES ARRIVES `needsReview: true`, whatever the draft says.
+   * This operation IS the file-import path — a statement the user has just
+   * handed the app — so the rows are new work by definition, and the engine
+   * says so rather than trusting each parser to remember (a parser that forgets
+   * fails silently, which is indistinguishable from the feature being off).
+   * Rows that arrive some other way are not affected: `createTransaction` is a
+   * person typing and is born reviewed, and the Microsoft Money migration
+   * (`importMsMoney`) is history the user already worked through in Money.
+   *
    * ── WHAT IT PROMISES ────────────────────────────────────────────────────
    *
    * The account's balance moves by the sum of the rows that landed, to the
@@ -552,6 +690,51 @@ export interface DataPortTransferWrites {
     id: string,
     targetAccountId: string
   ): Promise<{ source: Transaction; counterpart: Transaction }>;
+  /**
+   * Point an EXISTING linked transfer at a different account.
+   *
+   * ── WHAT IT PROMISES ────────────────────────────────────────────────────
+   *
+   * Afterwards the pair faces `targetAccountId` and is filed consistently in
+   * both directions: the edited row carries the target's "To/From" category and
+   * names it as its transfer account, and the counterpart — sitting in the
+   * target — carries the EDITED ROW'S account's "To/From" category and names
+   * that. The crossover rule is written down once, in
+   * src/utils/transferRepoint.ts, and every engine derives both sides from it
+   * rather than patching whichever one visibly changed.
+   *
+   * Amounts, dates, descriptions, notes, tags and reconciled state are never
+   * touched — a re-point is a change of address, not of fact.
+   *
+   * All-or-nothing in every implementation: the displaced row, the row that
+   * replaces it, both re-filings and every balance movement land together or
+   * none of them do. There is no half-repointed state to compensate for,
+   * because the intermediate state — a transfer with no other side — is a
+   * stranded leg that reads as a real payment in an account nobody is looking
+   * at, and one of those went unnoticed for years.
+   *
+   * `disposition` decides the fate of the counterpart being displaced; see
+   * {@link TransferDisplacedDisposition}. Defaults to `move`.
+   *
+   * IT IS SAFE TO CALL WHEN THE TARGET HAS NOT CHANGED. The counterpart is then
+   * already where it belongs, no balance moves, and the operation is purely a
+   * re-file — which is what makes it the right thing to send when the row's OWN
+   * account moved instead, and the counterpart's category has gone stale as a
+   * result.
+   *
+   * IT REJECTS when the row is not half of a linked pair, when the two rows do
+   * not name each other (a stale list), when the target is the row's own
+   * account, when either side is a split parent or the opposite half of a split
+   * LINE (that link lives on the line and must be unpicked in the split), when
+   * either row is archived, and when the two accounts hold different currencies
+   * — the counterpart's amount is the source's negated with no conversion, the
+   * same guard `createTransferCounterpart` applies.
+   */
+  repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition?: TransferDisplacedDisposition
+  ): Promise<TransferRepointResult>;
 }
 
 export interface DataPortSplitWrites {

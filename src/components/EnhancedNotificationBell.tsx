@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { BellIcon, TrendingUpIcon, CreditCardIcon, TargetIcon, PiggyBankIcon, CheckCircleIcon, InfoIcon, XIcon } from './icons';
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
 import { formatDistanceToNow } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { carryDemoFlag } from '../utils/navigation';
 
 interface ActivityGroup {
   date: string;
@@ -14,6 +15,7 @@ type FilterValue = ActivityItem['type'] | 'all';
 
 export default function EnhancedNotificationBell(): React.JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     activities,
     counts,
@@ -102,10 +104,23 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
     return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
   };
 
+  /**
+   * Open what the alert is about.
+   *
+   * The stored `actionUrl` is the whole payload — for a new transaction it is
+   * the register deep link that names the account and the row, so the register
+   * selects and centres it on arrival (see hooks/useActivityLogger). A URL
+   * stored by an older build points at a list instead, and still works.
+   *
+   * The demo flag is added at CLICK time from the current location rather than
+   * stored with the alert: whether this is a demo session is a fact about now,
+   * not about the moment the alert was raised, and a jump inside one has to
+   * land inside the same session.
+   */
   const handleActivityClick = (activity: ActivityItem) => {
     markAsRead(activity.id);
     if (activity.actionUrl) {
-      navigate(activity.actionUrl);
+      navigate(carryDemoFlag(activity.actionUrl, location.search));
       setIsOpen(false);
     }
   };

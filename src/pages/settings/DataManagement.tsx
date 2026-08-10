@@ -1,6 +1,7 @@
-import { useState, Suspense, useMemo } from 'react';
+import { useState, Suspense, useEffect, useMemo } from 'react';
 import { lazyWithRecovery } from '../../utils/lazyWithRecovery';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { readDuplicateSweepSession, type DuplicateSweepSession } from '../../utils/duplicateSweepSession';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, SearchIcon, XCircleIcon, RefreshCwIcon, type IconProps } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
@@ -120,6 +121,29 @@ export default function DataManagementSettings() {
    * alone.
    */
   const [clearPartial, setClearPartial] = useState(false);
+
+  /**
+   * Coming back from the register with the duplicate sweep's crumbs.
+   *
+   * The sweep sends the user out to look at a row in its own account (the only
+   * place the neighbouring rows and the running balance are), and the register
+   * offers "Back to Find duplicates". That way back lands HERE, carrying what
+   * the dialog needs to reopen where it was — see utils/duplicateSweepSession.
+   *
+   * The crumbs are cleared off the history entry as soon as they are taken, so
+   * a reload of this page is an ordinary visit to Data Management rather than
+   * one that keeps reopening a dialog the user has since closed.
+   */
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [sweepResume, setSweepResume] = useState<DuplicateSweepSession | null>(null);
+  useEffect(() => {
+    const session = readDuplicateSweepSession(location.state);
+    if (session === null) return;
+    setSweepResume(session);
+    setShowDuplicateSweep(true);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [location.state, location.pathname, location.search, navigate]);
 
   // ACTUALLY delete everything. The store has to be wiped first — the context's
   // resetLoadedData only forgets the loaded copy, so on cloud the data all came
@@ -399,7 +423,13 @@ export default function DataManagementSettings() {
         <Suspense fallback={<LoadingState />}>
           <DuplicateSweepModal
             isOpen={showDuplicateSweep}
-            onClose={() => setShowDuplicateSweep(false)}
+            resume={sweepResume}
+            onClose={() => {
+              setShowDuplicateSweep(false);
+              // Closing it ends the sitting: the next open starts fresh rather
+              // than restoring a place the user has just walked away from.
+              setSweepResume(null);
+            }}
           />
         </Suspense>
       )}

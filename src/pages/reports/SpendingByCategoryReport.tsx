@@ -10,6 +10,7 @@ import UncategorisedReviewBand from '../../components/reports/UncategorisedRevie
 import { computeExpenseCategoryNetTotals } from '../../utils/categoryNetting';
 import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
+import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 
@@ -31,8 +32,12 @@ const CATEGORY_COLORS = [
 /** Slices beyond this become hard to tell apart; the table still lists all. */
 const PIE_SLICES = 8;
 
-export default function SpendingByCategoryReport({ picker }: ReportViewProps): React.JSX.Element {
+export default function SpendingByCategoryReport({ picker, focus }: ReportViewProps): React.JSX.Element {
   const selection = useReportAccountSelection();
+  // A slice clicked on the Dashboard's Expense Categories card names a
+  // category; its row in the ranked table below is highlighted and scrolled to,
+  // where the share, the count and the way into its transactions all are.
+  const categoryFocus = useArrivalRowFocus(focus);
   const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
@@ -180,7 +185,14 @@ export default function SpendingByCategoryReport({ picker }: ReportViewProps): R
               </thead>
               <tbody>
                 {totals.map(entry => (
-                  <tr key={entry.key} className="border-t border-gray-50 dark:border-gray-700/50">
+                  <tr
+                    key={entry.key}
+                    ref={categoryFocus.isFocused(entry.key) ? categoryFocus.focusRef : undefined}
+                    aria-current={categoryFocus.isFocused(entry.key) ? 'true' : undefined}
+                    className={`border-t border-gray-50 dark:border-gray-700/50 ${
+                      categoryFocus.isFocused(entry.key) ? ARRIVAL_ROW_CLASS : ''
+                    }`}
+                  >
                     <th scope="row" className="px-6 py-2 text-left font-normal">
                       <button
                         type="button"

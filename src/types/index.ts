@@ -69,6 +69,23 @@ export interface Account {
    */
   bankBalanceDate?: string | null;
   lastReconciledDate?: Date | null;
+  /**
+   * The ending balance the last finalized reconciliation was settled against —
+   * Microsoft Money's "last statement balance", and therefore the STARTING
+   * balance the next reconciliation is offered.
+   *
+   * Distinct from `bankBalance`, which is what the bank says NOW (a feed or an
+   * imported statement writes it, and it moves whenever either does). This one
+   * is a record of a decision a person took on a day, and nothing but a
+   * finalize may move it.
+   *
+   * NULL/undefined = no reconciliation has ever been finalized against a
+   * confirmed figure, which is the honest state for every account until the
+   * first one is. Never zero-as-unknown: £0.00 is a real statement balance (an
+   * account swept to zero every night closes on exactly that), so the two
+   * cannot share a representation.
+   */
+  lastReconciledBalance?: number | null;
   lowBalanceThreshold?: number;
   lowBalanceAlertEnabled?: boolean;
 }
@@ -109,11 +126,57 @@ export interface Transaction {
    */
   categoryConfirmed?: boolean;
   categoryName?: string;
+  /**
+   * Did this row arrive from an import that nobody has looked at yet?
+   *
+   * true = it came in on a statement file or a bank feed and no save has been
+   * made against it since. The register prints it in bold, counts it in the
+   * "To Review" box beside the View menu and can filter down to it — the
+   * Microsoft Money convention, which answers "which of these have I dealt
+   * with?" in the register itself rather than in a queue somewhere else.
+   *
+   * false / undefined = reviewed, or never needed reviewing. `undefined` is
+   * what a database without migration 20260810090000 returns, and what the
+   * local/demo store holds, so "unmarked" must read as reviewed or the whole of
+   * a fifty-thousand row history lights up on the day the flag ships. See
+   * src/utils/transactionReview.ts — that asymmetry is written down once and
+   * read from there, never re-derived.
+   *
+   * Distinct from {@link categoryConfirmed}, which is a narrower question about
+   * one field: a row can carry a category its own file stated (confirmed) and
+   * still be a transaction no human has seen (needs review).
+   */
+  needsReview?: boolean;
   accountId: string;
   type: 'income' | 'expense' | 'transfer';
   tags?: string[];
   notes?: string;
+  /**
+   * Marked off against a statement — Microsoft Money's C, a WORKING flag.
+   *
+   * Set the moment a checkbox is ticked (in the reconciliation screen or the
+   * register) and kept if the user walks away, because somebody who has ticked
+   * eight hundred rows must not lose them by navigating. It settles nothing on
+   * its own: see {@link reconciled}, and src/utils/transactionReconciliation.ts
+   * for the one predicate every surface asks.
+   */
   cleared?: boolean;
+  /**
+   * Committed — Microsoft Money's R. Set ONLY by finalizing a reconciliation
+   * against a bank balance the user confirmed.
+   *
+   * `null`/undefined is not "false": it means this row predates the split
+   * between marking and committing, and then `cleared` answers for it. That
+   * asymmetry is written down once, in src/utils/transactionReconciliation.ts,
+   * and read from there — never re-derived, because reading it the other way
+   * round would report a whole imported history as unreconciled work.
+   *
+   * `null` is what a row written before migration 20260810200000 carries (the
+   * column is deliberately nullable so that history needed no rewrite);
+   * `undefined` is what a database without that migration returns at all, and
+   * what the local/demo store holds until something writes the flag.
+   */
+  reconciled?: boolean | null;
   /** @deprecated Will be removed in reconciliation cleanup */
   reconciledWith?: string;
   /** @deprecated Will be removed in reconciliation cleanup */
@@ -283,6 +346,52 @@ export interface SplitWriteResult {
   splitCount: number;
   amount: number;
   counterparts: Transaction[];
+}
+
+/**
+ * What to do with the counterpart a re-point displaces.
+ *
+ * `move` is the whole point of the feature and the answer in the ordinary case:
+ * the counterpart is scaffolding the app created ("create the other side"), so
+ * it simply changes address. The other two exist for the counterpart that is a
+ * REAL transaction — a row off a statement that happens to have been matched to
+ * this transfer — where moving it would drag evidence of one bank's activity
+ * into another bank's register. See src/utils/transferCounterpartOrigin.ts for
+ * how the two are told apart, and how conservatively.
+ *
+ *   release — leave it exactly where it is, as a plain unlinked, uncategorised
+ *             transaction, and make a fresh counterpart in the new account.
+ *             Balance-neutral for the released row: nothing about its amount or
+ *             its account changes, only what it claims to be.
+ *   delete  — remove it (reversing its account's balance) and make a fresh
+ *             counterpart in the new account.
+ */
+export type TransferDisplacedDisposition = 'move' | 'release' | 'delete';
+
+/**
+ * What happened to the counterpart a re-point displaced, so a caller can
+ * update the accounts it moved rather than re-deriving them.
+ *
+ * `moved` names no row because the row is `TransferRepointResult.counterpart` —
+ * the same id, at a new address.
+ */
+export type TransferDisplacedOutcome =
+  | { kind: 'moved'; fromAccountId: string }
+  | { kind: 'released'; transaction: Transaction }
+  | { kind: 'deleted'; id: string; accountId: string; amount: number };
+
+/**
+ * What a re-point actually did. Both rows are returned as the store wrote them
+ * — a caller that guesses at the categories a re-file produced is a caller that
+ * will one day show a register disagreeing with the ledger.
+ */
+export interface TransferRepointResult {
+  /** The edited row, re-filed to face its new counterpart. */
+  source: Transaction;
+  /** The row now sitting in the target account and linked to the source. */
+  counterpart: Transaction;
+  /** What became of the counterpart this displaced. */
+  displaced: TransferDisplacedOutcome;
 }
 
 /**

@@ -76,3 +76,53 @@ describe('useActivityLogger transaction announcements', () => {
     expect(announcements).toHaveLength(1);
   });
 });
+
+/**
+ * WHERE a notification takes the user.
+ *
+ * Both of these used to land on a list: "X Balance Updated" opened the accounts
+ * page, and "New Transaction" opened the whole transactions list with nothing
+ * pointed at — which on fifty thousand rows is not an answer to either alert.
+ * The destination travels as the `actionUrl` the bell already stores, so a
+ * register deep link names the account and the row inside the URL itself and
+ * nothing new has to be added to a record that is serialised into localStorage
+ * and read back by builds that have not shipped yet.
+ */
+type LoggedActivity = { title: string; description: string; actionUrl?: string };
+
+const loggedActivities = (): LoggedActivity[] => logged.items as LoggedActivity[];
+
+const account = (id: string, name: string, balance: number) => ({
+  id, name, balance, type: 'current', currency: 'GBP', lastUpdated: new Date('2026-01-01'),
+});
+
+describe('where a notification takes the user', () => {
+  beforeEach(() => {
+    logged.items = [];
+    localStorage.clear();
+    mockApp.current = { transactions: [], accounts: [], budgets: [], goals: [] };
+  });
+
+  it('sends a new transaction to its own row, in its own account’s register', () => {
+    mockApp.current.transactions = [futureDated('t1')];
+    const hook = renderHook(() => useActivityLogger());
+
+    mockApp.current = { ...mockApp.current, transactions: [futureDated('t1'), futureDated('t2')] };
+    hook.rerender();
+
+    const announcement = loggedActivities().find(l => l.title === 'New Transaction');
+    // The register's own deep link: it selects the row and centres it.
+    expect(announcement?.actionUrl).toBe('/accounts/acct-1?txn=t2');
+  });
+
+  it('sends a balance alert to THAT account’s register, not the list of them', () => {
+    // A balance this browser has seen before, so the change is a change.
+    localStorage.setItem('account_balance_acc-9', '100');
+    mockApp.current.accounts = [account('acc-9', 'Synthetic Current', 250)];
+
+    renderHook(() => useActivityLogger());
+
+    const announcement = loggedActivities().find(l => l.title.endsWith('Balance Updated'));
+    expect(announcement?.actionUrl).toBe('/accounts/acc-9');
+  });
+});

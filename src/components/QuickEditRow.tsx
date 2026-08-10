@@ -10,10 +10,10 @@ import React, {
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
-import { XIcon } from './icons';
+import { ArrowRightLeftIcon, XIcon } from './icons';
 import CategorySelector from './CategorySelector';
+import AccountSelector from './common/AccountSelector';
 import DatePicker from './common/DatePicker';
-import TransferMatchDialog from './TransferMatchDialog';
 import SuggestedCategoryBadge from './SuggestedCategoryBadge';
 import { findTransferCandidates, type TransferCandidate } from '../utils/transferMatch';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
@@ -24,7 +24,7 @@ import { isInsideQuickEdit } from '../utils/quickEditScope';
 // The strip's arrow keys. The rule lives with the rest of the register's
 // keyboard so the printed shortcut list and the handler cannot drift apart.
 import { nextStripButtonIndex } from '../utils/registerShortcuts';
-import type { Transaction } from '../types';
+import type { Account, Transaction } from '../types';
 
 /**
  * ─ THE ROW IS THE EDITOR ───────────────────────────────────────────────────
@@ -149,6 +149,16 @@ function resolveField(
 /** Which button's write is in flight, or null when none is. */
 type SavingAction = 'save' | 'next' | 'confirm' | null;
 
+/**
+ * The strip prompt that stands in for the transfer dialog, and why it is a
+ * strip rather than a dialog. See TRANSFER_PROMPT below.
+ */
+interface QuickEditTransferPrompt {
+  targetAccountId: string;
+  targetAccountName: string;
+  candidates: TransferCandidate[];
+}
+
 interface QuickEditRowContextValue {
   transaction: Transaction;
   fields: readonly QuickEditField[];
@@ -158,11 +168,25 @@ interface QuickEditRowContextValue {
   setDescription: (value: string) => void;
   category: string;
   chooseCategory: (categoryId: string) => void;
+  /** Is the Category cell currently the transfer-to ACCOUNT picker? */
+  transferMode: boolean;
+  /** Flip it. The category underneath is kept; see toggleTransferMode. */
+  toggleTransferMode: () => void;
+  /** The account chosen while in transfer mode, or '' when none is yet. */
+  transferAccountId: string;
+  chooseTransferAccount: (accountId: string) => void;
+  /** Every OTHER active account — the row's own is never a transfer target. */
+  transferTargets: readonly Account[];
   dateFocusToken: number;
   categoryOpenToken: number;
   showingSuggestion: boolean;
   savingAction: SavingAction;
   hasNext: boolean;
+  /** The match-or-create question, asked in the strip. Null when not asked. */
+  transferPrompt: QuickEditTransferPrompt | null;
+  linkTransfer: (candidateId: string) => void;
+  createTransfer: () => void;
+  cancelTransferPrompt: () => void;
   dateFieldRef: React.RefObject<HTMLDivElement>;
   descriptionRef: React.RefObject<HTMLInputElement>;
   saveButtonRef: React.RefObject<HTMLButtonElement>;
@@ -296,12 +320,33 @@ export function QuickEditRowProvider({
    * closes and not when it merely moves to the next row.
    */
   const lastFieldRef = useRef<QuickEditField | null>(null);
-  // Money-style transfer flow: filing under a "To/From <account>" category
-  // opens a match-or-create confirmation instead of a plain category write.
-  const [transferPrompt, setTransferPrompt] = useState<{
-    targetAccountId: string;
-    candidates: TransferCandidate[];
-  } | null>(null);
+  /**
+   * ─ TRANSFER MODE ──────────────────────────────────────────────────────────
+   *
+   * The Category cell answers one of two questions: "what was this spent on?"
+   * or "which account did this money move to?". A transfer is not a category,
+   * and in Microsoft Money it never was — you said where the money went, and
+   * Money made the other side. Filing one through a "To/From <account>"
+   * category still works and is what the picker under the toggle writes, but
+   * finding those among four hundred categories is not a thing anyone should
+   * have to do on a run.
+   *
+   * So the toggle swaps the combobox for the ACCOUNT list, and swaps it back.
+   *
+   * ─ WHY THE CATEGORY SURVIVES THE FLIP ─────────────────────────────────────
+   * `category` is deliberately NOT cleared when the toggle goes on. A run down
+   * a statement is a sequence of guesses being confirmed; toggling to check
+   * whether a row is really a transfer, deciding it is not, and finding the
+   * suggestion gone would make the toggle something you daren't press. It dies
+   * exactly once: when a transfer is actually committed, because the row is
+   * then a transfer and its category belongs to the account it faces.
+   */
+  const [transferMode, setTransferMode] = useState(false);
+  const [transferAccountId, setTransferAccountId] = useState('');
+  // Money-style transfer flow: committing a transfer asks match-or-create
+  // rather than writing blindly — in the strip, not a dialog. See TRANSFER
+  // PROMPT on QuickEditActionStrip.
+  const [transferPrompt, setTransferPrompt] = useState<QuickEditTransferPrompt | null>(null);
   const advanceAfterTransferRef = useRef(false);
 
   const isTransfer = transaction?.type === 'transfer';
@@ -333,6 +378,12 @@ export function QuickEditRowProvider({
     setDate(transaction ? toDateInputValue(transaction.date) : '');
     setDescription(transaction?.description ?? '');
     setCategory(transaction?.category ?? '');
+    // Transfer mode is about the ROW being edited, so it does not travel to the
+    // next one: a Save & Next that landed with the account picker still up
+    // would offer to move money the moment the user typed.
+    setTransferMode(false);
+    setTransferAccountId('');
+    setTransferPrompt(null);
     // The run is over when the editor closes; the next one starts its own
     // memory rather than inheriting where the last one happened to end.
     if (targetId === null) lastFieldRef.current = null;
@@ -454,16 +505,22 @@ export function QuickEditRowProvider({
       showError(new Error('Enter a valid date.'));
       return;
     }
-    // Filing under a To/From category = "make this a transfer" (Money-style):
-    // save the field edits, then hand over to the match-or-create flow, which
-    // owns the category/type change. Never for rows that already are
-    // transfers or splits.
+    // "Make this a transfer" arrives two ways and they mean the same thing: the
+    // Transfer toggle with an account chosen, or a "To/From <account>" category
+    // picked out of the ordinary list (which is still how a filed transfer is
+    // recognised everywhere else). Both save the field edits, then hand over to
+    // the match-or-create question, which owns the category/type change. Never
+    // for rows that already are transfers or splits.
     const chosenCategory = categories.find(c => c.id === category);
-    if (!isTransfer && !isSplit && !transaction.linkedTransferId &&
-        chosenCategory?.isTransferCategory && chosenCategory.accountId) {
-      if (chosenCategory.accountId === transaction.accountId) {
+    const targetAccountId = transferMode
+      ? transferAccountId
+      : (chosenCategory?.isTransferCategory ? chosenCategory.accountId ?? '' : '');
+    if (!isTransfer && !isSplit && !transaction.linkedTransferId && targetAccountId) {
+      if (targetAccountId === transaction.accountId) {
         showError(new Error(
-          "That's this account's own transfer category — pick the OTHER account's To/From category."
+          transferMode
+            ? "A transfer needs two different accounts — pick the account the money went to."
+            : "That's this account's own transfer category — pick the OTHER account's To/From category."
         ));
         return;
       }
@@ -473,14 +530,21 @@ export function QuickEditRowProvider({
         await updateTransaction(transaction.id, {
           date: parsedDate,
           description: description.trim(),
+          // Reviewed, even though the transfer half of this save has not
+          // happened yet: this write COMMITTED the user's field edits, and it
+          // was a save button that made it. Cancelling the transfer prompt
+          // leaves those edits in place, so leaving the row bold afterwards
+          // would call an edit the user made and kept "not looked at".
+          needsReview: false,
         });
         advanceAfterTransferRef.current = advance;
         setTransferPrompt({
-          targetAccountId: chosenCategory.accountId,
+          targetAccountId,
+          targetAccountName: accounts.find(a => a.id === targetAccountId)?.name ?? 'the other account',
           candidates: findTransferCandidates(
             transactions,
             { ...transaction, date: parsedDate, description: description.trim() },
-            chosenCategory.accountId
+            targetAccountId
           ),
         });
       } catch (error) {
@@ -491,6 +555,15 @@ export function QuickEditRowProvider({
       return;
     }
 
+    // Transfer mode with no account chosen is an unfinished sentence, not an
+    // instruction. Refusing here rather than silently saving the category
+    // underneath keeps the toggle honest: what is on screen is what will be
+    // written.
+    if (transferMode && !transferAccountId) {
+      showError(new Error('Pick the account this money moved to, or switch back to categories.'));
+      return;
+    }
+
     setSavingAction(advance ? 'next' : 'save');
     restoreFocusRef.current = true;
     try {
@@ -498,6 +571,17 @@ export function QuickEditRowProvider({
       await updateTransaction(transaction.id, {
         date: parsedDate,
         description: description.trim(),
+        // A SAVE IS A REVIEW. This is the whole of the Microsoft Money rule the
+        // register's bold implements: the row stops being new when a save
+        // button commits it, and not a moment before. Opening the editor and
+        // pressing Escape leaves this unsent, so the row stays bold and the
+        // counter stays where it was — reading a row is not the same as
+        // finishing with it.
+        //
+        // Sent explicitly, and only from here and the three other save buttons,
+        // because no server-side rule could tell this write apart from a bulk
+        // categorise sweep or a payee rename passing through the same door.
+        needsReview: false,
         // Saving from the row is confirmation. The user opened it, the category
         // was in front of them in the cell they are saving, and they either
         // changed it or let it stand — both are answers to "is this right?".
@@ -537,6 +621,7 @@ export function QuickEditRowProvider({
     }
   }, [
     transaction, isSaving, description, date, category, categories, isTransfer, isSplit,
+    transferMode, transferAccountId, accounts,
     transactions, updateTransaction, propagateCategory, finishSave, showError,
   ]);
 
@@ -616,27 +701,6 @@ export function QuickEditRowProvider({
     focusRunButton();
   }, [focusRunButton]);
 
-  // Complete the transfer flow (link or create), then honour a pending
-  // Save & Next. Failures keep the dialog open so the user can retry/cancel.
-  const completeTransfer = useCallback(async (
-    action: () => Promise<unknown>,
-    successMessage: string
-  ): Promise<void> => {
-    setSavingAction(advanceAfterTransferRef.current ? 'next' : 'save');
-    try {
-      await action();
-      showSuccess(successMessage);
-      setTransferPrompt(null);
-      const advance = advanceAfterTransferRef.current;
-      advanceAfterTransferRef.current = false;
-      finishSave(advance);
-    } catch (error) {
-      showError(error);
-    } finally {
-      setSavingAction(null);
-    }
-  }, [finishSave, showSuccess, showError]);
-
   /**
    * The one-click half of "confirm or edit": agree with the guess exactly as it
    * stands. Writes a single boolean — no category, no amount, no balance — and
@@ -678,9 +742,110 @@ export function QuickEditRowProvider({
     isConfirmableSuggestion(transaction) &&
     category === (transaction.category ?? '');
 
-  const targetAccountName = transferPrompt
-    ? accounts.find(a => a.id === transferPrompt.targetAccountId)?.name ?? 'the other account'
-    : '';
+  /**
+   * Flip the Category cell between the category list and the account list.
+   *
+   * Nothing is written and nothing is cleared — see the note on `transferMode`
+   * for why the category underneath has to survive the flip. Turning the toggle
+   * OFF also forgets the account picked while it was on, because an account
+   * chosen and then abandoned is not an instruction, and leaving it set would
+   * make a later flip back arrive pre-loaded with a decision the user walked
+   * away from.
+   */
+  const toggleTransferMode = useCallback((): void => {
+    setTransferMode(on => {
+      if (on) setTransferAccountId('');
+      return !on;
+    });
+  }, []);
+
+  /**
+   * An account chosen hands the cursor to Save & Next, exactly as a category
+   * does — same reason, written out on chooseCategory: the picker closes by
+   * unmounting its search field, and focus would otherwise fall to the document
+   * body where neither Enter nor Escape reaches this editor.
+   */
+  const chooseTransferAccount = useCallback((accountId: string): void => {
+    setTransferAccountId(accountId);
+    focusRunButton();
+  }, [focusRunButton]);
+
+  /**
+   * Where the money could have gone: every OTHER active account.
+   *
+   * The row's own is excluded rather than offered-and-refused, because
+   * "Current Account → Current Account" describes nothing, and a picker that
+   * lists an option only to reject it is a picker that has wasted a keystroke.
+   */
+  const transferTargets = useMemo<readonly Account[]>(
+    () => (transaction
+      ? accounts.filter(a => a.isActive !== false && a.id !== transaction.accountId)
+      : []),
+    [accounts, transaction]
+  );
+
+  // Complete the transfer flow (link or create), then honour a pending
+  // Save & Next. Failures keep the prompt up so the user can retry/cancel.
+  const completeTransfer = useCallback(async (
+    action: () => Promise<unknown>,
+    successMessage: string
+  ): Promise<void> => {
+    setSavingAction(advanceAfterTransferRef.current ? 'next' : 'save');
+    try {
+      await action();
+      showSuccess(successMessage);
+      setTransferPrompt(null);
+      // THE CATEGORY DIES HERE, and only here. The row is a transfer now; its
+      // category belongs to the account it faces, and the guess that was being
+      // kept across toggles has nothing left to be a guess about.
+      setTransferMode(false);
+      setTransferAccountId('');
+      setCategory('');
+      const advance = advanceAfterTransferRef.current;
+      advanceAfterTransferRef.current = false;
+      finishSave(advance);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSavingAction(null);
+    }
+  }, [finishSave, showSuccess, showError]);
+
+  const linkTransfer = useCallback((candidateId: string): void => {
+    if (!transaction || !transferPrompt) return;
+    void completeTransfer(
+      () => linkTransferPair(transaction.id, candidateId),
+      `Linked as a transfer with ${transferPrompt.targetAccountName}.`
+    );
+  }, [transaction, transferPrompt, completeTransfer, linkTransferPair]);
+
+  const createTransfer = useCallback((): void => {
+    if (!transaction || !transferPrompt) return;
+    // Pre-flight the RPC's cross-currency guard so the user gets a clear
+    // message without a failed server round-trip.
+    const sourceCurrency = accounts.find(a => a.id === transaction.accountId)?.currency;
+    const targetCurrency = accounts.find(a => a.id === transferPrompt.targetAccountId)?.currency;
+    if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
+      showError(new Error(
+        `Transfers between accounts in different currencies aren't supported yet (${sourceCurrency} and ${targetCurrency}).`
+      ));
+      return;
+    }
+    void completeTransfer(
+      () => createTransferCounterpart(transaction.id, transferPrompt.targetAccountId),
+      `Transfer created — the other side was added to ${transferPrompt.targetAccountName}.`
+    );
+  }, [transaction, transferPrompt, accounts, completeTransfer, createTransferCounterpart, showError]);
+
+  const cancelTransferPrompt = useCallback((): void => {
+    setTransferPrompt(null);
+    advanceAfterTransferRef.current = false;
+    // The field edits were committed by the save that opened this; only the
+    // transfer half is abandoned. The toggle stays as the user left it so the
+    // account can be corrected and saved again.
+    restoreFocusRef.current = true;
+    focusRunButton();
+  }, [focusRunButton]);
 
   const value = useMemo<QuickEditRowContextValue | null>(() => {
     if (!transaction) return null;
@@ -693,11 +858,20 @@ export function QuickEditRowProvider({
       setDescription,
       category,
       chooseCategory,
+      transferMode,
+      toggleTransferMode,
+      transferAccountId,
+      chooseTransferAccount,
+      transferTargets,
       dateFocusToken,
       categoryOpenToken,
       showingSuggestion,
       savingAction,
       hasNext: onNext !== undefined,
+      transferPrompt,
+      linkTransfer,
+      createTransfer,
+      cancelTransferPrompt,
       dateFieldRef,
       descriptionRef,
       saveButtonRef,
@@ -710,50 +884,15 @@ export function QuickEditRowProvider({
     };
   }, [
     transaction, fields, date, description, category, chooseCategory,
+    transferMode, toggleTransferMode, transferAccountId, chooseTransferAccount, transferTargets,
     dateFocusToken, categoryOpenToken, showingSuggestion, savingAction, onNext,
+    transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
     handleKeyDown, noteFocus, requestSave, confirmSuggestion, onDismiss,
   ]);
 
   return (
     <QuickEditRowContext.Provider value={value}>
       {children}
-      {/* The confirmation is drawn from here, not from the strip: it is a
-          full-screen dialog about the whole edit, and the strip lives inside a
-          table that clips what overflows it. */}
-      {transaction && transferPrompt && (
-        <TransferMatchDialog
-          isOpen
-          source={transaction}
-          sourceAccountName={accounts.find(a => a.id === transaction.accountId)?.name ?? 'this account'}
-          targetAccountName={targetAccountName}
-          candidates={transferPrompt.candidates}
-          busy={isSaving}
-          onLink={(candidateId) => void completeTransfer(
-            () => linkTransferPair(transaction.id, candidateId),
-            `Linked as a transfer with ${targetAccountName}.`
-          )}
-          onCreate={() => {
-            // Pre-flight the RPC's cross-currency guard so the user gets a
-            // clear message without a failed server round-trip.
-            const sourceCurrency = accounts.find(a => a.id === transaction.accountId)?.currency;
-            const targetCurrency = accounts.find(a => a.id === transferPrompt.targetAccountId)?.currency;
-            if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
-              showError(new Error(
-                `Transfers between accounts in different currencies aren't supported yet (${sourceCurrency} and ${targetCurrency}).`
-              ));
-              return;
-            }
-            void completeTransfer(
-              () => createTransferCounterpart(transaction.id, transferPrompt.targetAccountId),
-              `Transfer created — the other side was added to ${targetAccountName}.`
-            );
-          }}
-          onCancel={() => {
-            setTransferPrompt(null);
-            advanceAfterTransferRef.current = false;
-          }}
-        />
-      )}
     </QuickEditRowContext.Provider>
   );
 }
@@ -818,6 +957,7 @@ function QuickEditCellShell({
 export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.JSX.Element {
   const {
     transaction, date, setDate, description, setDescription, category, chooseCategory,
+    transferMode, toggleTransferMode, transferAccountId, chooseTransferAccount, transferTargets,
     dateFocusToken, categoryOpenToken, dateFieldRef, descriptionRef,
   } = useQuickEditRow();
 
@@ -886,23 +1026,82 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
     // cell exactly as it reads, because a transfer's category follows the
     // account it faces and a split's lives in its lines.
     <QuickEditCellShell field="category" className="px-3 min-w-0">
-      <CategorySelector
-        selectedCategory={category}
-        onCategoryChange={chooseCategory}
-        transactionType={transaction.type}
-        includeAllTypes
-        showHelperText={false}
-        placeholder="Search or select category…"
-        allowClear
-        // Same reason as the calendar above: the list would be clipped by the
-        // table it is drawn inside.
-        usePortal
-        // Matches the 36px the row grows to while it is being edited.
-        size="row"
-        // A category run lands here: the list opens with an empty search and
-        // the cursor in it, so the next payee is typed straight away.
-        openSearchToken={categoryOpenToken}
-      />
+      {/* The picker and its toggle share the cell, and the picker takes every
+          pixel the toggle does not: a 28px square is what a chevron already
+          costs, and the Category column is the widest of the three. */}
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 min-w-0">
+          {transferMode ? (
+            /* WHERE DID THE MONEY GO? — the same box, the same height, the same
+               search, a different list. Money asked this question directly
+               rather than hiding it among four hundred categories, and the
+               account chosen here becomes that account's "To/From" category on
+               save, so nothing downstream has to learn a second shape. */
+            <AccountSelector
+              accounts={transferTargets}
+              selectedAccountId={transferAccountId}
+              onAccountChange={chooseTransferAccount}
+              placeholder="Search or select account…"
+              ariaLabel="Transfer to account"
+              usePortal
+              size="row"
+              openSearchToken={categoryOpenToken}
+            />
+          ) : (
+            /* Searchable combobox: click to type-filter, or use the chevron to
+               browse the full list. Both directions are offered (Money-style
+               cross-type filing — a refund can file under the expense it
+               refunds).
+
+               Transfers and splits never reach here: the register leaves their
+               Category cell exactly as it reads, because a transfer's category
+               follows the account it faces and a split's lives in its lines. */
+            <CategorySelector
+              selectedCategory={category}
+              onCategoryChange={chooseCategory}
+              transactionType={transaction.type}
+              includeAllTypes
+              showHelperText={false}
+              placeholder="Search or select category…"
+              allowClear
+              // Same reason as the calendar above: the list would be clipped by
+              // the table it is drawn inside.
+              usePortal
+              // Matches the 36px the row grows to while it is being edited.
+              size="row"
+              // A category run lands here: the list opens with an empty search
+              // and the cursor in it, so the next payee is typed straight away.
+              openSearchToken={categoryOpenToken}
+            />
+          )}
+        </div>
+        {/* THE TOGGLE. In the cell rather than the strip, because it changes
+            what THIS cell is asking, and a control that changes a field belongs
+            beside the field it changes.
+
+            A button, so Tab reaches it straight after the picker and Enter
+            presses it — the ordinary semantics, and the editor's own Enter
+            handler stands aside for anything inside a <button> (see
+            handleKeyDown), so the run's "Enter accepts, Enter saves" rhythm is
+            untouched by its presence. aria-pressed rather than a checkbox: it
+            is a mode, not a value, and it has no label of its own to tick. */}
+        <button
+          type="button"
+          onClick={toggleTransferMode}
+          aria-pressed={transferMode}
+          aria-label="Transfer"
+          title={transferMode
+            ? 'Back to categories — the category you had is still there'
+            : 'This row is a transfer: choose the account the money moved to instead of a category'}
+          className={`shrink-0 h-[28px] w-[28px] inline-flex items-center justify-center rounded-lg border transition-colors ${
+            transferMode
+              ? 'border-blue-500 bg-blue-600 text-white'
+              : 'border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-400'
+          }`}
+        >
+          <ArrowRightLeftIcon size={14} />
+        </button>
+      </div>
     </QuickEditCellShell>
   );
 }
@@ -924,9 +1123,44 @@ export function QuickEditActionStrip(): React.JSX.Element {
   const {
     showingSuggestion, savingAction, hasNext, saveButtonRef, saveAndNextButtonRef,
     handleKeyDown, requestSave, confirmSuggestion, dismiss,
+    transferPrompt, linkTransfer, createTransfer, cancelTransferPrompt,
   } = useQuickEditRow();
   const isSaving = savingAction !== null;
   const stripRef = useRef<HTMLDivElement>(null);
+  const promptDefaultRef = useRef<HTMLButtonElement>(null);
+
+  /**
+   * ─ THE TRANSFER PROMPT, AND WHY IT IS A STRIP AND NOT A DIALOG ────────────
+   *
+   * Committing a transfer from the row editor has to ask one question: is the
+   * other side already in that account, or should we make it? The full editor
+   * asks it in a modal, which is right there — that flow is one transaction at
+   * a time and the modal is already the thing on screen.
+   *
+   * Here it would be wrong, and the reason is the run. This editor exists so a
+   * statement can be filed at "type, Enter, Enter" without the hand leaving the
+   * keyboard or the eye leaving the line. A modal takes the screen, takes the
+   * focus out of the strip, and puts the row being worked on behind an overlay
+   * — after which the next Enter goes somewhere the user has to look for. So
+   * the question is asked in the 36px that is already there, in the place the
+   * cursor already is, and the cursor lands on the answer that is nearly always
+   * right.
+   *
+   * ─ WHY NOT AUTO-CREATE, WHICH WOULD BE FASTER STILL ───────────────────────
+   * Because both silent answers are wrong in a way the user cannot see.
+   * Creating the other side writes a real row into another account and moves
+   * that account's balance; doing it without a word, in the one flow whose
+   * whole point is speed, is how a register acquires a row nobody remembers.
+   * Auto-LINKING is worse: findTransferCandidates treats the description as a
+   * TIE-BREAKER only — the two banks never word it the same — so its top
+   * candidate is "the nearest date with an exactly opposite amount", and on a
+   * swept account that is a coin toss between several real transactions.
+   *
+   * One keypress is the honest price, and it is one keypress: Enter.
+   */
+  useEffect(() => {
+    if (transferPrompt) promptDefaultRef.current?.focus();
+  }, [transferPrompt]);
 
   /**
    * The arrows, while the cursor is on one of these buttons: step along the
@@ -982,6 +1216,68 @@ export function QuickEditActionStrip(): React.JSX.Element {
       }}
       className="relative z-20 -mt-1 h-full flex items-center justify-between gap-3 px-3 rounded-b-xl border-x border-b border-[#6B86B3]/60 bg-blue-50/80 dark:bg-blue-900/30 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)]"
     >
+      {transferPrompt ? (
+        /* The whole strip becomes the question, so nothing is competing with
+           it and nothing has moved: the same 36px, the same place, the same
+           arrow keys along the same buttons. `role="group"` with a name, and
+           aria-live, because the strip changed under a keyboard user without
+           anything on screen having moved. */
+        <>
+          <span
+            className="min-w-0 truncate text-[11px] font-normal text-gray-700 dark:text-gray-300"
+            aria-live="polite"
+          >
+            {transferPrompt.candidates.length > 0
+              ? `Found the matching transaction in ${transferPrompt.targetAccountName} — link the two sides?`
+              : `Nothing matching in ${transferPrompt.targetAccountName} — create the other side there?`}
+          </span>
+          <div
+            className="flex shrink-0 items-center gap-2"
+            role="group"
+            aria-label={`Make this a transfer with ${transferPrompt.targetAccountName}`}
+          >
+            {transferPrompt.candidates.length > 0 && (
+              <button
+                type="button"
+                ref={promptDefaultRef}
+                onClick={() => linkTransfer(transferPrompt.candidates[0].transaction.id)}
+                disabled={isSaving}
+                className="px-3 h-[28px] inline-flex items-center justify-center text-xs font-medium bg-[#1a2332] text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                title={`Join this row to "${transferPrompt.candidates[0].transaction.description}" in ${transferPrompt.targetAccountName}. Nothing is created and no balance moves — both rows already exist.`}
+              >
+                {isSaving ? 'Linking…' : 'Link'}
+              </button>
+            )}
+            <button
+              type="button"
+              // The default answer when there is nothing to link to. Only one of
+              // the two ever holds this ref, so the cursor always lands on the
+              // action that is right for what was found.
+              ref={transferPrompt.candidates.length > 0 ? undefined : promptDefaultRef}
+              onClick={createTransfer}
+              disabled={isSaving}
+              className={`px-3 h-[28px] inline-flex items-center justify-center text-xs font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${
+                transferPrompt.candidates.length > 0
+                  ? 'bg-[#2d3a4d] text-white hover:bg-[#3a4a5f]'
+                  : 'bg-[#1a2332] text-white hover:bg-secondary'
+              }`}
+              title={`Add a new transaction in ${transferPrompt.targetAccountName} for the other half. This moves that account's balance.`}
+            >
+              {isSaving ? 'Creating…' : 'Create the other side'}
+            </button>
+            <button
+              type="button"
+              onClick={cancelTransferPrompt}
+              disabled={isSaving}
+              className="px-3 h-[28px] inline-flex items-center justify-center text-xs font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-white/60 dark:hover:bg-gray-700/60 disabled:opacity-50"
+              title="Leave it as it was — the date and description you just saved are kept, and nothing becomes a transfer"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+      <>
       {/* The rhythm nobody would guess, said where it is used, and said as
           consequences rather than key names. One line: the strip is as wide as
           the register, so what used to wrap in a narrow column now reads
@@ -1056,6 +1352,8 @@ export function QuickEditActionStrip(): React.JSX.Element {
           <XIcon size={14} />
         </button>
       </div>
+      </>
+      )}
     </div>
   );
 }

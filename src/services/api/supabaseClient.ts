@@ -39,13 +39,31 @@ type Database = {
         Args: { p_ids: string[]; p_cleared: boolean; p_user_id: string };
         Returns: number;
       };
+      // Finish a reconciliation: commit this account's marked rows and record
+      // the day and the ending balance they were settled against
+      // (20260810200000_marking_is_not_reconciling.sql). p_ending_balance is a
+      // RECORD of a figure a person confirmed, never an amount added to
+      // anything — the function moves no money. Balance-neutral by
+      // construction, which is why it is not one of the atomic-balance RPCs.
+      finalize_reconciliation: {
+        Args: {
+          p_user_id: string;
+          p_account_id: string;
+          p_ending_balance: number;
+          p_reconciled_on: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       apply_category_to_uncategorized: {
         Args: { p_ids: string[]; p_category: string; p_user_id: string };
         Returns: number;
       };
       // Agree with the app's suggested category. Takes no category on purpose:
-      // it only flips category_confirmed, so it cannot move a category or a
-      // balance however it is called (20260808100000_category_provenance.sql).
+      // it only flips category_confirmed (and clears needs_review, because
+      // answering the question a row was asking IS reviewing that row), so it
+      // cannot move a category or a balance however it is called
+      // (20260808100000_category_provenance.sql, widened by
+      // 20260810090000_imported_rows_arrive_new.sql).
       confirm_transaction_categories: {
         Args: { p_ids: string[]; p_user_id: string };
         Returns: number;
@@ -94,6 +112,19 @@ type Database = {
       };
       create_transfer_counterpart: {
         Args: { p_id: string; p_target_account_id: string; p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+      // Point an existing linked transfer at a different account (20260810140000).
+      // p_disposition is the fate of the counterpart being displaced —
+      // 'move' | 'release' | 'delete'; the function refuses anything else by
+      // name rather than defaulting, because guessing here moves money.
+      repoint_transfer: {
+        Args: {
+          p_id: string;
+          p_target_account_id: string;
+          p_disposition: string;
+          p_user_id: string;
+        };
         Returns: Record<string, unknown>;
       };
       clear_transfer_links: {

@@ -106,6 +106,32 @@
 --         appear INSIDE the document (dashboardKeyAccounts, the archive
 --         overrides), and they are unreferencable text there by construction:
 --         see the note at the table.
+--
+-- AMENDED 2026-08-10 (6), in THIS COPY ONLY, mirroring
+--         supabase/migrations/20260810090000_imported_rows_arrive_new.sql:
+--         `transactions.needs_review`, the Microsoft Money "this arrived and
+--         nobody has looked at it" bit. Added on amendment (2)'s precedent and
+--         for the same reason — the scratchpad draft predates the cloud
+--         migration, this file is what executes, and when the two are
+--         reconciled the change travels in this direction. This copy is now
+--         ahead of the draft by amendment (2)'s one column, amendment (5)'s one
+--         table, and this one column.
+--
+--         DEFAULT 0 (= reviewed), matching the cloud's `NOT NULL DEFAULT
+--         false`, for the reason the cloud gives at length: silence must be
+--         safe, so a writer that has never heard of the column produces a
+--         reviewed row and existing history reads as reviewed without being
+--         rewritten. The two IMPORT verbs are what set it to 1; the create verb
+--         deliberately does not, so a row a person typed is born reviewed.
+--
+--         PARITY OBLIGATION, RECORDED RATHER THAN DISCHARGED: the cloud
+--         migration is UNAPPLIED at the time of writing (the owner applies
+--         migrations himself). scripts/local-sqlite/lib/verb-postgres.mjs
+--         therefore does NOT project needs_review in ROW_JSON, because the
+--         differential harness runs against a live Postgres and would fail on
+--         every row for a column that database does not yet have. Add it there
+--         — and to the TS oracle's import verbs — in the same change that
+--         confirms 20260810090000 is applied.
 -- ============================================================================
 
 
@@ -519,6 +545,24 @@ CREATE TABLE transactions (
   -- No index, matching the cloud's stated reasoning: nothing filters on it
   -- server-side, and an index no query uses is write cost with no read benefit.
   category_confirmed INTEGER NOT NULL DEFAULT 1 CHECK (category_confirmed IN (0,1)),
+
+  -- Did this row arrive from an import that nobody has looked at yet?
+  -- (20260810090000_imported_rows_arrive_new.sql). 1 = it came in on a
+  -- statement file or a bank feed and no save has been made against it since;
+  -- the register prints it in bold, counts it in the "To Review" box and can
+  -- filter down to it. 0 = reviewed, or never needed reviewing. DEFAULT 0 for
+  -- the reason the cloud gives: "any writer that does not know about review
+  -- produces a reviewed row, and existing history reads as reviewed". Never
+  -- affects a figure.
+  --
+  -- A DIFFERENT QUESTION FROM category_confirmed above, not a duplicate of it:
+  -- that one asks whether a human vouched for one FIELD, this one whether a
+  -- human has seen the ROW. A statement row can carry a category the file
+  -- itself stated (confirmed) and still be a transaction nobody has read.
+  --
+  -- No index, same reasoning as category_confirmed: nothing filters on it in
+  -- the store, and an index no query uses is write cost with no read benefit.
+  needs_review INTEGER NOT NULL DEFAULT 0 CHECK (needs_review IN (0,1)),
 
   -- Transfer structure (20260716100000, 20260720120000).
   --

@@ -25,6 +25,11 @@ import { expandSplitTransactions } from './transactionSplits';
  *
  * (2) and (3) are filtered out of (1)'s rows rather than recomputed, so they are
  * exact subsets and can never drift from the classifier.
+ *
+ * Each measure carries whatever its REMEDY needs to act — which bucket, which
+ * categories — not just a number. A warning the user cannot act on from where
+ * they are reading it is a complaint, and this file's job is to make the fix
+ * one click away (see CategoryDataHealthPanel).
  */
 export interface CategoryHealth {
   /** Rows the classifier returns 'uncategorized' for (all-time). */
@@ -35,10 +40,29 @@ export interface CategoryHealth {
   uncategorizedOut: number;
   /** Uncategorised rows parked in an unassigned bucket (a subset of the above). */
   unassignedBucketCount: number;
+  /**
+   * WHICH bucket holds them, so the warning can open that bucket's rows rather
+   * than describe them. Null exactly when `unassignedBucketCount` is 0 — a
+   * non-zero count means some bucket holds the rows, so the remedy is never
+   * missing from a line that is showing.
+   *
+   * One importer creates one bucket today (the MS Money "Unassigned" leaf). If
+   * a second importer ever adds another, this names the fuller of the two and
+   * the rest stay visible in the tree; the COUNT still covers all of them,
+   * because the sentence is about the data, not about the link.
+   */
+  unassignedBucketCategoryId: string | null;
   /** Uncategorised rows whose category id no longer exists (a subset too). */
   danglingCount: number;
   /** Detail categories with no transactions and no split lines. */
   emptyCategoryCount: number;
+  /**
+   * WHICH categories those are, so the warning can point the tree at them
+   * instead of leaving the user to hunt. Same order as `categories` came in;
+   * `emptyCategoryCount` is this list's length, so the number the user reads
+   * and the rows that light up can never disagree.
+   */
+  emptyCategoryIds: string[];
   /** True when at least one measure is non-zero — the panel renders nothing otherwise. */
   hasWarnings: boolean;
 }
@@ -70,10 +94,25 @@ export function computeCategoryHealth(
   // and both sit inside the uncategorised total.
   let unassignedBucketCount = 0;
   let danglingCount = 0;
+  const rowsPerBucket = new Map<string, number>();
   for (const row of flows.uncategorizedRows) {
     if (!row.category) continue;
-    if (bucketIds.has(row.category)) unassignedBucketCount += 1;
-    else if (!categoryIds.has(row.category)) danglingCount += 1;
+    if (bucketIds.has(row.category)) {
+      unassignedBucketCount += 1;
+      rowsPerBucket.set(row.category, (rowsPerBucket.get(row.category) ?? 0) + 1);
+    } else if (!categoryIds.has(row.category)) danglingCount += 1;
+  }
+
+  // The bucket the warning's action opens. Chosen by how many rows it actually
+  // holds, so with one bucket (the only case today) it is that bucket, and with
+  // two it is the one worth opening first.
+  let unassignedBucketCategoryId: string | null = null;
+  let fullestBucket = 0;
+  for (const [id, count] of rowsPerBucket) {
+    if (count > fullestBucket) {
+      fullestBucket = count;
+      unassignedBucketCategoryId = id;
+    }
   }
 
   // A category is "used" if any expanded row (a whole transaction or one split
@@ -88,14 +127,17 @@ export function computeCategoryHealth(
   // transfer/revaluation/unassigned-bucket categories are system bookkeeping
   // whose emptiness is not something to "tighten up"; inactive ones are already
   // hidden from the page, so flagging them would point at nothing visible.
-  const emptyCategoryCount = categories.filter(c =>
-    c.level === 'detail' &&
-    c.isActive !== false &&
-    c.isTransferCategory !== true &&
-    c.isRevaluationCategory !== true &&
-    c.isUnassignedBucket !== true &&
-    !usedCategoryIds.has(c.id)
-  ).length;
+  const emptyCategoryIds = categories
+    .filter(c =>
+      c.level === 'detail' &&
+      c.isActive !== false &&
+      c.isTransferCategory !== true &&
+      c.isRevaluationCategory !== true &&
+      c.isUnassignedBucket !== true &&
+      !usedCategoryIds.has(c.id)
+    )
+    .map(c => c.id);
+  const emptyCategoryCount = emptyCategoryIds.length;
 
   const uncategorizedCount = flows.uncategorizedRows.length;
 
@@ -104,8 +146,10 @@ export function computeCategoryHealth(
     uncategorizedIn: flows.uncategorizedIn.toNumber(),
     uncategorizedOut: flows.uncategorizedOut.toNumber(),
     unassignedBucketCount,
+    unassignedBucketCategoryId,
     danglingCount,
     emptyCategoryCount,
+    emptyCategoryIds,
     hasWarnings:
       uncategorizedCount > 0 ||
       unassignedBucketCount > 0 ||

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ResponsiveContainer,
@@ -17,7 +17,8 @@ import { Modal, ModalBody } from '../components/common/Modal';
 import { toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
 import { preserveDemoParam } from '../utils/navigation';
-import { buildNetWorthSnapshots } from '../utils/netWorthSeries';
+import { buildNetWorthSnapshots, netWorthPointToken } from '../utils/netWorthSeries';
+import { useArrivalAction } from '../hooks/useArrivalFocus';
 import { resolveEffectiveOpeningDates } from '../utils/openingDates';
 import { TrendingUpIcon, ChevronRightIcon } from '../components/icons';
 import type { ReportViewProps } from './reports/types';
@@ -44,7 +45,7 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-export default function NetWorthReport({ picker }: ReportViewProps): React.JSX.Element {
+export default function NetWorthReport({ picker, focus }: ReportViewProps): React.JSX.Element {
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
@@ -80,6 +81,27 @@ export default function NetWorthReport({ picker }: ReportViewProps): React.JSX.E
     () => buildNetWorthSnapshots(accounts, sortedTransactions, picker.range),
     [accounts, sortedTransactions, picker.range]
   );
+
+  /**
+   * A point clicked on the Dashboard's net-worth card, landed on here.
+   *
+   * This report answers "that point" with the day's balances and nothing else —
+   * there is no row to highlight — so arriving on a point does exactly what
+   * clicking the same point on the chart below does, and closing the dialog
+   * leaves the reader on the report over the window they came from.
+   *
+   * It retries until the snapshot exists: the report renders once before the
+   * arriving period has been applied, and the series it is asked about is not
+   * built yet at that moment. A token no snapshot matches (a date outside the
+   * window) simply never fires.
+   */
+  const openArrivalPoint = useCallback((token: string): boolean => {
+    const snapshot = snapshots.find(s => netWorthPointToken(s.date) === token);
+    if (!snapshot) return false;
+    setDrillDate(snapshot.date);
+    return true;
+  }, [snapshots]);
+  useArrivalAction(focus, openArrivalPoint);
 
   // One resolver drives both the drill and the warning note, so the "balances
   // on a date" figures and the caveat about them can never disagree.

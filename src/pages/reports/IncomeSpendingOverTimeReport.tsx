@@ -23,6 +23,7 @@ import { toCumulativeTrend } from '../../utils/cumulativeSeries';
 import { toDecimal } from '../../utils/decimal';
 import { formatDecimal } from '../../utils/decimal-format';
 import { useCumulativeReport } from '../../hooks/useCumulativeReport';
+import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { PERIOD_LABELS } from '../../hooks/usePeriod';
 import type { ReportViewProps } from './types';
 import type { SplitExpandedTransaction } from '../../utils/transactionSplits';
@@ -48,8 +49,12 @@ const compactTick = (value: number): string => {
   return formatDecimal(value, 0);
 };
 
-export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps): React.JSX.Element {
+export default function IncomeSpendingOverTimeReport({ picker, focus }: ReportViewProps): React.JSX.Element {
   const selection = useReportAccountSelection();
+  // A drill-down from the Dashboard's trend card names a month (YYYY-MM); its
+  // row below is highlighted and scrolled into view, with both figures on it a
+  // click from the transactions behind them.
+  const monthFocus = useArrivalRowFocus(focus);
   const { accounts, categories, rows, flows } = useReportDataset(picker, selection.scope);
   const { formatCurrency } = useCurrencyDecimal();
   const [drill, setDrill] = useState<ReportDrillTarget | null>(null);
@@ -288,8 +293,14 @@ export default function IncomeSpendingOverTimeReport({ picker }: ReportViewProps
               <tbody>
                 {series.map(point => {
                   const net = netOf(point);
+                  const landedHere = monthFocus.isFocused(point.monthKey);
                   return (
-                    <tr key={point.monthKey} className="border-t border-gray-50 dark:border-gray-700/50">
+                    <tr
+                      key={point.monthKey}
+                      ref={landedHere ? monthFocus.focusRef : undefined}
+                      aria-current={landedHere ? 'true' : undefined}
+                      className={`border-t border-gray-50 dark:border-gray-700/50 ${landedHere ? ARRIVAL_ROW_CLASS : ''}`}
+                    >
                       <th scope="row" className="px-6 py-2 text-left text-sm font-normal text-gray-900 dark:text-white">
                         {point.month}
                       </th>

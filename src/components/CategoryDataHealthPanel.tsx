@@ -14,11 +14,41 @@ import type { CategoryHealth } from '../utils/categoryHealth';
  * uncategorised figure here matches what the Categorisation page offers to work
  * through, transaction for transaction. The link goes THERE — to the tools that
  * clear the backlog — not to a report that only restates the problem.
+ *
+ * ── THE RULE FOR EVERY LINE ADDED HERE, NOW AND LATER ─────────────────────
+ * A line ships WITH its remedy attached. Naming a problem and leaving the user
+ * to find the cure is how a health panel becomes wallpaper: read once, believed
+ * once, then scrolled past for ever. So every `<li>` below ends in an action
+ * that lands on the surface where those exact rows can be fixed — and the
+ * remedy props are REQUIRED, not optional, so a new line cannot quietly ship
+ * without one. If a measure has no reachable fix, it does not belong on this
+ * panel; put it where the fix lives instead.
+ *
+ * Which surface each line points at is a measured choice, not a default:
+ *  - uncategorised → the Categorisation page, the chore list built for exactly
+ *    this backlog;
+ *  - the import's Unassigned bucket → that bucket's own transaction list, right
+ *    here on this page. Those rows are split LINES (the splits schema forbids a
+ *    blank category, so the MS Money importer parks them in a bucket instead),
+ *    and a split line's category lives on the line: the only thing that can
+ *    change it is the parent's editor, which is precisely what a row in that
+ *    list opens. The review band's inline picker cannot — it fills BLANKS only
+ *    (apply_category_to_uncategorized), and these rows are not blank;
+ *  - dangling references → the Categorisation page as well: they sit in the
+ *    same review band, and each row opens the editor that can re-file it;
+ *  - empty categories → the tree below, with those rows lit up and deletion
+ *    reachable, because that is where a category is deleted.
  */
 export default function CategoryDataHealthPanel({
   health,
+  onFileUnassignedBucket,
+  onShowEmptyCategories,
 }: {
   health: CategoryHealth;
+  /** Open the import bucket's rows for filing (the id is the one measured). */
+  onFileUnassignedBucket: (categoryId: string) => void;
+  /** Show the empty categories in the tree, with deletion reachable. */
+  onShowEmptyCategories: () => void;
 }): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
   const location = useLocation();
@@ -26,6 +56,16 @@ export default function CategoryDataHealthPanel({
   if (!health.hasWarnings) return null;
 
   const plural = (count: number): string => (count === 1 ? '' : 's');
+
+  // Actions read as the links beside them, because they do the same job: the
+  // difference between "go to that page" and "open that list here" is an
+  // implementation detail the user should not have to see.
+  const actionClass = 'text-blue-700 dark:text-blue-400 hover:underline';
+
+  // Bound to a const so the null check below narrows it for the handler too —
+  // the model promises an id whenever the bucket count is non-zero, and this is
+  // how that promise is kept without a cast.
+  const bucketId = health.unassignedBucketCategoryId;
 
   return (
     <section
@@ -50,31 +90,57 @@ export default function CategoryDataHealthPanel({
             </span>
             <Link
               to={preserveDemoParam('/categorisation', location.search)}
-              className="text-blue-700 dark:text-blue-400 hover:underline"
+              className={actionClass}
             >
               Review and categorise
             </Link>
           </li>
         )}
-        {health.unassignedBucketCount > 0 && (
-          <li>
-            <strong className="tabular-nums">{health.unassignedBucketCount.toLocaleString()}</strong>{' '}
-            row{plural(health.unassignedBucketCount)} still park in the import’s “Unassigned” bucket —
-            file {health.unassignedBucketCount === 1 ? 'it' : 'them'} to a real category to count in reports
+        {health.unassignedBucketCount > 0 && bucketId !== null && (
+          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span>
+              <strong className="tabular-nums">{health.unassignedBucketCount.toLocaleString()}</strong>{' '}
+              row{plural(health.unassignedBucketCount)} still park in the import’s “Unassigned” bucket —
+              file {health.unassignedBucketCount === 1 ? 'it' : 'them'} to a real category to count in reports
+            </span>
+            <button
+              type="button"
+              onClick={() => onFileUnassignedBucket(bucketId)}
+              className={actionClass}
+            >
+              File {health.unassignedBucketCount === 1 ? 'it' : 'them'} now
+            </button>
           </li>
         )}
         {health.danglingCount > 0 && (
-          <li>
-            <strong className="tabular-nums">{health.danglingCount.toLocaleString()}</strong>{' '}
-            row{plural(health.danglingCount)} point at a category that no longer exists — re-file{' '}
-            {health.danglingCount === 1 ? 'it' : 'them'} so nothing is silently dropped
+          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span>
+              <strong className="tabular-nums">{health.danglingCount.toLocaleString()}</strong>{' '}
+              row{plural(health.danglingCount)} point at a category that no longer exists — re-file{' '}
+              {health.danglingCount === 1 ? 'it' : 'them'} so nothing is silently dropped
+            </span>
+            <Link
+              to={preserveDemoParam('/categorisation', location.search)}
+              className={actionClass}
+            >
+              Review and re-file
+            </Link>
           </li>
         )}
         {health.emptyCategoryCount > 0 && (
-          <li>
-            <strong className="tabular-nums">{health.emptyCategoryCount.toLocaleString()}</strong>{' '}
-            categor{health.emptyCategoryCount === 1 ? 'y has' : 'ies have'} no transactions —
-            candidate{plural(health.emptyCategoryCount)} to delete and simplify your list
+          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span>
+              <strong className="tabular-nums">{health.emptyCategoryCount.toLocaleString()}</strong>{' '}
+              categor{health.emptyCategoryCount === 1 ? 'y has' : 'ies have'} no transactions —
+              candidate{plural(health.emptyCategoryCount)} to delete and simplify your list
+            </span>
+            <button
+              type="button"
+              onClick={onShowEmptyCategories}
+              className={actionClass}
+            >
+              Show {health.emptyCategoryCount === 1 ? 'it' : 'them'} in the tree
+            </button>
           </li>
         )}
       </ul>

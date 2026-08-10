@@ -11,14 +11,22 @@ import ReconciliationBalanceBar from '../ReconciliationBalanceBar';
  */
 describe('ReconciliationBalanceBar', () => {
   const onBankBalanceChange = vi.fn();
+  const onConfirmBalance = vi.fn();
+  const onBalanceEdited = vi.fn();
 
-  const renderBar = (bankBalance: number | null) =>
+  const renderBar = (
+    bankBalance: number | null,
+    extra: Partial<React.ComponentProps<typeof ReconciliationBalanceBar>> = {}
+  ) =>
     renderWithProviders(
       <ReconciliationBalanceBar
         bankBalance={bankBalance}
         accountBalance={250}
         clearedBalance={200}
         onBankBalanceChange={onBankBalanceChange}
+        onConfirmBalance={onConfirmBalance}
+        onBalanceEdited={onBalanceEdited}
+        {...extra}
       />
     );
 
@@ -120,5 +128,70 @@ describe('ReconciliationBalanceBar', () => {
     fireEvent.blur(input);
 
     expect(onBankBalanceChange).toHaveBeenCalledWith(-42.1);
+  });
+
+  describe('confirming the figure', () => {
+    it('offers Confirm against a figure, and says what is at stake until then', () => {
+      renderBar(220);
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+      expect(
+        screen.getByText(/Confirm the bank balance to finish\. Until you do, your marks stay a working list/)
+      ).toBeInTheDocument();
+    });
+
+    it('offers Confirm against £0.00, which is a balance like any other', () => {
+      renderBar(0);
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+      expect(onConfirmBalance).toHaveBeenCalledWith(0);
+    });
+
+    it('says so once confirmed, and stops asking', () => {
+      renderBar(220, { balanceConfirmed: true });
+      expect(screen.getByText('Confirmed')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Confirm the bank balance to finish/)).not.toBeInTheDocument();
+    });
+
+    it('reports an edit so the confirmation can lapse', () => {
+      renderBar(220, { balanceConfirmed: true });
+      openEditor();
+      fireEvent.change(screen.getByLabelText('Bank balance'), { target: { value: '221' } });
+      expect(onBalanceEdited).toHaveBeenCalled();
+    });
+
+    it('Enter records the typed figure AND confirms it', () => {
+      renderBar(220);
+      openEditor();
+      const input = screen.getByLabelText('Bank balance');
+      fireEvent.change(input, { target: { value: '199.99' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(onBankBalanceChange).toHaveBeenCalledWith(199.99);
+      expect(onConfirmBalance).toHaveBeenCalledWith(199.99);
+    });
+
+    it('shows last time’s two facts when both are known', () => {
+      renderBar(220, {
+        lastReconciledDate: new Date('2026-04-30'),
+        lastReconciledBalance: 180.4,
+      });
+      expect(screen.getByText(/Last reconciled: 30\/04\/2026 · ending balance £180\.40/)).toBeInTheDocument();
+    });
+
+    it('says nothing about last time when only the date is known', () => {
+      // A date with no figure is a claim nobody can check.
+      renderBar(220, { lastReconciledDate: new Date('2026-04-30') });
+      expect(screen.queryByText(/Last reconciled/)).not.toBeInTheDocument();
+    });
+
+    it('names the right consequence for Remove when a last balance would take over', () => {
+      renderBar(220, { lastReconciledBalance: 180.4 });
+      openEditor();
+      expect(
+        screen.getByRole('button', {
+          name: /Difference falls back to the balance your last reconciliation ended on/
+        })
+      ).toBeInTheDocument();
+    });
   });
 });

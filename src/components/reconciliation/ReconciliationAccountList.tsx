@@ -79,8 +79,12 @@ export default function ReconciliationAccountList({
                           {unreconciledCount} unreconciled
                         </span>
                       ) : (
+                        // "Reconciled", not "cleared": this badge is the answer
+                        // to "is there anything left to do here?", and marks are
+                        // not an answer to that — only a finished reconciliation
+                        // is.
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                          All cleared
+                          All reconciled
                         </span>
                       )}
                     </div>

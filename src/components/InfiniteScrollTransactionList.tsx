@@ -15,6 +15,14 @@ interface InfiniteScrollTransactionListProps {
   onSelectionChange?: (selected: Set<string>) => void;
   isLoading?: boolean;
   itemsPerBatch?: number;
+  /**
+   * Should rows that have arrived and not been dealt with be drawn as new?
+   *
+   * Passed through to each card, off by default. See the prop's own note on
+   * SwipeableTransactionRow: the mark belongs where the To Review counter and
+   * its filter are, which is the account register, and nowhere else.
+   */
+  markNewArrivals?: boolean;
 }
 
 /**
@@ -36,7 +44,8 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   selectedTransactions,
   onSelectionChange,
   isLoading = false,
-  itemsPerBatch = 20
+  itemsPerBatch = 20,
+  markNewArrivals = false
 }: InfiniteScrollTransactionListProps): React.JSX.Element {
   const [displayedItems, setDisplayedItems] = useState(itemsPerBatch);
   const categoryNameById = useMemo(
@@ -165,6 +174,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
               onView={onView}
               isSelected={isSelected}
               onToggleSelection={onSelectionChange ? handleToggleSelection : undefined}
+              markNewArrivals={markNewArrivals}
             />
           );
         })}

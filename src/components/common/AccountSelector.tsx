@@ -54,6 +54,12 @@ const TRIGGER_CLASSES = {
     'w-full px-3 py-2 h-[42px] rounded-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm',
   compact:
     'w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm',
+  // A picker that IS a register cell: 36px, the height the row grows to while
+  // it is being edited. Byte-for-byte the box CategorySelector's own 'row' size
+  // draws, because the two swap places inside one cell and a change of question
+  // must not look like a change of control.
+  row:
+    'w-full px-2 h-[36px] text-sm font-normal rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm',
 } as const;
 
 interface AccountSelectorProps<T extends SelectableAccount> {
@@ -76,7 +82,17 @@ interface AccountSelectorProps<T extends SelectableAccount> {
    * House trigger box to use when `className` is absent. 'compact' matches the
    * register quick-add dock's 32px fields, exactly as CategorySelector's does.
    */
-  size?: 'default' | 'compact';
+  size?: 'default' | 'compact' | 'row';
+  /**
+   * Bump this number to open the list with an empty search and the cursor in
+   * it. The same handshake CategorySelector uses, and for the same caller: the
+   * register's row editor, where "put the cursor here" and "open the list" are
+   * one thing rather than two.
+   *
+   * Zero (and absent) mean "nothing has been asked for", so a picker that
+   * merely mounts with the prop wired up never opens itself.
+   */
+  openSearchToken?: number;
   /**
    * Render the dropdown in a fixed-position portal on document.body instead of
    * absolutely inside this component. Needed inside scroll containers that clip
@@ -147,6 +163,7 @@ export default function AccountSelector<T extends SelectableAccount>({
   ariaInvalid,
   ariaDescribedBy,
   onBlur,
+  openSearchToken,
 }: AccountSelectorProps<T>): React.JSX.Element {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -159,6 +176,15 @@ export default function AccountSelector<T extends SelectableAccount>({
   const instanceId = useId();
   const listboxId = `${instanceId}-listbox`;
   const optionDomId = (id: string): string => `${instanceId}-opt-${id}`;
+
+  // A caller asking for the cursor (see openSearchToken). The search input is
+  // autoFocused as it mounts, so opening the list IS handing over the keyboard.
+  useEffect(() => {
+    if (!openSearchToken) return;
+    setSearchTerm('');
+    setHighlightIndex(-1);
+    setShowDropdown(true);
+  }, [openSearchToken]);
 
   const labelFor = useCallback(
     (account: T): string => (formatLabel ? formatLabel(account) : account.name),

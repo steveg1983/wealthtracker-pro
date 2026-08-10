@@ -32,6 +32,11 @@ import {
 } from '../utils/decimal-converters';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { normalizeTransactionDates } from '../utils/dateBoundary';
+import {
+  isMarkedAwaitingFinalize,
+  isReconciled,
+  reconciledAfterMarking
+} from '../utils/transactionReconciliation';
 import { initializeDemoData } from '../utils/demoData';
 import {
   buildTestDataset,
@@ -56,6 +61,8 @@ import type {
   Goal,
   RecurringTransaction,
   SuggestionDismissal,
+  TransferDisplacedDisposition,
+  TransferRepointResult,
   AppState
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -166,10 +173,22 @@ export interface AppContextType extends AppState {
    */
   refreshCategories: () => Promise<void>;
   /**
-   * Bulk-set the reconciliation cleared flag on transactions in one round trip.
-   * Balance-neutral (is_cleared never affects account balances).
+   * Mark transactions off against a statement (or take the mark back) in one
+   * round trip. Balance-neutral, and NOT a reconciliation: a mark is a working
+   * state that survives leaving the screen and settles nothing. Only
+   * {@link finalizeReconciliation} commits.
    */
   setTransactionsCleared: (ids: string[], cleared: boolean) => Promise<void>;
+  /**
+   * Finish an account's reconciliation: commit its marked rows and record the
+   * day and the ending balance the user confirmed. Resolves with how many rows
+   * were converted, so the screen can say what it did.
+   */
+  finalizeReconciliation: (
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ) => Promise<number>;
   /**
    * Apply a category to the listed transactions that are still uncategorized
    * (payee-memory propagation). Fill-blanks only — never overwrites an explicit
@@ -294,6 +313,20 @@ export interface AppContextType extends AppState {
     id: string,
     targetAccountId: string
   ) => Promise<{ source: Transaction; counterpart: Transaction }>;
+  /**
+   * Point an EXISTING linked transfer at a different account, atomically: both
+   * sides are re-filed from the new pairing, and the counterpart it displaces
+   * is moved, released as a plain uncategorised row, or deleted — whichever the
+   * caller says. Amounts and dates are never touched.
+   *
+   * The only transfer operation that is not balance-neutral: a moved
+   * counterpart carries its amount out of one account and into the other.
+   */
+  repointTransfer: (
+    id: string,
+    targetAccountId: string,
+    disposition?: TransferDisplacedDisposition
+  ) => Promise<TransferRepointResult>;
   /**
    * Suggestions the user has told the sweeps to stop offering. Loaded on demand
    * (nothing outside the sweeps needs them, and the boot is already the slowest
@@ -940,9 +973,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await dataPort.setTransactionsCleared(ids, cleared);
       const idSet = new Set(ids);
-      setTransactions(prev => prev.map(t => (idSet.has(t.id) ? { ...t, cleared } : t)));
+      // reconciledAfterMarking, not a bare `{ cleared }`: the state this mirrors
+      // is what the store just wrote, and the store cleared the committed flag
+      // on anything unmarked. Leaving it here would show an R against a row
+      // that is no longer even ticked, until the next boot disagreed.
+      setTransactions(prev => prev.map(t => (
+        idSet.has(t.id) ? { ...t, cleared, reconciled: reconciledAfterMarking(t, cleared) } : t
+      )));
     } catch (error) {
       appLogger.error('Failed to set cleared status', error);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * Finish a reconciliation. The ONE place a transaction becomes reconciled.
+   *
+   * The optimistic update mirrors the store's own rule exactly: the rows that
+   * were marked-and-not-committed for this account become committed, and the
+   * account records the day and the figure. Anything else here would make the
+   * screen disagree with what was written until the next boot.
+   */
+  const finalizeReconciliation = useCallback(async (
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<number> => {
+    try {
+      const outcome = await dataPort.finalizeReconciliation(accountId, endingBalance, reconciledOn);
+      setTransactions(prev => prev.map(t => (
+        t.accountId === accountId && isMarkedAwaitingFinalize(t) ? { ...t, reconciled: true } : t
+      )));
+      setAccounts(prev => prev.map(a => (
+        a.id === accountId
+          ? { ...a, lastReconciledDate: outcome.reconciledOn, lastReconciledBalance: outcome.endingBalance }
+          : a
+      )));
+      return outcome.reconciled;
+    } catch (error) {
+      appLogger.error('Failed to finalize reconciliation', error);
       throw error;
     }
   }, []);
@@ -954,7 +1023,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const count = await dataPort.archiveTransactionsBefore(accountId, cutoff);
       setTransactions(prev => prev.map(t =>
-        t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff
+        // The committed flag, not the mark — mirrors archive_transactions_before.
+        t.accountId === accountId && !t.archived && isReconciled(t) && new Date(t.date) <= cutoff
           ? { ...t, archived: true } : t
       ));
       setAccounts(prev => prev.map(a => (a.id === accountId ? { ...a, archiveThroughDate: cutoff } : a)));
@@ -1001,9 +1071,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * "Yes, that guess was right." Writes one boolean per row and nothing else,
+   * "Yes, that guess was right." Writes two booleans per row and nothing else,
    * so a confirm can never move a balance or a category. Local state mirrors
    * the server's own rule — only rows that were actually suggested flip.
+   *
+   * needsReview clears with the confirmation: answering the question a row was
+   * asking IS reviewing that row, and leaving it bold afterwards would be the
+   * register nagging about work already done. Mirrored here as well as in the
+   * RPC so the counter and the bold drop on the click rather than on the next
+   * refresh.
    */
   const confirmTransactionCategories = useCallback(async (ids: string[]): Promise<number> => {
     if (ids.length === 0) {
@@ -1013,7 +1089,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const count = await dataPort.confirmTransactionCategories(ids);
       const idSet = new Set(ids);
       setTransactions(prev => prev.map(t =>
-        idSet.has(t.id) && t.categoryConfirmed === false ? { ...t, categoryConfirmed: true } : t
+        idSet.has(t.id) && t.categoryConfirmed === false
+          ? { ...t, categoryConfirmed: true, needsReview: false }
+          : t
       ));
       return count;
     } catch (error) {
@@ -1264,6 +1342,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const repointTransfer = useCallback(async (
+    id: string,
+    targetAccountId: string,
+    disposition: TransferDisplacedDisposition = 'move'
+  ) => {
+    try {
+      const result = await dataPort.repointTransfer(id, targetAccountId, disposition);
+      // State comes from the rows the store actually wrote — a re-point re-files
+      // BOTH categories, and guessing at that here is how a register ends up
+      // disagreeing with the ledger.
+      setTransactions(prev => {
+        const written = new Map<string, Transaction>([
+          [result.source.id, result.source],
+          [result.counterpart.id, result.counterpart],
+        ]);
+        if (result.displaced.kind === 'released') {
+          written.set(result.displaced.transaction.id, result.displaced.transaction);
+        }
+        const removedId = result.displaced.kind === 'deleted' ? result.displaced.id : null;
+        const next = prev
+          .filter(t => t.id !== removedId)
+          .map(t => written.get(t.id) ?? t);
+        // A counterpart that was CREATED (release/delete) is not in the list yet.
+        return next.some(t => t.id === result.counterpart.id)
+          ? next
+          : [...next, result.counterpart];
+      });
+
+      // Balances, mirrored from what the store did rather than re-derived from
+      // the disposition — Decimal arithmetic, same as every other write path.
+      // A 'moved' counterpart carries its amount out of one account and into
+      // the other; a 'released' one does not move at all, so only the account
+      // receiving the fresh counterpart changes.
+      const deltas = new Map<string, DecimalInstance>();
+      const add = (accountId: string, delta: DecimalInstance): void => {
+        if (!accountId) return;
+        deltas.set(accountId, (deltas.get(accountId) ?? toDecimal(0)).plus(delta));
+      };
+      const counterpartAmount = toDecimal(result.counterpart.amount);
+      if (result.displaced.kind === 'moved') {
+        if (result.displaced.fromAccountId !== result.counterpart.accountId) {
+          add(result.displaced.fromAccountId, counterpartAmount.negated());
+          add(result.counterpart.accountId, counterpartAmount);
+        }
+      } else {
+        add(result.counterpart.accountId, counterpartAmount);
+        if (result.displaced.kind === 'deleted') {
+          add(result.displaced.accountId, toDecimal(result.displaced.amount).negated());
+        }
+      }
+      if (deltas.size > 0) {
+        setAccounts(prev => prev.map(acc => {
+          const delta = deltas.get(acc.id);
+          return delta
+            ? { ...acc, balance: toDecimal(acc.balance || 0).plus(delta).toNumber() }
+            : acc;
+        }));
+      }
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to repoint transfer', error);
+      throw error;
+    }
+  }, []);
+
   const refreshSuggestionDismissals = useCallback(async () => {
     setSuggestionDismissalsStatus('loading');
     try {
@@ -1314,7 +1457,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const transaction = transactions.find(t => t.id === id);
       await dataPort.deleteTransaction(id);
-      setTransactions(prev => prev.filter(t => t.id !== id));
+      setTransactions(prev => prev
+        .filter(t => t.id !== id)
+        // THE SURVIVOR IS UNLINKED, and this line is what makes that visible
+        // before the next boot. The store has already done it — the cloud via
+        // transactions_linked_transfer_id_fkey (ON DELETE SET NULL), browser
+        // storage by hand — but state kept the dangling pointer, and every
+        // screen reads state. That is the whole of the bug the owner hit:
+        // deleting a transfer's other half left the survivor still LOOKING
+        // linked, so the editor went on refusing to move it ("delete the
+        // transfer and recreate it") and the register went on offering to jump
+        // to a transaction that no longer existed. The only exit anybody found
+        // was to delete the survivor too.
+        //
+        // The link is all that goes. The row keeps its transfer type, its
+        // To/From category and its transferAccountId, because it is now an
+        // UNMATCHED leg — a real state with a repair flow — and re-typing it on
+        // the user's behalf would be inventing an answer only they can give.
+        .map(t => {
+          if (t.linkedTransferId !== id) return t;
+          const { linkedTransferId: _dangling, ...rest } = t;
+          return rest;
+        })
+      );
       // Its split lines cascade away in the DB (FK); mirror locally.
       setTransactionSplitsState(prev => prev.filter(s => s.transactionId !== id));
       // So do any dismissals that named it (trg_prune_suggestion_dismissals):
@@ -1906,6 +2071,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateTransaction,
     deleteTransaction,
     setTransactionsCleared,
+    finalizeReconciliation,
     applyCategoryToUncategorized,
     confirmTransactionCategories,
     renameTransactionDescriptions,
@@ -1921,6 +2087,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactionArchived,
     repairClaimedTransfer,
     createTransferCounterpart,
+    repointTransfer,
 
     // Sweep suggestions the user has refused for good
     suggestionDismissals,
