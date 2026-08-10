@@ -1,5 +1,6 @@
 import React, { memo, useMemo, useState, ReactNode, useCallback } from 'react';
 import { VirtualizedList } from './VirtualizedList';
+import { useRowClickGesture, ROW_EDITOR_CELL_ATTRIBUTE } from '../hooks/useRowClickGesture';
 
 export interface Column<T> {
   key: string;
@@ -360,6 +361,11 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     return (index: number): number => (index === detailIndex ? expanded : rowHeight);
   }, [canExpandRows, detailIndex, rowDetail, rowHeight]);
 
+  // Where the mouse went DOWN, so a click the browser synthesised on the row
+  // from a drag that began in one of its own boxes is not mistaken for someone
+  // clicking the row. See useRowClickGesture for the whole of the reasoning.
+  const { rowGestureProps, isSelectionTail } = useRowClickGesture();
+
   // Memoize row renderer
   const renderRow = useCallback((item: T, index: number, style: React.CSSProperties) => {
     const itemKey = getItemKey(item, index);
@@ -379,6 +385,14 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     };
 
     const handleRowClick = () => {
+      // A drag that began in one of the row's own boxes and was released
+      // elsewhere in the row arrives here as a click ON THE ROW — the browser
+      // dispatches a click on the common ancestor of where the button went down
+      // and where it came up. That is someone selecting text, not clicking a
+      // row, and it must leave the row entirely alone: anything that changed
+      // state here would re-render and take the focus, which collapses the very
+      // selection they were making.
+      if (isSelectionTail()) return;
       if (onRowClick) {
         onRowClick(item, index);
       }
@@ -417,6 +431,7 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
         aria-selected={rowDomId ? isSelected : undefined}
         className={`${baseRowClass} ${stripeClass} ${clickableClass} ${!isSelected ? hoverClass : ''} ${computedRowClassName}`}
         onClick={handleRowClick}
+        {...rowGestureProps}
       >
         {showCheckbox && (
           <div className="px-4 py-3 w-12">
@@ -440,6 +455,12 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
             <div
               key={column.key}
               role={rowDomId ? 'gridcell' : undefined}
+              // Marked so a press that lands anywhere in a cell the detail has
+              // taken over — the box, or the sliver of cell around it — counts
+              // as starting in the editor rather than on the row. Spread rather
+              // than passed a value, so every OTHER cell is left without the
+              // attribute at all rather than wearing an empty one.
+              {...(edited === undefined ? {} : { [ROW_EDITOR_CELL_ATTRIBUTE]: '' })}
               className={`px-3 py-2 overflow-hidden ${column.className || ''}`}
               style={{ width: column.width }}
             >
@@ -491,7 +512,9 @@ const VirtualizedTableComponent = memo(function VirtualizedTable<T>({
     rowDomId,
     rowDetail,
     detailIndex,
-    rowHeight
+    rowHeight,
+    rowGestureProps,
+    isSelectionTail
   ]);
 
   

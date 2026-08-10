@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { VirtualizedTable, type Column, type RowDetail } from './VirtualizedTable';
 
 /**
@@ -163,6 +163,112 @@ describe('VirtualizedTable — a row with an editor under it, virtualised', () =
     expect(detailRow).not.toBe(transactionRow);
     expect(rows.indexOf(detailRow as HTMLElement)).toBe(rows.indexOf(transactionRow as HTMLElement) + 1);
     expect(within(detailRow as HTMLElement).getByRole('gridcell')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Selecting text in a row's editor, when the mouse comes up outside it.
+ *
+ * A browser dispatches `click` on the nearest COMMON ANCESTOR of where the
+ * button went down and where it came up — so a drag that starts in a field and
+ * ends anywhere else in the same row arrives as a click ON THE ROW, with the
+ * row as its target. A cell that stops its own clicks cannot help: the click it
+ * would have stopped was never aimed at it.
+ *
+ * This is the table's half of the guarantee — the register's own case is in
+ * AccountTransactions.inlineEdit.test.tsx — and it is here so the mechanism
+ * stays true for ANY list that gives a row both a click and an editor.
+ *
+ * WHAT JSDOM CANNOT DO: no pointer, so it never synthesises the ancestor click
+ * itself. The sequence a browser would produce is dispatched by hand.
+ */
+describe('VirtualizedTable — a drag out of a row editor is not a row click', () => {
+  const renderClickable = (rowDetail: RowDetail<Row> | null, onRowClick: (row: Row) => void) =>
+    render(
+      <VirtualizedTable
+        items={ROWS}
+        columns={COLUMNS}
+        getItemKey={(row: Row) => row.id}
+        rowDomId={rowDomId}
+        rowHeight={ROW_HEIGHT}
+        threshold={50}
+        rowDetail={rowDetail}
+        onRowClick={onRowClick}
+      />
+    );
+
+  const rowElement = (index: number): HTMLElement => {
+    const row = document.getElementById(rowDomId(ROWS[index].id));
+    if (!row) throw new Error(`row ${index} is not rendered`);
+    return row;
+  };
+
+  it('ignores a click the browser made out of a drag that began in the editor', () => {
+    const onRowClick = vi.fn();
+    renderClickable(editorFor(2), onRowClick);
+
+    const field = screen.getByTestId('row-editor-field');
+    const row = rowElement(2);
+
+    fireEvent.mouseDown(field);
+    fireEvent.mouseUp(row);
+    fireEvent.click(row);
+
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('ignores one that began in the sliver of CELL around the editor', () => {
+    const onRowClick = vi.fn();
+    renderClickable(editorFor(2), onRowClick);
+
+    // The cell an editor has taken over belongs to the editor, edge to edge:
+    // an editor is entitled to inset its control, and the pixels it leaves are
+    // not the row's to open something over.
+    const cell = screen.getByTestId('row-editor-field').closest('[role="gridcell"]');
+    if (!cell) throw new Error('the editor field is not in a cell of the grid');
+    fireEvent.mouseDown(cell);
+    fireEvent.mouseUp(rowElement(2));
+    fireEvent.click(rowElement(2));
+
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('takes every other click, on the editing row and on the rest of them', () => {
+    const onRowClick = vi.fn();
+    renderClickable(editorFor(2), onRowClick);
+
+    // The same shape of click — down in one place, up in another, dispatched on
+    // the row — but begun on a cell the editor never took. Only the origin
+    // differs, which is the whole of the distinction.
+    const plainCell = within(rowElement(2)).getByText(ROWS[2].note);
+    fireEvent.mouseDown(plainCell);
+    fireEvent.mouseUp(rowElement(2));
+    fireEvent.click(rowElement(2));
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowClick.mock.calls[0][0]).toEqual(ROWS[2]);
+
+    // And a row that is not the editor at all is untouched by any of this.
+    fireEvent.mouseDown(rowElement(4));
+    fireEvent.click(rowElement(4));
+    expect(onRowClick).toHaveBeenCalledTimes(2);
+    expect(onRowClick.mock.calls[1][0]).toEqual(ROWS[4]);
+  });
+
+  it('spends each press on one click only, so a swallowed click leaves nothing behind', () => {
+    const onRowClick = vi.fn();
+    renderClickable(editorFor(2), onRowClick);
+
+    // A press and release INSIDE the field: the click targets the field, and a
+    // register's cell stops it there. The press must not survive that to answer
+    // for the next click, which is a real one.
+    const field = screen.getByTestId('row-editor-field');
+    fireEvent.mouseDown(field);
+    fireEvent.mouseUp(field);
+    fireEvent.click(field);
+    expect(onRowClick).not.toHaveBeenCalled();
+
+    fireEvent.click(rowElement(2));
+    expect(onRowClick).toHaveBeenCalledTimes(1);
   });
 });
 
