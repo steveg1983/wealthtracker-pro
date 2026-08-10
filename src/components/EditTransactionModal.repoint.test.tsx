@@ -336,7 +336,7 @@ describe('EditTransactionModal — the Linked transfer flag', () => {
     mocks.app.transactions = [OUT_LEG, SCAFFOLD_LEG];
   });
 
-  it('shows, ticked, beside Reconciled — and names where the other side is', () => {
+  it('shows, ticked, beside the mark — and names where the other side is', () => {
     render(<EditTransactionModal isOpen onClose={vi.fn()} transaction={OUT_LEG} />);
 
     const flag = screen.getByRole('checkbox', {

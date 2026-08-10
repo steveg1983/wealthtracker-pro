@@ -10,6 +10,7 @@
  */
 import type { Transaction } from '../types';
 import { toDecimal } from './decimal';
+import { isReconciled } from './transactionReconciliation';
 import { formatDate } from './dateFormatter';
 
 export type ArchivePreset = '6m' | '12m' | '24m' | 'all' | 'custom';
@@ -41,9 +42,16 @@ export function resolveCutoff(
   return d;
 }
 
-/** A transaction is eligible to archive when it is reconciled and on/before the cutoff. */
+/**
+ * A transaction is eligible to archive when it is RECONCILED and on/before the
+ * cutoff.
+ *
+ * Reconciled, not merely marked: the archive hides settled history, and a
+ * working tick is not settled. Mirrors archive_transactions_before, which now
+ * reads the same committed flag.
+ */
 export function isArchivable(txn: Transaction, cutoff: Date): boolean {
-  return txn.cleared === true && new Date(txn.date) <= cutoff;
+  return isReconciled(txn) && new Date(txn.date) <= cutoff;
 }
 
 /**

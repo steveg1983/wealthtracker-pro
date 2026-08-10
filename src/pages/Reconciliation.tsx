@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
@@ -6,17 +6,21 @@ import { ArrowLeftIcon, CheckCircleIcon } from '../components/icons';
 import { useReconciliation } from '../hooks/useReconciliation';
 import ReconciliationAccountList, { type ReconciliationGroup } from '../components/reconciliation/ReconciliationAccountList';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
-import ReconciliationBalanceBar from '../components/reconciliation/ReconciliationBalanceBar';
+import ReconciliationBalanceBar, { CONFIRM_BALANCE_CONSEQUENCE } from '../components/reconciliation/ReconciliationBalanceBar';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { preserveRuntimeControlParams } from '../utils/runtimeMode';
 import { todayIsoDay } from '../utils/statementBankBalance';
+import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
 import { preferences } from '../services/preferencesService';
 
 export default function Reconciliation() {
-  const { transactions, accounts, categories, addTransaction, updateAccount, setTransactionsCleared } = useApp();
+  const {
+    transactions, accounts, categories, addTransaction, updateAccount,
+    setTransactionsCleared, finalizeReconciliation
+  } = useApp();
   const { showSuccess, showError } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -69,6 +73,21 @@ export default function Reconciliation() {
   // Optimistic cleared-state overlay: the checkbox flips instantly while the
   // write is in flight, and reverts (with an error toast) if it fails.
   const [pendingCleared, setPendingCleared] = useState<Map<string, boolean>>(new Map());
+  /**
+   * The bank balance the user has AGREED to, for this account, in this session.
+   *
+   * Deliberately in memory and deliberately per account. The owner asked to be
+   * made to confirm a figure "each time", so next week's reconciliation must
+   * ask again — persisting it would turn a decision into a default. The
+   * account id rides along so switching accounts cannot carry an agreement
+   * about one statement onto another.
+   *
+   * The amount is kept as well as the id because the figure can change under
+   * the user (a feed sync, a statement import): an agreement is about a
+   * NUMBER, so when the number moves the agreement lapses.
+   */
+  const [confirmedBalance, setConfirmedBalance] =
+    useState<{ accountId: string; amount: number } | null>(null);
 
   const overlaidTransactions = useMemo(() => {
     if (pendingCleared.size === 0) return transactions;
@@ -154,7 +173,50 @@ export default function Reconciliation() {
   const accountBalance = selectedAccountId ? computeAccountBalance(selectedAccountId) : 0;
   const clearedBalance = selectedAccountId ? computeClearedBalance(selectedAccountId) : 0;
   const clearedSummary = selectedAccountId ? computeClearedSummary(selectedAccountId) : undefined;
-  const bankBalance = selectedAccount?.bankBalance ?? null;
+  /**
+   * The figure the balance bar shows, and the order it is looked for in:
+   *
+   *  1. what the bank most recently said (a feed sync or an imported statement
+   *     writes `bankBalance`) — the closest thing to the statement in hand;
+   *  2. failing that, the balance the last reconciliation was settled against,
+   *     which is Money's "starting balance" for this one;
+   *  3. failing both, nothing. An empty box, not a zero: a zero here would be a
+   *     figure the app invented and the user could confirm by accident.
+   *
+   * Whichever it is, it is a SUGGESTION until confirmed.
+   */
+  const bankBalance = selectedAccount?.bankBalance ?? selectedAccount?.lastReconciledBalance ?? null;
+  const balanceConfirmed =
+    confirmedBalance != null && confirmedBalance.accountId === selectedAccountId;
+
+  /**
+   * The figure moved under the agreement — so the agreement lapses.
+   *
+   * Watches for a CHANGE rather than comparing on every render, and the
+   * difference is load-bearing: confirming a figure the user has just typed
+   * happens BEFORE the account update carrying it comes back, so a
+   * compare-every-render rule would cancel every confirmation the instant it
+   * was made. A change TO the confirmed figure (that same update landing) is
+   * not a change to disagree with; a change to anything else — a feed sync, a
+   * statement import — is, because what was agreed to is no longer on screen.
+   */
+  const lastSeenBankBalance = useRef<number | null>(bankBalance);
+  const lastSeenAccountId = useRef<string | null>(selectedAccountId);
+  useEffect(() => {
+    if (lastSeenAccountId.current !== selectedAccountId) {
+      // A different account's figure is not a change to this one's.
+      lastSeenAccountId.current = selectedAccountId;
+      lastSeenBankBalance.current = bankBalance;
+      return;
+    }
+    if (lastSeenBankBalance.current === bankBalance) return;
+    lastSeenBankBalance.current = bankBalance;
+    setConfirmedBalance(prev => {
+      if (prev === null) return prev;
+      if (bankBalance !== null && toDecimal(prev.amount).equals(toDecimal(bankBalance))) return prev;
+      return null;
+    });
+  }, [bankBalance, selectedAccountId]);
 
   // Handlers
   const handleSelectAccount = useCallback((accountId: string) => {
@@ -245,22 +307,54 @@ export default function Reconciliation() {
     });
   }, [selectedAccountId, updateAccount]);
 
-  const handleFinalize = useCallback(async () => {
+  /** Agree to the figure on screen. Nothing is written: this is a decision. */
+  const handleConfirmBalance = useCallback((amount: number) => {
     if (!selectedAccountId) {
+      return;
+    }
+    setConfirmedBalance({ accountId: selectedAccountId, amount });
+  }, [selectedAccountId]);
+
+  /** The user started changing the figure — whatever was agreed no longer is. */
+  const handleBalanceEdited = useCallback(() => {
+    setConfirmedBalance(null);
+  }, []);
+
+  /**
+   * The one committing step. Everything before this was a working list.
+   *
+   * Gated on a confirmed balance twice over: the button that opens the modal is
+   * disabled without one, and this refuses without one — because it is the
+   * ending balance being written down, and a reconciliation settled against a
+   * figure nobody read is the thing this whole change exists to prevent.
+   */
+  const handleFinalize = useCallback(async () => {
+    if (!selectedAccountId || !balanceConfirmed || confirmedBalance == null) {
       return;
     }
     try {
       // Await the write — success feedback must not fire on a failed save.
-      await updateAccount(selectedAccountId, {
-        lastReconciledDate: new Date(),
-      });
+      const reconciled = await finalizeReconciliation(
+        selectedAccountId,
+        confirmedBalance.amount,
+        new Date()
+      );
       setShowFinalizationModal(false);
-      showSuccess('Reconciliation complete.', 'Account reconciled');
+      setConfirmedBalance(null);
+      showSuccess(
+        reconciled > 0
+          ? `${reconciled.toLocaleString()} transaction${reconciled === 1 ? '' : 's'} reconciled.`
+          : 'Nothing was left to reconcile; the statement balance is recorded.',
+        'Account reconciled'
+      );
       handleBack();
     } catch (error) {
       showError(error);
     }
-  }, [selectedAccountId, updateAccount, handleBack, showSuccess, showError]);
+  }, [
+    selectedAccountId, balanceConfirmed, confirmedBalance, finalizeReconciliation,
+    handleBack, showSuccess, showError
+  ]);
 
   const handleCreateAdjustment = useCallback(async (data: {
     amount: number;
@@ -278,7 +372,11 @@ export default function Reconciliation() {
       type: data.type,
       category: data.category,
       accountId: selectedAccountId,
+      // Marked, not reconciled: it has to count in the cleared balance for the
+      // difference to close, and it becomes reconciled the same way every other
+      // row does — when the user finalizes.
       cleared: true,
+      reconciled: false,
     };
 
     try {
@@ -455,10 +553,17 @@ export default function Reconciliation() {
             </h1>
           </div>
 
+          {/* Disabled with the reason attached, and the reason itself is printed
+              on the balance bar right under the box that has to be confirmed —
+              a disabled button that will not say why is how people conclude the
+              app is broken. */}
           <button
             type="button"
             onClick={() => setShowFinalizationModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50"
+            disabled={!balanceConfirmed}
+            aria-describedby={balanceConfirmed ? undefined : 'reconciliation-confirm-hint'}
+            title={balanceConfirmed ? undefined : CONFIRM_BALANCE_CONSEQUENCE}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50"
           >
             <CheckCircleIcon size={18} />
             Finalize Reconciliation
@@ -473,6 +578,11 @@ export default function Reconciliation() {
           currency={selectedAccount?.currency}
           clearedSummary={clearedSummary}
           onBankBalanceChange={handleBankBalanceChange}
+          lastReconciledDate={selectedAccount?.lastReconciledDate ?? null}
+          lastReconciledBalance={selectedAccount?.lastReconciledBalance ?? null}
+          balanceConfirmed={balanceConfirmed}
+          onConfirmBalance={handleConfirmBalance}
+          onBalanceEdited={handleBalanceEdited}
         />
       </div>
 
@@ -512,16 +622,21 @@ export default function Reconciliation() {
         }
       />
 
-      {/* Finalization Modal */}
-      <ReconciliationFinalizationModal
-        isOpen={showFinalizationModal}
-        bankBalance={bankBalance}
-        clearedBalance={clearedBalance}
-        currency={selectedAccount?.currency}
-        onClose={() => setShowFinalizationModal(false)}
-        onFinalize={handleFinalize}
-        onCreateAdjustment={handleCreateAdjustment}
-      />
+      {/* Finalization Modal. Rendered only against a CONFIRMED figure — there
+          is no "finalize anyway" path any more, so the modal never has to
+          reason about a balance that is not there. */}
+      {confirmedBalance != null && balanceConfirmed && (
+        <ReconciliationFinalizationModal
+          isOpen={showFinalizationModal}
+          confirmedBalance={confirmedBalance.amount}
+          clearedBalance={clearedBalance}
+          currency={selectedAccount?.currency}
+          awaitingFinalizeCount={clearedSummary?.awaitingFinalizeCount ?? 0}
+          onClose={() => setShowFinalizationModal(false)}
+          onFinalize={handleFinalize}
+          onCreateAdjustment={handleCreateAdjustment}
+        />
+      )}
     </div>
   );
 }

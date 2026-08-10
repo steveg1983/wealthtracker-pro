@@ -9,9 +9,20 @@ import { deriveAdjustment } from '../../utils/reconciliation';
 
 interface ReconciliationFinalizationModalProps {
   isOpen: boolean;
-  bankBalance: number | null;
+  /**
+   * The ending balance the user CONFIRMED, never a bare bank balance.
+   *
+   * A number, not `number | null`, and that is the type doing the work: this
+   * modal cannot be opened without one (the Finalize button is disabled until
+   * the balance bar's Confirm has been pressed), so there is no "no bank
+   * balance — finalize anyway" branch to get wrong. That escape hatch is
+   * exactly how an account came to be marked reconciled against nothing.
+   */
+  confirmedBalance: number;
   clearedBalance: number;
   currency?: string;
+  /** Rows this finalize would convert from marked to reconciled. */
+  awaitingFinalizeCount: number;
   onClose: () => void;
   onFinalize: () => void;
   /**
@@ -31,22 +42,24 @@ interface ReconciliationFinalizationModalProps {
   }) => Promise<void>;
 }
 
+/** "1 transaction" / "12 transactions" — the count and its noun, together. */
+const transactionCount = (n: number): string =>
+  `${n.toLocaleString()} transaction${n === 1 ? '' : 's'}`;
+
 export default function ReconciliationFinalizationModal({
   isOpen,
-  bankBalance,
+  confirmedBalance,
   clearedBalance,
   currency,
+  awaitingFinalizeCount,
   onClose,
   onFinalize,
   onCreateAdjustment,
 }: ReconciliationFinalizationModalProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
 
-  const hasBankBalance = bankBalance != null;
-  const difference = hasBankBalance
-    ? toDecimal(bankBalance).minus(toDecimal(clearedBalance)).toNumber()
-    : null;
-  const isBalanced = difference != null && Math.abs(difference) < 0.005;
+  const difference = toDecimal(confirmedBalance).minus(toDecimal(clearedBalance)).toNumber();
+  const isBalanced = Math.abs(difference) < 0.005;
 
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   // "Account Adjustment" is the exact payee Microsoft Money used for these.
@@ -69,7 +82,7 @@ export default function ReconciliationFinalizationModal({
   // Pre-fill (and re-sync after each created adjustment) with the remaining
   // difference, so the default action always zeroes the account in one step.
   useEffect(() => {
-    if (isOpen && difference != null && !amountDirty) {
+    if (isOpen && !amountDirty) {
       setAdjustmentAmount(Math.abs(difference).toFixed(2));
     }
   }, [isOpen, difference, amountDirty]);
@@ -77,11 +90,11 @@ export default function ReconciliationFinalizationModal({
   if (!isOpen) return null;
 
   const parsedAmount = parseMoneyInput(adjustmentAmount);
-  const { type: adjustmentType, signedAmount } = deriveAdjustment(difference ?? 0, parsedAmount ?? null);
+  const { type: adjustmentType, signedAmount } = deriveAdjustment(difference, parsedAmount ?? null);
   const amountValid = signedAmount != null && Math.abs(signedAmount) > 0;
 
   const handleCreateAdjustment = async () => {
-    if (isSubmitting || !amountValid || signedAmount == null || !adjustmentCategory || !adjustmentDescription.trim() || difference == null) {
+    if (isSubmitting || !amountValid || signedAmount == null || !adjustmentCategory || !adjustmentDescription.trim()) {
       return;
     }
 
@@ -121,41 +134,20 @@ export default function ReconciliationFinalizationModal({
           </button>
         </div>
 
-        {!hasBankBalance ? (
-          /* No bank balance — allow finalize anyway */
-          <div className="text-center py-6">
-            <CheckCircleIcon size={48} className="mx-auto text-blue-500 mb-3" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-              No Bank Balance Set
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Enter a bank balance on the balance bar above to compare against cleared transactions,
-              or finalize without comparison.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Go Back
-              </button>
-              <button
-                onClick={onFinalize}
-                className="flex-1 justify-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Finalize Anyway
-              </button>
-            </div>
-          </div>
-        ) : isBalanced ? (
+        {isBalanced ? (
           /* Balanced — success */
           <div className="text-center py-6">
             <CheckCircleIcon size={48} className="mx-auto text-blue-600 mb-3" />
             <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-1">
               Account Balanced!
             </h3>
+            {/* Says what pressing this DOES, in rows, because that is the part
+                the old flow left invisible: the marks become reconciled, and
+                the statement they were checked against is written down. */}
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Bank balance matches cleared balance. Ready to finalize.
+              {awaitingFinalizeCount > 0
+                ? `Reconciles ${transactionCount(awaitingFinalizeCount)} against ${formatCurrency(confirmedBalance, currency)}.`
+                : `Nothing is left to reconcile. This records ${formatCurrency(confirmedBalance, currency)} as the balance the account was last reconciled to.`}
             </p>
             <button
               onClick={onFinalize}
@@ -172,10 +164,10 @@ export default function ReconciliationFinalizationModal({
                 Difference between bank balance and cleared balance:
               </p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {formatCurrency(difference!, currency)}
+                {formatCurrency(difference, currency)}
               </p>
               <div className="mt-2 text-xs text-red-500 dark:text-red-400 space-y-1">
-                <p>Bank Balance: {formatCurrency(bankBalance, currency)}</p>
+                <p>Bank Balance: {formatCurrency(confirmedBalance, currency)}</p>
                 <p>Cleared Balance: {formatCurrency(clearedBalance, currency)}</p>
               </div>
             </div>
@@ -186,7 +178,7 @@ export default function ReconciliationFinalizationModal({
                   Create Adjustment Transaction
                 </h4>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Creates a cleared {adjustmentType} that reduces the difference. You can
+                  Creates a marked {adjustmentType} that reduces the difference. You can
                   create more than one adjustment until the difference reaches zero.
                 </p>
               </div>

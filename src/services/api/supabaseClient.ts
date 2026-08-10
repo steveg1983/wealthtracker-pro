@@ -39,6 +39,21 @@ type Database = {
         Args: { p_ids: string[]; p_cleared: boolean; p_user_id: string };
         Returns: number;
       };
+      // Finish a reconciliation: commit this account's marked rows and record
+      // the day and the ending balance they were settled against
+      // (20260810200000_marking_is_not_reconciling.sql). p_ending_balance is a
+      // RECORD of a figure a person confirmed, never an amount added to
+      // anything — the function moves no money. Balance-neutral by
+      // construction, which is why it is not one of the atomic-balance RPCs.
+      finalize_reconciliation: {
+        Args: {
+          p_user_id: string;
+          p_account_id: string;
+          p_ending_balance: number;
+          p_reconciled_on: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       apply_category_to_uncategorized: {
         Args: { p_ids: string[]; p_category: string; p_user_id: string };
         Returns: number;

@@ -1439,25 +1439,57 @@ describe('DataService (deterministic fallback)', () => {
     expect((storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[])[0].archiveThroughDate).toBeNull();
   });
 
-  it('reconcile-sweep: clearing an old transaction under the cutoff archives it (local)', async () => {
+  it('reconcile-sweep: FINALIZING an old transaction under the cutoff archives it (local)', async () => {
     const storage = createStorage({
       [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-1', archiveThroughDate: new Date('2024-01-01') })],
       [STORAGE_KEYS.TRANSACTIONS]: [
-        baseTransaction({ id: 'old', date: new Date('2023-06-01'), cleared: false }),   // under cutoff → sweeps
-        baseTransaction({ id: 'recent', date: new Date('2026-06-01'), cleared: false }), // after cutoff → stays live
+        baseTransaction({ id: 'old', date: new Date('2023-06-01'), cleared: false, reconciled: false }),   // under cutoff → sweeps
+        baseTransaction({ id: 'recent', date: new Date('2026-06-01'), cleared: false, reconciled: false }), // after cutoff → stays live
       ]
     });
     const service = createDataService({
       isSupabaseConfigured: () => false, storageAdapter: storage, logger, uuid, now, userIdService: userId
     });
 
+    // MARKING sweeps nothing. A tick is reversible, and a row that vanishes
+    // from the list the moment it is ticked cannot be un-ticked.
     await service.setTransactionsCleared(['old', 'recent'], true);
+    const marked = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(marked.find(t => t.id === 'old')?.archived).toBeFalsy();
+    expect(marked.find(t => t.id === 'recent')?.archived).toBeFalsy();
+
+    await service.finalizeReconciliation('acct-1', 0, new Date('2026-07-01'));
     const txns = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
     expect(txns.find(t => t.id === 'old')?.archived).toBe(true);       // dropped off the live list
     expect(txns.find(t => t.id === 'recent')?.archived).toBeFalsy();   // still visible
-    // un-clearing never un-archives (unarchive is an explicit action)
+    // un-marking never un-archives (unarchive is an explicit action)
     await service.setTransactionsCleared(['old'], false);
     expect((storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[]).find(t => t.id === 'old')?.archived).toBe(true);
+  });
+
+  it('finalizing records the day and the ending balance, and commits only marked rows (local)', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-1' })],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({ id: 'marked', cleared: true, reconciled: false }),
+        baseTransaction({ id: 'unmarked', cleared: false, reconciled: false }),
+      ]
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false, storageAdapter: storage, logger, uuid, now, userIdService: userId
+    });
+
+    const outcome = await service.finalizeReconciliation('acct-1', 0, new Date('2026-07-01'));
+
+    // Zero is a statement balance like any other — an account swept to zero
+    // every night closes on exactly that — so it is recorded, not discarded.
+    expect(outcome).toMatchObject({ reconciled: 1, endingBalance: 0 });
+    const txns = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(txns.find(t => t.id === 'marked')?.reconciled).toBe(true);
+    expect(txns.find(t => t.id === 'unmarked')?.reconciled).toBe(false);
+    const account = (storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[])[0];
+    expect(account.lastReconciledBalance).toBe(0);
+    expect(account.lastReconciledDate).toEqual(new Date('2026-07-01'));
   });
 
   it('allows static DataService reconfiguration for tests', async () => {

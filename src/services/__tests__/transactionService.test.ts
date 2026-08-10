@@ -311,15 +311,10 @@ describe('TransactionService (deterministic fallback)', () => {
     });
 
     /**
-     * A database that predates 20260810090000_imported_rows_arrive_new but has
-     * everything before it — the state every database is in until the owner
-     * applies that migration, which is to say the state the deploy will find.
-     *
-     * It must descend EXACTLY ONE RUNG. Dropping category_confirmed as well
-     * would take the suggested-category badge off a database that supports it
-     * perfectly well, which is a working feature lost to an unrelated deploy.
+     * A client that refuses any select naming one of `missing`, and records
+     * every select it was asked for. The shape all the ladder tests below want.
      */
-    it('gives up only the review column on a database that has everything else', async () => {
+    const makeClientMissing = (missing: readonly string[]) => {
       const selectArgs: { cols: unknown; opts: unknown }[] = [];
       const rows = [{ id: 'db-1', account_id: 'acct-1', amount: 10, type: 'expense', date: '2025-04-01' }];
       const from = vi.fn(() => {
@@ -337,36 +332,80 @@ describe('TransactionService (deterministic fallback)', () => {
         builder.range = vi.fn(() => builder);
         builder.then = (resolve: (value: unknown) => unknown) => {
           if (isCount) return resolve({ count: rows.length, error: null });
-          if (asked.includes('needs_review')) {
+          const unknownColumn = missing.find(column => asked.includes(column));
+          if (unknownColumn) {
             return resolve({
               data: null,
-              error: { code: '42703', message: 'column transactions.needs_review does not exist' }
+              error: { code: '42703', message: `column transactions.${unknownColumn} does not exist` }
             });
           }
           return resolve({ data: rows, error: null });
         };
         return builder;
       });
+      const pageSelects = (): string[] => selectArgs
+        .filter(a => !(a.opts as { head?: boolean } | undefined)?.head)
+        .map(a => String(a.cols));
+      return { client: { from }, pageSelects };
+    };
 
+    /**
+     * A database that predates 20260810200000_marking_is_not_reconciling but
+     * has everything before it — the state every database is in until the owner
+     * applies that migration, which is to say the state this deploy will find.
+     *
+     * It must descend EXACTLY ONE RUNG. Dropping needs_review as well would
+     * take the register's To Review counter off a database that supports it
+     * perfectly well, which is a working feature lost to an unrelated deploy.
+     */
+    it('gives up only the reconciled column on a database that has everything else', async () => {
+      const { client, pageSelects } = makeClientMissing(['is_reconciled']);
       const service = createTransactionService({
         isSupabaseConfigured: () => true,
         storageAdapter: createStorage(),
         logger,
         now,
         uuid,
-        supabaseClient: { from } as unknown as never
+        supabaseClient: client as unknown as never
       });
 
       const transactions = await service.getTransactions('user-1');
       expect(transactions.map(t => t.id)).toEqual(['db-1']);
 
-      const pageSelects = selectArgs
-        .filter(a => !(a.opts as { head?: boolean } | undefined)?.head)
-        .map(a => String(a.cols));
-      expect(pageSelects).toHaveLength(2);
-      expect(pageSelects[1]).not.toContain('needs_review');
-      expect(pageSelects[1]).toContain('category_confirmed');
-      expect(pageSelects[1]).toContain('statement_sequence');
+      const asked = pageSelects();
+      expect(asked).toHaveLength(2);
+      expect(asked[1]).not.toContain('is_reconciled');
+      expect(asked[1]).toContain('needs_review');
+      expect(asked[1]).toContain('category_confirmed');
+      expect(asked[1]).toContain('statement_sequence');
+    });
+
+    /**
+     * A database that predates 20260810090000_imported_rows_arrive_new. By the
+     * ladder's own rule — migrations apply in filename order — such a database
+     * necessarily predates the reconciliation split too, so it gives up both of
+     * those and stops. category_confirmed and statement_sequence survive.
+     */
+    it('gives up the review column too, and no more, when that one is missing as well', async () => {
+      const { client, pageSelects } = makeClientMissing(['is_reconciled', 'needs_review']);
+      const service = createTransactionService({
+        isSupabaseConfigured: () => true,
+        storageAdapter: createStorage(),
+        logger,
+        now,
+        uuid,
+        supabaseClient: client as unknown as never
+      });
+
+      const transactions = await service.getTransactions('user-1');
+      expect(transactions.map(t => t.id)).toEqual(['db-1']);
+
+      const asked = pageSelects();
+      const settled = asked[asked.length - 1];
+      expect(settled).not.toContain('is_reconciled');
+      expect(settled).not.toContain('needs_review');
+      expect(settled).toContain('category_confirmed');
+      expect(settled).toContain('statement_sequence');
     });
 
     it('does not re-ask for the missing column on every page of a boot', async () => {

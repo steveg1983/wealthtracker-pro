@@ -242,6 +242,7 @@ vi.mock('../../services/port', () => {
     updateTransaction: refuse('updateTransaction'),
     deleteTransaction: refuse('deleteTransaction'),
     setTransactionsCleared: refuse('setTransactionsCleared'),
+    finalizeReconciliation: refuse('finalizeReconciliation'),
     applyCategoryToUncategorized: refuse('applyCategoryToUncategorized'),
     confirmTransactionCategories: refuse('confirmTransactionCategories'),
     setTransactionArchived: refuse('setTransactionArchived'),

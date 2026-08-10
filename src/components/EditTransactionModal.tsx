@@ -1411,8 +1411,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
                 <CheckIcon2 size={16} className="text-blue-600 dark:text-blue-400" />
+                {/* "Marked", not "Reconciled": this box writes the WORKING flag
+                    (Money's C), the same one the register's Space key and the
+                    reconciliation checkbox write. Only finalizing a
+                    reconciliation reconciles anything, and a box that claimed
+                    otherwise is how marking came to pass for settled work. */}
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Reconciled
+                  Marked against a statement
                 </span>
               </label>
 

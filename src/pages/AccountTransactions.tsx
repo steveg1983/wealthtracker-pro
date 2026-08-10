@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { parseMoneyInput, toDecimal } from '../utils/decimal';
+import { isReconciled } from '../utils/transactionReconciliation';
 import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, PlusIcon, CalendarIcon, XIcon, SettingsIcon, FilterIcon, ChevronUpIcon, ChevronDownIcon, MaximizeIcon, MinimizeIcon, EyeIcon, KeyboardIcon, AlertCircleIcon } from '../components/icons';
@@ -852,13 +853,17 @@ export default function AccountTransactions() {
     return [openingBalanceRow, ...transactionsWithBalance];
   }, [account, transactionsWithBalance, fullAccountTransactions, openingEffectiveDate, sortField, sortDirection]);
 
-  // Calculate unreconciled total
+  // What is NOT RECONCILED, in money — the same question the Accounts page's
+  // Unreconciled column answers in rows, and it has to be the same answer. A
+  // marked-but-unfinalized row is still outstanding here, exactly as it is
+  // there. Decimal, because this is money on screen.
   const unreconciledTotal = useMemo(() => {
     if (!account) return 0;
 
     return accountTransactions
-      .filter(t => !t.cleared)
-      .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => !isReconciled(t))
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0))
+      .toNumber();
   }, [account, accountTransactions]);
 
   // The true account balance = opening + Σ ALL its transactions. Computed over
@@ -1266,15 +1271,15 @@ export default function AccountTransactions() {
   }, []);
 
   /**
-   * Reconcile (or un-reconcile) the given rows.
+   * Mark (or unmark) the given rows.
    *
    * Straight down setTransactionsCleared — the SAME write the reconciliation
-   * screen's checkbox makes, in one round trip. Which matters beyond tidiness:
-   * an is_cleared update can fire the archive sweep server-side
-   * (trg_sweep_reconciled_into_archive), so a row reconciled on or before its
-   * account's archive cutoff drops out of the live list. That is the
-   * checkbox's existing behaviour, and routing the key through the same call
-   * is what keeps the two identical rather than quietly divergent.
+   * screen's checkbox makes, in one round trip, so the two surfaces cannot
+   * drift. And it is a MARK, not a reconciliation: only finalizing a
+   * reconciliation commits anything, which is why nothing here disappears into
+   * the archive the way it used to (that sweep now hangs off the committed
+   * flag). Unmarking a row that WAS reconciled takes the commitment with it —
+   * the store's own rule, mirrored in reconciledAfterMarking.
    */
   const applyCleared = useCallback(async (ids: string[], cleared: boolean): Promise<void> => {
     if (ids.length === 0) return;
@@ -1289,18 +1294,18 @@ export default function AccountTransactions() {
   }, [setTransactionsCleared, showError]);
 
   /**
-   * Space: reconcile the highlighted row, or un-reconcile it if it already is.
+   * Space: mark the highlighted row, or unmark it if it is marked already.
    *
    * Over a multi-row selection the question is asked once for the whole run:
-   * if ANY row is still unreconciled, Space reconciles the lot — that is what
-   * someone ticking off a statement means. Only when every one of them is
-   * already reconciled does Space undo them, so the key can never half-do a
-   * selection and leave the user unsure which way it went.
+   * if ANY row is still unmarked, Space marks the lot — that is what someone
+   * ticking off a statement means. Only when every one of them is marked
+   * already does Space undo them, so the key can never half-do a selection and
+   * leave the user unsure which way it went.
    */
   const toggleClearedOnSelection = useCallback((): void => {
     if (selectedRows.length === 0) return;
-    const anyUnreconciled = selectedRows.some(row => !row.cleared);
-    void applyCleared(selectedRows.map(row => row.id), anyUnreconciled);
+    const anyUnmarked = selectedRows.some(row => !row.cleared);
+    void applyCleared(selectedRows.map(row => row.id), anyUnmarked);
   }, [selectedRows, applyCleared]);
 
   /**
@@ -1917,11 +1922,21 @@ export default function AccountTransactions() {
     },
     {
       key: 'reconciled',
-      header: 'R',
+      // Microsoft Money's own column, and its own two letters: C is a mark made
+      // while balancing, R is a reconciliation that was finished. One tick for
+      // both was what let a working mark pass for settled work.
+      header: 'C/R',
       width: '35px',
       accessor: (transaction) => (
-        transaction.cleared ? (
-          <span className="text-blue-600 dark:text-blue-400">✓</span>
+        isReconciled(transaction) ? (
+          <span className="text-blue-600 dark:text-blue-400 font-semibold" title="Reconciled">R</span>
+        ) : transaction.cleared ? (
+          <span
+            className="text-gray-500 dark:text-gray-400 font-semibold"
+            title="Marked while balancing — not reconciled until you finalize"
+          >
+            C
+          </span>
         ) : null
       ),
       className: 'text-center',
@@ -2794,7 +2809,7 @@ export default function AccountTransactions() {
       {!tableExpanded && hasMultiSelection && (
         <RegisterSelectionBar
           count={selectedRows.length}
-          unreconciledCount={selectedRows.filter(row => !row.cleared).length}
+          unmarkedCount={selectedRows.filter(row => !row.cleared).length}
           archivableCount={selectedRows.filter(row => !row.archived).length}
           busy={bulkBusy}
           onReconcile={() => { void applyCleared(selectedRows.map(row => row.id), true); }}

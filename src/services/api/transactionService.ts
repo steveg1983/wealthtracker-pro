@@ -11,6 +11,7 @@ import type {
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { transactionCache, newestUpdatedAt, type TransactionSnapshot } from '../transactionCache';
 import { toDecimal } from '../../utils/decimal';
+import { reconciledAfterMarking } from '../../utils/transactionReconciliation';
 import { normalizeTransactionDates, toDateMs, toDateValue } from '../../utils/dateBoundary';
 import type { ServerAccountBalance } from '../../utils/accountBalances';
 // Types only — an interface is erased at build, so naming the seam here adds
@@ -128,6 +129,7 @@ export function mergeTransactionDelta(cached: Transaction[], delta: Transaction[
 const CAMEL_TO_DB: Record<string, string> = {
   accountId: 'account_id',
   cleared: 'is_cleared',
+  reconciled: 'is_reconciled',
   isRecurring: 'is_recurring',
   categoryId: 'category_id',
   transferAccountId: 'transfer_account_id',
@@ -180,15 +182,28 @@ const DB_TO_CAMEL: Record<string, string> = Object.fromEntries(
  * parser — a widened `string` (which `+` concatenation or `[].join` produces)
  * degrades the result to an untyped error type.
  */
-const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,needs_review,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+const BOOT_TRANSACTION_COLUMNS = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_reconciled,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,needs_review,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
 
 /**
- * The same list without `needs_review`, for a database that has not had
- * 20260810090000_imported_rows_arrive_new.sql applied yet.
+ * The same list without `is_reconciled`, for a database that has not had
+ * 20260810200000_marking_is_not_reconciling.sql applied yet.
  *
  * The newest rung of the ladder, and therefore the FIRST one dropped — see the
  * note below about why the ladder only ever descends newest-first. Without the
- * column every row reads as `needsReview: undefined`, which
+ * column every row reads as `reconciled: undefined`, which
+ * src/utils/transactionReconciliation.ts defines as "ask `cleared`" — i.e. the
+ * one-flag behaviour this app had until that migration, which is exactly what
+ * such a database is still describing. Marking would settle an account there,
+ * as it did before; nothing lies about it, and the feature lights up by itself
+ * the moment the migration lands.
+ */
+const BOOT_TRANSACTION_COLUMNS_NO_RECONCILED = 'id,account_id,amount,archived,category,category_confirmed,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,needs_review,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
+
+/**
+ * Neither `is_reconciled` nor `needs_review`, for a database that has not had
+ * 20260810090000_imported_rows_arrive_new.sql applied yet.
+ *
+ * Without the column every row reads as `needsReview: undefined`, which
  * src/utils/transactionReview.ts defines as reviewed: no bold, a counter of
  * zero, and a register that behaves exactly as it did before this feature
  * existed. That is the correct degradation, because on a database without the
@@ -211,16 +226,16 @@ const BOOT_TRANSACTION_COLUMNS_NO_REVIEW = 'id,account_id,amount,archived,catego
 const BOOT_TRANSACTION_COLUMNS_NO_PROVENANCE = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,statement_sequence,tags,type,updated_at,transfer_account_id' as const;
 
 /**
- * None of `needs_review`, `category_confirmed` or `statement_sequence` — the
- * oldest schema this build still talks to (before
+ * None of `is_reconciled`, `needs_review`, `category_confirmed` or
+ * `statement_sequence` — the oldest schema this build still talks to (before
  * 20260808090000_transaction_statement_sequence).
  *
- * There is no FIFTH list, because there is no fifth state to be in: migrations
- * are applied in filename order, so a database holding `needs_review`
- * necessarily already holds the `category_confirmed` added before it, which in
- * turn implies `statement_sequence`. The ladder therefore only ever drops
- * columns newest-first, which is also why the retry below discovers them in
- * that order.
+ * There is no SIXTH list, because there is no sixth state to be in: migrations
+ * are applied in filename order, so a database holding `is_reconciled`
+ * necessarily already holds the `needs_review` added before it, which implies
+ * `category_confirmed`, which in turn implies `statement_sequence`. The ladder
+ * therefore only ever drops columns newest-first, which is also why the retry
+ * below discovers them in that order.
  */
 const BOOT_TRANSACTION_COLUMNS_LEGACY = 'id,account_id,amount,archived,category,category_id,created_at,date,description,is_cleared,is_recurring,is_split,linked_transfer_id,linked_transfer_split_id,notes,tags,type,updated_at,transfer_account_id' as const;
 
@@ -230,6 +245,19 @@ const BOOT_TRANSACTION_COLUMNS_LEGACY = 'id,account_id,amount,archived,category,
  * that has changed between releases.
  */
 const UNDEFINED_COLUMN = '42703';
+
+/**
+ * The two ways a database answers a call to a function it has not got:
+ * Postgres's own `undefined_function`, and PostgREST's "no such function in the
+ * schema cache" (which is what actually comes back when the migration that
+ * creates it has never been applied). Matched on the CODES, for the same reason
+ * UNDEFINED_COLUMN is: the messages are English prose that changes.
+ */
+const UNDEFINED_FUNCTION = '42883';
+const POSTGREST_NO_SUCH_FUNCTION = 'PGRST202';
+
+const isMissingFunction = (error: { code?: string | null }): boolean =>
+  error.code === UNDEFINED_FUNCTION || error.code === POSTGREST_NO_SUCH_FUNCTION;
 
 /**
  * One PostgREST row → the camelCase shape a Transaction claims.
@@ -362,12 +390,16 @@ class TransactionServiceImpl {
    */
   private categoryConfirmedMissing = false;
   /**
-   * The same, for 20260810090000_imported_rows_arrive_new.sql. Dropped FIRST of
-   * the three, because it is the newest: PostgREST names no column in the
+   * The same, for 20260810090000_imported_rows_arrive_new.sql.
+   */
+  private needsReviewMissing = false;
+  /**
+   * The same, for 20260810200000_marking_is_not_reconciling.sql. Dropped FIRST
+   * of the four, because it is the newest: PostgREST names no column in the
    * error, so the only safe reading of "some column in that list is unknown" is
    * to give up the newest one and ask again.
    */
-  private needsReviewMissing = false;
+  private reconciledMissing = false;
 
   constructor(options: TransactionServiceOptions = {}) {
     this.cache = options.transactionCache ?? transactionCache;
@@ -527,6 +559,29 @@ class TransactionServiceImpl {
       return (data || []) as Record<string, unknown>[];
     }
 
+    if (this.reconciledMissing) {
+      const noReconciledBase = client
+        .from('transactions')
+        .select(BOOT_TRANSACTION_COLUMNS_NO_RECONCILED)
+        .eq('user_id', userId);
+      const noReconciledScoped = since ? noReconciledBase.gte('updated_at', since) : noReconciledBase;
+      const { data, error } = await noReconciledScoped
+        .order('date', { ascending: false })
+        .order('id', { ascending: false }) // stable tiebreak for paging
+        .range(from, to);
+      if (error) {
+        // Still unknown with the newest column gone: this database predates the
+        // review migration as well. Drop that too and ask again.
+        if (error.code === UNDEFINED_COLUMN) {
+          this.needsReviewMissing = true;
+          return this.fetchTransactionPage(userId, from, since);
+        }
+        this.logger.error('Error fetching transactions:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      return (data || []) as Record<string, unknown>[];
+    }
+
     const base = client
       .from('transactions')
       .select(BOOT_TRANSACTION_COLUMNS)
@@ -538,12 +593,13 @@ class TransactionServiceImpl {
       .range(from, to);
 
     if (error) {
-      // This database predates the review migration. Remember it (so the other
-      // 50 pages of a boot do not each pay for the discovery) and fetch again
-      // without the column: a register that cannot tell a new row from an old
-      // one is a shortfall, no register at all is an outage.
+      // This database predates the reconciliation-split migration. Remember it
+      // (so the other 50 pages of a boot do not each pay for the discovery) and
+      // fetch again without the column: a register that cannot tell a marked
+      // row from a reconciled one is a shortfall, no register at all is an
+      // outage.
       if (error.code === UNDEFINED_COLUMN) {
-        this.needsReviewMissing = true;
+        this.reconciledMissing = true;
         return this.fetchTransactionPage(userId, from, since);
       }
       this.logger.error('Error fetching transactions:', error);
@@ -865,10 +921,16 @@ class TransactionServiceImpl {
   }
 
   /**
-   * Bulk-set the reconciliation cleared flag on a set of transactions in one
-   * round trip. is_cleared never affects account balances, so this goes through
-   * a dedicated RPC rather than N update_transaction_atomic calls.
+   * Mark a set of transactions off against a statement, or take the mark back,
+   * in one round trip. is_cleared never affects account balances, so this goes
+   * through a dedicated RPC rather than N update_transaction_atomic calls.
    * Returns the number of rows actually updated.
+   *
+   * A mark is Microsoft Money's C: a working flag, and NOT a reconciliation.
+   * `reconciledAfterMarking` is the one rule that keeps the committed flag
+   * beside it honest — marking leaves it, unmarking clears it — and it is read
+   * from src/utils/transactionReconciliation.ts here and mirrored in SQL by
+   * set_transactions_cleared.
    */
   async setTransactionsCleared(ids: string[], cleared: boolean, userId?: string): Promise<number> {
     if (ids.length === 0) {
@@ -882,7 +944,12 @@ class TransactionServiceImpl {
       const updated = transactions.map(t => {
         if (idSet.has(t.id)) {
           count += 1;
-          return { ...t, cleared, updatedAt: this.getCurrentDate() };
+          return {
+            ...t,
+            cleared,
+            reconciled: reconciledAfterMarking(t, cleared),
+            updatedAt: this.getCurrentDate()
+          };
         }
         return t;
       });
@@ -910,6 +977,85 @@ class TransactionServiceImpl {
       this.logger.error('TransactionService.setTransactionsCleared error:', error as Error);
       throw error;
     }
+  }
+
+  /**
+   * Finish a reconciliation: commit this account's marked rows and record the
+   * day and ending balance they were settled against. Cloud-only (local mode
+   * goes through DataService), one RPC, one database transaction.
+   *
+   * `reconciledOn` is sent as a calendar day, because last_reconciled_date is a
+   * DATE: see divergence D-9 on the port.
+   *
+   * ── THE PRE-MIGRATION PATH ──────────────────────────────────────────────
+   * A database that has not had 20260810200000 applied has neither the RPC nor
+   * the columns it writes, and the owner applies migrations himself — so
+   * "deploy after the migration" is an ordering this code cannot enforce (the
+   * same reasoning as the boot column ladder above). There, finalizing means
+   * exactly what it meant before this feature existed: stamp the account's
+   * last reconciled date, and nothing else. It is honest on such a database,
+   * because without the committed flag every marked row already reads as
+   * reconciled — there is genuinely nothing left to convert, which is why the
+   * count it reports is zero.
+   */
+  async finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOnIso: string,
+    userId?: string
+  ): Promise<{ reconciled: number }> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('finalizeReconciliation requires the cloud connection (local mode goes through DataService)');
+    }
+    const owner = this.requireOwnerId(userId, 'finalizeReconciliation');
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('finalize_reconciliation', {
+        p_user_id: owner,
+        p_account_id: accountId,
+        p_ending_balance: endingBalance,
+        p_reconciled_on: reconciledOnIso,
+      });
+      if (error) {
+        if (isMissingFunction(error)) {
+          return { reconciled: await this.stampLastReconciled(accountId, owner, reconciledOnIso) };
+        }
+        this.logger.error('Error finalizing reconciliation:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as { reconciled?: number };
+      return { reconciled: typeof result.reconciled === 'number' ? result.reconciled : 0 };
+    } catch (error) {
+      this.logger.error('TransactionService.finalizeReconciliation error:', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * The pre-migration finalize: the account's date and nothing else.
+   *
+   * Deliberately does NOT send last_reconciled_balance — that column arrives
+   * with the same migration as the RPC, and naming it would fail the whole
+   * update, taking the one field that CAN be written down with it.
+   *
+   * Returns 0 rather than a row count because no transaction was converted:
+   * saying "reconciled 40 transactions" here would be a claim about writes that
+   * did not happen.
+   */
+  private async stampLastReconciled(
+    accountId: string,
+    ownerId: string,
+    reconciledOnIso: string
+  ): Promise<number> {
+    const { error } = await this.supabaseClient!
+      .from('accounts')
+      .update({ last_reconciled_date: reconciledOnIso, updated_at: new Date().toISOString() })
+      .eq('id', accountId)
+      .eq('user_id', ownerId);
+    if (error) {
+      this.logger.error('Error recording the reconciliation date:', error);
+      throw new Error(handleSupabaseError(error));
+    }
+    return 0;
   }
 
   /**
@@ -1852,6 +1998,15 @@ export class TransactionService {
 
   static setTransactionsCleared(ids: string[], cleared: boolean, userId?: string): Promise<number> {
     return this.service.setTransactionsCleared(ids, cleared, userId);
+  }
+
+  static finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOnIso: string,
+    userId?: string
+  ): Promise<{ reconciled: number }> {
+    return this.service.finalizeReconciliation(accountId, endingBalance, reconciledOnIso, userId);
   }
 
   static applyCategoryToUncategorized(ids: string[], category: string, userId?: string): Promise<number> {

@@ -143,6 +143,7 @@ describe('useReconciliation', () => {
         depositsCount: 0,
         paymentsTotal: 0,
         paymentsCount: 0,
+        awaitingFinalizeCount: 0,
       });
     });
   });

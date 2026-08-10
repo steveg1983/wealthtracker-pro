@@ -162,6 +162,13 @@ export function mapAccountFromDb(row: Record<string, unknown>): Account {
     // A DATE arrives as 'YYYY-MM-DD' and stays that way — see Account.
     bankBalanceDate: text(row.bank_balance_date) ?? null,
     lastReconciledDate: timestamp(row.last_reconciled_date) ?? null,
+    // `?? null` deliberately, and never `?? 0`: £0.00 is a real statement
+    // balance (an account swept to zero every night closes on exactly that), so
+    // "never reconciled" and "reconciled at zero" must not share a value. On a
+    // database without migration 20260810200000 the column is simply absent,
+    // which reads as null — never reconciled — and the balance bar then offers
+    // no starting figure rather than a made-up one.
+    lastReconciledBalance: numeric(row.last_reconciled_balance) ?? null,
     sortCode: text(row.sort_code) ?? '',
     accountNumber: text(row.account_number) ?? '',
     creditLimit: numeric(row[CREDIT_LIMIT_COLUMN]),
@@ -189,6 +196,7 @@ const ACCOUNT_FIELD_TO_COLUMN: Record<string, string> = {
   bankBalance: 'bank_balance',
   bankBalanceDate: 'bank_balance_date',
   lastReconciledDate: 'last_reconciled_date',
+  lastReconciledBalance: 'last_reconciled_balance',
   lowBalanceAlertEnabled: 'low_balance_alert_enabled',
   lowBalanceThreshold: 'low_balance_threshold',
   archiveThroughDate: 'archive_through_date',

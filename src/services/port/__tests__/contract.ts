@@ -25,7 +25,9 @@
  *    under the owner the implementation resolved for itself, never another;
  *  - a goal starts at the money already put by rather than at zero, and no
  *    write through the seam carries one past its own target;
- *  - the reconcile-sweep, dismissal pruning and dismissal idempotence;
+ *  - that a mark is a working note and only finalizing reconciles anything,
+ *    including what the archive sweep hangs off now that the two are separate;
+ *  - dismissal pruning and dismissal idempotence;
  *  - and the DECLARED divergences (D-7, M-1), asserted per engine so that a
  *    difference between implementations is recorded rather than discovered.
  *
@@ -153,6 +155,7 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'updateTransaction',
   'deleteTransaction',
   'setTransactionsCleared',
+  'finalizeReconciliation',
   'applyCategoryToUncategorized',
   'confirmTransactionCategories',
   'setTransactionArchived',
@@ -2141,26 +2144,160 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
     describe('reconciliation and archiving', () => {
       // Dates sit at midday, far from any midnight: which calendar day an
-      // instant belongs to is divergence D-8, and these tests are about the
-      // sweep, not about the zone.
-      it('archives a row that becomes reconciled on or before the account cutoff', async () => {
+      // instant belongs to is divergence D-8 (and D-9 for the day a finalize is
+      // recorded on), and these tests are about the marks, not about the zone.
+
+      /**
+       * THE RULE THE WHOLE FEATURE RESTS ON. A mark is Microsoft Money's C: a
+       * working note that survives being walked away from and settles nothing.
+       * When one flag did both jobs, "Mark all" WAS the reconciliation — leave
+       * the screen and the account showed no work left, which is the bug this
+       * separation exists to end. Asserted at the seam because every screen
+       * reads the store's answer, not its own memory.
+       */
+      it('a mark is not a reconciliation: it is kept, and it settles nothing', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [
+            aTransaction('txn-1', { cleared: false, reconciled: false }),
+            aTransaction('txn-2', { cleared: false, reconciled: false })
+          ]
+        });
+
+        const count = await port.setTransactionsCleared(['txn-1', 'txn-2'], true);
+
+        expect(count).toBe(2);
+        const state = await read();
+        for (const id of ['txn-1', 'txn-2']) {
+          expect(transactionOf(state, id)).toMatchObject({ cleared: true, reconciled: false });
+        }
+      });
+
+      it('unmarking takes any commitment with it', async () => {
+        // reconciled implies cleared. The pair (committed, unmarked) would put
+        // the cleared balance and the reconciled set permanently out of step,
+        // so a store may never be left holding it.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-1', { cleared: true, reconciled: true })]
+        });
+
+        await port.setTransactionsCleared(['txn-1'], false);
+
+        expect(transactionOf(await read(), 'txn-1')).toMatchObject({
+          cleared: false,
+          reconciled: false
+        });
+      });
+
+      it('finalizing commits exactly the marked rows, and records what they were settled against', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [
+            aTransaction('txn-marked', { cleared: true, reconciled: false }),
+            aTransaction('txn-unmarked', { cleared: false, reconciled: false }),
+            aTransaction('txn-already', { cleared: true, reconciled: true }),
+            aTransaction('txn-other-account', {
+              accountId: ACCOUNT_B,
+              cleared: true,
+              reconciled: false
+            })
+          ]
+        });
+
+        const outcome = await port.finalizeReconciliation(ACCOUNT_A, 142.5, AT('2025-03-31'));
+
+        // One row converted — not the unmarked one, not the one already
+        // committed (a second count for it would overstate the work), and not
+        // another account's.
+        expect(outcome.reconciled).toBe(1);
+        const state = await read();
+        expect(transactionOf(state, 'txn-marked')?.reconciled).toBe(true);
+        expect(transactionOf(state, 'txn-unmarked')?.reconciled).toBe(false);
+        expect(transactionOf(state, 'txn-already')?.reconciled).toBe(true);
+        expect(transactionOf(state, 'txn-other-account')?.reconciled).toBe(false);
+
+        const account = state.accounts.find(a => a.id === ACCOUNT_A);
+        expect(account?.lastReconciledBalance).toBe(142.5);
+        expect(new Date(account?.lastReconciledDate ?? 0).toISOString().slice(0, 10))
+          .toBe('2025-03-31');
+      });
+
+      it('records a zero ending balance as a figure, not as "none"', async () => {
+        // A real account in this product is swept to zero every night, so its
+        // correct statement balance is exactly £0. An engine that treated 0 as
+        // "nothing was confirmed" would refuse to finish that reconciliation
+        // for ever.
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-marked', { cleared: true, reconciled: false })]
+        });
+
+        const outcome = await port.finalizeReconciliation(ACCOUNT_A, 0, AT('2025-03-31'));
+
+        expect(outcome.endingBalance).toBe(0);
+        expect(outcome.reconciled).toBe(1);
+        expect(
+          (await read()).accounts.find(a => a.id === ACCOUNT_A)?.lastReconciledBalance
+        ).toBe(0);
+      });
+
+      it('finalizing twice commits nothing the second time, and re-states the balance', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-marked', { cleared: true, reconciled: false })]
+        });
+
+        await port.finalizeReconciliation(ACCOUNT_A, 142.5, AT('2025-03-31'));
+        const second = await port.finalizeReconciliation(ACCOUNT_A, 200, AT('2025-04-30'));
+
+        expect(second.reconciled).toBe(0);
+        expect(
+          (await read()).accounts.find(a => a.id === ACCOUNT_A)?.lastReconciledBalance
+        ).toBe(200);
+      });
+
+      it('refuses to finalize an account it cannot find, and changes nothing', async () => {
+        const { port, read } = await harness.create({
+          accounts: threeAccounts(),
+          transactions: [aTransaction('txn-marked', { cleared: true, reconciled: false })]
+        });
+        const before = asComparable(await read());
+
+        await expect(port.finalizeReconciliation('acct-not-here', 10, AT('2025-03-31')))
+          .rejects.toThrow(/account/i);
+
+        expect(asComparable(await read())).toBe(before);
+      });
+
+      it('archives a row that becomes COMMITTED on or before the account cutoff', async () => {
+        // The sweep hangs off finalizing, never off marking. Ticking a row
+        // dated before the cutoff used to make it vanish from the very list the
+        // ticking happens on — from a list whose whole promise is that ticks
+        // are reversible.
         const { port, read } = await harness.create({
           accounts: [
             anAccount(ACCOUNT_A, 'Everyday', { archiveThroughDate: AT('2025-02-28') }),
             anAccount(ACCOUNT_B, 'Rainy day', { type: 'savings' })
           ],
           transactions: [
-            aTransaction('txn-old', { date: AT('2025-01-15') }),
-            aTransaction('txn-new', { date: AT('2025-03-15') })
+            aTransaction('txn-old', { date: AT('2025-01-15'), reconciled: false }),
+            aTransaction('txn-new', { date: AT('2025-03-15'), reconciled: false })
           ]
         });
 
-        const count = await port.setTransactionsCleared(['txn-old', 'txn-new'], true);
+        await port.setTransactionsCleared(['txn-old', 'txn-new'], true);
 
-        expect(count).toBe(2);
+        // Marked, both still in the live list.
+        const marked = await read();
+        expect(transactionOf(marked, 'txn-old')?.archived).not.toBe(true);
+        expect(transactionOf(marked, 'txn-new')?.archived).not.toBe(true);
+
+        await port.finalizeReconciliation(ACCOUNT_A, 0, AT('2025-03-31'));
+
         const state = await read();
         expect(transactionOf(state, 'txn-old')).toMatchObject({ cleared: true, archived: true });
-        expect(transactionOf(state, 'txn-new')?.cleared).toBe(true);
+        expect(transactionOf(state, 'txn-new')?.reconciled).toBe(true);
         expect(transactionOf(state, 'txn-new')?.archived).not.toBe(true);
       });
 
@@ -2168,13 +2305,17 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         const { port, read } = await harness.create({
           accounts: threeAccounts(),
           transactions: [
-            aTransaction('txn-cleared', { date: AT('2025-01-15'), cleared: true }),
-            aTransaction('txn-unreconciled', { date: AT('2025-01-16'), cleared: false }),
-            aTransaction('txn-later', { date: AT('2025-03-15'), cleared: true }),
+            aTransaction('txn-reconciled', { date: AT('2025-01-15'), cleared: true, reconciled: true }),
+            // Marked but not committed: still work in progress, so the archive
+            // leaves it in the register where it can still be unmarked.
+            aTransaction('txn-marked-only', { date: AT('2025-01-16'), cleared: true, reconciled: false }),
+            aTransaction('txn-unmarked', { date: AT('2025-01-17'), cleared: false, reconciled: false }),
+            aTransaction('txn-later', { date: AT('2025-03-15'), cleared: true, reconciled: true }),
             aTransaction('txn-other-account', {
               accountId: ACCOUNT_B,
               date: AT('2025-01-15'),
-              cleared: true
+              cleared: true,
+              reconciled: true
             })
           ]
         });
@@ -2183,8 +2324,9 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect(count).toBe(1);
         const state = await read();
-        expect(transactionOf(state, 'txn-cleared')?.archived).toBe(true);
-        expect(transactionOf(state, 'txn-unreconciled')?.archived).not.toBe(true);
+        expect(transactionOf(state, 'txn-reconciled')?.archived).toBe(true);
+        expect(transactionOf(state, 'txn-marked-only')?.archived).not.toBe(true);
+        expect(transactionOf(state, 'txn-unmarked')?.archived).not.toBe(true);
         expect(transactionOf(state, 'txn-later')?.archived).not.toBe(true);
         expect(transactionOf(state, 'txn-other-account')?.archived).not.toBe(true);
         expect(state.accounts.find(account => account.id === ACCOUNT_A)?.archiveThroughDate).toBeTruthy();

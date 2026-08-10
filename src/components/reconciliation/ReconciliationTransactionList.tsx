@@ -1,16 +1,32 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SearchIcon, PlusIcon } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { isMarkedAwaitingFinalize, isReconciled } from '../../utils/transactionReconciliation';
 import type { Transaction, Category } from '../../types';
 
-type FilterMode = 'all' | 'uncleared' | 'cleared';
+/**
+ * What the list is showing.
+ *
+ * The vocabulary is the model: 'marked' is the WORKING set — ticked in this
+ * session or a previous one, and not yet finalized — which is exactly what
+ * Finalize would commit, so it doubles as "show me what I am about to sign
+ * for". Rows reconciled in an earlier session are neither marked nor unmarked
+ * work; they show under 'all' and nowhere else.
+ */
+type FilterMode = 'all' | 'unmarked' | 'marked';
+
+const FILTER_LABELS: Record<FilterMode, string> = {
+  all: 'All',
+  unmarked: 'Unmarked',
+  marked: 'Marked',
+};
 
 interface ReconciliationTransactionListProps {
   transactions: Transaction[];
   categories: Category[];
   currency?: string;
   openingBalance: number;
-  /** Ids with a cleared-write in flight; their checkboxes are disabled. */
+  /** Ids with a mark-write in flight; their checkboxes are disabled. */
   pendingClearedIds?: ReadonlyMap<string, boolean>;
   onToggleCleared: (transactionId: string, cleared: boolean) => void;
   /** Bulk mark/unmark; ids are the currently visible (filtered) transactions. */
@@ -25,6 +41,10 @@ interface ReconciliationTransactionListProps {
    */
   onVisibleOrderChange?: (orderedIds: string[]) => void;
 }
+
+/** Why a committed row's tick does not move here. */
+const RECONCILED_ROW_TITLE =
+  'Reconciled in a finished reconciliation. Un-tick it in the account register if it is wrong.';
 
 export default function ReconciliationTransactionList({
   transactions,
@@ -73,10 +93,10 @@ export default function ReconciliationTransactionList({
   const filteredTransactions = useMemo(() => {
     let list = sortedTransactions;
 
-    if (filterMode === 'uncleared') {
+    if (filterMode === 'unmarked') {
       list = list.filter(t => !t.cleared);
-    } else if (filterMode === 'cleared') {
-      list = list.filter(t => t.cleared === true);
+    } else if (filterMode === 'marked') {
+      list = list.filter(isMarkedAwaitingFinalize);
     }
 
     if (searchTerm) {
@@ -97,30 +117,34 @@ export default function ReconciliationTransactionList({
     onVisibleOrderChange?.(filteredTransactions.map(t => t.id));
   }, [filteredTransactions, onVisibleOrderChange]);
 
-  const visibleUnclearedIds = useMemo(
+  const visibleUnmarkedIds = useMemo(
     () => filteredTransactions.filter(t => t.cleared !== true).map(t => t.id),
     [filteredTransactions]
   );
-  const visibleClearedIds = useMemo(
-    () => filteredTransactions.filter(t => t.cleared === true).map(t => t.id),
+  /**
+   * Unmark acts on the WORKING set only — never on rows a finished
+   * reconciliation committed. One click here can cover hundreds of rows, and a
+   * bulk helper for this session's marks has no business reaching back into
+   * settled statements.
+   */
+  const visibleMarkedIds = useMemo(
+    () => filteredTransactions.filter(isMarkedAwaitingFinalize).map(t => t.id),
     [filteredTransactions]
   );
 
-  const handleMarkAllCleared = useCallback(() => {
-    const count = visibleUnclearedIds.length;
-    if (count === 0) return;
-    if (window.confirm(`Mark ${count} transaction${count === 1 ? '' : 's'} as cleared?`)) {
-      onBulkSetCleared(visibleUnclearedIds, true);
-    }
-  }, [visibleUnclearedIds, onBulkSetCleared]);
+  const handleMarkAll = useCallback(() => {
+    if (visibleUnmarkedIds.length === 0) return;
+    // No confirmation. Marking is a working state that Finalize commits and a
+    // second click undoes, so a modal asking "are you sure?" was asking about
+    // nothing — and it was the popup that made "Mark all" feel like the
+    // reconciliation itself.
+    onBulkSetCleared(visibleUnmarkedIds, true);
+  }, [visibleUnmarkedIds, onBulkSetCleared]);
 
   const handleUnmarkAll = useCallback(() => {
-    const count = visibleClearedIds.length;
-    if (count === 0) return;
-    if (window.confirm(`Mark ${count} transaction${count === 1 ? '' : 's'} as uncleared?`)) {
-      onBulkSetCleared(visibleClearedIds, false);
-    }
-  }, [visibleClearedIds, onBulkSetCleared]);
+    if (visibleMarkedIds.length === 0) return;
+    onBulkSetCleared(visibleMarkedIds, false);
+  }, [visibleMarkedIds, onBulkSetCleared]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -140,35 +164,38 @@ export default function ReconciliationTransactionList({
 
         {/* Filter buttons */}
         <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg p-0.5">
-          {(['all', 'uncleared', 'cleared'] as FilterMode[]).map(mode => (
+          {(['all', 'unmarked', 'marked'] as FilterMode[]).map(mode => (
             <button
               key={mode}
               onClick={() => setFilterMode(mode)}
+              aria-pressed={filterMode === mode}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 filterMode === mode
                   ? 'bg-[#1a2332] text-white'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
-              {mode === 'all' ? 'All' : mode === 'uncleared' ? 'Uncleared' : 'Cleared'}
+              {FILTER_LABELS[mode]}
             </button>
           ))}
         </div>
 
-        {/* Bulk actions */}
+        {/* Bulk actions. The labels say "mark", not "clear": now that marking is
+            the holding state, promising anything more would be the old lie in
+            new words. */}
         <button
-          onClick={handleMarkAllCleared}
-          disabled={visibleUnclearedIds.length === 0}
+          onClick={handleMarkAll}
+          disabled={visibleUnmarkedIds.length === 0}
           className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          title="Mark all currently shown transactions as cleared"
+          title="Tick every transaction shown. Nothing is reconciled until you finalize."
         >
-          Mark all cleared
+          Mark all
         </button>
         <button
           onClick={handleUnmarkAll}
-          disabled={visibleClearedIds.length === 0}
+          disabled={visibleMarkedIds.length === 0}
           className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          title="Mark all currently shown transactions as uncleared"
+          title="Un-tick the transactions marked in this reconciliation. Already-reconciled rows are left alone."
         >
           Unmark all
         </button>
@@ -185,10 +212,10 @@ export default function ReconciliationTransactionList({
 
       {/* Transaction table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* Header */}
+        {/* Header. "C/R" is Money's own column: C is a mark, R is reconciled. */}
         <div className="hidden md:grid grid-cols-[100px_50px_1fr_180px_120px_120px] gap-2 px-4 py-2 bg-secondary dark:bg-gray-700 text-white text-xs font-medium">
           <div>Date</div>
-          <div className="text-center">R</div>
+          <div className="text-center" title="C = marked in this reconciliation · R = reconciled">C/R</div>
           <div>Description</div>
           <div>Category</div>
           <div className="text-right">Amount</div>
@@ -204,6 +231,7 @@ export default function ReconciliationTransactionList({
           ) : (
             filteredTransactions.map(t => {
               const runningBal = balanceMap.get(t.id) ?? 0;
+              const reconciled = isReconciled(t);
 
               return (
                 <div
@@ -217,23 +245,34 @@ export default function ReconciliationTransactionList({
                     {new Date(t.date).toLocaleDateString('en-GB')}
                   </div>
 
-                  {/* R/U checkbox */}
+                  {/* Mark / reconciled state. A committed row shows R and does
+                      not move: a finished reconciliation is not undone by a
+                      stray click on the screen you do the next one from. */}
                   <div className="flex justify-end md:block md:text-center">
                     <button
                       onClick={(e) => {
                         // The row itself opens the edit modal; keep the toggle isolated.
                         e.stopPropagation();
+                        if (reconciled) return;
                         onToggleCleared(t.id, !t.cleared);
                       }}
-                      disabled={pendingClearedIds?.has(t.id) ?? false}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors disabled:opacity-60 disabled:cursor-wait ${
-                        t.cleared
-                          ? 'bg-blue-600 border-blue-600 text-white'
-                          : 'border-gray-300 dark:border-gray-500 hover:border-primary'
+                      disabled={reconciled || (pendingClearedIds?.has(t.id) ?? false)}
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors text-xs font-semibold disabled:cursor-not-allowed ${
+                        reconciled
+                          ? 'bg-gray-400 border-gray-400 text-white dark:bg-gray-500 dark:border-gray-500'
+                          : t.cleared
+                          ? 'bg-blue-600 border-blue-600 text-white disabled:opacity-60 disabled:cursor-wait'
+                          : 'border-gray-300 dark:border-gray-500 hover:border-primary disabled:opacity-60 disabled:cursor-wait'
                       }`}
-                      title={t.cleared ? 'Mark as uncleared' : 'Mark as cleared'}
+                      title={
+                        reconciled
+                          ? RECONCILED_ROW_TITLE
+                          : t.cleared
+                          ? 'Unmark this transaction'
+                          : 'Mark this transaction'
+                      }
                     >
-                      {t.cleared ? 'R' : ''}
+                      {reconciled ? 'R' : t.cleared ? 'C' : ''}
                     </button>
                   </div>
 

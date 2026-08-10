@@ -350,6 +350,25 @@ export interface DataPortAccountWrites {
   closeAccount(id: string): Promise<void>;
 }
 
+/**
+ * What finishing a reconciliation DID, as opposed to what was on screen.
+ *
+ * The count is the number of rows this finalize converted from marked to
+ * committed — not how many the account holds, and not how many were ticked
+ * (rows already committed are not counted twice). The screen reports it back,
+ * because "Reconciliation complete" with no number is the sentence the old
+ * flow ended on and it is what made a button that did nothing look like a
+ * button that worked.
+ */
+export interface ReconciliationOutcome {
+  /** Rows converted from marked to committed by this call. */
+  reconciled: number;
+  /** The ending balance the account now records; the next session opens on it. */
+  endingBalance: number;
+  /** The day the account now records as its last reconciliation. */
+  reconciledOn: Date;
+}
+
 export interface DataPortTransactionWrites {
   createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction>;
   /**
@@ -399,8 +418,70 @@ export interface DataPortTransactionWrites {
    * behalf would be inventing an answer to a question only they can settle.
    */
   deleteTransaction(id: string): Promise<void>;
-  /** Bulk reconciliation flag. Balance-neutral by definition. Returns rows touched. */
+  /**
+   * Mark rows off against a statement, or take the mark back. Balance-neutral
+   * by definition. Returns rows touched.
+   *
+   * A MARK IS NOT A RECONCILIATION. This is Microsoft Money's C — a working
+   * flag, persisted immediately so eight hundred ticks survive walking away
+   * from the screen, and settling nothing on its own. Only
+   * {@link DataPortTransactionWrites.finalizeReconciliation} commits.
+   *
+   * Every engine keeps one rule about the committed flag beside it: marking
+   * LEAVES it alone, unmarking CLEARS it. A row that is not ticked cannot be a
+   * row a statement was balanced against, and the pair (committed, unmarked)
+   * would put the cleared balance and the reconciled set permanently out of
+   * step. The rule is written once, in
+   * src/utils/transactionReconciliation.ts (`reconciledAfterMarking`), and read
+   * from there rather than restated per engine.
+   */
   setTransactionsCleared(ids: string[], cleared: boolean): Promise<number>;
+  /**
+   * Finish a reconciliation: commit this account's marked rows and record what
+   * they were settled against.
+   *
+   * ── WHAT IT PROMISES ────────────────────────────────────────────────────
+   *
+   * Afterwards, every row of the account that was MARKED AND NOT YET COMMITTED
+   * is committed, and the account records the day and the ending balance the
+   * user confirmed — the two facts Money showed at the top of the next
+   * reconciliation ("last reconciled on…, ending balance…"), and the two the
+   * next session opens from.
+   *
+   * It converts exactly the working set. Rows that a store cannot say anything
+   * about — written before the committed flag existed, so their mark is the
+   * only answer they carry — are LEFT ALONE rather than swept in: they already
+   * read as reconciled everywhere (see transactionReconciliation.ts), and
+   * rewriting them would re-stamp a whole history to change nothing anybody
+   * can see.
+   *
+   * All-or-nothing in every implementation: the rows and the account's record
+   * of them land together or neither does. The intermediate state — rows
+   * committed against a statement the account has no memory of — is what makes
+   * the NEXT reconciliation open at a figure that is not the one this one
+   * finished on.
+   *
+   * Balance-neutral. `endingBalance` is a RECORD of what a person confirmed,
+   * never an amount added to anything, and no engine may reconcile `balance`
+   * to it — a difference between the two is the thing the screen exists to
+   * show, and silently closing it would be inventing money.
+   *
+   * IT REJECTS an account that is not the caller's, and an absent ending
+   * balance. `0` is a perfectly good ending balance (an account swept to zero
+   * every night closes on exactly that), so "no balance" and "zero" are
+   * different arguments and only the first is refused.
+   *
+   * **Divergence D-9**: `reconciledOn` is a `Date` here because that is what
+   * the caller holds, but which calendar day an instant belongs to is answered
+   * differently by the implementations — the same disagreement declared for
+   * `archiveTransactionsBefore` at D-8. Callers should pass a day that is
+   * unambiguous.
+   */
+  finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<ReconciliationOutcome>;
   /**
    * Fill-blanks only: rows that already carry a category are left alone.
    *

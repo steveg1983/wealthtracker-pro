@@ -4,8 +4,14 @@ import { ArchiveIcon, CheckIcon, TrashIcon, XIcon } from './icons';
 interface RegisterSelectionBarProps {
   /** How many rows the selection covers. Only shown for two or more. */
   count: number;
-  /** How many of them are not yet reconciled — what Reconcile would change. */
-  unreconciledCount: number;
+  /**
+   * How many of them are not yet marked — what Mark would change.
+   *
+   * A mark is Microsoft Money's C: the working tick you make while balancing.
+   * These buttons write that flag and nothing else, so they say "Mark" and not
+   * "Reconcile" — only finishing a reconciliation reconciles anything.
+   */
+  unmarkedCount: number;
   /** How many are not yet archived — what Archive would change. */
   archivableCount: number;
   /** True while one of the actions is running. */
@@ -35,7 +41,7 @@ interface RegisterSelectionBarProps {
  */
 export default function RegisterSelectionBar({
   count,
-  unreconciledCount,
+  unmarkedCount,
   archivableCount,
   busy,
   onReconcile,
@@ -44,7 +50,7 @@ export default function RegisterSelectionBar({
   onDelete,
   onClear,
 }: RegisterSelectionBarProps): React.JSX.Element {
-  const reconciledCount = count - unreconciledCount;
+  const markedCount = count - unmarkedCount;
   const buttonClass =
     'inline-flex items-center gap-1.5 px-3 h-[38px] text-sm font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed';
 
@@ -64,31 +70,31 @@ export default function RegisterSelectionBar({
         <button
           type="button"
           onClick={onReconcile}
-          disabled={busy || unreconciledCount === 0}
+          disabled={busy || unmarkedCount === 0}
           title={
-            unreconciledCount === 0
-              ? 'Every selected transaction is reconciled already'
-              : 'Tick the R column on these transactions'
+            unmarkedCount === 0
+              ? 'Every selected transaction is marked already'
+              : 'Tick these off against a statement. Nothing is reconciled until you finalize a reconciliation.'
           }
           className={`${buttonClass} border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700`}
         >
           <CheckIcon size={15} />
-          Reconcile {unreconciledCount > 0 ? unreconciledCount : ''}
+          Mark {unmarkedCount > 0 ? unmarkedCount : ''}
         </button>
 
         <button
           type="button"
           onClick={onUnreconcile}
-          disabled={busy || reconciledCount === 0}
+          disabled={busy || markedCount === 0}
           title={
-            reconciledCount === 0
-              ? 'None of the selected transactions is reconciled'
-              : 'Clear the R column on these transactions'
+            markedCount === 0
+              ? 'None of the selected transactions is marked'
+              : 'Un-tick these. A transaction reconciled in a finished reconciliation stops being reconciled too.'
           }
           className={`${buttonClass} border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700`}
         >
           <XIcon size={15} />
-          Un-reconcile {reconciledCount > 0 ? reconciledCount : ''}
+          Unmark {markedCount > 0 ? markedCount : ''}
         </button>
 
         <button

@@ -32,6 +32,11 @@ import {
 } from '../utils/decimal-converters';
 import { toDecimal, type DecimalInstance } from '../utils/decimal';
 import { normalizeTransactionDates } from '../utils/dateBoundary';
+import {
+  isMarkedAwaitingFinalize,
+  isReconciled,
+  reconciledAfterMarking
+} from '../utils/transactionReconciliation';
 import { initializeDemoData } from '../utils/demoData';
 import {
   buildTestDataset,
@@ -168,10 +173,22 @@ export interface AppContextType extends AppState {
    */
   refreshCategories: () => Promise<void>;
   /**
-   * Bulk-set the reconciliation cleared flag on transactions in one round trip.
-   * Balance-neutral (is_cleared never affects account balances).
+   * Mark transactions off against a statement (or take the mark back) in one
+   * round trip. Balance-neutral, and NOT a reconciliation: a mark is a working
+   * state that survives leaving the screen and settles nothing. Only
+   * {@link finalizeReconciliation} commits.
    */
   setTransactionsCleared: (ids: string[], cleared: boolean) => Promise<void>;
+  /**
+   * Finish an account's reconciliation: commit its marked rows and record the
+   * day and the ending balance the user confirmed. Resolves with how many rows
+   * were converted, so the screen can say what it did.
+   */
+  finalizeReconciliation: (
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ) => Promise<number>;
   /**
    * Apply a category to the listed transactions that are still uncategorized
    * (payee-memory propagation). Fill-blanks only — never overwrites an explicit
@@ -956,9 +973,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       await dataPort.setTransactionsCleared(ids, cleared);
       const idSet = new Set(ids);
-      setTransactions(prev => prev.map(t => (idSet.has(t.id) ? { ...t, cleared } : t)));
+      // reconciledAfterMarking, not a bare `{ cleared }`: the state this mirrors
+      // is what the store just wrote, and the store cleared the committed flag
+      // on anything unmarked. Leaving it here would show an R against a row
+      // that is no longer even ticked, until the next boot disagreed.
+      setTransactions(prev => prev.map(t => (
+        idSet.has(t.id) ? { ...t, cleared, reconciled: reconciledAfterMarking(t, cleared) } : t
+      )));
     } catch (error) {
       appLogger.error('Failed to set cleared status', error);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * Finish a reconciliation. The ONE place a transaction becomes reconciled.
+   *
+   * The optimistic update mirrors the store's own rule exactly: the rows that
+   * were marked-and-not-committed for this account become committed, and the
+   * account records the day and the figure. Anything else here would make the
+   * screen disagree with what was written until the next boot.
+   */
+  const finalizeReconciliation = useCallback(async (
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<number> => {
+    try {
+      const outcome = await dataPort.finalizeReconciliation(accountId, endingBalance, reconciledOn);
+      setTransactions(prev => prev.map(t => (
+        t.accountId === accountId && isMarkedAwaitingFinalize(t) ? { ...t, reconciled: true } : t
+      )));
+      setAccounts(prev => prev.map(a => (
+        a.id === accountId
+          ? { ...a, lastReconciledDate: outcome.reconciledOn, lastReconciledBalance: outcome.endingBalance }
+          : a
+      )));
+      return outcome.reconciled;
+    } catch (error) {
+      appLogger.error('Failed to finalize reconciliation', error);
       throw error;
     }
   }, []);
@@ -970,7 +1023,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const count = await dataPort.archiveTransactionsBefore(accountId, cutoff);
       setTransactions(prev => prev.map(t =>
-        t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff
+        // The committed flag, not the mark — mirrors archive_transactions_before.
+        t.accountId === accountId && !t.archived && isReconciled(t) && new Date(t.date) <= cutoff
           ? { ...t, archived: true } : t
       ));
       setAccounts(prev => prev.map(a => (a.id === accountId ? { ...a, archiveThroughDate: cutoff } : a)));
@@ -2017,6 +2071,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateTransaction,
     deleteTransaction,
     setTransactionsCleared,
+    finalizeReconciliation,
     applyCategoryToUncategorized,
     confirmTransactionCategories,
     renameTransactionDescriptions,

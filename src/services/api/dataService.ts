@@ -43,6 +43,7 @@ import type {
   ImportProgress,
   ImportSourceKind,
   MsMoneyImportResult,
+  ReconciliationOutcome,
   RestoreProgress,
   WipeProgress
 } from '../port/dataPort';
@@ -70,6 +71,13 @@ import type { Account, AccountUpdate, Transaction, TransactionSplit, Transaction
 // repoint_transfer cannot drift apart on the one thing that is easy to get
 // backwards.
 import { planTransferRepoint } from '../../utils/transferRepoint';
+// The three-valued mark/commit rule, in the one module every surface reads it
+// from — the browser-storage mirror of what the SQL does with is_reconciled.
+import {
+  isMarkedAwaitingFinalize,
+  isReconciled,
+  reconciledAfterMarking
+} from '../../utils/transactionReconciliation';
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type AccountServiceLike = Pick<typeof AccountService,
@@ -77,7 +85,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'repointTransfer' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'finalizeReconciliation' | 'applyCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'repointTransfer' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
   /**
    * Optional so an injected test double stays a partial stand-in; without it
@@ -697,7 +705,18 @@ class DataServiceImpl implements DataPort {
     }
   }
 
-  /** Bulk-set the reconciliation cleared flag; balance-neutral by definition. */
+  /**
+   * Mark rows off against a statement, or take the mark back. Balance-neutral
+   * by definition, and NOT a reconciliation — see the port's own words, and
+   * reconciledAfterMarking for the one rule that keeps the committed flag
+   * beside it honest.
+   *
+   * No archive sweep here. Sweeping on a MARK is what made a row dated before
+   * an account's archive cutoff vanish from the screen the moment it was
+   * ticked — from a list whose whole purpose is that ticks are reversible. The
+   * sweep now belongs to finalizeReconciliation, where the state really is
+   * final, exactly as the cloud trigger now fires on is_reconciled.
+   */
   async setTransactionsCleared(ids: string[], cleared: boolean): Promise<number> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
@@ -706,26 +725,71 @@ class DataServiceImpl implements DataPort {
     this.guardCloudWrite();
 
     const transactions = await this.readLocalTransactions();
-    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
-    const cutoffByAccount = new Map(
-      accounts.map(a => [a.id, a.archiveThroughDate ? new Date(a.archiveThroughDate) : null])
-    );
     const idSet = new Set(ids);
     let count = 0;
     const updated = transactions.map(t => {
       if (idSet.has(t.id)) {
         count += 1;
-        // Reconcile-sweep (mirrors the cloud trigger): a transaction that
-        // becomes reconciled on/before its account's archive cutoff is
-        // archived automatically, so it drops off the live list cleanly.
-        const cutoff = cutoffByAccount.get(t.accountId);
-        const sweep = cleared && !t.archived && cutoff != null && new Date(t.date) <= cutoff;
-        return { ...t, cleared, ...(sweep ? { archived: true } : {}) };
+        return { ...t, cleared, reconciled: reconciledAfterMarking(t, cleared) };
       }
       return t;
     });
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
     return count;
+  }
+
+  /**
+   * Finish a reconciliation: commit this account's marked rows and record what
+   * they were settled against. Cloud: one atomic RPC. Local: the same two
+   * writes, in the same order.
+   *
+   * The archive sweep lives here (mirrors trg_sweep_reconciled_into_archive):
+   * a row that becomes COMMITTED on or before its account's cutoff drops off
+   * the live register, which is the point at which that is a kindness rather
+   * than a disappearing act.
+   */
+  async finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<ReconciliationOutcome> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      const { reconciled } = await this.transactionService.finalizeReconciliation(
+        accountId, endingBalance, reconciledOn.toISOString().slice(0, 10), userId
+      );
+      return { reconciled, endingBalance, reconciledOn };
+    }
+    this.guardCloudWrite();
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) {
+      throw new Error('account_not_found');
+    }
+    const cutoff = account.archiveThroughDate ? new Date(account.archiveThroughDate) : null;
+
+    const transactions = await this.readLocalTransactions();
+    let reconciled = 0;
+    const updated = transactions.map(t => {
+      if (t.accountId !== accountId || !isMarkedAwaitingFinalize(t)) {
+        return t;
+      }
+      reconciled += 1;
+      const sweep = !t.archived && cutoff != null && new Date(t.date) <= cutoff;
+      return { ...t, reconciled: true, ...(sweep ? { archived: true } : {}) };
+    });
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, updated);
+
+    await this.persistCollection(
+      STORAGE_KEYS.ACCOUNTS,
+      accounts.map(a => (
+        a.id === accountId
+          ? { ...a, lastReconciledDate: reconciledOn, lastReconciledBalance: endingBalance }
+          : a
+      ))
+    );
+    return { reconciled, endingBalance, reconciledOn };
   }
 
   /**
@@ -746,7 +810,10 @@ class DataServiceImpl implements DataPort {
     const transactions = await this.readLocalTransactions();
     let count = 0;
     const updated = transactions.map(t => {
-      if (t.accountId === accountId && !t.archived && t.cleared === true && new Date(t.date) <= cutoff) {
+      // The COMMITTED flag, not the mark: the archive hides settled history,
+      // and a working tick is not settled. Mirrors the same change in
+      // archive_transactions_before.
+      if (t.accountId === accountId && !t.archived && isReconciled(t) && new Date(t.date) <= cutoff) {
         count += 1;
         return { ...t, archived: true };
       }
@@ -2929,6 +2996,14 @@ export class DataService {
 
   static setTransactionsCleared(ids: string[], cleared: boolean): Promise<number> {
     return this.service.setTransactionsCleared(ids, cleared);
+  }
+
+  static finalizeReconciliation(
+    accountId: string,
+    endingBalance: number,
+    reconciledOn: Date
+  ): Promise<ReconciliationOutcome> {
+    return this.service.finalizeReconciliation(accountId, endingBalance, reconciledOn);
   }
 
   static applyCategoryToUncategorized(ids: string[], category: string): Promise<number> {

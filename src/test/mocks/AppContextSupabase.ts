@@ -75,6 +75,7 @@ const baseValue = {
   updateTransaction: noop,
   deleteTransaction: noop,
   setTransactionsCleared: asyncNoop,
+  finalizeReconciliation: async () => 0,
   applyCategoryToUncategorized: async () => 0,
   confirmTransactionCategories: async () => 0,
   transactionSplits: [],
