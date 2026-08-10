@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId, Suspense } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -50,6 +50,8 @@ import {
   isTypeAheadKey,
 } from '../utils/registerShortcuts';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
+import { classifyTransferCategoryChoice } from '../utils/transferCoherence';
+import { transferCategoryIdFor } from '../utils/transferRepoint';
 import {
   buildPayeeCompletionIndex,
   rememberedCategoryForPayee,
@@ -58,6 +60,7 @@ import {
 import PayeeAutoCompleteInput from '../components/PayeeAutoCompleteInput';
 import AddWithoutCategoryConfirm from '../components/AddWithoutCategoryConfirm';
 import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
@@ -67,6 +70,16 @@ import { dataPort } from '../services/port';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';
+
+/**
+ * The app's one full "add a transaction" editor — the component the global
+ * Transactions page opens, reached here from the toolbar's Add.
+ *
+ * Lazy for the reason Layout loads the same module lazily: it is not part of
+ * the register's first paint, and loading it the same way means both entry
+ * points share ONE chunk rather than shipping the editor twice.
+ */
+const AddTransactionModal = lazyWithRecovery(() => import('../components/AddTransactionModal'));
 
 type TransactionWithBalance = Transaction & { balance: number };
 
@@ -318,6 +331,9 @@ export default function AccountTransactions() {
   const {
     accounts, transactions, categories, isLoading,
     deleteTransaction, addTransaction, updateAccount,
+    // The dock's Txfr path writes BOTH legs: the row, then the one operation
+    // that turns it into a linked pair. See commitQuickAdd.
+    createTransferCounterpart,
     refreshCategories, refreshAccountsAndTransactions,
     // The reconcile and archive writes the register's keyboard uses are the
     // SAME ones the reconciliation screen and the archive manager use — a key
@@ -551,6 +567,28 @@ export default function AccountTransactions() {
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  /**
+   * Whether the toolbar's Add has the full editor open.
+   *
+   * Plain state, NOT a `?action=add` in the URL — the idiom the Transactions
+   * and Accounts pages use — and the difference is worth writing down, because
+   * it looks like an inconsistency and is not.
+   *
+   * That parameter exists where the BUTTON and the MODAL are in different
+   * component trees. On /transactions the add modal is Layout's, so the page's
+   * header button cannot open it directly and signals through the URL instead;
+   * on /accounts the parameter is there for the mobile + and the app-wide
+   * shortcut, while the page's own Add Account button just sets state
+   * (Accounts.tsx). Here the modal is the register's own — it has to be, since
+   * it carries this account — and nothing outside this page links to a
+   * per-account add, so a fourth query parameter would buy nothing.
+   *
+   * It would also cost: ?txn= and ?showArchived= are consumed in ONE effect
+   * with ONE replace, precisely so two consumers cannot overwrite each other's
+   * navigation (see that effect). Adding a third consumer to that knot for a
+   * link nobody sends is exactly the coupling that comment is warning about.
+   */
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
@@ -1450,6 +1488,15 @@ export default function AccountTransactions() {
     clearSelection();
     clearQuickAddError();
     setCrossTypeCategories(false);
+    // A row filed under a "To/From <account>" category copies as the TRANSFER
+    // it claims to be, whatever its own type field says. Copying it verbatim
+    // would reproduce the incoherence — the disease spreading by Ctrl+D — and
+    // there is nothing to guess about: the category names the account.
+    const copied = classifyTransferCategoryChoice(
+      categories,
+      row.type === 'transfer' ? '' : row.category,
+      row.accountId
+    );
     setQuickAddForm({
       date: new Date().toISOString().split('T')[0],
       description: row.description,
@@ -1457,17 +1504,28 @@ export default function AccountTransactions() {
       // the amount that gets written, and money never round-trips through
       // float arithmetic in this app.
       amount: toDecimal(row.amount).abs().toFixed(2),
-      type: row.type,
+      type: copied.kind === 'convert' ? 'transfer' : row.type,
       // On a transfer this field means the TARGET ACCOUNT, which is where the
-      // form reads it from; a split has no single category to copy.
-      category: row.type === 'transfer'
-        ? (row.transferAccountId ?? '')
-        : (row.isSplit ? '' : (row.category ?? '')),
+      // form reads it from; a split has no single category to copy. A copied
+      // transfer category resolves to its account for the same reason — the
+      // dock's Category box means the target once the type says transfer.
+      //
+      // A 'refuse' (the source's own To/From, or a category naming no account)
+      // copies as BLANK rather than as something the Add button would then
+      // reject: there is no target to carry, and the draft is a new
+      // transaction the user is about to finish anyway.
+      category: copied.kind === 'convert'
+        ? copied.targetAccountId
+        : copied.kind === 'refuse'
+          ? ''
+          : (row.type === 'transfer'
+              ? (row.transferAccountId ?? '')
+              : (row.isSplit ? '' : (row.category ?? ''))),
       tags: row.tags ? [...row.tags] : [],
       notes: row.notes ?? '',
     });
     setQuickAddFocus('description');
-  }, [clearSelection, clearQuickAddError]);
+  }, [clearSelection, clearQuickAddError, categories]);
 
   /** `+`: an empty new transaction, cursor in the Date box. */
   const startNewTransaction = useCallback((): void => {
@@ -1552,6 +1610,51 @@ export default function AccountTransactions() {
       setQuickAddForm(form => (form.category === '' ? { ...form, category: remembered } : form));
     },
     [quickAddForm.type, quickAddForm.category, crossTypeCategories, transactions, categories]
+  );
+
+  /**
+   * The Category box answered — and the one case where the answer is not a
+   * category at all.
+   *
+   * ─ THE CONVERSION MOMENT, IN THE DOCK'S OWN IDIOM ─────────────────────────
+   * A "To/From <account>" category means "this money moved to that account".
+   * The register's inline editor treats it exactly as the Transfer toggle with
+   * that account chosen (see QuickEditRow.save: "'Make this a transfer' arrives
+   * two ways and they mean the same thing"), and this dock now says the same
+   * thing the way a FORM can say it — by flipping its own Type to Txfr and
+   * putting the account in the To Account slot, in front of the user, before
+   * anything is written.
+   *
+   * The editor asks its match-or-create question AFTER a save because the row
+   * it is converting already exists and its twin might too. Here there is no
+   * row yet: pressing Add writes the pair, which is Money's own behaviour for a
+   * transfer typed into the register.
+   *
+   * A choice that CANNOT become a transfer is refused at the box, with the
+   * reason, and the previous category left alone — the dock must never hold a
+   * draft the Add button is going to reject.
+   */
+  const handleQuickAddCategoryChosen = useCallback(
+    (categoryId: string): void => {
+      clearQuickAddError();
+      if (!account) return;
+      const choice = classifyTransferCategoryChoice(categories, categoryId, account.id);
+      if (choice.kind === 'refuse') {
+        setQuickAddError({ field: 'category', message: choice.message });
+        return;
+      }
+      if (choice.kind === 'convert') {
+        setCrossTypeCategories(false);
+        setQuickAddForm(form => ({
+          ...form,
+          type: 'transfer',
+          category: choice.targetAccountId,
+        }));
+        return;
+      }
+      setQuickAddForm(form => ({ ...form, category: categoryId }));
+    },
+    [account, categories, clearQuickAddError]
   );
 
   const handleQuickEditFocusHandled = useCallback(() => setQuickEditFocus(null), []);
@@ -1658,7 +1761,7 @@ export default function AccountTransactions() {
     if (isInsideQuickEdit(e.target)) return;
     // A dialog owns the keyboard while it is open, and all of these render
     // over this.
-    if (isEditModalOpen || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
+    if (isEditModalOpen || showAddTransaction || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
 
     const claim = (): void => {
       e.preventDefault();
@@ -1836,7 +1939,7 @@ export default function AccountTransactions() {
       }
     }
   }, [
-    isEditModalOpen, deleteConfirmTransaction, bulkDeletePlan, showShortcuts,
+    isEditModalOpen, showAddTransaction, deleteConfirmTransaction, bulkDeletePlan, showShortcuts,
     moveSelection, moveSelectionTo, pageStep, selectedTransactionId, navigableRows,
     activeRowIndex, openFullEditor, hasMultiSelection, selectedRows,
     transactions, accounts, toggleClearedOnSelection, clearSelection,
@@ -1846,9 +1949,17 @@ export default function AccountTransactions() {
   /**
    * Write the draft away. Called only once every guard below has been answered,
    * so it asks no questions of its own.
+   *
+   * `override` carries the fields the guard CHANGED on its way through — the
+   * transfer-category conversion rewrites the type and the target account, and
+   * a `setQuickAddForm` does not take effect until the next render, several
+   * awaits after this one has already read the form. Passing the change rather
+   * than reading state back is what makes "what the guard decided" and "what
+   * gets written" the same thing.
    */
-  const commitQuickAdd = async (): Promise<void> => {
+  const commitQuickAdd = async (override: Partial<typeof quickAddForm> = {}): Promise<void> => {
     if (!account) return;
+    const draft = { ...quickAddForm, ...override };
     // One row per gesture. Now that Enter adds — a key that repeats while it is
     // held, and that a fast hand can send twice before the write comes back —
     // the draft has to be able to say "already going". The window is the await
@@ -1858,50 +1969,95 @@ export default function AccountTransactions() {
     if (quickAddInFlightRef.current) return;
     quickAddInFlightRef.current = true;
     // Calculate the correct amount based on transaction type
-    let amount = parseMoneyInput(quickAddForm.amount) ?? 0;
-    if (quickAddForm.type === 'expense') {
+    let amount = parseMoneyInput(draft.amount) ?? 0;
+    if (draft.type === 'expense') {
       amount = -Math.abs(amount); // Expenses are always negative
-    } else if (quickAddForm.type === 'income') {
+    } else if (draft.type === 'income') {
       amount = Math.abs(amount); // Income is always positive
-    } else if (quickAddForm.type === 'transfer') {
+    } else if (draft.type === 'transfer') {
       // For transfers, amount is negative (money leaving this account)
       amount = -Math.abs(amount);
     }
-    
+
     // Create the transaction
-    const isTransfer = quickAddForm.type === 'transfer';
-    const targetAccountId = isTransfer ? quickAddForm.category : undefined;
+    const isTransfer = draft.type === 'transfer';
+    // On a transfer this field holds the TARGET ACCOUNT, not a category — the
+    // dock's one invariant, and the reason the submit guard runs first (a
+    // transfer CATEGORY chosen under Exp/Inc has already been turned into this
+    // shape, or refused).
+    const targetAccountId = isTransfer ? draft.category : undefined;
 
     const transactionData: Omit<Transaction, 'id'> = {
-      date: new Date(quickAddForm.date),
-      description: quickAddForm.description,
+      date: new Date(draft.date),
+      description: draft.description,
       amount: amount,
-      type: quickAddForm.type,
+      type: draft.type,
       accountId: account.id,
       transferAccountId: targetAccountId,
-      tags: quickAddForm.tags,
-      notes: quickAddForm.notes,
+      tags: draft.tags,
+      notes: draft.notes,
       cleared: false,
-      category: isTransfer ? 'transfer-out' : quickAddForm.category
+      // The target account's own "To/From" category, read from the one place
+      // the crossover rule is written down — not the legacy 'transfer-out'
+      // sentinel this used to send. createTransferCounterpart re-files both
+      // sides anyway; this matters for the one case where it cannot run, and
+      // its rollback cannot either: the row left behind at least names the
+      // account it was meant to face.
+      category: isTransfer && targetAccountId
+        ? transferCategoryIdFor(categories, targetAccountId, amount)
+        : draft.category
     };
 
     try {
       const newTransaction = await addTransaction(transactionData);
 
-      // For transfers, create the paired transaction in the target account
-      if (isTransfer && targetAccountId && newTransaction) {
-        await addTransaction({
-          date: new Date(quickAddForm.date),
-          description: quickAddForm.description,
-          amount: Math.abs(amount),
-          type: 'transfer',
-          category: 'transfer-in',
-          accountId: targetAccountId,
-          transferAccountId: account.id,
-          tags: quickAddForm.tags,
-          notes: quickAddForm.notes,
-          cleared: false
-        });
+      /**
+       * BOTH LEGS, LINKED — or neither.
+       *
+       * What this used to be: a second, blind `addTransaction` for the other
+       * side, guarded by `if (… && newTransaction)` on a value the context
+       * promised as `void`. The guard was permanently false, so the Txfr toggle
+       * wrote ONE row — pointing at an account with nothing in it pointing back,
+       * which is what the editor honestly reported as "Linked transfer — no
+       * other side recorded".
+       *
+       * Even had it run, two independent inserts are not a transfer: neither row
+       * would carry linkedTransferId, so nothing would tie them together, the
+       * pair could not be re-pointed or unlinked, and deleting one would leave
+       * the other stranded.
+       *
+       * createTransferCounterpart is the operation that already exists for this
+       * (an RPC in the cloud, a mirrored twin in the browser store): it writes
+       * the other row, sets BOTH types to 'transfer', files BOTH sides under the
+       * other account's To/From category, links them each way, moves the target
+       * account's balance and writes the audit trail — atomically.
+       */
+      if (isTransfer && targetAccountId) {
+        try {
+          await createTransferCounterpart(newTransaction.id, targetAccountId);
+        } catch (counterpartError) {
+          // The other side could not be made, so the row that would have been
+          // its first leg must not survive: a one-sided transfer reads as a
+          // real payment in an account nobody is looking at. Removing it puts
+          // the user back exactly where they pressed Add.
+          //
+          // A failure to remove it is reported INSTEAD, and says what is now on
+          // screen — because at that point there IS a half-transfer in the
+          // register, and telling the user why the transfer failed while saying
+          // nothing about the row it left behind would be the more misleading
+          // of the two messages.
+          try {
+            await deleteTransaction(newTransaction.id);
+          } catch {
+            const reason = counterpartError instanceof Error
+              ? counterpartError.message
+              : 'The other side of the transfer could not be created.';
+            throw new Error(
+              `${reason} The row was added to this account and could not be removed — open it and use the Transfer type to finish it, or delete it.`
+            );
+          }
+          throw counterpartError;
+        }
       }
 
       // Reset form and error
@@ -1972,7 +2128,65 @@ export default function AccountTransactions() {
       return;
     }
 
-    if (quickAddForm.type !== 'transfer' && !quickAddForm.category) {
+    /**
+     * THE INVARIANT, CHECKED WHERE IT IS ABOUT TO BE WRITTEN.
+     *
+     * By here a transfer category should already have flipped the type — the
+     * picker does it as it is chosen, and Ctrl+D does it as a row is copied.
+     * This is the belt to those braces, and it is not ceremony: `category` is a
+     * plain string in this form and more than one thing puts ids into it. A
+     * check at the door of the only write means no future filler can reintroduce
+     * a row whose type and category disagree, whatever it does upstream.
+     *
+     * Converted rather than refused where a target can be resolved, because the
+     * user's instruction is unambiguous ("this money went to that account") and
+     * refusing a clear instruction to protect an invariant is the app arguing
+     * with itself. Refused, loudly, only where no target exists.
+     */
+    let target = quickAddForm.type === 'transfer' ? quickAddForm.category : '';
+    let convertedDraft: Partial<typeof quickAddForm> = {};
+    if (quickAddForm.type !== 'transfer') {
+      const choice = classifyTransferCategoryChoice(categories, quickAddForm.category, account.id);
+      if (choice.kind === 'refuse') {
+        setQuickAddError({ field: 'category', message: choice.message });
+        return;
+      }
+      if (choice.kind === 'convert') {
+        target = choice.targetAccountId;
+        convertedDraft = { type: 'transfer', category: choice.targetAccountId };
+        setCrossTypeCategories(false);
+        setQuickAddForm(form => ({ ...form, ...convertedDraft }));
+      }
+    }
+
+    /**
+     * The cross-currency refusal, BEFORE the first write rather than after it.
+     *
+     * createTransferCounterpart refuses this too — the counterpart is −amount
+     * with no conversion, so two currencies cannot make one pair — and the add
+     * would undo itself cleanly. But a create-then-delete leaves two entries in
+     * the audit trail for a transfer that never existed, and the message is one
+     * the dock can give instantly from what is already on screen. The quick-edit
+     * editor pre-flights the same rule for the same reason.
+     */
+    if (target) {
+      const sourceCurrency = account.currency;
+      const targetCurrency = accounts.find(a => a.id === target)?.currency;
+      if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
+        setQuickAddError({
+          field: 'category',
+          message: `Transfers between accounts in different currencies aren’t supported yet (${sourceCurrency} and ${targetCurrency}).`,
+        });
+        return;
+      }
+    }
+
+    if (target) {
+      await commitQuickAdd(convertedDraft);
+      return;
+    }
+
+    if (!quickAddForm.category) {
       setConfirmUncategorised({ description: quickAddForm.description.trim() });
       return;
     }
@@ -2582,14 +2796,16 @@ export default function AccountTransactions() {
 
       {/* Main content — single-viewport layout: toolbar, table, bottom dock */}
       <div className="flex flex-col gap-3">
-      {/* Toolbar: filter toggle + table size toggle. On a phone the three
-          buttons share the row in equal thirds with short labels — the full
-          wording wrapped inside the buttons and gave each a different
-          height. */}
+      {/* Toolbar: what the register SHOWS on the left, what it DOES on the
+          right — Add last, in the rightmost seat, the way every other page in
+          the app puts its primary action. On a phone the buttons share the row
+          in equal thirds with short labels — the full wording wrapped inside
+          the buttons and gave each a different height — and a fourth wraps to
+          the next line, exactly as Show archived already does. */}
       <div className="grid grid-cols-3 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
-        {/* display:contents on phones dissolves this wrapper so all three
-            buttons are equal grid cells; from sm it is the left cluster
-            again. */}
+        {/* display:contents on phones dissolves this wrapper so every button
+            inside it is an equal grid cell of the row above; from sm it is the
+            left cluster again. */}
         <div className="contents sm:flex sm:items-center sm:gap-2">
         <button
           onClick={() => setShowFilters(prev => !prev)}
@@ -2751,6 +2967,11 @@ export default function AccountTransactions() {
           </button>
         )}
         </div>
+        {/* The right cluster: the same `contents` trick as the left one, so on
+            a phone these two are grid cells like the rest and from sm they are
+            a pair pushed to the right edge by the container's
+            justify-between. */}
+        <div className="contents sm:flex sm:items-center sm:gap-2">
         <button
           onClick={() => setTableExpanded(prev => !prev)}
           className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -2760,6 +2981,28 @@ export default function AccountTransactions() {
           <span className="sm:hidden">{tableExpanded ? 'Shrink' : 'Expand'}</span>
           <span className="hidden sm:inline">{tableExpanded ? 'Standard view' : 'Expand table'}</span>
         </button>
+        {/* THE FULL ADD, on this account. The dock at the foot of the page is
+            deliberately six fields wide — date, type, payee, category, amount —
+            and there was no way at all from this page to reach the rest of a
+            transaction. This is that way: the same editor the Transactions
+            page's "Add Transaction" opens, opened on the account whose register
+            is on screen.
+
+            Dark navy, like Add Transaction and Add Account wear on their own
+            pages, because it is the same rank of action; sized px-3 py-1.5
+            like its neighbours here, because a taller button in a toolbar row
+            makes the row look broken. */}
+        <button
+          type="button"
+          onClick={() => setShowAddTransaction(true)}
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+          title={`Add a transaction to ${account.name} on the full form — notes, the whole category tree, and a transfer's other side. The bar at the foot of the register is the quick way in.`}
+        >
+          <PlusIcon size={14} />
+          <span className="sm:hidden">Add</span>
+          <span className="hidden sm:inline">Add transaction</span>
+        </button>
+        </div>
       </div>
 
       {/* Search and Filter Bar (collapsed by default to keep one viewport) */}
@@ -3193,7 +3436,18 @@ export default function AccountTransactions() {
                    categories (Account Adjustment) either way round. */
                 <CategorySelector
                   selectedCategory={quickAddForm.category}
-                  onCategoryChange={(categoryId) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, category: categoryId }); }}
+                  // Not a plain setter: a "To/From <account>" category is not a
+                  // category, it is a transfer. See handleQuickAddCategoryChosen.
+                  onCategoryChange={handleQuickAddCategoryChosen}
+                  // Offered here for the same reason the register's inline
+                  // editor offers them: choosing one is a complete instruction
+                  // ("this money went to that account"), and this dock knows
+                  // exactly what to do with it — flip its own Type to Txfr, put
+                  // the account in the To Account slot, and write both legs on
+                  // Add. This account's own To/From is left out: a transfer to
+                  // itself moves nothing.
+                  includeTransferTargets
+                  transferSourceAccountId={account.id}
                   transactionType={
                     crossTypeCategories
                       ? (quickAddForm.type === 'income' ? 'expense' : 'income')
@@ -3309,6 +3563,29 @@ export default function AccountTransactions() {
           }}
           onCancel={() => setConfirmUncategorised(null)}
         />
+      )}
+
+      {/* The toolbar's Add — the app's one full add editor, opened on THIS
+          account. Mounted only while it is open, which is what makes the
+          prefill work at all (the form freezes its opening values on mount;
+          see initialAccountId) and what gives every add a clean form.
+
+          Nothing here refreshes the list afterwards, and nothing needs to: the
+          editor saves through the context's addTransaction, which appends the
+          saved row to the shared transactions state, and this register is a
+          filter over that state. The row appears as the modal closes.
+
+          Nor does anything mark it as arrived-and-unreviewed. That flag belongs
+          to the import path alone — a person typing IS the review (see
+          dataPort.bulkImportTransactions, which spells out the rule). */}
+      {showAddTransaction && (
+        <Suspense fallback={null}>
+          <AddTransactionModal
+            isOpen
+            onClose={() => setShowAddTransaction(false)}
+            initialAccountId={account.id}
+          />
+        </Suspense>
       )}
 
       {/* Edit Modal */}

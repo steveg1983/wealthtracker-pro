@@ -1061,6 +1061,26 @@ export function QuickEditFieldCell({ field }: { field: QuickEditField }): React.
               onCategoryChange={chooseCategory}
               transactionType={transaction.type}
               includeAllTypes
+              // "Make this a transfer" arrives two ways in this editor and they
+              // mean the same thing (see save): the toggle beside this box with
+              // an account chosen, or a "To/From <account>" category picked out
+              // of the list. BOTH end in the match-or-create question, which
+              // writes the pair — so the category route is offered deliberately
+              // here, under its own heading, with this row's own account left
+              // out (a transfer to itself moves nothing).
+              //
+              // Stated as a prop rather than left to the tree's shape. It used
+              // to be neither: the To/From categories hang directly off the
+              // Transfer type root, one rung shallower than a leaf, so the
+              // sub→detail walk simply never reached them — and the documented
+              // category route was unreachable in the real app for any row that
+              // did not already carry one.
+              //
+              // The BULK filing pickers deliberately do not set this: converting
+              // many rows at once would mean creating many counterparts nobody
+              // recorded. See utils/transferCoherence.
+              includeTransferTargets
+              transferSourceAccountId={transaction.accountId}
               showHelperText={false}
               placeholder="Search or select category…"
               allowClear

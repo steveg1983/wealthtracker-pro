@@ -68,6 +68,51 @@ export const ACCOUNT_ROW_SELECTED_CLASS =
   'shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_10px_15px_-3px_rgba(0,0,0,0.1)] ' +
   'dark:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3),0_10px_15px_-3px_rgba(0,0,0,0.3)]';
 
+/**
+ * The account NAME as a link — one definition, worn by both kinds of row.
+ *
+ * ─ WHY IT HUGS ITS OWN TEXT ────────────────────────────────────────────────
+ * The name opens the register and the rest of the row picks the row out. That
+ * division only holds if the link's HIT AREA ends where the letters end. As a
+ * plain `block` (what shipped) the anchor filled its whole flex track, so a
+ * click in what looks like empty row a hand's width right of a short name still
+ * landed on the link and opened the account — the hover underline and the
+ * "Open …" tooltip appearing under a cursor nowhere near the text. `w-fit`
+ * (width: fit-content) is the cure: the box is as wide as the name and no
+ * wider, at whatever length that name happens to be. Everything past the last
+ * character is row background, and row background selects.
+ *
+ * ─ THE OTHER THREE ARE NOT DECORATION ──────────────────────────────────────
+ * `block`      an inline <a> cannot be clipped at all (overflow does not apply
+ *              to a non-replaced inline box), so a long name could not ellipse.
+ * `max-w-full` fit-content of a nowrap line is the FULL text width however long
+ *              it runs, so without a cap a long name would sail out over the
+ *              figures to its right instead of truncating.
+ * `truncate`   the ellipsis itself — which only has an edge to break against
+ *              because of the cap above.
+ * Drop any one of the four and either the hit area or the truncation goes.
+ *
+ * ─ WHAT IS DELIBERATELY NOT IN HERE ────────────────────────────────────────
+ * The type/wallet icon beside the name stays OUTSIDE the link. Clicking an
+ * item's icon to open it is a fair convention, but the rule this page can then
+ * state in one line — "the letters open it, anything else on the row picks it
+ * out" — is worth more than the extra few pixels, and a decorative type glyph
+ * is not the account's name.
+ *
+ * Resting colour is the caller's (a nested cash row is drawn quieter than the
+ * card it sits in); the geometry, the hover and the focus ring are shared, so
+ * the hit area cannot come out right for one kind of row and wrong for the
+ * other.
+ *
+ * On touch, index.css floors every anchor at 44×44 — a hit area small enough to
+ * miss is its own failure, and 44px beside a four-letter name is still nothing
+ * like the full width of the row.
+ */
+export const ACCOUNT_ROW_NAME_LINK_CLASS =
+  'block w-fit max-w-full truncate rounded transition-colors ' +
+  'hover:text-blue-600 dark:hover:text-blue-400 hover:underline ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+
 /** The column heading over a figure — small, quiet, and the same for every row. */
 const CELL_LABEL_CLASS = 'text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500';
 

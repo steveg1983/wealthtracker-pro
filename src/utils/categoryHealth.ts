@@ -1,6 +1,7 @@
 import type { Category, Transaction, TransactionSplit } from '../types';
 import { computeIncomeExpense } from './incomeExpense';
 import { expandSplitTransactions } from './transactionSplits';
+import { findMismatchedTransferFilings } from './transferCoherence';
 
 /**
  * Category "data health": the places where a user's category data is weak, so
@@ -21,7 +22,15 @@ import { expandSplitTransactions } from './transactionSplits';
  *     category. Same review-band membership, but the CAUSE is a deleted
  *     category, worth naming separately;
  *  4. empty categories — detail-level categories nothing is filed under
- *     (candidates to delete and simplify the list).
+ *     (candidates to delete and simplify the list);
+ *  5. transfer filings that are not transfers — a row typed income or expense
+ *     whose CATEGORY says "To/From <account>", with no other side. See
+ *     utils/transferCoherence for why that combination is not a cosmetic
+ *     mismatch, and note that this one measure reads the STORED transactions
+ *     rather than the expanded rows: a transfer LINE inside a split is a real
+ *     Money construct, and the expansion gives every line an income/expense
+ *     type from its sign, so measuring it there would report every legitimate
+ *     split transfer leg as broken.
  *
  * (2) and (3) are filtered out of (1)'s rows rather than recomputed, so they are
  * exact subsets and can never drift from the classifier.
@@ -63,6 +72,18 @@ export interface CategoryHealth {
    * and the rows that light up can never disagree.
    */
   emptyCategoryIds: string[];
+  /**
+   * Rows typed income/expense but filed under a transfer category, with no
+   * counterpart. See `findMismatchedTransferFilings` for the exact set and why
+   * each exclusion is there.
+   */
+  transferFilingMismatchCount: number;
+  /**
+   * WHICH rows they are, so the remedy can open exactly those and no others.
+   * Same contract as `emptyCategoryIds`: the count is this list's length, so
+   * the number the user reads and the list they open can never disagree.
+   */
+  transferFilingMismatchIds: string[];
   /** True when at least one measure is non-zero — the panel renders nothing otherwise. */
   hasWarnings: boolean;
 }
@@ -141,6 +162,11 @@ export function computeCategoryHealth(
 
   const uncategorizedCount = flows.uncategorizedRows.length;
 
+  // The STORED rows, not `rows` — see the note at the top of this file on why
+  // split lines are the wrong unit for this one measure.
+  const transferFilingMismatchIds = findMismatchedTransferFilings(transactions, categories)
+    .map(t => t.id);
+
   return {
     uncategorizedCount,
     uncategorizedIn: flows.uncategorizedIn.toNumber(),
@@ -150,10 +176,13 @@ export function computeCategoryHealth(
     danglingCount,
     emptyCategoryCount,
     emptyCategoryIds,
+    transferFilingMismatchCount: transferFilingMismatchIds.length,
+    transferFilingMismatchIds,
     hasWarnings:
       uncategorizedCount > 0 ||
       unassignedBucketCount > 0 ||
       danglingCount > 0 ||
-      emptyCategoryCount > 0,
+      emptyCategoryCount > 0 ||
+      transferFilingMismatchIds.length > 0,
   };
 }

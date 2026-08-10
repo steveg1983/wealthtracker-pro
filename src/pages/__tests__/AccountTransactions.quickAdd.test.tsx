@@ -484,8 +484,14 @@ describe('Quick Add — Enter adds the transaction', () => {
 
     fireEvent.keyDown(descriptionBox(), { key: 'Enter' });
 
-    await waitFor(() => expect(descriptionBox()).toHaveValue(''));
-    expect(amountBox()).toHaveValue('');
+    // Both asserts inside the wait: the amount is a MoneyInput, whose local
+    // draft gives way to a replaced `value` in an EFFECT — one commit after
+    // the directly-controlled description empties. A sync assert after the
+    // description's wait can land inside that one-frame window (CI did).
+    await waitFor(() => {
+      expect(descriptionBox()).toHaveValue('');
+      expect(amountBox()).toHaveValue('');
+    });
   });
 });
 

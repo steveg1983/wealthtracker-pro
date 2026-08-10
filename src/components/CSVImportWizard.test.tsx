@@ -48,14 +48,15 @@ vi.mock('../services/port', () => ({
 
 /**
  * The parse and the write are mocked (these tests are about what the wizard
- * DOES with them), but `generatePreview` is the REAL implementation, imported
- * through vi.importActual.
+ * DOES with them), but everything that READS A FILE is the REAL implementation,
+ * imported through vi.importActual: `generatePreview`, `buildRows`,
+ * `missingRequiredFields` and the bank template registry.
  *
- * That is the whole point of the preview: it wraps the same
- * buildTransactionFromRow the import uses, so a stub of it would test nothing
- * but the stub — and the bug it exists to prevent (a bank's Credit column
- * previewing blank while the import writes it correctly) is a bug in exactly
- * the code a stub would replace.
+ * That is the whole point of those: they wrap the same buildTransactionFromRow
+ * the import uses, so a stub of them would test nothing but the stub — and the
+ * bugs they exist to prevent (a bank's Credit column previewing blank while the
+ * import writes it correctly; a mapping that names a column the file has not
+ * got) are bugs in exactly the code a stub would replace.
  */
 vi.mock('../services/enhancedCsvImportService', async () => {
   const actual = await vi.importActual<typeof import('../services/enhancedCsvImportService')>(
@@ -63,8 +64,12 @@ vi.mock('../services/enhancedCsvImportService', async () => {
   );
   const real = actual.enhancedCsvImportService;
   return {
+  ...actual,
   enhancedCsvImportService: {
     generatePreview: real.generatePreview.bind(real),
+    buildRows: real.buildRows.bind(real),
+    missingRequiredFields: real.missingRequiredFields.bind(real),
+    listBankTemplates: real.listBankTemplates.bind(real),
     parseCSV: vi.fn(() => ({
       headers: ['Date', 'Description', 'Amount', 'Account'],
       data: [
@@ -88,6 +93,8 @@ vi.mock('../services/enhancedCsvImportService', async () => {
       { id: 'profile-1', name: 'My Bank Profile', type: 'transaction', mappings: [], lastUsed: new Date() },
     ]),
     saveProfile: vi.fn(),
+    deleteProfile: vi.fn(() => true),
+    renameProfile: vi.fn(() => true),
     importTransactions: vi.fn(() => Promise.resolve({
       success: 2,
       failed: 0,
@@ -167,6 +174,11 @@ vi.mock('./icons', () => ({
   SaveIcon: ({ size, className }: { size?: number; className?: string }) => <div data-testid="save-icon" data-size={size} className={className}>💾</div>,
   DownloadIcon: ({ size }: { size?: number }) => <div data-testid="download-icon" data-size={size}>⬇️</div>,
   RefreshCwIcon: ({ size }: { size?: number }) => <div data-testid="refresh-cw-icon" data-size={size}>🔄</div>,
+  // The destination-account combobox's own icons. Missing from this mock, they
+  // came through as undefined components and the mapping step would not render
+  // at all — a whole-module mock has to cover the whole module its subject uses.
+  ChevronDownIcon: ({ size }: { size?: number }) => <div data-testid="chevron-down-icon" data-size={size}>▾</div>,
+  PlusIcon: ({ size }: { size?: number }) => <div data-testid="plus-icon" data-size={size}>＋</div>,
 }));
 
 // Mock FileReader
@@ -210,6 +222,19 @@ describe('CSVImportWizard', () => {
     );
   };
 
+  /**
+   * Choose where the rows go.
+   *
+   * A bank statement names its account on the covering page, not in its rows,
+   * so the wizard asks — the same question the OFX and QIF dialogs have always
+   * asked. Files whose mapping includes an accountName column can skip it; a
+   * file without one cannot leave the mapping step until it is answered.
+   */
+  const chooseDestinationAccount = async (name = 'Checking Account'): Promise<void> => {
+    fireEvent.click(screen.getByRole('combobox', { name: 'Import these transactions into' }));
+    fireEvent.click(await screen.findByRole('option', { name: new RegExp(name) }));
+  };
+
   describe('basic rendering', () => {
     it('renders when open', () => {
       renderWizard(true);
@@ -251,49 +276,62 @@ describe('CSVImportWizard', () => {
       expect(screen.getByLabelText(/select file/i)).toBeInTheDocument();
     });
 
-    it.skip('displays bank template sections', () => {
+    /**
+     * The bank list is COLLAPSED and second now. It used to be forty-one
+     * buttons filling the step below a drop zone that a centred, overflowing
+     * flex column had pushed off the top of the dialog — which is why the
+     * owner of this app reported the wizard as having no file picker at all.
+     */
+    it('keeps the bank formats out of the way until they are asked for', () => {
       renderWizard(true);
-      
-      expect(screen.getByText('Quick Start with Bank Templates')).toBeInTheDocument();
-      expect(screen.getByText('UK Major Banks')).toBeInTheDocument();
-      expect(screen.getByText('US Banks')).toBeInTheDocument();
-      expect(screen.getByText('Online Payment Services')).toBeInTheDocument();
+
+      expect(screen.queryByText('Barclays')).not.toBeInTheDocument();
+      const disclosure = screen.getByRole('button', { name: /know your bank/i });
+      expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     });
 
-    it('displays major UK banks', () => {
-      renderWizard(true);
-      
-      expect(screen.getByText('Barclays')).toBeInTheDocument();
-      expect(screen.getByText('HSBC')).toBeInTheDocument();
-      expect(screen.getByText('Lloyds')).toBeInTheDocument();
-      expect(screen.getByText('NatWest')).toBeInTheDocument();
-    });
-
-    it('displays US banks', () => {
-      renderWizard(true);
-      
-      expect(screen.getByText('Chase')).toBeInTheDocument();
-      expect(screen.getByText('Bank of America')).toBeInTheDocument();
-      expect(screen.getByText('Wells Fargo')).toBeInTheDocument();
-    });
-
-    it('displays digital banks', () => {
-      renderWizard(true);
-      
-      expect(screen.getByText('Monzo')).toBeInTheDocument();
-      expect(screen.getByText('Starling')).toBeInTheDocument();
-      expect(screen.getByText('Revolut')).toBeInTheDocument();
-    });
-
-    it('handles bank template selection', async () => {
+    it('shows the formats, searchable, when they are asked for', async () => {
       const user = userEvent.setup();
       renderWizard(true);
-      
-      const barclaysButton = screen.getByText('Barclays');
-      await user.click(barclaysButton);
-      
-      // Should move to mapping step
-      expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /know your bank/i }));
+
+      expect(screen.getByText('Barclays')).toBeInTheDocument();
+      expect(screen.getByText('Monzo')).toBeInTheDocument();
+      // The list comes from the service, so what is offered is what exists —
+      // and formats that were unreachable from the old hand-typed grid, like
+      // Wells Fargo and Mint, are reachable now.
+      expect(screen.getByText('Wells Fargo')).toBeInTheDocument();
+      expect(screen.getByLabelText(/search \d+ bank formats/i)).toBeInTheDocument();
+    });
+
+    it('narrows the list as it is searched, and by column name too', async () => {
+      const user = userEvent.setup();
+      renderWizard(true);
+      await user.click(screen.getByRole('button', { name: /know your bank/i }));
+
+      await user.type(screen.getByLabelText(/search \d+ bank formats/i), 'monzo');
+
+      expect(screen.getByText('Monzo')).toBeInTheDocument();
+      expect(screen.queryByText('Barclays')).not.toBeInTheDocument();
+    });
+
+    /**
+     * THE OWNER'S WALK, STEP TWO. He chose a bank and pressed Next, and the
+     * wizard took him to Column Mapping with no file — where every dropdown was
+     * empty because there were no columns to offer.
+     */
+    it('does not navigate anywhere when a bank format is chosen', async () => {
+      const user = userEvent.setup();
+      renderWizard(true);
+      await user.click(screen.getByRole('button', { name: /know your bank/i }));
+
+      await user.click(screen.getByText('Barclays'));
+
+      expect(screen.queryByText('Column Mapping')).not.toBeInTheDocument();
+      expect(screen.getByText('Choose your CSV file')).toBeInTheDocument();
+      // And it says what it did do: remembered the columns for later.
+      expect(screen.getByText(/will be filled in as soon as you choose a file/i)).toBeInTheDocument();
     });
   });
 
@@ -345,9 +383,9 @@ describe('CSVImportWizard', () => {
       });
     });
 
-    it('displays mapping interface', () => {
+    it('displays mapping interface, naming the file it is mapping', () => {
       expect(screen.getByText('Column Mapping')).toBeInTheDocument();
-      expect(screen.getByText(/map your csv columns/i)).toBeInTheDocument();
+      expect(screen.getByText(/which column of test\.csv holds what/i)).toBeInTheDocument();
     });
 
     it('displays import profiles section', () => {
@@ -503,6 +541,9 @@ describe('CSVImportWizard', () => {
       await waitFor(() => {
         expect(screen.getByText('Column Mapping')).toBeInTheDocument();
       });
+      // This statement has no account column of its own, so the wizard will not
+      // move on until it is told where the rows go.
+      await chooseDestinationAccount();
       await user.click(screen.getByText('Next'));
     };
 
@@ -538,8 +579,22 @@ describe('CSVImportWizard', () => {
       // evening looking for it in the register.
       await previewLloydsFile();
 
-      expect(screen.getByText(/Will be skipped — this row has no usable amount/)).toBeInTheDocument();
+      // With the builder's own reason, not one generic apology for every kind
+      // of failure: an unreadable date and a zero debit/credit pair are
+      // different problems with different cures.
+      expect(
+        screen.getByText(/Will be skipped — No non-zero amount found in the debit\/credit columns/)
+      ).toBeInTheDocument();
       expect(screen.queryByText('ZERO ROW')).not.toBeInTheDocument();
+    });
+
+    it('counts the skipped rows over the WHOLE file, not just the five on screen', async () => {
+      await previewLloydsFile();
+
+      expect(screen.getByText(/3 of 4 rows/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/1 row skipped — No non-zero amount found in the debit\/credit columns/)
+      ).toBeInTheDocument();
     });
   });
 
@@ -578,7 +633,8 @@ describe('CSVImportWizard', () => {
       expect(screen.getByText('2')).toBeInTheDocument(); // Success count
       expect(screen.getByText('Imported')).toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument(); // Duplicates count
-      expect(screen.getByText('Skipped')).toBeInTheDocument();
+      // "Skipped" alone said nothing about why. These were left out on purpose.
+      expect(screen.getByText('Skipped as duplicates')).toBeInTheDocument();
     });
 
     it('displays action buttons', () => {
@@ -791,7 +847,9 @@ describe('CSVImportWizard', () => {
       );
     });
 
-    it('says when no Account column was mapped at all', async () => {
+    it('says when nothing at all said which account these rows belong to', async () => {
+      // Neither the file nor the user: the mapped Account column produced no
+      // id, and no destination was chosen. Both cures are named.
       vi.mocked(enhancedCsvImportService.importTransactions).mockResolvedValueOnce(
         parsedAs(twoRows.map(row => ({ ...row, accountId: undefined })))
       );
@@ -801,7 +859,8 @@ describe('CSVImportWizard', () => {
       await waitFor(() => {
         expect(screen.getByText('Nothing was imported')).toBeInTheDocument();
       });
-      expect(screen.getByText(/No column is mapped to/)).toBeInTheDocument();
+      expect(screen.getByText(/Nothing says which account these belong in/)).toBeInTheDocument();
+      expect(screen.getByText(/Import these transactions into/)).toBeInTheDocument();
       expect(dataPort.importTransactions).not.toHaveBeenCalled();
     });
 
@@ -1137,16 +1196,26 @@ describe('CSVImportWizard', () => {
       });
     });
 
-    it('handles bank template selection workflow', async () => {
+    it('handles bank template selection workflow: format first, then file', async () => {
       const user = userEvent.setup();
       renderWizard(true);
-      
-      // Select bank template
-      const barclaysButton = screen.getByText('Barclays');
-      await user.click(barclaysButton);
-      
-      // Should skip to mapping with pre-configured mappings
-      expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /know your bank/i }));
+      await user.click(screen.getByText('Barclays'));
+
+      // The format alone goes nowhere — it is a set of column names.
+      expect(screen.queryByText('Column Mapping')).not.toBeInTheDocument();
+
+      await user.upload(
+        screen.getByLabelText(/select file/i),
+        new File(['Date,Description,Amount\n2023-01-15,Test,-10.00'], 'test.csv', { type: 'text/csv' })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Column Mapping')).toBeInTheDocument();
+      });
+      // And it reports what it managed against THIS file's headings.
+      expect(screen.getByText('Barclays', { selector: 'strong' })).toBeInTheDocument();
     });
 
     it('handles profile save and load workflow', async () => {

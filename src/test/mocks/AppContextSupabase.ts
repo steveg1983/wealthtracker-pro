@@ -6,7 +6,7 @@ import {
   getDefaultTestGoals,
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
-import type { Category, DismissalKind, SuggestionDismissal } from '../../types';
+import type { Category, DismissalKind, SuggestionDismissal, Transaction } from '../../types';
 import type { DataPortCapabilities } from '../../services/port';
 import type { TestDataSeedResult } from '../../utils/testDataset';
 import type {
@@ -24,6 +24,16 @@ const categories = getDefaultCategories();
 
 const noop = () => {};
 const asyncNoop = async () => {};
+
+/**
+ * Distinct ids for rows the double "creates".
+ *
+ * The real addTransaction returns the row it wrote, because a caller may need
+ * the new id immediately — creating the other half of a transfer is exactly
+ * that. A double that returned nothing would let a test pass over code the app
+ * cannot run, so this hands back a whole row with an id of its own.
+ */
+let createdTransactionSeq = 0;
 
 /**
  * The seam's capability descriptor, as a device answers it.
@@ -71,7 +81,10 @@ const baseValue = {
   addAccount: noop,
   updateAccount: noop,
   closeAccount: noop,
-  addTransaction: noop,
+  addTransaction: async (transaction: Omit<Transaction, 'id'>): Promise<Transaction> => ({
+    ...transaction,
+    id: `created-transaction-${++createdTransactionSeq}`,
+  }),
   updateTransaction: noop,
   deleteTransaction: noop,
   setTransactionsCleared: asyncNoop,

@@ -17,6 +17,7 @@ import {
 } from './icons';
 import type { ImportRule, ImportRuleCondition, ImportRuleAction } from '../types/importRules';
 import type { Category, Account } from '../types';
+import { isTransferFiling } from '../utils/transferCoherence';
 
 const CONDITION_FIELDS: ReadonlyArray<ImportRuleCondition['field']> = ['description', 'amount', 'accountId', 'date'];
 const AMOUNT_OPERATORS: ReadonlyArray<ImportRuleCondition['operator']> = ['equals', 'greaterThan', 'lessThan', 'between'];
@@ -649,9 +650,20 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                         className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                       >
                         <option value="">Select category</option>
-                        {categories.filter(c => c.type === 'expense' || c.type === 'both').map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
+                        {/* Transfer categories are 'both', so they used to be
+                            listed here by name ("To/From Savings") — and a rule
+                            set to one would stamp a transfer filing on every
+                            matching imported row: dropped from every report,
+                            never shown in the review band, and with no other
+                            side anywhere. A rule cannot create a counterpart
+                            (it has no way to know which account, or whether the
+                            other row is already in the file), so it must not be
+                            able to claim one. */}
+                        {categories
+                          .filter(c => (c.type === 'expense' || c.type === 'both') && !isTransferFiling(c))
+                          .map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
                       </select>
                     )}
 

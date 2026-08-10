@@ -8,7 +8,10 @@ import EditCategoryModal from '../../components/EditCategoryModal';
 import CategorySelector from '../../components/CategorySelector';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import CategoryDataHealthPanel from '../../components/CategoryDataHealthPanel';
+import IncomeExpenseBreakdownModal from '../../components/IncomeExpenseBreakdownModal';
+import EditTransactionModal from '../../components/EditTransactionModal';
 import { computeCategoryHealth } from '../../utils/categoryHealth';
+import { findMismatchedTransferFilings } from '../../utils/transferCoherence';
 import { ARRIVAL_ROW_CLASS, useArrivalRowFocus } from '../../hooks/useArrivalFocus';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon, MergeIcon } from '../../components/icons';
 import { PlusIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
@@ -312,6 +315,18 @@ export default function CategoriesSettings() {
     firstId: string;
     token: string;
   } | null>(null);
+  /**
+   * The rows the "transfer category with no other side" line has opened, or
+   * null while it has not been asked.
+   *
+   * The IDS are held rather than the rows, and the rows re-derived from context
+   * below, so a row cured in the editor this list opens LEAVES the list the
+   * moment it is saved — the count on the panel behind it and the list in front
+   * of it move together.
+   */
+  const [transferFilingIds, setTransferFilingIds] = useState<readonly string[] | null>(null);
+  /** Which of those rows is open in the full editor (the cure), if any. */
+  const [editingTransferFilingId, setEditingTransferFilingId] = useState<string | null>(null);
   // Only the FIRST of them scrolls: dragging the view to each in turn would
   // land on the last one, which is not the one being introduced.
   const { focusRef: scrollHighlightIntoView } = useArrivalRowFocus(emptyHighlight?.token ?? null);
@@ -640,6 +655,44 @@ export default function CategoriesSettings() {
     setViewingCategoryName(categories.find(c => c.id === categoryId)?.name ?? 'Unassigned');
     setShowTransactionsModal(true);
   };
+
+  /**
+   * Data-health remedy 3: the rows whose transfer category has no other side,
+   * one at a time.
+   *
+   * ONE AT A TIME IS THE WHOLE DESIGN. Each of these rows is missing a fact
+   * only the user has — which account the money went to, and whether the row
+   * on the other side already exists (an import may well have brought it in) or
+   * has to be created. That question is the editor's, and it asks it properly:
+   * saving a row filed under a To/From category hands over to the match-or-
+   * create flow, which links an existing counterpart or writes a new one, and
+   * files BOTH sides correctly. A "convert them all" button could not ask it,
+   * so it would have to guess — and guessing here writes money movements
+   * between accounts that never happened.
+   *
+   * So the remedy is a list and a door: the exact rows measured, each of which
+   * opens the editor that can cure it. They leave the list as they are cured.
+   */
+  const fixTransferFilings = (transactionIds: readonly string[]): void => {
+    setTransferFilingIds(transactionIds);
+  };
+
+  /**
+   * Those rows AS THEY ARE NOW — still mismatched, and still among the ones the
+   * panel opened.
+   *
+   * Re-measured rather than remembered: the editor opened from this list writes
+   * through the same context, so a cured row stops matching and drops out here
+   * on the next render. Narrowed to the opened ids as well, so the list keeps
+   * the promise the line made ("these N rows") instead of quietly growing if
+   * something else creates one while it is open.
+   */
+  const transferFilingRows = useMemo(() => {
+    if (transferFilingIds === null) return [];
+    const opened = new Set(transferFilingIds);
+    return findMismatchedTransferFilings(transactions, categories)
+      .filter(t => opened.has(t.id));
+  }, [transferFilingIds, transactions, categories]);
 
   /**
    * Data-health remedy 2: put the empty categories on screen with deletion
@@ -982,6 +1035,7 @@ export default function CategoriesSettings() {
         health={categoryHealth}
         onFileUnassignedBucket={fileUnassignedBucket}
         onShowEmptyCategories={showEmptyCategories}
+        onFixTransferFilings={fixTransferFilings}
       />
 
       {/* Categories Tree — the scrolling region on desktop */}
@@ -1305,6 +1359,35 @@ export default function CategoriesSettings() {
           }}
           categoryId={viewingCategoryId}
           categoryName={viewingCategoryName}
+        />
+      )}
+
+      {/* The transfer filings with no other side, and the editor that cures
+          them. The shared breakdown list rather than a bespoke one, so these
+          rows are read the same way as every other drill-in in the app — and
+          'neutral', because a transfer is neither income nor spending and a
+          list that totalled them as either would be repeating the very mistake
+          it exists to point at. */}
+      {transferFilingIds !== null && (
+        <IncomeExpenseBreakdownModal
+          isOpen
+          onClose={() => {
+            setTransferFilingIds(null);
+            setEditingTransferFilingId(null);
+          }}
+          title="Transfer categories with no other side"
+          bucket="neutral"
+          rows={transferFilingRows}
+          total={null}
+          categories={categories}
+          onEditTransaction={setEditingTransferFilingId}
+        />
+      )}
+      {editingTransferFilingId !== null && (
+        <EditTransactionModal
+          isOpen
+          onClose={() => setEditingTransferFilingId(null)}
+          transaction={transactions.find(t => t.id === editingTransferFilingId) ?? null}
         />
       )}
     </PageWrapper>

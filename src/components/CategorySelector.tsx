@@ -274,6 +274,33 @@ export default function CategorySelector({
       : targets;
   };
 
+  /**
+   * A transfer category is offered by `getTransferTargetDetails` and by NOTHING
+   * ELSE — so the ordinary sub→detail walk drops them, always.
+   *
+   * Until this existed the exclusion was an ACCIDENT OF TREE SHAPE: the account
+   * "To/From <account>" categories hang one rung shallower than an ordinary leaf
+   * (detail directly under the Transfer type root, with no sub in between), so
+   * the walk below happened not to reach them. That is a true statement about
+   * today's tree, not a rule — re-parent one, or seed a tree with a sub in
+   * between, and a picker with no business offering a transfer would start
+   * offering it, with nothing in the code saying it should not.
+   *
+   * The rule is: filing a WHOLE transaction under a To/From category is a
+   * second, contradictory way of saying what the Transfer type says properly
+   * (and what creates both sides). So it is refused BY FLAG, here, where the
+   * options are assembled.
+   *
+   * Unconditional rather than `includeTransferTargets ? …`, because the one
+   * picker that DOES want them has its own source below — and that source
+   * carries the rules that belong to a transfer target (the row's own account
+   * left out, closed accounts hidden, its own heading, last). Letting them in
+   * twice would list them twice, and would let the sub-walk smuggle in the one
+   * the transfer section deliberately withholds.
+   */
+  const withoutTransferTargets = (list: Category[]): Category[] =>
+    list.filter(c => c.isTransferCategory !== true);
+
   // Get all detail categories for the transaction type
   const getAllDetailCategories = (): Category[] => {
     const subCategories = getSubCategoriesForType();
@@ -282,7 +309,7 @@ export default function CategorySelector({
     subCategories.forEach(subCat => {
       // Inactive DETAIL categories (a closed account's To/From) stay hidden,
       // same as inactive subs — reopening the account restores them.
-      const details = getDetailCategories(subCat.id).filter(d => d.isActive !== false);
+      const details = withoutTransferTargets(getDetailCategories(subCat.id).filter(d => d.isActive !== false));
       detailCategories.push(...details);
     });
 
@@ -325,7 +352,10 @@ export default function CategorySelector({
       .map(sub => ({
         id: sub.id,
         name: sub.name,
-        items: getDetailCategories(sub.id).filter(d => matchedIds.has(d.id)),
+        // Filtered for the same reason as in getAllDetailCategories: what a
+        // section SHOWS and what the keyboard can reach must be the same list,
+        // or an option exists that only the arrow keys can find.
+        items: withoutTransferTargets(getDetailCategories(sub.id)).filter(d => matchedIds.has(d.id)),
         selectable: allowGroupSelection,
       }))
       // A group with no (matching) leaves still belongs in the list when the

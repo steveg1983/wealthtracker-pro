@@ -257,9 +257,11 @@ describe('OFX auto-categorisation', () => {
       stmtTrn('20270207004', '20270207', '-410.00', 'Immediate Faster Payment (Online) to B EXAMPLE 07-FEB-2027')
     ]);
 
-    // The suggestion the guard exists to refuse is real, and confident enough
-    // to have been applied: this is the machinery that filed ordinary
-    // third-party payments as transfers to the payer's own account.
+    // The model no longer learns a transfer AT ALL, so the suggestion that used
+    // to file third-party payments as transfers to the payer's own account is
+    // not made in the first place. Asserted at the source, because "the
+    // importer refused it" and "there was nothing to refuse" are different
+    // guarantees and the second is the stronger one.
     const suggestion = smartCategorizationService.suggestCategories({
       id: 'draft',
       date: new Date('2027-02-07'),
@@ -269,8 +271,7 @@ describe('OFX auto-categorisation', () => {
       accountId: ACCOUNT_ID,
       category: ''
     }, 1);
-    expect(suggestion[0].categoryId).toBe('tofrom-current');
-    expect(suggestion[0].confidence).toBeGreaterThanOrEqual(0.7);
+    expect(suggestion.map(s => s.categoryId)).not.toContain('tofrom-current');
 
     const result = await ofxImportService.importTransactions(file, accounts, sweepHistory, {
       accountId: ACCOUNT_ID,
@@ -304,10 +305,27 @@ describe('OFX auto-categorisation', () => {
     expect(result.transactions[0].category).toBe('groceries');
   });
 
-  it('leaves the OTHER account\'s transfer category alone', async () => {
-    // Only "a transfer to the account this row is already in" is meaningless.
-    // A genuine transfer out to Savings is exactly what a To/From category is
-    // for, and the guard must not reach it.
+  it('will not file the OTHER account\'s transfer category either', async () => {
+    /**
+     * THIS ASSERTION USED TO SAY THE OPPOSITE, and the owner has since ruled
+     * on it: a transfer category and a transfer type must never disagree.
+     *
+     * What the old behaviour produced is worth spelling out. The imported row
+     * is typed from the sign of its amount — 'expense' here, never 'transfer' —
+     * and no counterpart is created, because an importer cannot know whether
+     * the other account's statement is also in the file. So writing
+     * "To/From Savings" onto it made a row that every report classifies as a
+     * transfer (classifyFlow reads the CATEGORY), leaves out of income AND
+     * spending, and never shows in the uncategorised review band, while the
+     * balance moves and nothing anywhere balances it.
+     *
+     * Blank is the honest answer. It puts the row in the review band, where the
+     * transfer sweep can pair it with its real other side, or the editor can
+     * create one — with the account resolved individually, which is the fact an
+     * importer does not have. feedCategoryBackfill reached the same conclusion:
+     * a transfer category "would hide it more thoroughly than leaving it
+     * uncategorised does".
+     */
     const savingsHistory: Transaction[] = Array.from({ length: 4 }, (_, index) => ({
       id: `to-savings-${index}`,
       date: new Date(2027, 0, index + 1),
@@ -326,6 +344,7 @@ describe('OFX auto-categorisation', () => {
       autoCategorize: true
     });
 
-    expect(result.transactions[0].category).toBe('tofrom-savings');
+    expect(result.transactions[0].category).toBe('');
+    expect(result.transactions[0].type).toBe('expense');
   });
 });
