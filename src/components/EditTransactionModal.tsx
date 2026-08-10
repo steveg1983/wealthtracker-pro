@@ -4,7 +4,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { usePayeeMemory } from '../hooks/usePayeeMemory';
 import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, ArrowUpRightIcon, BanknoteIcon, PaperclipIcon, XIcon } from '../components/icons';
-import type { Transaction } from '../types';
+import type { Transaction, TransferDisplacedDisposition } from '../types';
 import {
   splitRemainder,
   validateSplitDrafts,
@@ -14,10 +14,12 @@ import {
 } from '../utils/transactionSplits';
 import CategoryCreationModal from './CategoryCreationModal';
 import TransferMatchDialog from './TransferMatchDialog';
+import TransferRepointDialog from './TransferRepointDialog';
 import DeleteTransactionConfirm from './DeleteTransactionConfirm';
 import SuggestedCategoryBadge from './SuggestedCategoryBadge';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
+import { describeCounterpartOrigin } from '../utils/transferCounterpartOrigin';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
 import AccountSelector from './common/AccountSelector';
@@ -79,7 +81,7 @@ interface FormData {
 }
 
 export default function EditTransactionModal({ isOpen, onClose, transaction, defaultAccountId, onSaveAndNext, onSaveAndPrevious, hideJumpToAccountId }: EditTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart } = useApp();
+  const { accounts, categories, transactions, updateTransaction, deleteTransaction, getTransactionSplits, setTransactionSplits, linkTransferPair, createTransferCounterpart, repointTransfer } = useApp();
   const { showSuccess, showError } = useToast();
   const { addTransaction } = useTransactionNotifications();
   const { propagateCategory } = usePayeeMemory();
@@ -109,6 +111,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     candidates: TransferCandidate[];
   } | null>(null);
   const [transferBusy, setTransferBusy] = useState(false);
+  /**
+   * The re-point that is waiting on an answer about the counterpart it would
+   * displace, or null when there is nothing to ask.
+   *
+   * Only ever set when the counterpart could NOT be proved to be scaffolding
+   * this app created — see transferCounterpartOrigin, which can prove that and
+   * nothing else, and errs towards asking.
+   */
+  const [repointPrompt, setRepointPrompt] = useState<{
+    targetAccountId: string;
+    counterpart: Transaction | null;
+    reasons: string[];
+  } | null>(null);
+  // A Save & Next interrupted by that question must still advance once it is
+  // answered; the direction was already consumed by the submit that opened it.
+  const advanceAfterRepointRef = useRef<'next' | 'previous' | null>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
   // Batch mode coordination: Save & Next / Previous set a direction; a
   // successful submit consumes it and suppresses the close that useModalForm
@@ -170,14 +188,17 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
             ? data.category.slice('transfer:'.length)
             : transaction?.transferAccountId;   // preserve on edit
 
-          // A linked pair's target is structural — moving it would strand the
-          // opposite row. v1: recreate the transfer to move it.
-          if (transaction?.linkedTransferId && isNewTransferSelection &&
-              targetAccountId !== transaction.transferAccountId) {
-            throw new Error(
-              'This transfer is linked to its opposite transaction. To move it, delete the transfer and recreate it.'
-            );
-          }
+          // RE-POINTING. Changing a linked transfer's target used to be refused
+          // outright ("delete the transfer and recreate it"), which left the
+          // dropdown above offering a choice the save would then reject — and
+          // the only exit anybody found destroyed a row. It is now a real
+          // operation: repointTransfer moves the pair, atomically, re-filing
+          // both sides. The transfer facts are stripped out of the ordinary
+          // update below, because they belong to that one write.
+          const repointTargetId = transaction?.linkedTransferId && isNewTransferSelection &&
+            targetAccountId && targetAccountId !== transaction.transferAccountId
+            ? targetAccountId
+            : undefined;
 
           const resolvedType = isTransfer || isNewTransferSelection ? 'transfer' : data.type;
           // Transfers file under the target account's To/From category. An
@@ -339,6 +360,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               // category/amount this update carries.
               await setTransactionSplits(transaction.id, [], null);
               await updateTransaction(transaction.id, transactionData);
+            } else if (repointTargetId) {
+              // The ordinary edits, MINUS the three facts the re-point owns.
+              // Sending the new category and target here would half-apply the
+              // move: this row would face the new account while its other half
+              // still sat in the old one, which is the very disagreement the
+              // atomic operation exists to prevent.
+              const { category: _repointed, transferAccountId: _moved, type: _typed, ...fieldEdits } = transactionData;
+              await updateTransaction(transaction.id, fieldEdits);
+              // Either the counterpart is provably ours and moves without
+              // ceremony, or the user is asked what to do with it — in which
+              // case the editor stays open and the dialog finishes the job.
+              if (await beginRepoint(transaction, repointTargetId)) {
+                advanceAfterRepointRef.current = advanceDirection;
+                suppressCloseRef.current = true;
+                return;
+              }
             } else {
               await updateTransaction(transaction.id, transactionData);
             }
@@ -638,6 +675,74 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     ? splitRemainder(formData.amount, splitLines, splitDirectionOpts)
     : null;
 
+  /**
+   * Move a linked transfer to a different account — or stop and ask first.
+   *
+   * Returns true when it asked (the caller then keeps the editor open and the
+   * dialog owns what happens next), false when the move is already done.
+   *
+   * WHY THERE IS A QUESTION AT ALL. Re-pointing takes the counterpart with it.
+   * That is right when the counterpart is scaffolding this app inserted for the
+   * user, and wrong when it is a row off a bank statement — dragging that into
+   * another account puts two registers out by its amount and leaves a
+   * reconciliation that can never be made to balance. describeCounterpartOrigin
+   * can PROVE the first case and never the second, so anything it cannot prove
+   * is asked about. The cost of asking unnecessarily is one click; the cost of
+   * not asking is discovered months later.
+   */
+  const beginRepoint = async (source: Transaction, targetAccountId: string): Promise<boolean> => {
+    const counterpart = transactions.find(t => t.id === source.linkedTransferId) ?? null;
+    const verdict = counterpart
+      ? describeCounterpartOrigin(counterpart)
+      // Not in the loaded set at all — it sits in a closed account, or the list
+      // is stale. Nothing can be proved about a row that is not here.
+      : {
+          systemCreated: false,
+          reasons: ['it is not loaded — it sits in an account that is closed, so what it is cannot be checked'],
+        };
+
+    if (verdict.systemCreated) {
+      await repointTransfer(source.id, targetAccountId, 'move');
+      showSuccess('Transfer moved — the other side went with it.');
+      return false;
+    }
+
+    setRepointPrompt({ targetAccountId, counterpart, reasons: verdict.reasons });
+    return true;
+  };
+
+  /**
+   * Finish a re-point the user has answered, then leave the way the save that
+   * started it would have. A failure keeps the dialog up so they can retry or
+   * back out with nothing half-done.
+   */
+  const completeRepoint = async (
+    disposition: TransferDisplacedDisposition,
+    successMessage: string
+  ): Promise<void> => {
+    if (!transaction || !repointPrompt) return;
+    setTransferBusy(true);
+    try {
+      await repointTransfer(transaction.id, repointPrompt.targetAccountId, disposition);
+      showSuccess(successMessage);
+      setRepointPrompt(null);
+      const advance = advanceAfterRepointRef.current;
+      advanceAfterRepointRef.current = null;
+      if (advance === 'next' && onSaveAndNext) {
+        onSaveAndNext();
+      } else if (advance === 'previous' && onSaveAndPrevious) {
+        onSaveAndPrevious();
+      } else {
+        onClose();
+      }
+    } catch (error) {
+      logger.error('Transfer re-point failed', error as Error);
+      showError(error);
+    } finally {
+      setTransferBusy(false);
+    }
+  };
+
   // Complete the transfer flow (link or create) and close the editor. A
   // failure keeps the dialog open so the user can retry or cancel.
   const completeTransfer = async (action: () => Promise<unknown>, successMessage: string): Promise<void> => {
@@ -661,6 +766,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
     () => resolveTransferOtherSide(transaction, transactions, accounts),
     [transaction, transactions, accounts]
   );
+
+  /**
+   * The account the picker is pointing at that the transfer is NOT yet pointing
+   * at — the pending re-point — or null when the two agree.
+   *
+   * Only for a linked pair: an unlinked transfer's target is an ordinary field
+   * and saving it needs no explanation, while a linked one's save moves a row
+   * in an account that is not on screen.
+   */
+  const pendingRepointName = useMemo(() => {
+    if (!transaction?.linkedTransferId) return null;
+    if (!formData.category.startsWith('transfer:')) return null;
+    const pending = formData.category.slice('transfer:'.length);
+    if (!pending || pending === transaction.transferAccountId) return null;
+    return accounts.find(a => a.id === pending)?.name ?? 'the chosen account';
+  }, [transaction, formData.category, accounts]);
 
   // Every jump out of this modal works the same way: close the editor (so it
   // isn't left hanging over the register it just opened), then deep-link the
@@ -736,6 +857,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
   useEffect(() => {
     if (!isOpen) {
       setShowDeleteConfirm(false);
+      // Same reason, and the stakes are higher: this one moves money between
+      // two accounts, and a dialog outliving the editor it belongs to would be
+      // asking about a form the user can no longer see.
+      setRepointPrompt(null);
+      advanceAfterRepointRef.current = null;
     }
   }, [isOpen]);
 
@@ -1005,9 +1131,34 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                     required
                     ariaLabel="Transfer destination account"
                   />
+                  {/* WHAT SAVING WILL DO, when the dropdown above no longer
+                      agrees with where the other half actually is.
+
+                      This is the disagreement that used to make the field
+                      unreadable: the picker showed the account you had just
+                      chosen, the jump line underneath named the old one, and
+                      the save then refused both. The picker and the jump line
+                      are answering DIFFERENT questions and both answers are
+                      right — one is a pending choice, the other is a fact about
+                      a row in another account — so the fix is to say so, in the
+                      gap between them, rather than to make one of them lie. */}
+                  {pendingRepointName && (
+                    <p className="mt-2 text-xs text-blue-700 dark:text-blue-400">
+                      Saving moves this transfer to {pendingRepointName}. Its other half goes with
+                      it, unless it looks like a real transaction — then you will be asked what to
+                      do with it first.
+                    </p>
+                  )}
                   {/* Both halves of a linked transfer carry this, so it reads
                       the same whichever leg is open — and the register's ?txn
-                      deep link selects, centres and docks the row on arrival. */}
+                      deep link selects, centres and docks the row on arrival.
+
+                      It names the account the counterpart is in RIGHT NOW,
+                      taken from the stored rows and never from the form: this
+                      is a way to go and look at something, and it has to be
+                      true of the thing it is about to open. After a save it
+                      names the new account, because the re-point wrote both
+                      rows and the state was updated from what it wrote. */}
                   {otherSide && (
                     <>
                       <button
@@ -1278,6 +1429,40 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
                 </span>
               </label>
 
+              {/* IS THIS ROW HALF OF A TRANSFER? — the third state a
+                  transaction can be in, said in the same place and the same
+                  shape as the other two, because a user checking "what is true
+                  about this row" should find all of it in one column.
+
+                  Read from the STORED row, never from the form: whether the
+                  other side exists is a fact about what is saved, and a target
+                  half-chosen in the dropdown above is not a link yet. Shown for
+                  transfers and only transfers, so its absence on an ordinary
+                  row says something rather than nothing.
+
+                  Ticked and disabled like the statement line beside it: a link
+                  is not made or broken from a checkbox. The way to the other
+                  side is the "Jump to the other side" button in the Transfer To
+                  field, which is the navigation and stays the navigation. */}
+              {transaction?.type === 'transfer' && (
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={!!transaction.linkedTransferId}
+                    disabled
+                    className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <ArrowRightLeftIcon size={16} className="text-blue-700 dark:text-blue-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {transaction.linkedTransferId
+                      ? (otherSide?.accountName
+                        ? `Linked transfer — the other side is in ${otherSide.accountName}`
+                        : 'Linked transfer')
+                      : 'Linked transfer — no other side recorded'}
+                  </span>
+                </label>
+              )}
+
               {transaction?.reconciledWith && transaction.reconciledWith !== 'manual' && (
                 <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
                   <LinkIcon size={16} />
@@ -1397,6 +1582,36 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               'Transfer created — the other side was added to the target account.'
             )}
             onCancel={() => setTransferPrompt(null)}
+          />
+        )}
+
+        {/* The one case a re-point stops to ask about: a counterpart that might
+            be a real transaction rather than this app's own bookkeeping. */}
+        {transaction && repointPrompt && (
+          <TransferRepointDialog
+            targetAccountName={
+              accounts.find(a => a.id === repointPrompt.targetAccountId)?.name ?? 'the new account'
+            }
+            displacedAccountName={
+              repointPrompt.counterpart
+                ? accounts.find(a => a.id === repointPrompt.counterpart?.accountId)?.name
+                : undefined
+            }
+            counterpart={repointPrompt.counterpart}
+            reasons={repointPrompt.reasons}
+            busy={transferBusy}
+            onChoose={(disposition) => void completeRepoint(
+              disposition,
+              disposition === 'move'
+                ? 'Transfer moved — the other side went with it.'
+                : disposition === 'release'
+                  ? 'Transfer moved — the old other side was left where it was, uncategorised.'
+                  : 'Transfer moved — the old other side was deleted.'
+            )}
+            onCancel={() => {
+              setRepointPrompt(null);
+              advanceAfterRepointRef.current = null;
+            }}
           />
         )}
 

@@ -64,7 +64,12 @@ import type * as DeviceBackupService from '../localBackupService';
 // two-pass transfer linking, the chunked writer — and exactly the people who
 // press Import once ever should be the people who download it.
 import type * as MsMoneyImportService from '../import/msMoney/msMoneyImport';
-import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal } from '../../types';
+import type { Account, AccountUpdate, Transaction, TransactionSplit, TransactionSplitInput, SplitWriteResult, Budget, Goal, Category, CategoryMergeResult, DismissalKind, SuggestionDismissal, TransferDisplacedDisposition, TransferDisplacedOutcome, TransferRepointResult } from '../../types';
+// The crossover rule a linked pair is filed by — each side's To/From category
+// names the OTHER account. Written down once so the browser-storage mirror and
+// repoint_transfer cannot drift apart on the one thing that is easy to get
+// backwards.
+import { planTransferRepoint } from '../../utils/transferRepoint';
 
  type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
 type AccountServiceLike = Pick<typeof AccountService,
@@ -72,7 +77,7 @@ type AccountServiceLike = Pick<typeof AccountService,
   subscribeToAccounts?: (userId: string, callback: (payload: unknown) => void) => () => void;
 };
 type TransactionServiceLike = Pick<typeof TransactionService,
-  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction' | 'setTransactionsCleared' | 'applyCategoryToUncategorized' | 'confirmTransactionCategories' | 'getTransactionSplits' | 'setTransactionSplits' | 'setTransactionSplitsWithLegs' | 'getAllTransactionSplits' | 'linkTransferPair' | 'linkSplitLineTransfer' | 'clearTransferLinks' | 'setTransactionArchived' | 'repairClaimedTransfer' | 'createTransferCounterpart' | 'repointTransfer' | 'archiveTransactionsBefore' | 'unarchiveAccount'> & {
   subscribeToTransactions?: (userId: string, callback: (payload: unknown) => void) => () => void;
   /**
    * Optional so an injected test double stays a partial stand-in; without it
@@ -663,7 +668,23 @@ class DataServiceImpl implements DataPort {
     if (transaction) {
       await this.updateAccountBalance(transaction.accountId, -transaction.amount);
     }
-    const filtered = transactions.filter(t => t.id !== id);
+    // Mirrors transactions_linked_transfer_id_fkey, which is ON DELETE SET
+    // NULL: the survivor of a deleted transfer leg must not be left pointing at
+    // a row that no longer exists. It stays a transfer and keeps its To/From
+    // category — an UNMATCHED leg, which is a real state with a repair flow —
+    // but the LINK goes, because a dangling one is what makes every screen go
+    // on treating it as half of a pair: the editor refuses to move it and the
+    // register offers to jump to a transaction that is gone. The cloud gets
+    // this from the foreign key; browser storage has to do it by hand, and
+    // until this line it did not, so a demo/offline delete left the dangling
+    // pointer there permanently.
+    const filtered = transactions
+      .filter(t => t.id !== id)
+      .map(t => {
+        if (t.linkedTransferId !== id) return t;
+        const { linkedTransferId: _dangling, ...rest } = t;
+        return rest;
+      });
     await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, filtered);
 
     // Mirrors the trg_prune_suggestion_dismissals trigger: a suggestion about a
@@ -1892,6 +1913,174 @@ class DataServiceImpl implements DataPort {
   }
 
   /**
+   * Point an existing linked transfer at a different account. Mirrors the
+   * repoint_transfer RPC's invariants, its refusals and its outcome, so demo
+   * and offline behave identically to the cloud.
+   *
+   * All-or-nothing like the RPC: every check runs BEFORE the first persist, and
+   * the rows and the balances are written in one pass. The intermediate state
+   * this avoids — a transfer whose other half has gone but whose replacement
+   * has not arrived — is a stranded leg reading as a real payment in an account
+   * nobody is looking at.
+   *
+   * Both categories come from planTransferRepoint, the one place the crossover
+   * rule is written down, rather than being patched here.
+   */
+  async repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition: TransferDisplacedDisposition = 'move'
+  ): Promise<TransferRepointResult> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.repointTransfer(id, targetAccountId, disposition, userId);
+    }
+    this.guardCloudWrite();
+
+    const transactions = await this.readLocalTransactions();
+    const source = transactions.find(t => t.id === id);
+    if (!source) {
+      throw new Error('Transaction not found');
+    }
+    if (!source.linkedTransferId) {
+      throw new Error('That transaction is not half of a linked transfer');
+    }
+    const displacedRow = transactions.find(t => t.id === source.linkedTransferId);
+    if (!displacedRow) {
+      throw new Error('Transaction not found');
+    }
+    // Mutual, both ways round: a stale list must not re-point a pair that has
+    // moved on underneath it.
+    if (displacedRow.linkedTransferId !== source.id) {
+      throw new Error('Those two rows are not linked to each other any more — reload and look again');
+    }
+    if (source.accountId === targetAccountId) {
+      throw new Error('A transfer needs two different accounts');
+    }
+    if (source.isSplit || displacedRow.isSplit) {
+      throw new Error('A split transaction cannot become a transfer — remove the split first');
+    }
+    if (source.linkedTransferSplitId || displacedRow.linkedTransferSplitId) {
+      throw new Error('The other half of this transfer is one line of a split — edit that split to move it');
+    }
+    if (source.archived || displacedRow.archived) {
+      throw new Error('One of these rows is archived — bring it back into the register before moving it');
+    }
+    if (toDecimal(source.amount).isZero()) {
+      throw new Error('A zero-amount transaction cannot be a transfer');
+    }
+
+    const allAccounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const sourceAccount = allAccounts.find(a => a.id === source.accountId);
+    const targetAccount = allAccounts.find(a => a.id === targetAccountId);
+    if (!targetAccount) {
+      throw new Error('Account not found or not owned');
+    }
+    if (
+      sourceAccount?.currency && targetAccount.currency &&
+      sourceAccount.currency !== targetAccount.currency
+    ) {
+      throw new Error(
+        `Transfers between accounts in different currencies are not supported yet (${sourceAccount.currency} and ${targetAccount.currency})`
+      );
+    }
+
+    // ── Past every refusal: decide the two rows and the balance moves ────────
+    const categories = await this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
+    const fromAccountId = displacedRow.accountId;
+    const balanceMoves: { accountId: string; delta: number }[] = [];
+    let counterpart: Transaction;
+    let displaced: TransferDisplacedOutcome;
+    let nextTransactions: Transaction[];
+
+    if (disposition === 'move') {
+      const filing = planTransferRepoint(source, displacedRow, targetAccountId, categories);
+      counterpart = {
+        ...displacedRow,
+        accountId: targetAccountId,
+        type: 'transfer',
+        category: filing.counterpartCategory,
+        transferAccountId: source.accountId,
+      };
+      // Only a real change of address moves money; an unchanged target is a
+      // re-file, and the same row in the same account has already been counted.
+      if (fromAccountId !== targetAccountId) {
+        balanceMoves.push({ accountId: fromAccountId, delta: -counterpart.amount });
+        balanceMoves.push({ accountId: targetAccountId, delta: counterpart.amount });
+      }
+      displaced = { kind: 'moved', fromAccountId };
+      nextTransactions = transactions.map(t => (t.id === counterpart.id ? counterpart : t));
+    } else {
+      const counterpartAmount = toDecimal(source.amount).negated().toNumber();
+      counterpart = {
+        id: this.generateId(),
+        date: source.date,
+        description: source.description,
+        amount: counterpartAmount,
+        type: 'transfer',
+        category: await this.localTransferCategoryFor(source.accountId, counterpartAmount),
+        accountId: targetAccountId,
+        notes: source.notes,
+        cleared: false,
+        transferAccountId: source.accountId,
+        linkedTransferId: source.id,
+      } as Transaction;
+      balanceMoves.push({ accountId: targetAccountId, delta: counterpartAmount });
+
+      if (disposition === 'release') {
+        // Everything that made it half of a transfer comes off; nothing else
+        // does. No category, because the app does not know what this payment
+        // was — only that it was not this transfer — and needs_review so it is
+        // visible in the register of the account it stays in.
+        const {
+          linkedTransferId: _link, transferAccountId: _target, ...rest
+        } = displacedRow;
+        const released: Transaction = {
+          ...rest,
+          category: '',
+          categoryConfirmed: true,
+          needsReview: true,
+          type: toDecimal(displacedRow.amount).isNegative() ? 'expense' : 'income',
+        };
+        displaced = { kind: 'released', transaction: released };
+        nextTransactions = [
+          ...transactions.map(t => (t.id === released.id ? released : t)),
+          counterpart,
+        ];
+      } else {
+        balanceMoves.push({ accountId: fromAccountId, delta: -displacedRow.amount });
+        displaced = {
+          kind: 'deleted',
+          id: displacedRow.id,
+          accountId: fromAccountId,
+          amount: displacedRow.amount,
+        };
+        nextTransactions = [
+          ...transactions.filter(t => t.id !== displacedRow.id),
+          counterpart,
+        ];
+      }
+    }
+
+    const newSource: Transaction = {
+      ...source,
+      type: 'transfer',
+      category: planTransferRepoint(source, counterpart, targetAccountId, categories).sourceCategory,
+      transferAccountId: targetAccountId,
+      linkedTransferId: counterpart.id,
+    };
+
+    await this.persistCollection(
+      STORAGE_KEYS.TRANSACTIONS,
+      nextTransactions.map(t => (t.id === newSource.id ? newSource : t))
+    );
+    for (const move of balanceMoves) {
+      await this.updateAccountBalance(move.accountId, move.delta);
+    }
+    return { source: newSource, counterpart, displaced };
+  }
+
+  /**
    * Join two categories: every reference moves from source to target, then the
    * source goes.
    *
@@ -2838,6 +3027,14 @@ export class DataService {
     targetAccountId: string
   ): Promise<{ source: Transaction; counterpart: Transaction }> {
     return this.service.createTransferCounterpart(id, targetAccountId);
+  }
+
+  static repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition?: TransferDisplacedDisposition
+  ): Promise<TransferRepointResult> {
+    return this.service.repointTransfer(id, targetAccountId, disposition);
   }
 
   static listTransactionSplitsFor(transactionId: string): Promise<TransactionSplit[]> {

@@ -1,6 +1,13 @@
 
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
-import type { Transaction, TransactionSplit, TransactionSplitInput } from '../../types';
+import type {
+  Transaction,
+  TransactionSplit,
+  TransactionSplitInput,
+  TransferDisplacedDisposition,
+  TransferDisplacedOutcome,
+  TransferRepointResult
+} from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { transactionCache, newestUpdatedAt, type TransactionSnapshot } from '../transactionCache';
 import { toDecimal } from '../../utils/decimal';
@@ -248,6 +255,44 @@ function mapFromDbFields(row: Record<string, unknown>): Record<string, unknown> 
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
+
+/**
+ * Read repoint_transfer's `displaced` object into the discriminated union the
+ * caller acts on.
+ *
+ * Narrowed rather than cast, because what comes back is jsonb and the caller
+ * uses it to MOVE ACCOUNT BALANCES: a shape that is not one of the three is a
+ * bug somewhere between the RPC and here, and mirroring a guess would put a
+ * register out by an amount nobody could later trace. `moved` is the safe
+ * default because it is the only one of the three that implies no independent
+ * balance work in the caller — the row's own before/after tells the whole
+ * story.
+ */
+function readDisplacedOutcome(value: unknown): TransferDisplacedOutcome {
+  if (isRecord(value)) {
+    if (value.kind === 'released' && isRecord(value.transaction)) {
+      return { kind: 'released', transaction: mapFromDbFields(value.transaction) as unknown as Transaction };
+    }
+    if (
+      value.kind === 'deleted' &&
+      typeof value.id === 'string' &&
+      typeof value.account_id === 'string'
+    ) {
+      // numeric arrives as a JSON number or a string depending on the value —
+      // never parseFloat, and never float addition.
+      return {
+        kind: 'deleted',
+        id: value.id,
+        accountId: value.account_id,
+        amount: toDecimal(typeof value.amount === 'number' || typeof value.amount === 'string' ? value.amount : 0).toNumber(),
+      };
+    }
+    if (value.kind === 'moved' && typeof value.from_account_id === 'string') {
+      return { kind: 'moved', fromAccountId: value.from_account_id };
+    }
+  }
+  return { kind: 'moved', fromAccountId: '' };
+}
 
 /**
  * Shape account_balances() rows into a per-account lookup.
@@ -1462,6 +1507,57 @@ class TransactionServiceImpl {
     }
   }
 
+  /**
+   * Point an existing linked transfer at a different account — ONE call, one
+   * database transaction (repoint_transfer, migration 20260810140000).
+   *
+   * The RPC re-files BOTH sides from the new pairing, deals with the displaced
+   * counterpart the way the caller asked (move / release / delete) and moves
+   * whatever balances that implies, all together. Its errors are surfaced
+   * verbatim: they name the precondition that failed, and there is no
+   * half-repointed state — a transfer with no other side — for a caller to
+   * explain away.
+   *
+   * The rows come back exactly as the database wrote them, including the two
+   * re-filed categories, because guessing at those here is how a register ends
+   * up disagreeing with the ledger.
+   */
+  async repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition: TransferDisplacedDisposition,
+    userId?: string
+  ): Promise<TransferRepointResult> {
+    if (!this.isSupabaseReady()) {
+      throw new Error('repointTransfer requires the cloud connection (local mode goes through DataService)');
+    }
+    try {
+      const { data, error } = await this.supabaseClient!.rpc('repoint_transfer', {
+        p_id: id,
+        p_target_account_id: targetAccountId,
+        p_disposition: disposition,
+        p_user_id: this.requireOwnerId(userId, 'repointTransfer'),
+      });
+      if (error) {
+        this.logger.error('Error repointing transfer:', error);
+        throw new Error(handleSupabaseError(error));
+      }
+      const result = (data ?? {}) as {
+        source?: Record<string, unknown>;
+        counterpart?: Record<string, unknown>;
+        displaced?: Record<string, unknown>;
+      };
+      return {
+        source: mapFromDbFields(result.source ?? {}) as unknown as Transaction,
+        counterpart: mapFromDbFields(result.counterpart ?? {}) as unknown as Transaction,
+        displaced: readDisplacedOutcome(result.displaced),
+      };
+    } catch (error) {
+      this.logger.error('TransactionService.repointTransfer error:', error as Error);
+      throw error;
+    }
+  }
+
   async deleteTransaction(id: string, userId?: string): Promise<void> {
     if (!this.isSupabaseReady()) {
       const transactions = await this.readStoredTransactions();
@@ -1816,6 +1912,15 @@ export class TransactionService {
     userId?: string
   ): Promise<{ source: Transaction; counterpart: Transaction }> {
     return this.service.createTransferCounterpart(id, targetAccountId, userId);
+  }
+
+  static repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition: TransferDisplacedDisposition,
+    userId?: string
+  ): Promise<TransferRepointResult> {
+    return this.service.repointTransfer(id, targetAccountId, disposition, userId);
   }
 
   static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {

@@ -134,9 +134,13 @@ async function fileUnderToFromSavings() {
 
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-  // The match-or-create dialog opens instead of a plain category write
+  // The match-or-create question opens in the STRIP instead of a plain
+  // category write — see the note on QuickEditActionStrip for why it is not a
+  // dialog here.
   await waitFor(() => {
-    expect(screen.getByText('Make this a transfer')).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'Make this a transfer with Savings' })
+    ).toBeInTheDocument();
   });
 }
 
@@ -149,7 +153,11 @@ describe('The register row editor — transfer flow', () => {
     await fileUnderToFromSavings();
 
     expect(screen.getByText(/Found the matching transaction in Savings/)).toBeInTheDocument();
-    expect(screen.getByText('FASTER PAYMENT RECEIVED')).toBeInTheDocument();
+    // The candidate is named in the button's own title, not as a separate row:
+    // the strip is 36px and has no space for a list.
+    expect(
+      screen.getByRole('button', { name: 'Link' }).title
+    ).toContain('FASTER PAYMENT RECEIVED');
     // The field edits were saved WITHOUT the category
     expect(mocks.updateTransaction).toHaveBeenCalledTimes(1);
     const updates = mocks.updateTransaction.mock.calls[0][1] as Record<string, unknown>;
@@ -159,7 +167,7 @@ describe('The register row editor — transfer flow', () => {
   it('links the pair when confirmed', async () => {
     await fileUnderToFromSavings();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Link as transfer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Link' }));
     await waitFor(() => {
       expect(mocks.linkTransferPair).toHaveBeenCalledWith('src', 'other');
     });
@@ -170,7 +178,7 @@ describe('The register row editor — transfer flow', () => {
   it('creates the counterpart when the user chooses to', async () => {
     await fileUnderToFromSavings();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create new instead' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create the other side' }));
     await waitFor(() => {
       expect(mocks.createTransferCounterpart).toHaveBeenCalledWith('src', 'acc-b');
     });
@@ -187,7 +195,9 @@ describe('The register row editor — transfer flow', () => {
     await waitFor(() => {
       expect(mocks.showError).toHaveBeenCalled();
     });
-    expect(screen.queryByText('Make this a transfer')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: /Make this a transfer/ })
+    ).not.toBeInTheDocument();
     expect(mocks.updateTransaction).not.toHaveBeenCalled();
   });
 
@@ -195,7 +205,9 @@ describe('The register row editor — transfer flow', () => {
     await fileUnderToFromSavings();
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByText('Make this a transfer')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Make this a transfer with Savings' })
+    ).not.toBeInTheDocument();
     expect(mocks.linkTransferPair).not.toHaveBeenCalled();
     expect(mocks.createTransferCounterpart).not.toHaveBeenCalled();
   });

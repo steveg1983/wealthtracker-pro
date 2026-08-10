@@ -307,6 +307,52 @@ export interface SplitWriteResult {
 }
 
 /**
+ * What to do with the counterpart a re-point displaces.
+ *
+ * `move` is the whole point of the feature and the answer in the ordinary case:
+ * the counterpart is scaffolding the app created ("create the other side"), so
+ * it simply changes address. The other two exist for the counterpart that is a
+ * REAL transaction — a row off a statement that happens to have been matched to
+ * this transfer — where moving it would drag evidence of one bank's activity
+ * into another bank's register. See src/utils/transferCounterpartOrigin.ts for
+ * how the two are told apart, and how conservatively.
+ *
+ *   release — leave it exactly where it is, as a plain unlinked, uncategorised
+ *             transaction, and make a fresh counterpart in the new account.
+ *             Balance-neutral for the released row: nothing about its amount or
+ *             its account changes, only what it claims to be.
+ *   delete  — remove it (reversing its account's balance) and make a fresh
+ *             counterpart in the new account.
+ */
+export type TransferDisplacedDisposition = 'move' | 'release' | 'delete';
+
+/**
+ * What happened to the counterpart a re-point displaced, so a caller can
+ * update the accounts it moved rather than re-deriving them.
+ *
+ * `moved` names no row because the row is `TransferRepointResult.counterpart` —
+ * the same id, at a new address.
+ */
+export type TransferDisplacedOutcome =
+  | { kind: 'moved'; fromAccountId: string }
+  | { kind: 'released'; transaction: Transaction }
+  | { kind: 'deleted'; id: string; accountId: string; amount: number };
+
+/**
+ * What a re-point actually did. Both rows are returned as the store wrote them
+ * — a caller that guesses at the categories a re-file produced is a caller that
+ * will one day show a register disagreeing with the ledger.
+ */
+export interface TransferRepointResult {
+  /** The edited row, re-filed to face its new counterpart. */
+  source: Transaction;
+  /** The row now sitting in the target account and linked to the source. */
+  counterpart: Transaction;
+  /** What became of the counterpart this displaced. */
+  displaced: TransferDisplacedOutcome;
+}
+
+/**
  * Which sweep made the offer the user refused. Part of a dismissal's identity,
  * because the same two rows can be a transfer pair to one scan and a duplicate
  * to another, and those two offers have opposite consequences — refusing one

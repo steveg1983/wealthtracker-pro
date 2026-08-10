@@ -2275,6 +2275,268 @@ describe('DataService mergeCategories (local mode)', () => {
 // Audit 2026-07-21: cross-currency counterpart creation must refuse loudly —
 // the counterpart is -amount with no conversion, so a USD source would move a
 // GBP ledger by the raw dollar magnitude.
+/**
+ * Re-pointing a linked transfer — the demo/offline half of repoint_transfer
+ * (migration 20260810140000).
+ *
+ * The invariants worth stating: the counterpart MOVES rather than being
+ * recreated, both sides are re-filed from the new pairing (each naming the
+ * OTHER account), amounts and dates are untouched, and the money goes with the
+ * row — the account it left is down by exactly what the account it joined is
+ * up by.
+ */
+describe('DataService repointTransfer (local mode)', () => {
+  /** A → B: −500 in acct-a linked to +500 in acct-b. */
+  const linkedPair = (): Transaction[] => [
+    baseTransaction({
+      id: 'src', accountId: 'acct-a', amount: -500, type: 'transfer',
+      category: 'tofrom-b', transferAccountId: 'acct-b', linkedTransferId: 'cp',
+      date: new Date('2026-06-10T00:00:00.000Z'), description: 'TRANSFER OUT'
+    }),
+    baseTransaction({
+      id: 'cp', accountId: 'acct-b', amount: 500, type: 'transfer',
+      category: 'tofrom-a', transferAccountId: 'acct-a', linkedTransferId: 'src',
+      date: new Date('2026-06-10T00:00:00.000Z'), description: 'TRANSFER OUT'
+    })
+  ];
+
+  const transferCategories: Category[] = [
+    { id: 'tofrom-a', name: 'To/From A', type: 'both', level: 'detail', isTransferCategory: true, accountId: 'acct-a' },
+    { id: 'tofrom-b', name: 'To/From B', type: 'both', level: 'detail', isTransferCategory: true, accountId: 'acct-b' },
+    { id: 'tofrom-c', name: 'To/From C', type: 'both', level: 'detail', isTransferCategory: true, accountId: 'acct-c' }
+  ];
+
+  const buildService = (storage: ReturnType<typeof createStorage>) =>
+    createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
+      uuid: vi.fn(() => 'generated-id'),
+      now: vi.fn(() => new Date('2026-06-11T00:00:00.000Z')),
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+      }
+    });
+
+  const withPair = (transactions: Transaction[] = linkedPair()) => createStorage({
+    [STORAGE_KEYS.ACCOUNTS]: [
+      baseAccount({ id: 'acct-a', currency: 'GBP' }),
+      baseAccount({ id: 'acct-b', currency: 'GBP' }),
+      baseAccount({ id: 'acct-c', currency: 'GBP' })
+    ],
+    [STORAGE_KEYS.TRANSACTIONS]: transactions,
+    [STORAGE_KEYS.CATEGORIES]: transferCategories
+  });
+
+  it('moves the counterpart: same row, new account, both sides re-filed', async () => {
+    const storage = withPair();
+    const result = await buildService(storage).repointTransfer('src', 'acct-c');
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    const byId = new Map(stored.map(t => [t.id, t]));
+
+    // The SAME row moved — nothing was created and nothing removed.
+    expect(stored).toHaveLength(2);
+    expect(result.displaced).toEqual({ kind: 'moved', fromAccountId: 'acct-b' });
+    expect(byId.get('cp')?.accountId).toBe('acct-c');
+
+    // Each side's To/From names the OTHER account. This is the whole rule.
+    expect(byId.get('src')?.category).toBe('tofrom-c');
+    expect(byId.get('cp')?.category).toBe('tofrom-a');
+    expect(byId.get('src')?.transferAccountId).toBe('acct-c');
+    expect(byId.get('cp')?.transferAccountId).toBe('acct-a');
+
+    // The link is intact, both ways round.
+    expect(byId.get('src')?.linkedTransferId).toBe('cp');
+    expect(byId.get('cp')?.linkedTransferId).toBe('src');
+  });
+
+  it('leaves amounts and dates exactly as they were', async () => {
+    const storage = withPair();
+    await buildService(storage).repointTransfer('src', 'acct-c');
+
+    const byId = new Map((storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[]).map(t => [t.id, t]));
+    expect(byId.get('src')?.amount).toBe(-500);
+    expect(byId.get('cp')?.amount).toBe(500);
+    expect(byId.get('src')?.date).toEqual(new Date('2026-06-10T00:00:00.000Z'));
+    expect(byId.get('cp')?.date).toEqual(new Date('2026-06-10T00:00:00.000Z'));
+    expect(byId.get('cp')?.description).toBe('TRANSFER OUT');
+  });
+
+  it('takes the money with the row: the old account down by what the new one is up by', async () => {
+    const storage = withPair();
+    await buildService(storage).repointTransfer('src', 'acct-c');
+
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    const balance = (id: string): number => accounts.find(a => a.id === id)?.balance ?? NaN;
+    expect(balance('acct-b')).toBe(100 - 500);
+    expect(balance('acct-c')).toBe(100 + 500);
+    // The row being edited never moved, so its account never did either.
+    expect(balance('acct-a')).toBe(100);
+  });
+
+  it('re-files without moving money when the target has not changed', async () => {
+    // The case that makes it safe to send after the row's OWN account moved:
+    // the counterpart is already in the right place, only its category is stale.
+    const stale = linkedPair();
+    stale[0] = { ...stale[0], accountId: 'acct-c' };
+    const storage = withPair(stale);
+    await buildService(storage).repointTransfer('src', 'acct-b');
+
+    const byId = new Map((storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[]).map(t => [t.id, t]));
+    expect(byId.get('cp')?.category).toBe('tofrom-c');
+    expect(byId.get('cp')?.accountId).toBe('acct-b');
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.every(a => a.balance === 100)).toBe(true);
+  });
+
+  it('releases the displaced row where it is, and creates a fresh other side', async () => {
+    const storage = withPair();
+    const result = await buildService(storage).repointTransfer('src', 'acct-c', 'release');
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    const byId = new Map(stored.map(t => [t.id, t]));
+
+    // The real row stays put, stripped of everything that made it a transfer.
+    expect(byId.get('cp')).toMatchObject({
+      accountId: 'acct-b', amount: 500, category: '', type: 'income', needsReview: true
+    });
+    expect(byId.get('cp')?.linkedTransferId).toBeUndefined();
+    expect(byId.get('cp')?.transferAccountId).toBeUndefined();
+    expect(result.displaced.kind).toBe('released');
+
+    // A brand-new other side in the target, linked both ways.
+    expect(byId.get('generated-id')).toMatchObject({
+      accountId: 'acct-c', amount: 500, type: 'transfer', linkedTransferId: 'src'
+    });
+    expect(byId.get('src')?.linkedTransferId).toBe('generated-id');
+
+    // Balances: the released row did not move, so only the target changes.
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.find(a => a.id === 'acct-b')?.balance).toBe(100);
+    expect(accounts.find(a => a.id === 'acct-c')?.balance).toBe(600);
+  });
+
+  it('deletes the displaced row, reversing its account, and creates a fresh other side', async () => {
+    const storage = withPair();
+    const result = await buildService(storage).repointTransfer('src', 'acct-c', 'delete');
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored.find(t => t.id === 'cp')).toBeUndefined();
+    expect(result.displaced).toEqual({
+      kind: 'deleted', id: 'cp', accountId: 'acct-b', amount: 500
+    });
+
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.find(a => a.id === 'acct-b')?.balance).toBe(100 - 500);
+    expect(accounts.find(a => a.id === 'acct-c')?.balance).toBe(100 + 500);
+  });
+
+  it('refuses a row that is not half of a linked transfer, writing nothing', async () => {
+    const unlinked = [baseTransaction({ id: 'lone', accountId: 'acct-a', amount: -500 })];
+    const storage = withPair(unlinked);
+    await expect(buildService(storage).repointTransfer('lone', 'acct-c'))
+      .rejects.toThrow(/not half of a linked transfer/);
+    const accounts = storage.snapshot(STORAGE_KEYS.ACCOUNTS) as Account[];
+    expect(accounts.every(a => a.balance === 100)).toBe(true);
+  });
+
+  it('refuses a pair that no longer names each other', async () => {
+    const stale = linkedPair();
+    stale[1] = { ...stale[1], linkedTransferId: 'someone-else' };
+    const storage = withPair(stale);
+    await expect(buildService(storage).repointTransfer('src', 'acct-c'))
+      .rejects.toThrow(/not linked to each other any more/);
+  });
+
+  it('refuses to point a transfer at the account it already sits in', async () => {
+    const storage = withPair();
+    await expect(buildService(storage).repointTransfer('src', 'acct-a'))
+      .rejects.toThrow(/two different accounts/);
+  });
+
+  it('refuses when the other half is a split LINE', async () => {
+    const legPair = linkedPair();
+    legPair[0] = { ...legPair[0], linkedTransferSplitId: 'split-line-1' };
+    const storage = withPair(legPair);
+    await expect(buildService(storage).repointTransfer('src', 'acct-c'))
+      .rejects.toThrow(/one line of a split/);
+  });
+
+  it('refuses across currencies, writing nothing', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [
+        baseAccount({ id: 'acct-a', currency: 'GBP' }),
+        baseAccount({ id: 'acct-b', currency: 'GBP' }),
+        baseAccount({ id: 'acct-c', currency: 'USD' })
+      ],
+      [STORAGE_KEYS.TRANSACTIONS]: linkedPair(),
+      [STORAGE_KEYS.CATEGORIES]: transferCategories
+    });
+    await expect(buildService(storage).repointTransfer('src', 'acct-c'))
+      .rejects.toThrow(/different currencies.*GBP and USD/);
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored.find(t => t.id === 'cp')?.accountId).toBe('acct-b');
+  });
+});
+
+/**
+ * Deleting one leg of a transfer must leave the survivor UNLINKED.
+ *
+ * The cloud gets this from transactions_linked_transfer_id_fkey (ON DELETE SET
+ * NULL). Browser storage has to do it by hand, and until this was fixed it did
+ * not — the survivor kept a pointer to a row that no longer existed, so the
+ * editor went on refusing to move it and the register went on offering to jump
+ * to a transaction that was gone.
+ */
+describe('DataService deleteTransaction unlinks the survivor (local mode)', () => {
+  it('clears the dangling link and leaves everything else alone', async () => {
+    const storage = createStorage({
+      [STORAGE_KEYS.ACCOUNTS]: [baseAccount({ id: 'acct-a' }), baseAccount({ id: 'acct-b' })],
+      [STORAGE_KEYS.TRANSACTIONS]: [
+        baseTransaction({
+          id: 'src', accountId: 'acct-a', amount: -500, type: 'transfer',
+          category: 'tofrom-b', transferAccountId: 'acct-b', linkedTransferId: 'cp'
+        }),
+        baseTransaction({
+          id: 'cp', accountId: 'acct-b', amount: 500, type: 'transfer',
+          category: 'tofrom-a', transferAccountId: 'acct-a', linkedTransferId: 'src'
+        })
+      ],
+      [STORAGE_KEYS.CATEGORIES]: []
+    });
+    const service = createDataService({
+      isSupabaseConfigured: () => false,
+      storageAdapter: storage,
+      logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
+      uuid: vi.fn(() => 'generated-id'),
+      now: vi.fn(() => new Date('2026-06-11T00:00:00.000Z')),
+      userIdService: {
+        ensureUserExists: vi.fn(),
+        getCurrentDatabaseUserId: vi.fn(() => null),
+        getCurrentUserIds: vi.fn(() => ({ clerkId: null, databaseId: null }))
+      }
+    });
+
+    await service.deleteTransaction('cp');
+
+    const stored = storage.snapshot(STORAGE_KEYS.TRANSACTIONS) as Transaction[];
+    expect(stored).toHaveLength(1);
+    const survivor = stored[0];
+    expect(survivor.id).toBe('src');
+    // THE FIX: the link is gone, so the row is re-pointable again.
+    expect(survivor.linkedTransferId).toBeUndefined();
+    // …and nothing else is: it is an UNMATCHED leg, which is a real state with
+    // a repair flow, not something to re-type on the user's behalf.
+    expect(survivor.type).toBe('transfer');
+    expect(survivor.category).toBe('tofrom-b');
+    expect(survivor.transferAccountId).toBe('acct-b');
+    expect(survivor.amount).toBe(-500);
+  });
+});
+
 describe('DataService createTransferCounterpart currency guard (local mode)', () => {
   it('refuses to create the other side across currencies', async () => {
     const storage = createStorage({

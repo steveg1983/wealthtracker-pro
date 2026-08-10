@@ -56,6 +56,8 @@ import type {
   Goal,
   RecurringTransaction,
   SuggestionDismissal,
+  TransferDisplacedDisposition,
+  TransferRepointResult,
   AppState
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
@@ -294,6 +296,20 @@ export interface AppContextType extends AppState {
     id: string,
     targetAccountId: string
   ) => Promise<{ source: Transaction; counterpart: Transaction }>;
+  /**
+   * Point an EXISTING linked transfer at a different account, atomically: both
+   * sides are re-filed from the new pairing, and the counterpart it displaces
+   * is moved, released as a plain uncategorised row, or deleted — whichever the
+   * caller says. Amounts and dates are never touched.
+   *
+   * The only transfer operation that is not balance-neutral: a moved
+   * counterpart carries its amount out of one account and into the other.
+   */
+  repointTransfer: (
+    id: string,
+    targetAccountId: string,
+    disposition?: TransferDisplacedDisposition
+  ) => Promise<TransferRepointResult>;
   /**
    * Suggestions the user has told the sweeps to stop offering. Loaded on demand
    * (nothing outside the sweeps needs them, and the boot is already the slowest
@@ -1272,6 +1288,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const repointTransfer = useCallback(async (
+    id: string,
+    targetAccountId: string,
+    disposition: TransferDisplacedDisposition = 'move'
+  ) => {
+    try {
+      const result = await dataPort.repointTransfer(id, targetAccountId, disposition);
+      // State comes from the rows the store actually wrote — a re-point re-files
+      // BOTH categories, and guessing at that here is how a register ends up
+      // disagreeing with the ledger.
+      setTransactions(prev => {
+        const written = new Map<string, Transaction>([
+          [result.source.id, result.source],
+          [result.counterpart.id, result.counterpart],
+        ]);
+        if (result.displaced.kind === 'released') {
+          written.set(result.displaced.transaction.id, result.displaced.transaction);
+        }
+        const removedId = result.displaced.kind === 'deleted' ? result.displaced.id : null;
+        const next = prev
+          .filter(t => t.id !== removedId)
+          .map(t => written.get(t.id) ?? t);
+        // A counterpart that was CREATED (release/delete) is not in the list yet.
+        return next.some(t => t.id === result.counterpart.id)
+          ? next
+          : [...next, result.counterpart];
+      });
+
+      // Balances, mirrored from what the store did rather than re-derived from
+      // the disposition — Decimal arithmetic, same as every other write path.
+      // A 'moved' counterpart carries its amount out of one account and into
+      // the other; a 'released' one does not move at all, so only the account
+      // receiving the fresh counterpart changes.
+      const deltas = new Map<string, DecimalInstance>();
+      const add = (accountId: string, delta: DecimalInstance): void => {
+        if (!accountId) return;
+        deltas.set(accountId, (deltas.get(accountId) ?? toDecimal(0)).plus(delta));
+      };
+      const counterpartAmount = toDecimal(result.counterpart.amount);
+      if (result.displaced.kind === 'moved') {
+        if (result.displaced.fromAccountId !== result.counterpart.accountId) {
+          add(result.displaced.fromAccountId, counterpartAmount.negated());
+          add(result.counterpart.accountId, counterpartAmount);
+        }
+      } else {
+        add(result.counterpart.accountId, counterpartAmount);
+        if (result.displaced.kind === 'deleted') {
+          add(result.displaced.accountId, toDecimal(result.displaced.amount).negated());
+        }
+      }
+      if (deltas.size > 0) {
+        setAccounts(prev => prev.map(acc => {
+          const delta = deltas.get(acc.id);
+          return delta
+            ? { ...acc, balance: toDecimal(acc.balance || 0).plus(delta).toNumber() }
+            : acc;
+        }));
+      }
+      return result;
+    } catch (error) {
+      appLogger.error('Failed to repoint transfer', error);
+      throw error;
+    }
+  }, []);
+
   const refreshSuggestionDismissals = useCallback(async () => {
     setSuggestionDismissalsStatus('loading');
     try {
@@ -1322,7 +1403,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const transaction = transactions.find(t => t.id === id);
       await dataPort.deleteTransaction(id);
-      setTransactions(prev => prev.filter(t => t.id !== id));
+      setTransactions(prev => prev
+        .filter(t => t.id !== id)
+        // THE SURVIVOR IS UNLINKED, and this line is what makes that visible
+        // before the next boot. The store has already done it — the cloud via
+        // transactions_linked_transfer_id_fkey (ON DELETE SET NULL), browser
+        // storage by hand — but state kept the dangling pointer, and every
+        // screen reads state. That is the whole of the bug the owner hit:
+        // deleting a transfer's other half left the survivor still LOOKING
+        // linked, so the editor went on refusing to move it ("delete the
+        // transfer and recreate it") and the register went on offering to jump
+        // to a transaction that no longer existed. The only exit anybody found
+        // was to delete the survivor too.
+        //
+        // The link is all that goes. The row keeps its transfer type, its
+        // To/From category and its transferAccountId, because it is now an
+        // UNMATCHED leg — a real state with a repair flow — and re-typing it on
+        // the user's behalf would be inventing an answer only they can give.
+        .map(t => {
+          if (t.linkedTransferId !== id) return t;
+          const { linkedTransferId: _dangling, ...rest } = t;
+          return rest;
+        })
+      );
       // Its split lines cascade away in the DB (FK); mirror locally.
       setTransactionSplitsState(prev => prev.filter(s => s.transactionId !== id));
       // So do any dismissals that named it (trg_prune_suggestion_dismissals):
@@ -1929,6 +2032,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTransactionArchived,
     repairClaimedTransfer,
     createTransferCounterpart,
+    repointTransfer,
 
     // Sweep suggestions the user has refused for good
     suggestionDismissals,

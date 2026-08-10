@@ -99,6 +99,19 @@ type Database = {
         Args: { p_id: string; p_target_account_id: string; p_user_id: string };
         Returns: Record<string, unknown>;
       };
+      // Point an existing linked transfer at a different account (20260810140000).
+      // p_disposition is the fate of the counterpart being displaced —
+      // 'move' | 'release' | 'delete'; the function refuses anything else by
+      // name rather than defaulting, because guessing here moves money.
+      repoint_transfer: {
+        Args: {
+          p_id: string;
+          p_target_account_id: string;
+          p_disposition: string;
+          p_user_id: string;
+        };
+        Returns: Record<string, unknown>;
+      };
       clear_transfer_links: {
         Args: { p_ids: string[]; p_user_id: string };
         Returns: number;

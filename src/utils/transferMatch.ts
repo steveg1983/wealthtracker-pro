@@ -63,10 +63,15 @@ export function findTransferCandidates(
   return candidates;
 }
 
-/** The account-managed "To/From <account>" category, if the account has one. */
-export function transferCategoryFor(categories: Category[], accountId: string): Category | undefined {
-  return categories.find(c => c.isTransferCategory === true && c.accountId === accountId);
-}
+/**
+ * The account-managed "To/From <account>" category, if the account has one.
+ *
+ * Re-exported rather than defined here: the browser-storage write path needs
+ * the same lookup, and importing this module from there would drag
+ * duplicateScan's fuzzy matcher (used above, for description tie-breaking) into
+ * the entry chunk, where nothing runs it. One definition, in transferRepoint.
+ */
+export { transferCategoryFor } from './transferRepoint';
 
 /**
  * Would filing this transaction under `categoryId` make it a transfer to the

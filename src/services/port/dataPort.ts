@@ -83,7 +83,9 @@ import type {
   SuggestionDismissal,
   Transaction,
   TransactionSplit,
-  TransactionSplitInput
+  TransactionSplitInput,
+  TransferDisplacedDisposition,
+  TransferRepointResult
 } from '../../types';
 /**
  * The backup FILE format, imported rather than restated.
@@ -374,6 +376,28 @@ export interface DataPortTransactionWrites {
    * through here and none of them is a person reading a row.
    */
   updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction>;
+  /**
+   * Remove one row and reverse its account's balance.
+   *
+   * ── IT UNLINKS THE SURVIVOR ─────────────────────────────────────────────
+   *
+   * Deleting one half of a linked transfer leaves the OTHER half in place — the
+   * movement is not undone, only half of it is (see describeDeleteStranding,
+   * which is what the confirmation says out loud). What must not survive is the
+   * LINK: a row pointing at an id that no longer exists is a row every screen
+   * still treats as half of a transfer, so the editor goes on refusing to move
+   * it and the register goes on offering to jump to a transaction that is gone.
+   *
+   * Every engine therefore leaves the survivor unlinked, and states it here
+   * because it is not free anywhere: the cloud gets it from
+   * `transactions_linked_transfer_id_fkey`, which is ON DELETE SET NULL, and
+   * browser storage has to do it by hand.
+   *
+   * The survivor keeps its `type`, its To/From category and its
+   * `transferAccountId`: it is an UNMATCHED transfer leg, which is a real state
+   * the app has a name and a repair flow for, and re-typing it on the user's
+   * behalf would be inventing an answer to a question only they can settle.
+   */
   deleteTransaction(id: string): Promise<void>;
   /** Bulk reconciliation flag. Balance-neutral by definition. Returns rows touched. */
   setTransactionsCleared(ids: string[], cleared: boolean): Promise<number>;
@@ -585,6 +609,51 @@ export interface DataPortTransferWrites {
     id: string,
     targetAccountId: string
   ): Promise<{ source: Transaction; counterpart: Transaction }>;
+  /**
+   * Point an EXISTING linked transfer at a different account.
+   *
+   * ── WHAT IT PROMISES ────────────────────────────────────────────────────
+   *
+   * Afterwards the pair faces `targetAccountId` and is filed consistently in
+   * both directions: the edited row carries the target's "To/From" category and
+   * names it as its transfer account, and the counterpart — sitting in the
+   * target — carries the EDITED ROW'S account's "To/From" category and names
+   * that. The crossover rule is written down once, in
+   * src/utils/transferRepoint.ts, and every engine derives both sides from it
+   * rather than patching whichever one visibly changed.
+   *
+   * Amounts, dates, descriptions, notes, tags and reconciled state are never
+   * touched — a re-point is a change of address, not of fact.
+   *
+   * All-or-nothing in every implementation: the displaced row, the row that
+   * replaces it, both re-filings and every balance movement land together or
+   * none of them do. There is no half-repointed state to compensate for,
+   * because the intermediate state — a transfer with no other side — is a
+   * stranded leg that reads as a real payment in an account nobody is looking
+   * at, and one of those went unnoticed for years.
+   *
+   * `disposition` decides the fate of the counterpart being displaced; see
+   * {@link TransferDisplacedDisposition}. Defaults to `move`.
+   *
+   * IT IS SAFE TO CALL WHEN THE TARGET HAS NOT CHANGED. The counterpart is then
+   * already where it belongs, no balance moves, and the operation is purely a
+   * re-file — which is what makes it the right thing to send when the row's OWN
+   * account moved instead, and the counterpart's category has gone stale as a
+   * result.
+   *
+   * IT REJECTS when the row is not half of a linked pair, when the two rows do
+   * not name each other (a stale list), when the target is the row's own
+   * account, when either side is a split parent or the opposite half of a split
+   * LINE (that link lives on the line and must be unpicked in the split), when
+   * either row is archived, and when the two accounts hold different currencies
+   * — the counterpart's amount is the source's negated with no conversion, the
+   * same guard `createTransferCounterpart` applies.
+   */
+  repointTransfer(
+    id: string,
+    targetAccountId: string,
+    disposition?: TransferDisplacedDisposition
+  ): Promise<TransferRepointResult>;
 }
 
 export interface DataPortSplitWrites {

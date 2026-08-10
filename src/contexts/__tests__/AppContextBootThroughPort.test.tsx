@@ -275,6 +275,7 @@ vi.mock('../../services/port', () => {
     unlinkTransfers: refuse('unlinkTransfers'),
     repairClaimedTransfer: refuse('repairClaimedTransfer'),
     createTransferCounterpart: refuse('createTransferCounterpart'),
+    repointTransfer: refuse('repointTransfer'),
     setTransactionSplits: refuse('setTransactionSplits'),
     createBudget: refuse('createBudget'),
     updateBudget: refuse('updateBudget'),

@@ -166,6 +166,7 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   'unlinkTransfers',
   'repairClaimedTransfer',
   'createTransferCounterpart',
+  'repointTransfer',
   // Split writes
   'setTransactionSplits',
   // Planning writes
@@ -922,6 +923,54 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // The source account does not move: its row was already counted.
         expect(balanceOf(state, ACCOUNT_A)).toBe(-70.1);
         expect(balanceOf(state, ACCOUNT_B)).toBe(0.3);
+      });
+
+      it('carries the money with the row when a transfer is re-pointed', async () => {
+        // A re-point is the ONE transfer operation that is not balance-neutral:
+        // the counterpart changes address, so the account it left must be down
+        // by exactly what the account it joined is up by. The figures are
+        // chosen so a float would get the subtraction wrong.
+        const { port, read } = await harness.create({
+          accounts: openWith(-70.1, 0.1),
+          transactions: [aTransaction('txn-1', { amount: -0.2 })]
+        });
+        await port.createTransferCounterpart('txn-1', ACCOUNT_B);
+
+        const result = await port.repointTransfer('txn-1', ACCOUNT_C);
+
+        // The same row moved, and the pair still names each other.
+        expect(result.displaced).toEqual({ kind: 'moved', fromAccountId: ACCOUNT_B });
+        expect(result.counterpart.accountId).toBe(ACCOUNT_C);
+        expect(result.counterpart.amount).toBe(0.2);
+        expect(result.counterpart.linkedTransferId).toBe('txn-1');
+        expect(result.source.linkedTransferId).toBe(result.counterpart.id);
+        expect(result.source.transferAccountId).toBe(ACCOUNT_C);
+
+        const state = await read();
+        expect(balanceOf(state, ACCOUNT_A)).toBe(-70.1);   // never moved
+        expect(balanceOf(state, ACCOUNT_B)).toBe(0.1);     // 0.3 − 0.2
+        expect(balanceOf(state, ACCOUNT_C)).toBe(0.2);
+      });
+
+      it('leaves the survivor of a deleted transfer leg unlinked', async () => {
+        // Stated as a contract because it is not free anywhere: the cloud gets
+        // it from transactions_linked_transfer_id_fkey (ON DELETE SET NULL) and
+        // browser storage has to do it by hand. A dangling link is a row every
+        // screen still treats as half of a pair — the editor refuses to move
+        // it, and the register offers to jump to a transaction that is gone.
+        const { port, read } = await harness.create({
+          accounts: openWith(-70.1, 0.1),
+          transactions: [aTransaction('txn-1', { amount: -0.2 })]
+        });
+        const { counterpart } = await port.createTransferCounterpart('txn-1', ACCOUNT_B);
+
+        await port.deleteTransaction(counterpart.id);
+
+        const survivor = (await read()).transactions.find(t => t.id === 'txn-1');
+        expect(survivor?.linkedTransferId).toBeFalsy();
+        // The rest of the leg is left alone: it is UNMATCHED, not un-typed.
+        expect(survivor?.type).toBe('transfer');
+        expect(survivor?.transferAccountId).toBe(ACCOUNT_B);
       });
 
       it('moves the balance when a split changes the transaction total', async () => {

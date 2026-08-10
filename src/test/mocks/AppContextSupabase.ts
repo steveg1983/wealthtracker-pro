@@ -87,6 +87,7 @@ const baseValue = {
   setTransactionArchived: asyncNoop,
   repairClaimedTransfer: asyncNoop,
   createTransferCounterpart: async () => { throw new Error('not available in mock'); },
+  repointTransfer: async () => { throw new Error('not available in mock'); },
   // Typed so a test can override with real dismissals; 'ready' by default
   // because the surfaces hold their lists back until the filter has run, and a
   // test that says nothing about dismissals means "nothing is dismissed".
