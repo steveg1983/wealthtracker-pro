@@ -440,7 +440,7 @@ describe('Accounts page — no account type vanishes', () => {
 /**
  * Closed accounts are the archive (the Microsoft Money model: closing hides an
  * account and keeps its history, never deletes it). They load from
- * DataService.getClosedAccounts — NOT the app-context accounts list, which
+ * DataService.listClosedAccounts — NOT the app-context accounts list, which
  * carries only the open ones — so the synthetic closed accounts are injected by
  * spying on that call rather than through __setAppContextValue. They used to
  * arrive in no order at all; now they group exactly like the open list (by
@@ -469,7 +469,7 @@ describe('Accounts page — closed accounts ordering', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue(closed);
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue(closed);
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -593,7 +593,7 @@ describe('Accounts page — closed account settings', () => {
   beforeEach(() => {
     localStorage.clear();
     updateAccount.mockClear();
-    vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue(closed);
+    vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue(closed);
     __setAppContextValue({ updateAccount });
   });
   afterEach(() => {
@@ -648,7 +648,7 @@ describe('Accounts page — closed account settings', () => {
     });
     // …and the closed list is re-pulled, so the row shows the new name at once.
     await waitFor(() => {
-      expect(DataService.getClosedAccounts).toHaveBeenCalledTimes(2);
+      expect(DataService.listClosedAccounts).toHaveBeenCalledTimes(2);
     });
   });
 

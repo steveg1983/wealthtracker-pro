@@ -19,7 +19,7 @@ export function useAccountNames(): (id: string) => string {
 
   useEffect(() => {
     let cancelled = false;
-    dataPort.getClosedAccounts()
+    dataPort.listClosedAccounts()
       .then(list => { if (!cancelled) setClosed(list); })
       .catch(() => { /* names fall back to "Unknown account"; nothing breaks */ });
     return () => { cancelled = true; };

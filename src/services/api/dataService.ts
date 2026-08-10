@@ -332,7 +332,7 @@ class DataServiceImpl implements DataPort {
   }
 
   /**
-   * The boot's transaction read. Unlike getTransactions (used by the bank-sync
+   * The boot's transaction read. Unlike listTransactions (used by the bank-sync
    * and real-time refreshes, which always want a straight re-pull) this goes
    * through the local snapshot + delta path, and reports which it used.
    *
@@ -405,7 +405,7 @@ class DataServiceImpl implements DataPort {
     }
   }
 
-  async getAccounts(): Promise<Account[]> {
+  async listAccounts(): Promise<Account[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.accountService.getAccounts(userId);
@@ -415,7 +415,7 @@ class DataServiceImpl implements DataPort {
   }
 
   /** Closed accounts for the Accounts page's Closed Accounts section. */
-  async getClosedAccounts(): Promise<Account[]> {
+  async listClosedAccounts(): Promise<Account[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.accountService.getClosedAccounts(userId);
@@ -469,7 +469,7 @@ class DataServiceImpl implements DataPort {
     return accounts[index];
   }
 
-  async deleteAccount(id: string): Promise<void> {
+  async closeAccount(id: string): Promise<void> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.accountService.deleteAccount(id, userId);
@@ -485,7 +485,7 @@ class DataServiceImpl implements DataPort {
     await this.persistCollection(STORAGE_KEYS.ACCOUNTS, updated);
   }
 
-  async getTransactions(): Promise<Transaction[]> {
+  async listTransactions(): Promise<Transaction[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.transactionService.getTransactions(userId);
@@ -1127,7 +1127,7 @@ class DataServiceImpl implements DataPort {
   }
 
   /** Every split line of the user's transactions (for category aggregation). */
-  async getAllTransactionSplits(): Promise<TransactionSplit[]> {
+  async listTransactionSplits(): Promise<TransactionSplit[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.transactionService.getAllTransactionSplits(userId);
@@ -1138,7 +1138,7 @@ class DataServiceImpl implements DataPort {
   }
 
   /** Splits for one transaction, in display order (empty when not split). */
-  async getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
+  async listTransactionSplitsFor(transactionId: string): Promise<TransactionSplit[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.transactionService.getTransactionSplits(transactionId);
@@ -1919,7 +1919,7 @@ class DataServiceImpl implements DataPort {
    * like the cloud: refuse a suggestion, close the sweep, re-open it, and the
    * suggestion is still gone.
    */
-  async getSuggestionDismissals(): Promise<SuggestionDismissal[]> {
+  async listSuggestionDismissals(): Promise<SuggestionDismissal[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker()) {
       return this.suggestionDismissalService.list(userId);
@@ -1993,7 +1993,7 @@ class DataServiceImpl implements DataPort {
    *
    * PlanningService owns the cloud query and this class owns the browser-local
    * collection, so the seam's answer is one branch over the other — the shape
-   * `getAccounts` above already has.
+   * `listAccounts` above already has.
    *
    * THE ID IS RESOLVED HERE AND ONLY PASSED ON WHEN IT IS REAL.
    * `PlanningService.getBudgets(null)` does not fail and does not complain: it
@@ -2009,7 +2009,7 @@ class DataServiceImpl implements DataPort {
    * exception — see `prepareCategories`, which explains why names are not
    * money.)
    */
-  async getBudgets(): Promise<Budget[]> {
+  async listBudgets(): Promise<Budget[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker() && this.planningService.getBudgets) {
       return this.planningService.getBudgets(userId);
@@ -2021,7 +2021,7 @@ class DataServiceImpl implements DataPort {
   /**
    * Create a budget.
    *
-   * The branch is the one `getBudgets` above uses, and for the same reason —
+   * The branch is the one `listBudgets` above uses, and for the same reason —
    * but a write is where getting the owner wrong stops being a wrong answer on
    * screen and becomes a lost budget: `PlanningService.createBudget(null, …)`
    * writes BROWSER storage and returns an ordinary Budget, so a signed-in
@@ -2130,8 +2130,8 @@ class DataServiceImpl implements DataPort {
     );
   }
 
-  /** The owner's goals. Same branch, same null rule, as `getBudgets` above. */
-  async getGoals(): Promise<Goal[]> {
+  /** The owner's goals. Same branch, same null rule, as `listBudgets` above. */
+  async listGoals(): Promise<Goal[]> {
     const userId = this.userIdService.getCurrentDatabaseUserId();
     if (userId && this.supabaseChecker() && this.planningService.getGoals) {
       return this.planningService.getGoals(userId);
@@ -2436,7 +2436,7 @@ class DataServiceImpl implements DataPort {
    * one stays local-only and gated because it answers "what is in the browser's
    * copy", which is a question the cloud has no part in.
    */
-  async getCategories(): Promise<Category[]> {
+  async listCategories(): Promise<Category[]> {
     if (this.isCloudSessionPending()) return [];
     return this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
   }
@@ -2581,12 +2581,12 @@ export class DataService {
     return this.service.initialize(clerkId, email, firstName, lastName);
   }
 
-  static getClosedAccounts(): Promise<Account[]> {
-    return this.service.getClosedAccounts();
+  static listClosedAccounts(): Promise<Account[]> {
+    return this.service.listClosedAccounts();
   }
 
-  static getAccounts(): Promise<Account[]> {
-    return this.service.getAccounts();
+  static listAccounts(): Promise<Account[]> {
+    return this.service.listAccounts();
   }
 
   static createAccount(account: Omit<Account, 'id'>): Promise<Account> {
@@ -2597,12 +2597,12 @@ export class DataService {
     return this.service.updateAccount(id, updates);
   }
 
-  static deleteAccount(id: string): Promise<void> {
-    return this.service.deleteAccount(id);
+  static closeAccount(id: string): Promise<void> {
+    return this.service.closeAccount(id);
   }
 
-  static getTransactions(): Promise<Transaction[]> {
-    return this.service.getTransactions();
+  static listTransactions(): Promise<Transaction[]> {
+    return this.service.listTransactions();
   }
 
   static loadBootTransactions(): Promise<BootTransactionsResult> {
@@ -2686,8 +2686,8 @@ export class DataService {
     return this.service.unarchiveAccount(accountId);
   }
 
-  static getAllTransactionSplits(): Promise<TransactionSplit[]> {
-    return this.service.getAllTransactionSplits();
+  static listTransactionSplits(): Promise<TransactionSplit[]> {
+    return this.service.listTransactionSplits();
   }
 
   static linkTransferPair(idA: string, idB: string): Promise<{ a: Transaction; b: Transaction }> {
@@ -2727,8 +2727,8 @@ export class DataService {
     return this.service.createTransferCounterpart(id, targetAccountId);
   }
 
-  static getTransactionSplits(transactionId: string): Promise<TransactionSplit[]> {
-    return this.service.getTransactionSplits(transactionId);
+  static listTransactionSplitsFor(transactionId: string): Promise<TransactionSplit[]> {
+    return this.service.listTransactionSplitsFor(transactionId);
   }
 
   static setTransactionSplits(
@@ -2743,8 +2743,8 @@ export class DataService {
     return this.service.mergeCategories(sourceId, targetId);
   }
 
-  static getSuggestionDismissals(): Promise<SuggestionDismissal[]> {
-    return this.service.getSuggestionDismissals();
+  static listSuggestionDismissals(): Promise<SuggestionDismissal[]> {
+    return this.service.listSuggestionDismissals();
   }
 
   static dismissSuggestion(
@@ -2759,8 +2759,8 @@ export class DataService {
     return this.service.restoreSuggestion(kind, subjectKey);
   }
 
-  static getBudgets(): Promise<Budget[]> {
-    return this.service.getBudgets();
+  static listBudgets(): Promise<Budget[]> {
+    return this.service.listBudgets();
   }
 
   static createBudget(budget: Omit<Budget, 'id' | 'spent'>): Promise<Budget> {
@@ -2775,8 +2775,8 @@ export class DataService {
     return this.service.deleteBudget(id);
   }
 
-  static getGoals(): Promise<Goal[]> {
-    return this.service.getGoals();
+  static listGoals(): Promise<Goal[]> {
+    return this.service.listGoals();
   }
 
   static createGoal(goal: Omit<Goal, 'id' | 'progress'>): Promise<Goal> {
@@ -2811,8 +2811,8 @@ export class DataService {
     return this.service.deleteUnusedCategories(ids);
   }
 
-  static getCategories(): Promise<Category[]> {
-    return this.service.getCategories();
+  static listCategories(): Promise<Category[]> {
+    return this.service.listCategories();
   }
 
   static prepareCategories(): Promise<Category[]> {

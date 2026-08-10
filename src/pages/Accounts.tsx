@@ -70,7 +70,7 @@ function readStoredGrouping(): AccountGroupingOptions {
 }
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, transactions, serverBalances, updateAccount, deleteAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
+  const { accounts, transactions, serverBalances, updateAccount, closeAccount, refreshAccountsAndTransactions, refreshCategories } = useApp();
   const { showError } = useToast();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
@@ -168,7 +168,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
   const loadClosedAccounts = useCallback(async () => {
     try {
-      setClosedAccounts(await dataPort.getClosedAccounts());
+      setClosedAccounts(await dataPort.listClosedAccounts());
     } catch {
       // Non-fatal: the section simply shows empty; a retry happens on next open.
       setClosedAccounts([]);
@@ -342,7 +342,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     if (window.confirm('Close this account? It moves to the Closed Accounts section — every transaction is preserved and you can reopen it at any time. Its transfer category is hidden from transaction dropdowns while closed.')) {
       void (async () => {
         try {
-          await deleteAccount(accountId);
+          await closeAccount(accountId);
           // The DB trigger deactivated the account's transfer category —
           // refresh categories so it leaves dropdowns without a reload.
           await refreshCategories();

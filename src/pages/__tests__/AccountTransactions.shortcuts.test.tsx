@@ -214,11 +214,11 @@ beforeEach(() => {
     setTransactionsCleared,
     setTransactionArchived,
   });
-  vi.spyOn(DataService, 'getClosedAccounts').mockResolvedValue([]);
+  vi.spyOn(DataService, 'listClosedAccounts').mockResolvedValue([]);
 });
 
 afterEach(() => {
-  vi.mocked(DataService.getClosedAccounts).mockRestore();
+  vi.mocked(DataService.listClosedAccounts).mockRestore();
   __resetAppContextValue();
 });
 

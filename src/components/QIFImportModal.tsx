@@ -46,8 +46,6 @@ type ImportOutcome =
       invalidDates: number;
       matchedCategories: number;
       unmatchedCategories: { name: string; count: number }[];
-      /** False when a chunk failed partway — imported < intended. */
-      complete: boolean;
       account: Account | null;
     }
   | {
@@ -219,6 +217,12 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
       // register shows what was actually written, including after a partial.
       await refreshAccountsAndTransactions();
 
+      // A partial import is a FAILURE on this screen, not a qualified success:
+      // whatever landed is already in the register (the refresh above put it
+      // there), so what the user needs is the number that did not. Everything
+      // past this line therefore describes a whole file — which is why the
+      // outcome below has no "complete" flag of its own to carry a value it
+      // could only ever hold.
       if (!outcome.complete) {
         throw new Error(
           `Imported ${outcome.inserted} of ${outcome.total} transactions before an error stopped the import.`
@@ -236,7 +240,6 @@ export default function QIFImportModal({ isOpen, onClose, initialFile }: QIFImpo
         invalidDates: result.invalidDates,
         matchedCategories: result.matchedCategories,
         unmatchedCategories: result.unmatchedCategories,
-        complete: outcome.complete,
         account
       });
     } catch (error) {

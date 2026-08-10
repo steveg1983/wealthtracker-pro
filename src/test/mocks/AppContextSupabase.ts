@@ -70,7 +70,7 @@ const baseValue = {
   }),
   addAccount: noop,
   updateAccount: noop,
-  deleteAccount: noop,
+  closeAccount: noop,
   addTransaction: noop,
   updateTransaction: noop,
   deleteTransaction: noop,

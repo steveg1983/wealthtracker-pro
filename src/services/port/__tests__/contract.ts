@@ -131,21 +131,21 @@ export interface DataPortContractHarness {
  */
 export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   // Reads
-  'getAccounts',
-  'getClosedAccounts',
-  'getTransactions',
+  'listAccounts',
+  'listClosedAccounts',
+  'listTransactions',
   'loadBootTransactions',
   'getAccountBalances',
-  'getAllTransactionSplits',
-  'getTransactionSplits',
-  'getBudgets',
-  'getGoals',
-  'getCategories',
-  'getSuggestionDismissals',
+  'listTransactionSplits',
+  'listTransactionSplitsFor',
+  'listBudgets',
+  'listGoals',
+  'listCategories',
+  'listSuggestionDismissals',
   // Account writes
   'createAccount',
   'updateAccount',
-  'deleteAccount',
+  'closeAccount',
   // Transaction writes
   'createTransaction',
   'updateTransaction',
@@ -703,7 +703,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         });
         expect(stored.id).toBeTruthy();
 
-        const listed = await port.getAccounts();
+        const listed = await port.listAccounts();
         expect(listed.find(account => account.id === stored.id)).toMatchObject({
           lowBalanceAlertEnabled: true,
           accountNumber: '12345678',
@@ -789,13 +789,13 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           transactions: [aTransaction('txn-1')]
         });
 
-        await port.deleteAccount(ACCOUNT_A);
+        await port.closeAccount(ACCOUNT_A);
 
         const state = await read();
         expect(state.accounts.find(account => account.id === ACCOUNT_A)?.isActive).toBe(false);
         expect(transactionOf(state, 'txn-1')).toBeDefined();
 
-        const closed = await port.getClosedAccounts();
+        const closed = await port.listClosedAccounts();
         expect(closed.map(account => account.id)).toContain(ACCOUNT_A);
       });
     });
@@ -1200,7 +1200,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           .forEach(transaction => {
             expect(preparedIds.has(transaction.category)).toBe(true);
           });
-        expect((await port.getCategories()).map(category => category.id).sort())
+        expect((await port.listCategories()).map(category => category.id).sort())
           .toEqual([...preparedIds].sort());
       });
     });
@@ -1225,10 +1225,10 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           goals: [aGoal('goal-theirs', 'Someone else’s holiday', 900)]
         });
 
-        expect((await mine.port.getBudgets()).map(budget => budget.id)).toEqual(['budget-mine']);
-        expect((await mine.port.getGoals()).map(goal => goal.id)).toEqual(['goal-mine']);
-        expect((await theirs.port.getBudgets()).map(budget => budget.id)).toEqual(['budget-theirs']);
-        expect((await theirs.port.getGoals()).map(goal => goal.id)).toEqual(['goal-theirs']);
+        expect((await mine.port.listBudgets()).map(budget => budget.id)).toEqual(['budget-mine']);
+        expect((await mine.port.listGoals()).map(goal => goal.id)).toEqual(['goal-mine']);
+        expect((await theirs.port.listBudgets()).map(budget => budget.id)).toEqual(['budget-theirs']);
+        expect((await theirs.port.listGoals()).map(goal => goal.id)).toEqual(['goal-theirs']);
       });
 
       it('hands back the amounts it was given, to the penny', async () => {
@@ -1241,8 +1241,8 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           goals: [aGoal('goal-1', 'Rainy day', 0.3)]
         });
 
-        expect((await port.getBudgets())[0].amount).toBe(70.1);
-        expect((await port.getGoals())[0].targetAmount).toBe(0.3);
+        expect((await port.listBudgets())[0].amount).toBe(70.1);
+        expect((await port.listGoals())[0].targetAmount).toBe(0.3);
       });
     });
 
@@ -1261,7 +1261,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         expect(created.id).toBeTruthy();
         expect(created.amount).toBe(70.1);
         expect(created.spent).toBe(0);
-        expect((await port.getBudgets()).map(budget => [budget.id, budget.amount]))
+        expect((await port.listBudgets()).map(budget => [budget.id, budget.amount]))
           .toEqual([[created.id, 70.1]]);
 
         const edited = await port.updateBudget(created.id, { amount: 0.3 });
@@ -1269,7 +1269,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // The whole budget comes back, not just the field that moved: the
         // caller replaces its copy with this answer.
         expect(edited).toMatchObject({ id: created.id, categoryId: 'cat-everyday', amount: 0.3 });
-        expect((await port.getBudgets())[0].amount).toBe(0.3);
+        expect((await port.listBudgets())[0].amount).toBe(0.3);
       });
 
       it(`B-3: a budget is filed under ${OWNERSHIP[engine]}`, async () => {
@@ -1298,7 +1298,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect((await mine.read()).budgets.map(budget => budget.id)).toEqual([created.id]);
         expect((await theirs.read()).budgets).toEqual([]);
-        expect(await theirs.port.getBudgets()).toEqual([]);
+        expect(await theirs.port.listBudgets()).toEqual([]);
       });
 
       it('refuses to change a budget that is not there, and says which', async () => {
@@ -1364,7 +1364,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect(created.id).toBeTruthy();
         expect(created.targetAmount).toBe(1500.05);
-        expect((await port.getGoals()).map(goal => [goal.id, goal.targetAmount]))
+        expect((await port.listGoals()).map(goal => [goal.id, goal.targetAmount]))
           .toEqual([[created.id, 1500.05]]);
 
         const edited = await port.updateGoal(created.id, { targetAmount: 0.3 });
@@ -1372,7 +1372,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // The whole goal comes back, not just the field that moved: the caller
         // replaces its copy with this answer.
         expect(edited).toMatchObject({ id: created.id, name: 'New boiler', targetAmount: 0.3 });
-        expect((await port.getGoals())[0].targetAmount).toBe(0.3);
+        expect((await port.listGoals())[0].targetAmount).toBe(0.3);
       });
 
       it('starts a goal at the money already put by, not at zero', async () => {
@@ -1394,7 +1394,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         );
 
         expect(partway.progress).toBe(250.05);
-        const stored = (await port.getGoals()).find(goal => goal.id === partway.id);
+        const stored = (await port.listGoals()).find(goal => goal.id === partway.id);
         expect(stored?.progress).toBe(250.05);
       });
 
@@ -1422,7 +1422,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
         // And again, which is what a second click on a full goal produces.
         const again = await port.updateGoal(created.id, { progress: 1500, currentAmount: 1500 });
         expect(again.progress).toBe(1500);
-        expect((await port.getGoals())[0].progress).toBe(1500);
+        expect((await port.listGoals())[0].progress).toBe(1500);
       });
 
       it(`B-3 for goals: a goal is filed under ${OWNERSHIP[engine]}`, async () => {
@@ -1444,7 +1444,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect((await mine.read()).goals.map(goal => goal.id)).toEqual([created.id]);
         expect((await theirs.read()).goals).toEqual([]);
-        expect(await theirs.port.getGoals()).toEqual([]);
+        expect(await theirs.port.listGoals()).toEqual([]);
       });
 
       it('refuses to change a goal that is not there, and leaves the store exactly as it was', async () => {
@@ -1706,7 +1706,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
           ]
         });
 
-        const lines = await port.getTransactionSplits('txn-1');
+        const lines = await port.listTransactionSplitsFor('txn-1');
         expect(lines.map(line => line.id)).toEqual(['line-1', 'line-2']);
       });
 
@@ -2128,7 +2128,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         expect(second.id).toBe(first.id);
         expect((await read()).dismissals).toHaveLength(1);
-        expect(await port.getSuggestionDismissals()).toHaveLength(1);
+        expect(await port.listSuggestionDismissals()).toHaveLength(1);
       });
 
       it('forgets a refusal about a row that no longer exists', async () => {
@@ -2170,7 +2170,7 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         await port.restoreSuggestion('duplicate', 'subject-key');
 
-        expect(await port.getSuggestionDismissals()).toHaveLength(0);
+        expect(await port.listSuggestionDismissals()).toHaveLength(0);
       });
     });
 
