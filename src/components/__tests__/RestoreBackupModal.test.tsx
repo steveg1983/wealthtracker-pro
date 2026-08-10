@@ -9,20 +9,56 @@
  * between, to the one door it knocks on now. That is what makes the suite
  * evidence that the routing changed nothing the user can see.
  *
- * STILL THE PAGE'S OWN, and mocked as such: only the identity that decides
- * whether the copy says "login" or "device" (slice 11). No data operation on
- * this screen picks an engine any more.
+ * STILL THE PAGE'S OWN, and mocked as such: the two CAPABILITIES that decide
+ * whether the copy says "login" or "device", whether a failure can have left a
+ * half-filled target, and whether the target is nameable at all. It used to
+ * read a database id off DataService to answer those three — the app's last
+ * consumer of `getUserIds`, and a screen holding somebody's identity in order
+ * to choose a word. No data operation on this screen picks an engine any more,
+ * and now no part of it knows who is signed in.
  */
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { buildBackupBundle, type BackupBundle } from '../../services/backupService';
+import type { DataPortCapabilities } from '../../services/port';
+
+/** A device with nobody signed in — this suite's default target. */
+const DEVICE: DataPortCapabilities = {
+  edition: 'device',
+  session: 'anonymous',
+  realtime: false,
+  maxConcurrentWrites: 1,
+  backupTarget: 'device',
+};
+
+/** A resolved login: chunked restore, so a failure can leave it partly full. */
+const LOGIN: DataPortCapabilities = {
+  edition: 'cloud',
+  session: 'ready',
+  realtime: true,
+  maxConcurrentWrites: 8,
+  backupTarget: 'login',
+};
+
+/**
+ * Signing in, but not there yet. The state with the data loss behind it: the
+ * store is NOT a device, and a restore started here would pour the file into
+ * browser storage the signed-in app will never read again.
+ */
+const CONNECTING: DataPortCapabilities = {
+  edition: 'device',
+  session: 'connecting',
+  realtime: false,
+  maxConcurrentWrites: 1,
+  backupTarget: 'device',
+};
 
 const appValue = {
   refreshAccountsAndTransactions: vi.fn(async () => {}),
   refreshCategories: vi.fn(async () => {}),
-  isUsingSupabase: false,
+  capabilities: DEVICE,
 };
 
 vi.mock('../../contexts/AppContextSupabase', () => ({
@@ -31,14 +67,6 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
 
 vi.mock('../../services/transactionCache', () => ({
   transactionCache: { clear: vi.fn(async () => {}) },
-}));
-
-const userIds = vi.hoisted(() => ({
-  value: { clerkId: null as string | null, databaseId: null as string | null },
-}));
-
-vi.mock('../../services/api/dataService', () => ({
-  DataService: { getUserIds: () => userIds.value },
 }));
 
 /** The seam. One door, whichever store is behind it. */
@@ -95,8 +123,7 @@ const pickFile = async (bundle: BackupBundle, name = 'backup.json'): Promise<voi
 describe('RestoreBackupModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    userIds.value = { clerkId: null, databaseId: null };
-    appValue.isUsingSupabase = false;
+    appValue.capabilities = DEVICE;
     seam.financialDataIsEmpty.mockResolvedValue(true);
     seam.restoreBackup.mockResolvedValue({ ...outcome });
     seam.wipeAllFinancialData.mockResolvedValue(undefined);
@@ -261,7 +288,7 @@ describe('RestoreBackupModal', () => {
     });
 
     it('warns that a login is partly populated when a cloud restore fails halfway', async () => {
-      userIds.value = { clerkId: 'clerk_1', databaseId: 'db-user-1' };
+      appValue.capabilities = LOGIN;
       seam.restoreBackup.mockRejectedValue(new Error('duplicate key value violates unique constraint'));
       open();
       await pickFile(bundleWith());
@@ -275,8 +302,7 @@ describe('RestoreBackupModal', () => {
 
   describe('a session that has not resolved its login yet', () => {
     it('refuses the file rather than aiming a restore at the browser', async () => {
-      appValue.isUsingSupabase = true;
-      userIds.value = { clerkId: 'clerk_1', databaseId: null };
+      appValue.capabilities = CONNECTING;
       open();
       handOver(bundleWith());
 
@@ -295,7 +321,7 @@ describe('RestoreBackupModal', () => {
     });
 
     it('says nothing about them when the target is a login', async () => {
-      userIds.value = { clerkId: 'clerk_1', databaseId: 'db-user-1' };
+      appValue.capabilities = LOGIN;
       open();
       await pickFile(bundleWith({ investments: [{ id: 'inv-1', symbol: 'ABC' }] }));
 

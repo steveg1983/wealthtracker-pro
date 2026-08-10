@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useApp } from '../contexts/AppContextSupabase';
-import { DataService } from '../services/api/dataService';
 import { dataPort } from '../services/port';
 import type { BackupRestoreOutcome } from '../services/port';
 import { transactionCache } from '../services/transactionCache';
@@ -82,7 +81,7 @@ const formatExportedAt = (iso: string): string => {
 };
 
 export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JSX.Element {
-  const { refreshAccountsAndTransactions, refreshCategories, isUsingSupabase } = useApp();
+  const { refreshAccountsAndTransactions, refreshCategories, capabilities } = useApp();
 
   const [phase, setPhase] = useState<Phase>('pick');
   const [fileName, setFileName] = useState('');
@@ -103,28 +102,25 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
   const [failure, setFailure] = useState<{ step: string; message: string; partiallyRestored: boolean } | null>(null);
 
   /**
-   * WHAT THIS IS STILL FOR, now that the seam resolves its own owner.
+   * WHAT THIS DIALOG STILL ASKS THE STORE, now that the seam resolves its own
+   * owner: three capability questions, and no identity at all.
    *
-   * WORDS, and one refusal — no data operation. This dialog is now the LAST
-   * consumer of `getUserIds` in the app, and all three of the things it reads
-   * from it are questions about this edition rather than about anybody's data:
-   * whether the copy says "login" or "device" throughout, whether a restore
-   * that failed halfway warns about a partly-populated store (a chunked cloud
-   * restore can be; one IndexedDB transaction cannot), and whether a signed-in
-   * session is still connecting and must be blocked from starting at all.
+   * It used to read `DataService.getUserIds()` — the app's last consumer of it,
+   * and the last place a screen held somebody's database id in order to decide
+   * anything. All three of the things it decided are properties of the STORE
+   * rather than facts about a person: where a backup goes, whether a failure
+   * can leave a half-filled target, and whether the target is nameable yet.
    *
-   * All three leave with `capabilities()`, and the method goes with them. The
-   * emptiness check, the wipe and the restore no longer touch it — `dataPort`
-   * answers those without being told whose data it is.
+   * `backupTarget` carries the first two. A restore aimed at a login is chunked
+   * and can therefore stop halfway; one aimed at a device is a single IndexedDB
+   * transaction and cannot. `session === 'connecting'` carries the third, and
+   * it is the one with the data loss behind it: a signed-in session whose
+   * database id has not resolved yet is NOT a device, and a restore started
+   * there would pour the file into browser storage the signed-in app will never
+   * read again.
    */
-  const databaseUserId = DataService.getUserIds().databaseId;
-  /**
-   * Which store this restore is aimed at. A signed-in session whose database id
-   * has not resolved yet is NOT local — restoring into browser storage there
-   * would put the file somewhere the app will never read it from again.
-   */
-  const isCloudRestore = Boolean(databaseUserId);
-  const cloudSessionPending = isUsingSupabase && !databaseUserId;
+  const isCloudRestore = capabilities.backupTarget === 'login';
+  const cloudSessionPending = capabilities.session === 'connecting';
   const targetName = isCloudRestore ? 'login' : 'device';
 
   const dateRange = useMemo(() => (bundle ? transactionDateRange(bundle) : null), [bundle]);
@@ -255,11 +251,11 @@ export default function RestoreBackupModal({ isOpen, onClose }: Props): React.JS
       setFailure({
         step,
         message,
-        partiallyRestored: Boolean(databaseUserId) && !(error instanceof LocalRestoreRefusedError),
+        partiallyRestored: isCloudRestore && !(error instanceof LocalRestoreRefusedError),
       });
       setPhase('failed');
     }
-  }, [bundle, databaseUserId, cloudSessionPending, refreshAccountsAndTransactions, refreshCategories]);
+  }, [bundle, isCloudRestore, cloudSessionPending, refreshAccountsAndTransactions, refreshCategories]);
 
   const percent = progress && progress.rowsTotal > 0
     ? Math.round((progress.rowsDone / progress.rowsTotal) * 100)

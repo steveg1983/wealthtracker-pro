@@ -30,8 +30,10 @@
  *     the account service the subscription used to come from.
  *
  * The data layer is stubbed the way the sibling suites stub it (in-memory
- * storage, local-only ids, no network). Only `isUsingSupabase` is forced on,
- * because that flag is the sole gate on the realtime block.
+ * storage, local-only ids, no network). Only the seam's `realtime` capability
+ * is forced on, because it is the sole gate on the realtime block — it was a
+ * boolean called `isUsingSupabase` when this suite was written, and the same
+ * predicate under a name that says what it governs now.
  */
 
 import React, { ReactNode } from 'react';
@@ -201,7 +203,17 @@ describe('the boot’s realtime subscription', () => {
     // The one gate on the realtime block. Forced rather than arranged, because
     // arranging it (a real database id + a configured client) would put the
     // rest of the boot on the network for no gain to what is under test.
-    vi.spyOn(DataService, 'isUsingSupabase').mockReturnValue(true);
+    //
+    // The whole descriptor is answered rather than just the gate: it is one
+    // object, the context reads other fields of it elsewhere in the same boot,
+    // and a stub that returned only `realtime` would be a shape no engine has.
+    vi.spyOn(DataService, 'capabilities').mockReturnValue({
+      edition: 'cloud',
+      session: 'ready',
+      realtime: true,
+      maxConcurrentWrites: 8,
+      backupTarget: 'login',
+    });
 
     vi.spyOn(DataService, 'subscribeToUpdates').mockImplementation(
       (callbacks): Unsubscribe => {

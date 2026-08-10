@@ -1,21 +1,27 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
- * AppContext with Supabase Integration
- * This version uses the DataService layer to work with either Supabase or localStorage
+ * The app's state, and the one door it reads and writes through.
+ *
+ * This file no longer names an engine. Every ledger operation goes through
+ * `dataPort` — the seam — and the last two questions it asked about the engine
+ * itself (how many writes may be in flight, and whether to open a realtime
+ * subscription) are answered by that seam's capability descriptor rather than
+ * by a Supabase client and a database id read from here. What is left of the
+ * old identity plumbing is one call: resolving the signed-in person's database
+ * id at boot, which is an AUTH concern rather than a data one.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { DataService } from '../services/api/dataService';
-// The boot's ledger reads go through the seam. `dataPort` IS the DataService
-// above, typed as the interface — no wrapper, no second copy, no extra bytes —
-// so this import is a statement about WHICH DOOR the boot uses, not about which
-// engine answers. That is what lets a local implementation be dropped in.
+// The ledger goes through the seam. `dataPort` IS the DataService singleton,
+// typed as the interface — no wrapper, no second copy, no extra bytes — so this
+// import is a statement about WHICH DOOR the app uses, not about which engine
+// answers. That is what lets a local implementation be dropped in.
 import { dataPort } from '../services/port';
+import type { DataPortCapabilities } from '../services/port';
 import AutoSyncService from '../services/autoSyncService';
 import { transactionCache } from '../services/transactionCache';
 import { userIdService } from '../services/userIdService';
-import { isSupabaseConfigured } from '../services/api/supabaseClient';
 import { goalAchievementService } from '../services/goalAchievementService';
 import { getDefaultCategories } from '../data/defaultCategories';
 // formatCurrency import removed - not used in this context
@@ -129,10 +135,24 @@ export interface AppContextType extends AppState {
   
   // Sync status
   isLoading: boolean;
-  isSyncing: boolean;
   lastSyncTime: Date | null;
   syncError: string | null;
-  isUsingSupabase: boolean;
+  /**
+   * What the store behind this app can do — the seam's own descriptor, surfaced
+   * here so a component can read it without importing the seam.
+   *
+   * It replaced `isUsingSupabase`, which was a boolean four unrelated questions
+   * were being answered from: how many writes may be in flight, whether to open
+   * a realtime subscription, where a backup goes, and whether a sentence says
+   * "login" or "device". Each of those is now a field that says what it governs
+   * (see DataPortCapabilities), which is what lets an engine that is neither of
+   * today's two answer them independently instead of being forced to claim it
+   * is Supabase.
+   *
+   * `edition` is WORDS ONLY and no code here may branch on it — a test greps
+   * for that. The routing questions are the other four fields.
+   */
+  capabilities: DataPortCapabilities;
   /**
    * Re-pull ONLY accounts + transactions from Supabase (e.g. after a bank sync).
    * Deliberately narrow — budgets/goals are a separate read, so a whole-app
@@ -329,14 +349,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const [isLoading, setIsLoading] = useState(true);
-  // Read-only on purpose: the whole-app refresh that used to flip this was
-  // unreachable and has been removed. The flag stays on the context surface
-  // (consumers still type against it) and is honestly always false.
-  const [isSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [isUsingSupabase, setIsUsingSupabase] = useState(false);
-  
+  /**
+   * What the store can do, asked ONCE PER BOOT and held in state.
+   *
+   * State rather than a call in the render body, because the answer changing is
+   * something React has to be told about: a sign-in that completes moves
+   * `session` from 'connecting' to 'ready' and `backupTarget` from 'device' to
+   * 'login', and a component that had merely called the seam during its last
+   * render would keep showing the old sentence until something unrelated
+   * re-rendered it.
+   *
+   * Seeded on the first render rather than defaulted, so the value is the
+   * store's own answer from the very first paint instead of a placeholder that
+   * happens to be wrong for a signed-in session. The re-ask sits in the boot's
+   * `finally`, which is what makes it once per boot on EVERY path — including
+   * the one where the boot failed, where the retired flag simply stayed false
+   * and left a signed-in app describing itself as a device.
+   */
+  const [capabilities, setCapabilities] =
+    useState<DataPortCapabilities>(() => dataPort.capabilities());
+
+
   // Refs to prevent duplicate updates and manage debouncing
   const lastUpdateRef = useRef<{ type: string; timestamp: number } | null>(null);
   const updateDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -397,7 +432,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // came up empty and stayed empty. A no-op outside demo mode.
         await initializeDemoData();
 
-        // Initialize DataService with user info
+        // Resolve who is signed in, then hand the seam its own chance to make
+        // sure they have a store to read.
         if (user) {
           appLogger.info('User found, initializing services');
           
@@ -533,7 +569,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setGoals(loadedGoals);
         markPhase('planning');
 
-        setIsUsingSupabase(DataService.isUsingSupabase());
         setLastSyncTime(new Date());
         // Settled long ago in practice (it started before the slowest phase) —
         // awaited only so the summary line below can report its timing.
@@ -562,8 +597,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ` (${txnSummary})`
         );
 
-        // Subscribe to real-time updates if using Supabase
-        if (DataService.isUsingSupabase() && user) {
+        // Subscribe to real-time updates — but only where there is something to
+        // hear from. `subscribeToUpdates` is safe to call either way (an engine
+        // with no other device hands back a no-op unsubscribe), so this gate is
+        // not protecting the call: it skips the MACHINERY around it — the
+        // debounce timer, the recent-local-write suppression window and the
+        // teardown bookkeeping below — all of which exist solely to cope with
+        // events that a store with no realtime will never send.
+        //
+        // It asks the seam what it can do rather than which product it is. The
+        // predicate is unchanged (`realtime` is the same "a database id is
+        // resolved AND a client is configured" the retired flag answered), but
+        // an engine that gains a sync peer without becoming a login can now say
+        // so, instead of having to claim it is Supabase to be heard.
+        if (dataPort.capabilities().realtime && user) {
           // Helper function to debounce updates
           const debouncedUpdate = (updateType: string, updateFn: () => Promise<void>) => {
             // Check if this is a duplicate update (within 1 second)
@@ -642,9 +689,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 // The retired call carried this login's Clerk id and re-resolved
                 // it to a database id on every event; the port reads the id the
                 // boot already resolved. Behind the gate this whole block sits
-                // behind — `isUsingSupabase()` is exactly "a database id is
-                // resolved AND Supabase is configured" — that id is warm, so on
-                // the path that matters the two agree.
+                // behind — `capabilities().realtime` is exactly "a database id
+                // is resolved AND Supabase is configured" — that id is warm, so
+                // on the path that matters the two agree.
                 //
                 // Where they stop agreeing is a DECLARED IMPROVEMENT rather than
                 // a preserved behaviour: if the id cache is cleared between the
@@ -712,6 +759,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         setSyncError('Failed to load data. Using offline mode.');
       } finally {
+        // ONE re-ask per boot, on every path.
+        //
+        // In the `finally` rather than beside the other post-load state,
+        // because a boot that threw is precisely when getting this wrong is
+        // worst: the login is resolved, the data read failed, and the retired
+        // flag — which was set only on the success path — left the app
+        // describing itself as a device. The Export page then offered "the only
+        // copy there is" to somebody whose data was in a database, and the
+        // restore dialog aimed at the wrong store.
+        setCapabilities(dataPort.capabilities());
         setIsLoading(false);
       }
     };
@@ -976,13 +1033,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return 0;
     }
 
-    // In the cloud each write is an independent RPC, so a handful in flight
-    // keeps a few thousand renames tolerable without opening a few thousand
-    // sockets. In local/demo mode every write re-reads and re-persists the
-    // WHOLE browser-local collection, so two in flight is a lost-update race —
-    // there the writes go strictly one at a time.
-    const isCloudSession = Boolean(userIdService.getCurrentDatabaseUserId()) && isSupabaseConfigured();
-    const BATCH_SIZE = isCloudSession ? 8 : 1;
+    // How many of these may be in flight at once is the STORE's answer, not
+    // this loop's. In the cloud each write is an independent RPC, so a handful
+    // in flight keeps a few thousand renames tolerable without opening a few
+    // thousand sockets; a store that re-reads and re-persists a whole
+    // collection per write has no such freedom, because two in flight is a
+    // lost-update race and the second silently overwrites the first.
+    //
+    // The reasoning is unchanged and the numbers are unchanged (8 and 1). What
+    // changed is who holds them: this file used to resolve a database id and
+    // check a Supabase client to work out which engine it was writing to — the
+    // last place in the context that named either — and an engine that is
+    // neither had no way to be safe here. Now it states its own limit.
+    const BATCH_SIZE = dataPort.capabilities().maxConcurrentWrites;
     const renamed = new Set<string>();
     let failures = 0;
 
@@ -1594,6 +1657,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.recurringTransactions) setRecurringTransactions(data.recurringTransactions);
   }, []);
 
+  /**
+   * The snapshot the Money migration offers to download before it replaces
+   * everything. Data only.
+   *
+   * DECLARED FORMAT CHANGE: two keys have gone from the file — `isSyncing`,
+   * which was always false, and `isUsingSupabase`, which was hardcoded TRUE and
+   * therefore a lie in every browser-storage session that ever downloaded one.
+   * Neither described the data beside it, and `importData` reads neither (it
+   * takes accounts, transactions, budgets, goals, categories, tags and
+   * recurring templates and ignores the rest), so an older file with the keys
+   * still restores exactly as it did. What is gone is a file claiming to know
+   * where its rows came from while getting it wrong.
+   *
+   * `isLoading: false` stays: it is honest — a snapshot is by definition taken
+   * once the data is loaded — and it is part of the shape older tooling reads.
+   */
   const exportData = useCallback((): string => {
     const data = {
       accounts,
@@ -1603,9 +1682,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       categories,
       tags,
       recurringTransactions,
-      isLoading: false,
-      isSyncing: false,
-      isUsingSupabase: true
+      isLoading: false
     };
     return JSON.stringify(data, null, 2);
   }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
@@ -1890,10 +1967,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Sync status
     isLoading,
-    isSyncing,
     lastSyncTime,
     syncError,
-    isUsingSupabase,
+    capabilities,
     refreshAccountsAndTransactions,
     refreshCategories,
     loadTestData

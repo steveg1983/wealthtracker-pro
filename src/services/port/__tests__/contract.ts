@@ -192,7 +192,9 @@ export const DATA_PORT_OPERATIONS: readonly (keyof DataPort)[] = [
   // Lifecycle
   'initialize',
   'prepareCategories',
-  'subscribeToUpdates'
+  'subscribeToUpdates',
+  // What the engine can do
+  'capabilities'
 ];
 
 // ── Declared divergences ────────────────────────────────────────────────────
@@ -613,6 +615,50 @@ export function runDataPortContract(name: string, harness: DataPortContractHarne
 
         const missing = DATA_PORT_OPERATIONS.filter(operation => typeof port[operation] !== 'function');
         expect(missing).toEqual([]);
+      });
+
+      it('describes what it can do, synchronously and completely', async () => {
+        // The capability descriptor is the one answer every OTHER answer in
+        // this suite is allowed to differ on — it is how an engine declares its
+        // own divergences instead of the app guessing them. So its shape is a
+        // contract in a way none of the data shapes are: a missing field is not
+        // a wrong number on a screen, it is `undefined` flowing into a batch
+        // size, a subscription gate, or the sentence that tells somebody
+        // whether the file they just downloaded is their only copy.
+        const { port } = await harness.create({ accounts: [] });
+
+        const capabilities = port.capabilities();
+
+        // Synchronous, and that is load-bearing rather than stylistic: every
+        // consumer is a render or the tick of a write. A promise here would put
+        // a loading state in front of a sentence.
+        expect(capabilities).not.toBeInstanceOf(Promise);
+
+        expect(Object.keys(capabilities).sort()).toEqual([
+          'backupTarget',
+          'edition',
+          'maxConcurrentWrites',
+          'realtime',
+          'session'
+        ]);
+        expect(['cloud', 'device']).toContain(capabilities.edition);
+        expect(['ready', 'connecting', 'anonymous']).toContain(capabilities.session);
+        expect(typeof capabilities.realtime).toBe('boolean');
+        expect(['login', 'device']).toContain(capabilities.backupTarget);
+
+        // AT LEAST ONE, ALWAYS. Callers divide work into batches of this
+        // number: a 0 is an infinite loop over somebody's transactions, and a
+        // fraction is a slice() that never advances. An engine that is unsure
+        // says 1 — one write at a time is slow, never wrong.
+        expect(Number.isInteger(capabilities.maxConcurrentWrites)).toBe(true);
+        expect(capabilities.maxConcurrentWrites).toBeGreaterThanOrEqual(1);
+
+        // A store whose owner has not resolved is not a login. Backups are the
+        // operation where naming the wrong store costs the most — the file is
+        // the only copy — so the implication is asserted rather than assumed.
+        if (capabilities.backupTarget === 'login') {
+          expect(capabilities.session).toBe('ready');
+        }
       });
     });
 

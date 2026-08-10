@@ -45,10 +45,11 @@
  * Bulk import has joined it (the CSV and OFX importers write through
  * `importTransactions`), and so have the backup, the emptiness check, the
  * restore, the wipe and the Microsoft Money migration. The capability
- * descriptor that will retire `isUsingSupabase` joins as its consumers are
- * routed through it in turn. The names here are today's names
- * deliberately: renaming and re-routing in one step would make a rename
- * indistinguishable from a behaviour change in review.
+ * descriptor has joined too, and with it went the last question the app asked
+ * about its engine BY NAME: nothing above this file says `isUsingSupabase` any
+ * more. The names here are today's names deliberately: renaming and re-routing
+ * in one step would make a rename indistinguishable from a behaviour change in
+ * review.
  */
 
 import type {
@@ -931,6 +932,111 @@ export interface DataPortLifecycle {
   }): () => void;
 }
 
+/**
+ * WHICH EDITION IS ANSWERING — for words, and for nothing else.
+ *
+ * The one field on this descriptor that exists purely so a screen can say
+ * "login" or "device" in a sentence a person reads. It is NOT a routing
+ * question and no production code may branch on it: every decision that used to
+ * be taken from `isUsingSupabase` is a named capability below, and each of those
+ * says what it actually governs (can this store push changes to me? how many
+ * writes may be in flight? where does a backup go?). The moment a caller writes
+ * `if (edition === 'cloud')` it has re-invented the flag this descriptor
+ * retired, and the next engine — one that is neither of these two — is back to
+ * being unrepresentable.
+ *
+ * That rule is enforced rather than requested: a test greps the source tree and
+ * fails on any production reference to `capabilities.edition` outside a JSX
+ * expression. Crude on purpose. A rule about where a word may appear is exactly
+ * the kind a grep can hold and a type cannot.
+ */
+export type Edition = 'cloud' | 'device';
+
+/**
+ * Whether this implementation knows WHOSE data it is holding, right now.
+ *
+ * - 'ready' — an owner is resolved; reads and writes land where they should.
+ * - 'connecting' — a sign-in is in progress and the owner has NOT resolved yet.
+ *   The dangerous state, and the reason this is on the descriptor at all: a
+ *   write attempted here has no owner to stamp, and an implementation that
+ *   quietly fell back to a device-local store would put a signed-in person's
+ *   data somewhere their app will never read again. Screens that start
+ *   irreversible work (a restore, a wipe) refuse while this is the answer.
+ * - 'anonymous' — nobody is signing in. Demo mode, a signed-out browser, a
+ *   device edition that has no logins at all. This is a perfectly good state to
+ *   work in, and is not a degraded 'ready'.
+ */
+export type SessionState = 'ready' | 'connecting' | 'anonymous';
+
+/**
+ * What this implementation can do, answered SYNCHRONOUSLY.
+ *
+ * Synchronous is a requirement rather than a convenience: every consumer is a
+ * render — copy on a card, a batch size chosen on the tick of a write, a gate
+ * on opening a subscription — and an async capability check would put a
+ * loading state in front of a sentence, or a promise in the middle of a for
+ * loop. An implementation that cannot answer these five without I/O is being
+ * asked the wrong question; each one is a property of the engine, not of the
+ * data in it.
+ *
+ * It is also a SNAPSHOT. Nothing here is a subscription: `session` in particular
+ * changes as a sign-in completes, and a caller that cached this descriptor at
+ * boot and read it an hour later would be reading history. Callers re-ask.
+ */
+export interface DataPortCapabilities {
+  /** WORDS ONLY. See {@link Edition} — no production code may branch on this. */
+  edition: Edition;
+  /** Whether an owner is resolved. See {@link SessionState}. */
+  session: SessionState;
+  /**
+   * Whether changes made somewhere else arrive here on their own.
+   *
+   * `subscribeToUpdates` is safe to call either way — an implementation with
+   * nothing to listen to hands back a no-op unsubscribe — so this is not a
+   * guard against calling it. It is what lets a caller skip the machinery
+   * AROUND a subscription (debounce timers, suppression windows, teardown
+   * bookkeeping) that exists solely to cope with events that will never arrive.
+   */
+  realtime: boolean;
+  /**
+   * How many writes a caller may have in flight at once, ALWAYS at least 1.
+   *
+   * Not a performance hint — a correctness one, and the number is the engine's
+   * to state because only the engine knows what its writes cost each other. In
+   * the cloud each write is an independent request that lands on its own row, so
+   * a handful at a time keeps a few thousand renames tolerable without opening a
+   * few thousand sockets. A store that re-reads and re-persists a whole
+   * collection per write has no such freedom: two in flight is a lost-update
+   * race, and the second write silently overwrites the first from a snapshot
+   * taken before it. So the safe answer is 1, and 1 is what every engine that is
+   * not sure must say.
+   */
+  maxConcurrentWrites: number;
+  /**
+   * Where a backup taken now would come FROM, and be restored INTO.
+   *
+   * 'login' means an account somewhere else holds the rows and a file is a
+   * second copy of them; 'device' means the file is the ONLY copy that exists,
+   * which is a materially different thing to tell somebody before they close the
+   * tab. The two screens that offer backups say exactly that, and this is what
+   * they say it from.
+   *
+   * 'login' implies `session === 'ready'`: a store whose owner has not resolved
+   * is not a login, and offering to read somebody's whole ledger out of one that
+   * cannot be named is how a backup ends up full of the wrong data. The contract
+   * suite asserts the implication.
+   */
+  backupTarget: 'login' | 'device';
+}
+
+export interface DataPortCapabilityDescriptor {
+  /**
+   * What this implementation can do. Cheap, synchronous, and safe to call in a
+   * render — see {@link DataPortCapabilities}.
+   */
+  capabilities(): DataPortCapabilities;
+}
+
 /** The whole seam as it stands. */
 export interface DataPort extends
   DataPortReads,
@@ -943,4 +1049,5 @@ export interface DataPort extends
   DataPortDismissalWrites,
   DataPortBackupLifecycle,
   DataPortMigration,
-  DataPortLifecycle {}
+  DataPortLifecycle,
+  DataPortCapabilityDescriptor {}

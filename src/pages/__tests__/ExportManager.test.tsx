@@ -90,7 +90,17 @@ const appValue = {
   transactionSplits: [],
   categories,
   budgets: [],
-  isUsingSupabase: false
+  // The seam's capability descriptor, as a device answers it. This page reads
+  // exactly one field of it, for one sentence of copy on the full-backup card;
+  // it is here because the page would throw without it, not because anything
+  // below asserts on it.
+  capabilities: {
+    edition: 'device' as const,
+    session: 'anonymous' as const,
+    realtime: false,
+    maxConcurrentWrites: 1,
+    backupTarget: 'device' as const
+  }
 };
 
 vi.mock('../../contexts/AppContextSupabase', () => ({
@@ -134,7 +144,13 @@ describe('Export Data page', () => {
   beforeEach(async () => {
     localStorage.clear();
     downloads.length = 0;
-    appValue.isUsingSupabase = false;
+    appValue.capabilities = {
+      edition: 'device',
+      session: 'anonymous',
+      realtime: false,
+      maxConcurrentWrites: 1,
+      backupTarget: 'device'
+    };
     seam.collectBackup.mockReset();
 
     // A fresh module graph per test, so each one gets the exportService

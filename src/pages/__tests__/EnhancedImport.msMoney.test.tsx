@@ -110,7 +110,15 @@ describe('EnhancedImport — where a Microsoft Money migration lands', () => {
     run.reports = [];
     run.outcome = null;
     seam.importMsMoney.mockResolvedValue(undefined);
-    __setAppContextValue({ isUsingSupabase: false });
+    __setAppContextValue({
+      capabilities: {
+        edition: 'device',
+        session: 'anonymous',
+        realtime: false,
+        maxConcurrentWrites: 1,
+        backupTarget: 'device',
+      },
+    });
   });
 
   afterEach(() => {
@@ -135,8 +143,17 @@ describe('EnhancedImport — where a Microsoft Money migration lands', () => {
     // The same call, under the condition the page used to branch on. Kept as a
     // separate test rather than deleted with the branch: the point of the slice
     // is that this makes no difference here, and a test that says so is how
-    // that stays true.
-    __setAppContextValue({ isUsingSupabase: true });
+    // that stays true. The condition is spelled as the seam's descriptor now —
+    // the flag it used to be read from is gone.
+    __setAppContextValue({
+      capabilities: {
+        edition: 'cloud',
+        session: 'ready',
+        realtime: true,
+        maxConcurrentWrites: 8,
+        backupTarget: 'login',
+      },
+    });
 
     renderPage();
     await runTheMigration();

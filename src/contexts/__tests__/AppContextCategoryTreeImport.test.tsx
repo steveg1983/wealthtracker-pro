@@ -45,7 +45,8 @@ import type {
 import type {
   AccountBalanceSnapshot,
   BootTransactionsResult,
-  DataPort
+  DataPort,
+  DataPortCapabilities
 } from '../../services/port/dataPort';
 import type { CategoryTreeGroup } from '../../utils/categoryTreeImport';
 
@@ -171,6 +172,15 @@ vi.mock('../../services/port', () => {
     },
     initialize: async (): Promise<void> => {},
     subscribeToUpdates: (): (() => void) => () => {},
+    // A device with nobody signed in: realtime off keeps the boot's
+    // subscription block shut, which is all this suite wants from it.
+    capabilities: (): DataPortCapabilities => ({
+      edition: 'device',
+      session: 'anonymous',
+      realtime: false,
+      maxConcurrentWrites: 1,
+      backupTarget: 'device',
+    }),
 
     // The operations under test.
     createCategories: async (categories: Array<Omit<Category, 'id'>>): Promise<Category[]> => {

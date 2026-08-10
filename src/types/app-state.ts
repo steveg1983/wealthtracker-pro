@@ -26,9 +26,13 @@ export interface AppState {
   investments?: Investment[]; // Optional for backward compatibility
 
   // State flags
+  //
+  // Two used to live here. `isSyncing` was read by nothing and set by nothing —
+  // a whole-app refresh that once flipped it had been removed — and
+  // `isUsingSupabase` was the app asking which product was behind its data,
+  // which the seam's capability descriptor now answers per question rather than
+  // as one boolean (see DataPortCapabilities).
   isLoading: boolean;
-  isSyncing: boolean;
-  isUsingSupabase: boolean;
 
   // Sync metadata
   lastSyncTime: Date | null;

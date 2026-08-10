@@ -7,6 +7,7 @@ import {
 } from '../../data/defaultTestData';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category, DismissalKind, SuggestionDismissal } from '../../types';
+import type { DataPortCapabilities } from '../../services/port';
 import type { TestDataSeedResult } from '../../utils/testDataset';
 import type {
   DecimalAccount,
@@ -24,6 +25,29 @@ const categories = getDefaultCategories();
 const noop = () => {};
 const asyncNoop = async () => {};
 
+/**
+ * The seam's capability descriptor, as a device answers it.
+ *
+ * Device rather than cloud on purpose: this stands in for the value the real
+ * context surfaces, and every suite that renders against this mock without
+ * saying otherwise used to read a boot flag that was plainly false. Keeping the
+ * default falsy-equivalent means a page's copy reads the same here as it did
+ * before the descriptor existed, and the two suites that care about the other
+ * edition say so explicitly (`__setAppContextValue({ capabilities: … })`).
+ *
+ * Present at all because of what happens when it is not: every consumer reads
+ * `capabilities.session` / `.backupTarget` on its FIRST render, and an
+ * undefined descriptor is not a wrong answer on screen — it is a TypeError
+ * thrown out of a component that has nothing to do with capabilities.
+ */
+const deviceCapabilities: DataPortCapabilities = {
+  edition: 'device',
+  session: 'anonymous',
+  realtime: false,
+  maxConcurrentWrites: 1,
+  backupTarget: 'device',
+};
+
 const baseValue = {
   accounts,
   transactions,
@@ -32,6 +56,7 @@ const baseValue = {
   goals,
   tags: [],
   isLoading: false,
+  capabilities: deviceCapabilities,
   resetLoadedData: asyncNoop,
   exportData: () => JSON.stringify({ accounts, transactions, budgets, goals, categories }),
   // Async and counting, like the real thing: callers await it and read the

@@ -76,7 +76,15 @@ describe('Delete All Data — while it runs', () => {
     wipeScript.hold = null;
     // Signed in with a working cloud. The page no longer picks an engine — the
     // seam does — but this is still what decides the copy on the cards above.
-    __setAppContextValue({ isUsingSupabase: true });
+    __setAppContextValue({
+      capabilities: {
+        edition: 'cloud',
+        session: 'ready',
+        realtime: true,
+        maxConcurrentWrites: 8,
+        backupTarget: 'login',
+      },
+    });
   });
 
   afterEach(() => {
@@ -140,7 +148,15 @@ describe('Delete All Data — when it stops part-way', () => {
     wipeScript.hold = null;
     // Signed in with a working cloud. The page no longer picks an engine — the
     // seam does — but this is still what decides the copy on the cards above.
-    __setAppContextValue({ isUsingSupabase: true });
+    __setAppContextValue({
+      capabilities: {
+        edition: 'cloud',
+        session: 'ready',
+        realtime: true,
+        maxConcurrentWrites: 8,
+        backupTarget: 'login',
+      },
+    });
   });
 
   afterEach(() => {

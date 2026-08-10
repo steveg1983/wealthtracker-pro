@@ -3312,3 +3312,97 @@ describe('DataService.importMsMoney (where a whole .mny file lands)', () => {
       .toBe('Import failed while writing transactions: duplicate key value violates unique constraint');
   });
 });
+
+/**
+ * What the engine says it can do — the descriptor that retired the flag.
+ *
+ * `isUsingSupabase` was one boolean answering four unrelated questions: how
+ * many writes may be in flight (the payee rename divides its work by it),
+ * whether to open a realtime subscription, where a backup goes, and whether a
+ * sentence says "login" or "device". Every one of those readings is now a named
+ * field, and this is where the mapping from THIS engine's state to those fields
+ * is pinned.
+ *
+ * The contract suite already asserts the SHAPE against the browser-storage
+ * harness — five fields, a batch size of at least one, a session that is one of
+ * three things. What it cannot reach is the cloud arrangement or the pending
+ * one, because that harness has no cloud by construction. Those are the two
+ * that matter most: 8 concurrent writes against a store that would lose updates
+ * at 2, and the "still connecting" state that must not be mistaken for a
+ * device.
+ */
+describe('DataService.capabilities (what this engine says it can do)', () => {
+  const logger = { error: vi.fn(), warn: vi.fn(), log: vi.fn() };
+
+  const owner = (databaseId: string | null) => ({
+    ensureUserExists: vi.fn(),
+    getCurrentDatabaseUserId: vi.fn(() => databaseId),
+    getCurrentUserIds: vi.fn(() => ({ clerkId: databaseId ? 'clerk-1' : null, databaseId }))
+  });
+
+  const service = (options: { configured: boolean; clerkSession: boolean; databaseId: string | null }) =>
+    createDataService({
+      isSupabaseConfigured: () => options.configured,
+      hasCloudSession: () => options.clerkSession,
+      userIdService: owner(options.databaseId),
+      logger
+    });
+
+  it('reports a login that is resolved as a cloud edition, eight writes wide', () => {
+    const capabilities = service({ configured: true, clerkSession: true, databaseId: 'db-user-1' })
+      .capabilities();
+
+    expect(capabilities).toEqual({
+      edition: 'cloud',
+      session: 'ready',
+      realtime: true,
+      maxConcurrentWrites: 8,
+      backupTarget: 'login'
+    });
+  });
+
+  it('reports a session that is still connecting, and refuses to call it a device', () => {
+    // The state with the data loss behind it: signed in, no database id yet.
+    // 'anonymous' here would tell the restore dialog it was looking at a device
+    // and let a file be poured into browser storage the signed-in app will
+    // never read again. The backup target stays 'device' — there is no login to
+    // name — which is why the dialog checks the SESSION before the target.
+    const capabilities = service({ configured: true, clerkSession: true, databaseId: null })
+      .capabilities();
+
+    expect(capabilities.session).toBe('connecting');
+    expect(capabilities.backupTarget).toBe('device');
+    expect(capabilities.realtime).toBe(false);
+  });
+
+  it('reports one write at a time when there is no cloud behind it', () => {
+    // Not a slow default — a correct one. Browser storage re-reads and
+    // re-persists a whole collection per write, so two in flight is a
+    // lost-update race in which the second silently overwrites the first.
+    const capabilities = service({ configured: false, clerkSession: false, databaseId: null })
+      .capabilities();
+
+    expect(capabilities).toEqual({
+      edition: 'device',
+      session: 'anonymous',
+      realtime: false,
+      maxConcurrentWrites: 1,
+      backupTarget: 'device'
+    });
+  });
+
+  it('is not a login when the id is stale and the client is gone', () => {
+    // A cached database id with no configured client is not a login: nothing
+    // can be read from or written to one. Every field follows `isSupabaseReady`
+    // rather than the id alone, so the backup target cannot say 'login' while
+    // the store behind it is a browser.
+    const capabilities = service({ configured: false, clerkSession: false, databaseId: 'db-user-1' })
+      .capabilities();
+
+    expect(capabilities.edition).toBe('device');
+    expect(capabilities.backupTarget).toBe('device');
+    // The owner IS resolved, and the session says so — it is the store that is
+    // not a cloud one.
+    expect(capabilities.session).toBe('ready');
+  });
+});

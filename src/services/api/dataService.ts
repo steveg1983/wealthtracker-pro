@@ -37,6 +37,7 @@ import type {
   BulkImportProgress,
   BulkImportResult,
   DataPort,
+  DataPortCapabilities,
   ExportProgress,
   ImportProgress,
   ImportSourceKind,
@@ -776,9 +777,10 @@ class DataServiceImpl implements DataPort {
    * one-IndexedDB-transaction writer. What changed is who decides between them
    * — it was the CSV wizard and the OFX dialog, each reading `isUsingSupabase`
    * off the context and each holding its own Clerk token, and it is now this
-   * one line. The predicate is the same one `DataService.isUsingSupabase()`
-   * answers with, evaluated at the moment of the write rather than at the boot
-   * that last set that state.
+   * one line. The predicate is `isSupabaseReady()` — the one the retired
+   * `isUsingSupabase` answered with, and the one `capabilities()` reports —
+   * evaluated at the moment of the write rather than at the boot that last set
+   * that state.
    *
    * THE TOKEN IS THE SEAM'S OWN. The dialogs used to hand the client a
    * `() => getToken()` closure out of Clerk's React hook immediately before
@@ -2521,29 +2523,46 @@ class DataServiceImpl implements DataPort {
     };
   }
 
-  isUsingSupabase(): boolean {
-    return this.isSupabaseReady();
-  }
-
   /**
-   * NEVER JOINS THE SEAM, and is down to its last consumer.
+   * What this implementation can do — the answer that replaced four separate
+   * readings of one boolean.
    *
-   * Identity is internal to an implementation (rule 1 of the port), so this is
-   * the opposite of what the seam promises — it exists only because two screens
-   * still choose their own WORDS from it. The data operations that used to
-   * branch on it are all gone: the export, the emptiness check, the restore,
-   * the wipe and the Money migration each resolve their own owner now.
+   * Every field below is computed from `isSupabaseReady()` (a database id is
+   * resolved AND a client is configured) or from the pending state beside it,
+   * which is why one descriptor could retire `isUsingSupabase` without changing
+   * a single answer: the batch size, the realtime gate, the backup target and
+   * the copy on two screens were all asking that same predicate in four
+   * different vocabularies. What changes is that each now says what it is FOR,
+   * so an implementation that is neither Supabase nor a browser can answer them
+   * independently — a device edition with a sync peer says `realtime: true`
+   * without claiming to be a login.
    *
-   * What is left is one file. RestoreBackupModal reads it to decide whether the
-   * dialog says "login" or "device", whether a failed restore warns about a
-   * partly-populated store, and whether a signed-in session is still connecting
-   * and must be blocked from starting. All three are capability questions, and
-   * they leave with `capabilities()` — at which point this method and its static
-   * twin are deleted, and the fact that nothing calls them IS the proof the
-   * seam closed.
+   * SYNCHRONOUS AND UNCACHED. Every caller is a render or the tick of a write,
+   * and `session` in particular changes underneath them as a sign-in completes;
+   * a cached descriptor would be a boot-time photograph of a value that moves.
+   * Nothing here does I/O — two booleans and an in-memory id — so re-asking is
+   * cheaper than remembering.
    */
-  getUserIds(): { clerkId: string | null; databaseId: string | null } {
-    return this.userIdService.getCurrentUserIds();
+  capabilities(): DataPortCapabilities {
+    const ready = this.isSupabaseReady();
+    return {
+      edition: ready ? 'cloud' : 'device',
+      // The pending state is checked FIRST because it is the one that is not
+      // safe to work in: a signed-in session with no database id yet is not
+      // 'anonymous' — treating it as such is exactly how a write ends up in a
+      // browser store the signed-in app will never read again.
+      session: this.isCloudSessionPending()
+        ? 'connecting'
+        : (this.userIdService.getCurrentDatabaseUserId() ? 'ready' : 'anonymous'),
+      realtime: ready,
+      // 8 in the cloud, where each write is an independent request; 1 on a
+      // store that re-reads and re-persists a whole collection per write, where
+      // two in flight is a lost-update race. Stated on the seam so the caller
+      // no longer has to know which engine it is talking to in order to loop
+      // safely over a few thousand rows.
+      maxConcurrentWrites: ready ? 8 : 1,
+      backupTarget: ready ? 'login' : 'device'
+    };
   }
 }
 
@@ -2807,12 +2826,8 @@ export class DataService {
     return this.service.subscribeToUpdates(callbacks);
   }
 
-  static isUsingSupabase(): boolean {
-    return this.service.isUsingSupabase();
-  }
-
-  static getUserIds(): { clerkId: string | null; databaseId: string | null } {
-    return this.service.getUserIds();
+  static capabilities(): DataPortCapabilities {
+    return this.service.capabilities();
   }
 }
 

@@ -215,12 +215,24 @@ describe('AppContextSupabase live provider', () => {
   });
 
   describe('initialisation (local fallback in jsdom)', () => {
-    it('mounts with empty data and Supabase off', async () => {
+    it('mounts with empty data, and describes itself as the device it is', async () => {
       const { result } = await renderApp();
 
       expect(result.current.accounts).toEqual([]);
       expect(result.current.transactions).toEqual([]);
-      expect(result.current.isUsingSupabase).toBe(false);
+      // This suite arranges exactly the engine the descriptor should report:
+      // no database id, no cloud session. Asserted as the WHOLE descriptor
+      // rather than one field of it, because the boot surfaces it in one go and
+      // a single field would let the other four rot — `maxConcurrentWrites`
+      // above all, which the payee rename divides its work by. The retired
+      // `isUsingSupabase: false` this replaced is the `edition`/`realtime` pair.
+      expect(result.current.capabilities).toEqual({
+        edition: 'device',
+        session: 'anonymous',
+        realtime: false,
+        maxConcurrentWrites: 1,
+        backupTarget: 'device',
+      });
       // Default categories are seeded even with empty storage.
       expect(result.current.categories.length).toBeGreaterThan(0);
     });
@@ -273,6 +285,65 @@ describe('AppContextSupabase live provider', () => {
       // The deleted account's transactions go with it; others survive.
       expect(result.current.transactions).toHaveLength(1);
       expect(result.current.transactions[0].accountId).toBe(kept.id);
+    });
+  });
+
+  describe('the payee rename, and how many writes it puts in flight', () => {
+    it('writes strictly one at a time on a store that says one at a time', async () => {
+      // WHY THIS IS A TEST AND NOT AN OBSERVATION. The rename divides its work
+      // by `capabilities().maxConcurrentWrites`, and this suite's engine is the
+      // browser store — where a write re-reads and re-persists the WHOLE
+      // collection. Two in flight there is a lost-update race: the second write
+      // was built from a snapshot taken before the first landed, so it puts the
+      // first one's row back the way it was and the rename silently un-happens
+      // for that transaction.
+      //
+      // The number itself is pinned beside the engine (dataService.test.ts,
+      // "what this engine says it can do"). What is pinned HERE is the wiring:
+      // that the loop actually obeys the limit rather than merely being handed
+      // it. Concurrency is measured rather than inferred — a spy that counts
+      // how many calls are in flight at their peak.
+      const { result } = await renderApp();
+
+      let account!: Account;
+      await act(async () => {
+        account = await result.current.addAccount(createAccountInput());
+      });
+
+      await act(async () => {
+        for (const description of ['TESCO 1234', 'TESCO 5678', 'TESCO 9012']) {
+          await result.current.addTransaction(
+            createTransactionInput(account.id, { description })
+          );
+        }
+      });
+      const ids = result.current.transactions.map(transaction => transaction.id);
+      expect(ids).toHaveLength(3);
+
+      let inFlight = 0;
+      let peak = 0;
+      const realUpdate = DataService.updateTransaction.bind(DataService);
+      vi.spyOn(DataService, 'updateTransaction').mockImplementation(async (id, updates) => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        // A real await between entry and exit, so two overlapping calls would
+        // genuinely overlap rather than run to completion synchronously.
+        await Promise.resolve();
+        try {
+          return await realUpdate(id, updates);
+        } finally {
+          inFlight -= 1;
+        }
+      });
+
+      let renamed = 0;
+      await act(async () => {
+        renamed = await result.current.renameTransactionDescriptions(ids, 'Tesco');
+      });
+
+      expect(renamed).toBe(3);
+      expect(peak).toBe(1);
+      expect(result.current.transactions.map(t => t.description)).toEqual(['Tesco', 'Tesco', 'Tesco']);
     });
   });
 
