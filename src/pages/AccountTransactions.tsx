@@ -50,6 +50,13 @@ import {
   isTypeAheadKey,
 } from '../utils/registerShortcuts';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
+import {
+  buildPayeeCompletionIndex,
+  rememberedCategoryForPayee,
+  type PayeeCompletionEntry,
+} from '../utils/payeeAutocomplete';
+import PayeeAutoCompleteInput from '../components/PayeeAutoCompleteInput';
+import AddWithoutCategoryConfirm from '../components/AddWithoutCategoryConfirm';
 import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
@@ -111,6 +118,14 @@ interface ArchiveState { range: ArchiveRange; from: string; to: string }
 
 /** The Quick Add bar's heading, and what names the bar to a screen reader. */
 const QUICK_ADD_HEADING_ID = 'quick-add-heading';
+/** Where the add bar's own message is printed — what the faulty box points at. */
+const QUICK_ADD_ERROR_ID = 'quick-add-error';
+
+/**
+ * The payee index before it has been built. A module constant so the memo's
+ * "not yet" answer keeps one identity and never re-renders the box behind it.
+ */
+const NO_PAYEES: readonly PayeeCompletionEntry[] = [];
 
 /**
  * How much vertical room the register leaves for the bottom dock, in px.
@@ -587,6 +602,11 @@ export default function AccountTransactions() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const quickAddDateRef = useRef<HTMLDivElement>(null);
   const quickAddDescriptionRef = useRef<HTMLInputElement>(null);
+  /** The amount box — so a blocked add can put the cursor where the fault is. */
+  const quickAddAmountRef = useRef<HTMLInputElement>(null);
+  /** True while an add is in flight — see commitQuickAdd. A ref, because the
+   *  second keystroke can arrive before a re-render would have told it. */
+  const quickAddInFlightRef = useRef(false);
   /** The type-ahead search in progress: what has been typed, and when. */
   const typeAheadRef = useRef<{ buffer: string; at: number }>({ buffer: '', at: 0 });
   /**
@@ -608,12 +628,58 @@ export default function AccountTransactions() {
     tags: [] as string[],
     notes: ''
   });
-  const [quickAddError, setQuickAddError] = useState('');
+  /**
+   * What is wrong with the draft, and WHICH BOX is wrong.
+   *
+   * The field is carried with the message because a message alone cannot point:
+   * the bar is one row of five fields and "Please enter an amount" printed
+   * underneath it leaves the reader to work out which. With the field named,
+   * the box itself is outlined, marked `aria-invalid`, tied to the message by
+   * `aria-describedby` and given the cursor — so the eye, the screen reader and
+   * the keyboard are all sent to the same place. 'form' is for the failures no
+   * one box owns (the save itself came back with an error).
+   */
+  const [quickAddError, setQuickAddError] = useState<
+    { field: 'description' | 'amount' | 'category' | 'form'; message: string } | null
+  >(null);
+  const clearQuickAddError = useCallback((): void => setQuickAddError(null), []);
+  /**
+   * The draft waiting on "…add anyway?". Non-null only while the dialog is up.
+   *
+   * The draft is held rather than the form being submitted optimistically,
+   * because Cancel has to leave every keystroke exactly where it was.
+   */
+  const [confirmUncategorised, setConfirmUncategorised] = useState<{ description: string } | null>(null);
   // Money-style cross-type filing, the same affordance the edit modal offers:
   // browse the OTHER direction's categories (a refund is money IN but belongs
   // under the expense category it refunds). The type toggle still decides which
   // way the money moves; the category decides which total it lands in.
   const [crossTypeCategories, setCrossTypeCategories] = useState(false);
+  /**
+   * Whether the payee index has been asked for yet.
+   *
+   * Building it is one pass over EVERY transaction the user owns, and it is
+   * rebuilt whenever that list changes — after every add. Paying for that on
+   * the register's first paint would charge it to everyone who opened an
+   * account to read it, so the first cursor in the Description box is what
+   * arms it. Focus always precedes typing, so the ghost is ready for the first
+   * keystroke.
+   */
+  const [payeeIndexArmed, setPayeeIndexArmed] = useState(false);
+  const armPayeeIndex = useCallback((): void => setPayeeIndexArmed(true), []);
+  /**
+   * The payees the Description box completes from — the whole register, not
+   * this account's slice.
+   *
+   * Payees are the user's, not the account's: the shop you buy petrol from is
+   * the same shop whichever card paid. That is also how the payee machinery
+   * already reads the world — the cleanup screen counts every payee the user
+   * owns, and buildPayeeGroups' suggestions span accounts.
+   */
+  const payeeIndex = useMemo<readonly PayeeCompletionEntry[]>(
+    () => (payeeIndexArmed ? buildPayeeCompletionIndex(transactions) : NO_PAYEES),
+    [payeeIndexArmed, transactions]
+  );
 
   // Every transaction for this account, unfiltered — the basis for running
   // balances (so hiding rows never corrupts the displayed balance).
@@ -1382,7 +1448,7 @@ export default function AccountTransactions() {
   const duplicateIntoQuickAdd = useCallback((row: TransactionWithBalance): void => {
     setTableExpanded(false);
     clearSelection();
-    setQuickAddError('');
+    clearQuickAddError();
     setCrossTypeCategories(false);
     setQuickAddForm({
       date: new Date().toISOString().split('T')[0],
@@ -1401,7 +1467,7 @@ export default function AccountTransactions() {
       notes: row.notes ?? '',
     });
     setQuickAddFocus('description');
-  }, [clearSelection]);
+  }, [clearSelection, clearQuickAddError]);
 
   /** `+`: an empty new transaction, cursor in the Date box. */
   const startNewTransaction = useCallback((): void => {
@@ -1436,6 +1502,57 @@ export default function AccountTransactions() {
     }
     setQuickAddFocus(null);
   }, [quickAddFocus]);
+
+  /**
+   * Put the cursor in the box the add bar has just complained about.
+   *
+   * Straight at the element rather than through the quickAddFocus request
+   * above: that request exists to survive the bar being REVEALED, and here the
+   * bar is already on screen with the user's hands in it — a round trip through
+   * state would leave the message on screen for a frame with the cursor
+   * somewhere else.
+   */
+  const focusQuickAddField = useCallback((field: 'description' | 'amount'): void => {
+    const el = field === 'description' ? quickAddDescriptionRef.current : quickAddAmountRef.current;
+    el?.focus();
+    el?.select();
+  }, []);
+
+  /**
+   * A payee suggestion accepted — offer the category it usually gets.
+   *
+   * Money's other courtesy, and the same memory the rest of the app already
+   * runs on: the rule for "which category does this payee get" is
+   * rememberedCategoryForPayee, which is buildPayeeGroups' rule, so the register
+   * and the bulk-categorise screen cannot suggest different things about the
+   * same payee.
+   *
+   * Three cases decline to guess:
+   *   * a TRANSFER — that box is the other account, not a category;
+   *   * a category the user has ALREADY chosen — a suggestion never overwrites
+   *     a decision (the same rule payee memory obeys server-side);
+   *   * cross-type filing switched on — the picker is deliberately listing the
+   *     OTHER direction's tree, and filling it with this direction's habit
+   *     would put a category in the box that the list beneath it does not offer.
+   *
+   * What lands is a suggestion in a box the user is looking at and can change,
+   * not a decision taken behind them.
+   */
+  const handlePayeeAccepted = useCallback(
+    (payee: string): void => {
+      if (quickAddForm.type === 'transfer' || crossTypeCategories) return;
+      if (quickAddForm.category !== '') return;
+      const remembered = rememberedCategoryForPayee(
+        transactions,
+        categories,
+        payee,
+        quickAddForm.type
+      );
+      if (remembered === undefined) return;
+      setQuickAddForm(form => (form.category === '' ? { ...form, category: remembered } : form));
+    },
+    [quickAddForm.type, quickAddForm.category, crossTypeCategories, transactions, categories]
+  );
 
   const handleQuickEditFocusHandled = useCallback(() => setQuickEditFocus(null), []);
   /**
@@ -1726,28 +1843,20 @@ export default function AccountTransactions() {
     duplicateIntoQuickAdd, openSearch, jumpToTransferOtherSide, startNewTransaction,
   ]);
 
-  // Handle quick add
-  const handleQuickAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setQuickAddError('');
+  /**
+   * Write the draft away. Called only once every guard below has been answered,
+   * so it asks no questions of its own.
+   */
+  const commitQuickAdd = async (): Promise<void> => {
     if (!account) return;
-    if (!quickAddForm.description.trim()) {
-      setQuickAddError('Description is required');
-      return;
-    }
-    if (!quickAddForm.amount) {
-      setQuickAddError('Amount is required');
-      return;
-    }
-    if (quickAddForm.type !== 'transfer' && !quickAddForm.category) {
-      setQuickAddError('Please select a category');
-      return;
-    }
-    if (quickAddForm.type === 'transfer' && !quickAddForm.category) {
-      setQuickAddError('Please select a target account');
-      return;
-    }
-    
+    // One row per gesture. Now that Enter adds — a key that repeats while it is
+    // held, and that a fast hand can send twice before the write comes back —
+    // the draft has to be able to say "already going". The window is the await
+    // below: the form does not empty until it returns, so without this a second
+    // Enter inside it would post the same transaction again. Duplicate rows are
+    // the one mistake this register cannot let a keystroke make.
+    if (quickAddInFlightRef.current) return;
+    quickAddInFlightRef.current = true;
     // Calculate the correct amount based on transaction type
     let amount = parseMoneyInput(quickAddForm.amount) ?? 0;
     if (quickAddForm.type === 'expense') {
@@ -1796,7 +1905,7 @@ export default function AccountTransactions() {
       }
 
       // Reset form and error
-      setQuickAddError('');
+      clearQuickAddError();
       setCrossTypeCategories(false);
       setQuickAddForm({
         date: new Date().toISOString().split('T')[0],
@@ -1808,11 +1917,101 @@ export default function AccountTransactions() {
         notes: ''
       });
     } catch (error) {
-      setQuickAddError(error instanceof Error ? error.message : 'Failed to add transaction. Please try again.');
+      setQuickAddError({
+        field: 'form',
+        message: error instanceof Error ? error.message : 'Failed to add transaction. Please try again.',
+      });
+    } finally {
+      // In `finally` and not after the reset: a write that FAILED leaves the
+      // draft on screen for the user to try again, and a latch that only
+      // released on success would have locked them out of their own retry.
+      quickAddInFlightRef.current = false;
     }
   };
-  
-  
+
+  /**
+   * The guards, in the order the row is read — and the ONLY route into
+   * commitQuickAdd, so the + Add button and the Enter key cannot come to
+   * different conclusions about the same draft.
+   *
+   * Two of the three answers are deliberately different in kind:
+   *
+   *   * a missing DESCRIPTION or a missing/zero AMOUNT is a BLOCK. There is no
+   *     transaction to add — a nameless £0.00 row is not a record of anything —
+   *     so the bar says so at the box and puts the cursor in it.
+   *   * a missing CATEGORY is a QUESTION. An uncategorised transaction is a
+   *     real transaction: the balance is right the moment it is in, and the
+   *     review band exists to file it later. Blocking it would make the app
+   *     refuse work it is perfectly able to do.
+   *
+   * A transfer's blank field is a BLOCK rather than that question, because on
+   * a transfer that box is not a category at all — it is the other account, and
+   * there is no such thing as half a transfer.
+   */
+  const submitQuickAdd = async (): Promise<void> => {
+    clearQuickAddError();
+    if (!account) return;
+
+    if (!quickAddForm.description.trim()) {
+      setQuickAddError({ field: 'description', message: 'Please enter a description' });
+      focusQuickAddField('description');
+      return;
+    }
+
+    // Decimal, not a float compare: "0.00", "0" and ".00" are all the same
+    // nothing, and an unparseable amount is not a number at all.
+    const parsedAmount = parseMoneyInput(quickAddForm.amount);
+    if (parsedAmount === null || toDecimal(parsedAmount).isZero()) {
+      setQuickAddError({ field: 'amount', message: 'Please enter an amount' });
+      focusQuickAddField('amount');
+      return;
+    }
+
+    if (quickAddForm.type === 'transfer' && !quickAddForm.category) {
+      setQuickAddError({ field: 'category', message: 'Please choose the account to transfer to' });
+      return;
+    }
+
+    if (quickAddForm.type !== 'transfer' && !quickAddForm.category) {
+      setConfirmUncategorised({ description: quickAddForm.description.trim() });
+      return;
+    }
+
+    await commitQuickAdd();
+  };
+
+  const handleQuickAdd = (e: React.FormEvent): void => {
+    e.preventDefault();
+    void submitQuickAdd();
+  };
+
+  /**
+   * Enter, from anywhere in the add bar, is + Add — the Microsoft Money
+   * register, where a row is committed by finishing it rather than by reaching
+   * for a button.
+   *
+   * Three keystrokes are deliberately NOT claimed:
+   *
+   *   * one already answered — `defaultPrevented` is how an OPEN category or
+   *     account list says "that Enter chose an option and closed me". Reading
+   *     the flag rather than tracking the pickers' state keeps the two from
+   *     ever disagreeing about who owns the key;
+   *   * one on a BUTTON — Enter activates the focused control, and the Type
+   *     toggle and + Add are controls. (+ Add submits, which lands here anyway.)
+   *   * one with a modifier held, which is somebody's shortcut, not this form's.
+   *
+   * A REPEAT — the same key still held down — is refused outright: leaning on
+   * Enter is one gesture, not forty transactions. (commitQuickAdd latches as
+   * well, for the two presses a fast hand can genuinely make.)
+   */
+  const handleQuickAddKeyDown = (e: React.KeyboardEvent<HTMLFormElement>): void => {
+    if (e.key !== 'Enter' || e.defaultPrevented || e.repeat) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof HTMLButtonElement) return;
+    e.preventDefault();
+    void submitQuickAdd();
+  };
+
   /**
    * What deleting the row in the confirmation would leave behind in ANOTHER
    * account — null for an ordinary row, and then the dialog says nothing extra.
@@ -2839,7 +3038,19 @@ export default function AccountTransactions() {
             saying what they were for. Now it says so on screen, and the name
             read out is that same string by construction — the two cannot drift
             into saying different things about one bar. */}
-        <form onSubmit={handleQuickAdd} aria-labelledby={QUICK_ADD_HEADING_ID}>
+        {/* noValidate, deliberately: the browser's own "fill in this field"
+            bubble would fire on the + Add button and never on Enter, so the two
+            routes into the same draft would report different faults in
+            different places. Every check the bar makes is its own (see
+            submitQuickAdd), said in the bar's own words, at the box at fault.
+            `required` stays on the fields — it is what tells a screen reader
+            they are required — it just no longer decides what happens. */}
+        <form
+          onSubmit={handleQuickAdd}
+          onKeyDown={handleQuickAddKeyDown}
+          noValidate
+          aria-labelledby={QUICK_ADD_HEADING_ID}
+        >
           <h2
             id={QUICK_ADD_HEADING_ID}
             // The selection bar that takes this bar's place carries its count
@@ -2873,7 +3084,7 @@ export default function AccountTransactions() {
               <DatePicker
                 id="quick-add-date"
                 value={quickAddForm.date}
-                onChange={(val) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, date: val }); }}
+                onChange={(val) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, date: val }); }}
                 className="h-auto sm:h-[32px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white text-xs"
               />
             </div>
@@ -2900,7 +3111,7 @@ export default function AccountTransactions() {
                       // Clearing the category is not tidiness: it may belong to
                       // the tree the picker no longer shows, and on 'transfer'
                       // the same field means the TARGET ACCOUNT.
-                      setQuickAddError('');
+                      clearQuickAddError();
                       setCrossTypeCategories(false);
                       setQuickAddForm({ ...quickAddForm, type: value, category: '' });
                     }}
@@ -2918,15 +3129,28 @@ export default function AccountTransactions() {
 
             <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
               <label htmlFor="quick-add-description" className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Description</label>
-              <input
+              {/* Money's AutoComplete: the best match from the user's own payees
+                  drawn faint ahead of the caret, accepted by Right Arrow and by
+                  nothing else. The box's VALUE is only ever what was typed —
+                  see PayeeAutoCompleteInput for why that is the whole of the
+                  never-committed rule. */}
+              <PayeeAutoCompleteInput
                 id="quick-add-description"
-                ref={quickAddDescriptionRef}
-                type="text"
+                inputRef={quickAddDescriptionRef}
                 placeholder="Description"
                 value={quickAddForm.description}
-                onChange={(e) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, description: e.target.value }); }}
-                className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                onChange={(description) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, description }); }}
+                onFocus={armPayeeIndex}
+                payees={payeeIndex}
+                onAccept={handlePayeeAccepted}
                 required
+                aria-invalid={quickAddError?.field === 'description' ? true : undefined}
+                aria-describedby={quickAddError?.field === 'description' ? QUICK_ADD_ERROR_ID : undefined}
+                className={`w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-1 dark:text-white ${
+                  quickAddError?.field === 'description'
+                    ? 'border-red-500 dark:border-red-400 focus:ring-red-500'
+                    : 'border-gray-300 dark:border-gray-600 focus:ring-primary'
+                }`}
               />
             </div>
 
@@ -2946,13 +3170,18 @@ export default function AccountTransactions() {
                   accounts={accounts}
                   excludeIds={quickAddExcludedAccountIds}
                   selectedAccountId={quickAddForm.category}
-                  onAccountChange={(accountId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: accountId }); }}
+                  onAccountChange={(accountId) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, category: accountId }); }}
                   placeholder="Account..."
                   searchPlaceholder="Search accounts…"
                   formatLabel={(acc) => `${acc.name} (${formatCurrency(acc.balance)})`}
                   size="compact"
                   usePortal
                   ariaLabel="To Account"
+                  // Enter belongs to the row, not to this box — see the add
+                  // bar's own key handler. Space and the arrows still open it.
+                  closedEnter="pass-through"
+                  ariaInvalid={quickAddError?.field === 'category' ? true : undefined}
+                  ariaDescribedBy={quickAddError?.field === 'category' ? QUICK_ADD_ERROR_ID : undefined}
                 />
               ) : (
                 /* Which direction's tree it lists is this row's own, flipped by
@@ -2962,7 +3191,7 @@ export default function AccountTransactions() {
                    categories (Account Adjustment) either way round. */
                 <CategorySelector
                   selectedCategory={quickAddForm.category}
-                  onCategoryChange={(categoryId) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, category: categoryId }); }}
+                  onCategoryChange={(categoryId) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, category: categoryId }); }}
                   transactionType={
                     crossTypeCategories
                       ? (quickAddForm.type === 'income' ? 'expense' : 'income')
@@ -2977,6 +3206,10 @@ export default function AccountTransactions() {
                   // Match the row's 32px fields — the default 42px trigger
                   // still stood proud of its neighbours.
                   size="compact"
+                  // Enter belongs to the row, not to this box — see the add
+                  // bar's own key handler. Space and the arrows still open it,
+                  // and so now does simply typing the category's name.
+                  closedEnter="pass-through"
                 />
               )}
             </div>
@@ -2987,10 +3220,17 @@ export default function AccountTransactions() {
               <label htmlFor="quick-add-amount" className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 block">Amount</label>
               <MoneyInput
                 id="quick-add-amount"
+                ref={quickAddAmountRef}
                 value={quickAddForm.amount}
                 // The type buttons carry the sign; this field holds the size.
-                onChange={(value) => { setQuickAddError(''); setQuickAddForm({ ...quickAddForm, amount: value }); }}
-                className="w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary dark:text-white"
+                onChange={(value) => { clearQuickAddError(); setQuickAddForm({ ...quickAddForm, amount: value }); }}
+                aria-invalid={quickAddError?.field === 'amount' ? true : undefined}
+                aria-describedby={quickAddError?.field === 'amount' ? QUICK_ADD_ERROR_ID : undefined}
+                className={`w-full px-2.5 py-1.5 h-auto sm:h-[32px] text-xs text-right bg-white dark:bg-gray-700 border rounded-lg focus:outline-none focus:ring-1 dark:text-white ${
+                  quickAddError?.field === 'amount'
+                    ? 'border-red-500 dark:border-red-400 focus:ring-red-500'
+                    : 'border-gray-300 dark:border-gray-600 focus:ring-primary'
+                }`}
                 required
               />
             </div>
@@ -3005,6 +3245,27 @@ export default function AccountTransactions() {
             </button>
           </div>
 
+          {/* The bar's message, immediately under the row it is about — and
+              under the box at fault, which is outlined, marked aria-invalid,
+              tied to this line by aria-describedby and holding the cursor. It
+              used to print BELOW the cross-type line, a paragraph's distance
+              from a row of five fields, naming none of them.
+              role="alert": it appears in answer to a keystroke the user has
+              already made, so it is read out rather than waited to be found.
+              Kept OUT of the fields' own boxes on purpose: the row is
+              bottom-aligned, so a message inside a field would grow that field
+              and lift its box above its neighbours — and the dock's height is a
+              declared number (DOCK_RESERVE_PX), not a measurement. */}
+          {quickAddError && (
+            <p
+              id={QUICK_ADD_ERROR_ID}
+              role="alert"
+              className="text-xs text-red-600 dark:text-red-400 mt-1"
+            >
+              {quickAddError.message}
+            </p>
+          )}
+
           {/* Cross-type filing — identical wording to the edit transaction
               modal, deliberately: a refund files under the expense category it
               refunds, and the register and the modal must not teach two
@@ -3015,7 +3276,7 @@ export default function AccountTransactions() {
                 type="checkbox"
                 checked={crossTypeCategories}
                 onChange={(e) => {
-                  setQuickAddError('');
+                  clearQuickAddError();
                   setCrossTypeCategories(e.target.checked);
                   setQuickAddForm({ ...quickAddForm, category: '' });
                 }}
@@ -3028,14 +3289,25 @@ export default function AccountTransactions() {
               </span>
             </label>
           )}
-
-          {quickAddError && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-1">{quickAddError}</p>
-          )}
         </form>
       </div>
       )}
       </div>
+
+      {/* "You haven't chosen a category — add anyway?" — the one guard that
+          asks rather than blocks. Continue adds the row uncategorised (the
+          review band will surface it); Cancel leaves every keystroke in place.
+          Both routes into the add — the button and Enter — arrive here. */}
+      {confirmUncategorised && (
+        <AddWithoutCategoryConfirm
+          description={confirmUncategorised.description}
+          onConfirm={() => {
+            setConfirmUncategorised(null);
+            void commitQuickAdd();
+          }}
+          onCancel={() => setConfirmUncategorised(null)}
+        />
+      )}
 
       {/* Edit Modal */}
       {selectedTransaction && (

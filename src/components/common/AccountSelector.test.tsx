@@ -293,6 +293,39 @@ describe('AccountSelector', () => {
       expect(screen.getByRole('listbox')).toBeInTheDocument();
     });
 
+    /** The same manners its sibling CategorySelector has: typing opens it. */
+    it('opens on a typed character, already filtering by it', () => {
+      renderPicker();
+      const trigger = screen.getByRole('combobox', { name: 'Account' });
+
+      fireEvent.keyDown(trigger, { key: 'b' });
+
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveValue('b');
+      // The picker's own search rules apply from that first character —
+      // substring, not just initial letter (Hover*b*oard Fund answers to "b").
+      expect(optionTexts()).toEqual(['Barclaycard', 'Hoverboard Fund']);
+    });
+
+    it('opens on Space with an EMPTY search rather than a leading blank', () => {
+      renderPicker();
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Account' }), { key: ' ' });
+
+      expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveValue('');
+      expect(optionTexts().length).toBe(accounts.length);
+    });
+
+    it('hands Enter to the surrounding form when asked to pass it through', () => {
+      renderPicker({ closedEnter: 'pass-through' });
+      const trigger = screen.getByRole('combobox', { name: 'Account' });
+
+      expect(fireEvent.keyDown(trigger, { key: 'Enter' })).toBe(true);
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+      fireEvent.keyDown(trigger, { key: ' ' });
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    });
+
     it('walks the flattened visible rows with the arrows and picks with Enter', () => {
       const { onAccountChange } = renderPicker();
       open();

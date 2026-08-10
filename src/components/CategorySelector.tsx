@@ -108,7 +108,30 @@ interface CategorySelectorProps {
    * merely mounts with the prop wired up never opens itself.
    */
   openSearchToken?: number;
+  /**
+   * What Enter means on the CLOSED trigger.
+   *
+   * 'open' (the default) is the ARIA combobox convention and what every editor
+   * in the app wants: Enter opens the list.
+   *
+   * 'pass-through' leaves Enter entirely alone so the surrounding form can act
+   * on it. For the register's Quick Add row, where Enter is "add this
+   * transaction" from every field (the Microsoft Money register) — a picker
+   * that swallowed it would make one box in the row disagree with the other
+   * four. Space and the arrow keys still open the list, so the picker is no
+   * less operable from the keyboard.
+   */
+  closedEnter?: 'open' | 'pass-through';
 }
+
+/**
+ * A key that types a character, as opposed to one that commands.
+ *
+ * Alt is excluded as well as Ctrl/Meta because a macOS Option chord produces a
+ * one-character key ("¬", "ß") that the user meant as a shortcut, not a filter.
+ */
+const isPrintableKey = (e: React.KeyboardEvent): boolean =>
+  e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
 
 /**
  * Section id for the transfer targets. They hang off the Transfer type root as
@@ -135,6 +158,7 @@ export default function CategorySelector({
   includeTransferTargets = false,
   transferSourceAccountId,
   openSearchToken,
+  closedEnter = 'open',
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -145,6 +169,7 @@ export default function CategorySelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const newCategoryInputRef = useRef<HTMLInputElement>(null);
   // Fixed coordinates for the portaled dropdown (usePortal mode only).
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -378,6 +403,21 @@ export default function CategorySelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // The search box takes the keyboard the moment the list opens, with the caret
+  // AFTER whatever seeded it. Opening by typing a character puts that character
+  // in the box, and a browser that parked the caret at position 0 would send
+  // the next keystroke in front of it — "gr" typed, "rg" filtered. Keyed on
+  // showDropdown alone so it runs once per opening and never fights the caret
+  // afterwards.
+  useEffect(() => {
+    if (!showDropdown) return;
+    const el = searchInputRef.current;
+    if (!el) return;
+    el.focus();
+    const end = el.value.length;
+    el.setSelectionRange(end, end);
+  }, [showDropdown]);
+
   // Auto-focus the new category name input when create form opens
   useEffect(() => {
     if (showCreateForm && newCategoryInputRef.current) {
@@ -439,6 +479,7 @@ export default function CategorySelector({
 
   const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (showDropdown) return; // the search input owns keys while open
+    if (e.key === 'Enter' && closedEnter === 'pass-through') return; // the form's key
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       setShowDropdown(true);
@@ -446,6 +487,18 @@ export default function CategorySelector({
       // Money-style: clearing the category un-categorises the transaction.
       e.preventDefault();
       onCategoryChange('');
+    } else if (isPrintableKey(e)) {
+      // Typing IS the way people use a picker: the control this replaced was a
+      // native <select>, where the first letter jumped straight to it. Tabbing
+      // in and typing used to do nothing at all — the list had to be opened
+      // first, which nobody can guess. Now the character that opened the list
+      // is also the first character of the filter, so nothing is retyped.
+      //
+      // Space is caught above and opens with an EMPTY search: a leading space
+      // filters nothing and would only make the list look broken.
+      e.preventDefault();
+      setSearchTerm(e.key);
+      setShowDropdown(true);
     }
   };
 
@@ -560,6 +613,7 @@ export default function CategorySelector({
             <div className="flex-1 min-w-0">
               {showDropdown ? (
                 <input
+                  ref={searchInputRef}
                   type="text"
                   value={searchTerm}
                   onChange={handleInputChange}

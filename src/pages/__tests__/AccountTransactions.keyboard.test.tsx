@@ -344,7 +344,11 @@ describe('Account register — the highlighted row under the arrow keys', () => 
     // reach into: an arrow key there moves the caret, not the highlight.
     const addDescription = within(addBar()).getByLabelText('Description');
     expect(fireEvent.keyDown(addDescription, { key: 'ArrowDown' })).toBe(true);
-    expect(fireEvent.keyDown(addDescription, { key: 'Enter' })).toBe(true);
+    // Enter here IS claimed — but by the ADD BAR, which now reads it as
+    // "+ Add" from any of its fields (the Money register). The point of this
+    // test is that the REGISTER did not take it: the highlight has not moved
+    // and no row editor opened, both asserted below.
+    expect(fireEvent.keyDown(addDescription, { key: 'Enter' })).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: /Search & filters/ }));
     const search = screen.getByPlaceholderText(/Search by description/);
