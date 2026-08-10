@@ -6,7 +6,7 @@ import { storageAdapter, STORAGE_KEYS } from '../../storageAdapter';
 import {
   planCloudImport, importToLocalStorage, executeCloudPlan,
   MS_MONEY_IMPORT_SOURCE, IMPORT_PROVENANCE_CONFLICT, IMPORT_BATCH_SIZE,
-  isRetryableWriteStatus,
+  isRetryableWriteStatus, RECONCILED_COLUMN,
   type ExistingCategoryRow, type ExistingAccountRow, type CloudPlan,
   type CloudWriteClient, type WriteOutcome,
 } from './msMoneyImport';
@@ -50,6 +50,20 @@ function sampleResult(): MsMoneyImportResult {
       simplifications: [],
     },
   };
+}
+
+/**
+ * The sample carrying Money's own reconciliation state.
+ *
+ * `cleared` on a row out of the transform means Money's R and nothing weaker —
+ * transform.ts keeps `clearedStatus === 2` only — so the rows named here are
+ * the ones Money had SETTLED, and the rest are not.
+ */
+function settledResult(): MsMoneyImportResult {
+  const result = sampleResult();
+  const settled = new Set(['mny-txn-100', 'mny-txn-201']);
+  result.transactions = result.transactions.map(t => ({ ...t, cleared: settled.has(t.id) }));
+  return result;
 }
 
 describe('executeCloudPlan write path', () => {
@@ -182,6 +196,125 @@ describe('executeCloudPlan write path', () => {
     for (const s of [0, 408, 425, 429, 500, 503]) expect(isRetryableWriteStatus(s)).toBe(true);
     for (const s of [400, 401, 403, 404, 409, 422]) expect(isRetryableWriteStatus(s)).toBe(false);
   });
+
+  // ── An older database ─────────────────────────────────────────────────────
+  // Migrations are applied by hand, so this build can meet a database without
+  // 20260810200000. A write naming a column it has not got is refused WHOLE, so
+  // without the fallback below a fifty-thousand-row migration would not degrade
+  // — it would refuse to run.
+
+  /** Records the ROWS of every write, and answers from a script. */
+  const clientCapturing = (
+    answers: WriteOutcome[] = []
+  ): { client: CloudWriteClient; sent: { table: string; rows: Record<string, unknown>[] }[] } => {
+    const sent: { table: string; rows: Record<string, unknown>[] }[] = [];
+    let i = 0;
+    const next = (): WriteOutcome => answers[i++] ?? { error: null, status: 201 };
+    const client: CloudWriteClient = {
+      from: (table: string) => ({
+        insert: (rows: Record<string, unknown>[]) => {
+          sent.push({ table, rows });
+          return Promise.resolve(next());
+        },
+        upsert: (rows: Record<string, unknown>[]) => {
+          sent.push({ table, rows });
+          return Promise.resolve(next());
+        },
+      }),
+    };
+    return { client, sent };
+  };
+
+  /** Rows as `transactionRow` builds them, including the committed flag. */
+  const reconciledRows = (count: number): Record<string, unknown>[] =>
+    Array.from({ length: count }, (_, n) => ({
+      id: `txn-${n}`, user_id: 'u1', account_id: 'a1', amount: -1, date: '2026-01-01',
+      is_cleared: true, [RECONCILED_COLUMN]: true,
+    }));
+
+  it('gives up is_reconciled when the database has not got the column, and finishes the import', async () => {
+    // PostgREST validates an insert's keys against its schema cache, so this is
+    // the exact answer a database without migration 20260810200000 gives.
+    const { client, sent } = clientCapturing([
+      {
+        error: {
+          message: "Could not find the 'is_reconciled' column of 'transactions' in the schema cache",
+          code: 'PGRST204',
+        },
+        status: 400,
+      },
+    ]);
+
+    await executeCloudPlan(emptyPlan({ transactions: reconciledRows(IMPORT_BATCH_SIZE + 2) }), client);
+
+    // Refused batch, the same batch again reduced, then the second batch.
+    expect(sent).toHaveLength(3);
+    expect(RECONCILED_COLUMN in sent[0].rows[0]).toBe(true);
+    expect(sent[1].rows).toHaveLength(IMPORT_BATCH_SIZE);
+    expect(sent[1].rows.every(r => !(RECONCILED_COLUMN in r))).toBe(true);
+    // Every batch after it goes out reduced — the discovery is not re-probed.
+    expect(sent[2].rows).toHaveLength(2);
+    expect(sent[2].rows.every(r => !(RECONCILED_COLUMN in r))).toBe(true);
+    // The mark survives: marked-but-uncommitted is the degraded mode, and on a
+    // database with no committed flag it reads as reconciled anyway.
+    expect(sent[1].rows.every(r => r.is_cleared === true)).toBe(true);
+  });
+
+  it('recognises Postgres own undefined_column as well as PostgREST\'s', async () => {
+    const { client, sent } = clientCapturing([
+      { error: { message: 'column "is_reconciled" of relation "transactions" does not exist', code: '42703' }, status: 400 },
+    ]);
+
+    await executeCloudPlan(emptyPlan({ transactions: reconciledRows(1) }), client);
+
+    expect(sent).toHaveLength(2);
+    expect(sent[1].rows.every(r => !(RECONCILED_COLUMN in r))).toBe(true);
+  });
+
+  it('gives the column up ONCE, across every pass that carries it', async () => {
+    // The link pass rewrites whole transaction rows, so it names the column
+    // too — and must not re-discover what the insert already established.
+    const { client, sent } = clientCapturing([
+      { error: { message: 'unknown column', code: 'PGRST204' }, status: 400 },
+    ]);
+
+    await executeCloudPlan(
+      emptyPlan({ transactions: reconciledRows(1), linkRows: reconciledRows(1) }),
+      client
+    );
+
+    expect(sent).toHaveLength(3);   // insert, insert reduced, link pass reduced
+    expect(sent[2].rows.every(r => !(RECONCILED_COLUMN in r))).toBe(true);
+  });
+
+  it('stops rather than looping when the unknown column is not one it can give up', async () => {
+    const refusal: WriteOutcome = {
+      error: { message: 'column "some_other_column" does not exist', code: '42703' }, status: 400,
+    };
+    const { client, sent } = clientCapturing([refusal, refusal]);
+
+    await expect(
+      executeCloudPlan(emptyPlan({ transactions: reconciledRows(1) }), client)
+    ).rejects.toThrow(/some_other_column/);
+
+    // One try, one try with the flag given up, then the real error — never a
+    // loop, because there is nothing left to drop.
+    expect(sent).toHaveLength(2);
+  });
+
+  it('leaves a batch that never named the column alone', async () => {
+    // Accounts and splits carry no committed flag, so a refusal there is a real
+    // error and is reported as one on the first attempt.
+    const { client, sent } = clientCapturing([
+      { error: { message: 'column "nonsense" does not exist', code: '42703' }, status: 400 },
+    ]);
+
+    await expect(
+      executeCloudPlan(emptyPlan({ accounts: [{ id: 'a1', user_id: 'u1' }] }), client)
+    ).rejects.toThrow(/nonsense/);
+
+    expect(sent).toHaveLength(1);
+  });
 });
 
 describe('planCloudImport', () => {
@@ -300,6 +433,40 @@ describe('planCloudImport — import provenance / idempotency', () => {
       expect('external_provider' in t).toBe(false);
       expect('connection_id' in t).toBe(false);
     }
+  });
+});
+
+/**
+ * The committed flag on a Money migration.
+ *
+ * Money keeps three states and the transform keeps only the strongest: a row
+ * this importer writes as cleared is a row Money had RECONCILED. The column is
+ * `DEFAULT false`, and an explicit false means "marked, not committed" — so
+ * leaving it unnamed would land a whole settled history as outstanding
+ * reconciliation work across every account in the file.
+ */
+describe('planCloudImport — the committed flag', () => {
+  it('records what Money had reconciled instead of letting the column default', () => {
+    let n = 0;
+    const plan = planCloudImport(settledResult(), 'user-abc', () => `new-${n++}`);
+
+    const bySource = new Map(plan.transactions.map(t => [String(t.import_source_id), t]));
+    expect(bySource.get('mny-txn-100')).toMatchObject({ is_cleared: true, is_reconciled: true });
+    expect(bySource.get('mny-txn-201')).toMatchObject({ is_cleared: true, is_reconciled: true });
+    expect(bySource.get('mny-txn-300')).toMatchObject({ is_cleared: false, is_reconciled: false });
+    // Never marked-but-uncommitted: this history was settled in Money, so the
+    // two flags agree on every row the importer writes.
+    for (const row of plan.transactions) expect(row.is_reconciled).toBe(row.is_cleared);
+  });
+
+  it('carries it through the link pass, which rewrites the whole row', () => {
+    let n = 0;
+    const plan = planCloudImport(settledResult(), 'user-abc', () => `new-${n++}`);
+
+    const settledLeg = plan.linkRows.find(r => r.import_source_id === 'mny-txn-201');
+    expect(settledLeg).toMatchObject({ is_cleared: true, is_reconciled: true });
+    const unsettledLeg = plan.linkRows.find(r => r.import_source_id === 'mny-txn-200');
+    expect(unsettledLeg).toMatchObject({ is_cleared: false, is_reconciled: false });
   });
 });
 
@@ -835,6 +1002,21 @@ describe('importToLocalStorage', () => {
     const accounts = await stored(KEYS.ACCOUNTS);
     expect(accounts.map(a => (a as { name?: string }).name))
       .toEqual(['Current', 'Savings', 'Broker', 'Broker (Cash)']);
+  });
+
+  it('stamps the committed flag on the rows Money had reconciled', async () => {
+    // The device store holds whatever it was last written with, so the flag has
+    // to be written — the same rule the cloud path states, on the same rows.
+    await importToLocalStorage(settledResult(), KEYS);
+
+    const transactions = await stored(KEYS.TRANSACTIONS);
+    const flags = new Map(transactions.map(t => {
+      const row = t as { id?: string; cleared?: boolean; reconciled?: boolean | null };
+      return [row.id, { cleared: row.cleared, reconciled: row.reconciled }];
+    }));
+    expect(flags.get('mny-txn-100')).toEqual({ cleared: true, reconciled: true });
+    expect(flags.get('mny-txn-201')).toEqual({ cleared: true, reconciled: true });
+    expect(flags.get('mny-txn-300')).toEqual({ cleared: false, reconciled: false });
   });
 
   it('writes every collection as one unit, so a failure leaves the previous data intact', async () => {

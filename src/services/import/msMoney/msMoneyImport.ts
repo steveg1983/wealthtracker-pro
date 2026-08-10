@@ -17,11 +17,14 @@
  * as the reconstructed final values, so no per-row balance maths runs here.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Account, Category } from '../../../types';
+import type { Account, Category, Transaction } from '../../../types';
 import { toDecimal } from '../../../utils/decimal';
+import { createScopedLogger } from '../../../loggers/scopedLogger';
 import { storageAdapter } from '../../storageAdapter';
 import type { TransferHandover } from './feedOverlap';
 import type { MsMoneyImportResult } from './transform';
+
+const logger = createScopedLogger('msMoneyImport');
 
 export type ImportPhase =
   | 'wiping' | 'accounts' | 'categories' | 'transactions' | 'links' | 'splits' | 'verifying' | 'done';
@@ -70,9 +73,63 @@ export function isRetryableWriteStatus(status: number): boolean {
 
 /** The part of a PostgREST response the write path cares about. */
 export interface WriteOutcome {
-  error: { message: string } | null;
+  error: { message: string; code?: string | null } | null;
   status: number;
 }
+
+/**
+ * `transactions.is_reconciled` — the committed flag (migration 20260810200000).
+ *
+ * Named as a constant because the write path may have to GIVE IT UP: see
+ * `executeCloudPlan`'s fallback, which strips exactly this column when the
+ * database refuses it.
+ */
+export const RECONCILED_COLUMN = 'is_reconciled';
+
+/**
+ * The two ways a database refuses a write that names a column it has not got.
+ *
+ * `42703` is Postgres's own `undefined_column`. `PGRST204` is PostgREST's
+ * "could not find the column in the schema cache", and is what actually comes
+ * back from an INSERT or an UPSERT: PostgREST validates the payload's keys
+ * against its cached schema before the statement ever reaches Postgres. Both
+ * are checked because which one arrives depends on the PostgREST version and
+ * on whether its cache is warm.
+ *
+ * Matched on the CODES and never on the message, for the same reason
+ * src/services/api/transactionService.ts's boot ladder does it that way: the
+ * codes are the documented wire contract, the messages are English prose that
+ * has changed between releases.
+ */
+const UNDEFINED_COLUMN = '42703';
+const POSTGREST_UNKNOWN_COLUMN = 'PGRST204';
+
+const isUnknownColumn = (error: { code?: string | null }): boolean =>
+  error.code === UNDEFINED_COLUMN || error.code === POSTGREST_UNKNOWN_COLUMN;
+
+/**
+ * What the committed flag says about a row that came out of a .mny file.
+ *
+ * ── THE RULE ────────────────────────────────────────────────────────────────
+ * Money keeps three states against a transaction: unreconciled, C (a working
+ * mark) and R (settled against a statement). The transform already keeps only
+ * R — `cleared` is `clearedStatus === 2` and nothing else, see transform.ts —
+ * so every row this importer writes as cleared is a row Money had RECONCILED,
+ * and the committed flag has to say so.
+ *
+ * ── WHY IT IS NOT LEFT TO THE DEFAULT ───────────────────────────────────────
+ * `is_reconciled` is `DEFAULT false` on insert, and
+ * src/utils/transactionReconciliation.ts reads an explicit `false` as "marked,
+ * but not committed". Left unnamed, a full Money migration would therefore
+ * land its entire settled history as outstanding reconciliation work, spread
+ * across every account in the file. NULL — the value that means "predates the
+ * split, ask `cleared`" — is not available to a fresh insert, so the flag must
+ * be stated.
+ *
+ * One rule, read by both write paths (`transactionRow` for the cloud,
+ * `importToLocalStorage` for the device), so the two cannot drift.
+ */
+const reconciledFromMoney = (t: Pick<Transaction, 'cleared'>): boolean => t.cleared === true;
 
 /**
  * The slice of the Supabase client `executeCloudPlan` actually uses. Narrow
@@ -158,7 +215,15 @@ export async function importToLocalStorage(
   const entries: { key: string; value: unknown }[] = [
     { key: storageKeys.ACCOUNTS, value: result.accounts },
     { key: storageKeys.CATEGORIES, value: result.categories },
-    { key: storageKeys.TRANSACTIONS, value: result.transactions },
+    // The committed flag is stamped HERE rather than left off: the device store
+    // holds whatever it was last written with, and a row with no answer is read
+    // through `cleared` — which happens to be right for this importer but only
+    // by accident, and would stop being right the moment anything marked a row.
+    // See `reconciledFromMoney` for the rule itself.
+    {
+      key: storageKeys.TRANSACTIONS,
+      value: result.transactions.map((t): Transaction => ({ ...t, reconciled: reconciledFromMoney(t) })),
+    },
     { key: storageKeys.TRANSACTION_SPLITS, value: result.transactionSplits },
     // Everything else starts clean — a total migration replaces, never merges.
     { key: storageKeys.BUDGETS, value: [] },
@@ -624,6 +689,10 @@ export function planCloudImport(
     category: t.isSplit ? '' : (cat(t.category) ?? ''),
     notes: t.notes ?? null,
     is_cleared: t.cleared === true,
+    // Money's R is a finished reconciliation, so the committed flag says so
+    // (see `reconciledFromMoney`). A database without migration 20260810200000
+    // refuses this column; `executeCloudPlan` gives it up rather than failing.
+    [RECONCILED_COLUMN]: reconciledFromMoney(t),
     is_split: t.isSplit === true,
     transfer_account_id: t.transferAccountId ? acctId.get(t.transferAccountId) ?? null : null,
     is_recurring: false,
@@ -1214,12 +1283,72 @@ export async function executeCloudPlan(
   };
 
   /**
+   * Give up `is_reconciled` on a database that has not got it.
+   *
+   * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+   * Migrations are applied by hand here, so this build can meet a database that
+   * predates 20260810200000 — and a write naming a column that does not exist
+   * is refused WHOLE. Without this, a fifty-thousand-row migration would not
+   * degrade, it would refuse to run at all, and the person's answer would be a
+   * PostgREST error in a modal. An import must never fail over a flag.
+   *
+   * ── WHAT THE DEGRADED OUTCOME IS ───────────────────────────────────────────
+   * Marked, not committed — and on such a database that is not a lie. Without
+   * the column there is nothing to read it from, so
+   * src/utils/transactionReconciliation.ts falls back to `cleared`, which this
+   * importer has just written from Money's own R. The history therefore reads
+   * exactly as it did before the split existed, and the flag starts telling the
+   * fuller story the moment the migration lands and the file is re-imported.
+   *
+   * ── DISCOVERED ONCE ────────────────────────────────────────────────────────
+   * The first refusal flips the switch for the whole run: the batch that was
+   * refused goes again reduced, and every batch after it is built reduced. No
+   * batch re-probes, because a hundred round trips to be told the same thing is
+   * not diagnosis, it is waste. Returns false when there is nothing left to
+   * give up, which is what stops a refusal about some OTHER column looping.
+   */
+  let reconciledUnsupported = false;
+  const giveUpReconciledColumn = (): boolean => {
+    if (reconciledUnsupported) return false;
+    reconciledUnsupported = true;
+    logger.warn(
+      'MS Money import: this database has no transactions.is_reconciled column '
+      + '(migration 20260810200000 is not applied). Imported rows are being written '
+      + 'marked but not committed; re-import once the migration is applied to record '
+      + "Money's reconciled state."
+    );
+    return true;
+  };
+  /** True when this batch names a column the database might refuse. */
+  const carriesReconciled = (rows: Record<string, unknown>[]): boolean =>
+    rows.some(row => RECONCILED_COLUMN in row);
+  /** The batch as it must go out now — reduced once the column has been given up. */
+  const shaped = (rows: Record<string, unknown>[]): Record<string, unknown>[] => {
+    if (!reconciledUnsupported) return rows;
+    return rows.map(row => {
+      if (!(RECONCILED_COLUMN in row)) return row;
+      const reduced = { ...row };
+      delete reduced[RECONCILED_COLUMN];
+      return reduced;
+    });
+  };
+
+  /**
    * One write, retried through a transient failure and only a transient one.
    * A dropped connection mid-import used to leave the migration half-finished
    * with no way back; a constraint violation still fails on the spot, with the
    * database's own message, because trying it again could only fail again.
    */
-  const write = async (stage: string, run: () => PromiseLike<WriteOutcome>): Promise<void> => {
+  const write = async (
+    stage: string,
+    run: () => PromiseLike<WriteOutcome>,
+    /**
+     * Offered only by a batch that names an optional column. Returns true when
+     * it has just given one up — meaning the same batch is worth sending again
+     * at once — and false when there is nothing left to give up.
+     */
+    giveUpUnknownColumn?: () => boolean
+  ): Promise<void> => {
     for (let attempt = 1; ; attempt++) {
       let outcome: WriteOutcome;
       try {
@@ -1231,6 +1360,11 @@ export async function executeCloudPlan(
         outcome = { error: { message: thrown instanceof Error ? thrown.message : String(thrown) }, status: 0 };
       }
       if (!outcome.error) return;
+      // A column this database has not got is neither a transient failure nor a
+      // data error — it is an older schema. Give the column up and offer the
+      // SAME batch again immediately: nothing is congested, so there is nothing
+      // to back off from.
+      if (isUnknownColumn(outcome.error) && giveUpUnknownColumn?.() === true) continue;
       if (!isRetryableWriteStatus(outcome.status)) fail(stage, outcome.error.message);
       if (attempt >= attempts) {
         fail(stage, `${outcome.error.message} (gave up after ${attempt} attempts)`);
@@ -1248,9 +1382,13 @@ export async function executeCloudPlan(
     for (const b of batches) {
       // With a conflict target the write becomes ON CONFLICT DO NOTHING, so a
       // row the database already holds is skipped rather than duplicated.
-      await write(`inserting ${table}`, () => onConflict
-        ? supabase.from(table).upsert(b, { onConflict, ignoreDuplicates: true })
-        : supabase.from(table).insert(b));
+      await write(
+        `inserting ${table}`,
+        () => onConflict
+          ? supabase.from(table).upsert(shaped(b), { onConflict, ignoreDuplicates: true })
+          : supabase.from(table).insert(shaped(b)),
+        carriesReconciled(b) ? giveUpReconciledColumn : undefined
+      );
       done += b.length;
       onProgress?.({ phase, fraction: base + span * (done / Math.max(rows.length, 1)),
         message: `Importing ${table.replace('_', ' ')}… ${done}/${rows.length}` });
@@ -1275,7 +1413,11 @@ export async function executeCloudPlan(
     onProgress?.({ phase, fraction: base, message: `${label}…` });
     let done = 0;
     for (const b of chunk(rows)) {
-      await write(stage, () => supabase.from(table).upsert(b, { onConflict, ignoreDuplicates: false }));
+      await write(
+        stage,
+        () => supabase.from(table).upsert(shaped(b), { onConflict, ignoreDuplicates: false }),
+        carriesReconciled(b) ? giveUpReconciledColumn : undefined
+      );
       done += b.length;
       onProgress?.({ phase, fraction: base + span * (done / rows.length),
         message: `${label}… ${done}/${rows.length}` });
