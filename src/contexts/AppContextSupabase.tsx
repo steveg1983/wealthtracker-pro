@@ -67,6 +67,10 @@ import type {
 } from '../types';
 import { createScopedLogger } from '../loggers/scopedLogger';
 import { planCategoryTreeImport, planCategoryPrune, type CategoryTreeGroup } from '../utils/categoryTreeImport';
+import {
+  BULK_TRANSFER_FILING_REFUSAL,
+  categoryIdIsTransferFiling,
+} from '../utils/transferCoherence';
 import { preferences as preferencesService } from '../services/preferencesService';
 
 export interface Tag {
@@ -85,7 +89,22 @@ export interface AppContextType extends AppState {
   closeAccount: (id: string) => Promise<void>;
 
   // Transaction operations — async so callers can surface save failures.
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  /**
+   * Returns THE ROW THAT WAS WRITTEN, id and all.
+   *
+   * It used to promise `void`, and the register's quick-add dock had already
+   * been written as though it did not: it wrote `const created = await
+   * addTransaction(…); if (isTransfer && created) { …make the other side… }`.
+   * `created` was always undefined, so the guard was always false and the
+   * Txfr toggle silently produced ONE leg of every transfer it was asked for —
+   * a row pointing at an account with nothing in it pointing back. Nothing in
+   * the type system objected, because `void` is assignable to a condition.
+   *
+   * A create that will not say what it created cannot be followed by anything
+   * that needs the new id, and creating the other half of a transfer is
+   * exactly that. So it says.
+   */
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   
@@ -934,6 +953,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return acc;
       }));
+      return newTransaction;
     } catch (error) {
       appLogger.error('Failed to add transaction', error);
       throw error;
@@ -1051,6 +1071,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (ids.length === 0) {
       return 0;
     }
+    /**
+     * THE ONE GATE EVERY BULK FILING PASSES THROUGH.
+     *
+     * Four surfaces call this — the review band's inline pickers, Categorise by
+     * payee, a report drill-down, and payee memory's fan-out — and the RPC
+     * behind it filters only the TARGET ROWS (blank, non-split); it says nothing
+     * about the category being applied. So without this, any of the four could
+     * stamp "To/From Savings" onto a hundred rows at once, and each of those
+     * hundred would become a transfer with no other side: gone from every
+     * report, absent from the review band, and still moving the balance.
+     *
+     * Refused rather than converted, deliberately. Converting would mean
+     * creating a hundred counterpart rows in another account — inventing money
+     * movements nobody recorded. A transfer needs its target resolved one row
+     * at a time, which is what the editor's conversion flow is for.
+     *
+     * A throw, not a silent skip, because every caller here is a user's own
+     * deliberate action and deserves to be told why it did not happen. Payee
+     * memory is the exception and stops before it gets here — see
+     * usePayeeMemory, which explains why a SUGGESTION says nothing.
+     */
+    if (categoryIdIsTransferFiling(categories, category)) {
+      throw new Error(BULK_TRANSFER_FILING_REFUSAL);
+    }
     try {
       const count = await dataPort.applyCategoryToUncategorized(ids, category);
       const idSet = new Set(ids);
@@ -1068,7 +1112,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       appLogger.error('Failed to apply category', error);
       throw error;
     }
-  }, []);
+  }, [categories]);
 
   /**
    * "Yes, that guess was right." Writes two booleans per row and nothing else,

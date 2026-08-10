@@ -210,4 +210,77 @@ describe('computeCategoryHealth', () => {
     );
     expect(health.uncategorizedCount).toBe(0);
   });
+
+  /**
+   * The fifth measure: a transfer category on a row that is not a transfer.
+   *
+   * Its consequence is the reason it is on the panel at all — such a row is
+   * counted as a transfer by `classifyFlow`, so it lands in NEITHER total and
+   * NOT in the uncategorised band either. It is invisible everywhere except the
+   * balance it moves, which is precisely why nothing else would ever surface it.
+   */
+  describe('transfer categories with no other side', () => {
+    it('counts a row typed expense but filed as a transfer, and names it', () => {
+      const health = computeCategoryHealth(
+        [txn({ id: 't-mismatch', category: 'tofrom-savings', amount: -200 })],
+        [],
+        CATEGORIES
+      );
+      expect(health.transferFilingMismatchCount).toBe(1);
+      expect(health.transferFilingMismatchIds).toEqual(['t-mismatch']);
+      expect(health.hasWarnings).toBe(true);
+    });
+
+    it('is invisible to the other four measures — which is the problem', () => {
+      const health = computeCategoryHealth(
+        [txn({ id: 't-mismatch', category: 'tofrom-savings', amount: -200 })],
+        [],
+        CATEGORIES
+      );
+      // Not uncategorised (it has a real category id), not a bucket row, not
+      // dangling. Without this measure the row is named by nothing at all.
+      expect(health.uncategorizedCount).toBe(0);
+      expect(health.unassignedBucketCount).toBe(0);
+      expect(health.danglingCount).toBe(0);
+    });
+
+    it('leaves real transfers and linked rows alone', () => {
+      const health = computeCategoryHealth(
+        [
+          txn({ id: 't-real', category: 'tofrom-savings', type: 'transfer', amount: -200 }),
+          txn({ id: 't-linked', category: 'tofrom-savings', amount: -200, linkedTransferId: 't-other' }),
+        ],
+        [],
+        CATEGORIES
+      );
+      expect(health.transferFilingMismatchCount).toBe(0);
+    });
+
+    it('never counts a split transfer LEG — a legitimate Money construct', () => {
+      // The expansion gives every split line an income/expense type from its
+      // sign, so measuring this on expanded rows would report each legitimate
+      // leg as broken. This measure reads the stored transactions instead.
+      const parent = txn({ id: 'p1', category: '', amount: -100, isSplit: true });
+      const health = computeCategoryHealth(
+        [parent],
+        [
+          split({ id: 's1', transactionId: 'p1', category: 'tofrom-savings', amount: -60, sortOrder: 0 }),
+          split({ id: 's2', transactionId: 'p1', category: 'cat-groceries', amount: -40, sortOrder: 1 }),
+        ],
+        CATEGORIES
+      );
+      expect(health.transferFilingMismatchCount).toBe(0);
+    });
+
+    it('is zero on clean data, so the line renders nothing', () => {
+      const health = computeCategoryHealth(
+        [txn({ id: 't1', category: 'cat-groceries', amount: -30 })],
+        [],
+        [{ id: 'cat-groceries', name: 'Groceries', type: 'expense', level: 'detail' }]
+      );
+      expect(health.transferFilingMismatchCount).toBe(0);
+      expect(health.transferFilingMismatchIds).toEqual([]);
+      expect(health.hasWarnings).toBe(false);
+    });
+  });
 });

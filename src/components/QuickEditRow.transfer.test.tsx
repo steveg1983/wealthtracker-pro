@@ -185,11 +185,30 @@ describe('The register row editor — transfer flow', () => {
     expect(mocks.linkTransferPair).not.toHaveBeenCalled();
   });
 
-  it("rejects the source account's own To/From category", async () => {
+  it("is not even offered the source account's own To/From category", () => {
     render(<RowEditor transaction={source} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Category' }));
-    fireEvent.click(screen.getByText('To/From Current Account'));
+
+    // The other account's, yes. Its own, no: a transfer from an account to
+    // itself moves nothing and has no other side to create, so it is left out
+    // rather than offered and then refused.
+    expect(screen.getByText('To/From Savings')).toBeInTheDocument();
+    expect(screen.queryByText('To/From Current Account')).not.toBeInTheDocument();
+  });
+
+  it("rejects the source account's own To/From category when a row already carries one", async () => {
+    // Unreachable through the picker above, and reachable in the data: this is
+    // the exact shape a swept account's direct debits arrived in when an
+    // earlier importer's categoriser had no such guard (see
+    // utils/transferRepoint). Saving such a row must refuse, not convert.
+    render(
+      <RowEditor
+        transaction={{ ...source, category: 'tofrom-a' } as Transaction}
+        onDismiss={vi.fn()}
+      />
+    );
+
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {

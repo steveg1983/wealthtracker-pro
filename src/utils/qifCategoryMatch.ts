@@ -24,7 +24,24 @@ const splitPath = (raw: string): string[] =>
 export function buildCategoryMatcher(categories: Category[]): CategoryMatcher {
   const active = categories.filter(c => c.isActive !== false);
   const byId = new Map(active.map(c => [c.id, c]));
-  const details = active.filter(c => c.level === 'detail');
+  /**
+   * TRANSFER CATEGORIES ARE NOT MATCH TARGETS.
+   *
+   * They are `level: 'detail'` like any leaf, so a QIF line reading
+   * `LTo/From Savings` — which Money exports happily produce — would otherwise
+   * match one by name and file the imported row under it. The row's type comes
+   * from the sign of its amount ('income' or 'expense'), never 'transfer', and
+   * no counterpart is created: the result is a row that every report drops
+   * (`classifyFlow` reads the category), that the uncategorised review band
+   * never shows (it has a real category id), and that still moves the balance.
+   *
+   * A transfer needs its OTHER SIDE, which an importer matching a name cannot
+   * create — it has no way to know whether the row in the other account is
+   * already in the file. Leaving the row uncategorised puts it in the review
+   * band where the user can convert it properly, which is exactly what the
+   * unmatched-category report is for.
+   */
+  const details = active.filter(c => c.level === 'detail' && c.isTransferCategory !== true);
 
   // Normalized detail name -> the detail categories carrying it. A name can
   // legitimately exist under several parents (e.g. "Other").

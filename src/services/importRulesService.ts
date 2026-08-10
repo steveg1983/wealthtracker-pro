@@ -325,8 +325,15 @@ export class ImportRulesService {
     const descriptionPatterns = new Map<string, { count: number; category?: string }>();
     
     transactions.forEach(t => {
+      // A transfer is never the basis of a merchant rule. Its category names
+      // the OTHER ACCOUNT, which is a fact about one movement, not a habit a
+      // payee has — and a rule that stamped it on future imports would file
+      // ordinary spending as half a transfer. (The rule editor's own picker
+      // refuses transfer categories for the same reason; this stops one being
+      // proposed to the user in the first place.)
+      if (t.type === 'transfer') return;
       const words = t.description.toLowerCase().split(/\s+/);
-      
+
       // Look for merchant names (first 2-3 words)
       const merchantKey = words.slice(0, 2).join(' ');
       if (merchantKey.length > 3) {

@@ -1,4 +1,5 @@
 import type { Transaction, Category } from '../types';
+import { isTransferFiling } from '../utils/transferCoherence';
 
 interface CategoryPattern {
   categoryId: string;
@@ -24,18 +25,41 @@ export class SmartCategorizationService {
 
   /**
    * Learn from existing categorized transactions
+   *
+   * ─ WHAT IS NEVER LEARNED, AND WHY ──────────────────────────────────────────
+   * TRANSFERS. Not the rows typed 'transfer', and not any row filed under a
+   * transfer category. The model's output is fed straight into imported rows by
+   * the QIF and OFX importers, and a suggested "To/From Savings" would file an
+   * ordinary purchase as half a transfer: dropped from every report by
+   * `classifyFlow`, absent from the uncategorised review band because it has a
+   * real category id, and still moving the balance — with no other side
+   * anywhere. A transfer's target is a fact about ONE movement between two
+   * named accounts; it is not a habit a merchant name can predict.
+   *
+   * This also stops the mistake propagating. A history that already contains
+   * such rows (an older importer wrote them, before the guards) would otherwise
+   * teach the model to make more of them, one import at a time.
+   *
+   * The importers' own `isSelfTransferCategory` check is narrower — it refuses
+   * only the row's OWN account's To/From — and stays where it is: two guards
+   * for a rule this expensive to break is the right number.
    */
-  learnFromTransactions(transactions: Transaction[], _categories: Category[]) {
+  learnFromTransactions(transactions: Transaction[], categories: Category[]) {
     // Reset patterns
     this.patterns.clear();
     this.merchantCategoryMap.clear();
     this.keywordCategoryMap.clear();
 
+    const transferCategoryIds = new Set(
+      categories.filter(c => isTransferFiling(c)).map(c => c.id)
+    );
+
     // Group transactions by category
     const transactionsByCategory = new Map<string, Transaction[]>();
-    
+
     transactions.forEach(transaction => {
-      if (transaction.category) {
+      if (transaction.type === 'transfer') return;
+      if (transaction.category && !transferCategoryIds.has(transaction.category)) {
         const existing = transactionsByCategory.get(transaction.category) || [];
         existing.push(transaction);
         transactionsByCategory.set(transaction.category, existing);

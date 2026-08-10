@@ -169,10 +169,16 @@ beforeEach(() => {
   localStorage.clear();
   addTransaction.mockReset();
   // The context's own behaviour, in miniature: the saved row joins the shared
-  // transactions state. The register is a filter over that state, so this is
-  // the whole of "the new row appears" — nothing on the page re-fetches.
-  addTransaction.mockImplementation(async (draft: Omit<Transaction, 'id'>): Promise<void> => {
-    __setAppContextValue({ transactions: [...ROWS, { ...draft, id: 'txn-added' }] });
+  // transactions state, AND the row that was written is handed back. The
+  // register is a filter over that state, so the first half is the whole of
+  // "the new row appears" — nothing on the page re-fetches. The second half is
+  // the contract: a caller may need the new id immediately (creating the other
+  // half of a transfer is exactly that), and a double that returned nothing
+  // would let this suite pass over code the app cannot run.
+  addTransaction.mockImplementation(async (draft: Omit<Transaction, 'id'>): Promise<Transaction> => {
+    const created: Transaction = { ...draft, id: 'txn-added' };
+    __setAppContextValue({ transactions: [...ROWS, created] });
+    return created;
   });
   __setAppContextValue({
     accounts: [ACCOUNT, SAVINGS],

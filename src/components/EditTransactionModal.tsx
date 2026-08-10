@@ -19,6 +19,7 @@ import DeleteTransactionConfirm from './DeleteTransactionConfirm';
 import SuggestedCategoryBadge from './SuggestedCategoryBadge';
 import { isConfirmableSuggestion } from '../utils/categoryProvenance';
 import { findTransferCandidates, transferCategoryFor, type TransferCandidate } from '../utils/transferMatch';
+import { isTransferFiling } from '../utils/transferCoherence';
 import { describeCounterpartOrigin } from '../utils/transferCounterpartOrigin';
 import { describeDeleteStranding, resolveTransferOtherSide } from '../utils/transferOtherSide';
 import { buildTransactionRegisterPath } from '../utils/transactionDeepLink';
@@ -295,6 +296,41 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
             return;
           }
 
+          /**
+           * The transfer filings the conversion above CANNOT rescue.
+           *
+           * `conversionTargetId` resolves from the category's own `accountId`,
+           * which the account-managed "To/From <account>" categories always
+           * carry. The two legacy sentinels under the Transfer type root
+           * (transfer-in / transfer-out) do not — they say "this is a transfer"
+           * and never say to where — and neither does a transfer category whose
+           * account has been removed from underneath it.
+           *
+           * Saved as-is, such a row would be typed income or expense and filed
+           * as a transfer: `classifyFlow` reads the CATEGORY, so it would be
+           * dropped from every report while still moving the balance, and it
+           * would not appear in the uncategorised review band either, because
+           * it has a real category id. Nothing would ever ask about it again.
+           *
+           * So the save refuses and says what to do instead. This is the only
+           * shape the editor cannot fix for the user, because the missing fact
+           * — which account the money went to — is one only they know.
+           */
+          if (
+            !splitting &&
+            // A LINKED row is not stranded: its other side exists, and every
+            // report treating it as a transfer is right to. There is nothing to
+            // create, so refusing an unrelated edit to it (a note, a date)
+            // would block work for no gain.
+            !transaction?.linkedTransferId &&
+            resolvedType !== 'transfer' &&
+            isTransferFiling(chosenCategoryObj)
+          ) {
+            throw new Error(
+              'That category files this as a transfer but doesn’t name an account, so there is no other side to create. Switch the type to Transfer and choose the account the money moved to.'
+            );
+          }
+
           const parsedAmount = parseMoneyInput(validatedData.amount) ?? 0;
           // Sign the stored amount. Income/expense are seeded as Math.abs, so
           // re-sign by type. Transfers ENCODE DIRECTION in their sign: an edit
@@ -380,23 +416,36 @@ export default function EditTransactionModal({ isOpen, onClose, transaction, def
               await updateTransaction(transaction.id, transactionData);
             }
           } else {
-            await addTransaction(transactionData);
-          }
+            const created = await addTransaction(transactionData);
 
-          // Create paired transaction in target account for NEW transfers only
-          if (isNewTransferSelection && targetAccountId && !transaction) {
-            await addTransaction({
-              date: new Date(validatedData.date),
-              description: validatedData.description,
-              amount: Math.abs(parsedAmount),
-              type: 'transfer',
-              category: 'transfer-in',
-              accountId: targetAccountId,
-              transferAccountId: validatedData.accountId,
-              tags: validatedData.tags,
-              notes: validatedData.notes,
-              cleared: false
-            });
+            /**
+             * A NEW transfer's other side — through the one operation that
+             * LINKS it.
+             *
+             * This used to be a second, independent addTransaction: two rows
+             * that looked like a transfer and were not one. Neither carried
+             * linkedTransferId, so nothing tied them together — the editor
+             * reported "no other side recorded" on a pair that was sitting
+             * right there, re-pointing could not move them, and deleting one
+             * left the other stranded in an account nobody was looking at.
+             *
+             * createTransferCounterpart writes the other row, types both as
+             * transfers, files both under the opposite account's To/From
+             * category, links them each way and moves the target balance —
+             * atomically, in the cloud and in the browser store alike.
+             *
+             * The compensating delete is the same promise the register's dock
+             * makes: both legs, or neither. Left in place, the first leg is a
+             * payment out of an account with nothing to answer for it.
+             */
+            if (isNewTransferSelection && targetAccountId) {
+              try {
+                await createTransferCounterpart(created.id, targetAccountId);
+              } catch (counterpartError) {
+                await deleteTransaction(created.id);
+                throw counterpartError;
+              }
+            }
           }
 
           // Payee memory (the Microsoft Money model): the category just chosen

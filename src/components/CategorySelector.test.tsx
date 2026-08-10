@@ -36,13 +36,25 @@ const tree: Category[] = [
 
 const PLACEHOLDER = 'Pick a category';
 
+/**
+ * The walkers, EXACTLY as the real context implements them: every child of the
+ * given parent, with no filter on level.
+ *
+ * They used to be level-filtered here, which made this double stricter than the
+ * app and hid the thing these tests are for. The transfer categories only
+ * stayed out of an ordinary picker because they hang one rung shallower than a
+ * leaf and the sub→detail walk happened not to reach them — a fact about the
+ * tree's shape, not a rule. With the double telling the truth, the exclusion has
+ * to be the code's doing.
+ */
+const walkChildren = (source: Category[]) => (parentId?: string): Category[] =>
+  source.filter(c => c.parentId === parentId);
+
 beforeEach(() => {
   __setAppContextValue({
     categories: tree,
-    getSubCategories: (parentId?: string) =>
-      tree.filter(c => c.level === 'sub' && c.parentId === parentId),
-    getDetailCategories: (parentId?: string) =>
-      tree.filter(c => c.level === 'detail' && c.parentId === parentId),
+    getSubCategories: walkChildren(tree),
+    getDetailCategories: walkChildren(tree),
   });
 });
 
@@ -320,6 +332,55 @@ describe('CategorySelector', () => {
     it('leaves out a closed account (its category is inactive)', () => {
       renderOpen({ includeAllTypes: true, includeTransferTargets: true });
       expect(screen.queryByText('To/From Old ISA')).not.toBeInTheDocument();
+    });
+
+    /**
+     * The exclusion is BY FLAG, not by where the category happens to sit.
+     *
+     * A To/From category parented under an ordinary sub-category is squarely
+     * inside the sub→detail walk every picker uses, so tree shape alone cannot
+     * keep it out. Nothing in the app creates one there today — which is the
+     * point: the rule has to hold for the tree the app might have, not only for
+     * the tree it has, because a picker that offers a transfer category files a
+     * whole transaction as half a transfer.
+     */
+    it('is refused even when a To/From category sits among ordinary leaves', () => {
+      const misplaced: Category[] = [
+        ...tree,
+        {
+          id: 'tofrom-misplaced', name: 'To/From Petty Cash', type: 'both', level: 'detail',
+          parentId: 'sub-food', isTransferCategory: true, accountId: 'acct-petty',
+        },
+      ];
+      __setAppContextValue({
+        categories: misplaced,
+        getSubCategories: walkChildren(misplaced),
+        getDetailCategories: walkChildren(misplaced),
+      });
+
+      renderOpen({ includeAllTypes: true });
+      expect(screen.getByText('Groceries')).toBeInTheDocument();
+      expect(screen.queryByText('To/From Petty Cash')).not.toBeInTheDocument();
+    });
+
+    it('offers that same misplaced one where a line may BE a transfer', () => {
+      // The flag decides; the flag is also what lets the split-line picker keep
+      // offering them. Both halves of the rule, on the same tree.
+      const misplaced: Category[] = [
+        ...tree,
+        {
+          id: 'tofrom-misplaced', name: 'To/From Petty Cash', type: 'both', level: 'detail',
+          parentId: 'sub-food', isTransferCategory: true, accountId: 'acct-petty',
+        },
+      ];
+      __setAppContextValue({
+        categories: misplaced,
+        getSubCategories: walkChildren(misplaced),
+        getDetailCategories: walkChildren(misplaced),
+      });
+
+      renderOpen({ includeAllTypes: true, includeTransferTargets: true });
+      expect(screen.getByText('To/From Petty Cash')).toBeInTheDocument();
     });
 
     it('reports the chosen To/From category id, and filters with the search', () => {

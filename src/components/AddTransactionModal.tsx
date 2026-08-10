@@ -11,6 +11,8 @@ import DatePicker from './common/DatePicker';
 import { useModalForm } from '../hooks/useModalForm';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { parseMoneyInput } from '../utils/decimal';
+import { transferCategoryIdFor } from '../utils/transferRepoint';
+import { isTransferFiling } from '../utils/transferCoherence';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
@@ -42,6 +44,13 @@ interface AddTransactionModalProps {
 }
 
 
+/**
+ * A draft the form has already refused AND explained, at the field that caused
+ * it. Thrown rather than returned so useModalForm keeps the modal open (a clean
+ * return is its success signal); caught without adding a second message.
+ */
+class DraftRefused extends Error {}
+
 interface FormData {
   description: string;
   amount: string;
@@ -54,7 +63,12 @@ interface FormData {
 }
 
 export default function AddTransactionModal({ isOpen, onClose, initialAccountId }: AddTransactionModalProps): React.JSX.Element {
-  const { accounts, categories, getSubCategories, getDetailCategories } = useApp();
+  const {
+    accounts, categories, getSubCategories, getDetailCategories,
+    // The two writes that turn one row into a linked pair, and undo it if the
+    // second half cannot be made. See onSubmit.
+    createTransferCounterpart, deleteTransaction,
+  } = useApp();
   // Adds through the same path the edit modal uses, so the user's Large
   // Transaction Warnings actually fire. This is the main way a transaction
   // gets entered; adding via useApp directly skipped the alert entirely, which
@@ -83,40 +97,105 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
         try {
           // Clear previous errors
           setValidationErrors({});
-          
+
+          const isTransfer = data.type === 'transfer';
+          /**
+           * ON A TRANSFER, `category` HOLDS THE TARGET ACCOUNT.
+           *
+           * The same convention the register's quick-add dock uses, so the two
+           * add surfaces model a transfer the same way. What this form used to
+           * do with the Transfer button is worth writing down, because it was
+           * the worst version of the bug this batch is about: it wrote ONE row
+           * typed 'transfer', with no target account, no counterpart and no
+           * link — and signed it POSITIVE, so a transfer OUT read as money in.
+           */
+          const targetAccountId = isTransfer ? data.category : '';
+          if (isTransfer) {
+            if (!targetAccountId) {
+              setValidationErrors({ category: 'Choose the account the money moved to.' });
+              throw new DraftRefused();
+            }
+            if (targetAccountId === data.accountId) {
+              setValidationErrors({
+                category: 'A transfer needs two different accounts — pick the account the money went to.',
+              });
+              throw new DraftRefused();
+            }
+            // The counterpart is −amount with no conversion, so both accounts
+            // must share a currency. Refused here rather than after the first
+            // write, so a knowable failure never puts a row in the ledger.
+            const from = accounts.find(a => a.id === data.accountId)?.currency;
+            const to = accounts.find(a => a.id === targetAccountId)?.currency;
+            if (from && to && from !== to) {
+              setValidationErrors({
+                category: `Transfers between accounts in different currencies aren’t supported yet (${from} and ${to}).`,
+              });
+              throw new DraftRefused();
+            }
+          }
+
           // Validate the transaction data
           const validatedData = ValidationService.validateTransaction({
             description: data.description,
             amount: data.amount,
-            type: data.type === 'transfer' ? 'expense' : data.type,
-            category: data.category,
+            type: isTransfer ? 'expense' : data.type,
+            // A transfer's real category is written by createTransferCounterpart
+            // (the target account's own To/From), so nothing category-shaped is
+            // validated here — this field is holding an account id.
+            category: isTransfer ? '' : data.category,
             accountId: data.accountId,
             date: data.date,
             notes: data.notes || undefined,
           });
-          
+
           // If validation passes, add the transaction
           // CRITICAL FIX: Ensure amount is negative for expenses
           const amount = parseMoneyInput(validatedData.amount) ?? 0;
-          const finalAmount = data.type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
-          
+          // A transfer LEAVES the account it is entered on, so it is signed like
+          // an expense. It used to be signed like income.
+          const finalAmount = data.type === 'income' ? Math.abs(amount) : -Math.abs(amount);
+
           // Awaited so a failed write lands in the catch below rather than
           // announcing success for a transaction that was never saved.
-          await addTransaction({
+          const created = await addTransaction({
             description: validatedData.description,
             amount: finalAmount,
             type: data.type,
-            category: validatedData.category,
+            // The target's own To/From category, from the one place the
+            // crossover rule is written down. createTransferCounterpart re-files
+            // both sides anyway; this matters only if it cannot run and the
+            // rollback cannot either — the row left behind then at least names
+            // the account it was meant to face.
+            category: isTransfer
+              ? transferCategoryIdFor(categories, targetAccountId, finalAmount)
+              : validatedData.category,
             accountId: validatedData.accountId,
+            transferAccountId: isTransfer ? targetAccountId : undefined,
             date: new Date(validatedData.date),
             notes: validatedData.notes,
           });
 
+          // BOTH LEGS, LINKED — or neither. See the same passage in the
+          // register's dock: two independent inserts are not a transfer, because
+          // neither row carries linkedTransferId and nothing ties them together.
+          if (isTransfer) {
+            try {
+              await createTransferCounterpart(created.id, targetAccountId);
+            } catch (counterpartError) {
+              await deleteTransaction(created.id);
+              throw counterpartError;
+            }
+          }
+
           // Show success message
-          showSuccess('Transaction added successfully');
+          showSuccess(isTransfer ? 'Transfer added — both sides recorded' : 'Transaction added successfully');
           onClose();
         } catch (error) {
-          if (error instanceof z.ZodError) {
+          if (error instanceof DraftRefused) {
+            // The reason is already printed at the field that caused it. Adding
+            // a general message would say the same thing twice, in the wrong
+            // place.
+          } else if (error instanceof z.ZodError) {
             // Show validation errors in the form
             setValidationErrors(ValidationService.formatErrors(error));
             // Also show a toast for the first error
@@ -128,6 +207,17 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
             logger.error('Failed to add transaction', error as Error);
             setValidationErrors({ general: 'Unable to save transaction. Please try again.' });
           }
+          /**
+           * RETHROWN, so the form STAYS OPEN with the draft still in it.
+           *
+           * useModalForm treats a clean return from onSubmit as success: it
+           * resets the fields and closes the modal. Swallowing the error here
+           * therefore did the opposite of what the message it had just printed
+           * implied — the modal shut, the typing went with it, and the message
+           * was set on a component that was already unmounting. A refusal has to
+           * leave the user where they can act on it.
+           */
+          throw error;
         }
       },
       onClose: () => {
@@ -272,7 +362,46 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
               )}
             </div>
 
-            {/* Category Selection */}
+            {/* Category Selection — or, on a transfer, the OTHER ACCOUNT.
+                A transfer is not filed under a category: it is a movement
+                between two accounts, and naming the second one is the whole of
+                what the form needs to write both sides. The picker takes the
+                category selects' place in the same slot, so choosing where the
+                money went feels like choosing a category rather than like a
+                different form. */}
+            {formData.type === 'transfer' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  To Account
+                </label>
+                <AccountSelector
+                  accounts={accounts}
+                  // A transfer from an account to itself moves nothing and has
+                  // no other side to create, so it is left out rather than
+                  // offered and then refused.
+                  excludeIds={formData.accountId ? [formData.accountId] : []}
+                  selectedAccountId={formData.category}
+                  onAccountChange={(accountId) => {
+                    updateField('category', accountId);
+                    if (validationErrors.category) {
+                      setValidationErrors(prev => ({ ...prev, category: '' }));
+                    }
+                  }}
+                  placeholder="Search or select the account the money moved to…"
+                  formatLabel={(account) => `${account.name} (${account.type})`}
+                  className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
+                  usePortal
+                  required
+                  ariaLabel="Select the account to transfer to"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Both sides are recorded: the money leaves this account and arrives in that one.
+                </p>
+                {validationErrors.category && (
+                  <p className="mt-1 text-sm text-red-500" role="alert">{validationErrors.category}</p>
+                )}
+              </div>
+            ) : (
             <div className="space-y-3">
               {/* Sub-category */}
               <div>
@@ -322,13 +451,22 @@ export default function AddTransactionModal({ isOpen, onClose, initialAccountId 
                     aria-label="Select transaction sub-category"
                   >
                     <option value="">Select sub-category</option>
-                    {getDetailCategories(formData.subCategory).map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
+                    {getDetailCategories(formData.subCategory)
+                      // A "To/From <account>" category is never a filing for a
+                      // whole transaction — it is what the Transfer type above
+                      // says properly, and only that route creates both sides.
+                      // These selects walk children by parentId, so without this
+                      // the Transfer tree's leaves are one re-parenting away
+                      // from appearing in an expense list.
+                      .filter(cat => !isTransferFiling(cat))
+                      .map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
                   </select>
                 </div>
               )}
             </div>
+            )}
 
             <div>
               <label htmlFor="date-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -37,18 +37,27 @@ import type { CategoryHealth } from '../utils/categoryHealth';
  *  - dangling references → the Categorisation page as well: they sit in the
  *    same review band, and each row opens the editor that can re-file it;
  *  - empty categories → the tree below, with those rows lit up and deletion
- *    reachable, because that is where a category is deleted.
+ *    reachable, because that is where a category is deleted;
+ *  - transfer filings that are not transfers → a list of exactly those rows,
+ *    each of which opens the full editor. NOT a "fix them all" button: every one
+ *    of these rows is missing a fact only the user has — whether the other side
+ *    already exists somewhere, or has to be created — so the cure is the
+ *    editor's own match-or-create question, asked once per row. A bulk convert
+ *    would invent movements between accounts nobody recorded.
  */
 export default function CategoryDataHealthPanel({
   health,
   onFileUnassignedBucket,
   onShowEmptyCategories,
+  onFixTransferFilings,
 }: {
   health: CategoryHealth;
   /** Open the import bucket's rows for filing (the id is the one measured). */
   onFileUnassignedBucket: (categoryId: string) => void;
   /** Show the empty categories in the tree, with deletion reachable. */
   onShowEmptyCategories: () => void;
+  /** Open the mismatched rows, one editor per row (the ids are the measured ones). */
+  onFixTransferFilings: (transactionIds: readonly string[]) => void;
 }): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
   const location = useLocation();
@@ -125,6 +134,36 @@ export default function CategoryDataHealthPanel({
             >
               Review and re-file
             </Link>
+          </li>
+        )}
+        {health.transferFilingMismatchCount > 0 && (
+          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            {/* THE CONSEQUENCE, NOT THE SYMPTOM.
+                "Type and category disagree" is a fact about two fields and
+                means nothing to anyone. What actually happens is that the
+                category wins everywhere it counts: `classifyFlow` reads it,
+                calls the row a transfer, and every report built on it — the
+                dashboard, the income/expense breakdown, custom reports, top
+                transactions, the export — leaves the row out of BOTH totals.
+                It is not in the uncategorised review band either, because it
+                has a real category id, so nothing ever asks about it. And it
+                has no other side, so nothing balances it. The balance moved;
+                the reports never heard. That is the sentence. */}
+            <span>
+              <strong className="tabular-nums">{health.transferFilingMismatchCount.toLocaleString()}</strong>{' '}
+              transaction{plural(health.transferFilingMismatchCount)} carr
+              {health.transferFilingMismatchCount === 1 ? 'ies' : 'y'} a transfer category with no other
+              side — {health.transferFilingMismatchCount === 1 ? 'it moves' : 'they move'} the account
+              balance but count as neither income nor spending in any report, and never appear in the
+              review band
+            </span>
+            <button
+              type="button"
+              onClick={() => onFixTransferFilings(health.transferFilingMismatchIds)}
+              className={actionClass}
+            >
+              Fix {health.transferFilingMismatchCount === 1 ? 'it' : 'them'} one by one
+            </button>
           </li>
         )}
         {health.emptyCategoryCount > 0 && (
