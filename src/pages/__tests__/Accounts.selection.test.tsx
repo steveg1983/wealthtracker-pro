@@ -6,7 +6,11 @@ import { readProvenance, returnState } from '../../utils/navigationProvenance';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { ToastProvider } from '../../contexts/ToastContext';
 import Accounts from '../Accounts';
-import { ACCOUNT_ROW_COLUMNS_CLASS, ACCOUNT_ROW_SELECTED_CLASS } from '../../components/AccountRowColumns';
+import {
+  ACCOUNT_ROW_COLUMNS_CLASS,
+  ACCOUNT_ROW_NAME_LINK_CLASS,
+  ACCOUNT_ROW_SELECTED_CLASS,
+} from '../../components/AccountRowColumns';
 import { __setAppContextValue, __resetAppContextValue } from '../../test/mocks/AppContextSupabase';
 import { DataService } from '../../services/api/dataService';
 import type { Account } from '../../types';
@@ -60,6 +64,17 @@ const PORTFOLIO_CASH: Account = {
   id: 'acc-portfolio-cash', name: 'Synthetic Portfolio (Cash)', type: 'current', balance: 0,
   currency: 'GBP', institution: 'Synthetic Brokers', lastUpdated: new Date('2026-01-01'),
   openingBalance: 0, isActive: true, parentAccountId: PORTFOLIO.id,
+};
+
+/**
+ * A name longer than any column will hold, for the truncation half of the hit
+ * area. Kept OUT of the default set on purpose: it would sort in among the rows
+ * the arrow-walking tests step through and change what "the next one down" is.
+ */
+const LONG_NAMED: Account = {
+  id: 'acc-long', name: 'Synthetic Joint Reserve and Renovation Fund (Second Account)',
+  type: 'current', balance: 0, currency: 'GBP', institution: 'Synthetic Bank',
+  lastUpdated: new Date('2026-01-01'), openingBalance: 0, isActive: true,
 };
 
 /**
@@ -128,6 +143,24 @@ const renderAccounts = (state?: unknown): void => {
 
 /** The link that opens an account — the account's name. */
 const nameLink = (name: string): HTMLElement => screen.getByRole('link', { name });
+
+/** An element's classes as whole names — `max-w-full` is not `w-full`. */
+const classesOf = (element: HTMLElement): string[] => Array.from(element.classList);
+
+/**
+ * The NAME CELL: the heading (or, on a cash row, the line) the link sits in.
+ *
+ * This is the strip of row the bug was about. It runs the full width of the
+ * name column whatever the name's length — which is right, because the phone
+ * balance to its right is pushed there by it — so everything in it past the
+ * last letter of the name is row background, and clicking there means "this
+ * one", not "open it".
+ */
+const nameCell = (name: string): HTMLElement => {
+  const cell = nameLink(name).parentElement;
+  if (!(cell instanceof HTMLElement)) throw new Error(`no name cell for "${name}"`);
+  return cell;
+};
 
 /**
  * The ROW an account is drawn as: the nearest ancestor of its name that can
@@ -229,6 +262,113 @@ describe('Accounts list — the name is the way in', () => {
         resume: { accountId: EVERYDAY.id },
       },
     });
+  });
+});
+
+describe('Accounts list — the link is the letters, and no wider', () => {
+  /**
+   * ─ THE MISS THIS BLOCK EXISTS FOR ──────────────────────────────────────────
+   * The name link shipped as a plain `block` inside a flex-1 heading, so its box
+   * filled the whole name column. A click in what LOOKS like empty row an inch
+   * to the right of a short name landed on the link and opened the register —
+   * the hover underline and the "Open …" tooltip showing up under a cursor that
+   * was nowhere near the text. It caught the owner over and over.
+   *
+   * ─ WHAT jsdom CAN AND CANNOT SAY ───────────────────────────────────────────
+   * There is no layout here, so there is no x=300 to click at: which element a
+   * click at that x actually hits is decided by the link's WIDTH, and jsdom
+   * knows nothing about widths. So each behavioural test below states the width
+   * as a class in the SAME test as the click it explains. Split them apart and
+   * the behavioural half becomes worthless: clicking the heading directly
+   * selects the row whether the link is stretched across it or not, so a
+   * separated test would sail through the very regression it was written for.
+   */
+  it('picks the row out when the click lands right of the name', async () => {
+    await openList();
+
+    // As wide as its own letters (w-fit) and never wider than the column
+    // (max-w-full) — so the rest of the heading is row background.
+    const link = nameLink('Synthetic Everyday');
+    expect(classesOf(link)).toContain('w-fit');
+    expect(classesOf(link)).toContain('max-w-full');
+    // And nothing that would fill the track again. Whole class names, not a
+    // substring search: `max-w-full` contains the letters of `w-full`.
+    for (const stretches of ['w-full', 'flex-1', 'grow', 'self-stretch']) {
+      expect(classesOf(link)).not.toContain(stretches);
+    }
+
+    fireEvent.click(nameCell('Synthetic Everyday'));
+
+    // Still on the list, with the row picked out: exactly what the owner meant
+    // by that click.
+    expect(screen.queryByRole('heading', { level: 1, name: 'Register' })).not.toBeInTheDocument();
+    expect(selectedRowName()).toBe('Synthetic Everyday');
+  });
+
+  it('opens the account when the click lands ON the letters', async () => {
+    await openList();
+
+    fireEvent.click(nameLink('Synthetic Everyday'));
+
+    // The other half of the same rule, and the reason the test above cannot
+    // stand alone: a link that had been shrunk to nothing — or dropped for a
+    // span — would pass the dead-zone test perfectly and leave the page with no
+    // way in at all.
+    expect(screen.getByTestId('register-account')).toHaveTextContent(EVERYDAY.id);
+  });
+
+  it('leaves the widest dead zone of all — the cash row’s — to the row', async () => {
+    await openList();
+
+    // This link reads plain "Cash": four letters across a line as wide as its
+    // parent card's, which made it the easiest miss on the page.
+    expect(classesOf(nameLink('Cash'))).toContain('w-fit');
+
+    fireEvent.click(nameCell('Cash'));
+
+    expect(screen.queryByRole('heading', { level: 1, name: 'Register' })).not.toBeInTheDocument();
+    // ITS row, not the card it sits inside.
+    expect(selectedRowName()).toBe('Cash');
+  });
+
+  it('gives both kinds of row the same hit area, from one definition', async () => {
+    await openList();
+
+    // Not "both look about right" — the same string, from the same export, the
+    // way the columns are shared. The hit area cannot come out right for a card
+    // and wrong for a cash row.
+    for (const name of ['Synthetic Everyday', 'Cash']) {
+      expect(nameLink(name).className).toContain(ACCOUNT_ROW_NAME_LINK_CLASS);
+    }
+  });
+
+  it('holds a long name inside its column rather than running it over the figures', async () => {
+    __setAppContextValue({ accounts: [EVERYDAY, LONG_NAMED], transactions: [], isLoading: false });
+    await openList();
+
+    const link = nameLink(LONG_NAMED.name);
+    // fit-content of a nowrap line is the WHOLE name however long it runs, so
+    // the cap is what stands between this name and the Bank Bal column, and the
+    // ellipsis is what makes the cap readable rather than a guillotine.
+    expect(classesOf(link)).toContain('max-w-full');
+    expect(classesOf(link)).toContain('truncate');
+    // Long or short, the row still answers a click beside the name.
+    fireEvent.click(nameCell(LONG_NAMED.name));
+    expect(selectedRowName()).toBe(LONG_NAMED.name);
+  });
+
+  it('draws the keyboard focus ring round the name, where it can be seen', async () => {
+    await openList();
+
+    // The ring belongs to the link, so it is the size of the link — which is
+    // now the size of the letters and not of the row.
+    expect(classesOf(nameLink('Synthetic Everyday'))).toContain('focus-visible:ring-2');
+    // …and the heading around it no longer clips. `truncate` there had nothing
+    // left to clip once the link capped itself, but it did clip the ring: an
+    // ancestor's overflow clips a descendant's outline and box-shadow alike, so
+    // the account name showed no keyboard focus at all.
+    expect(classesOf(nameCell('Synthetic Everyday'))).not.toContain('truncate');
+    expect(classesOf(nameCell('Cash'))).not.toContain('truncate');
   });
 });
 

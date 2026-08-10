@@ -56,6 +56,7 @@ import {
   AccountRowEmptyCell,
   AccountRowActionSlot,
   ACCOUNT_ROW_SELECTED_CLASS,
+  ACCOUNT_ROW_NAME_LINK_CLASS,
 } from '../components/AccountRowColumns';
 import { useArrivalRowFocus } from '../hooks/useArrivalFocus';
 // The same predicate the Transactions table asks, kept in one place: a click on
@@ -838,12 +839,26 @@ export default function Accounts() {
                               opened in a new tab, followed from the keyboard,
                               or copied as an address. The rest of the row means
                               "pick this one out", which is why the two are not
-                              the same gesture any more. */}
-                          <h3 className="text-base md:text-lg font-medium truncate min-w-0 flex-1">
+                              the same gesture any more.
+
+                              The heading still takes the whole track (the
+                              phone-width balance to its right is pushed there by
+                              this flex-1, and the link's max-width is measured
+                              against it) — but the LINK inside it hugs its own
+                              letters, so the empty part of the track belongs to
+                              the row. See ACCOUNT_ROW_NAME_LINK_CLASS.
+
+                              The heading no longer clips: with the link capped
+                              at the heading's width there is nothing left to
+                              overflow, and `truncate` here used to hide the
+                              link's own focus ring — an ancestor's overflow
+                              clips a descendant's outline, so the account name
+                              showed no keyboard focus at all. */}
+                          <h3 className="text-base md:text-lg font-medium min-w-0 flex-1">
                             <Link
                               to={registerPath(account.id)}
                               state={registerLinkState(account.id)}
-                              className="block truncate text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                              className={`${ACCOUNT_ROW_NAME_LINK_CLASS} text-gray-900 dark:text-white`}
                               title={`Open ${account.name}`}
                             >
                               {account.name}
@@ -1043,11 +1058,16 @@ export default function Accounts() {
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <WalletIcon className="text-teal-600 dark:text-teal-400 flex-shrink-0" size={14} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">
+                              {/* The same link as the card's, and the same
+                                  reason for hugging: this one reads plain
+                                  "Cash", four letters against a row as wide as
+                                  its parent's, so a stretched anchor here left
+                                  the largest dead zone on the page. */}
+                              <p className="text-sm font-medium">
                                 <Link
                                   to={registerPath(child.id)}
                                   state={registerLinkState(child.id)}
-                                  className="block truncate text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                                  className={`${ACCOUNT_ROW_NAME_LINK_CLASS} text-gray-800 dark:text-gray-200`}
                                   title={`Open ${child.name}`}
                                 >
                                   {childName}
