@@ -21,6 +21,24 @@ import { createScopedLogger } from '../loggers/scopedLogger';
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * The account the form opens on. Omit it (the app-wide add, from the header
+   * or the mobile +) and the picker starts empty, exactly as it always has.
+   *
+   * The account register passes its own account, so a transaction started from
+   * a register lands in the register the user is looking at rather than making
+   * them name the account they are already inside. The field stays EDITABLE:
+   * it is a starting point, not a lock — an account picked here still wins.
+   *
+   * ─ THE ONE CONSTRAINT ─────────────────────────────────────────────────────
+   * Read once, when this component MOUNTS: useModalForm freezes its initial
+   * state (see its useState initialiser), so changing this prop on an
+   * already-mounted modal does nothing. Every call site therefore MOUNTS the
+   * modal when it opens and unmounts it when it closes — `{open && <Add… />}`
+   * — which is what Layout and the register both do, and which is also what
+   * gives each add a clean form rather than the last one's leftovers.
+   */
+  initialAccountId?: string;
 }
 
 
@@ -35,7 +53,7 @@ interface FormData {
   notes: string;
 }
 
-export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps): React.JSX.Element {
+export default function AddTransactionModal({ isOpen, onClose, initialAccountId }: AddTransactionModalProps): React.JSX.Element {
   const { accounts, categories, getSubCategories, getDetailCategories } = useApp();
   // Adds through the same path the edit modal uses, so the user's Large
   // Transaction Warnings actually fire. This is the main way a transaction
@@ -54,7 +72,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
       type: 'expense',
       category: '',
       subCategory: '',
-      accountId: '',
+      // Where the caller sent us, or nothing. See initialAccountId: this is
+      // the one read of it, and it happens on mount.
+      accountId: initialAccountId ?? '',
       date: new Date().toISOString().split('T')[0],
       notes: ''
     },

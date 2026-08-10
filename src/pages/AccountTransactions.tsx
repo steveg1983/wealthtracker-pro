@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, useId, Suspense } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -58,6 +58,7 @@ import {
 import PayeeAutoCompleteInput from '../components/PayeeAutoCompleteInput';
 import AddWithoutCategoryConfirm from '../components/AddWithoutCategoryConfirm';
 import { countAwaitingReview, isAwaitingReview } from '../utils/transactionReview';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 import { formatCardNumberForDisplay, isCardAccountType } from '../utils/accountNumberInput';
 import { buildAttentionItems } from '../utils/attentionItems';
 import { loadAutoSyncPrefs } from '../utils/bankAutoSync';
@@ -67,6 +68,16 @@ import { dataPort } from '../services/port';
 import AccountSelector from '../components/common/AccountSelector';
 import type { Account, Transaction } from '../types';
 import { preferences, type PreferenceStorage } from '../services/preferencesService';
+
+/**
+ * The app's one full "add a transaction" editor — the component the global
+ * Transactions page opens, reached here from the toolbar's Add.
+ *
+ * Lazy for the reason Layout loads the same module lazily: it is not part of
+ * the register's first paint, and loading it the same way means both entry
+ * points share ONE chunk rather than shipping the editor twice.
+ */
+const AddTransactionModal = lazyWithRecovery(() => import('../components/AddTransactionModal'));
 
 type TransactionWithBalance = Transaction & { balance: number };
 
@@ -551,6 +562,28 @@ export default function AccountTransactions() {
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  /**
+   * Whether the toolbar's Add has the full editor open.
+   *
+   * Plain state, NOT a `?action=add` in the URL — the idiom the Transactions
+   * and Accounts pages use — and the difference is worth writing down, because
+   * it looks like an inconsistency and is not.
+   *
+   * That parameter exists where the BUTTON and the MODAL are in different
+   * component trees. On /transactions the add modal is Layout's, so the page's
+   * header button cannot open it directly and signals through the URL instead;
+   * on /accounts the parameter is there for the mobile + and the app-wide
+   * shortcut, while the page's own Add Account button just sets state
+   * (Accounts.tsx). Here the modal is the register's own — it has to be, since
+   * it carries this account — and nothing outside this page links to a
+   * per-account add, so a fourth query parameter would buy nothing.
+   *
+   * It would also cost: ?txn= and ?showArchived= are consumed in ONE effect
+   * with ONE replace, precisely so two consumers cannot overwrite each other's
+   * navigation (see that effect). Adding a third consumer to that knot for a
+   * link nobody sends is exactly the coupling that comment is warning about.
+   */
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [deleteConfirmTransaction, setDeleteConfirmTransaction] = useState<Transaction | null>(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
@@ -1658,7 +1691,7 @@ export default function AccountTransactions() {
     if (isInsideQuickEdit(e.target)) return;
     // A dialog owns the keyboard while it is open, and all of these render
     // over this.
-    if (isEditModalOpen || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
+    if (isEditModalOpen || showAddTransaction || deleteConfirmTransaction || bulkDeletePlan || showShortcuts) return;
 
     const claim = (): void => {
       e.preventDefault();
@@ -1836,7 +1869,7 @@ export default function AccountTransactions() {
       }
     }
   }, [
-    isEditModalOpen, deleteConfirmTransaction, bulkDeletePlan, showShortcuts,
+    isEditModalOpen, showAddTransaction, deleteConfirmTransaction, bulkDeletePlan, showShortcuts,
     moveSelection, moveSelectionTo, pageStep, selectedTransactionId, navigableRows,
     activeRowIndex, openFullEditor, hasMultiSelection, selectedRows,
     transactions, accounts, toggleClearedOnSelection, clearSelection,
@@ -2582,14 +2615,16 @@ export default function AccountTransactions() {
 
       {/* Main content — single-viewport layout: toolbar, table, bottom dock */}
       <div className="flex flex-col gap-3">
-      {/* Toolbar: filter toggle + table size toggle. On a phone the three
-          buttons share the row in equal thirds with short labels — the full
-          wording wrapped inside the buttons and gave each a different
-          height. */}
+      {/* Toolbar: what the register SHOWS on the left, what it DOES on the
+          right — Add last, in the rightmost seat, the way every other page in
+          the app puts its primary action. On a phone the buttons share the row
+          in equal thirds with short labels — the full wording wrapped inside
+          the buttons and gave each a different height — and a fourth wraps to
+          the next line, exactly as Show archived already does. */}
       <div className="grid grid-cols-3 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
-        {/* display:contents on phones dissolves this wrapper so all three
-            buttons are equal grid cells; from sm it is the left cluster
-            again. */}
+        {/* display:contents on phones dissolves this wrapper so every button
+            inside it is an equal grid cell of the row above; from sm it is the
+            left cluster again. */}
         <div className="contents sm:flex sm:items-center sm:gap-2">
         <button
           onClick={() => setShowFilters(prev => !prev)}
@@ -2751,6 +2786,11 @@ export default function AccountTransactions() {
           </button>
         )}
         </div>
+        {/* The right cluster: the same `contents` trick as the left one, so on
+            a phone these two are grid cells like the rest and from sm they are
+            a pair pushed to the right edge by the container's
+            justify-between. */}
+        <div className="contents sm:flex sm:items-center sm:gap-2">
         <button
           onClick={() => setTableExpanded(prev => !prev)}
           className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -2760,6 +2800,28 @@ export default function AccountTransactions() {
           <span className="sm:hidden">{tableExpanded ? 'Shrink' : 'Expand'}</span>
           <span className="hidden sm:inline">{tableExpanded ? 'Standard view' : 'Expand table'}</span>
         </button>
+        {/* THE FULL ADD, on this account. The dock at the foot of the page is
+            deliberately six fields wide — date, type, payee, category, amount —
+            and there was no way at all from this page to reach the rest of a
+            transaction. This is that way: the same editor the Transactions
+            page's "Add Transaction" opens, opened on the account whose register
+            is on screen.
+
+            Dark navy, like Add Transaction and Add Account wear on their own
+            pages, because it is the same rank of action; sized px-3 py-1.5
+            like its neighbours here, because a taller button in a toolbar row
+            makes the row look broken. */}
+        <button
+          type="button"
+          onClick={() => setShowAddTransaction(true)}
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium bg-[#1a2332] text-white rounded-lg hover:bg-[#2d3a4d] transition-colors shadow-sm"
+          title={`Add a transaction to ${account.name} on the full form — notes, the whole category tree, and a transfer's other side. The bar at the foot of the register is the quick way in.`}
+        >
+          <PlusIcon size={14} />
+          <span className="sm:hidden">Add</span>
+          <span className="hidden sm:inline">Add transaction</span>
+        </button>
+        </div>
       </div>
 
       {/* Search and Filter Bar (collapsed by default to keep one viewport) */}
@@ -3309,6 +3371,29 @@ export default function AccountTransactions() {
           }}
           onCancel={() => setConfirmUncategorised(null)}
         />
+      )}
+
+      {/* The toolbar's Add — the app's one full add editor, opened on THIS
+          account. Mounted only while it is open, which is what makes the
+          prefill work at all (the form freezes its opening values on mount;
+          see initialAccountId) and what gives every add a clean form.
+
+          Nothing here refreshes the list afterwards, and nothing needs to: the
+          editor saves through the context's addTransaction, which appends the
+          saved row to the shared transactions state, and this register is a
+          filter over that state. The row appears as the modal closes.
+
+          Nor does anything mark it as arrived-and-unreviewed. That flag belongs
+          to the import path alone — a person typing IS the review (see
+          dataPort.bulkImportTransactions, which spells out the rule). */}
+      {showAddTransaction && (
+        <Suspense fallback={null}>
+          <AddTransactionModal
+            isOpen
+            onClose={() => setShowAddTransaction(false)}
+            initialAccountId={account.id}
+          />
+        </Suspense>
       )}
 
       {/* Edit Modal */}
