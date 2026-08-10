@@ -11,13 +11,17 @@ import { todayIsoDay } from '../../utils/statementBankBalance';
 import type { Account } from '../../types';
 
 /**
- * What the page WRITES when the bank balance is removed. The figure and the
- * date it is true for have to go together: a bank_balance_date left behind
- * describes nothing, and statementBankBalance judges an incoming statement
- * stale against exactly that date — so a stray one would go on refusing
- * statements after the balance it belonged to was withdrawn.
+ * What the page WRITES when the closing balance is removed. The screen calls it
+ * the closing balance; the field it lands in is still the account's
+ * `bankBalance`, because that is where the reconciliation's figure is kept.
+ *
+ * The figure and the date it is true for have to go together: a
+ * bank_balance_date left behind describes nothing, and statementBankBalance
+ * judges an incoming statement stale against exactly that date — so a stray one
+ * would go on refusing statements after the balance it belonged to was
+ * withdrawn.
  */
-describe('Reconciliation — removing a bank balance', () => {
+describe('Reconciliation — removing a closing balance', () => {
   const updateAccount = vi.fn();
 
   const account: Account = {
@@ -60,7 +64,7 @@ describe('Reconciliation — removing a bank balance', () => {
     renderPage();
 
     fireEvent.click(screen.getByTitle('Click to change or remove'));
-    fireEvent.click(screen.getByRole('button', { name: /Remove the bank balance/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove the closing balance/ }));
 
     expect(updateAccount).toHaveBeenCalledTimes(1);
     expect(updateAccount).toHaveBeenCalledWith(account.id, {
@@ -73,7 +77,7 @@ describe('Reconciliation — removing a bank balance', () => {
     renderPage();
 
     fireEvent.click(screen.getByTitle('Click to change or remove'));
-    const input = screen.getByLabelText('Bank balance');
+    const input = screen.getByLabelText('Closing balance');
     fireEvent.change(input, { target: { value: '199.99' } });
     fireEvent.blur(input);
 

@@ -2883,8 +2883,10 @@ export default function AccountTransactions() {
           categories={categories}
           // A phone is still looking at the REGISTER, with the same To Review
           // box above it and the same filter, so it gets the same bold. The
-          // Transactions page renders this identical list and does not ask for
-          // it, because there is no counter and no filter there to act on.
+          // Transactions page renders this identical list and now asks for it
+          // too — it grew the same counter and the same filter when it was
+          // brought up to this register's manners. A list that offers neither
+          // still gets the default and still says nothing.
           markNewArrivals
           formatCurrency={(n) => formatCurrency(n, account.currency)}
           onEdit={(t) => { setSelectedTransaction(t); setSelectedTransactionId(t.id); setIsEditModalOpen(true); }}

@@ -102,6 +102,40 @@ export function beganInEditingControl(target: EventTarget | null, boundary: Elem
   return match !== null && boundary.contains(match);
 }
 
+/**
+ * The controls a row can hold whose CLICK is their own, not the row's.
+ *
+ * Wider than EDITING_CONTROL_SELECTOR above and asking a different question.
+ * That one is about where a DRAG began; this one is about where a click LANDED,
+ * and a click that landed on the Edit button is a request to edit — never a
+ * request to pick the row out from its neighbours.
+ */
+const OWN_CONTROL_SELECTOR = 'a, button, input, select, textarea';
+
+/**
+ * Did this click land on one of the row's own controls?
+ *
+ * Bounded by the row (`row`), the way beganInEditingControl bounds its own
+ * search: only this row's subtree can speak for this row. A button anywhere
+ * else — the column header above it, say — says nothing about a click inside
+ * this row.
+ *
+ * Shared by every list whose rows can be picked out with a click: the Accounts
+ * list and the Transactions table both ask it, and one rule in one place is
+ * what stops "a click on a button also selects the row" from being true on one
+ * page and false on the other.
+ *
+ * NOT a replacement for the gesture hook below, and the two are not
+ * interchangeable: a click the browser SYNTHESISED on the row from a drag that
+ * began in one of its boxes has the ROW as its target, so this predicate says
+ * no about it, quite correctly. Rows that hold text boxes need both guards.
+ */
+export function clickedOwnControl(target: EventTarget | null, row: Element): boolean {
+  if (!(target instanceof Element)) return false;
+  const control = target.closest(OWN_CONTROL_SELECTOR);
+  return control !== null && row.contains(control);
+}
+
 export interface RowClickGesture {
   /**
    * Spread onto the clickable row, alongside its own onClick.

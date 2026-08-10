@@ -16,6 +16,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
+import ScrollResetOnNavigate from './components/ScrollResetOnNavigate';
 // NOTE: performanceService is dynamically imported in the startup effect
 // below — a static import would pull it (and its dependency graph) into the
 // main chunk for code that only runs after first paint.
@@ -140,6 +141,15 @@ function App(): React.JSX.Element {
                       <SupabaseDataLoader>
                             <ActivityLoggerProvider>
                               <Router>
+                                {/* First child of the router, deliberately: it
+                                    is what makes a new page open at its own
+                                    heading instead of at the offset the last
+                                    one was left at, and being first is what
+                                    puts its reset ahead of every arrival scroll
+                                    below it in the same commit. Outside
+                                    <Routes> so the pages that have no Layout —
+                                    login, the legal pages — are covered too. */}
+                                <ScrollResetOnNavigate />
                                 <SafariWarning />
                                 <ConsentBanner />
                         <Routes>

@@ -183,19 +183,49 @@ describe('TransactionRow', () => {
       expect(screen.getByTestId('trending-down-icon')).toBeInTheDocument();
     });
 
-    it('shows check icon for cleared transactions', () => {
+    /**
+     * The C/R column — Money's two letters, and the register's.
+     *
+     * A tick could only ever say one thing, and the thing it said was "settled"
+     * about rows that were merely ticked off against a statement. The letters
+     * come from the shared predicates, which is what keeps this column and the
+     * register's saying the same word about the same row.
+     */
+    it('shows R for a row that has been through a reconciliation', () => {
       render(
         <table>
           <tbody>
+            {/* cleared, with nothing said about `reconciled` — the
+                pre-migration shape, which isReconciled reads as committed. */}
             <TransactionRow {...defaultProps} />
           </tbody>
         </table>
       );
 
-      expect(screen.getByTestId('check-icon')).toBeInTheDocument();
+      expect(screen.getByTitle('Reconciled')).toHaveTextContent('R');
+      expect(screen.queryByText('C')).not.toBeInTheDocument();
     });
 
-    it('does not show check icon for uncleared transactions', () => {
+    it('shows C for a row that is only marked, not reconciled', () => {
+      const markedTransaction = {
+        ...mockTransaction,
+        cleared: true,
+        reconciled: false
+      };
+
+      render(
+        <table>
+          <tbody>
+            <TransactionRow {...defaultProps} transaction={markedTransaction} />
+          </tbody>
+        </table>
+      );
+
+      expect(screen.getByTitle(/not reconciled until you finalize/)).toHaveTextContent('C');
+      expect(screen.queryByTitle('Reconciled')).not.toBeInTheDocument();
+    });
+
+    it('shows no letter at all for an unmarked transaction', () => {
       const unclearedTransaction = {
         ...mockTransaction,
         cleared: false
@@ -209,7 +239,59 @@ describe('TransactionRow', () => {
         </table>
       );
 
-      expect(screen.queryByTestId('check-icon')).not.toBeInTheDocument();
+      expect(screen.queryByTitle('Reconciled')).not.toBeInTheDocument();
+      expect(screen.queryByTitle(/not reconciled until you finalize/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * The row is memoised on a hand-written comparator, so every fact it draws
+     * has to be named in it. These two are the ones that change WITHOUT
+     * anything else about the row changing — a Finalize, and a save — which is
+     * exactly the shape a comparator forgets.
+     */
+    it('turns C into R the moment a reconciliation finishes', () => {
+      const marked = { ...mockTransaction, cleared: true, reconciled: false };
+      const { rerender } = render(
+        <table>
+          <tbody>
+            <TransactionRow {...defaultProps} transaction={marked} />
+          </tbody>
+        </table>
+      );
+      expect(screen.getByTitle(/not reconciled until you finalize/)).toHaveTextContent('C');
+
+      rerender(
+        <table>
+          <tbody>
+            <TransactionRow {...defaultProps} transaction={{ ...marked, reconciled: true }} />
+          </tbody>
+        </table>
+      );
+
+      expect(screen.getByTitle('Reconciled')).toHaveTextContent('R');
+    });
+
+    it('stops bolding a row the moment its review flag clears', () => {
+      const arrived = { ...mockTransaction, needsReview: true };
+      const { rerender } = render(
+        <table>
+          <tbody>
+            <TransactionRow {...defaultProps} transaction={arrived} />
+          </tbody>
+        </table>
+      );
+      expect(screen.getByText('Grocery Store Purchase')).toHaveClass('font-semibold');
+
+      rerender(
+        <table>
+          <tbody>
+            <TransactionRow {...defaultProps} transaction={{ ...arrived, needsReview: false }} />
+          </tbody>
+        </table>
+      );
+
+      expect(screen.getByText('Grocery Store Purchase')).not.toHaveClass('font-semibold');
+      expect(screen.queryByText(/new, not reviewed yet/)).not.toBeInTheDocument();
     });
   });
 
@@ -227,8 +309,8 @@ describe('TransactionRow', () => {
       const trendingIcon = screen.getByTestId('trending-down-icon');
       expect(trendingIcon).toHaveAttribute('data-size', '16');
 
-      const checkIcon = screen.getByTestId('check-icon');
-      expect(checkIcon).toHaveAttribute('data-size', '14');
+      // The C/R letter is text, not an icon, so it shrinks by type scale.
+      expect(screen.getByTitle('Reconciled')).toHaveClass('text-sm');
 
       // Check button icon sizes
       const editIcon = screen.getByTestId('edit-icon');
@@ -248,8 +330,7 @@ describe('TransactionRow', () => {
       const trendingIcon = screen.getByTestId('trending-down-icon');
       expect(trendingIcon).toHaveAttribute('data-size', '20');
 
-      const checkIcon = screen.getByTestId('check-icon');
-      expect(checkIcon).toHaveAttribute('data-size', '16');
+      expect(screen.getByTitle('Reconciled')).not.toHaveClass('text-sm');
     });
   });
 
@@ -433,7 +514,7 @@ describe('TransactionRow', () => {
       );
 
       // Should not show reconciled, account, category, or actions
-      expect(screen.queryByTestId('check-icon')).not.toBeInTheDocument();
+      expect(screen.queryByTitle('Reconciled')).not.toBeInTheDocument();
       expect(screen.queryByText('Checking Account')).not.toBeInTheDocument();
       expect(screen.queryByText('Food & Dining > Groceries')).not.toBeInTheDocument();
       expect(screen.queryByTestId('edit-button')).not.toBeInTheDocument();

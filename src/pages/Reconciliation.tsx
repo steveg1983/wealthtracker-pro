@@ -7,6 +7,7 @@ import { useReconciliation } from '../hooks/useReconciliation';
 import ReconciliationAccountList, { type ReconciliationGroup } from '../components/reconciliation/ReconciliationAccountList';
 import { ALL_ACCOUNT_SECTIONS, sectionTypeForAccount } from '../utils/accountSections';
 import ReconciliationBalanceBar, { CONFIRM_BALANCE_CONSEQUENCE } from '../components/reconciliation/ReconciliationBalanceBar';
+import { UNCONFIRMED_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../components/reconciliation/unconfirmedYellow';
 import ReconciliationTransactionList from '../components/reconciliation/ReconciliationTransactionList';
 import ReconciliationFinalizationModal from '../components/reconciliation/ReconciliationFinalizationModal';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -74,7 +75,8 @@ export default function Reconciliation() {
   // write is in flight, and reverts (with an error toast) if it fails.
   const [pendingCleared, setPendingCleared] = useState<Map<string, boolean>>(new Map());
   /**
-   * The bank balance the user has AGREED to, for this account, in this session.
+   * The closing balance the user has AGREED to, for this account, in this
+   * session.
    *
    * Deliberately in memory and deliberately per account. The owner asked to be
    * made to confirm a figure "each time", so next week's reconciliation must
@@ -174,7 +176,10 @@ export default function Reconciliation() {
   const clearedBalance = selectedAccountId ? computeClearedBalance(selectedAccountId) : 0;
   const clearedSummary = selectedAccountId ? computeClearedSummary(selectedAccountId) : undefined;
   /**
-   * The figure the balance bar shows, and the order it is looked for in:
+   * The closing balance the balance bar PROPOSES, and the order it is looked
+   * for in. Note that none of these sources is itself a closing balance: they
+   * are the best guesses at one, which is why the user has to agree before any
+   * of them can settle a reconciliation.
    *
    *  1. what the bank most recently said (a feed sync or an imported statement
    *     writes `bankBalance`) — the closest thing to the statement in hand;
@@ -556,14 +561,30 @@ export default function Reconciliation() {
           {/* Disabled with the reason attached, and the reason itself is printed
               on the balance bar right under the box that has to be confirmed —
               a disabled button that will not say why is how people conclude the
-              app is broken. */}
+              app is broken.
+              The yellow is the same constant the closing-balance affordance
+              wears, so the two are legible as one refusal: that figure is
+              unconfirmed, therefore this will not press. Confirm it and both
+              settle together — this becomes the app's ordinary primary action.
+              Deliberately NOT dimmed with disabled:opacity-50 any more: a
+              half-strength amber is not the same yellow as the bar's, which
+              would break the very thread this draws. Nothing was lost, because
+              the refusal was never carried by colour — the disabled attribute,
+              the not-allowed cursor, the title and the described-by hint all
+              still say it, and none of them are visual. */}
           <button
             type="button"
             onClick={() => setShowFinalizationModal(true)}
             disabled={!balanceConfirmed}
-            aria-describedby={balanceConfirmed ? undefined : 'reconciliation-confirm-hint'}
+            aria-describedby={balanceConfirmed ? undefined : CONFIRM_BALANCE_HINT_ID}
             title={balanceConfirmed ? undefined : CONFIRM_BALANCE_CONSEQUENCE}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-200 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600 dark:hover:bg-amber-900/50"
+            /* Border width in both branches (transparent when ready) so the
+               button does not resize as the gate opens. */
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors font-medium disabled:cursor-not-allowed ${
+              balanceConfirmed
+                ? 'border-transparent bg-[#1a2332] dark:bg-blue-600 text-white hover:bg-[#2d3a4d] dark:hover:bg-blue-700'
+                : UNCONFIRMED_YELLOW
+            }`}
           >
             <CheckCircleIcon size={18} />
             Finalize Reconciliation

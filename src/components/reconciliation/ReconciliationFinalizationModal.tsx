@@ -10,7 +10,8 @@ import { deriveAdjustment } from '../../utils/reconciliation';
 interface ReconciliationFinalizationModalProps {
   isOpen: boolean;
   /**
-   * The ending balance the user CONFIRMED, never a bare bank balance.
+   * The closing balance the user CONFIRMED — never a figure merely proposed by
+   * a feed or an import.
    *
    * A number, not `number | null`, and that is the type doing the work: this
    * modal cannot be opened without one (the Finalize button is disabled until
@@ -160,14 +161,16 @@ export default function ReconciliationFinalizationModal({
           /* Unbalanced — create adjustment(s) until the difference is zero */
           <div>
             <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-4">
+              {/* Named exactly as the balance bar names it — the figure the
+                  user confirmed there is the figure being subtracted here. */}
               <p className="text-sm text-red-600 dark:text-red-400 mb-1">
-                Difference between bank balance and cleared balance:
+                Difference between closing balance and cleared balance:
               </p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {formatCurrency(difference, currency)}
               </p>
               <div className="mt-2 text-xs text-red-500 dark:text-red-400 space-y-1">
-                <p>Bank Balance: {formatCurrency(confirmedBalance, currency)}</p>
+                <p>Closing Balance: {formatCurrency(confirmedBalance, currency)}</p>
                 <p>Cleared Balance: {formatCurrency(clearedBalance, currency)}</p>
               </div>
             </div>

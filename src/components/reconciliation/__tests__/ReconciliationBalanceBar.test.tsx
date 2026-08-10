@@ -3,11 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../../test/testUtils';
 import ReconciliationBalanceBar from '../ReconciliationBalanceBar';
+import { UNCONFIRMED_YELLOW, CONFIRM_BALANCE_HINT_ID } from '../unconfirmedYellow';
 
 /**
- * The bank balance is the only figure on this bar a person can type, and until
- * now it was write-only: once any number existed there was no way back to "no
- * bank balance" and a Difference of N/A. These tests hold the way back open.
+ * The closing balance — the statement's ending figure — is the only number on
+ * this bar a person can type, and until recently it was write-only: once any
+ * number existed there was no way back to "no closing balance" and a Difference
+ * of N/A. These tests hold the way back open.
+ *
+ * Every figure here is invented: this repo is public.
  */
 describe('ReconciliationBalanceBar', () => {
   const onBankBalanceChange = vi.fn();
@@ -53,7 +57,7 @@ describe('ReconciliationBalanceBar', () => {
   it('reports a removal as null, not as a number', () => {
     renderBar(220);
     openEditor();
-    fireEvent.click(screen.getByRole('button', { name: /Remove the bank balance/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove the closing balance/ }));
 
     expect(onBankBalanceChange).toHaveBeenCalledTimes(1);
     expect(onBankBalanceChange).toHaveBeenCalledWith(null);
@@ -64,7 +68,7 @@ describe('ReconciliationBalanceBar', () => {
     openEditor();
     expect(
       screen.getByRole('button', {
-        name: 'Remove the bank balance. Difference goes back to N/A until you enter another.'
+        name: 'Remove the closing balance. Difference goes back to N/A until you enter another.'
       })
     ).toBeInTheDocument();
   });
@@ -74,7 +78,7 @@ describe('ReconciliationBalanceBar', () => {
     // already show the state the user asked for, or the click looks ignored.
     renderBar(220);
     openEditor();
-    fireEvent.click(screen.getByRole('button', { name: /Remove the bank balance/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Remove the closing balance/ }));
 
     expect(screen.getByText('N/A')).toBeInTheDocument();
     expect(screen.getByText('Enter balance')).toBeInTheDocument();
@@ -83,18 +87,18 @@ describe('ReconciliationBalanceBar', () => {
   it('offers no removal until there is something to remove', () => {
     renderBar(null);
     fireEvent.click(screen.getByText('Enter balance'));
-    expect(screen.queryByRole('button', { name: /Remove the bank balance/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Remove the closing balance/ })).not.toBeInTheDocument();
   });
 
   it('keeps the editor open while focus moves onto Remove', () => {
     renderBar(220);
     openEditor();
-    const input = screen.getByLabelText('Bank balance');
-    const remove = screen.getByRole('button', { name: /Remove the bank balance/ });
+    const input = screen.getByLabelText('Closing balance');
+    const remove = screen.getByRole('button', { name: /Remove the closing balance/ });
 
     fireEvent.blur(input, { relatedTarget: remove });
 
-    expect(screen.getByRole('button', { name: /Remove the bank balance/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Remove the closing balance/ })).toBeInTheDocument();
     expect(onBankBalanceChange).not.toHaveBeenCalled();
   });
 
@@ -102,7 +106,7 @@ describe('ReconciliationBalanceBar', () => {
     // Emptying the box is not removing: that is what Remove is for.
     renderBar(220);
     openEditor();
-    const input = screen.getByLabelText('Bank balance');
+    const input = screen.getByLabelText('Closing balance');
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.blur(input);
 
@@ -113,7 +117,7 @@ describe('ReconciliationBalanceBar', () => {
   it('still writes an ordinary edit as a number', () => {
     renderBar(220);
     openEditor();
-    const input = screen.getByLabelText('Bank balance');
+    const input = screen.getByLabelText('Closing balance');
     fireEvent.change(input, { target: { value: '180.55' } });
     fireEvent.blur(input);
 
@@ -123,7 +127,7 @@ describe('ReconciliationBalanceBar', () => {
   it('accepts a negative balance for an overdrawn account', () => {
     renderBar(null);
     fireEvent.click(screen.getByText('Enter balance'));
-    const input = screen.getByLabelText('Bank balance');
+    const input = screen.getByLabelText('Closing balance');
     fireEvent.change(input, { target: { value: '-42.10' } });
     fireEvent.blur(input);
 
@@ -135,7 +139,7 @@ describe('ReconciliationBalanceBar', () => {
       renderBar(220);
       expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
       expect(
-        screen.getByText(/Confirm the bank balance to finish\. Until you do, your marks stay a working list/)
+        screen.getByText(/Confirm the closing balance to finish\. Until you do, your marks stay a working list/)
       ).toBeInTheDocument();
     });
 
@@ -149,20 +153,20 @@ describe('ReconciliationBalanceBar', () => {
       renderBar(220, { balanceConfirmed: true });
       expect(screen.getByText('Confirmed')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument();
-      expect(screen.queryByText(/Confirm the bank balance to finish/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Confirm the closing balance to finish/)).not.toBeInTheDocument();
     });
 
     it('reports an edit so the confirmation can lapse', () => {
       renderBar(220, { balanceConfirmed: true });
       openEditor();
-      fireEvent.change(screen.getByLabelText('Bank balance'), { target: { value: '221' } });
+      fireEvent.change(screen.getByLabelText('Closing balance'), { target: { value: '221' } });
       expect(onBalanceEdited).toHaveBeenCalled();
     });
 
     it('Enter records the typed figure AND confirms it', () => {
       renderBar(220);
       openEditor();
-      const input = screen.getByLabelText('Bank balance');
+      const input = screen.getByLabelText('Closing balance');
       fireEvent.change(input, { target: { value: '199.99' } });
       fireEvent.keyDown(input, { key: 'Enter' });
 
@@ -192,6 +196,106 @@ describe('ReconciliationBalanceBar', () => {
           name: /Difference falls back to the balance your last reconciliation ended on/
         })
       ).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Money's own word for the figure. It is the statement's CLOSING balance —
+   * what the account ended the period on — and not the account's live "Bank
+   * Bal" on the Accounts page, which is whatever the feed last said and which
+   * nobody is asked to agree to.
+   */
+  describe('the name of the figure', () => {
+    it('calls it the Closing Balance', () => {
+      renderBar(220);
+      expect(screen.getByText('Closing Balance')).toBeInTheDocument();
+      expect(screen.queryByText('Bank Balance')).not.toBeInTheDocument();
+    });
+
+    it('calls the box the same thing when it is open', () => {
+      renderBar(220);
+      openEditor();
+      expect(screen.getByLabelText('Closing balance')).toBeInTheDocument();
+    });
+
+    it('says it in the consequences too, so one word is used throughout', () => {
+      renderBar(220);
+      expect(screen.getByText(/Confirm the closing balance to finish/)).toBeInTheDocument();
+      openEditor();
+      expect(screen.getByRole('button', { name: /Remove the closing balance/ })).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * The yellow that means "not yet", on the bar's side of the thread. That it
+   * is the SAME yellow as the Finalize button's is asserted where both are on
+   * screen at once — src/pages/__tests__/Reconciliation.yellowThread.test.tsx.
+   */
+  describe('the yellow that means "not yet"', () => {
+    /** Every amber utility an element carries, order-insensitive. */
+    const amber = (el: Element): string[] =>
+      el.className.split(/\s+/).filter(cls => cls.includes('amber-')).sort();
+
+    const TOKEN = UNCONFIRMED_YELLOW.split(/\s+/).filter(Boolean).sort();
+
+    it('the unconfirmed figure wears the shared token, whole', () => {
+      renderBar(220);
+      expect(amber(screen.getByTitle('Click to change or remove'))).toEqual(TOKEN);
+    });
+
+    it('so does the invitation to type one, because that is unconfirmed too', () => {
+      renderBar(null);
+      expect(amber(screen.getByRole('button', { name: 'Enter balance' }))).toEqual(TOKEN);
+    });
+
+    it('so does the open editor while nothing has been agreed to', () => {
+      renderBar(220);
+      openEditor();
+      expect(amber(screen.getByLabelText('Closing balance'))).toEqual(TOKEN);
+    });
+
+    it('leaves the open editor alone while the figure in it still stands agreed', () => {
+      // Opening the box is not editing it. The lapse belongs to the first
+      // keystroke, and the parent is what reports it back as unconfirmed.
+      renderBar(220, { balanceConfirmed: true });
+      openEditor();
+      expect(amber(screen.getByLabelText('Closing balance'))).toEqual([]);
+    });
+
+    it('settles to the bar’s ordinary styling once confirmed', () => {
+      renderBar(220, { balanceConfirmed: true });
+      const figure = screen.getByTitle('Click to change or remove');
+      expect(amber(figure)).toEqual([]);
+      expect(figure).toHaveClass('text-gray-900');
+    });
+
+    it('carries a border width while it is yellow, so resolving cannot move it', () => {
+      renderBar(220);
+      expect(screen.getByTitle('Click to change or remove')).toHaveClass('border');
+    });
+
+    it('carries the same border width once resolved, in transparent', () => {
+      // Without this the figure would jump two pixels the instant it was
+      // agreed to, and the whole four-up row would shuffle with it.
+      renderBar(220, { balanceConfirmed: true });
+      expect(screen.getByTitle('Click to change or remove'))
+        .toHaveClass('border', 'border-transparent');
+    });
+
+    it('never leaves the colour to carry the message on its own', () => {
+      renderBar(220);
+      expect(screen.getByTitle('Click to change or remove'))
+        .toHaveAttribute('aria-describedby', CONFIRM_BALANCE_HINT_ID);
+      expect(document.getElementById(CONFIRM_BALANCE_HINT_ID))
+        .toHaveTextContent(/Confirm the closing balance to finish/);
+    });
+
+    it('stops describing a reason once there is none to describe', () => {
+      // A dangling aria-describedby is worse than none: it promises an
+      // explanation the screen reader will not find.
+      renderBar(220, { balanceConfirmed: true });
+      expect(screen.getByTitle('Click to change or remove')).not.toHaveAttribute('aria-describedby');
+      expect(document.getElementById(CONFIRM_BALANCE_HINT_ID)).toBeNull();
     });
   });
 });

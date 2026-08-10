@@ -3,9 +3,22 @@ import { parseMoneyInput, toDecimal } from '../../utils/decimal';
 import MoneyInput from '../common/MoneyInput';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { formatDate } from '../../utils/dateFormatter';
+import { UNCONFIRMED_YELLOW, CONFIRM_BALANCE_HINT_ID } from './unconfirmedYellow';
 import type { ClearedSummary } from '../../hooks/useReconciliation';
 
 interface ReconciliationBalanceBarProps {
+  /**
+   * The figure this reconciliation is settled against — the statement's
+   * CLOSING balance, in Money's vocabulary, which is what every label on this
+   * bar calls it.
+   *
+   * The prop keeps the account field's name because that is the field
+   * `onBankBalanceChange` writes back to. The two are not the same fact: the
+   * account's `bankBalance` is what the feed last said, while what arrives
+   * here may instead be the balance the last reconciliation ended on (the
+   * parent falls back to it), and either way it is only a PROPOSED closing
+   * balance until the user confirms it.
+   */
   bankBalance: number | null;
   accountBalance: number;
   clearedBalance: number;
@@ -49,9 +62,9 @@ interface ReconciliationBalanceBarProps {
  * different screen.
  */
 const REMOVE_CONSEQUENCE =
-  'Remove the bank balance. Difference goes back to N/A until you enter another.';
+  'Remove the closing balance. Difference goes back to N/A until you enter another.';
 const REMOVE_CONSEQUENCE_WITH_FALLBACK =
-  'Remove the bank balance. Difference falls back to the balance your last reconciliation ended on, which you would then have to confirm.';
+  'Remove the closing balance. Difference falls back to the balance your last reconciliation ended on, which you would then have to confirm.';
 
 /**
  * Why Finalize is refusing, said beside the box that is refusing it — the
@@ -60,7 +73,7 @@ const REMOVE_CONSEQUENCE_WITH_FALLBACK =
  * looked at.
  */
 export const CONFIRM_BALANCE_CONSEQUENCE =
-  'Confirm the bank balance to finish. Until you do, your marks stay a working list and nothing is reconciled.';
+  'Confirm the closing balance to finish. Until you do, your marks stay a working list and nothing is reconciled.';
 
 export default function ReconciliationBalanceBar({
   bankBalance,
@@ -85,6 +98,16 @@ export default function ReconciliationBalanceBar({
   const editFormRef = useRef<HTMLFormElement>(null);
 
   const displayBankBalance = pendingBankBalance ? pendingBankBalance.value : bankBalance;
+  /**
+   * The one fact the yellow stands for: this figure has not been agreed to.
+   *
+   * Every control on this bar that wears UNCONFIRMED_YELLOW branches on THIS
+   * single boolean — and it is the negation of the gate Finalize is disabled
+   * by — so the two yellows are one fact shown twice rather than two that
+   * happen to agree today. There is no state in which one of them resolves
+   * without the other.
+   */
+  const awaitingConfirmation = !balanceConfirmed;
   const removeConsequence = lastReconciledBalance != null
     ? REMOVE_CONSEQUENCE_WITH_FALLBACK
     : REMOVE_CONSEQUENCE;
@@ -126,9 +149,12 @@ export default function ReconciliationBalanceBar({
       {/* Four figures side by side needs ~90px each; a 375px phone has room
           for two. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        {/* Bank Balance */}
+        {/* Closing Balance — the statement's ending figure, Money's own name
+            for it, and the one this reconciliation is settled against. Not the
+            account's live "Bank Bal" on the Accounts page: that is whatever the
+            feed last said, a different fact that nobody has to agree to. */}
         <div className="text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Bank Balance</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Closing Balance</p>
           {displayBankBalance != null && !isEditingBankBalance ? (
             <button
               type="button"
@@ -136,7 +162,16 @@ export default function ReconciliationBalanceBar({
                 setEditValue(String(displayBankBalance));
                 setIsEditingBankBalance(true);
               }}
-              className="text-lg font-bold text-gray-900 dark:text-white hover:text-primary transition-colors cursor-pointer"
+              /* Colour is never the only signal: the reason is spoken here too,
+                 and only while the paragraph holding it is actually rendered. */
+              aria-describedby={awaitingConfirmation ? CONFIRM_BALANCE_HINT_ID : undefined}
+              /* The border width is carried in BOTH branches (transparent once
+                 confirmed) so resolving the yellow does not move the figure. */
+              className={`text-lg font-bold border rounded-lg px-2 py-0.5 transition-colors cursor-pointer ${
+                awaitingConfirmation
+                  ? UNCONFIRMED_YELLOW
+                  : 'border-transparent text-gray-900 dark:text-white hover:text-primary'
+              }`}
               title="Click to change or remove"
             >
               {formatCurrency(displayBankBalance, currency)}
@@ -154,8 +189,19 @@ export default function ReconciliationBalanceBar({
                   setEditValue(value);
                   onBalanceEdited?.();
                 }}
-                className="w-full px-2 py-1 text-sm border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                aria-label="Bank balance"
+                /* The editor is the affordance in its open state, so it wears
+                   the same yellow — the first keystroke that withdraws a
+                   confirmation turns the box and Finalize together. Swapped,
+                   never appended: the dark surface classes below and the
+                   token's would otherwise both apply and Tailwind would settle
+                   it by CSS source order. */
+                className={`w-full px-2 py-1 text-sm border rounded ${
+                  awaitingConfirmation
+                    ? UNCONFIRMED_YELLOW
+                    : 'dark:bg-gray-700 dark:border-gray-600 dark:text-white'
+                }`}
+                aria-label="Closing balance"
+                aria-describedby={awaitingConfirmation ? CONFIRM_BALANCE_HINT_ID : undefined}
                 autoFocus
                 onKeyDown={event => {
                   // Enter commits AND confirms. Written out rather than left to
@@ -198,8 +244,14 @@ export default function ReconciliationBalanceBar({
             </form>
           ) : (
             <button
+              type="button"
               onClick={() => setIsEditingBankBalance(true)}
-              className="text-sm text-primary hover:underline"
+              aria-describedby={awaitingConfirmation ? CONFIRM_BALANCE_HINT_ID : undefined}
+              className={`text-sm font-medium border rounded-lg px-2 py-0.5 transition-colors ${
+                awaitingConfirmation
+                  ? UNCONFIRMED_YELLOW
+                  : 'border-transparent text-primary hover:underline'
+              }`}
             >
               Enter balance
             </button>
@@ -263,9 +315,9 @@ export default function ReconciliationBalanceBar({
       {/* Why Finalize is refusing, beside the box that is refusing it. Said as
           the consequence — what the marks are worth until it is done — rather
           than as an instruction with no reason attached. */}
-      {!balanceConfirmed && (
+      {awaitingConfirmation && (
         <p
-          id="reconciliation-confirm-hint"
+          id={CONFIRM_BALANCE_HINT_ID}
           className="mt-3 text-xs text-amber-700 dark:text-amber-400 text-center"
         >
           {CONFIRM_BALANCE_CONSEQUENCE}
